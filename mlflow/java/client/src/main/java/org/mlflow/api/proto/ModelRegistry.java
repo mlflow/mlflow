@@ -27093,19 +27093,19 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+     * Maximum number of models desired. Max threshold is 200K.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 1000];</code>
+     * <code>optional int64 max_results = 2 [default = 200000];</code>
      * @return Whether the maxResults field is set.
      */
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+     * Maximum number of models desired. Max threshold is 200K.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 1000];</code>
+     * <code>optional int64 max_results = 2 [default = 200000];</code>
      * @return The maxResults.
      */
     long getMaxResults();
@@ -27206,7 +27206,7 @@ public final class ModelRegistry {
     }
     private SearchModelVersions() {
       filter_ = "";
-      maxResults_ = 1000L;
+      maxResults_ = 200000L;
       orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       pageToken_ = "";
     }
@@ -28509,10 +28509,10 @@ public final class ModelRegistry {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+     * Maximum number of models desired. Max threshold is 200K.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 1000];</code>
+     * <code>optional int64 max_results = 2 [default = 200000];</code>
      * @return Whether the maxResults field is set.
      */
     @java.lang.Override
@@ -28521,10 +28521,10 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+     * Maximum number of models desired. Max threshold is 200K.
      * </pre>
      *
-     * <code>optional int64 max_results = 2 [default = 1000];</code>
+     * <code>optional int64 max_results = 2 [default = 200000];</code>
      * @return The maxResults.
      */
     @java.lang.Override
@@ -28903,7 +28903,7 @@ public final class ModelRegistry {
         super.clear();
         filter_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        maxResults_ = 1000L;
+        maxResults_ = 200000L;
         bitField0_ = (bitField0_ & ~0x00000002);
         orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -29170,13 +29170,13 @@ public final class ModelRegistry {
         return this;
       }
 
-      private long maxResults_ = 1000L;
+      private long maxResults_ = 200000L;
       /**
        * <pre>
-       * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+       * Maximum number of models desired. Max threshold is 200K.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 1000];</code>
+       * <code>optional int64 max_results = 2 [default = 200000];</code>
        * @return Whether the maxResults field is set.
        */
       @java.lang.Override
@@ -29185,10 +29185,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+       * Maximum number of models desired. Max threshold is 200K.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 1000];</code>
+       * <code>optional int64 max_results = 2 [default = 200000];</code>
        * @return The maxResults.
        */
       @java.lang.Override
@@ -29197,10 +29197,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+       * Maximum number of models desired. Max threshold is 200K.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 1000];</code>
+       * <code>optional int64 max_results = 2 [default = 200000];</code>
        * @param value The maxResults to set.
        * @return This builder for chaining.
        */
@@ -29212,15 +29212,15 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Default is 1000. Max threshold is 10000.
+       * Maximum number of models desired. Max threshold is 200K.
        * </pre>
        *
-       * <code>optional int64 max_results = 2 [default = 1000];</code>
+       * <code>optional int64 max_results = 2 [default = 200000];</code>
        * @return This builder for chaining.
        */
       public Builder clearMaxResults() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        maxResults_ = 1000L;
+        maxResults_ = 200000L;
         onChanged();
         return this;
       }
@@ -39358,118 +39358,118 @@ public final class ModelRegistry {
       "(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Respo" +
       "nse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mode" +
       "lVersion:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"\346\001\n\023SearchModelVersions\022\016\n" +
-      "\006filter\030\001 \001(\t\022\031\n\013max_results\030\002 \001(\003:\0041000" +
-      "\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t\032Q" +
-      "\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024.mlf" +
-      "low.ModelVersion\022\027\n\017next_page_token\030\002 \001(" +
-      "\t:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\226\001\n\032GetModelVersionDownloadUri\022\022\n" +
-      "\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001" +
-      "\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "-\n\017ModelVersionTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value" +
-      "\030\002 \001(\t\"0\n\022RegisteredModelTag\022\013\n\003key\030\001 \001(" +
-      "\t\022\r\n\005value\030\002 \001(\t\"\214\001\n\025SetRegisteredModelT" +
-      "ag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031" +
-      "\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\240\001\n\022SetModelVersionTag\022\022\n\004name\030\001 \001(\tB\004\370\206" +
-      "\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\tB\004" +
-      "\370\206\031\001\022\023\n\005value\030\004 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]\"z\n\030DeleteRegisteredModelTag\022\022\n\004name\030\001" +
-      " \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respons" +
-      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\216\001\n\025DeleteModelVersionTag\022\022\n\004name" +
-      "\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003k" +
-      "ey\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]*R\n\022Model" +
-      "VersionStatus\022\030\n\024PENDING_REGISTRATION\020\001\022" +
-      "\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005READY\020\0032\304\031\n\024" +
-      "ModelRegistryService\022\256\001\n\025createRegistere" +
-      "dModel\022\035.mlflow.CreateRegisteredModel\032&." +
-      "mlflow.CreateRegisteredModel.Response\"N\362" +
-      "\206\031J\n.\n\004POST\022 /mlflow/registered-models/c" +
-      "reate\032\004\010\002\020\000\020\001*\026Create RegisteredModel\022\256\001" +
-      "\n\025renameRegisteredModel\022\035.mlflow.RenameR" +
-      "egisteredModel\032&.mlflow.RenameRegistered" +
-      "Model.Response\"N\362\206\031J\n.\n\004POST\022 /mlflow/re" +
-      "gistered-models/rename\032\004\010\002\020\000\020\001*\026Rename R" +
-      "egisteredModel\022\257\001\n\025updateRegisteredModel" +
-      "\022\035.mlflow.UpdateRegisteredModel\032&.mlflow" +
-      ".UpdateRegisteredModel.Response\"O\362\206\031K\n/\n" +
-      "\005PATCH\022 /mlflow/registered-models/update" +
-      "\032\004\010\002\020\000\020\001*\026Update RegisteredModel\022\260\001\n\025del" +
-      "eteRegisteredModel\022\035.mlflow.DeleteRegist" +
-      "eredModel\032&.mlflow.DeleteRegisteredModel" +
-      ".Response\"P\362\206\031L\n0\n\006DELETE\022 /mlflow/regis" +
-      "tered-models/delete\032\004\010\002\020\000\020\001*\026Delete Regi" +
-      "steredModel\022\236\001\n\022getRegisteredModel\022\032.mlf" +
-      "low.GetRegisteredModel\032#.mlflow.GetRegis" +
-      "teredModel.Response\"G\362\206\031C\n*\n\003GET\022\035/mlflo" +
-      "w/registered-models/get\032\004\010\002\020\000\020\001*\023Get Reg" +
-      "isteredModel\022\261\001\n\026searchRegisteredModels\022" +
-      "\036.mlflow.SearchRegisteredModels\032\'.mlflow" +
-      ".SearchRegisteredModels.Response\"N\362\206\031J\n-" +
-      "\n\003GET\022 /mlflow/registered-models/search\032" +
-      "\004\010\002\020\000\020\001*\027Search RegisteredModels\022\357\001\n\021get" +
-      "LatestVersions\022\031.mlflow.GetLatestVersion" +
-      "s\032\".mlflow.GetLatestVersions.Response\"\232\001" +
-      "\362\206\031\225\001\n;\n\004POST\022-/mlflow/registered-models" +
-      "/get-latest-versions\032\004\010\002\020\000\n:\n\003GET\022-/mlfl" +
-      "ow/registered-models/get-latest-versions" +
-      "\032\004\010\002\020\000\020\001*\030Get Latest ModelVersions\022\237\001\n\022c" +
-      "reateModelVersion\022\032.mlflow.CreateModelVe" +
-      "rsion\032#.mlflow.CreateModelVersion.Respon" +
-      "se\"H\362\206\031D\n+\n\004POST\022\035/mlflow/model-versions" +
-      "/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\240\001\n" +
-      "\022updateModelVersion\022\032.mlflow.UpdateModel" +
-      "Version\032#.mlflow.UpdateModelVersion.Resp" +
-      "onse\"I\362\206\031E\n,\n\005PATCH\022\035/mlflow/model-versi" +
-      "ons/update\032\004\010\002\020\000\020\001*\023Update ModelVersion\022" +
-      "\316\001\n\033transitionModelVersionStage\022#.mlflow" +
-      ".TransitionModelVersionStage\032,.mlflow.Tr" +
-      "ansitionModelVersionStage.Response\"\\\362\206\031X" +
-      "\n5\n\004POST\022\'/mlflow/model-versions/transit" +
-      "ion-stage\032\004\010\002\020\000\020\001*\035Transition ModelVersi" +
-      "on Stage\022\241\001\n\022deleteModelVersion\022\032.mlflow" +
-      ".DeleteModelVersion\032#.mlflow.DeleteModel" +
-      "Version.Response\"J\362\206\031F\n-\n\006DELETE\022\035/mlflo" +
-      "w/model-versions/delete\032\004\010\002\020\000\020\001*\023Delete " +
-      "ModelVersion\022\217\001\n\017getModelVersion\022\027.mlflo" +
-      "w.GetModelVersion\032 .mlflow.GetModelVersi" +
-      "on.Response\"A\362\206\031=\n\'\n\003GET\022\032/mlflow/model-" +
-      "versions/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\242" +
-      "\001\n\023searchModelVersions\022\033.mlflow.SearchMo" +
-      "delVersions\032$.mlflow.SearchModelVersions" +
-      ".Response\"H\362\206\031D\n*\n\003GET\022\035/mlflow/model-ve" +
-      "rsions/search\032\004\010\002\020\000\020\001*\024Search ModelVersi" +
-      "ons\022\330\001\n\032getModelVersionDownloadUri\022\".mlf" +
-      "low.GetModelVersionDownloadUri\032+.mlflow." +
-      "GetModelVersionDownloadUri.Response\"i\362\206\031" +
-      "e\n4\n\003GET\022\'/mlflow/model-versions/get-dow" +
-      "nload-uri\032\004\010\002\020\000\020\001*+Get Download URI For " +
-      "ModelVersion Artifacts\022\261\001\n\025setRegistered" +
-      "ModelTag\022\035.mlflow.SetRegisteredModelTag\032" +
-      "&.mlflow.SetRegisteredModelTag.Response\"" +
-      "Q\362\206\031M\n/\n\004POST\022!/mlflow/registered-models" +
-      "/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Model T" +
-      "ag\022\242\001\n\022setModelVersionTag\022\032.mlflow.SetMo" +
-      "delVersionTag\032#.mlflow.SetModelVersionTa" +
-      "g.Response\"K\362\206\031G\n,\n\004POST\022\036/mlflow/model-" +
-      "versions/set-tag\032\004\010\002\020\000\020\001*\025Set Model Vers" +
-      "ion Tag\022\302\001\n\030deleteRegisteredModelTag\022 .m" +
-      "lflow.DeleteRegisteredModelTag\032).mlflow." +
-      "DeleteRegisteredModelTag.Response\"Y\362\206\031U\n" +
-      "4\n\006DELETE\022$/mlflow/registered-models/del" +
-      "ete-tag\032\004\010\002\020\000\020\001*\033Delete Registered Model" +
-      " Tag\022\263\001\n\025deleteModelVersionTag\022\035.mlflow." +
-      "DeleteModelVersionTag\032&.mlflow.DeleteMod" +
-      "elVersionTag.Response\"S\362\206\031O\n1\n\006DELETE\022!/" +
-      "mlflow/model-versions/delete-tag\032\004\010\002\020\000\020\001" +
-      "*\030Delete Model Version TagB!\n\024org.mlflow" +
-      ".api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "his.Response]\"\350\001\n\023SearchModelVersions\022\016\n" +
+      "\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\0062000" +
+      "00\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t" +
+      "\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024.m" +
+      "lflow.ModelVersion\022\027\n\017next_page_token\030\002 " +
+      "\001(\t:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\226\001\n\032GetModelVersionDownloadUri\022" +
+      "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206" +
+      "\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"-\n\017ModelVersionTag\022\013\n\003key\030\001 \001(\t\022\r\n\005val" +
+      "ue\030\002 \001(\t\"0\n\022RegisteredModelTag\022\013\n\003key\030\001 " +
+      "\001(\t\022\r\n\005value\030\002 \001(\t\"\214\001\n\025SetRegisteredMode" +
+      "lTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370" +
+      "\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\240\001\n\022SetModelVersionTag\022\022\n\004name\030\001 \001(\tB\004" +
+      "\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\t" +
+      "B\004\370\206\031\001\022\023\n\005value\030\004 \001(\tB\004\370\206\031\001\032\n\n\010Response:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"z\n\030DeleteRegisteredModelTag\022\022\n\004name" +
+      "\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
+      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\216\001\n\025DeleteModelVersionTag\022\022\n\004na" +
+      "me\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n" +
+      "\003key\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]*R\n\022Mod" +
+      "elVersionStatus\022\030\n\024PENDING_REGISTRATION\020" +
+      "\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005READY\020\0032\304\031" +
+      "\n\024ModelRegistryService\022\256\001\n\025createRegiste" +
+      "redModel\022\035.mlflow.CreateRegisteredModel\032" +
+      "&.mlflow.CreateRegisteredModel.Response\"" +
+      "N\362\206\031J\n.\n\004POST\022 /mlflow/registered-models" +
+      "/create\032\004\010\002\020\000\020\001*\026Create RegisteredModel\022" +
+      "\256\001\n\025renameRegisteredModel\022\035.mlflow.Renam" +
+      "eRegisteredModel\032&.mlflow.RenameRegister" +
+      "edModel.Response\"N\362\206\031J\n.\n\004POST\022 /mlflow/" +
+      "registered-models/rename\032\004\010\002\020\000\020\001*\026Rename" +
+      " RegisteredModel\022\257\001\n\025updateRegisteredMod" +
+      "el\022\035.mlflow.UpdateRegisteredModel\032&.mlfl" +
+      "ow.UpdateRegisteredModel.Response\"O\362\206\031K\n" +
+      "/\n\005PATCH\022 /mlflow/registered-models/upda" +
+      "te\032\004\010\002\020\000\020\001*\026Update RegisteredModel\022\260\001\n\025d" +
+      "eleteRegisteredModel\022\035.mlflow.DeleteRegi" +
+      "steredModel\032&.mlflow.DeleteRegisteredMod" +
+      "el.Response\"P\362\206\031L\n0\n\006DELETE\022 /mlflow/reg" +
+      "istered-models/delete\032\004\010\002\020\000\020\001*\026Delete Re" +
+      "gisteredModel\022\236\001\n\022getRegisteredModel\022\032.m" +
+      "lflow.GetRegisteredModel\032#.mlflow.GetReg" +
+      "isteredModel.Response\"G\362\206\031C\n*\n\003GET\022\035/mlf" +
+      "low/registered-models/get\032\004\010\002\020\000\020\001*\023Get R" +
+      "egisteredModel\022\261\001\n\026searchRegisteredModel" +
+      "s\022\036.mlflow.SearchRegisteredModels\032\'.mlfl" +
+      "ow.SearchRegisteredModels.Response\"N\362\206\031J" +
+      "\n-\n\003GET\022 /mlflow/registered-models/searc" +
+      "h\032\004\010\002\020\000\020\001*\027Search RegisteredModels\022\357\001\n\021g" +
+      "etLatestVersions\022\031.mlflow.GetLatestVersi" +
+      "ons\032\".mlflow.GetLatestVersions.Response\"" +
+      "\232\001\362\206\031\225\001\n;\n\004POST\022-/mlflow/registered-mode" +
+      "ls/get-latest-versions\032\004\010\002\020\000\n:\n\003GET\022-/ml" +
+      "flow/registered-models/get-latest-versio" +
+      "ns\032\004\010\002\020\000\020\001*\030Get Latest ModelVersions\022\237\001\n" +
+      "\022createModelVersion\022\032.mlflow.CreateModel" +
+      "Version\032#.mlflow.CreateModelVersion.Resp" +
+      "onse\"H\362\206\031D\n+\n\004POST\022\035/mlflow/model-versio" +
+      "ns/create\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\240" +
+      "\001\n\022updateModelVersion\022\032.mlflow.UpdateMod" +
+      "elVersion\032#.mlflow.UpdateModelVersion.Re" +
+      "sponse\"I\362\206\031E\n,\n\005PATCH\022\035/mlflow/model-ver" +
+      "sions/update\032\004\010\002\020\000\020\001*\023Update ModelVersio" +
+      "n\022\316\001\n\033transitionModelVersionStage\022#.mlfl" +
+      "ow.TransitionModelVersionStage\032,.mlflow." +
+      "TransitionModelVersionStage.Response\"\\\362\206" +
+      "\031X\n5\n\004POST\022\'/mlflow/model-versions/trans" +
+      "ition-stage\032\004\010\002\020\000\020\001*\035Transition ModelVer" +
+      "sion Stage\022\241\001\n\022deleteModelVersion\022\032.mlfl" +
+      "ow.DeleteModelVersion\032#.mlflow.DeleteMod" +
+      "elVersion.Response\"J\362\206\031F\n-\n\006DELETE\022\035/mlf" +
+      "low/model-versions/delete\032\004\010\002\020\000\020\001*\023Delet" +
+      "e ModelVersion\022\217\001\n\017getModelVersion\022\027.mlf" +
+      "low.GetModelVersion\032 .mlflow.GetModelVer" +
+      "sion.Response\"A\362\206\031=\n\'\n\003GET\022\032/mlflow/mode" +
+      "l-versions/get\032\004\010\002\020\000\020\001*\020Get ModelVersion" +
+      "\022\242\001\n\023searchModelVersions\022\033.mlflow.Search" +
+      "ModelVersions\032$.mlflow.SearchModelVersio" +
+      "ns.Response\"H\362\206\031D\n*\n\003GET\022\035/mlflow/model-" +
+      "versions/search\032\004\010\002\020\000\020\001*\024Search ModelVer" +
+      "sions\022\330\001\n\032getModelVersionDownloadUri\022\".m" +
+      "lflow.GetModelVersionDownloadUri\032+.mlflo" +
+      "w.GetModelVersionDownloadUri.Response\"i\362" +
+      "\206\031e\n4\n\003GET\022\'/mlflow/model-versions/get-d" +
+      "ownload-uri\032\004\010\002\020\000\020\001*+Get Download URI Fo" +
+      "r ModelVersion Artifacts\022\261\001\n\025setRegister" +
+      "edModelTag\022\035.mlflow.SetRegisteredModelTa" +
+      "g\032&.mlflow.SetRegisteredModelTag.Respons" +
+      "e\"Q\362\206\031M\n/\n\004POST\022!/mlflow/registered-mode" +
+      "ls/set-tag\032\004\010\002\020\000\020\001*\030Set Registered Model" +
+      " Tag\022\242\001\n\022setModelVersionTag\022\032.mlflow.Set" +
+      "ModelVersionTag\032#.mlflow.SetModelVersion" +
+      "Tag.Response\"K\362\206\031G\n,\n\004POST\022\036/mlflow/mode" +
+      "l-versions/set-tag\032\004\010\002\020\000\020\001*\025Set Model Ve" +
+      "rsion Tag\022\302\001\n\030deleteRegisteredModelTag\022 " +
+      ".mlflow.DeleteRegisteredModelTag\032).mlflo" +
+      "w.DeleteRegisteredModelTag.Response\"Y\362\206\031" +
+      "U\n4\n\006DELETE\022$/mlflow/registered-models/d" +
+      "elete-tag\032\004\010\002\020\000\020\001*\033Delete Registered Mod" +
+      "el Tag\022\263\001\n\025deleteModelVersionTag\022\035.mlflo" +
+      "w.DeleteModelVersionTag\032&.mlflow.DeleteM" +
+      "odelVersionTag.Response\"S\362\206\031O\n1\n\006DELETE\022" +
+      "!/mlflow/model-versions/delete-tag\032\004\010\002\020\000" +
+      "\020\001*\030Delete Model Version TagB!\n\024org.mlfl" +
+      "ow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
