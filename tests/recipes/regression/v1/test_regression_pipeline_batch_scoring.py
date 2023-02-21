@@ -2,8 +2,7 @@ import pandas as pd
 import pathlib
 import pytest
 import shutil
-
-# import time
+import time
 
 import mlflow
 from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
@@ -39,7 +38,6 @@ def test_recipe_batch_dag_get_artifacts(run_batch_scoring):
     r = run_batch_scoring
     assert isinstance(r.get_artifact("ingested_scoring_data"), pd.DataFrame)
     assert isinstance(r.get_artifact("scored_data"), pd.DataFrame)
-    # time.sleep(3)
 
 
 # def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
@@ -56,6 +54,7 @@ def test_recipe_batch_dag_get_artifacts(run_batch_scoring):
 # This test should run last as it cleans the batch scoring steps
 @pytest.mark.parametrize("step", _STEP_NAMES)
 def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe_example_directory):
+    time.sleep(3)
     r = run_batch_scoring
     r.clean(step)
     expected_execution_directory_location = pathlib.Path(
