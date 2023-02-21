@@ -61,7 +61,7 @@ def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe
     # 4161f55-351d-4e90-bb18-7f754bfbd467-c000.snappy.parquet'
     # ----------------------------------------------------------------------------------------------
     # To avoid this error, we sleep for 1 second to ensure all the handles to the parquet files are
-    # release before we try to delete them.
+    # released before we try to delete them.
     time.sleep(1)
     r = run_batch_scoring
     r.clean(step)
