@@ -85,7 +85,7 @@ export class RunsCompareScatterCardConfig extends RunsCompareCardConfig {
   type: RunsCompareChartType.SCATTER = RunsCompareChartType.SCATTER;
   xaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
   yaxis: CompareRunsChartAxisDef = { key: '', type: 'METRIC' };
-  runsCountToCompare: number = 100;
+  runsCountToCompare = 100;
 }
 
 // TODO: add configuration fields relevant to line chart
