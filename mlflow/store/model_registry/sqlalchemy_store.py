@@ -21,6 +21,8 @@ import mlflow.store.db.utils
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
@@ -282,6 +284,13 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = self._get_registered_model(session, name)
             session.delete(sql_registered_model)
 
+    def _compute_next_token(self, max_results_for_query, current_size, offset, max_results):
+        next_token = None
+        if max_results_for_query == current_size:
+            final_offset = offset + max_results
+            next_token = SearchUtils.create_page_token(final_offset)
+        return next_token
+
     def search_registered_models(
         self,
         filter_string=None,
@@ -321,13 +330,6 @@ class SqlAlchemyStore(AbstractStore):
         # this remediates having to make another query which returns no items.
         max_results_for_query = max_results + 1
 
-        def compute_next_token(current_size):
-            next_token = None
-            if max_results_for_query == current_size:
-                final_offset = offset + max_results
-                next_token = SearchUtils.create_page_token(final_offset)
-            return next_token
-
         with self.ManagedSessionMaker() as session:
             query = (
                 filter_query.options(*self._get_eager_registered_model_query_options())
@@ -337,7 +339,9 @@ class SqlAlchemyStore(AbstractStore):
             if page_token:
                 query = query.offset(offset)
             sql_registered_models = session.execute(query).scalars(SqlRegisteredModel).all()
-            next_page_token = compute_next_token(len(sql_registered_models))
+            next_page_token = self._compute_next_token(
+                max_results_for_query, len(sql_registered_models), offset, max_results
+            )
             rm_entities = [rm.to_mlflow_entity() for rm in sql_registered_models][:max_results]
             return PagedList(rm_entities, next_page_token)
 
@@ -411,18 +415,34 @@ class SqlAlchemyStore(AbstractStore):
             comparator = f["comparator"]
             value = f["value"]
             if type_ == "attribute":
-                if key not in ("name", "source_path", "run_id"):
+                if key not in SearchModelVersionUtils.VALID_SEARCH_ATTRIBUTE_KEYS:
                     raise MlflowException(
                         f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
-                if comparator not in ("=", "!=", "LIKE", "ILIKE", "IN") or (
-                    comparator == "IN" and key != "run_id"
+                if key in SearchModelVersionUtils.NUMERIC_ATTRIBUTES:
+                    if (
+                        comparator
+                        not in SearchModelVersionUtils.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+                    ):
+                        raise MlflowException(
+                            f"Invalid comparator for attribute {key}: {comparator}",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                elif (
+                    comparator not in SearchModelVersionUtils.VALID_STRING_ATTRIBUTE_COMPARATORS
+                    or (comparator == "IN" and key != "run_id")
                 ):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
-                attr = getattr(SqlModelVersion, "source" if key == "source_path" else key)
+                if key == "source_path":
+                    key_name = "source"
+                elif key == "version_number":
+                    key_name = "version"
+                else:
+                    key_name = key
+                attr = getattr(SqlModelVersion, key_name)
                 if comparator == "IN":
                     # Note: Here the run_id values in databases contain only lower case letters,
                     # so we already filter out comparison values containing upper case letters
@@ -823,31 +843,118 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name, version)
             return sql_model_version.source
 
-    def search_model_versions(self, filter_string):
+    def search_model_versions(
+        self,
+        filter_string=None,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
-                 objects sorted by last updated time in descending order.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects that satisfy the search expressions. The pagination token for the next
+                 page can be obtained via the ``token`` attribute of the object.
         """
+        if not isinstance(max_results, int) or max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if max_results > SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
         parsed_filters = SearchModelVersionUtils.parse_search_filter(filter_string)
 
         filter_query = self._get_search_model_versions_filter_clauses(
             parsed_filters, self.engine.dialect.name
         )
 
+        parsed_orderby = self._parse_search_model_versions_order_by(
+            order_by or ["last_updated_timestamp DESC", "name ASC", "version_number DESC"]
+        )
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        # we query for max_results + 1 items to check whether there is another page to return.
+        # this remediates having to make another query which returns no items.
+        max_results_for_query = max_results + 1
+
         with self.ManagedSessionMaker() as session:
-            stmt = (
+            query = (
                 filter_query.options(*self._get_eager_model_version_query_options())
                 .filter(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
-                .order_by(SqlModelVersion.last_updated_time.desc())
+                .order_by(*parsed_orderby)
+                .limit(max_results_for_query)
             )
-            sql_model_versions = session.execute(stmt).scalars(SqlModelVersion).all()
-            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions]
-            return PagedList(model_versions, None)
+            if page_token:
+                query = query.offset(offset)
+            sql_model_versions = session.execute(query).scalars(SqlModelVersion).all()
+            next_page_token = self._compute_next_token(
+                max_results_for_query, len(sql_model_versions), offset, max_results
+            )
+            model_versions = [mv.to_mlflow_entity() for mv in sql_model_versions][:max_results]
+            return PagedList(model_versions, next_page_token)
+
+    @classmethod
+    def _parse_search_model_versions_order_by(cls, order_by_list):
+        """Sorts a set of model versions based on their natural ordering and an overriding set
+        of order_bys. Model versions are naturally ordered first by name ascending, then by
+        version ascending.
+        """
+        clauses = []
+        observed_order_by_clauses = set()
+        if order_by_list:
+            for order_by_clause in order_by_list:
+                (
+                    _,
+                    key,
+                    ascending,
+                ) = SearchModelVersionUtils.parse_order_by_for_search_model_versions(
+                    order_by_clause
+                )
+                if key not in SearchModelVersionUtils.VALID_ORDER_BY_ATTRIBUTE_KEYS:
+                    raise MlflowException(
+                        f"Invalid order by key '{key}' specified. "
+                        "Valid keys are "
+                        f"{SearchModelVersionUtils.VALID_ORDER_BY_ATTRIBUTE_KEYS}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                else:
+                    if key == "version_number":
+                        field = SqlModelVersion.version
+                    elif key == "creation_timestamp":
+                        field = SqlModelVersion.creation_time
+                    elif key == "last_updated_timestamp":
+                        field = SqlModelVersion.last_updated_time
+                    else:
+                        field = getattr(SqlModelVersion, key)
+                if field.key in observed_order_by_clauses:
+                    raise MlflowException(f"`order_by` contains duplicate fields: {order_by_list}")
+                observed_order_by_clauses.add(field.key)
+                if ascending:
+                    clauses.append(field.asc())
+                else:
+                    clauses.append(field.desc())
+
+        if SqlModelVersion.name.key not in observed_order_by_clauses:
+            clauses.append(SqlModelVersion.name.asc())
+        if SqlModelVersion.version.key not in observed_order_by_clauses:
+            clauses.append(SqlModelVersion.version.desc())
+        return clauses
 
     @classmethod
     def _get_model_version_tag(cls, session, name, version, key):

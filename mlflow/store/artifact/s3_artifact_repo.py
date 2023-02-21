@@ -95,33 +95,6 @@ def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=Non
     )
 
 
-def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=None):
-    s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
-    do_verify = not MLFLOW_S3_IGNORE_TLS.get()
-
-    # The valid verify argument value is None/False/path to cert bundle file, See
-    # https://github.com/boto/boto3/blob/73865126cad3938ca80a2f567a1c79cb248169a7/
-    # boto3/session.py#L212
-    verify = None if do_verify else False
-
-    # NOTE: If you need to specify this env variable, please file an issue at
-    # https://github.com/mlflow/mlflow/issues so we know your use-case!
-    signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
-
-    # Invalidate cache every `_MAX_CACHE_SECONDS`
-    timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
-
-    return _cached_get_s3_client(
-        signature_version,
-        s3_endpoint_url,
-        verify,
-        timestamp,
-        access_key_id=access_key_id,
-        secret_access_key=secret_access_key,
-        session_token=session_token,
-    )
-
-
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
 

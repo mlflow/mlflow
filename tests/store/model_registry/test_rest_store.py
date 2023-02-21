@@ -322,13 +322,34 @@ def test_get_model_version_download_uri(store, creds):
 
 def test_search_model_versions(store, creds):
     with mock_http_request_200() as mock_http:
-        store.search_model_versions(filter_string="name='model_12'")
+        store.search_model_versions()
+    _verify_requests(mock_http, creds, "model-versions/search", "GET", SearchModelVersions())
+
+
+@pytest.mark.parametrize("filter_string", [None, "name = 'model_12'"])
+@pytest.mark.parametrize("max_results", [None, 400])
+@pytest.mark.parametrize("page_token", [None, "blah"])
+@pytest.mark.parametrize("order_by", ["version DESC", "creation_time DESC"])
+def test_search_model_versions_params(
+    store, creds, filter_string, max_results, page_token, order_by
+):
+    params = {
+        "filter_string": filter_string,
+        "max_results": max_results,
+        "page_token": page_token,
+        "order_by": order_by,
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    with mock_http_request_200() as mock_http:
+        store.search_model_versions(**params)
+    if "filter_string" in params:
+        params["filter"] = params.pop("filter_string")
     _verify_requests(
         mock_http,
         creds,
         "model-versions/search",
         "GET",
-        SearchModelVersions(filter="name='model_12'"),
+        SearchModelVersions(**params),
     )
 
 
