@@ -54,13 +54,13 @@ def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
 # This test should run last as it cleans the batch scoring steps
 @pytest.mark.parametrize("step", _STEP_NAMES)
 def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe_example_directory):
-    # Running this test immediately after `test_recipe_batch_dag_get_artifacts` sometimes fails
-    # with the following error:
-    # ------------------------------
+    # On Windows, Running this test immediately after `test_recipe_batch_dag_get_artifacts`
+    # sometimes fails with an error that looks like the following:
+    # ----------------------------------------------------------------------------------------------
     # PermissionError: [WinError 32] The process cannot access the file because it is being used by
     # another process: 'C:\\path\\to\\custom\\steps\\predict\\outputs\\scored.parquet\\part-00000-5
     # 4161f55-351d-4e90-bb18-7f754bfbd467-c000.snappy.parquet'
-    # ------------------------------
+    # ----------------------------------------------------------------------------------------------
     # To ensure all the file handles to the parquet files are released, sleep for 3 seconds.
     time.sleep(3)
     r = run_batch_scoring
