@@ -27,7 +27,6 @@ class GCSArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri, client=None):
         self.client = client
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
-
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
         self._GCS_DEFAULT_TIMEOUT = (

@@ -73,12 +73,12 @@ def get_artifact_repo_from_storage_info(
 
     elif credential_type == "gcp_oauth_token":
         from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-        from google.cloud import storage
+        from google.cloud.storage import Client
         from google.oauth2.credentials import Credentials
 
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
-        client = storage.Client(project="mlflow", credentials=credentials)
-        return GCSArtifactRepository(artifact_uri=storage_location, gcs_client=client)
+        client = Client(project="mlflow", credentials=credentials)
+        return GCSArtifactRepository(artifact_uri=storage_location, client=client)
     else:
         raise MlflowException(
             f"Got unexpected token type {credential_type} " f"for Unity Catalog managed file access"

@@ -1,7 +1,9 @@
+from contextlib import contextmanager
 import json
 from unittest import mock
 from unittest.mock import Mock, ANY
 
+from google.cloud.storage import Client
 import pytest
 from requests import Response
 
@@ -60,6 +62,13 @@ def test_uc_models_artifact_repo_with_stage_uri_raises():
     with pytest.raises(MlflowException):
         UnityCatalogModelsArtifactRepository(model_uri, _DATABRICKS_UNITY_CATALOG_SCHEME)
 
+def _mock_temporary_creds_response(temporary_creds):
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = 200
+    mock_response.text = json.dumps({"credentials": temporary_creds})
+    request_mock = mock.patch("mlflow.utils.rest_utils.http_request")
+    request_mock.return_value = mock_response
+    return request_mock
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
     artifact_location = "s3://blah_bucket/"
@@ -125,9 +134,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
             artifact_uri=artifact_location,
             credential=ANY
         )
-        adls_repo_args = adls_artifact_repo_class_mock.call_args_list
-        print(adls_repo_args)
-        assert False
+        adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
+        credential = adls_repo_args[1]['credential']
+        assert(credential.signature == fake_sas_token)
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
 
 
@@ -135,18 +144,21 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
     artifact_location = "gs://test_bucket/some/path"
     mock_response = mock.MagicMock(autospec=Response)
     mock_response.status_code = 200
-    fake_sas_token = "fake_session_token"
+    fake_oauth_token = "fake_session_token"
     temporary_creds = {
         "gcp_oauth_token": {
-            "oauth_token": fake_sas_token,
+            "oauth_token": fake_oauth_token,
         },
     }
     mock_response.text = json.dumps({"credentials": temporary_creds})
     with mock.patch.object(
             MlflowClient, "get_model_version_download_uri", return_value=artifact_location
-    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
+    ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, \
+            mock.patch("google.cloud.storage.Client") as gcs_client_class_mock, mock.patch(
         "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
     ) as gcs_artifact_repo_class_mock:
+        mock_gcs_client = mock.MagicMock(autospec=Client)
+        gcs_client_class_mock.return_value = mock_gcs_client
         mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
         gcs_artifact_repo_class_mock.return_value = mock_gcs_repo
         request_mock.return_value = mock_response
@@ -160,8 +172,8 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
             client=ANY
         )
         mock_gcs_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
-        gcs_repo_args = gcs_artifact_repo_class_mock.call_args_list
-        print(gcs_repo_args)
-        assert False
+        gcs_client_args = gcs_client_class_mock.call_args_list[0]
+        credentials = gcs_client_args[1]['credentials']
+        assert(credentials.token == fake_oauth_token)
 
 
