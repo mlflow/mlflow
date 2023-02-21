@@ -15,7 +15,7 @@ import {
 
 type ValidAxis = keyof Pick<RunsCompareScatterCardConfig, 'xaxis' | 'yaxis'>;
 
-let scatterPlotDefaultOptions = runsCompareRunCountDefaultOptions
+const scatterPlotDefaultOptions = runsCompareRunCountDefaultOptions;
 scatterPlotDefaultOptions.push(
   {
     value: 100,
@@ -44,7 +44,7 @@ scatterPlotDefaultOptions.push(
       />
     ),
   },
-)
+);
 
 /**
  * Form containing configuration controls for scatter runs compare chart.
