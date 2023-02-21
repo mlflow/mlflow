@@ -27093,7 +27093,8 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * Maximum number of models desired. Max threshold is 200K.
+     * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+     * value and maximum threshold.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -27102,7 +27103,8 @@ public final class ModelRegistry {
     boolean hasMaxResults();
     /**
      * <pre>
-     * Maximum number of models desired. Max threshold is 200K.
+     * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+     * value and maximum threshold.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -28509,7 +28511,8 @@ public final class ModelRegistry {
     private long maxResults_;
     /**
      * <pre>
-     * Maximum number of models desired. Max threshold is 200K.
+     * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+     * value and maximum threshold.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -28521,7 +28524,8 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Maximum number of models desired. Max threshold is 200K.
+     * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+     * value and maximum threshold.
      * </pre>
      *
      * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -29173,7 +29177,8 @@ public final class ModelRegistry {
       private long maxResults_ = 200000L;
       /**
        * <pre>
-       * Maximum number of models desired. Max threshold is 200K.
+       * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+       * value and maximum threshold.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -29185,7 +29190,8 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Max threshold is 200K.
+       * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+       * value and maximum threshold.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -29197,7 +29203,8 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Max threshold is 200K.
+       * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+       * value and maximum threshold.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 200000];</code>
@@ -29212,7 +29219,8 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Maximum number of models desired. Max threshold is 200K.
+       * Maximum number of models desired. Max threshold is 200K. Backends may choose a lower default
+       * value and maximum threshold.
        * </pre>
        *
        * <code>optional int64 max_results = 2 [default = 200000];</code>
