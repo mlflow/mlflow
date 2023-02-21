@@ -25,8 +25,10 @@ class GCSArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, client=None):
-        self.client = client
+        super().__init__(artifact_uri)
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+        from google.auth.exceptions import DefaultCredentialsError
+        from google.cloud import storage as gcs_storage
 
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
@@ -42,8 +44,13 @@ class GCSArtifactRepository(ArtifactRepository):
         self._GCS_DEFAULT_TIMEOUT = (
             None if self._GCS_DEFAULT_TIMEOUT == -1 else self._GCS_DEFAULT_TIMEOUT
         )
-
-        super().__init__(artifact_uri)
+        if client is not None:
+            self.client = client
+        else:
+            try:
+                self.client = gcs_storage.Client()
+            except DefaultCredentialsError:
+                self.client = gcs_storage.Client.create_anonymous_client()
 
     @staticmethod
     def parse_gcs_uri(uri):
@@ -56,19 +63,8 @@ class GCSArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-    def _get_client(self):
-        from google.auth.exceptions import DefaultCredentialsError
-        from google.cloud import storage as gcs_storage
-
-        if self.client is not None:
-            return self.client
-        try:
-            return gcs_storage.Client()
-        except DefaultCredentialsError:
-            return gcs_storage.Client.create_anonymous_client()
-
     def _get_bucket(self, bucket):
-        return self._get_client().bucket(bucket)
+        return self.client.bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
