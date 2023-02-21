@@ -86,3 +86,12 @@ jobs:
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
