@@ -24,28 +24,33 @@ def gcs_mock():
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = old_G_APP_CREDS
 
 
+@pytest.fixture
+def mock_client():
+    yield mock.MagicMock(autospec=gcs_client.Client)
+
+
 def test_artifact_uri_factory():
     repo = get_artifact_repository("gs://test_bucket/some/path")
     assert isinstance(repo, GCSArtifactRepository)
 
 
-def test_list_artifacts_empty(gcs_mock):
-    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
-    gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock.MagicMock()
+def test_list_artifacts_empty(mock_client):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
+    mock_client.bucket.return_value.list_blobs.return_value = mock.MagicMock()
     assert repo.list_artifacts() == []
 
 
 def test_custom_gcs_client_used():
     mock_client = mock.MagicMock(autospec=gcs_client.Client)
-    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_client=mock_client)
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", client=mock_client)
     mock_client.bucket.return_value.list_blobs.return_value = mock.MagicMock()
     repo.list_artifacts()
     mock_client.bucket.assert_called()
 
 
-def test_list_artifacts(gcs_mock):
+def test_list_artifacts(mock_client):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
 
     # mocked bucket/blob structure
     # gs://test_bucket/experiment_id/run_id/
@@ -69,7 +74,7 @@ def test_list_artifacts(gcs_mock):
     mock_results.configure_mock(pages=[dir_mock])
     mock_results.__iter__.return_value = [obj_mock]
 
-    gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock_results
+    mock_client.bucket.return_value.list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=None)
 
@@ -83,9 +88,9 @@ def test_list_artifacts(gcs_mock):
 
 
 @pytest.mark.parametrize("dir_name", ["model", "model/"])
-def test_list_artifacts_with_subdir(gcs_mock, dir_name):
+def test_list_artifacts_with_subdir(mock_client, dir_name):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, client=mock_client)
 
     # mocked bucket/blob structure
     # gs://test_bucket/experiment_id/run_id/
@@ -106,10 +111,10 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     mock_results.configure_mock(pages=[subdir_mock])
     mock_results.__iter__.return_value = [obj_mock]
 
-    gcs_mock.Client.return_value.bucket.return_value.list_blobs.return_value = mock_results
+    mock_client.bucket.return_value.list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)
-    gcs_mock.Client().bucket().list_blobs.assert_called_with(
+    mock_client.bucket().list_blobs.assert_called_with(
         prefix=posixpath.join(artifact_root_path[1:], "model/"), delimiter="/"
     )
     assert len(artifacts) == 2
@@ -121,8 +126,8 @@ def test_list_artifacts_with_subdir(gcs_mock, dir_name):
     assert artifacts[1].file_size is None
 
 
-def test_log_artifact(gcs_mock, tmpdir):
-    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
+def test_log_artifact(mock_client, tmpdir):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     d = tmpdir.mkdir("data")
     f = d.join("test.txt")
@@ -138,9 +143,8 @@ def test_log_artifact(gcs_mock, tmpdir):
         return os.path.isfile(kwargs.get("filename"))
 
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "blob",
             "upload_from_filename",
@@ -149,17 +153,17 @@ def test_log_artifact(gcs_mock, tmpdir):
     )
     repo.log_artifact(fpath)
 
-    gcs_mock.Client().bucket.assert_called_with("test_bucket")
-    gcs_mock.Client().bucket().blob.assert_called_with(
+    mock_client.bucket.assert_called_with("test_bucket")
+    mock_client.bucket().blob.assert_called_with(
         "some/path/test.txt", chunk_size=repo._GCS_UPLOAD_CHUNK_SIZE
     )
-    gcs_mock.Client().bucket().blob().upload_from_filename.assert_called_with(
+    mock_client.bucket().blob().upload_from_filename.assert_called_with(
         fpath, timeout=repo._GCS_DEFAULT_TIMEOUT
     )
 
 
-def test_log_artifacts(gcs_mock, tmpdir):
-    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
+def test_log_artifacts(mock_client, tmpdir):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     subd = tmpdir.mkdir("data").mkdir("subdir")
     subd.join("a.txt").write("A")
@@ -172,9 +176,8 @@ def test_log_artifacts(gcs_mock, tmpdir):
         return os.path.isfile(kwargs.get("filename"))
 
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "blob",
             "upload_from_filename",
@@ -183,8 +186,8 @@ def test_log_artifacts(gcs_mock, tmpdir):
     )
     repo.log_artifacts(subd.strpath)
 
-    gcs_mock.Client().bucket.assert_called_with("test_bucket")
-    gcs_mock.Client().bucket().blob().upload_from_filename.assert_has_calls(
+    mock_client.bucket.assert_called_with("test_bucket")
+    mock_client.bucket().blob().upload_from_filename.assert_has_calls(
         [
             mock.call(
                 os.path.normpath("%s/a.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
@@ -200,8 +203,8 @@ def test_log_artifacts(gcs_mock, tmpdir):
     )
 
 
-def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
-    repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
+def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmpdir):
+    repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     def mkfile(fname, **kwargs):
         # pylint: disable=unused-argument
@@ -210,9 +213,8 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         f.write("hello world!")
 
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "blob",
             "download_to_filename",
@@ -222,29 +224,30 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
 
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
-    gcs_mock.Client().bucket.assert_called_with("test_bucket")
-    gcs_mock.Client().bucket().blob.assert_called_with(
+    mock_client.bucket.assert_called_with("test_bucket")
+    mock_client.bucket().blob.assert_called_with(
         "some/path/test.txt", chunk_size=repo._GCS_DOWNLOAD_CHUNK_SIZE
     )
-    download_calls = gcs_mock.Client().bucket().blob().download_to_filename.call_args_list
+    download_calls = mock_client.bucket().blob().download_to_filename.call_args_list
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
     assert "test.txt" in download_path_arg
 
 
-def test_get_anonymous_bucket(gcs_mock):
-    gcs_mock.Client.side_effect = DefaultCredentialsError("Test")
-    repo = GCSArtifactRepository("gs://test_bucket", gcs_mock)
-    repo._get_bucket("gs://test_bucket")
-    anon_call_count = gcs_mock.Client.create_anonymous_client.call_count
-    assert anon_call_count == 1
-    bucket_call_count = gcs_mock.Client.create_anonymous_client.return_value.bucket.call_count
-    assert bucket_call_count == 1
+def test_get_anonymous_bucket():
+    with mock.patch("google.cloud.storage", autospec=True) as gcs_mock:
+        gcs_mock.Client.side_effect = DefaultCredentialsError("Test")
+        repo = GCSArtifactRepository("gs://test_bucket")
+        repo._get_bucket("gs://test_bucket")
+        anon_call_count = gcs_mock.Client.create_anonymous_client.call_count
+        assert anon_call_count == 1
+        bucket_call_count = gcs_mock.Client.create_anonymous_client.return_value.bucket.call_count
+        assert bucket_call_count == 1
 
 
-def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
+def test_download_artifacts_downloads_expected_content(mock_client, tmpdir):
     artifact_root_path = "/experiment_id/run_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, gcs_mock)
+    repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
 
     obj_mock_1 = mock.Mock()
     file_path_1 = "file1"
@@ -280,18 +283,16 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         f.write("hello world!")
 
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "list_blobs",
         ],
         side_effect=get_mock_listing,
     )
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "blob",
             "download_to_filename",
@@ -307,9 +308,9 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
     assert file_path_2 in dir_contents
 
 
-def test_delete_artifacts(gcs_mock):
+def test_delete_artifacts(mock_client):
     experiment_root_path = "/experiment_id/"
-    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, gcs_mock)
+    repo = GCSArtifactRepository("gs://test_bucket" + experiment_root_path, mock_client)
 
     def delete_file():
         del obj_mock.name
@@ -342,9 +343,8 @@ def test_delete_artifacts(gcs_mock):
             return mock_empty_results
 
     mock_method_chain(
-        gcs_mock,
+        mock_client,
         [
-            "Client",
             "bucket",
             "list_blobs",
         ],

@@ -19,22 +19,13 @@ class GCSArtifactRepository(ArtifactRepository):
     Stores artifacts on Google Cloud Storage.
 
     :param artifact_uri: URI of GCS bucket
-    :param client: Optional, exposed for testing. Python module to use for GCS
-                   operations, defaults to google.cloud.storage.
-    :param gcs_client: Optional. The actual client to use for GCS operations; a default
+    :param client: Optional. The client to use for GCS operations; a default
                        client object will be created if unspecified, using default
                        credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(self, artifact_uri, client=None, gcs_client=None):
-        if client:
-            self.gcs = client
-        else:
-            from google.cloud import storage as gcs_storage
-
-            self.gcs = gcs_storage
-        self.client = gcs_client
-
+    def __init__(self, artifact_uri, client=None):
+        self.client = client
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
 
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
@@ -67,13 +58,14 @@ class GCSArtifactRepository(ArtifactRepository):
 
     def _get_client(self):
         from google.auth.exceptions import DefaultCredentialsError
+        from google.cloud import storage as gcs_storage
 
         if self.client is not None:
             return self.client
         try:
-            return self.gcs.Client()
+            return gcs_storage.Client()
         except DefaultCredentialsError:
-            return self.gcs.Client.create_anonymous_client()
+            return gcs_storage.Client.create_anonymous_client()
 
     def _get_bucket(self, bucket):
         return self._get_client().bucket(bucket)
