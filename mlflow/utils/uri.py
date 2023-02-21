@@ -18,6 +18,7 @@ _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 _DATABRICKS_UNITY_CATALOG_SCHEME = "databricks-uc"
 
+
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     if uri == "databricks":
