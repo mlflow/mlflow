@@ -85,4 +85,4 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
-          pytest 'tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py::test_recipe_batch_dag_clean_step_works'
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py
