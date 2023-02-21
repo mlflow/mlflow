@@ -58,5 +58,5 @@ def test_recipe_batch_dag_clean_step_works(_x, run_batch_scoring, enter_recipe_e
     expected_execution_directory_location = pathlib.Path(
         get_or_create_base_execution_directory(enter_recipe_example_directory)
     )
-    step_outputs_path = expected_execution_directory_location / "steps" / step / "outputs"
+    step_outputs_path = expected_execution_directory_location / "steps" / "predict" / "outputs"
     assert not list(step_outputs_path.iterdir())
