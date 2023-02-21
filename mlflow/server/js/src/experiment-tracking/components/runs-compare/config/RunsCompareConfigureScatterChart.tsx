@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from 'react';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   extractCanonicalSortKey,
   isCanonicalSortKeyOfType,
@@ -14,6 +14,37 @@ import {
 } from './RunsCompareConfigure.common';
 
 type ValidAxis = keyof Pick<RunsCompareScatterCardConfig, 'xaxis' | 'yaxis'>;
+
+let scatterPlotDefaultOptions = runsCompareRunCountDefaultOptions
+scatterPlotDefaultOptions.push(
+  {
+    value: 100,
+    label: (
+      <FormattedMessage
+        defaultMessage='100'
+        description='Label for 100 first runs visible in run count selector within runs compare configuration modal'
+      />
+    ),
+  },
+  {
+    value: 250,
+    label: (
+      <FormattedMessage
+        defaultMessage='250'
+        description='Label for 250 first runs visible in run count selector within runs compare configuration modal'
+      />
+    ),
+  },
+  {
+    value: 500,
+    label: (
+      <FormattedMessage
+        defaultMessage='500'
+        description='Label for 500 first runs visible in run count selector within runs compare configuration modal'
+      />
+    ),
+  },
+)
 
 /**
  * Form containing configuration controls for scatter runs compare chart.
@@ -119,7 +150,7 @@ export const RunsCompareConfigureScatterChart = ({
       <RunsCompareRunNumberSelect
         value={state.runsCountToCompare}
         onChange={updateVisibleRunCount}
-        options={[20, 50, 100, 250, 500]}
+        options={scatterPlotDefaultOptions}
       />
     </>
   );
