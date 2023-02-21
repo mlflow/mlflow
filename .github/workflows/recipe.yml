@@ -80,7 +80,7 @@ jobs:
           git clone https://github.com/cdarlint/winutils
       - name: Run tests
         run: |
-          set +x
+          set +e
 
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
