@@ -55,7 +55,7 @@ pytorch-lightning:
     pip_release: "pytorch-lightning"
     install_dev: |
       export PACKAGE_NAME=pytorch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@81b7c30291ef08b4b150d993efa853738bedb3d5
+      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git@3a0519143a185dcb5875d5bb8851c566711f97f4
 
   autologging:
     minimum: "1.0.5"
