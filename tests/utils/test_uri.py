@@ -342,33 +342,38 @@ def test_is_databricks_acled_artifacts_uri():
     )
 
 
-@pytest.mark.parametrize(
-    ("uri", "result"),
-    [
+def _get_databricks_profile_uri_test_cases():
+    # Each test case is (uri, result, result_scheme)
+    test_case_groups = [[
         # URIs with no databricks profile info -> return None
-        ("ftp://user:pass@realhost:port/path/to/nowhere", None),
-        ("dbfs:/path/to/nowhere", None),
-        ("dbfs://nondatabricks/path/to/nowhere", None),
-        ("dbfs://incorrect:netloc:format/path/to/nowhere", None),
+        ("ftp://user:pass@realhost:port/path/to/nowhere", None, result_scheme),
+        ("dbfs:/path/to/nowhere", None, result_scheme),
+        ("dbfs://nondatabricks/path/to/nowhere", None, result_scheme),
+        ("dbfs://incorrect:netloc:format/path/to/nowhere", None, result_scheme),
         # URIs with legit databricks profile info
-        ("dbfs://databricks", "databricks"),
-        ("dbfs://databricks/", "databricks"),
-        ("dbfs://databricks/path/to/nowhere", "databricks"),
-        ("dbfs://databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://profile@databricks/path/to/nowhere", "databricks://profile"),
-        ("dbfs://profile@databricks:port/path/to/nowhere", "databricks://profile"),
-        ("dbfs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("dbfs://scope:key_prefix@databricks:port/path/abc", "databricks://scope:key_prefix"),
+        (f"dbfs://{result_scheme}", result_scheme, result_scheme),
+        (f"dbfs://{result_scheme}/", result_scheme, result_scheme),
+        (f"dbfs://{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+        (f"dbfs://{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+        (f"dbfs://@{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+        (f"dbfs://@{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+        (f"dbfs://profile@{result_scheme}/path/to/nowhere", f"{result_scheme}://profile", result_scheme),
+        (f"dbfs://profile@{result_scheme}:port/path/to/nowhere", f"{result_scheme}://profile", result_scheme),
+        ("dbfs://scope:key_prefix@{result_scheme}/path/abc", f"{result_scheme}://scope:key_prefix", result_scheme)f,
+        ("dbfs://scope:key_prefix@{result_scheme}:port/path/abc", f"{result_scheme}://scope:key_prefix", result_scheme),
         # Doesn't care about the scheme of the artifact URI
-        ("runs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("models://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("s3://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-    ],
+        (f"runs://scope:key_prefix@{result_scheme}/path/abc", f"{result_scheme}://scope:key_prefix", result_scheme),
+        (f"models://scope:key_prefix@{result_scheme}/path/abc", f"{result_scheme}://scope:key_prefix", result_scheme),
+        (f"s3://scope:key_prefix@{result_scheme}/path/abc", f"{result_scheme}://scope:key_prefix", result_scheme),
+    ] for result_scheme in ["databricks", "databricks-uc"]]
+    return [test_case for test_case_group in test_case_groups for test_case in test_case_group]
+
+@pytest.mark.parametrize(
+    ("uri", "result", "result_scheme"),
+    _get_databricks_profile_uri_test_cases()
 )
-def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
-    assert get_databricks_profile_uri_from_artifact_uri(uri) == result
+def test_get_databricks_profile_uri_from_artifact_uri(uri, result, result_scheme):
+    assert get_databricks_profile_uri_from_artifact_uri(uri, result_scheme=result_scheme) == result
 
 
 @pytest.mark.parametrize(

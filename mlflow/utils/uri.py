@@ -110,10 +110,8 @@ def get_databricks_profile_uri_from_artifact_uri(uri, result_scheme="databricks"
     """
     parsed = urllib.parse.urlparse(uri)
     if not parsed.netloc or parsed.hostname != result_scheme:
-        print("Returning None 0")
         return None
     if not parsed.username:  # no profile or scope:key
-        print("Returning None 1")
         return result_scheme  # the default tracking/registry URI
     validate_db_scope_prefix_info(parsed.username, parsed.password)
     key_prefix = ":" + parsed.password if parsed.password else ""
