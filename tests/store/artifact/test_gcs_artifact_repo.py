@@ -13,18 +13,6 @@ from tests.helper_functions import mock_method_chain
 
 
 @pytest.fixture
-def gcs_mock():
-    # Make sure that the environment variable isn't set to actually make calls
-    old_G_APP_CREDS = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/dev/null"
-
-    yield mock.MagicMock(autospec=gcs_client)
-
-    if old_G_APP_CREDS:
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = old_G_APP_CREDS
-
-
-@pytest.fixture
 def mock_client():
     yield mock.MagicMock(autospec=gcs_client.Client)
 
