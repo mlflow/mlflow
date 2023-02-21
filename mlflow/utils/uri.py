@@ -108,7 +108,6 @@ def get_databricks_profile_uri_from_artifact_uri(uri, result_scheme="databricks"
     ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
     """
     parsed = urllib.parse.urlparse(uri)
-    print(f"@SID parsed URI {uri}, got netloc {parsed.netloc}, hostname {parsed.hostname}, username {parsed.username}")
     if not parsed.netloc or parsed.hostname != result_scheme:
         print("Returning None 0")
         return None

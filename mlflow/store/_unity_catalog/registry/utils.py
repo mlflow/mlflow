@@ -55,7 +55,7 @@ def get_artifact_repo_from_storage_info(
 
         aws_creds = scoped_token.aws_temp_credentials
         return S3ArtifactRepository(
-            storage_location,
+            artifact_uri=storage_location,
             access_key_id=aws_creds.access_key_id,
             secret_access_key=aws_creds.secret_access_key,
             session_token=aws_creds.session_token,
@@ -68,7 +68,7 @@ def get_artifact_repo_from_storage_info(
 
         sas_token = scoped_token.azure_user_delegation_sas.sas_token
         return AzureDataLakeArtifactRepository(
-            storage_location, credential=AzureSasCredential(sas_token)
+            artifact_uri=storage_location, credential=AzureSasCredential(sas_token)
         )
 
     elif credential_type == "gcp_oauth_token":
@@ -78,7 +78,7 @@ def get_artifact_repo_from_storage_info(
 
         credentials = Credentials(scoped_token.gcp_oauth_token.oauth_token)
         client = storage.Client(project="mlflow", credentials=credentials)
-        return GCSArtifactRepository(storage_location, gcs_client=client)
+        return GCSArtifactRepository(artifact_uri=storage_location, gcs_client=client)
     else:
         raise MlflowException(
             f"Got unexpected token type {credential_type} " f"for Unity Catalog managed file access"

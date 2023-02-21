@@ -55,7 +55,6 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         if registry_uri_from_profile is not None:
             registry_uri = registry_uri_from_profile
         profile, key_prefix = get_db_info_from_uri(registry_uri)
-        print(f"@Sid in UC models art repo, got profile {profile}, key prefix {key_prefix} from {artifact_uri}, {registry_uri}")
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "
@@ -68,7 +67,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
     def _get_blob_storage_path(self):
-        return self.client.get_model_version_download_uri(self.name, self.model_version)
+        return self.client.get_model_version_download_uri(self.model_name, self.model_version)
 
     def _get_scoped_token(self):
         req_body = {"name": self.model_name, "version": self.model_version}
@@ -80,7 +79,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             method="POST",
             json_body=json.dumps(req_body),
             response_proto=response_proto,
-        )
+        ).credentials
 
     def list_artifacts(self, path=None):
         raise MlflowException("This repository does not support listing artifacts.")
