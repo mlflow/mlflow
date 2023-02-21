@@ -1,7 +1,6 @@
 import os
 from functools import partial
 
-import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
@@ -157,7 +156,7 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.version import VERSION
 
     raise MlflowException(
-        f"Detected Unity Catalog model registry URI '{mlflow.get_registry_uri()}'. "
+        f"Detected Unity Catalog model registry URI '{store_uri}'. "
         f"However, the current version of the MLflow client ({VERSION}) does not support models "
         f"in the Unity Catalog. Please upgrade to the latest version of the MLflow Python client "
         f"to access models in the Unity Catalog, or specify a different registry URI via "
