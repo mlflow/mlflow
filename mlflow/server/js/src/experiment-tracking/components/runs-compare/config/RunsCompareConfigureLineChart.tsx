@@ -88,7 +88,7 @@ export const RunsCompareConfigureLineChart = ({
           ))}
         </Select>
       </RunsCompareConfigureField>
-      <RunsCompareConfigureField title='Y-axis'>
+      <RunsCompareConfigureField title='X-axis'>
         <Radio.Group
           value={state.xAxisKey}
           onChange={({ target: { value } }) => updateXAxisKey(value)}
