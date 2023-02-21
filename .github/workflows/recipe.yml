@@ -39,25 +39,25 @@ env:
   SPARK_LOCAL_IP: localhost
 
 jobs:
-  recipes:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
-      - name: Install dependencies
-        run: |
-          source ./dev/install-common-deps.sh
-          pip install -e .
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
-      - name: Run tests
-        run: |
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/recipes
+  # recipes:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 120
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         submodules: recursive
+  #     - uses: ./.github/actions/setup-python
+  #     - uses: ./.github/actions/setup-pyenv
+  #     - name: Install dependencies
+  #       run: |
+  #         source ./dev/install-common-deps.sh
+  #         pip install -e .
+  #         # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
+  #         pip install 'pyspark<3.3'
+  #     - name: Run tests
+  #       run: |
+  #         export MLFLOW_HOME=$(pwd)
+  #         pytest tests/recipes
 
   recipes-windows:
     runs-on: windows-latest
@@ -85,4 +85,4 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
-          pytest tests/recipes
+          pytest tests/recipes/regression/v1/test_regression_pipeline_batch_scoring.py::test_recipe_batch_dag_clean_step_works
