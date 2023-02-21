@@ -930,6 +930,35 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter) {}
+
+  /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchModelVersions(String)}.
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter,
+                                               String pageToken) {}
+
+  /**
    * Closes the MlflowClient and releases any associated resources.
    */
   public void close() {
