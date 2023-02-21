@@ -10,12 +10,8 @@ azure-storage-blob>=12.0.0
 azure-identity>=1.6.1
 databricks-cli@git+https://github.com/databricks/databricks-cli.git
 pillow
-shap>=0.40
 plotly
 kaleido
-# Required by mlflow.tensorflow / mlflow.pytorch tests.
-transformers
-tensorboard
 # Required by tuning tests
 hyperopt
 # Required by recipes tests

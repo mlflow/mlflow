@@ -53,7 +53,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "2.3.1",
-            "maximum": "3.3.3"
+            "maximum": "3.3.5"
         }
     },
     "gluon": {

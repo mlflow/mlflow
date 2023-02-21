@@ -769,6 +769,7 @@ def autolog(
     registered_model_name=None,
     log_input_examples=False,
     log_model_signatures=True,
+    log_model_allowlist=None,
 ):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging for pyspark ml estimators.
@@ -900,6 +901,9 @@ def autolog(
                                     Currently, only scalar Spark data types are supported. If
                                     model inputs/outputs contain non-scalar Spark data types such
                                     as ``pyspark.ml.linalg.Vector``, signatures are not logged.
+    :param log_model_allowlist: If given, it overrides the default log model allowlist in mlflow.
+                                This takes precedence over the spark configuration of
+                                "spark.mlflow.pysparkml.autolog.logModelAllowlistFile".
 
     **The default log model allowlist in mlflow**
         .. literalinclude:: ../../../mlflow/pyspark/ml/log_model_allowlist.txt
@@ -911,7 +915,10 @@ def autolog(
 
     global _log_model_allowlist
 
-    _log_model_allowlist = _read_log_model_allowlist()
+    if log_model_allowlist:
+        _log_model_allowlist = set(model.strip() for model in log_model_allowlist)
+    else:
+        _log_model_allowlist = _read_log_model_allowlist()
 
     def _log_pretraining_metadata(estimator, params):
         if params and isinstance(params, dict):
