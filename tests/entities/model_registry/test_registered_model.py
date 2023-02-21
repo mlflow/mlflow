@@ -1,12 +1,10 @@
-import unittest
-
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from tests.helper_functions import random_str
 
 
-class TestRegisteredModel(unittest.TestCase):
+class TestRegisteredModel:
     def _check(
         self,
         registered_model,
