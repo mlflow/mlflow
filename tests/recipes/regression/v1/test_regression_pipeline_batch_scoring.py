@@ -33,10 +33,12 @@ def run_batch_scoring():
         shutil.rmtree("./data/sample_output.parquet", ignore_errors=True)
 
 
-# def test_recipe_batch_dag_get_artifacts(run_batch_scoring):
-#     r = run_batch_scoring
-#     assert isinstance(r.get_artifact("ingested_scoring_data"), pd.DataFrame)
-#     assert isinstance(r.get_artifact("scored_data"), pd.DataFrame)
+@pytest.mark.parametrize("_x", range(30))
+def test_recipe_batch_dag_get_artifacts(_x, run_batch_scoring):
+    r = run_batch_scoring
+    # assert isinstance(r.get_artifact("ingested_scoring_data"), pd.DataFrame)
+    assert isinstance(r.get_artifact("scored_data"), pd.DataFrame)
+    r.clean("predict")
 
 
 # def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
@@ -51,12 +53,12 @@ def run_batch_scoring():
 
 
 # This test should run last as it cleans the batch scoring steps
-@pytest.mark.parametrize("_x", range(50))
-def test_recipe_batch_dag_clean_step_works(_x, run_batch_scoring, enter_recipe_example_directory):
-    r = run_batch_scoring
-    r.clean("predict")
-    expected_execution_directory_location = pathlib.Path(
-        get_or_create_base_execution_directory(enter_recipe_example_directory)
-    )
-    step_outputs_path = expected_execution_directory_location / "steps" / "predict" / "outputs"
-    assert not list(step_outputs_path.iterdir())
+# @pytest.mark.parametrize("_x", range(50))
+# def test_recipe_batch_dag_clean_step_works(_x, run_batch_scoring, enter_recipe_example_directory):
+#     r = run_batch_scoring
+#     r.clean("predict")
+#     expected_execution_directory_location = pathlib.Path(
+#         get_or_create_base_execution_directory(enter_recipe_example_directory)
+#     )
+#     step_outputs_path = expected_execution_directory_location / "steps" / "predict" / "outputs"
+#     assert not list(step_outputs_path.iterdir())

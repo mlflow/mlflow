@@ -35,7 +35,7 @@ _PREDICTION_COLUMN_NAME = "prediction"
 # Max dataframe size for profiling after scoring
 _MAX_PROFILE_SIZE = 10000
 # Environment manager for Spark UDF model restoration
-_ENV_MANAGER = "virtualenv"
+_ENV_MANAGER = "local"
 
 
 class PredictStep(BaseStep):
