@@ -1512,7 +1512,7 @@ def _search_model_versions():
         SearchModelVersions(),
         schema={
             "filter": [_assert_string],
-            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 1000)],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 200_000)],
             "order_by": [_assert_array, _assert_item_type_string],
             "page_token": [_assert_string],
         },
