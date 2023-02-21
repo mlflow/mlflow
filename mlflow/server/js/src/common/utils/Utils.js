@@ -249,10 +249,15 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
+  static getBitbucketSelfhostedRegex() {
+    return /[@/](bitbucket[.].+?)[:/][^/.]+\/([^/#]+)#?(.*)/;
+  }
+
   static getGitRepoUrl(sourceName) {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const bitbucketSelfhostedMatch = sourceName.match(Utils.getBitbucketSelfhostedRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
@@ -267,6 +272,13 @@ class Utils {
       if (bitbucketMatch[3]) {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
+    } else if (bitbucketSelfhostedMatch) {
+      const baseUrl = 'https://' + bitbucketSelfhostedMatch[1];
+      const projectOrUser =
+        bitbucketSelfhostedMatch[2].charAt(0) === '~'
+          ? '/users/' + bitbucketSelfhostedMatch[2].substring(1) + '/'
+          : '/projects/' + bitbucketSelfhostedMatch[2] + '/';
+      url = baseUrl + projectOrUser + 'repos' + bitbucketSelfhostedMatch[3].replace(/\.git$/, '');
     }
     return url;
   }
@@ -275,6 +287,7 @@ class Utils {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const bitbucketSelfhostedMatch = sourceName.match(Utils.getBitbucketSelfhostedRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
@@ -299,7 +312,21 @@ class Utils {
         sourceVersion +
         '/' +
         bitbucketMatch[3];
+    } else if (bitbucketSelfhostedMatch) {
+      const baseUrl = 'https://' + bitbucketSelfhostedMatch[1];
+      const projectOrUser =
+        bitbucketSelfhostedMatch[2].charAt(0) === '~'
+          ? '/users/' + bitbucketSelfhostedMatch[2].substring(1) + '/'
+          : '/projects/' + bitbucketSelfhostedMatch[2] + '/';
+      url =
+        baseUrl +
+        projectOrUser +
+        'repos' +
+        bitbucketSelfhostedMatch[3].replace(/\.git$/, '') +
+        '/commits/' +
+        sourceVersion;
     }
+
     return url;
   }
 

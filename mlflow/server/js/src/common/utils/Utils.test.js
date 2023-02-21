@@ -291,6 +291,18 @@ test('formatSource & renderSource', () => {
     </a>,
   );
 
+  const github_http_url = {
+    'mlflow.source.name': { value: 'https://github.com/OSobky/mlflow.git' },
+    'mlflow.source.type': { value: 'PROJECT' },
+    'mlflow.project.entryPoint': { value: 'entry' },
+  };
+  expect(Utils.formatSource(github_http_url)).toEqual('mlflow:entry');
+  expect(Utils.renderSource(github_http_url)).toEqual(
+    <a href='https://github.com/OSobky/mlflow' target='_top'>
+      mlflow:entry
+    </a>,
+  );
+
   const gitlab_url = {
     'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git' },
     'mlflow.source.type': { value: 'PROJECT' },
@@ -314,6 +326,84 @@ test('formatSource & renderSource', () => {
       mlflow-apps:entry
     </a>,
   );
+
+  const bitbucket_self_http_url = {
+    'mlflow.source.name': {
+      value: 'https://bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
+    },
+    'mlflow.source.type': { value: 'PROJECT' },
+    'mlflow.project.entryPoint': { value: 'main' },
+  };
+  expect(Utils.formatSource(bitbucket_self_http_url)).toEqual('mlflow-docker');
+  expect(Utils.renderSource(bitbucket_self_http_url)).toEqual(
+    <a href='https://bitbucket.Anyword.balabizoo.com/users/user/repos/mlflow-docker' target='_top'>
+      mlflow-docker
+    </a>,
+  );
+
+  const bitbucket_self_url = {
+    'mlflow.source.name': {
+      value: 'ssh://git@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
+    },
+    'mlflow.source.type': { value: 'PROJECT' },
+    'mlflow.project.entryPoint': { value: 'entry' },
+  };
+  expect(Utils.formatSource(bitbucket_self_url)).toEqual('mlflow-docker:entry');
+  expect(Utils.renderSource(bitbucket_self_url)).toEqual(
+    <a
+      href='https://bitbucket.Anyword.balabizoo.com/projects/projectname/repos/mlflow-docker'
+      target='_top'
+    >
+      mlflow-docker:entry
+    </a>,
+  );
+
+  const databricksRunTags = {
+    'mlflow.source.name': { value: '/Users/admin/test' },
+    'mlflow.source.type': { value: 'NOTEBOOK' },
+    'mlflow.databricks.notebookID': { value: '13' },
+    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
+  };
+  const wrapper = shallow(Utils.renderSource(databricksRunTags));
+  expect(wrapper.is('a')).toEqual(true);
+  expect(wrapper.props().href).toEqual('http://localhost/#notebook/13');
+
+  const databricksRunRevisionTags = {
+    'mlflow.source.name': { value: '/Users/admin/test' },
+    'mlflow.source.type': { value: 'NOTEBOOK' },
+    'mlflow.databricks.notebookRevisionID': { value: '42' },
+    'mlflow.databricks.notebookID': { value: '13' },
+    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
+  };
+  const wrapper2 = shallow(Utils.renderSource(databricksRunRevisionTags));
+  expect(wrapper2.is('a')).toEqual(true);
+  expect(wrapper2.props().href).toEqual('http://localhost/#notebook/13/revision/42');
+
+  const wrapper3 = shallow(Utils.renderSource(databricksRunRevisionTags, '?o=123'));
+  expect(wrapper3.is('a')).toEqual(true);
+  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
+  // and https://stackoverflow.com/a/34772568
+  expect(wrapper3.props().href).toEqual('http://localhost/?o=123#notebook/13/revision/42');
+
+  const wrapper4 = shallow(Utils.renderSource(databricksRunRevisionTags, '', 'abcd123456'));
+  expect(wrapper4.is('a')).toEqual(true);
+  expect(wrapper4.props().href).toEqual(
+    'http://localhost/#notebook/13/revision/42/mlflow/run/abcd123456',
+  );
+
+  const databricksJobTags = {
+    'mlflow.source.name': { value: 'job/70/run/5' },
+    'mlflow.source.type': { value: 'JOB' },
+    'mlflow.databricks.jobID': { value: '70' },
+    'mlflow.databricks.jobRunID': { value: '5' },
+    'mlflow.databricks.jobType': { value: 'NOTEBOOK' },
+    'mlflow.databricks.webappURL': { value: 'https://databricks.com' },
+  };
+  expect(Utils.formatSource(databricksJobTags)).toEqual('run 5 of job 70');
+  const wrapper5 = shallow(Utils.renderSource(databricksJobTags));
+  expect(wrapper5.is('a')).toEqual(true);
+  expect(wrapper5.props().href).toEqual('http://localhost/#job/70/run/5');
+
 });
 
 test('setQueryParams', () => {
@@ -453,6 +543,35 @@ test('getGitHubRegex', () => {
     if (match) {
       match[2] = match[2].replace(/.git/, '');
     }
+    expect([].concat(match)).toEqual(lst[1]);
+  });
+});
+
+test('getBitbucketSelfhostedRegex', () => {
+  const BitbucketSelfhostedRegex = Utils.getBitbucketSelfhostedRegex();
+  const urlAndExpected = [
+    [
+      'https://bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
+      [
+        '/bitbucket.Anyword.balabizoo.com/scm/~user/mlflow-docker.git',
+        'bitbucket.Anyword.balabizoo.com',
+        '~user',
+        '/mlflow-docker.git',
+      ],
+    ],
+    [
+      'ssh://git@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
+      [
+        '@bitbucket.Anyword.balabizoo.com:1234/projectname/mlflow-docker.git',
+        'bitbucket.Anyword.balabizoo.com',
+        'projectname',
+        '/mlflow-docker.git',
+      ],
+    ],
+  ];
+  urlAndExpected.forEach((lst) => {
+    const url = lst[0];
+    const match = url.match(BitbucketSelfhostedRegex);
     expect([].concat(match)).toEqual(lst[1]);
   });
 });
