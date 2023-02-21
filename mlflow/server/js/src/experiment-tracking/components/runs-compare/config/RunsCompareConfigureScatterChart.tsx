@@ -119,7 +119,7 @@ export const RunsCompareConfigureScatterChart = ({
       <RunsCompareRunNumberSelect
         value={state.runsCountToCompare}
         onChange={updateVisibleRunCount}
-        options={runsCompareRunCountDefaultOptions}
+        options={[20, 50, 100, 250, 500]}
       />
     </>
   );
