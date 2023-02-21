@@ -197,6 +197,7 @@ def _create_model_version(
     run_link=None,
     description=None,
 ):
+    time.sleep(0.001)
     return fs.create_model_version(
         name, source, run_id, tags, run_link=run_link, description=description
     )
@@ -388,7 +389,7 @@ def test_create_model_version(store):
     store.create_registered_model(name)
     run_id = uuid.uuid4().hex
     with mock.patch("time.time", return_value=456778):
-        mv1 = store.create_model_version(name, "a/b/CD", run_id)
+        mv1 = _create_model_version(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1
 
@@ -627,6 +628,15 @@ def test_delete_model_version(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def _search_model_versions(fs, filter_string=None, max_results=10, order_by=None, page_token=None):
+    return fs.search_model_versions(
+        filter_string=filter_string,
+        max_results=max_results,
+        order_by=order_by,
+        page_token=page_token,
+    )
+
+
 def test_search_model_versions(store):
     # create some model versions
     name = "test_for_search_MV"
@@ -644,10 +654,14 @@ def test_search_model_versions(store):
     assert mv4.version == 4
 
     def search_versions(filter_string):
-        return [mvd.version for mvd in store.search_model_versions(filter_string)]
+        return [mvd.version for mvd in _search_model_versions(store, filter_string)]
 
     # search using name should return all 4 versions
-    assert set(search_versions(f"name='{name}'")) == {1, 2, 3, 4}
+    assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+
+    # search using version
+    assert set(search_versions("version_number=2")) == {2}
+    assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
     # search using run_id_1 should return version 1
     assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
@@ -733,6 +747,14 @@ def test_search_model_versions(store):
         search_versions("run_id IN ('runid1',,'runid2')")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
+    # search using source_path "A/D" should return version 3 and 4
+    assert set(search_versions("source_path = 'A/D'")) == {3, 4}
+
+    # search using source_path "A" should not return anything
+    assert len(search_versions("source_path = 'A'")) == 0
+    assert len(search_versions("source_path = 'A/'")) == 0
+    assert len(search_versions("source_path = ''")) == 0
+
     # delete mv4. search should not return version 4
     store.delete_model_version(name=mv4.name, version=mv4.version)
     assert set(search_versions("")) == {1, 2, 3}
@@ -749,13 +771,106 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions(f"run_id = '{run_id_1}'")
+    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
     assert mvds[0].run_id == run_id_1
     assert mvds[0].source == "A/B"
     assert mvds[0].description == "Online prediction model!"
+
+
+def test_search_model_versions_order_by_simple(store):
+    # create some model versions
+    names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
+    sources = ["A"] * 3 + ["B"] * 3
+    run_ids = [uuid.uuid4().hex for _ in range(6)]
+    for name in set(names):
+        store.create_registered_model(name)
+    for i in range(6):
+        _create_model_version(store, name=names[i], source=sources[i], run_id=run_ids[i])
+        time.sleep(0.001)  # sleep for windows fs timestamp precision issues
+
+    # by default order by last_updated_timestamp DESC
+    mvs = _search_model_versions(store).to_list()
+    assert [mv.name for mv in mvs] == names[::-1]
+    assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+    # order by name DESC
+    mvs = _search_model_versions(store, order_by=["name DESC"])
+    assert [mv.name for mv in mvs] == sorted(names)[::-1]
+    assert [mv.version for mv in mvs] == [2, 1, 1, 1, 2, 1]
+
+    # order by version DESC
+    mvs = _search_model_versions(store, order_by=["version_number DESC"])
+    assert [mv.name for mv in mvs] == ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
+    assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+    # order by creation_timestamp DESC
+    mvs = _search_model_versions(store, order_by=["creation_timestamp DESC"])
+    assert [mv.name for mv in mvs] == names[::-1]
+    assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+    # order by last_updated_timestamp ASC
+    store.update_model_version(names[0], 1, "latest updated")
+    mvs = _search_model_versions(store, order_by=["last_updated_timestamp ASC"])
+    assert mvs[-1].name == names[0]
+    assert mvs[-1].version == 1
+
+
+def test_search_model_versions_pagination(store):
+    def search_versions(filter_string, page_token=None, max_results=10):
+        result = _search_model_versions(
+            store, filter_string=filter_string, page_token=page_token, max_results=max_results
+        )
+        return result.to_list(), result.token
+
+    name = "test_for_search_MV_pagination"
+    store.create_registered_model(name)
+    mvs = [_create_model_version(store, name) for _ in range(50)][::-1]
+
+    # test flow with fixed max_results
+    returned_mvs = []
+    query = "name LIKE 'test_for_search_MV_pagination%'"
+    result, token = search_versions(query, page_token=None, max_results=5)
+    returned_mvs.extend(result)
+    while token:
+        result, token = search_versions(query, page_token=token, max_results=5)
+        returned_mvs.extend(result)
+    assert mvs == returned_mvs
+
+    # test that pagination will return all valid results in sorted order
+    # by name ascending
+    result, token1 = search_versions(query, max_results=5)
+    assert token1 is not None
+    assert result == mvs[0:5]
+
+    result, token2 = search_versions(query, page_token=token1, max_results=10)
+    assert token2 is not None
+    assert result == mvs[5:15]
+
+    result, token3 = search_versions(query, page_token=token2, max_results=20)
+    assert token3 is not None
+    assert result == mvs[15:35]
+
+    result, token4 = search_versions(query, page_token=token3, max_results=100)
+    # assert that page token is None
+    assert token4 is None
+    assert result == mvs[35:]
+
+    # test that providing a completely invalid page token throws
+    with pytest.raises(
+        MlflowException, match=r"Invalid page token, could not base64-decode"
+    ) as exception_context:
+        search_versions(query, page_token="evilhax", max_results=20)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    # test that providing too large of a max_results throws
+    with pytest.raises(
+        MlflowException, match=r"Invalid value for max_results."
+    ) as exception_context:
+        search_versions(query, page_token="evilhax", max_results=1e15)
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_search_model_versions_by_tag(store):
@@ -783,7 +898,7 @@ def test_search_model_versions_by_tag(store):
     assert mv2.version == 2
 
     def search_versions(filter_string):
-        return [mvd.version for mvd in store.search_model_versions(filter_string)]
+        return [mvd.version for mvd in _search_model_versions(store, filter_string)]
 
     assert search_versions(f"name = '{name}' and tag.t2 = 'xyz'") == [1]
     assert search_versions("name = 'wrong_name' and tag.t2 = 'xyz'") == []
@@ -808,9 +923,9 @@ class SearchRegisteredModelsResult(NamedTuple):
 
 
 def _search_registered_models(
-    fs, filter_string=None, max_results=10, order_by=None, page_token=None
+    store, filter_string=None, max_results=10, order_by=None, page_token=None
 ):
-    result = fs.search_registered_models(
+    result = store.search_registered_models(
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by,
@@ -990,8 +1105,7 @@ def test_search_registered_models_by_tag(store):
 
 def test_search_registered_models_order_by_simple(store):
     # create some registered models
-    prefix = "test_for_search_"
-    names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
+    names = ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]
     for name in names:
         store.create_registered_model(name)
         time.sleep(0.001)  # sleep for windows store timestamp precision issues
@@ -1307,13 +1421,12 @@ def test_pyfunc_model_registry_with_file_store(store):
     with mlflow.start_run():
         mlflow.log_param("A", "B")
 
-    models = store.search_registered_models(max_results=10)
-    assert len(models) == 2
-    assert models[0].name == "model1"
-    assert models[1].name == "model2"
-    mv1 = store.search_model_versions("name = 'model1'")
-    assert len(mv1) == 2
-    assert mv1[0].name == "model1"
-    mv2 = store.search_model_versions("name = 'model2'")
-    assert len(mv2) == 1
-    assert mv2[0].name == "model2"
+        models = store.search_registered_models(max_results=10)
+        assert len(models) == 2
+        assert models[0].name == "model1"
+        assert models[1].name == "model2"
+        mv1 = store.search_model_versions("name = 'model1'", max_results=10)
+        assert len(mv1) == 2
+        assert mv1[0].name == "model1"
+        mv2 = store.search_model_versions("name = 'model2'", max_results=10)
+        assert len(mv2) == 1 and mv2[0].name == "model2"

@@ -755,11 +755,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         mv4 = self._mv_maker(name=name, source="A/D", run_id=run_id_3)
         assert mv4.version == 4
 
-        def search_versions(filter_string):
-            return [mvd.version for mvd in self.store.search_model_versions(filter_string)]
+        def search_versions(filter_string, max_results=10, order_by=None, page_token=None):
+            return [
+                mvd.version
+                for mvd in self.store.search_model_versions(
+                    filter_string, max_results, order_by, page_token
+                )
+            ]
 
         # search using name should return all 4 versions
         assert set(search_versions("name='%s'" % name)) == {1, 2, 3, 4}
+
+        # search using version
+        assert set(search_versions("version_number=2")) == {2}
+        assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
         # search using run_id_1 should return version 1
         assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
@@ -871,13 +880,137 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             name=mv1.name, version=mv1.version, description="Online prediction model!"
         )
 
-        mvds = self.store.search_model_versions("run_id = '%s'" % run_id_1)
+        mvds = self.store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
         assert len(mvds) == 1
         assert isinstance(mvds[0], ModelVersion)
         assert mvds[0].current_stage == "Production"
         assert mvds[0].run_id == run_id_1
         assert mvds[0].source == "A/B"
         assert mvds[0].description == "Online prediction model!"
+
+    def test_search_model_versions_order_by_simple(self):
+        # create some model versions
+        names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
+        sources = ["A"] * 3 + ["B"] * 3
+        run_ids = [uuid.uuid4().hex for _ in range(6)]
+        for name in set(names):
+            self._rm_maker(name)
+        for i in range(6):
+            self._mv_maker(name=names[i], source=sources[i], run_id=run_ids[i])
+
+        # by default order by last_updated_timestamp DESC
+        mvs = self.store.search_model_versions(filter_string=None)
+        assert [mv.name for mv in mvs] == names[::-1]
+        assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+        # order by name DESC
+        mvs = self.store.search_model_versions(filter_string=None, order_by=["name DESC"])
+        assert [mv.name for mv in mvs] == sorted(names)[::-1]
+        assert [mv.version for mv in mvs] == [2, 1, 1, 1, 2, 1]
+
+        # order by version DESC
+        mvs = self.store.search_model_versions(filter_string=None, order_by=["version_number DESC"])
+        assert [mv.name for mv in mvs] == ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
+        assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+        # order by creation_timestamp DESC
+        mvs = self.store.search_model_versions(
+            filter_string=None, order_by=["creation_timestamp DESC"]
+        )
+        assert [mv.name for mv in mvs] == names[::-1]
+        assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
+
+        # order by last_updated_timestamp ASC
+        self.store.update_model_version(names[0], 1, "latest updated")
+        mvs = self.store.search_model_versions(
+            filter_string=None, order_by=["last_updated_timestamp ASC"]
+        )
+        assert mvs[-1].name == names[0]
+        assert mvs[-1].version == 1
+
+    def test_search_model_versions_order_by_errors(self):
+        # create some model versions
+        name = "RM1"
+        self._rm_maker(name)
+        for _ in range(6):
+            self._mv_maker(name=name)
+        query = "name LIKE 'RM%'"
+        # test that invalid columns throw even if they come after valid columns
+        with pytest.raises(
+            MlflowException, match=r"Invalid attribute key '.+' specified"
+        ) as exception_context:
+            self.store.search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "run_id DESC"],
+                max_results=5,
+            )
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        # test that invalid columns with random text throw even if they come after valid columns
+        with pytest.raises(
+            MlflowException, match=r"Invalid order_by clause '.+'"
+        ) as exception_context:
+            self.store.search_model_versions(
+                query,
+                page_token=None,
+                order_by=["name ASC", "last_updated_timestamp DESC blah"],
+                max_results=5,
+            )
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    def test_search_model_versions_pagination(self):
+        def search_versions(filter_string, page_token=None, max_results=10):
+            result = self.store.search_model_versions(
+                filter_string=filter_string, page_token=page_token, max_results=max_results
+            )
+            return result.to_list(), result.token
+
+        name = "test_for_search_MV_pagination"
+        self._rm_maker(name)
+        mvs = [self._mv_maker(name) for _ in range(50)][::-1]
+
+        # test flow with fixed max_results
+        returned_mvs = []
+        query = "name LIKE 'test_for_search_MV_pagination%'"
+        result, token = search_versions(query, page_token=None, max_results=5)
+        returned_mvs.extend(result)
+        while token:
+            result, token = search_versions(query, page_token=token, max_results=5)
+            returned_mvs.extend(result)
+        assert mvs == returned_mvs
+
+        # test that pagination will return all valid results in sorted order
+        # by name ascending
+        result, token1 = search_versions(query, max_results=5)
+        assert token1 is not None
+        assert result == mvs[0:5]
+
+        result, token2 = search_versions(query, page_token=token1, max_results=10)
+        assert token2 is not None
+        assert result == mvs[5:15]
+
+        result, token3 = search_versions(query, page_token=token2, max_results=20)
+        assert token3 is not None
+        assert result == mvs[15:35]
+
+        result, token4 = search_versions(query, page_token=token3, max_results=100)
+        # assert that page token is None
+        assert token4 is None
+        assert result == mvs[35:]
+
+        # test that providing a completely invalid page token throws
+        with pytest.raises(
+            MlflowException, match=r"Invalid page token, could not base64-decode"
+        ) as exception_context:
+            search_versions(query, page_token="evilhax", max_results=20)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+        # test that providing too large of a max_results throws
+        with pytest.raises(
+            MlflowException, match=r"Invalid value for max_results\."
+        ) as exception_context:
+            search_versions(query, page_token="evilhax", max_results=1e15)
+        assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_search_model_versions_by_tag(self):
         # create some model versions
