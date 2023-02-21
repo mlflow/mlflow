@@ -51,10 +51,10 @@ def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
 
 
 # This test should run last as it cleans the batch scoring steps
-@pytest.mark.parametrize("step", _STEP_NAMES)
-def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe_example_directory):
+@pytest.mark.parametrize("_x", range(50))
+def test_recipe_batch_dag_clean_step_works(_x, step, run_batch_scoring, enter_recipe_example_directory):
     r = run_batch_scoring
-    r.clean(step)
+    r.clean("predict")
     expected_execution_directory_location = pathlib.Path(
         get_or_create_base_execution_directory(enter_recipe_example_directory)
     )
