@@ -1,4 +1,6 @@
+from contextlib import contextmanager
 import logging
+import shutil
 
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -28,6 +30,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
 )
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
@@ -257,14 +260,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name
         :param version: Model version number
         """
-        req_body = message_to_json(
-            FinalizeModelVersionRequest(
-                name=name,
-                version=version
-            )
-        )
+        req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
         self._call_endpoint(FinalizeModelVersionRequest, req_body)
-
 
     def _get_temporary_model_version_credentials(self, name, version):
         """
@@ -274,12 +271,17 @@ class UcModelRegistryStore(BaseRestStore):
         :return:
         """
         req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(
-                name=name,
-                version=version
-            )
+            GenerateTemporaryModelVersionCredentialsRequest(name=name, version=version)
         )
-        return self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body).credential
+        return self._call_endpoint(
+            GenerateTemporaryModelVersionCredentialsRequest, req_body
+        ).credential
+
+    @contextmanager
+    def _download_source(self, source):
+        tmpdir = mlflow.artifacts.download_artifacts(artifact_uri=source)
+        yield tmpdir
+        shutil.rmtree(tmpdir)
 
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
@@ -299,7 +301,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        # TODO: Implement client-side model version upload and finalization logic here
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
@@ -308,10 +309,22 @@ class UcModelRegistryStore(BaseRestStore):
                 description=description,
             )
         )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-        model_version = response_proto.model_version
-        store = get_artifact_repo_from_storage_info
-        return response_proto.model_version
+        with self._download_source(source) as local_model_dir:
+            version_number = self._call_endpoint(
+                CreateModelVersionRequest, req_body
+            ).model_version.version
+            model_artifact_uri = self.get_model_version_download_uri(
+                name=name, version=version_number
+            )
+            scoped_token = self._get_temporary_model_version_credentials(
+                name=name, version=version_number
+            )
+            store = get_artifact_repo_from_storage_info(
+                storage_location=model_artifact_uri, scoped_token=scoped_token
+            )
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        self._finalize_model_version(name=name, version=version_number)
+        return self.get_model_version(name, version=version_number)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
