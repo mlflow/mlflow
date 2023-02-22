@@ -565,7 +565,9 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, start_time, end_time, run_name=run_name)
+        new_info = run_info._copy_with_overrides(
+            run_status, start_time, end_time, run_name=run_name
+        )
         if run_name:
             self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
@@ -978,7 +980,9 @@ class FileStore(AbstractStore):
         self._set_run_tag(run_info, tag)
         if tag.key == MLFLOW_RUN_NAME:
             run_status = RunStatus.from_string(run_info.status)
-            self.update_run_info(run_id, run_status, run_info.start_time, run_info.end_time, tag.value)
+            self.update_run_info(
+                run_id, run_status, run_info.start_time, run_info.end_time, tag.value
+            )
 
     def _set_run_tag(self, run_info, tag):
         tag_path = self._get_tag_path(run_info.experiment_id, run_info.run_id, tag.key)
@@ -1027,7 +1031,9 @@ class FileStore(AbstractStore):
                 # synchronization.
                 if tag.key == MLFLOW_RUN_NAME:
                     run_status = RunStatus.from_string(run_info.status)
-                    self.update_run_info(run_id, run_status, run_info.start_time, run_info.end_time, tag.value)
+                    self.update_run_info(
+                        run_id, run_status, run_info.start_time, run_info.end_time, tag.value
+                    )
                 self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

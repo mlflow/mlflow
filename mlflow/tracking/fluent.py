@@ -305,7 +305,11 @@ def start_run(
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, start_time=get_current_time_millis(), end_time=end_time, run_name=None
+            existing_run_id,
+            run_status=RunStatus.RUNNING,
+            start_time=get_current_time_millis(),
+            end_time=end_time,
+            run_name=None,
         )
         tags = tags or {}
         if description:

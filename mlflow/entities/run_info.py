@@ -73,7 +73,9 @@ class RunInfo(_MLflowObject):
             return self.__dict__ == other.__dict__
         return False
 
-    def _copy_with_overrides(self, status=None, start_time=None, end_time=None, lifecycle_stage=None, run_name=None):
+    def _copy_with_overrides(
+            self, status=None, start_time=None, end_time=None, lifecycle_stage=None, run_name=None
+    ):
         """A copy of the RunInfo with certain attributes modified."""
         proto = self.to_proto()
         if status:
