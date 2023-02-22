@@ -502,7 +502,7 @@ def test_pyfunc_predict_proba_raises_invalid_attribute_type(auto_arima_model, mo
 
     with pytest.raises(
         MlflowException,
-        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing a " f"dictionary.",
+        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing a dictionary.",
     ):
         loaded_pyfunc.predict(pd.DataFrame())
 
