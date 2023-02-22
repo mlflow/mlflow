@@ -59,8 +59,7 @@ public class ModelVersionsPage implements Page<ModelVersion> {
    */
   public Page<ModelVersion> getNextPage() {
     if (this.hasNextPage()) {
-      return this.client.searchModelVersions(this.searchFilter,
-                                             this.token);
+      return this.client.searchModelVersions(this.searchFilter);
     } else {
       return new EmptyPage();
     }

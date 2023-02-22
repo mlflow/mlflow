@@ -935,7 +935,7 @@ public class MlflowClient implements Serializable, Closeable {
    * @return A page of model versions.
    */
   public ModelVersionsPage searchModelVersions() {
-    return searchModelVersions("", null);
+    return searchModelVersions("");
   }
 
   /**
@@ -950,36 +950,8 @@ public class MlflowClient implements Serializable, Closeable {
    * @return A page of model versions that satisfy the search filter.
    */
   public ModelVersionsPage searchModelVersions(String searchFilter) {
-    return searchModelVersions(searchFilter, null);
-  }
-
-  /**
-   * Return model versions that satisfy the search query.
-   *
-   * @param searchFilter SQL compatible search query string.
-   *                     Examples:
-   *                         - "name = 'model_name'"
-   *                         - "run_id = '...'"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param pageToken String token specifying the next page of results. It should be obtained from
-   *             a call to {@link #searchModelVersions(String)}.
-   *
-   * @return A page of model versions that satisfy the search filter.
-   */
-  public ModelVersionsPage searchModelVersions(String searchFilter,
-                                               String pageToken) {
-    SearchModelVersions.Builder builder = SearchModelVersions.newBuilder();
-
-    if (searchFilter != null) {
-      builder.setFilter(searchFilter);
-    }
-    if (pageToken != null) {
-      builder.setPageToken(pageToken);
-    }
-    SearchModelVersions request = builder.build();
-    String ijson = mapper.toJson(request);
-    String ojson = sendPost("model-versions/search", ijson);
-    SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(ojson);
+    String json = sendGet(mapper.makeSearchModelVersions(searchFilter));
+    SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(json);
     return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
             searchFilter, this);
   }

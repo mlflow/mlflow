@@ -195,6 +195,17 @@ class MlflowProtobufMapper {
     }
   }
 
+  String makeSearchModelVersions(String searchFilter) {
+    try {
+      return new URIBuilder("model-versions/search")
+              .addParameter("filter", searchFilter)
+              .build()
+              .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for search model version.", e);
+    }
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
