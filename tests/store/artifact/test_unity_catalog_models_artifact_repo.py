@@ -18,17 +18,29 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = (
     MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".UnityCatalogModelsArtifactRepository"
 )
 
 
-@pytest.mark.parametrize(
-    "uri_with_profile",
-    ["models://profile@databricks-uc/MyModel/12"],
-)
+# TODO: remove this mock once the UC model registry store is supported
+@pytest.fixture(autouse=True, scope="module")
+def mock_get_databricks_unity_catalog_store():
+    def get_uc_rest_store(store_uri):
+        return UcModelRegistryStore(store_uri)
+
+    with mock.patch(
+        "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store"
+    ) as _get_databricks_uc_rest_store_mock:
+        _get_databricks_uc_rest_store_mock.side_effect = get_uc_rest_store
+        yield _get_databricks_uc_rest_store_mock
+
+
 def test_uc_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile):
+    uri_with_profile = "models://profile@databricks-uc/MyModel/12"
     models_repo = UnityCatalogModelsArtifactRepository(
         uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME
     )
@@ -59,8 +71,20 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
 
 def test_uc_models_artifact_repo_with_stage_uri_raises():
     model_uri = "models:/MyModel/Staging"
-    # with pytest.raises(MlflowException):
-    UnityCatalogModelsArtifactRepository(model_uri, _DATABRICKS_UNITY_CATALOG_SCHEME)
+    with pytest.raises(
+        MlflowException, match="staged-based model URIs are unsupported for models in UC"
+    ):
+        UnityCatalogModelsArtifactRepository(model_uri, _DATABRICKS_UNITY_CATALOG_SCHEME)
+
+
+def test_uc_models_artifact_uri_with_scope_and_prefix_throws():
+    with pytest.raises(
+        MlflowException,
+        match="Remote model registry access via model URIs of the form 'models://<scope>@<prefix>/<model_name>/<version_or_stage>'",
+    ):
+        UnityCatalogModelsArtifactRepository(
+            "models://scope:prefix@databricks-uc/MyModel/12", _DATABRICKS_UNITY_CATALOG_SCHEME
+        )
 
 
 def _mock_temporary_creds_response(temporary_creds):
