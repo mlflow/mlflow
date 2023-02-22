@@ -4,6 +4,7 @@ import logging
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
+    MODEL_VERSION_READ_WRITE,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -77,7 +78,11 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         return self.client.get_model_version_download_uri(self.model_name, self.model_version)
 
     def _get_scoped_token(self):
-        req_body = {"name": self.model_name, "version": self.model_version}
+        req_body = {
+            "name": self.model_name,
+            "version": self.model_version,
+            "operation": MODEL_VERSION_READ_WRITE,
+        }
         db_creds = get_databricks_host_creds(self.registry_uri)
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
         return call_endpoint(

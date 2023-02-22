@@ -7,17 +7,17 @@ from google.cloud.storage import Client
 import pytest
 from requests import Response
 
-from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
-    UnityCatalogModelsArtifactRepository,
-)
 from mlflow import MlflowClient
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_uc_registry_messages_pb2 import MODEL_VERSION_READ_WRITE
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
+    UnityCatalogModelsArtifactRepository,
+)
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
@@ -39,7 +39,7 @@ def mock_get_databricks_unity_catalog_store():
         yield _get_databricks_uc_rest_store_mock
 
 
-def test_uc_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile):
+def test_uc_models_artifact_repo_init_with_uri_containing_profile():
     uri_with_profile = "models://profile@databricks-uc/MyModel/12"
     models_repo = UnityCatalogModelsArtifactRepository(
         uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -125,6 +125,12 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws():
             session_token=fake_session_token,
         )
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
+        request_mock.assert_called_with(
+            host_creds=ANY,
+            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            method="POST",
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+        )
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure():
@@ -140,8 +146,8 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
     ) as adls_artifact_repo_class_mock:
-        mock_s3_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
-        adls_artifact_repo_class_mock.return_value = mock_s3_repo
+        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
+        adls_artifact_repo_class_mock.return_value = mock_adls_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
             artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
@@ -153,7 +159,13 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure()
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
         assert credential.signature == fake_sas_token
-        mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
+        mock_adls_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
+        request_mock.assert_called_with(
+            host_creds=ANY,
+            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            method="POST",
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+        )
 
 
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
@@ -187,3 +199,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp():
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
+        request_mock.assert_called_with(
+            host_creds=ANY,
+            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            method="POST",
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+        )
