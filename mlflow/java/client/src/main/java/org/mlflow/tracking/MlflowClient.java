@@ -940,7 +940,9 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @return A page of model versions that satisfy the search filter.
    */
-  public ModelVersionsPage searchModelVersions(String searchFilter) {}
+  public ModelVersionsPage searchModelVersions(String searchFilter) {
+    return searchModelVersions(searchFilter, null);
+  }
 
   /**
    * Return model versions that satisfy the search query.
@@ -956,7 +958,22 @@ public class MlflowClient implements Serializable, Closeable {
    * @return A page of model versions that satisfy the search filter.
    */
   public ModelVersionsPage searchModelVersions(String searchFilter,
-                                               String pageToken) {}
+                                               String pageToken) {
+    SearchModelVersions.Builder builder = SearchModelVersions.newBuilder();
+
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (pageToken != null) {
+      builder.setPageToken(pageToken);
+    }
+    SearchModelVersions request = builder.build();
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("model-versions/search", ijson);
+    SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(ojson);
+    return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
+            searchFilter, this);
+  }
 
   /**
    * Closes the MlflowClient and releases any associated resources.
