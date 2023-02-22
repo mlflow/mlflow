@@ -930,6 +930,15 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   * Return model versions.
+   *
+   * @return A page of model versions.
+   */
+  public ModelVersionsPage searchModelVersions() {
+    return searchModelVersions("", null);
+  }
+
+  /**
    * Return model versions that satisfy the search query.
    *
    * @param searchFilter SQL compatible search query string.
