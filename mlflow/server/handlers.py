@@ -1508,10 +1508,26 @@ def _get_model_version_download_uri():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_model_versions():
-    request_message = _get_request_message(SearchModelVersions())
-    model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
+    request_message = _get_request_message(
+        SearchModelVersions(),
+        schema={
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 200_000)],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    store = _get_model_registry_store()
+    model_versions = store.search_model_versions(
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
+    if model_versions.token:
+        response_message.next_page_token = model_versions.token
     return _wrap_response(response_message)
 
 

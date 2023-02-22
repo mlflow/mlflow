@@ -358,6 +358,7 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS,
         accelerator=accelerator,
+        strategy="ddp_spawn",
         **{
             devices_kwarg_name: 4,
         },
