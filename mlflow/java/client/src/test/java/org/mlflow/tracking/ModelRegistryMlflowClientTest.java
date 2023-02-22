@@ -168,9 +168,10 @@ public class ModelRegistryMlflowClientTest {
         List<ModelVersion> mvsBefore = client.searchModelVersions().getItems();
 
         // create new model version of existing registered model
-        String runId1 = client.getModelVersion(modelName, "1").getRunId();
+        String newVersionRunId = "newVersionRunId";
+        String newVersionSource = "newVersionSource";
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId1, tempDir.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, newVersionRunId, newVersionSource));
 
         // create new registered model
         String modelName2 = "modelName2";
@@ -196,7 +197,7 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(mvs2.get(0).getName(), modelName2);
         Assert.assertEquals(mvs2.get(0).getVersion(), "1");
 
-        String filter3 = String.format("version = '%s'", "2");
+        String filter3 = String.format("run_id = '%s'", newVersionRunId);
         List<ModelVersion> mvs3 = client.searchModelVersions(filter3).getItems();
         Assert.assertEquals(mvs3.size(), 1);
         Assert.assertEquals(mvs3.get(0).getName(), modelName);
