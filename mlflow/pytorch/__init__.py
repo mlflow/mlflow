@@ -789,6 +789,8 @@ class _PyTorchWrapper:
         with torch.no_grad():
             input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
+            if device != "cpu":
+                preds = preds.to("cpu")
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
