@@ -36,7 +36,7 @@ def mock_data_lake_client():
     mock_adls_client = mock.MagicMock(autospec=DataLakeServiceClient)
     with mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo._get_data_lake_client",
-        return_value=mock_adls_client
+        return_value=mock_adls_client,
     ):
         yield mock_adls_client
 
@@ -147,7 +147,7 @@ def test_log_artifacts(
     subd.joinpath("b.txt").write_text("B")
     subd.joinpath("empty-file.txt").write_text("")
 
-    repo.log_artifacts(str(parentd))
+    repo.log_artifacts(parentd)
 
     mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_ROOT_PATH)
     call_list = mock_directory_client.get_file_client.call_args_list
@@ -175,7 +175,7 @@ def test_download_file_artifact(
 
     mock_file_client.download_file().readinto.side_effect = create_file
     repo.download_artifacts("test.txt")
-    assert os.path.exists(os.path.join(str(tmp_path), "test.txt"))
+    assert os.path.exists(os.path.join(tmp_path, "test.txt"))
     mock_directory_client.get_file_client.assert_called_once_with("test.txt")
 
 
@@ -224,14 +224,13 @@ def test_download_directory_artifact(
     mock_file_client.download_file().readinto.side_effect = create_file
 
     # Ensure that the root directory can be downloaded successfully
-    dest_dir_obj = tmp_path.joinpath("download_dir")
-    dest_dir_obj.mkdir()
-    dest_dir = str(dest_dir_obj)
+    dest_dir = tmp_path.joinpath("download_dir")
+    dest_dir.mkdir()
     repo.download_artifacts(artifact_path="", dst_path=dest_dir)
     # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmp_path`
     dir_contents = os.listdir(dest_dir)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
     assert dir_name in dir_contents
-    subdir_contents = os.listdir(dest_dir_obj.joinpath(dir_name))
+    subdir_contents = os.listdir(dest_dir.joinpath(dir_name))
     assert dir_file_name in subdir_contents
