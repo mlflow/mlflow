@@ -170,7 +170,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_run_info(self, run_id, run_status, end_time, run_name):
+    def update_run_info(self, run_id, run_status, start_time, end_time, run_name):
         """
         Update the metadata of the specified run.
 

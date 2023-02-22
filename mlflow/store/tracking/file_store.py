@@ -561,11 +561,11 @@ class FileStore(AbstractStore):
             return os.path.basename(os.path.abspath(experiment_dir)), runs[0]
         return None, None
 
-    def update_run_info(self, run_id, run_status, end_time, run_name):
+    def update_run_info(self, run_id, run_status, start_time, end_time, run_name):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
-        new_info = run_info._copy_with_overrides(run_status, end_time, run_name=run_name)
+        new_info = run_info._copy_with_overrides(run_status, start_time, end_time, run_name=run_name)
         if run_name:
             self._set_run_tag(run_info, RunTag(MLFLOW_RUN_NAME, run_name))
         self._overwrite_run_info(new_info)
