@@ -37,6 +37,7 @@ from mlflow.utils.rest_utils import (
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
+from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
@@ -249,6 +250,37 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
+    def _finalize_model_version(self, name, version):
+        """
+        Finalize a UC model version after its files have been written to managed storage,
+        updating its status from PENDING_REGISTRATION to READY
+        :param name: Registered model name
+        :param version: Model version number
+        """
+        req_body = message_to_json(
+            FinalizeModelVersionRequest(
+                name=name,
+                version=version
+            )
+        )
+        self._call_endpoint(FinalizeModelVersionRequest, req_body)
+
+
+    def _get_temporary_model_version_credentials(self, name, version):
+        """
+        Get temporary credentials for uploading model version files
+        :param name:
+        :param version:
+        :return:
+        """
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name,
+                version=version
+            )
+        )
+        return self._call_endpoint(GenerateTemporaryModelVersionCredentialsRequest, req_body).credential
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -277,6 +309,8 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
+        model_version = response_proto.model_version
+        store = get_artifact_repo_from_storage_info
         return response_proto.model_version
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
