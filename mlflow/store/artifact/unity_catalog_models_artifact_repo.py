@@ -1,5 +1,4 @@
 import json
-import logging
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -22,7 +21,6 @@ from mlflow.store.artifact.utils.models import (
 
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 
-_logger = logging.getLogger(__name__)
 REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = (
     "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
 )
