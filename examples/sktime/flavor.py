@@ -12,7 +12,7 @@ mlflow.pyfunc
     `predict_interval`, `predict_proba`, `predict_quantiles`, `predict_var`.
 
     The interface for utilizing a sktime model loaded as a `pyfunc` type for
-    generating forecasts requires passing an exogenous regressor as Pandas
+    generating forecasts requires passing an exogenous regressor as a Pandas
     DataFrame to the `pyfunc.predict()` method (an empty DataFrame must be
     passed if no exogenous regressor is used). The configuration of predict
     methods and parameter values passed to the predict methods is defined by
