@@ -29,7 +29,7 @@ onnx>=1.11.0
 onnxruntime
 tf2onnx
 # Required by mlflow.spark
-pyspark
+https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet

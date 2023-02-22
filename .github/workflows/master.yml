@@ -248,7 +248,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -269,7 +269,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          pip install tensorflow https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
