@@ -19,7 +19,7 @@ from mlflow.store.artifact.azure_data_lake_artifact_repo import (
 
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"
-TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, "some/path")
+TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, TEST_ROOT_PATH)
 
 
 class MockPathList:
@@ -35,9 +35,9 @@ class MockPathList:
 def mock_data_lake_client():
     mock_adls_client = mock.MagicMock(autospec=DataLakeServiceClient)
     with mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo._get_data_lake_client"
-    ) as mock_get_client:
-        mock_get_client.return_value = mock_adls_client
+        "mlflow.store.artifact.azure_data_lake_artifact_repo._get_data_lake_client",
+        return_value=mock_adls_client,
+    ):
         yield mock_adls_client
 
 
@@ -62,32 +62,37 @@ def mock_file_client(mock_directory_client):
     yield mock_file_client
 
 
-def test_parse_global_abfss_uri():
-    parse = _parse_abfss_uri
-    global_abfs_with_short_path = "abfss://filesystem@acct.dfs.core.windows.net/path"
-    assert parse(global_abfs_with_short_path) == ("filesystem", "acct", "path")
+@pytest.mark.parametrize(
+    "uri, filesystem, account, path",
+    [
+        ("abfss://filesystem@acct.dfs.core.windows.net/path", "filesystem", "acct", "path"),
+        ("abfss://filesystem@acct.dfs.core.windows.net", "filesystem", "acct", ""),
+        ("abfss://filesystem@acct.dfs.core.windows.net/", "filesystem", "acct", ""),
+        ("abfss://filesystem@acct.dfs.core.windows.net/a/b", "filesystem", "acct", "a/b"),
+    ],
+)
+def test_parse_valid_abfss_uri(uri, filesystem, account, path):
+    assert _parse_abfss_uri(uri) == (filesystem, account, path)
 
-    global_abfs_without_path = "abfss://filesystem@acct.dfs.core.windows.net"
-    assert parse(global_abfs_without_path) == ("filesystem", "acct", "")
 
-    global_abfs_without_path2 = "abfss://filesystem@acct.dfs.core.windows.net/"
-    assert parse(global_abfs_without_path2) == ("filesystem", "acct", "")
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "abfss://filesystem@acct.dfs.core.evil.net/path",
+        "abfss://filesystem@acct/path",
+        "abfss://acct.dfs.core.windows.net/path",
+        "abfss://@acct.dfs.core.windows.net/path",
+        "abfss://filesystem@acctxdfs.core.windows.net/path",
+    ],
+)
+def test_parse_invalid_abfss_uri(uri):
+    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
+        _parse_abfss_uri(uri)
 
-    global_abfs_with_multi_path = "abfss://filesystem@acct.dfs.core.windows.net/a/b"
-    assert parse(global_abfs_with_multi_path) == ("filesystem", "acct", "a/b")
 
-    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
-        parse("abfss://filesystem@acct.dfs.core.evil.net/path")
-    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
-        parse("abfss://filesystem@acct/path")
-    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
-        parse("abfss://acct.dfs.core.windows.net/path")
-    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
-        parse("abfss://@acct.dfs.core.windows.net/path")
-    with pytest.raises(MlflowException, match="ABFSS URI must be of the form"):
-        parse("abfss://filesystem@acctxdfs.core.windows.net/path")
+def test_parse_invalid_abfss_uri_bad_scheme():
     with pytest.raises(MlflowException, match="Not an ABFSS URI"):
-        parse("abfs://cont@acct.dfs.core.windows.net/path")
+        _parse_abfss_uri("abfs://cont@acct.dfs.core.windows.net/path")
 
 
 def test_list_artifacts_empty(mock_data_lake_client):
@@ -114,7 +119,7 @@ def test_list_artifacts(mock_data_lake_client, mock_filesystem_client):
     mock_filesystem_client.get_paths.return_value = MockPathList([dir_prefix, path_props])
 
     artifacts = repo.list_artifacts()
-    mock_filesystem_client.get_paths.assert_called_with(path=TEST_ROOT_PATH, recursive=False)
+    mock_filesystem_client.get_paths.assert_called_once_with(path=TEST_ROOT_PATH, recursive=False)
     assert artifacts[0].path == "dir"
     assert artifacts[0].is_dir is True
     assert artifacts[0].file_size is None
@@ -122,26 +127,29 @@ def test_list_artifacts(mock_data_lake_client, mock_filesystem_client):
     assert artifacts[1].is_dir is False
     assert artifacts[1].file_size == 42
 
+    mock_filesystem_client.reset_mock()
     repo.list_artifacts(path="nonexistent-dir")
-    mock_filesystem_client.get_paths.assert_called_with(
+    mock_filesystem_client.get_paths.assert_called_once_with(
         path=posixpath.join(TEST_ROOT_PATH, "nonexistent-dir"), recursive=False
     )
 
 
 def test_log_artifacts(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
-    parentd = tmpdir.mkdir("data")
-    subd = parentd.mkdir("subdir")
-    parentd.join("a.txt").write("A")
-    subd.join("b.txt").write("B")
-    subd.join("empty-file.txt").write("")
+    parentd = tmp_path.joinpath("data")
+    parentd.mkdir()
+    subd = parentd.joinpath("subdir")
+    subd.mkdir()
+    parentd.joinpath("a.txt").write_text("A")
+    subd.joinpath("b.txt").write_text("B")
+    subd.joinpath("empty-file.txt").write_text("")
 
-    repo.log_artifacts(parentd.strpath)
+    repo.log_artifacts(parentd)
 
-    mock_filesystem_client.get_directory_client.assert_called_with(TEST_ROOT_PATH)
+    mock_filesystem_client.get_directory_client.assert_called_once_with(TEST_ROOT_PATH)
     call_list = mock_directory_client.get_file_client.call_args_list
 
     # Ensure that we uploaded all the expected files
@@ -156,23 +164,23 @@ def test_log_artifacts(
 
 
 def test_download_file_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_directory_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, None)
 
     def create_file(file):
         local_path = os.path.basename(file.name)
-        f = tmpdir.join(local_path)
-        f.write("hello world!")
+        f = tmp_path.joinpath(local_path)
+        f.write_text("hello world!")
 
     mock_file_client.download_file().readinto.side_effect = create_file
     repo.download_artifacts("test.txt")
-    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
-    mock_directory_client.get_file_client.assert_called_with("test.txt")
+    assert os.path.exists(os.path.join(tmp_path, "test.txt"))
+    mock_directory_client.get_file_client.assert_called_once_with("test.txt")
 
 
 def test_download_directory_artifact(
-    mock_data_lake_client, mock_filesystem_client, mock_file_client, tmpdir
+    mock_data_lake_client, mock_filesystem_client, mock_file_client, tmp_path
 ):
     repo = AzureDataLakeArtifactRepository(TEST_DATA_LAKE_URI, mock_data_lake_client)
 
@@ -216,14 +224,13 @@ def test_download_directory_artifact(
     mock_file_client.download_file().readinto.side_effect = create_file
 
     # Ensure that the root directory can be downloaded successfully
-    dest_dir_obj = tmpdir.join("download_dir")
-    dest_dir_obj.mkdir()
-    dest_dir = dest_dir_obj.strpath
+    dest_dir = tmp_path.joinpath("download_dir")
+    dest_dir.mkdir()
     repo.download_artifacts(artifact_path="", dst_path=dest_dir)
-    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
+    # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmp_path`
     dir_contents = os.listdir(dest_dir)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
     assert dir_name in dir_contents
-    subdir_contents = os.listdir(dest_dir_obj.join(dir_name).strpath)
+    subdir_contents = os.listdir(dest_dir.joinpath(dir_name))
     assert dir_file_name in subdir_contents
