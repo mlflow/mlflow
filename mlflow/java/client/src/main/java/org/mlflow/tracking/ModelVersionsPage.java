@@ -2,7 +2,6 @@ package org.mlflow.tracking;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.ArrayList;
 import java.util.Optional;
 import org.mlflow.api.proto.ModelRegistry.*;
 

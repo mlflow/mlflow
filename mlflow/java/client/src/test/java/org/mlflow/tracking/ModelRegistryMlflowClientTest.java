@@ -15,7 +15,6 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
-import org.mlflow.api.proto.Service;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -24,7 +23,6 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import org.testng.mustache.Model;
 
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
