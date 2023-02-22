@@ -19,7 +19,7 @@ from mlflow.store.artifact.azure_data_lake_artifact_repo import (
 
 TEST_ROOT_PATH = "some/path"
 TEST_DATA_LAKE_URI_BASE = "abfss://filesystem@account.dfs.core.windows.net"
-TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, "some/path")
+TEST_DATA_LAKE_URI = posixpath.join(TEST_DATA_LAKE_URI_BASE, TEST_ROOT_PATH)
 
 
 class MockPathList:
@@ -35,9 +35,9 @@ class MockPathList:
 def mock_data_lake_client():
     mock_adls_client = mock.MagicMock(autospec=DataLakeServiceClient)
     with mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo._get_data_lake_client"
-    ) as mock_get_client:
-        mock_get_client.return_value = mock_adls_client
+        "mlflow.store.artifact.azure_data_lake_artifact_repo._get_data_lake_client",
+        return_value=mock_adls_client
+    ):
         yield mock_adls_client
 
 
@@ -233,5 +233,5 @@ def test_download_directory_artifact(
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
     assert dir_name in dir_contents
-    subdir_contents = os.listdir(str(dest_dir_obj.joinpath(dir_name)))
+    subdir_contents = os.listdir(dest_dir_obj.joinpath(dir_name))
     assert dir_file_name in subdir_contents
