@@ -114,6 +114,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
+          ./dev/install-pyspark-dev.sh
       - name: Import check
         run: |
           python tests/check_mlflow_lazily_imports_ml_packages.py
@@ -248,7 +249,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          ./dev/install-pyspark-dev.sh
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -269,7 +270,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install tensorflow pyspark
+          ./dev/install-pyspark-dev.sh
+          pip install tensorflow
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
