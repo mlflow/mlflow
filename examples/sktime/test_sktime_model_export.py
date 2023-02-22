@@ -515,6 +515,6 @@ def test_pyfunc_predict_proba_raises_invalid_dict_value(auto_arima_model, model_
 
     with pytest.raises(
         MlflowException,
-        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing " f"quantile values.",
+        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing quantile values.",
     ):
         loaded_pyfunc.predict(pd.DataFrame())
