@@ -49,20 +49,22 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "
-                f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. Please specify a "
-                f"Unity Catalog registry URI of the form '{_DATABRICKS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
-                f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}') if using the MLflow Python client",
+                f"Unity Catalog with non-Unity Catalog registry URI '{registry_uri}'. "
+                f"Please specify a Unity Catalog registry URI of the "
+                f"form '{_DATABRICKS_UNITY_CATALOG_SCHEME}[://profile]', e.g. by calling "
+                f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}') if using the "
+                f"MLflow Python client",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         super().__init__(artifact_uri)
         from mlflow.tracking.client import MlflowClient
 
-        registry_uri_from_profile = get_databricks_profile_uri_from_artifact_uri(
+        registry_uri_from_artifact_uri = get_databricks_profile_uri_from_artifact_uri(
             artifact_uri, result_scheme=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
-        if registry_uri_from_profile is not None:
-            registry_uri = registry_uri_from_profile
-        profile, key_prefix = get_db_info_from_uri(registry_uri)
+        if registry_uri_from_artifact_uri is not None:
+            registry_uri = registry_uri_from_artifact_uri
+        _, key_prefix = get_db_info_from_uri(registry_uri)
         if key_prefix is not None:
             raise MlflowException(
                 "Remote model registry access via model URIs of the form "

@@ -1,7 +1,6 @@
-from contextlib import contextmanager
 import json
 from unittest import mock
-from unittest.mock import Mock, ANY
+from unittest.mock import ANY
 
 from google.cloud.storage import Client
 import pytest
@@ -64,7 +63,8 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises():
     model_uri = "models:/MyModel/12"
     with pytest.raises(
         MlflowException,
-        match="Attempted to instantiate an artifact repo to access models in the Unity Catalog with non-Unity Catalog registry URI",
+        match="Attempted to instantiate an artifact repo to access models in the Unity "
+              "Catalog with non-Unity Catalog registry URI",
     ):
         UnityCatalogModelsArtifactRepository(model_uri, non_databricks_uri)
 
@@ -80,7 +80,8 @@ def test_uc_models_artifact_repo_with_stage_uri_raises():
 def test_uc_models_artifact_uri_with_scope_and_prefix_throws():
     with pytest.raises(
         MlflowException,
-        match="Remote model registry access via model URIs of the form 'models://<scope>@<prefix>/<model_name>/<version_or_stage>'",
+        match="Remote model registry access via model URIs of the form "
+              "'models://<scope>@<prefix>/<model_name>/<version_or_stage>'",
     ):
         UnityCatalogModelsArtifactRepository(
             "models://scope:prefix@databricks-uc/MyModel/12", _DATABRICKS_UNITY_CATALOG_SCHEME
