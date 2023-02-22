@@ -15,6 +15,7 @@ import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+import org.mlflow.api.proto.Service;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -23,6 +24,7 @@ import org.testng.Assert;
 import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
+import org.testng.mustache.Model;
 
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
@@ -159,5 +161,45 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getName(), modelName);
         Assert.assertEquals(details.getVersion(), version);
+    }
+
+    @Test
+    public void testSearchModelVersions() {
+        List<ModelVersion> mvsBefore = client.searchModelVersions().getItems();
+
+        // create new model version of existing registered model
+        String runId1 = client.getModelVersion(modelName, "1").getRunId();
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName, runId1, tempDir.getAbsolutePath()));
+
+        // create new registered model
+        String modelName2 = "modelName2";
+        String runId2 = "runId2";
+        String source2 = "source2";
+        client.sendPost("registered-models/create",
+                mapper.makeCreateModel(modelName2));
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName2, runId2, source2));
+
+        List<ModelVersion> mvsAfter = client.searchModelVersions().getItems();
+        Assert.assertEquals(mvsAfter.size(), 2 + mvsBefore.size());
+
+        String filter1 = String.format("name = '%s'", modelName);
+        List<ModelVersion> mvs1 = client.searchModelVersions(filter1).getItems();
+        Assert.assertEquals(mvs1.size(), 2);
+        Assert.assertEquals(mvs1.get(0).getName(), modelName);
+        Assert.assertEquals(mvs1.get(1).getName(), modelName);
+
+        String filter2 = String.format("name = '%s'", modelName2);
+        List<ModelVersion> mvs2 = client.searchModelVersions(filter2).getItems();
+        Assert.assertEquals(mvs2.size(), 1);
+        Assert.assertEquals(mvs2.get(0).getName(), modelName2);
+        Assert.assertEquals(mvs2.get(0).getVersion(), "1");
+
+        String filter3 = String.format("version = '%s'", "2");
+        List<ModelVersion> mvs3 = client.searchModelVersions(filter3).getItems();
+        Assert.assertEquals(mvs3.size(), 1);
+        Assert.assertEquals(mvs3.get(0).getName(), modelName);
+        Assert.assertEquals(mvs3.get(0).getVersion(), "2");
     }
 }
