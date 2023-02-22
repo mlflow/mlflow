@@ -1226,10 +1226,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for new_status_string in models.RunStatusTypes:
             run = self._run_factory(config=self._get_run_configs(experiment_id=experiment_id))
             endtime = get_current_time_millis()
+            starttime = get_current_time_millis()
             actual = self.store.update_run_info(
-                run.info.run_id, RunStatus.from_string(new_status_string), endtime, None
+                run.info.run_id, RunStatus.from_string(new_status_string), starttime, endtime, None
             )
             assert actual.status == new_status_string
+            assert actual.start_time == starttime
             assert actual.end_time == endtime
 
     def test_update_run_name(self):
@@ -1240,17 +1242,17 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         run = self.store.get_run(run_id)
         assert run.info.run_name == configs["run_name"]
 
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, "new name")
         run = self.store.get_run(run_id)
         assert run.info.run_name == "new name"
         assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
 
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, None)
         run = self.store.get_run(run_id)
         assert run.info.run_name == "new name"
         assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
 
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "")
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, "")
         run = self.store.get_run(run_id)
         assert run.info.run_name == "new name"
         assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "new name"
@@ -1260,7 +1262,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert run.info.run_name == "new name"
         assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) is None
 
-        self.store.update_run_info(run_id, RunStatus.FINISHED, 1000, "newer name")
+        self.store.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, "newer name")
         run = self.store.get_run(run_id)
         assert run.info.run_name == "newer name"
         assert run.data.tags.get(mlflow_tags.MLFLOW_RUN_NAME) == "newer name"
@@ -1494,7 +1496,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         for end in [234, None, 456, -123, 789, 123]:
             run_id = create_run(start_time, end)
             self.store.update_run_info(
-                run_id, run_status=RunStatus.FINISHED, end_time=end, run_name=None
+                run_id, run_status=RunStatus.FINISHED, start_time=start_time, end_time=end, run_name=None
             )
             start_time += 1
 
@@ -1797,7 +1799,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         ) == sorted(self._search([e1, e2], filter_string))
 
         # change status for one of the runs
-        self.store.update_run_info(r2, RunStatus.FAILED, 300, None)
+        self.store.update_run_info(r2, RunStatus.FAILED, 0, 300, None)
 
         filter_string = "attribute.status = 'RUNNING'"
         assert self._search([e1, e2], filter_string) == [r1]
@@ -2036,6 +2038,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.update_run_info(
             run1.info.run_id,
             RunStatus.FINISHED,
+            start_time=run1.info.start_time,
             end_time=run1.info.end_time,
             run_name="new_run_name1",
         )

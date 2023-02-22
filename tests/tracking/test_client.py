@@ -711,6 +711,7 @@ def test_update_run(mock_store):
     mock_store.update_run_info.assert_called_once_with(
         run_id="run_id",
         run_status=RunStatus.from_string("FINISHED"),
+        start_time=mock.ANY,
         end_time=mock.ANY,
         run_name="my name",
     )

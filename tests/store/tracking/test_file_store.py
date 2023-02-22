@@ -843,7 +843,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             tags=[],
             run_name="first name",
         ).info.run_id
-        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, "new name")
+        fs.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, "new name")
         get_run = fs.get_run(run_id)
         assert get_run.info.run_name == "new name"
 
@@ -856,7 +856,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
             tags=[],
             run_name="first name",
         ).info.run_id
-        fs.update_run_info(run_id, RunStatus.FINISHED, 1000, None)
+        fs.update_run_info(run_id, RunStatus.FINISHED, 0, 1000, None)
         get_run = fs.get_run(run_id)
         assert get_run.info.run_name == "first name"
 
@@ -1058,6 +1058,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         fs.update_run_info(
             run1.info.run_id,
             RunStatus.FINISHED,
+            start_time=run1.info.start_time,
             end_time=run1.info.end_time,
             run_name="new_run_name1",
         )
@@ -1657,12 +1658,12 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert run.info.run_name == "name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "name"
 
-        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "new name")
+        fs.update_run_info(run_id, RunStatus.FINISHED, 0, 100, "new name")
         run = fs.get_run(run_id)
         assert run.info.run_name == "new name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
 
-        fs.update_run_info(run_id, RunStatus.FINISHED, 100, None)
+        fs.update_run_info(run_id, RunStatus.FINISHED, 0, 100, None)
         run = fs.get_run(run_id)
         assert run.info.run_name == "new name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "new name"
@@ -1672,7 +1673,7 @@ class TestFileStore(unittest.TestCase, AbstractStoreTest):
         assert run.info.run_name == "new name"
         assert run.data.tags.get(MLFLOW_RUN_NAME) is None
 
-        fs.update_run_info(run_id, RunStatus.FINISHED, 100, "another name")
+        fs.update_run_info(run_id, RunStatus.FINISHED, 0, 100, "another name")
         run = fs.get_run(run_id)
         assert run.data.tags.get(MLFLOW_RUN_NAME) == "another name"
         assert run.info.run_name == "another name"
