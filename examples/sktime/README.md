@@ -1,8 +1,8 @@
 # Sktime Example
 
 This example trains a Sktime NaiveForecaster model using the Longley dataset for
-forecasting with exogenous variables and logs hyperparameters, metrics, and
-trained model.
+forecasting with exogenous variables. It shows a custom model type implementation that 
+logs the training hyper-parameters, evaluation metrics and the trained model as an artifact.
 
 ## Running the code
 
