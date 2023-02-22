@@ -202,7 +202,9 @@ class MlflowProtobufMapper {
               .build()
               .toString();
     } catch (URISyntaxException e) {
-      throw new MlflowClientException("Failed to construct request URI for search model version.", e);
+      throw new MlflowClientException(
+              "Failed to construct request URI for search model version.",
+              e);
     }
   }
 
