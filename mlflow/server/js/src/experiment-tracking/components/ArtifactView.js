@@ -8,6 +8,7 @@ import {
   getExtension,
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
+  AUDIO_EXTENSIONS,
 } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 import { decorators, Treebeard } from 'react-treebeard';
@@ -30,6 +31,9 @@ import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi } from '../actions';
 import { MLMODEL_FILE_NAME } from '../constants';
+import { Switch } from 'antd';
+import { ArtifactViewPersistedState } from '../sdk/MlflowLocalStorageMessages';
+import LocalStorageUtils from 'src/common/utils/LocalStorageUtils';
 
 const { Text } = Typography;
 
@@ -52,7 +56,19 @@ export class ArtifactViewImpl extends Component {
     activeNodeId: undefined,
     toggledNodeIds: {},
     requestedNodeIds: new Set(),
+    persistedState: new ArtifactViewPersistedState({
+      ...ArtifactViewImpl.getLocalStore().loadComponentState(),
+    }).toJSON(),
   };
+
+  static getLocalStore() {
+    return LocalStorageUtils.getStoreForComponent('ArtifactPage');
+  }
+
+  snapshotComponentState() {
+    const store = ArtifactViewImpl.getLocalStore();
+    store.saveComponentState(new ArtifactViewPersistedState(this.state.persistedState));
+  }
 
   getExistingModelVersions() {
     const { modelVersionsBySource } = this.props;
@@ -134,7 +150,31 @@ export class ArtifactViewImpl extends Component {
     );
   }
 
-  renderArtifactInfo() {
+  handleShowWaveformSwitchChange = (e) => {
+    this.setState(
+      {
+        persistedState: new ArtifactViewPersistedState({
+          ...this.state.persistedState,
+          showWaveformSelected: !this.state.persistedState.showWaveformSelected,
+        }).toJSON(),
+      },
+      () => this.snapshotComponentState(),
+    );
+  };
+
+  renderShowWaveformSwitch() {
+    return (
+      <div className='audio-artifact-toggle-waveform-switch'>
+        <Switch
+          css={{ margin: '5px' }}
+          checked={this.state.persistedState.showWaveformSelected}
+          onChange={this.handleShowWaveformSwitchChange}
+        />
+      </div>
+    );
+  }
+
+  renderArtifactInfo(isAudioFile) {
     const existingModelVersions = this.getExistingModelVersions();
     let toRender;
     if (existingModelVersions && Utils.isModelRegistryEnabled()) {
@@ -145,6 +185,17 @@ export class ArtifactViewImpl extends Component {
       toRender = this.renderRegisterModelButton();
     } else if (this.activeNodeIsDirectory()) {
       toRender = null;
+    } else if (isAudioFile) {
+      toRender = (
+        <>
+          {this.props.intl.formatMessage({
+            defaultMessage: 'Show audio waveform',
+            description: 'Switch to enable the waveform visualization of audio file artifacts',
+          })}
+          {this.renderShowWaveformSwitch()}
+          {this.renderDownloadLink()}
+        </>
+      );
     } else {
       toRender = this.renderDownloadLink();
     }
@@ -287,6 +338,7 @@ export class ArtifactViewImpl extends Component {
         toggledArtifactState['toggledNodeIds'][pathSoFar] = true;
         pathSoFar += '/';
       });
+
       this.setArtifactState(toggledArtifactState);
     }
   }
@@ -299,6 +351,13 @@ export class ArtifactViewImpl extends Component {
     if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView />;
     }
+
+    let isAudioFile = false;
+    if (this.state.activeNodeId) {
+      const extension = getExtension(this.state.activeNodeId);
+      isAudioFile = AUDIO_EXTENSIONS.has(extension);
+    }
+
     return (
       <div>
         <div className='artifact-view'>
@@ -311,7 +370,7 @@ export class ArtifactViewImpl extends Component {
             />
           </div>
           <div className='artifact-right'>
-            {this.state.activeNodeId ? this.renderArtifactInfo() : null}
+            {this.state.activeNodeId ? this.renderArtifactInfo(isAudioFile) : null}
             <ShowArtifactPage
               runUuid={this.props.runUuid}
               path={this.state.activeNodeId}
@@ -320,6 +379,7 @@ export class ArtifactViewImpl extends Component {
               runTags={this.props.runTags}
               artifactRootUri={this.props.artifactRootUri}
               modelVersions={this.props.modelVersions}
+              showWaveform={this.state.persistedState.showWaveformSelected}
             />
           </div>
         </div>
@@ -518,6 +578,8 @@ decorators.Header = ({ style, node }) => {
       iconType = 'file-excel-o';
     } else if (TEXT_EXTENSIONS.has(extension)) {
       iconType = 'file-code-o';
+    } else if (AUDIO_EXTENSIONS.has(extension)) {
+      iconType = 'file-audio-o';
     } else {
       iconType = 'file-text-o';
     }

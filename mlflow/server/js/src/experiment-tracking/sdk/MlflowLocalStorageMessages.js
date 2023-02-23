@@ -83,3 +83,15 @@ export const AgGridPersistedState = Immutable.Record({
   // column group open/close state
   columnGroupState: [],
 });
+
+/**
+ * This class wraps attributes of the ArtifactPage component's state that should be
+ * persisted in / restored from local storage.
+ */
+export const ArtifactViewPersistedState = Immutable.Record(
+  {
+    // Whether waveforms should be visualized for all audio artifacts
+    showWaveformSelected: false,
+  },
+  'ArtifactViewPersistedState',
+);

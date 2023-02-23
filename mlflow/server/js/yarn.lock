@@ -3067,6 +3067,7 @@ __metadata:
     url: ^0.11.0
     vega: ^5.22.1
     vega-lite: ^5.3.0-next.4
+    wavesurfer.js: ^6.2.0
     webpack: ^5.69.0
   languageName: unknown
   linkType: soft
@@ -28613,6 +28614,13 @@ resolve@^2.0.0-next.3:
     glob-to-regexp: ^0.4.1
     graceful-fs: ^4.1.2
   checksum: 70a34f92842d94b5d842980f866d568d7a467de667c96ae5759c759f46587e49265863171f4650bdbafc5f3870a28f2b4453e9e847098ec4b718b38926d47d22
+  languageName: node
+  linkType: hard
+
+"wavesurfer.js@npm:^6.2.0":
+  version: 6.2.0
+  resolution: "wavesurfer.js@npm:6.2.0"
+  checksum: d7a9d19972dc5319d07cc99d6539287a276862f840816fb04decdc57522a2f747e256335b30a11918a7c576c2fccfc8896caaf3502d1006bee21e78ff36491df
   languageName: node
   linkType: hard
 

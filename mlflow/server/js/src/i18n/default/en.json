@@ -1135,6 +1135,10 @@
     "defaultMessage": "Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
   },
+  "sM6u0i": {
+    "defaultMessage": "Show audio waveform",
+    "description": "Switch to enable the waveform visualization of audio file artifacts"
+  },
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"

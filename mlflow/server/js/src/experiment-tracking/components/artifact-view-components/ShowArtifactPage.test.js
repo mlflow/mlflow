@@ -7,11 +7,13 @@ import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import {
   IMAGE_EXTENSIONS,
   TEXT_EXTENSIONS,
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
+  AUDIO_EXTENSIONS,
   DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { RunTag } from '../../sdk/MlflowMessages';
@@ -141,6 +143,20 @@ describe('ShowArtifactPage', () => {
     TEXT_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
       expect(wrapper.find(ShowArtifactTextView).length).toBe(1);
+    });
+  });
+
+  test('should render audio view for common audio extensions', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', showWaveform: true });
+      expect(wrapper.find(LazyShowArtifactAudioView).length).toBe(1);
+    });
+  });
+
+  test('should not render audio view if toggle is not set', () => {
+    AUDIO_EXTENSIONS.forEach((ext) => {
+      wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId', showWaveform: false });
+      expect(wrapper.find('.preview-container').length).toBe(1);
     });
   });
 

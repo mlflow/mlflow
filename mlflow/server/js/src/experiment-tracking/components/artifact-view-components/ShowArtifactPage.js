@@ -7,6 +7,7 @@ import {
   MAP_EXTENSIONS,
   HTML_EXTENSIONS,
   PDF_EXTENSIONS,
+  AUDIO_EXTENSIONS,
   DATA_EXTENSIONS,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
@@ -16,6 +17,7 @@ import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactMapView from './ShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import ShowArtifactPdfView from './ShowArtifactPdfView';
+import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
@@ -38,6 +40,7 @@ class ShowArtifactPage extends Component {
     size: PropTypes.number,
     runTags: PropTypes.object,
     modelVersions: PropTypes.arrayOf(PropTypes.object),
+    showWaveform: PropTypes.bool,
   };
 
   render() {
@@ -85,6 +88,23 @@ class ShowArtifactPage extends Component {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (
+          AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase()) &&
+          this.props.showWaveform
+        ) {
+          return <LazyShowArtifactAudioView runUuid={this.props.runUuid} path={this.props.path} />;
+        } else if (
+          this.props.runTags &&
+          getLoggedModelPathsFromTags(this.props.runTags).includes(normalizedExtension)
+        ) {
+          return (
+            <ShowArtifactLoggedModelView
+              runUuid={this.props.runUuid}
+              path={this.props.path}
+              artifactRootUri={this.props.artifactRootUri}
+              registeredModelLink={registeredModelLink}
+            />
+          );
         }
       }
     }
