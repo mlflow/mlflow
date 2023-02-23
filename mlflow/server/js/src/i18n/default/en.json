@@ -363,6 +363,14 @@
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
   },
+  "Bbm59f": {
+    "defaultMessage": "100",
+    "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "Bnruyp": {
+    "defaultMessage": "500",
+    "description": "Label for 500 first runs visible in run count selector within runs compare configuration modal"
+  },
   "BwyYS1": {
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the metrics for the experiment run "
@@ -766,6 +774,10 @@
   "Vm9CvZ": {
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
+  },
+  "W8bOkn": {
+    "defaultMessage": "250",
+    "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
   },
   "WGhlnW": {
     "defaultMessage": "User",
