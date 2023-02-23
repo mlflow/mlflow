@@ -299,7 +299,7 @@ message GenerateTemporaryModelVersionCredentialsRequest {
 
 message GenerateTemporaryModelVersionCredentialsResponse {
   // Temporary credentials for model version read/write
-  optional TemporaryCredentials credentials = 1 [(json_inline) = true];
+  optional TemporaryCredentials credentials = 1;
 }
 
 message GetModelVersionDownloadUriRequest {
