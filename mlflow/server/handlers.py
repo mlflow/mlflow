@@ -1642,7 +1642,7 @@ def _list_artifacts_mlflow_artifacts():
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
-def _delete_artifact_mflflow_artifacts(artifact_path):
+def _delete_artifact_mlflow_artifacts(artifact_path):
     """
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
@@ -1749,5 +1749,5 @@ HANDLERS = {
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
-    DeleteArtifact: _delete_artifact_mflflow_artifacts,
+    DeleteArtifact: _delete_artifact_mlflow_artifacts,
 }
