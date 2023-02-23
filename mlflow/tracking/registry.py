@@ -73,11 +73,11 @@ class StoreRegistry:
         scheme = (
             store_uri if store_uri in {"databricks", "databricks-uc"} else get_uri_scheme(store_uri)
         )
-
         try:
             store_builder = self._registry[scheme]
         except KeyError:
             raise UnsupportedModelRegistryStoreURIException(
                 unsupported_uri=store_uri, supported_uri_schemes=list(self._registry.keys())
             )
+        print(f"Found model registry store builder {store_builder} for URI scheme {scheme}, store URI {store_uri}")
         return store_builder
