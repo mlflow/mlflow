@@ -346,7 +346,14 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(
             AnalysisException,
-            match=r"cannot resolve 'a' given input columns|Column 'a' does not exist",
+            match=(
+                # PySpark < 3.3
+                r"cannot resolve 'a' given input columns|"
+                # PySpark 3.3
+                r"Column 'a' does not exist|"
+                # PySpark 3.4
+                r"A column or function parameter with name `a` cannot be resolved"
+            ),
         ):
             bad_data.withColumn("res", udf())
 

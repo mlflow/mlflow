@@ -81,5 +81,5 @@ def get_artifact_repo_from_storage_info(
         return GCSArtifactRepository(artifact_uri=storage_location, client=client)
     else:
         raise MlflowException(
-            f"Got unexpected token type {credential_type} " f"for Unity Catalog managed file access"
+            f"Got unexpected token type {credential_type} for Unity Catalog managed file access"
         )

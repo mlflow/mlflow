@@ -369,12 +369,12 @@ def _get_databricks_profile_uri_test_cases():
                 result_scheme,
             ),
             (
-                "dbfs://scope:key_prefix@{result_scheme}/path/abc",
+                f"dbfs://scope:key_prefix@{result_scheme}/path/abc",
                 f"{result_scheme}://scope:key_prefix",
                 result_scheme,
             ),
             (
-                "dbfs://scope:key_prefix@{result_scheme}:port/path/abc",
+                f"dbfs://scope:key_prefix@{result_scheme}:port/path/abc",
                 f"{result_scheme}://scope:key_prefix",
                 result_scheme,
             ),
