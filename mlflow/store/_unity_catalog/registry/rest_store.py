@@ -218,7 +218,15 @@ class UcModelRegistryStore(BaseRestStore):
                        each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
-        _raise_unsupported_method(method="get_latest_versions")
+        _raise_unsupported_method(
+            method="get_latest_versions",
+            message="If seeing this error while attempting to "
+            "load a models:/ URI of the form models:/<name>/<stage>, note that "
+            "staged-based model URIs are unsupported for models in UC. Future "
+            "MLflow Python client versions will include support for model "
+            "aliases and alias-based 'models:/' URIs "
+            "of the form models:/<name>@<alias> as an alternative.",
+        )
 
     def set_registered_model_tag(self, name, tag):
         """
