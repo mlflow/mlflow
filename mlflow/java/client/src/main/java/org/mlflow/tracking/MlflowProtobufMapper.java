@@ -6,8 +6,12 @@ import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 import java.net.URISyntaxException;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.message.BasicNameValuePair;
+import org.apache.http.NameValuePair;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
@@ -195,10 +199,20 @@ class MlflowProtobufMapper {
     }
   }
 
-  String makeSearchModelVersions(String searchFilter) {
+  String makeSearchModelVersions(String searchFilter,
+                                 int maxResults,
+                                 List<String> orderBy,
+                                 String pageToken) {
     try {
+      List<NameValuePair> orderBys = orderBy
+              .stream()
+              .map(c -> new BasicNameValuePair("order_by", c))
+              .collect(Collectors.toList());
       return new URIBuilder("model-versions/search")
               .addParameter("filter", searchFilter)
+              .addParameter("max_results", Integer.toString(maxResults))
+              .addParameter("page_token", pageToken)
+              .addParameters(orderBys)
               .build()
               .toString();
     } catch (URISyntaxException e) {
