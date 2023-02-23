@@ -80,7 +80,7 @@ def test_uc_models_artifact_repo_with_stage_uri_raises(mock_get_databricks_unity
     with pytest.raises(
         MlflowException, match="staged-based model URIs are unsupported for models in UC"
     ):
-        UnityCatalogModelsArtifactRepository(model_uri, _DATABRICKS_UNITY_CATALOG_SCHEME)
+        UnityCatalogModelsArtifactRepository(artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME)
 
 
 def test_uc_models_artifact_uri_with_scope_and_prefix_throws(
