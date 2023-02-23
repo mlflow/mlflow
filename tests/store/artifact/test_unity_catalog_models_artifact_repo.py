@@ -38,7 +38,9 @@ def mock_get_databricks_unity_catalog_store():
         yield _get_databricks_uc_rest_store_mock
 
 
-def test_uc_models_artifact_repo_init_with_uri_containing_profile(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_init_with_uri_containing_profile(
+    mock_get_databricks_unity_catalog_store,
+):
     uri_with_profile = "models://profile@databricks-uc/MyModel/12"
     models_repo = UnityCatalogModelsArtifactRepository(
         uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME
@@ -47,7 +49,9 @@ def test_uc_models_artifact_repo_init_with_uri_containing_profile(mock_get_datab
     assert models_repo.client._registry_uri == f"{_DATABRICKS_UNITY_CATALOG_SCHEME}://profile"
 
 
-def test_uc_models_artifact_repo_init_with_db_profile_inferred_from_context(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_init_with_db_profile_inferred_from_context(
+    mock_get_databricks_unity_catalog_store,
+):
     uri_without_profile = "models:/MyModel/12"
     profile_in_registry_uri = "some_profile"
     registry_uri = f"databricks-uc://{profile_in_registry_uri}"
@@ -58,7 +62,9 @@ def test_uc_models_artifact_repo_init_with_db_profile_inferred_from_context(mock
     assert models_repo.client._registry_uri == registry_uri
 
 
-def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises(
+    mock_get_databricks_unity_catalog_store,
+):
     non_databricks_uri = "non_databricks_uri"
     model_uri = "models:/MyModel/12"
     with pytest.raises(
@@ -77,7 +83,9 @@ def test_uc_models_artifact_repo_with_stage_uri_raises(mock_get_databricks_unity
         UnityCatalogModelsArtifactRepository(model_uri, _DATABRICKS_UNITY_CATALOG_SCHEME)
 
 
-def test_uc_models_artifact_uri_with_scope_and_prefix_throws(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_uri_with_scope_and_prefix_throws(
+    mock_get_databricks_unity_catalog_store,
+):
     with pytest.raises(
         MlflowException,
         match="Remote model registry access via model URIs of the form "
@@ -95,7 +103,9 @@ def _mock_temporary_creds_response(temporary_creds):
     return mock_response
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
+    mock_get_databricks_unity_catalog_store,
+):
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
     fake_secret_access_key = "fake_secret_access_key"
@@ -134,7 +144,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(moc
         )
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
+    mock_get_databricks_unity_catalog_store,
+):
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = {
@@ -169,7 +181,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(m
         )
 
 
-def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(mock_get_databricks_unity_catalog_store):
+def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
+    mock_get_databricks_unity_catalog_store,
+):
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
     temporary_creds = {
