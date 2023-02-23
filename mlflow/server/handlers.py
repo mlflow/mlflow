@@ -558,12 +558,19 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+
+
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
     measure to prevent path traversal attacks.
     """
-    if ".." in path.split(posixpath.sep) or posixpath.isabs(path):
+    if (
+        ".." in path.split(posixpath.sep)
+        or posixpath.isabs(path)
+        or any((s in path) for s in _OS_ALT_SEPS)
+    ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
 
