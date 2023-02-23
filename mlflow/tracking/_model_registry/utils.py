@@ -152,7 +152,6 @@ def _get_databricks_rest_store(store_uri, **_):
 
 
 def _get_databricks_uc_rest_store(store_uri, **_):
-    print("calling original _get_databricks_uc_rest_store")
     from mlflow.exceptions import MlflowException
     from mlflow.version import VERSION
 
