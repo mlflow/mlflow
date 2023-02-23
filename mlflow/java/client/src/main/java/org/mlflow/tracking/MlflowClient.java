@@ -996,7 +996,7 @@ public class MlflowClient implements Serializable, Closeable {
     ));
     SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(json);
     return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
-            searchFilter, this);
+            searchFilter, maxResults, orderBy, this);
   }
 
   /**

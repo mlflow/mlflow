@@ -12,6 +12,8 @@ public class ModelVersionsPage implements Page<ModelVersion> {
 
   private final MlflowClient client;
   private final String searchFilter;
+  private final List<String> orderBy;
+  private final int maxResults;
 
   /**
    * Creates a fixed size page of ModelVersions.
@@ -19,10 +21,14 @@ public class ModelVersionsPage implements Page<ModelVersion> {
   ModelVersionsPage(List<ModelVersion> mvs,
                     String token,
                     String searchFilter,
+                    int maxResults,
+                    List<String> orderBy,
                     MlflowClient client) {
     this.mvs = Collections.unmodifiableList(mvs);
     this.token = token;
     this.searchFilter = searchFilter;
+    this.orderBy = orderBy;
+    this.maxResults = maxResults;
     this.client = client;
   }
 
@@ -58,7 +64,10 @@ public class ModelVersionsPage implements Page<ModelVersion> {
    */
   public Page<ModelVersion> getNextPage() {
     if (this.hasNextPage()) {
-      return this.client.searchModelVersions(this.searchFilter);
+      return this.client.searchModelVersions(this.searchFilter,
+                                             this.maxResults,
+                                             this.orderBy,
+                                             this.token);
     } else {
       return new EmptyPage();
     }
