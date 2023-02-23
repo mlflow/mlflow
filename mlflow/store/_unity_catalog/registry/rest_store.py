@@ -259,9 +259,10 @@ class UcModelRegistryStore(BaseRestStore):
         updating its status from PENDING_REGISTRATION to READY
         :param name: Registered model name
         :param version: Model version number
+        :return Protobuf ModelVersion describing the finalized model version
         """
         req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
-        self._call_endpoint(FinalizeModelVersionRequest, req_body)
+        return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
 
     def _get_temporary_model_version_credentials(self, name, version):
         """
@@ -310,21 +311,17 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with self._download_source(source) as local_model_dir:
-            version_number = self._call_endpoint(
-                CreateModelVersionRequest, req_body
-            ).model_version.version
-            model_artifact_uri = self.get_model_version_download_uri(
-                name=name, version=version_number
-            )
+            model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
+            version_number = model_version.version
             scoped_token = self._get_temporary_model_version_credentials(
                 name=name, version=version_number
             )
             store = get_artifact_repo_from_storage_info(
-                storage_location=model_artifact_uri, scoped_token=scoped_token
+                storage_location=model_version.storage_location, scoped_token=scoped_token
             )
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-        self._finalize_model_version(name=name, version=version_number)
-        return self.get_model_version(name, version=version_number)
+        finalized_mv = self._finalize_model_version(name=name, version=version_number)
+        return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
