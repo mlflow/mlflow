@@ -7,11 +7,8 @@ import com.google.protobuf.util.JsonFormat;
 import java.lang.Iterable;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.apache.http.client.utils.URIBuilder;
-import org.apache.http.message.BasicNameValuePair;
-import org.apache.http.NameValuePair;
 import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 
@@ -204,17 +201,18 @@ class MlflowProtobufMapper {
                                  List<String> orderBy,
                                  String pageToken) {
     try {
-      List<NameValuePair> orderBys = orderBy
-              .stream()
-              .map(c -> new BasicNameValuePair("order_by", c))
-              .collect(Collectors.toList());
-      return new URIBuilder("model-versions/search")
-              .addParameter("filter", searchFilter)
-              .addParameter("max_results", Integer.toString(maxResults))
-              .addParameter("page_token", pageToken)
-              .addParameters(orderBys)
-              .build()
-              .toString();
+      URIBuilder builder = new URIBuilder("model-versions/search")
+              .addParameter("max_results", Integer.toString(maxResults));
+      if (searchFilter != null && searchFilter != "") {
+        builder.addParameter("filter", searchFilter);
+      }
+      if (pageToken != null && pageToken != "") {
+        builder.addParameter("page_token", pageToken);
+      }
+      for( String order: orderBy) {
+        builder.addParameter("order_by", order);
+      }
+      return builder.build().toString();
     } catch (URISyntaxException e) {
       throw new MlflowClientException(
               "Failed to construct request URI for search model version.",
