@@ -33,7 +33,7 @@ def mock_get_databricks_unity_catalog_store():
 
     with mock.patch(
         "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store",
-        side_effect=get_uc_rest_store
+        side_effect=get_uc_rest_store,
     ) as _get_databricks_uc_rest_store_mock:
         yield _get_databricks_uc_rest_store_mock
 
