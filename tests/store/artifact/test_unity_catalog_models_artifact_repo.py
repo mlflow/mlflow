@@ -32,9 +32,9 @@ def mock_get_databricks_unity_catalog_store():
         return UcModelRegistryStore(store_uri)
 
     with mock.patch(
-        "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store"
+        "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store",
+        side_effect=get_uc_rest_store
     ) as _get_databricks_uc_rest_store_mock:
-        _get_databricks_uc_rest_store_mock.side_effect = get_uc_rest_store
         yield _get_databricks_uc_rest_store_mock
 
 
@@ -103,8 +103,9 @@ def _mock_temporary_creds_response(temporary_creds):
     return mock_response
 
 
+@mock.patch("databricks_cli.configure.provider.get_config")
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
-    mock_get_databricks_unity_catalog_store,
+    get_config, mock_get_databricks_unity_catalog_store
 ):
     artifact_location = "s3://blah_bucket/"
     fake_key_id = "fake_key_id"
@@ -144,8 +145,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
         )
 
 
+@mock.patch("databricks_cli.configure.provider.get_config")
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
-    mock_get_databricks_unity_catalog_store,
+    get_config, mock_get_databricks_unity_catalog_store
 ):
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
@@ -181,8 +183,9 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
         )
 
 
+@mock.patch("databricks_cli.configure.provider.get_config")
 def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
-    mock_get_databricks_unity_catalog_store,
+    get_config, mock_get_databricks_unity_catalog_store
 ):
     artifact_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
