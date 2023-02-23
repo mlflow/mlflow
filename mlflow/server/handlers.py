@@ -567,9 +567,9 @@ def validate_path_is_safe(path):
     measure to prevent path traversal attacks.
     """
     if (
-        ".." in path.split(posixpath.sep)
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split(posixpath.sep)
         or posixpath.isabs(path)
-        or any((s in path) for s in _OS_ALT_SEPS)
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
