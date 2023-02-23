@@ -6,6 +6,7 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes
+#pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes
+pytest tests/store/artifact/test_unity_catalog_models_artifact_repo.py
 
 test $err = 0

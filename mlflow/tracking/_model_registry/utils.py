@@ -154,7 +154,7 @@ def _get_databricks_rest_store(store_uri, **_):
 def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.exceptions import MlflowException
     from mlflow.version import VERSION
-
+    print("In _get_databricks_uc_rest_store")
     raise MlflowException(
         f"Detected Unity Catalog model registry URI '{store_uri}'. "
         f"However, the current version of the MLflow client ({VERSION}) does not support models "

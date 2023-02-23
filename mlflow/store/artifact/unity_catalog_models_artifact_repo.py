@@ -71,7 +71,9 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
                 "from the current Databricks workspace instead."
             )
         self.registry_uri = registry_uri
+        print(f"In __init__, about to initialize client with registry URI {self.registry_uri}")
         self.client = MlflowClient(registry_uri=self.registry_uri)
+        print("Initialized client, getting model name and version from URI")
         self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
 
     def _get_blob_storage_path(self):

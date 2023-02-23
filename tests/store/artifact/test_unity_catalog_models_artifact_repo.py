@@ -31,12 +31,14 @@ def mock_get_databricks_unity_catalog_store():
     def get_uc_rest_store(store_uri):
         return UcModelRegistryStore(store_uri)
 
+    print("About to mock _get_databricks_uc_rest_store")
     with mock.patch(
         "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store",
         side_effect=get_uc_rest_store,
     ) as _get_databricks_uc_rest_store_mock:
+        print("Mocking _get_databricks_uc_rest_store")
         yield _get_databricks_uc_rest_store_mock
-
+    print("Restoring _get_databricks_uc_rest_store to its original behavior")
 
 def test_uc_models_artifact_repo_init_with_uri_containing_profile(
     mock_get_databricks_unity_catalog_store,
@@ -80,12 +82,15 @@ def test_uc_models_artifact_repo_with_stage_uri_raises(
     get_config, mock_get_databricks_unity_catalog_store
 ):
     model_uri = "models:/MyModel/Staging"
+    print("About to enter with block n test")
     with pytest.raises(
         MlflowException, match="staged-based model URIs are unsupported for models in UC"
     ):
+        print("In with block in test")
         UnityCatalogModelsArtifactRepository(
             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
+    print("Exited with block in test")
 
 
 def test_uc_models_artifact_uri_with_scope_and_prefix_throws(
