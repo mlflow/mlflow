@@ -558,23 +558,12 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
-
-
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
-    measure to prevent path traversal attacks. The implementation is based on
-    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    measure to prevent path traversal attacks.
     """
-    if path != "":
-        path = posixpath.normpath(path)
-    if (
-        any(sep in path for sep in _os_alt_seps)
-        or os.path.isabs(path)
-        or path == ".."
-        or path.startswith("../")
-    ):
+    if ".." in path.split(posixpath.sep) or posixpath.isabs(path):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
 

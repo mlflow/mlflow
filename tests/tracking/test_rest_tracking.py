@@ -515,7 +515,6 @@ def test_set_tag_validation(mlflow_client):
         "path",
         "path/",
         "path/to/file",
-        "path/../to/file",
     ],
 )
 def test_validate_path_is_safe_good(path):
@@ -529,6 +528,7 @@ def test_validate_path_is_safe_good(path):
         "../path",
         "../../path",
         "./../path",
+        "path/../to/file",
         "path/../../to/file",
     ],
 )
