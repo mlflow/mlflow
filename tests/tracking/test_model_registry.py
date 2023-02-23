@@ -2,9 +2,10 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import time
 import pytest
 
-from mlflow.entities.model_registry import RegisteredModel
+from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow import MlflowClient
 from mlflow.utils.time_utils import get_current_time_millis
@@ -252,6 +253,146 @@ def test_set_registered_model_tag_with_empty_string_as_value(client):
     assert {"tag_key": ""}.items() <= client.get_registered_model(name).tags.items()
 
 
+@pytest.mark.parametrize(
+    ("filter_string", "filter_func"),
+    [
+        (None, lambda mv: True),
+        ("", lambda mv: True),
+        ("name LIKE '%2'", lambda mv: mv.name.endswith("2")),
+        ("name ILIKE '%rm%00%'", lambda mv: "00" in mv.name),
+        ("name LIKE '%rm%00%'", lambda mv: False),
+        ("name = 'badname'", lambda mv: False),
+        ("name = 'CreateRMsearchForMV03'", lambda mv: mv.name == "CreateRMsearchForMV03"),
+    ],
+)
+def test_search_model_versions_filter_string(
+    client,
+    filter_string,
+    filter_func,
+):
+    names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
+    for name in names:
+        client.create_registered_model(name)
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+    for mv in mvs:
+        assert isinstance(mv, ModelVersion)
+    mvs = mvs[::-1]
+
+    def verify_pagination(mv_getter_with_token, expected_mvs):
+        result_mvs = []
+        result = mv_getter_with_token(None)
+        result_mvs.extend(result)
+        while result.token:
+            result = mv_getter_with_token(result.token)
+            result_mvs.extend(result)
+        assert [mv.name for mv in expected_mvs] == [mv.name for mv in result_mvs]
+        assert [mv.version for mv in expected_mvs] == [mv.version for mv in result_mvs]
+
+    expected_mvs = sorted(
+        filter(filter_func, mvs), key=lambda x: x.last_updated_timestamp, reverse=True
+    )
+    verify_pagination(
+        lambda tok: client.search_model_versions(
+            filter_string=filter_string,
+            page_token=tok,
+        ),
+        expected_mvs,
+    )
+
+
+@pytest.mark.parametrize("max_results", [1, 8, 100])
+def test_search_model_versions_max_results(client, max_results):
+    names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
+    for name in names:
+        client.create_registered_model(name)
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+    for mv in mvs:
+        assert isinstance(mv, ModelVersion)
+    mvs = mvs[::-1]
+
+    def verify_pagination(mv_getter_with_token, expected_mvs):
+        result_mvs = []
+        result = mv_getter_with_token(None)
+        result_mvs.extend(result)
+        while result.token:
+            result = mv_getter_with_token(result.token)
+            result_mvs.extend(result)
+        assert [mv.name for mv in expected_mvs] == [mv.name for mv in result_mvs]
+        assert [mv.version for mv in expected_mvs] == [mv.version for mv in result_mvs]
+
+    expected_mvs = sorted(mvs, key=lambda x: x.last_updated_timestamp, reverse=True)
+    verify_pagination(
+        lambda tok: client.search_model_versions(
+            max_results=max_results,
+            page_token=tok,
+        ),
+        expected_mvs,
+    )
+
+
+@pytest.mark.parametrize(
+    ("order_by", "order_by_key", "order_by_desc"),
+    [
+        (None, None, False),
+        (["name DESC"], lambda mv: (mv.name, mv.version), True),
+        (
+            ["version_number DESC"],
+            lambda mv: (-int(mv.version), mv.name),
+            False,
+        ),
+    ],
+)
+def test_search_model_versions_order_by(
+    client,
+    order_by,
+    order_by_key,
+    order_by_desc,
+):
+    names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
+    for name in names:
+        client.create_registered_model(name)
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+    for mv in mvs:
+        assert isinstance(mv, ModelVersion)
+    mvs = mvs[::-1]
+
+    def verify_pagination(mv_getter_with_token, expected_mvs):
+        result_mvs = []
+        result = mv_getter_with_token(None)
+        result_mvs.extend(result)
+        while result.token:
+            result = mv_getter_with_token(result.token)
+            result_mvs.extend(result)
+        assert [mv.name for mv in expected_mvs] == [mv.name for mv in result_mvs]
+        assert [mv.version for mv in expected_mvs] == [mv.version for mv in result_mvs]
+
+    if order_by_key:
+        expected_mvs = sorted(mvs, key=order_by_key, reverse=order_by_desc)
+    else:
+        expected_mvs = sorted(
+            mvs, key=lambda x: (-int(x.last_updated_timestamp), x.name, -int(x.version))
+        )
+    verify_pagination(
+        lambda tok: client.search_model_versions(
+            order_by=order_by,
+            page_token=tok,
+        ),
+        expected_mvs,
+    )
+
+
 def test_create_and_query_model_version_flow(client):
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
@@ -386,6 +527,8 @@ def test_latest_models(client):
     client.create_registered_model(name)
 
     for version, stage in version_stage_mapping:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
         mv = client.create_model_version(name, "path/to/model", "run_id")
         assert mv.version == version
         if stage != "None":

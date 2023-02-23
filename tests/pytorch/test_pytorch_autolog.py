@@ -355,13 +355,14 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     devices_kwarg_name = (
         "devices" if Version(pl.__version__) > Version("1.6.4") else "num_processes"
     )
+    extra_kwargs = {"strategy": "ddp_spawn"} if Version(pl.__version__) > Version("1.9.3") else {}
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS,
         accelerator=accelerator,
-        strategy="ddp_spawn",
         **{
             devices_kwarg_name: 4,
         },
+        **extra_kwargs,
     )
 
     with mlflow.start_run() as run:
