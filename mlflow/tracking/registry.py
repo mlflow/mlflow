@@ -79,5 +79,4 @@ class StoreRegistry:
             raise UnsupportedModelRegistryStoreURIException(
                 unsupported_uri=store_uri, supported_uri_schemes=list(self._registry.keys())
             )
-        print(f"Found model registry store builder {store_builder} for URI scheme {scheme}, store URI {store_uri}")
         return store_builder
