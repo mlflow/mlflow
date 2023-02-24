@@ -119,11 +119,11 @@ export class ExperimentListView extends Component {
   handleCheck = (isChecked, key) => {
     this.setState((prevState, props) => {
       let { checkedKeys } = prevState;
-      if (isChecked === true && !prevState.checkedKeys.includes(key)) {
-        checkedKeys = [key, ...prevState.checkedKeys];
+      if (isChecked === true && !props.activeExperimentIds.includes(key)) {
+        checkedKeys = [key, ...props.activeExperimentIds];
       }
       if (isChecked === false && props.activeExperimentIds.length !== 1) {
-        checkedKeys = prevState.checkedKeys.filter((i) => i !== key);
+        checkedKeys = props.activeExperimentIds.filter((i) => i !== key);
       }
       return { checkedKeys: checkedKeys };
     }, this.pushExperimentRoute);
