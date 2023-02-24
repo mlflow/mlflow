@@ -110,5 +110,6 @@ const mapStateToProps = (state: { entities: ExperimentStoreEntities }) => {
 export const ExperimentViewRefreshButton = connect(mapStateToProps, undefined, undefined, {
   // We're interested only in "entities" sub-tree so we won't
   // re-render on other state changes (e.g. API request IDs)
-  areStatesEqual: (nextState, prevState) => nextState.entities === prevState.entities,
+  areStatesEqual: (nextState, prevState) =>
+    nextState.entities.runInfosByUuid === prevState.entities.runInfosByUuid,
 })(ExperimentViewRefreshButtonImpl);

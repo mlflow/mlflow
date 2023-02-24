@@ -1,6 +1,7 @@
 import { minBy, maxBy } from 'lodash';
 import {
   GET_METRIC_HISTORY_API,
+  GET_METRIC_HISTORY_API_BULK,
   GET_RUN_API,
   LOAD_MORE_RUNS_API,
   SEARCH_RUNS_API,
@@ -76,6 +77,26 @@ export const latestMetricsByRunUuid = (state = {}, action) => {
       }
       return newState;
     }
+    case fulfilled(GET_METRIC_HISTORY_API_BULK): {
+      const newState = { ...state };
+      const { runUuids, key } = action.meta;
+      const { metrics } = action.payload;
+      if (metrics && metrics.length > 0) {
+        for (const runUuid of runUuids) {
+          const runMetrics = metrics.filter((m) => m.run_id === runUuid);
+          if (runMetrics.length < 1) {
+            continue;
+          }
+          const lastMetric = Metric.fromJs(runMetrics[runMetrics.length - 1]);
+          if (newState[runUuid]) {
+            newState[runUuid][key] = lastMetric;
+          } else {
+            newState[runUuid] = { [key]: lastMetric };
+          }
+        }
+      }
+      return newState;
+    }
     default:
       return state;
   }
@@ -93,6 +114,27 @@ const reducedMetricsByRunUuid = (state = {}, action, reducer) => {
           newState[runUuid][key] = reducedMetric;
         } else {
           newState[runUuid] = { [key]: reducedMetric };
+        }
+      }
+      return newState;
+    }
+    case fulfilled(GET_METRIC_HISTORY_API_BULK): {
+      const newState = { ...state };
+      const { runUuids, key } = action.meta;
+      const { metrics } = action.payload;
+      if (metrics && metrics.length > 0) {
+        for (const runUuid of runUuids) {
+          const runMetrics = metrics.filter((m) => m.run_id === runUuid);
+          const reducerResult = reducer(runMetrics);
+          if (!reducerResult) {
+            continue;
+          }
+          const reducedMetric = Metric.fromJs(reducerResult);
+          if (newState[runUuid]) {
+            newState[runUuid][key] = reducedMetric;
+          } else {
+            newState[runUuid] = { [key]: reducedMetric };
+          }
         }
       }
       return newState;
@@ -124,6 +166,21 @@ export const metricsByRunUuid = (state = {}, action) => {
         [runUuid]: metricsByKey(state[runUuid], action, metrics),
       };
     }
+    case fulfilled(GET_METRIC_HISTORY_API_BULK): {
+      const { runUuids } = action.meta;
+      const metrics = action.payload.metrics || [];
+      const newState = { ...state };
+
+      for (const runUuid of runUuids) {
+        newState[runUuid] = metricsByKey(
+          state[runUuid],
+          action,
+          metrics.filter((m) => m.run_id === runUuid),
+        );
+      }
+
+      return newState;
+    }
     default:
       return state;
   }
@@ -132,9 +189,12 @@ export const metricsByRunUuid = (state = {}, action) => {
 export const metricsByKey = (state = {}, action, metrics) => {
   const newState = { ...state };
   switch (action.type) {
-    case fulfilled(GET_METRIC_HISTORY_API): {
-      const { key } = action.meta;
-      newState[key] = metrics.map((m) => Metric.fromJs(m));
+    case fulfilled(GET_METRIC_HISTORY_API):
+    case fulfilled(GET_METRIC_HISTORY_API_BULK): {
+      const { key, pageToken } = action.meta;
+      const existingMetrics = newState[key] || [];
+      const newMetrics = metrics.map((m) => Metric.fromJs(m));
+      newState[key] = pageToken ? [...existingMetrics, ...newMetrics] : newMetrics;
       return newState;
     }
     default:

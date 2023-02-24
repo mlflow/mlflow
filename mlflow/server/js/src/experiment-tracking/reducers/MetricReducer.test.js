@@ -8,7 +8,7 @@ import {
   minMetricsByRunUuid,
   maxMetricsByRunUuid,
 } from './MetricReducer';
-import { GET_METRIC_HISTORY_API } from '../actions';
+import { GET_METRIC_HISTORY_API, GET_METRIC_HISTORY_API_BULK } from '../actions';
 import { Metric } from '../sdk/MlflowMessages';
 import { fulfilled } from '../../common/utils/ActionUtils';
 
@@ -160,17 +160,20 @@ describe('test getMaxMetrics', () => {
   });
 });
 
-export const mockMetric = (key, value, timestamp = 1234567890000, step = 1) => {
+export const mockMetric = (key, value, timestamp = 1234567890000, step = 1, run_id = undefined) => {
   const metric = {
     key: key,
     value: value,
     timestamp: timestamp,
     step: step,
+    run_id: run_id,
   };
   return [metric, Metric.fromJs(metric)];
 };
 
 describe('test metricsByKey', () => {
+  // All tests for GET_METRIC_HISTORY_API are valid for GET_METRIC_HISTORY_API_BULK
+  // due to the same treatment inside metricsByKey()
   test('intial state (1)', () => {
     expect(metricsByKey({}, {}, undefined)).toEqual({});
   });
@@ -264,6 +267,15 @@ describe('test metricsByRunUuid', () => {
     expect(metricsByRunUuid({}, action)).toEqual({ run1: { m1: [] } });
   });
 
+  test('GET_METRIC_HISTORY_API_BULK handles empty state', () => {
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run1', 'run2'], key: 'm1' },
+      payload: {},
+    };
+    expect(metricsByRunUuid({}, action)).toEqual({ run1: { m1: [] }, run2: { m1: [] } });
+  });
+
   test('GET_METRIC_HISTORY_API handles missing run in state', () => {
     const action = {
       type: fulfilled(GET_METRIC_HISTORY_API),
@@ -272,6 +284,20 @@ describe('test metricsByRunUuid', () => {
     };
     const state = { run2: undefined };
     expect(metricsByRunUuid(state, action)).toEqual({ run1: { m1: [] }, run2: undefined });
+  });
+
+  test('GET_METRIC_HISTORY_API_BULK handles missing run in state', () => {
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run1', 'run2'], key: 'm1' },
+      payload: {},
+    };
+    const state = { run3: undefined };
+    expect(metricsByRunUuid(state, action)).toEqual({
+      run1: { m1: [] },
+      run2: { m1: [] },
+      run3: undefined,
+    });
   });
 
   test('GET_METRIC_HISTORY_API returns appropriate metrics', () => {
@@ -290,6 +316,27 @@ describe('test metricsByRunUuid', () => {
       },
     };
     expect(metricsByRunUuid(state, action)).toEqual({ run1: { acc: [m1proto, m2proto] } });
+  });
+
+  test('GET_METRIC_HISTORY_API_BULK returns appropriate metrics and separates them between runs', () => {
+    const [m1, m1proto] = mockMetric('acc', 5, undefined, undefined, 'run1');
+    const [m2, m2proto] = mockMetric('acc', 6, undefined, undefined, 'run2');
+    const state = {
+      run1: {
+        acc: [m1proto],
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run1', 'run2'], key: 'acc' },
+      payload: {
+        metrics: [m1, m2],
+      },
+    };
+    expect(metricsByRunUuid(state, action)).toEqual({
+      run1: { acc: [m1proto] },
+      run2: { acc: [m2proto] },
+    });
   });
 
   test(
@@ -353,6 +400,42 @@ describe('test metricsByRunUuid', () => {
       });
     },
   );
+
+  test(
+    "GET_METRIC_HISTORY_API_BULK updates state for relevant runs' metrics " +
+      'and leaves other runs unaffected',
+    () => {
+      const [, m1proto] = mockMetric('acc', 5, 1, 1, 'run1');
+      const [, m2proto] = mockMetric('acc', 6, 1, 1, 'run2');
+      const [m3, m3proto] = mockMetric('acc', 7, 1, 1, 'run3');
+      const state = {
+        run1: {
+          acc: [m1proto],
+        },
+        run2: {
+          acc: [m2proto],
+        },
+      };
+      const action = {
+        type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+        meta: { runUuids: ['run3'], key: 'acc' },
+        payload: {
+          metrics: [m3],
+        },
+      };
+      expect(metricsByRunUuid(state, action)).toEqual({
+        run1: {
+          acc: [m1proto],
+        },
+        run2: {
+          acc: [m2proto],
+        },
+        run3: {
+          acc: [m3proto],
+        },
+      });
+    },
+  );
 });
 
 describe('test minMetricsByRunUuid', () => {
@@ -403,6 +486,29 @@ describe('test minMetricsByRunUuid', () => {
       },
     };
     expect(minMetricsByRunUuid(state, action)).toEqual({ run1: { acc: m3proto } });
+  });
+
+  test('GET_METRIC_HISTORY_API_BULK returns correct minimum metrics', () => {
+    const [m1, m1proto] = mockMetric('acc', 5, undefined, undefined, 'run1');
+    const [m2, m2proto] = mockMetric('acc', 4, undefined, undefined, 'run1');
+    const [m3, m3proto] = mockMetric('acc', 1, undefined, undefined, 'run2');
+    const [m4] = mockMetric('acc', 2, undefined, undefined, 'run2');
+    const state = {
+      run1: {
+        acc: m1proto,
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run1', 'run2'], key: 'acc' },
+      payload: {
+        metrics: [m1, m2, m3, m4],
+      },
+    };
+    expect(minMetricsByRunUuid(state, action)).toEqual({
+      run1: { acc: m2proto },
+      run2: { acc: m3proto },
+    });
   });
 
   test('GET_METRIC_HISTORY_API updates state for relevant metric and leaves other metrics unaffected', () => {
@@ -501,6 +607,29 @@ describe('test maxMetricsByRunUuid', () => {
       },
     };
     expect(maxMetricsByRunUuid(state, action)).toEqual({ run1: { acc: m3proto } });
+  });
+
+  test('GET_METRIC_HISTORY_API_BULK returns correct maximum metrics', () => {
+    const [m1, m1proto] = mockMetric('acc', 12, undefined, undefined, 'run1');
+    const [m2] = mockMetric('acc', 8, undefined, undefined, 'run1');
+    const [m3] = mockMetric('acc', 9, undefined, undefined, 'run2');
+    const [m4, m4proto] = mockMetric('acc', 11, undefined, undefined, 'run2');
+    const state = {
+      run1: {
+        acc: m1proto,
+      },
+    };
+    const action = {
+      type: fulfilled(GET_METRIC_HISTORY_API_BULK),
+      meta: { runUuids: ['run1', 'run2'], key: 'acc' },
+      payload: {
+        metrics: [m1, m2, m3, m4],
+      },
+    };
+    expect(maxMetricsByRunUuid(state, action)).toEqual({
+      run1: { acc: m1proto },
+      run2: { acc: m4proto },
+    });
   });
 
   test('GET_METRIC_HISTORY_API updates state for relevant metric and leaves other metrics unaffected', () => {

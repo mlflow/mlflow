@@ -2,11 +2,16 @@ import { useTheme } from '@emotion/react';
 import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
+import { useMutableHoverCallback } from '../hooks/useMutableHoverCallback';
+import {
+  highlightScatterTraces,
+  useCompareRunsTraceHighlight,
+} from '../hooks/useCompareRunsTraceHighlight';
 import {
   commonRunsChartStyles,
   CompareChartRunData,
   CompareRunsChartAxisDef,
-  compareRunsChartDefaultMargin,
+  compareRunsChartDefaultContourMargin,
   compareRunsChartHoverlabel,
   CompareRunsCommonPlotProps,
   useDynamicPlotSize,
@@ -80,17 +85,19 @@ export const CompareRunsContourPlot = React.memo(
     markerSize = 10,
     className,
     reverseScale,
-    margin = compareRunsChartDefaultMargin,
+    margin = compareRunsChartDefaultContourMargin,
     colorScale = DEFAULT_COLOR_SCALE,
     onUpdate,
     onHover,
     onUnhover,
     width,
     height,
+    useDefaultHoverBox = true,
+    selectedRunUuid,
   }: CompareRunsContourPlotProps) => {
     const theme = useTheme();
 
-    const { layoutHeight, layoutWidth, setContainerDiv, isDynamicSizeSupported } =
+    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
       useDynamicPlotSize();
 
     const plotData = useMemo(() => {
@@ -126,30 +133,17 @@ export const CompareRunsContourPlot = React.memo(
         }
       }
 
-      // Let's return two layers:
-      return [
-        // - One with the contour chart
-        {
-          x: xValues,
-          y: yValues,
-          z: zValues,
-          type: 'contour',
-          connectgaps: true,
-          hoverinfo: 'none',
-          contours: {
-            coloring: 'heatmap',
-          },
-          colorscale: colorScale,
-          reversescale: reverseScale,
-        },
-        // - One with the scatter plot (dots)
+      // Let's compile chart layers
+      const layers = [
+        // The top layer with the scatter plot (dots)
         {
           x: xValues,
           y: yValues,
           customdata: tooltipData,
-          hovertemplate: createTooltipTemplate(zAxis.key),
-          hoverlabel: compareRunsChartHoverlabel,
-          type: 'scattergl',
+          hovertemplate: useDefaultHoverBox ? createTooltipTemplate(zAxis.key) : undefined,
+          hoverinfo: useDefaultHoverBox ? undefined : 'none',
+          hoverlabel: useDefaultHoverBox ? compareRunsChartHoverlabel : undefined,
+          type: 'scatter',
           mode: 'markers',
           marker: {
             size: markerSize,
@@ -161,6 +155,24 @@ export const CompareRunsContourPlot = React.memo(
           },
         },
       ] as Data[];
+
+      // If there are at least two runs, add a contour chart layer
+      if (runsData.length > 1) {
+        layers.unshift({
+          x: xValues,
+          y: yValues,
+          z: zValues,
+          type: 'contour',
+          connectgaps: true,
+          hoverinfo: 'none',
+          contours: {
+            coloring: 'heatmap',
+          },
+          colorscale: colorScale,
+          reversescale: reverseScale,
+        } as Data);
+      }
+      return layers;
     }, [
       colorScale,
       reverseScale,
@@ -173,6 +185,7 @@ export const CompareRunsContourPlot = React.memo(
       zAxis.type,
       zAxis.key,
       theme.colors.primary,
+      useDefaultHoverBox,
     ]);
 
     const [layout, setLayout] = useState<Partial<Layout>>({
@@ -180,38 +193,79 @@ export const CompareRunsContourPlot = React.memo(
       height: height || layoutHeight,
       margin,
       xaxis: { title: xAxis.key },
-      yaxis: { title: yAxis.key },
+      yaxis: { ticks: 'inside', title: { standoff: 32, text: yAxis.key } },
     });
 
     useEffect(() => {
-      setLayout((current) => ({
-        ...current,
-        width: width || layoutWidth,
-        height: height || layoutHeight,
-        margin,
-        xaxis: { ...current.xaxis, title: xAxis.key },
-        yaxis: { ...current.yaxis, title: yAxis.key },
-      }));
+      setLayout((current) => {
+        const newLayout = {
+          ...current,
+          width: width || layoutWidth,
+          height: height || layoutHeight,
+          margin,
+        };
+
+        if (newLayout.xaxis) {
+          newLayout.xaxis.title = xAxis.key;
+        }
+
+        if (newLayout.yaxis) {
+          newLayout.yaxis.title = { standoff: 32, text: yAxis.key };
+        }
+
+        return newLayout;
+      });
     }, [layoutWidth, layoutHeight, margin, xAxis.key, yAxis.key, width, height]);
+
+    const { setHoveredPointIndex } = useCompareRunsTraceHighlight(
+      containerDiv,
+      selectedRunUuid,
+      runsData,
+      highlightScatterTraces,
+    );
 
     const hoverCallback = useCallback(
       ({ points }: PlotMouseEvent) => {
         // Find hover event corresponding to the second curve (scatter plot) only
         const scatterPoints = points.find(({ curveNumber }) => curveNumber === 1);
+
+        setHoveredPointIndex(scatterPoints?.pointIndex ?? -1);
+
         if (!scatterPoints) {
           return;
         }
-        // Find the corresponding run
-        const dataEntry = runsData[scatterPoints.pointIndex];
-        if (dataEntry?.runInfo) {
-          onHover?.(dataEntry.runInfo.run_uuid);
+
+        // Find the corresponding run UUID by basing on "customdata" field set in the trace data.
+        // Plotly TS typings don't support custom fields so we need to cast to "any" first
+        const pointCustomDataRunUuid = (scatterPoints as any)?.customdata?.[0];
+        if (pointCustomDataRunUuid) {
+          onHover?.(pointCustomDataRunUuid);
         }
       },
-      [onHover, runsData],
+      [onHover, setHoveredPointIndex],
     );
 
+    const unhoverCallback = useCallback(() => {
+      onUnhover?.();
+      setHoveredPointIndex(-1);
+    }, [onUnhover, setHoveredPointIndex]);
+
+    /**
+     * Unfortunately plotly.js memorizes first onHover callback given on initial render,
+     * so in order to achieve updated behavior we need to wrap its most recent implementation
+     * in the immutable callback.
+     */
+    const mutableHoverCallback = useMutableHoverCallback(hoverCallback);
+
     return (
-      <div css={commonRunsChartStyles.chartWrapper} className={className} ref={setContainerDiv}>
+      <div
+        css={[
+          commonRunsChartStyles.chartWrapper,
+          commonRunsChartStyles.scatterChartHighlightStyles,
+        ]}
+        className={className}
+        ref={setContainerDiv}
+      >
         <LazyPlot
           data={plotData}
           useResizeHandler={!isDynamicSizeSupported}
@@ -219,8 +273,8 @@ export const CompareRunsContourPlot = React.memo(
           onUpdate={onUpdate}
           layout={layout}
           config={PLOT_CONFIG}
-          onHover={hoverCallback}
-          onUnhover={onUnhover}
+          onHover={mutableHoverCallback}
+          onUnhover={unhoverCallback}
         />
       </div>
     );

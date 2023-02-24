@@ -348,23 +348,34 @@ export class ModelListViewImpl extends React.Component {
       <div className='search-input-tooltip-content'>
         <FormattedMessage
           // eslint-disable-next-line max-len
-          defaultMessage='To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}'
+          defaultMessage='To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.'
           description='Tooltip string to explain how to search models from the model registry table'
+          values={{ newline: <br />, whereBold: <b>WHERE</b> }}
+        />{' '}
+        <FormattedMessage
+          defaultMessage='<link>Learn more</link>'
+          description='Learn more tooltip link to learn more on how to search models'
           values={{
-            newline: <br />,
             link: (chunks) => (
-              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
+              <a
+                href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                target='_blank'
+                rel='noopener noreferrer'
+              >
                 {chunks}
               </a>
             ),
-            examples: (
-              <ul>
-                <li>tags.key = "value"</li>
-                <li>name ilike "%my_model_name%" and tags.key = "value"</li>
-              </ul>
-            ),
           }}
         />
+        <br />
+        <FormattedMessage
+          defaultMessage='Examples:'
+          description='Text header for examples of mlflow search syntax'
+        />
+        <br />
+        {'• tags.my_key = "my_value"'}
+        <br />
+        {'• name ilike "%my_model_name%" and tags.my_key = "my_value"'}
       </div>
     );
   };
@@ -397,10 +408,10 @@ export class ModelListViewImpl extends React.Component {
                 <Spacer direction='horizontal' size='large'>
                   <Popover
                     overlayClassName='search-input-tooltip'
-                    content={this.searchInputHelpTooltipContent}
+                    content={this.searchInputHelpTooltipContent()}
                     placement='bottom'
                   >
-                    <QuestionMarkFillIcon />
+                    <QuestionMarkFillIcon css={{ cursor: 'pointer' }} />
                   </Popover>
                 </Spacer>
 

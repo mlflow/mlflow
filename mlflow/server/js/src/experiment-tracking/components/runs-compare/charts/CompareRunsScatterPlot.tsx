@@ -2,6 +2,11 @@ import { useTheme } from '@emotion/react';
 import { Data, Datum, Layout, PlotMouseEvent } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { LazyPlot } from '../../LazyPlot';
+import { useMutableHoverCallback } from '../hooks/useMutableHoverCallback';
+import {
+  highlightScatterTraces,
+  useCompareRunsTraceHighlight,
+} from '../hooks/useCompareRunsTraceHighlight';
 import {
   commonRunsChartStyles,
   CompareChartRunData,
@@ -58,10 +63,12 @@ export const CompareRunsScatterPlot = React.memo(
     onUnhover,
     width,
     height,
+    useDefaultHoverBox = true,
+    selectedRunUuid,
   }: CompareRunsScatterPlotProps) => {
     const theme = useTheme();
 
-    const { layoutHeight, layoutWidth, setContainerDiv, isDynamicSizeSupported } =
+    const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } =
       useDynamicPlotSize();
 
     const plotData = useMemo(() => {
@@ -98,9 +105,10 @@ export const CompareRunsScatterPlot = React.memo(
           x: xValues,
           y: yValues,
           customdata: tooltipData,
-          hovertemplate: createTooltipTemplate(),
-          hoverlabel: compareRunsChartHoverlabel,
-          type: 'scattergl',
+          hovertemplate: useDefaultHoverBox ? createTooltipTemplate() : undefined,
+          hoverinfo: useDefaultHoverBox ? undefined : 'none',
+          hoverlabel: useDefaultHoverBox ? compareRunsChartHoverlabel : undefined,
+          type: 'scatter',
           mode: 'markers',
           marker: {
             size: markerSize,
@@ -108,7 +116,7 @@ export const CompareRunsScatterPlot = React.memo(
           },
         } as Data,
       ];
-    }, [runsData, xAxis, yAxis, theme, markerSize]);
+    }, [runsData, xAxis, yAxis, theme, markerSize, useDefaultHoverBox]);
 
     const [layout, setLayout] = useState<Partial<Layout>>({
       width: width || layoutWidth,
@@ -119,29 +127,68 @@ export const CompareRunsScatterPlot = React.memo(
     });
 
     useEffect(() => {
-      setLayout((current) => ({
-        ...current,
-        width: width || layoutWidth,
-        height: height || layoutHeight,
-        margin,
-        xaxis: { ...current.xaxis, title: xAxis.key },
-        yaxis: { ...current.yaxis, title: yAxis.key },
-      }));
+      setLayout((current) => {
+        const newLayout = {
+          ...current,
+          width: width || layoutWidth,
+          height: height || layoutHeight,
+          margin,
+        };
+
+        if (newLayout.xaxis) {
+          newLayout.xaxis.title = xAxis.key;
+        }
+
+        if (newLayout.yaxis) {
+          newLayout.yaxis.title = yAxis.key;
+        }
+
+        return newLayout;
+      });
     }, [layoutWidth, layoutHeight, margin, xAxis.key, yAxis.key, width, height]);
+
+    const { setHoveredPointIndex } = useCompareRunsTraceHighlight(
+      containerDiv,
+      selectedRunUuid,
+      runsData,
+      highlightScatterTraces,
+    );
 
     const hoverCallback = useCallback(
       ({ points }: PlotMouseEvent) => {
-        // Find the corresponding run
-        const dataEntry = runsData[points[0]?.pointIndex];
-        if (dataEntry?.runInfo) {
-          onHover?.(dataEntry.runInfo.run_uuid);
+        // Find the corresponding run UUID by basing on "customdata" field set in the trace data.
+        // Plotly TS typings don't support custom fields so we need to cast to "any" first
+        const pointCustomDataRunUuid = (points[0] as any)?.customdata?.[0];
+        setHoveredPointIndex(points[0]?.pointIndex ?? -1);
+
+        if (pointCustomDataRunUuid) {
+          onHover?.(pointCustomDataRunUuid);
         }
       },
-      [onHover, runsData],
+      [onHover, setHoveredPointIndex],
     );
 
+    const unhoverCallback = useCallback(() => {
+      onUnhover?.();
+      setHoveredPointIndex(-1);
+    }, [onUnhover, setHoveredPointIndex]);
+
+    /**
+     * Unfortunately plotly.js memorizes first onHover callback given on initial render,
+     * so in order to achieve updated behavior we need to wrap its most recent implementation
+     * in the immutable callback.
+     */
+    const mutableHoverCallback = useMutableHoverCallback(hoverCallback);
+
     return (
-      <div css={commonRunsChartStyles.chartWrapper} className={className} ref={setContainerDiv}>
+      <div
+        css={[
+          commonRunsChartStyles.chartWrapper,
+          commonRunsChartStyles.scatterChartHighlightStyles,
+        ]}
+        className={className}
+        ref={setContainerDiv}
+      >
         <LazyPlot
           data={plotData}
           useResizeHandler={!isDynamicSizeSupported}
@@ -149,8 +196,8 @@ export const CompareRunsScatterPlot = React.memo(
           layout={layout}
           config={PLOT_CONFIG}
           onUpdate={onUpdate}
-          onHover={hoverCallback}
-          onUnhover={onUnhover}
+          onHover={mutableHoverCallback}
+          onUnhover={unhoverCallback}
         />
       </div>
     );

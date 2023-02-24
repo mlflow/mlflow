@@ -1,4 +1,4 @@
-import { ColDef, ColumnApi } from '@ag-grid-community/core';
+import type { ColDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
 import { Spinner } from '@databricks/design-system';
 import { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
@@ -19,10 +19,36 @@ import {
   EXPERIMENT_FIELD_PREFIX_METRIC,
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
+  getQualifiedEntityName,
 } from './experimentPage.common-utils';
 import { RunRowType } from './experimentPage.row-types';
-import { PinRowCellRenderer } from '../components/runs/cells/PinRowCellRenderer';
+import { RowActionsCellRenderer } from '../components/runs/cells/RowActionsCellRenderer';
+import { RowActionsHeaderCellRenderer } from '../components/runs/cells/RowActionsHeaderCellRenderer';
 import { RunNameCellRenderer } from '../components/runs/cells/RunNameCellRenderer';
+import { LoadMoreRowRenderer } from '../components/runs/cells/LoadMoreRowRenderer';
+import { shouldUseNextRunsComparisonUI } from '../../../../common/utils/FeatureUtils';
+
+/**
+ * Calculates width for "run name" column.
+ */
+const getRunNameColumnWidth = () => {
+  if (shouldUseNextRunsComparisonUI()) {
+    return 310;
+  }
+  return 260;
+};
+
+/**
+ * Calculates width for "actions" column. "compactMode" should be set to true
+ * for compare runs mode when checkboxes are hidden.
+ */
+const getActionsColumnWidth = (compactMode?: boolean) => {
+  if (shouldUseNextRunsComparisonUI()) {
+    // 70px when checkboxes are hidden, 104px otherwise
+    return compactMode ? 70 : 104;
+  }
+  return 70;
+};
 
 /**
  * Creates canonical sort key name for metrics and params in form
@@ -61,12 +87,14 @@ export const getFrameworkComponents = () => ({
    * We're saving cell renderer component references, otherwise
    * agGrid will unnecessarily flash cells' content (e.g. when changing sort order)
    */
+  LoadMoreRowRenderer,
   SourceCellRenderer,
   ModelsCellRenderer,
   VersionCellRenderer,
   DateCellRenderer,
   ExperimentNameCellRenderer,
-  PinRowCellRenderer,
+  RowActionsCellRenderer,
+  RowActionsHeaderCellRenderer,
   RunNameCellRenderer,
 });
 
@@ -87,6 +115,11 @@ export const TAGS_TO_COLUMNS_MAP = {
 export const getRowId = ({ data }: { data: RunRowType }) => data.runUuid;
 
 /**
+ * Determines if a data row houses "load more" button
+ */
+export const getRowIsLoadMore = ({ rowNode }: IsFullWidthRowParams) => rowNode.data.isLoadMoreRow;
+
+/**
  * Parameters used by `useRunsColumnDefinitions()` hook
  */
 export interface UseRunsColumnDefinitionsParams {
@@ -94,6 +127,7 @@ export interface UseRunsColumnDefinitionsParams {
   onSortBy: (newOrderByKey: string, newOrderByAsc: boolean) => void;
   onExpand: (parentUuid: string, childrenIds: string[]) => void;
   onTogglePin: (runUuid: string) => void;
+  onToggleVisibility: (runUuidOrToggle: string) => void;
   compareExperiments: boolean;
   metricKeyList: string[];
   paramKeyList: string[];
@@ -174,6 +208,7 @@ export const useRunsColumnDefinitions = ({
   onSortBy,
   compareExperiments,
   onTogglePin,
+  onToggleVisibility,
   onExpand,
   paramKeyList,
   metricKeyList,
@@ -203,17 +238,19 @@ export const useRunsColumnDefinitions = ({
 
     // Checkbox selection column
     columns.push({
-      field: 'pinned',
-      checkboxSelection: true,
+      valueGetter: ({ data: { pinned, hidden } }) => ({ pinned, hidden }),
+      checkboxSelection: !isComparingRuns,
+      headerComponent: shouldUseNextRunsComparisonUI() ? 'RowActionsHeaderCellRenderer' : undefined,
+      headerComponentParams: { onToggleVisibility },
+      headerCheckboxSelection: !isComparingRuns,
       headerName: '',
-      headerCheckboxSelection: true,
       cellClass: 'is-checkbox-cell',
-      cellRenderer: 'PinRowCellRenderer',
-      cellRendererParams: { onTogglePin },
+      cellRenderer: 'RowActionsCellRenderer',
+      cellRendererParams: { onTogglePin, onToggleVisibility },
       pinned: 'left',
-      minWidth: 70,
-      width: 70,
-      maxWidth: 70,
+      minWidth: getActionsColumnWidth(isComparingRuns),
+      width: getActionsColumnWidth(isComparingRuns),
+      maxWidth: getActionsColumnWidth(isComparingRuns),
       resizable: false,
     });
 
@@ -234,7 +271,7 @@ export const useRunsColumnDefinitions = ({
         getClassName: getHeaderClassName,
       },
       cellClass: getCellClassName,
-      initialWidth: 260,
+      initialWidth: getRunNameColumnWidth(),
       resizable: !isComparingRuns,
     });
 
@@ -361,7 +398,7 @@ export const useRunsColumnDefinitions = ({
           return {
             headerName: metricKey,
             colId: canonicalSortKey,
-            headerTooltip: canonicalSortKey,
+            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.METRICS, metricKey),
             field: createMetricFieldName(metricKey),
             tooltipField: createMetricFieldName(metricKey),
             initialWidth: 100,
@@ -388,7 +425,7 @@ export const useRunsColumnDefinitions = ({
           return {
             colId: canonicalSortKey,
             headerName: paramKey,
-            headerTooltip: canonicalSortKey,
+            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.PARAMS, paramKey),
             field: createParamFieldName(paramKey),
             tooltipField: createParamFieldName(paramKey),
             initialHide: true,
@@ -417,7 +454,7 @@ export const useRunsColumnDefinitions = ({
             headerName: tagKey,
             initialHide: true,
             initialWidth: 100,
-            headerTooltip: canonicalSortKey,
+            headerTooltip: getQualifiedEntityName(COLUMN_TYPES.TAGS, tagKey),
             field: createTagFieldName(tagKey),
             tooltipField: createTagFieldName(tagKey),
           };
@@ -431,6 +468,7 @@ export const useRunsColumnDefinitions = ({
     orderByAsc,
     onSortBy,
     onTogglePin,
+    onToggleVisibility,
     onExpand,
     compareExperiments,
     cumulativeColumns,

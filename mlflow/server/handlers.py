@@ -558,22 +558,18 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
-    measure to prevent path traversal attacks. The implementation is based on
-    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    measure to prevent path traversal attacks.
     """
-    if path != "":
-        path = posixpath.normpath(path)
     if (
-        any(sep in path for sep in _os_alt_seps)
-        or os.path.isabs(path)
-        or path == ".."
-        or path.startswith("../")
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split(posixpath.sep)
+        or posixpath.isabs(path)
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
@@ -1642,7 +1638,7 @@ def _list_artifacts_mlflow_artifacts():
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
-def _delete_artifact_mflflow_artifacts(artifact_path):
+def _delete_artifact_mlflow_artifacts(artifact_path):
     """
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
@@ -1749,5 +1745,5 @@ HANDLERS = {
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
-    DeleteArtifact: _delete_artifact_mflflow_artifacts,
+    DeleteArtifact: _delete_artifact_mlflow_artifacts,
 }

@@ -165,8 +165,16 @@ export class ModelVersionPageImpl extends React.Component {
     this.getModelVersionMlModelFile();
   }
 
+  // Make a new initial load if model version or name has changed
+  componentDidUpdate(prevProps) {
+    if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
+      this.loadData(true).catch(console.error);
+      this.getModelVersionMlModelFile();
+    }
+  }
+
   componentWillUnmount() {
-    clearTimeout(this.pollIntervalId);
+    clearInterval(this.pollIntervalId);
   }
 
   render() {
@@ -182,6 +190,19 @@ export class ModelVersionPageImpl extends React.Component {
           {(loading, hasError, requests) => {
             if (hasError) {
               clearInterval(this.pollIntervalId);
+              const resourceConflictError = Utils.getResourceConflictError(
+                requests,
+                this.state.criticalInitialRequestIds,
+              );
+              if (resourceConflictError) {
+                return (
+                  <ErrorView
+                    statusCode={409}
+                    subMessage={resourceConflictError.error.getMessageField()}
+                    fallbackHomePageReactRoute={modelListPageRoute}
+                  />
+                );
+              }
               if (Utils.shouldRender404(requests, this.state.criticalInitialRequestIds)) {
                 return (
                   <ErrorView

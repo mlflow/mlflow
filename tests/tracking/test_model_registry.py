@@ -2,6 +2,7 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import time
 import pytest
 
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
@@ -272,9 +273,11 @@ def test_search_model_versions_filter_string(
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
-    mvs = [
-        client.create_model_version(name, "path/to/model", "run_id") for name in names + names[:10]
-    ]
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -306,9 +309,11 @@ def test_search_model_versions_max_results(client, max_results):
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
-    mvs = [
-        client.create_model_version(name, "path/to/model", "run_id") for name in names + names[:10]
-    ]
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -354,9 +359,11 @@ def test_search_model_versions_order_by(
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
-    mvs = [
-        client.create_model_version(name, "path/to/model", "run_id") for name in names + names[:10]
-    ]
+    mvs = []
+    for name in names + names[:10]:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
+        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -520,6 +527,8 @@ def test_latest_models(client):
     client.create_registered_model(name)
 
     for version, stage in version_stage_mapping:
+        # Sleep for unique creation_time to make search results deterministic
+        time.sleep(0.001)
         mv = client.create_model_version(name, "path/to/model", "run_id")
         assert mv.version == version
         if stage != "None":
