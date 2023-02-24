@@ -15,10 +15,10 @@ import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, injectIntl } from 'react-intl';
 import {
-  Modal,
   Button,
   SegmentedControlGroup,
   SegmentedControlButton,
+  DangerModal,
 } from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
 
@@ -375,7 +375,7 @@ export class ModelViewImpl extends React.Component {
         </CollapsibleSection>
 
         {/* Delete Model Dialog */}
-        <Modal
+        <DangerModal
           data-testid='mlflow-input-modal'
           title={this.props.intl.formatMessage({
             defaultMessage: 'Delete Model',
@@ -392,7 +392,6 @@ export class ModelViewImpl extends React.Component {
             defaultMessage: 'Cancel',
             description: 'Cancel text for delete model modal on model view page',
           })}
-          okType='danger'
           onCancel={this.hideDeleteModal}
         >
           <span>
@@ -402,7 +401,7 @@ export class ModelViewImpl extends React.Component {
               values={{ modelName: modelName }}
             />
           </span>
-        </Modal>
+        </DangerModal>
       </div>
     );
   };

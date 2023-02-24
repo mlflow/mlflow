@@ -67,7 +67,8 @@ export class ArtifactPageImpl extends Component {
         // We're not reporting errors more than once when polling
         // in order to avoid flooding logs
         if (!this.state.errorThrown) {
-          Utils.logErrorAndNotifyUser(error);
+          const errorMessage = `Error while fetching model version for run: ${error}`;
+          Utils.logErrorAndNotifyUser(errorMessage);
           this.setState({ errorThrown: true });
         }
       }

@@ -20,7 +20,6 @@ import { loadMoreRunsApi, searchRunsApi, searchRunsPayload } from '../../../../a
 import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRunsContext';
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
-import { ExperimentViewLoadMore } from './ExperimentViewLoadMore';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../constants';
 import { RunRowType } from '../../utils/experimentPage.row-types';
@@ -58,6 +57,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     isLoadingRuns,
     loadMoreRuns,
     moreRunsAvailable,
+    requestError,
   } = useFetchExperimentRuns();
 
   const [visibleRuns, setVisibleRuns] = useState<RunRowType[]>([]);
@@ -71,26 +71,6 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const updateViewState = useCallback<UpdateExperimentViewStateFn>(
-    (newPartialViewState) =>
-      setViewState((currentViewState) => ({ ...currentViewState, ...newPartialViewState })),
-    [],
-  );
-
-  const addColumnClicked = useCallback(() => {
-    updateViewState({ columnSelectorVisible: true });
-  }, [updateViewState]);
-
-  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns } = searchFacetsState;
-
-  const shouldNestChildrenAndFetchParents = useMemo(
-    () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
-    [orderByKey, searchFilter],
-  );
-
-  // Value used a reference for the "date" column
-  const [referenceTime, setReferenceTime] = useState(createCurrentTime);
-
   const {
     paramKeyList,
     metricKeyList,
@@ -101,6 +81,27 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     runInfos,
     runUuidsMatchingFilter,
   } = runsData;
+
+  const updateViewState = useCallback<UpdateExperimentViewStateFn>(
+    (newPartialViewState) =>
+      setViewState((currentViewState) => ({ ...currentViewState, ...newPartialViewState })),
+    [],
+  );
+
+  const addColumnClicked = useCallback(() => {
+    updateViewState({ columnSelectorVisible: true });
+  }, [updateViewState]);
+
+  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns, runsHidden } =
+    searchFacetsState;
+
+  const shouldNestChildrenAndFetchParents = useMemo(
+    () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
+    [orderByKey, searchFilter],
+  );
+
+  // Value used a reference for the "date" column
+  const [referenceTime, setReferenceTime] = useState(createCurrentTime);
 
   // We're setting new reference date only when new runs data package has arrived
   useEffect(() => {
@@ -130,6 +131,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
       })),
       runUuidsMatchingFilter,
       runsPinned,
+      runsHidden,
     });
 
     setVisibleRuns(runs);
@@ -148,8 +150,19 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     shouldNestChildrenAndFetchParents,
     referenceTime,
     runsPinned,
+    runsHidden,
     runUuidsMatchingFilter,
+    requestError,
   ]);
+
+  const loadMoreRunsCallback = useCallback(() => {
+    if (moreRunsAvailable && !isLoadingRuns) {
+      // Don't do this if we're loading runs
+      // to prevent too many requests from being
+      // sent out
+      loadMoreRuns();
+    }
+  }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns]);
 
   return (
     <>
@@ -159,7 +172,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         runsData={runsData}
         searchFacetsState={searchFacetsState}
         updateSearchFacets={updateSearchFacets}
-        visibleRowsCount={visibleRuns.length}
+        requestError={requestError}
       />
       <div css={styles.createRunsTableWrapper(isComparingRuns)}>
         <ExperimentViewRunsTable
@@ -172,6 +185,8 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           updateViewState={updateViewState}
           onAddColumnClicked={addColumnClicked}
           rowsData={visibleRuns}
+          loadMoreRunsFunc={loadMoreRunsCallback}
+          moreRunsAvailable={moreRunsAvailable}
         />
         {isComparingRuns && (
           <RunsCompare
@@ -179,26 +194,31 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
             comparedRuns={visibleRuns}
             metricKeyList={runsData.metricKeyList}
             paramKeyList={runsData.paramKeyList}
+            experimentTags={runsData.experimentTags}
             searchFacetsState={searchFacetsState}
             updateSearchFacets={updateSearchFacets}
           />
         )}
       </div>
-      <ExperimentViewLoadMore
-        isLoadingRuns={isLoadingRuns}
-        loadMoreRuns={loadMoreRuns}
-        moreRunsAvailable={moreRunsAvailable}
-      />
     </>
   );
 });
 
 const styles = {
   createRunsTableWrapper: (isComparingRuns: boolean) => ({
+    minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
+    height: '100%',
     display: 'grid',
-    // When comparing runs, we fix the table width to 260px.
+    position: 'relative' as const,
+    // When comparing runs, we fix the table width to 310px.
     // We can consider making it resizable by a user.
-    gridTemplateColumns: isComparingRuns ? '260px 1fr' : '1fr',
+    gridTemplateColumns: isComparingRuns ? '310px 1fr' : '1fr',
+  }),
+  loadingFooter: () => ({
+    justifyContent: 'center',
+    alignItems: 'center',
+    display: 'flex',
+    height: '72px',
   }),
 };
 
@@ -234,9 +254,17 @@ export const ExperimentViewRunsConnect: React.ComponentType<ExperimentViewRunsOw
   // mergeProps function (not provided):
   undefined,
   {
-    // We're interested only in "entities" sub-tree so we won't
-    // re-render on other state changes (e.g. API request IDs)
-    areStatesEqual: (nextState, prevState) => nextState.entities === prevState.entities,
+    // We're interested only in certain entities sub-tree so we won't
+    // re-render on other state changes (e.g. API request IDs or metric history)
+    areStatesEqual: (nextState, prevState) =>
+      nextState.entities.experimentTagsByExperimentId ===
+        prevState.entities.experimentTagsByExperimentId &&
+      nextState.entities.latestMetricsByRunUuid === prevState.entities.latestMetricsByRunUuid &&
+      nextState.entities.modelVersionsByRunUuid === prevState.entities.modelVersionsByRunUuid &&
+      nextState.entities.paramsByRunUuid === prevState.entities.paramsByRunUuid &&
+      nextState.entities.runInfosByUuid === prevState.entities.runInfosByUuid &&
+      nextState.entities.runUuidsMatchingFilter === prevState.entities.runUuidsMatchingFilter &&
+      nextState.entities.tagsByRunUuid === prevState.entities.tagsByRunUuid,
   },
 )(ExperimentViewRunsImpl);
 
