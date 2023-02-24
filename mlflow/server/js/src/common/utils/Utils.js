@@ -51,11 +51,11 @@ class Utils {
   /**
    * Displays the error notification in the UI.
    */
-  static displayGlobalErrorNotification(content) {
+  static displayGlobalErrorNotification(content, duration) {
     if (!Utils.#notificationsApi) {
       return;
     }
-    Utils.#notificationsApi.error({ message: content });
+    Utils.#notificationsApi.error({ message: content, duration: duration });
   }
 
   static runNameTag = 'mlflow.runName';
@@ -124,7 +124,6 @@ class Utils {
 
   static timeSinceStr(date, referenceDate = new Date()) {
     const seconds = Math.max(0, Math.floor((referenceDate - date) / 1000));
-
     let interval = Math.floor(seconds / 31536000);
 
     if (interval >= 1) {
@@ -952,14 +951,15 @@ class Utils {
     // Prevent formatting after edge block removal
     // prettier-ignore
     e,
+    duration = 3,
     passErrorToParentFrame = false,
   ) {
     console.error(e);
     if (typeof e === 'string') {
-      Utils.displayGlobalErrorNotification(e);
+      Utils.displayGlobalErrorNotification(e, duration);
     } else if (e instanceof ErrorWrapper) {
       // not all error is wrapped by ErrorWrapper
-      Utils.displayGlobalErrorNotification(e.renderHttpError());
+      Utils.displayGlobalErrorNotification(e.renderHttpError(), duration);
       // eslint-disable-next-line no-empty
     } else {
     }
@@ -1051,6 +1051,17 @@ class Utils {
       const { error } = request;
       return error && error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST;
     });
+  }
+
+  static getResourceConflictError(requests, requestIdsToCheck) {
+    const result = requests.filter((request) => {
+      if (requestIdsToCheck.includes(request.id)) {
+        const { error } = request;
+        return error && error.getErrorCode() === ErrorCodes.RESOURCE_CONFLICT;
+      }
+      return false;
+    });
+    return result[0];
   }
 
   static compareExperiments(a, b) {

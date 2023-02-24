@@ -3,8 +3,12 @@ import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 class Routes {
   static rootRoute = '/';
 
-  static getExperimentPageRoute(experimentId) {
-    return `/experiments/${experimentId}`;
+  static getExperimentPageRoute(experimentId, isComparingRuns = false) {
+    if (isComparingRuns) {
+      return `/experiments/${experimentId}?isComparingRuns=true`;
+    } else {
+      return `/experiments/${experimentId}`;
+    }
   }
 
   static searchRunsByUser(experimentId, user_id) {
@@ -27,7 +31,7 @@ class Routes {
   static runPageRoute = '/experiments/:experimentId/runs/:runUuid';
 
   static runPageWithArtifactSelectedRoute =
-    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath+';
+    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath*';
 
   /**
    * Get route to the metric plot page

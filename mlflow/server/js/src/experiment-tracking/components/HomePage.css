@@ -1,6 +1,3 @@
-.outer-container {
-  display: flex;
-}
 .HomePage-experiment-list-container {
   flex: 0 0 312px;
 }
@@ -15,12 +12,11 @@
   padding: 0 64px 0 32px;
 }
 
-
 /* BEGIN css for when experiment list collapsed */
 .expander {
   display: inline-block;
   background-color: #082142d6;
-  color: #FFFFFF;
+  color: #ffffff;
   font-size: 16px;
   line-height: 24px;
   width: 24px;

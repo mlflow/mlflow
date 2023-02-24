@@ -20,6 +20,7 @@ import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { saveAs } from 'file-saver';
+import { Spinner } from '@databricks/design-system';
 import { normalizeMetricsHistoryEntry } from '../utils/MetricsUtils';
 
 export const CHART_TYPE_LINE = 'line';
@@ -29,6 +30,8 @@ export const METRICS_PLOT_POLLING_INTERVAL_MS = 10 * 1000; // 10 seconds
 // A run is considered as 'hanging' if its status is 'RUNNING' but its latest metric was logged
 // prior to this threshold. The metrics plot doesn't automatically update hanging runs.
 export const METRICS_PLOT_HANGING_RUN_THRESHOLD_MS = 3600 * 24 * 7 * 1000; // 1 week
+const MAXIMUM_METRIC_DATA_POINTS = 100_000;
+const GET_METRIC_HISTORY_MAX_RESULTS = 25000;
 
 export const convertMetricsToCsv = (metrics) => {
   const header = ['run_id', ...Object.keys(metrics[0].history[0])];
@@ -42,6 +45,8 @@ export const convertMetricsToCsv = (metrics) => {
 };
 
 export class MetricsPlotPanel extends React.Component {
+  _isMounted = false;
+
   static propTypes = {
     experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
     runUuids: PropTypes.arrayOf(PropTypes.string).isRequired,
@@ -98,10 +103,10 @@ export class MetricsPlotPanel extends React.Component {
       popoverY: 0,
       popoverRunItems: [],
       focused: true,
+      loading: false,
     };
     this.displayPopover = false;
     this.intervalId = null;
-    this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
   }
 
   hasMultipleExperiments() {
@@ -155,6 +160,8 @@ export class MetricsPlotPanel extends React.Component {
   };
 
   componentDidMount() {
+    this._isMounted = true;
+    this.loadMetricHistory(this.props.runUuids, this.getUrlState().selectedMetricKeys);
     if (this.shouldPoll()) {
       // Set event listeners to detect when this component gains/loses focus,
       // e.g., a user switches to a different browser tab or app.
@@ -177,6 +184,7 @@ export class MetricsPlotPanel extends React.Component {
   }
 
   componentWillUnmount() {
+    this._isMounted = false;
     this.clearEventListeners();
     this.clearInterval();
   }
@@ -239,19 +247,70 @@ export class MetricsPlotPanel extends React.Component {
     );
   };
 
+  getNumTotalMetrics = () => {
+    return this.props.metricsWithRunInfoAndHistory
+      .map(({ history }) => history.length)
+      .reduce((a, b) => a + b, 0);
+  };
+
   loadMetricHistory = (runUuids, metricKeys) => {
-    const requestIds = [];
-    const { latestMetricsByRunUuid } = this.props;
-    runUuids.forEach((runUuid) => {
-      metricKeys.forEach((metricKey) => {
-        if (latestMetricsByRunUuid[runUuid][metricKey]) {
-          const id = getUUID();
-          this.props.getMetricHistoryApi(runUuid, metricKey, id);
-          requestIds.push(id);
+    if (this.getNumTotalMetrics() >= MAXIMUM_METRIC_DATA_POINTS) {
+      Utils.logErrorAndNotifyUser(
+        'The total number of metric data points exceeded 100,000. Cannot fetch more metrics.',
+      );
+      return Promise.resolve([]);
+    }
+    this.setState({ loading: true });
+    const promises = runUuids
+      .flatMap((id) => metricKeys.map((key) => ({ runUuid: id, metricKey: key })))
+      // Avoid fetching non existing metrics
+      .filter(({ runUuid, metricKey }) =>
+        this.props.latestMetricsByRunUuid[runUuid].hasOwnProperty(metricKey),
+      )
+      .map(async ({ runUuid, metricKey }) => {
+        const requestIds = [];
+        const id = getUUID();
+        requestIds.push(id);
+        const firstPageResp = await this.props.getMetricHistoryApi(
+          runUuid,
+          metricKey,
+          GET_METRIC_HISTORY_MAX_RESULTS,
+          undefined,
+          id,
+        );
+
+        let nextPageToken = firstPageResp.value.next_page_token;
+        while (nextPageToken) {
+          if (this.getNumTotalMetrics() >= MAXIMUM_METRIC_DATA_POINTS) {
+            return { requestIds, success: false };
+          }
+
+          const uid = getUUID();
+          requestIds.push(uid);
+          /* eslint-disable no-await-in-loop */
+          const nextPageResp = await this.props.getMetricHistoryApi(
+            runUuid,
+            metricKey,
+            GET_METRIC_HISTORY_MAX_RESULTS,
+            nextPageToken,
+            uid,
+          );
+          nextPageToken = nextPageResp.value.next_page_token;
         }
+        return { requestIds, success: true };
       });
+    return Promise.all(promises).then((results) => {
+      // Ensure we don't set state if component is unmounted
+      if (this._isMounted) {
+        this.setState({ loading: false });
+      }
+      if (!results.every(({ success }) => success)) {
+        Utils.logErrorAndNotifyUser(
+          'The total number of metric data points exceeded 100,000. Aborted fetching metrics.',
+        );
+      }
+      return results.flatMap(({ requestIds }) => requestIds);
     });
-    return requestIds;
   };
 
   loadRuns = (runUuids) => {
@@ -537,18 +596,13 @@ export class MetricsPlotPanel extends React.Component {
   handleMetricsSelectChange = (metricKeys) => {
     const existingMetricKeys = this.getUrlState().selectedMetricKeys || [];
     const newMetricKeys = metricKeys.filter((k) => !existingMetricKeys.includes(k));
-
-    const requestIds = this.loadMetricHistory(this.props.runUuids, newMetricKeys);
-    this.setState(
-      (prevState) => ({
+    this.updateUrlState({ selectedMetricKeys: metricKeys });
+    this.loadMetricHistory(this.props.runUuids, newMetricKeys).then((requestIds) => {
+      this.setState({ loading: false });
+      this.setState((prevState) => ({
         historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
-      }),
-      () => {
-        this.updateUrlState({
-          selectedMetricKeys: metricKeys,
-        });
-      },
-    );
+      }));
+    });
   };
 
   handleShowPointChange = (showPoint) => this.updateUrlState({ showPoint });
@@ -595,7 +649,7 @@ export class MetricsPlotPanel extends React.Component {
 
   render() {
     const { experimentIds, runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
-    const { popoverVisible, popoverX, popoverY, popoverRunItems } = this.state;
+    const { popoverVisible, popoverX, popoverY, popoverRunItems, loading } = this.state;
     const state = this.getUrlState();
     const { showPoint, selectedXAxis, selectedMetricKeys, lineSmoothness } = state;
     const yAxisLogScale = this.getAxisType() === 'log';
@@ -642,6 +696,7 @@ export class MetricsPlotPanel extends React.Component {
                 handleVisibleChange={(visible) => this.setState({ popoverVisible: visible })}
               />
             )}
+            <Spinner size='large' css={{ visibility: loading ? 'visible' : 'hidden' }} />
             <MetricsPlotView
               runUuids={runUuids}
               runDisplayNames={runDisplayNames}

@@ -2,12 +2,11 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import { Redirect } from 'react-router';
-import { Skeleton, Spacer } from '@databricks/design-system';
+import { PageWrapper, Skeleton } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import { getExperiments } from '../reducers/Reducers';
 import { NoExperimentView } from './NoExperimentView';
 import Utils from '../../common/utils/Utils';
-import { PageContainer } from '../../common/components/PageContainer';
 import Routes from '../routes';
 
 // Lazy load experiment page in order to promote bundle splitting
@@ -27,8 +26,6 @@ class HomeView extends Component {
 
   render() {
     const { experimentIds, experiments, compareExperiments } = this.props;
-    const headerHeight = process.env.HIDE_HEADER === 'true' ? 0 : 60;
-    const containerHeight = 'calc(100% - ' + headerHeight + 'px)';
     const hasExperiments = experimentIds?.length > 0;
 
     if (experimentIds === undefined) {
@@ -40,29 +37,28 @@ class HomeView extends Component {
 
     if (process.env.HIDE_EXPERIMENT_LIST === 'true') {
       return (
-        <div style={{ height: containerHeight }}>
+        <>
           {hasExperiments ? (
-            <PageContainer>
+            <PageWrapper css={{ height: `100%`, paddingTop: 16, width: '100%' }}>
               <React.Suspense fallback={<Skeleton />}>
                 <ExperimentPage
                   experimentIds={experimentIds}
                   compareExperiments={compareExperiments}
                 />
               </React.Suspense>
-            </PageContainer>
+            </PageWrapper>
           ) : (
             <NoExperimentView />
           )}
-        </div>
+        </>
       );
     }
     return (
-      <div className='outer-container' style={{ height: containerHeight }}>
-        <div>
-          <Spacer />
+      <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+        <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
           <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
         </div>
-        <PageContainer>
+        <PageWrapper css={{ height: '100%', flex: '1', paddingTop: 24 }}>
           {hasExperiments ? (
             <React.Suspense fallback={<Skeleton />}>
               <ExperimentPage
@@ -73,7 +69,7 @@ class HomeView extends Component {
           ) : (
             <NoExperimentView />
           )}
-        </PageContainer>
+        </PageWrapper>
       </div>
     );
   }

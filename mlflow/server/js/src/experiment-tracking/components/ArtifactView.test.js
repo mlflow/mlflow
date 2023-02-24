@@ -4,7 +4,7 @@ import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
 import ShowArtifactImageView from './artifact-view-components/ShowArtifactImageView';
-import ShowArtifactMapView from './artifact-view-components/ShowArtifactMapView';
+import { LazyShowArtifactMapView } from './artifact-view-components/LazyShowArtifactMapView';
 import ShowArtifactHtmlView from './artifact-view-components/ShowArtifactHtmlView';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { mockModelVersionDetailed } from '../../model-registry/test-utils';
@@ -182,7 +182,7 @@ describe('ArtifactView', () => {
     wrapper = getWrapper(getMockStore(rootNode), minimalProps);
     const geojsonFileElement = wrapper.find('NodeHeader').at(0);
     geojsonFileElement.simulate('click');
-    expect(wrapper.find(ShowArtifactMapView)).toHaveLength(1);
+    expect(wrapper.find(LazyShowArtifactMapView)).toHaveLength(1);
   });
 
   test('should render selected directory artifact', () => {

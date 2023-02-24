@@ -22,15 +22,12 @@ jest.mock('./ExperimentViewRunsControls', () => ({
 jest.mock('./ExperimentViewRunsTable', () => ({
   ExperimentViewRunsTable: () => <div />,
 }));
-jest.mock('./ExperimentViewLoadMore', () => ({
-  ExperimentViewLoadMore: () => <div />,
-}));
 
 /**
  * Mock all external components for performant mount() usage
  */
-jest.mock('../../../../../common/components/ExperimentRunsTableEmptyOverlay', () => ({
-  ExperimentRunsTableEmptyOverlay: () => <div />,
+jest.mock('./ExperimentViewRunsEmptyTable', () => ({
+  ExperimentViewRunsEmptyTable: () => <div />,
 }));
 
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {

@@ -35,10 +35,6 @@
     "defaultMessage": "Name",
     "description": "Column title for name column for displaying the metrics name for the experiment run"
   },
-  "/Rt/Lj": {
-    "defaultMessage": "Click to pin the run",
-    "description": "A tooltip for the pin icon button in the runs table next to the not pinned run"
-  },
   "/YdNM8": {
     "defaultMessage": "No models yet. <link>Create a model</link> to get started.",
     "description": "Placeholder text for empty models table in the registered model list page"
@@ -103,6 +99,10 @@
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
   },
+  "2K8tsp": {
+    "defaultMessage": "10",
+    "description": "Label for 10 first runs visible in run count selector within runs compare configuration modal"
+  },
   "2NJ8E5": {
     "defaultMessage": "Please select parameters and/or metrics to display the comparison.",
     "description": "Explanation displayed in the metrics and params compare plot when no values are selected"
@@ -110,6 +110,10 @@
   "2NfDVN": {
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
+  },
+  "2Us2jl": {
+    "defaultMessage": "X axis",
+    "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
   "2YEXRM": {
     "defaultMessage": "Edit",
@@ -134,6 +138,14 @@
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
+  },
+  "3VURvw": {
+    "defaultMessage": "No metrics or parameters available",
+    "description": "Message displayed when no metrics or params are available in the compare runs chart configure modal"
+  },
+  "3bagxW": {
+    "defaultMessage": "<link>Learn more</link>",
+    "description": "Learn more tooltip link to learn more on how to search models"
   },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
@@ -166,6 +178,18 @@
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
+  },
+  "4yjF8O": {
+    "defaultMessage": "Show all runs",
+    "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
+  },
+  "58xhem": {
+    "defaultMessage": "Click to pin the run",
+    "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
+  },
+  "5GCYzy": {
+    "defaultMessage": "Experiment Runs - Databricks",
+    "description": "Title on a page used to manage MLflow experiments runs"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -203,6 +227,10 @@
     "defaultMessage": "Predict on a Spark DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using spark DataFrame"
   },
+  "6y36Fr": {
+    "defaultMessage": "Add new chart",
+    "description": "Title of the modal when adding a new runs comparison chart"
+  },
   "739thv": {
     "defaultMessage": "Lifecycle Stage",
     "description": "Label for displaying lifecycle stage of the experiment run to see if its active or deleted"
@@ -210,10 +238,6 @@
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
     "description": "Error message text when saving an editable note in MLflow"
-  },
-  "7ASbrt": {
-    "defaultMessage": "Show more metrics and parameters",
-    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
   },
   "7F/CBv": {
     "defaultMessage": "Stage",
@@ -267,6 +291,10 @@
     "defaultMessage": "Value",
     "description": "Default text for value placeholder in editable tags table form in MLflow"
   },
+  "8YmId5": {
+    "defaultMessage": "Y axis",
+    "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
+  },
   "8flziy": {
     "defaultMessage": "Time (Wall)",
     "description": "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
@@ -315,6 +343,10 @@
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
     "description": "Text for form description on creating model in the model registry"
   },
+  "AW2rVK": {
+    "defaultMessage": "Max. no of runs shown",
+    "description": "Label for the control allowing selection of number of runs displayed in a compare runs chart"
+  },
   "At3XhS": {
     "defaultMessage": "Created Time",
     "description": "Label name for the created time under details tab on the model view page"
@@ -330,6 +362,14 @@
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
     "description": "Sub text to tell the users where the registered models are located "
+  },
+  "Bbm59f": {
+    "defaultMessage": "100",
+    "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "Bnruyp": {
+    "defaultMessage": "500",
+    "description": "Label for 500 first runs visible in run count selector within runs compare configuration modal"
   },
   "BwyYS1": {
     "defaultMessage": "Value",
@@ -354,6 +394,14 @@
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
+  },
+  "DYvd0s": {
+    "defaultMessage": "Chart view",
+    "description": "A button enabling compare runs (chart) mode on the experiment page"
+  },
+  "DaF+KK": {
+    "defaultMessage": "Y axis",
+    "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
   },
   "Dhn7Mb": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -455,6 +503,10 @@
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
+  "H/6At3": {
+    "defaultMessage": "We’ve made several improvements to the new runs comparison experience.",
+    "description": "Callout message to tell user about new compare runs feature"
+  },
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
@@ -535,6 +587,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "Mc6Dhy": {
+    "defaultMessage": "5",
+    "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
+  },
   "NFUJyk": {
     "defaultMessage": "Load model",
     "description": "Code comment which states how to load a SparkML model"
@@ -554,6 +610,14 @@
   "Nm/Pjx": {
     "defaultMessage": "Registered at",
     "description": "Column title text for created at timestamp in model version table"
+  },
+  "Nnsm0p": {
+    "defaultMessage": "All runs in this experiment have been filtered. Change or clear filters to view runs.",
+    "description": "Empty state description text for experiment runs page when all runs have been filtered out"
+  },
+  "NwNrl4": {
+    "defaultMessage": "Amount of time that has passed since the first metric value was logged",
+    "description": "A tooltip line chart configuration for the step function of relative time"
   },
   "O1rYVN": {
     "defaultMessage": "Load model as a Spark UDF. Override result_type if the model does not return double values.",
@@ -647,9 +711,17 @@
     "defaultMessage": "Inputs",
     "description": "Table section name for schema inputs in the model comparison page"
   },
+  "Tl63jz": {
+    "defaultMessage": "All runs are filtered",
+    "description": "Empty state title text for experiment runs page when all runs have been filtered out"
+  },
   "TlFUsN": {
     "defaultMessage": "Tags",
     "description": "Title text for the tags section on the model versions view page"
+  },
+  "TlVXcS": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button label within a modal for adding/editing a new runs comparison chart"
   },
   "U+Jzcv": {
     "defaultMessage": "<link>Version {versionNumber}</link>",
@@ -671,6 +743,10 @@
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
     "description": "Helpful tooltip message to explain the automatic metrics plot update"
   },
+  "UEESlL": {
+    "defaultMessage": "Hide all runs",
+    "description": "Menu option for hiding all runs in the experiment view runs compare mode"
+  },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in contour plot comparison in MLflow"
@@ -678,6 +754,14 @@
   "UhdPmo": {
     "defaultMessage": "Transition to",
     "description": "Text for transitioning a model version to a different stage under\n                 dropdown menu in model version page"
+  },
+  "Uw3UMI": {
+    "defaultMessage": "Table view",
+    "description": "A button enabling table mode on the experiment page"
+  },
+  "UzZf+2": {
+    "defaultMessage": "Add chart",
+    "description": "Confirm button label within a modal when adding a new runs comparison chart"
   },
   "VP+qFF": {
     "defaultMessage": "Show diff only",
@@ -690,6 +774,10 @@
   "Vm9CvZ": {
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
+  },
+  "W8bOkn": {
+    "defaultMessage": "250",
+    "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
   },
   "WGhlnW": {
     "defaultMessage": "User",
@@ -734,10 +822,6 @@
   "YINJEO": {
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
-  },
-  "YLvpXM": {
-    "defaultMessage": "Track machine learning training runs in experiments. <link>Learn more</link>",
-    "description": "Information banner text to provide more information about experiments runs page"
   },
   "YRFAGK": {
     "defaultMessage": "Negative infinity ({metricKey})",
@@ -791,10 +875,6 @@
     "defaultMessage": "Outputs",
     "description": "Table subtitle for schema outputs in the model comparison page"
   },
-  "aGxvDa": {
-    "defaultMessage": "To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}",
-    "description": "Tooltip string to explain how to search models from the model registry table"
-  },
   "aIP7Kb": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for confirmation pop-up to delete a tag from\n                     table in MLflow"
@@ -847,13 +927,13 @@
     "defaultMessage": "Last hour",
     "description": "Option for the start select dropdown to filter runs from the last hour"
   },
-  "bq+LYL": {
-    "defaultMessage": "No runs yet. <link>Learn more</link> about how to create ML model training {newLine} runs in this experiment.",
-    "description": "Empty state text for experiment runs page"
-  },
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "cB0/61": {
+    "defaultMessage": "Z axis",
+    "description": "Label for Z axis in Contour chart configurator in compare runs chart config modal"
   },
   "cBDYla": {
     "defaultMessage": "Actions",
@@ -867,13 +947,25 @@
     "defaultMessage": "Schema",
     "description": "Table title text for schema table in the model comparison page"
   },
+  "coo35p": {
+    "defaultMessage": "No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.",
+    "description": "Empty state description text for experiment runs page when no runs are logged in the experiment"
+  },
   "d/cZ34": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the run view"
   },
+  "d/lwTE": {
+    "defaultMessage": "Time (s)",
+    "description": "Label for X axis in compare runs metrics when values are displayed by relative time in seconds"
+  },
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d78wwA": {
+    "defaultMessage": "Provide Feedback",
+    "description": "Link to a survey for users to give feedback"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -890,6 +982,10 @@
   "eBGO2d": {
     "defaultMessage": "No metrics to display.",
     "description": "Text shown when there are no metrics to display"
+  },
+  "eE5VIF": {
+    "defaultMessage": "Click to hide the run",
+    "description": "A tooltip for the \"hide\" icon button in the runs chart tooltip"
   },
   "eFCjOp": {
     "defaultMessage": "Metrics",
@@ -935,6 +1031,10 @@
     "defaultMessage": "Git Commit",
     "description": "Label for displaying the tag or the commit hash of the git commit"
   },
+  "fjiojF": {
+    "defaultMessage": "Pin run",
+    "description": "A tooltip for the pin icon button in the runs table next to the not pinned run"
+  },
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
@@ -947,6 +1047,10 @@
     "defaultMessage": "Name",
     "description": "Column title for model name in the registered model page"
   },
+  "gLj8lU": {
+    "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
+    "description": "Message for displaying how many runs match search criteria on experiment page"
+  },
   "gUdmaJ": {
     "defaultMessage": "Schema",
     "description": "Title text for the schema section on the model versions view page"
@@ -958,6 +1062,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "iNaKVL": {
+    "defaultMessage": "Give it a try.",
+    "description": "Link to new runs compare page"
   },
   "iQzwqe": {
     "defaultMessage": "Min",
@@ -983,9 +1091,17 @@
     "defaultMessage": "Last Modified",
     "description": "Label name for the last modified time under details tab on the model view page"
   },
+  "jH0+gA": {
+    "defaultMessage": "Metrics",
+    "description": "Label for 'metrics' option group in the compare runs chart configure modal"
+  },
   "js4/Y8": {
     "defaultMessage": "You can also <link>register it to the model registry</link> to version control",
     "description": "Sub text to tell the users where one can go to register the model artifact"
+  },
+  "kBXHTA": {
+    "defaultMessage": "Edit chart",
+    "description": "Title of the modal when editing a runs comparison chart"
   },
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
@@ -994,6 +1110,10 @@
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
+  },
+  "kWUhea": {
+    "defaultMessage": "Params",
+    "description": "Label for 'params' option group in the compare runs chart configure modal"
   },
   "kX6Kdv": {
     "defaultMessage": "Plot chart",
@@ -1063,6 +1183,14 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
   },
+  "nlXn2G": {
+    "defaultMessage": "Absolute date and time",
+    "description": "A tooltip line chart configuration for the step function of wall time"
+  },
+  "npHb2a": {
+    "defaultMessage": "Show more columns {count, select, 0 {} other {({count} total)}}",
+    "description": "Label for a CTA button in experiment runs table which invokes column management dropdown"
+  },
   "ny+fBZ": {
     "defaultMessage": "Columns",
     "description": "Dropdown text to display columns names that could to be rendered for the experiment runs table"
@@ -1083,6 +1211,10 @@
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
   },
+  "oJ7eev": {
+    "defaultMessage": "If you prefer to use this experience, we'd love to know more.",
+    "description": "Callout message to ask user for feedback about using legacy compare runs feature"
+  },
   "oWPgX7": {
     "defaultMessage": "Rename",
     "description": "Label for the rename run button above the experiment runs table"
@@ -1098,6 +1230,10 @@
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
+  },
+  "pEpexK": {
+    "defaultMessage": "Clear filters",
+    "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
   },
   "peyOdH": {
     "defaultMessage": "Cancel",
@@ -1115,6 +1251,10 @@
     "defaultMessage": "Registered Models",
     "description": "Header for displaying models in the model registry"
   },
+  "qTjYVU": {
+    "defaultMessage": "Hide run",
+    "description": "A tooltip for the visibility icon button in the runs table next to the visible run"
+  },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
@@ -1131,9 +1271,9 @@
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
   },
-  "sHMQzu": {
-    "defaultMessage": "Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}",
-    "description": "Message for displaying how many runs match search criteria on experiment page"
+  "sByLVU": {
+    "defaultMessage": "No runs logged",
+    "description": "Empty state title text for experiment runs page when no runs are logged in the experiment"
   },
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
@@ -1183,9 +1323,17 @@
     "defaultMessage": "Latest",
     "description": "Column title for the column displaying the latest metric values for a metric"
   },
+  "vBKFgp": {
+    "defaultMessage": "X axis",
+    "description": "Label for X axis in scatter chart configurator in compare runs chart config modal"
+  },
   "vPUy4a": {
     "defaultMessage": "Step",
     "description": "Label for X axis in compare runs metrics when values are displayed by metric history step"
+  },
+  "vPnoNk": {
+    "defaultMessage": "Save changes",
+    "description": "Confirm button label within a modal when editing a runs comparison chart"
   },
   "vi2MM7": {
     "defaultMessage": "All",
@@ -1207,6 +1355,10 @@
     "defaultMessage": "Description",
     "description": "Header for displaying notes for the experiment table"
   },
+  "wMG8+P": {
+    "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
+    "description": "Tooltip string to explain how to search models from the model registry table"
+  },
   "wbRVln": {
     "defaultMessage": "Metrics",
     "description": "Title for metrics page"
@@ -1226,6 +1378,10 @@
   "xmPKKq": {
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
+  },
+  "xmpvlI": {
+    "defaultMessage": "Unhide run",
+    "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
   },
   "y0rS56": {
     "defaultMessage": "Time",
@@ -1286,5 +1442,9 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "zwO8+l": {
+    "defaultMessage": "20",
+    "description": "Label for 20 first runs visible in run count selector within runs compare configuration modal"
   }
 }
