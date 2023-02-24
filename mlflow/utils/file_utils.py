@@ -711,3 +711,10 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             relative_file_path = os.path.relpath(file_path, src_dir)
             abs_file_path = os.path.join(dst_dir, relative_file_path)
             shutil.copyfile(file_path, abs_file_path)
+
+
+def contains_path_separator(path):
+    """
+    Returns True if a path contains a path separator, False otherwise.
+    """
+    return any((sep in path) for sep in (os.path.sep, os.path.altsep) if sep is not None)
