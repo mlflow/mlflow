@@ -1,6 +1,6 @@
-import os
+# import os
 
-import tempfile
+# import tempfile
 from unittest import mock
 import uuid
 import pytest
@@ -17,7 +17,8 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
 )
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+
+# from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -27,26 +28,26 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from tests.helper_functions import random_str
 
-DB_URI = "sqlite:///"
+# DB_URI = "sqlite:///"
 
 pytestmark = pytest.mark.notrackingurimock
 
 
-@pytest.fixture
-def db_uri():
-    if _TRACKING_URI_ENV_VAR in os.environ:
-        return os.getenv(_TRACKING_URI_ENV_VAR)
-    else:
-        fd, temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        yield f"{DB_URI}{temp_dbfile}"
-        os.remove(temp_dbfile)
+# @pytest.fixture
+# def db_uri():
+#     if _TRACKING_URI_ENV_VAR in os.environ:
+#         return os.getenv(_TRACKING_URI_ENV_VAR)
+#     else:
+#         fd, temp_dbfile = tempfile.mkstemp()
+#         # Close handle immediately so that we can remove the file later on in Windows
+#         os.close(fd)
+#         yield f"{DB_URI}{temp_dbfile}"
+#         os.remove(temp_dbfile)
 
 
 @pytest.fixture
-def store(db_uri):
-    return SqlAlchemyStore(db_uri)
+def store(tmp_sqlite_uri):
+    return SqlAlchemyStore(tmp_sqlite_uri)
 
 
 @pytest.fixture
