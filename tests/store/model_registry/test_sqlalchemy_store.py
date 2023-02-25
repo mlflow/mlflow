@@ -62,42 +62,31 @@ def managed_session(store):
         yield session
 
 
-@pytest.fixture
-def rm_maker(store):
-    def _rm_maker(name, tags=None, description=None):
-        return store.create_registered_model(name, tags, description)
-
-    return _rm_maker
+def _rm_maker(store, name, tags=None, description=None):
+    return store.create_registered_model(name, tags, description)
 
 
-@pytest.fixture
-def mv_maker(store):
-    def _mv_maker(
-        name,
-        source="path/to/source",
-        run_id=uuid.uuid4().hex,
-        tags=None,
-        run_link=None,
-        description=None,
-    ):
-        return store.create_model_version(
-            name, source, run_id, tags, run_link=run_link, description=description
-        )
-
-    return _mv_maker
+def _mv_maker(
+    store,
+    name,
+    source="path/to/source",
+    run_id=uuid.uuid4().hex,
+    tags=None,
+    run_link=None,
+    description=None,
+):
+    return store.create_model_version(
+        name, source, run_id, tags, run_link=run_link, description=description
+    )
 
 
-@pytest.fixture
-def extract_latest_by_stage():
-    def _extract_latest_by_stage(latest_versions):
-        return {mvd.current_stage: mvd.version for mvd in latest_versions}
-
-    return _extract_latest_by_stage
+def _extract_latest_by_stage(latest_versions):
+    return {mvd.current_stage: mvd.version for mvd in latest_versions}
 
 
-def test_create_registered_model(store, rm_maker):
+def test_create_registered_model(store):
     name = random_str() + "abCD"
-    rm1 = rm_maker(name)
+    rm1 = _rm_maker(store, name)
     assert rm1.name == name
     assert rm1.description is None
 
@@ -105,12 +94,12 @@ def test_create_registered_model(store, rm_maker):
     with pytest.raises(
         MlflowException, match=rf"Registered Model \(name={name}\) already exists"
     ) as exception_context:
-        rm_maker(name)
+        _rm_maker(store, name)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
 
     # slightly different name is ok
     for name2 in [name + "extra", name + name]:
-        rm2 = rm_maker(name2)
+        rm2 = _rm_maker(store, name2)
         assert rm2.name == name2
 
     # test create model with tags
@@ -119,7 +108,7 @@ def test_create_registered_model(store, rm_maker):
         RegisteredModelTag("key", "value"),
         RegisteredModelTag("anotherKey", "some other value"),
     ]
-    rm2 = rm_maker(name2, tags)
+    rm2 = _rm_maker(store, name2, tags)
     rmd2 = store.get_registered_model(name2)
     assert rm2.name == name2
     assert rm2.tags == {tag.key: tag.value for tag in tags}
@@ -129,7 +118,7 @@ def test_create_registered_model(store, rm_maker):
     # create with description
     name3 = random_str() + "-description"
     description = "the best model ever"
-    rm3 = rm_maker(name3, description=description)
+    rm3 = _rm_maker(store, name3, description=description)
     rmd3 = store.get_registered_model(name3)
     assert rm3.name == name3
     assert rm3.description == description
@@ -140,16 +129,16 @@ def test_create_registered_model(store, rm_maker):
     with pytest.raises(
         MlflowException, match=r"Registered model name cannot be empty"
     ) as exception_context:
-        rm_maker(None)
+        _rm_maker(store, None)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
         MlflowException, match=r"Registered model name cannot be empty"
     ) as exception_context:
-        rm_maker("")
+        _rm_maker(store, "")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_get_registered_model(store, rm_maker):
+def test_get_registered_model(store):
     name = "model_1"
     tags = [
         RegisteredModelTag("key", "value"),
@@ -158,7 +147,7 @@ def test_get_registered_model(store, rm_maker):
     # use fake clock
     with mock.patch("time.time") as mock_time:
         mock_time.return_value = 1234
-        rm = rm_maker(name, tags)
+        rm = _rm_maker(store, name, tags)
         assert rm.name == name
     rmd = store.get_registered_model(name=name)
     assert rmd.name == name
@@ -169,9 +158,9 @@ def test_get_registered_model(store, rm_maker):
     assert rmd.tags == {tag.key: tag.value for tag in tags}
 
 
-def test_update_registered_model(store, rm_maker):
+def test_update_registered_model(store):
     name = "model_for_update_RM"
-    rm1 = rm_maker(name)
+    rm1 = _rm_maker(store, name)
     rmd1 = store.get_registered_model(name=name)
     assert rm1.name == name
     assert rmd1.description is None
@@ -184,12 +173,12 @@ def test_update_registered_model(store, rm_maker):
     assert rmd2.description == "test model"
 
 
-def test_rename_registered_model(store, rm_maker, mv_maker):
+def test_rename_registered_model(store):
     original_name = "original name"
     new_name = "new name"
-    rm_maker(original_name)
-    mv_maker(original_name)
-    mv_maker(original_name)
+    _rm_maker(store, original_name)
+    _mv_maker(store, original_name)
+    _mv_maker(store, original_name)
     rm = store.get_registered_model(original_name)
     mv1 = store.get_model_version(original_name, 1)
     mv2 = store.get_model_version(original_name, 2)
@@ -214,7 +203,7 @@ def test_rename_registered_model(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
     # test name another model with the replaced name is ok
-    rm_maker(original_name)
+    _rm_maker(store, original_name)
     # cannot rename model to conflict with an existing model
     with pytest.raises(
         MlflowException, match=rf"Registered Model \(name={original_name}\) already exists"
@@ -234,10 +223,10 @@ def test_rename_registered_model(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_delete_registered_model(store, rm_maker, mv_maker):
+def test_delete_registered_model(store):
     name = "model_for_delete_RM"
-    rm_maker(name)
-    mv_maker(name)
+    _rm_maker(store, name)
+    _mv_maker(store, name)
     rm1 = store.get_registered_model(name=name)
     mv1 = store.get_model_version(name, 1)
     assert rm1.name == name
@@ -275,30 +264,30 @@ def test_delete_registered_model(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_get_latest_versions(store, rm_maker, mv_maker, extract_latest_by_stage):
+def test_get_latest_versions(store):
     name = "test_for_latest_versions"
-    rm_maker(name)
+    _rm_maker(store, name)
     rmd1 = store.get_registered_model(name=name)
     assert rmd1.latest_versions == []
 
-    mv1 = mv_maker(name)
+    mv1 = _mv_maker(store, name)
     assert mv1.version == 1
     rmd2 = store.get_registered_model(name=name)
-    assert extract_latest_by_stage(rmd2.latest_versions) == {"None": 1}
+    assert _extract_latest_by_stage(rmd2.latest_versions) == {"None": 1}
 
     # add a bunch more
-    mv2 = mv_maker(name)
+    mv2 = _mv_maker(store, name)
     assert mv2.version == 2
     store.transition_model_version_stage(
         name=mv2.name, version=mv2.version, stage="Production", archive_existing_versions=False
     )
 
-    mv3 = mv_maker(name)
+    mv3 = _mv_maker(store, name)
     assert mv3.version == 3
     store.transition_model_version_stage(
         name=mv3.name, version=mv3.version, stage="Production", archive_existing_versions=False
     )
-    mv4 = mv_maker(name)
+    mv4 = _mv_maker(store, name)
     assert mv4.version == 4
     store.transition_model_version_stage(
         name=mv4.name, version=mv4.version, stage="Staging", archive_existing_versions=False
@@ -306,61 +295,65 @@ def test_get_latest_versions(store, rm_maker, mv_maker, extract_latest_by_stage)
 
     # test that correct latest versions are returned for each stage
     rmd4 = store.get_registered_model(name=name)
-    assert extract_latest_by_stage(rmd4.latest_versions) == {
+    assert _extract_latest_by_stage(rmd4.latest_versions) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=[])) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=[])) == {
         "None": 1,
         "Production": 3,
         "Staging": 4,
     }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=["Production"])) == {
-        "Production": 3
-    }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=["production"])) == {
+    assert _extract_latest_by_stage(
+        store.get_latest_versions(name=name, stages=["Production"])
+    ) == {"Production": 3}
+    assert _extract_latest_by_stage(
+        store.get_latest_versions(name=name, stages=["production"])
+    ) == {
         "Production": 3
     }  # The stages are case insensitive.
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=["pROduction"])) == {
+    assert _extract_latest_by_stage(
+        store.get_latest_versions(name=name, stages=["pROduction"])
+    ) == {
         "Production": 3
     }  # The stages are case insensitive.
-    assert extract_latest_by_stage(
+    assert _extract_latest_by_stage(
         store.get_latest_versions(name=name, stages=["None", "Production"])
     ) == {"None": 1, "Production": 3}
 
     # delete latest Production, and should point to previous one
     store.delete_model_version(name=mv3.name, version=mv3.version)
     rmd5 = store.get_registered_model(name=name)
-    assert extract_latest_by_stage(rmd5.latest_versions) == {
+    assert _extract_latest_by_stage(rmd5.latest_versions) == {
         "None": 1,
         "Production": 2,
         "Staging": 4,
     }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
         "None": 1,
         "Production": 2,
         "Staging": 4,
     }
-    assert extract_latest_by_stage(store.get_latest_versions(name=name, stages=["Production"])) == {
-        "Production": 2
-    }
+    assert _extract_latest_by_stage(
+        store.get_latest_versions(name=name, stages=["Production"])
+    ) == {"Production": 2}
 
 
-def test_set_registered_model_tag(store, rm_maker):
+def test_set_registered_model_tag(store):
     name1 = "SetRegisteredModelTag_TestMod"
     name2 = "SetRegisteredModelTag_TestMod 2"
     initial_tags = [
         RegisteredModelTag("key", "value"),
         RegisteredModelTag("anotherKey", "some other value"),
     ]
-    rm_maker(name1, initial_tags)
-    rm_maker(name2, initial_tags)
+    _rm_maker(store, name1, initial_tags)
+    _rm_maker(store, name2, initial_tags)
     new_tag = RegisteredModelTag("randomTag", "not a random value")
     store.set_registered_model_tag(name1, new_tag)
     rm1 = store.get_registered_model(name=name1)
@@ -407,15 +400,15 @@ def test_set_registered_model_tag(store, rm_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_delete_registered_model_tag(store, rm_maker):
+def test_delete_registered_model_tag(store):
     name1 = "DeleteRegisteredModelTag_TestMod"
     name2 = "DeleteRegisteredModelTag_TestMod 2"
     initial_tags = [
         RegisteredModelTag("key", "value"),
         RegisteredModelTag("anotherKey", "some other value"),
     ]
-    rm_maker(name1, initial_tags)
-    rm_maker(name2, initial_tags)
+    _rm_maker(store, name1, initial_tags)
+    _rm_maker(store, name2, initial_tags)
     new_tag = RegisteredModelTag("randomTag", "not a random value")
     store.set_registered_model_tag(name1, new_tag)
     store.delete_registered_model_tag(name1, "randomTag")
@@ -453,13 +446,13 @@ def test_delete_registered_model_tag(store, rm_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_create_model_version(store, rm_maker, mv_maker):
+def test_create_model_version(store):
     name = "test_for_update_MV"
-    rm_maker(name)
+    _rm_maker(store, name)
     run_id = uuid.uuid4().hex
     with mock.patch("time.time") as mock_time:
         mock_time.return_value = 456778
-        mv1 = mv_maker(name, "a/b/CD", run_id)
+        mv1 = _mv_maker(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1
 
@@ -477,14 +470,14 @@ def test_create_model_version(store, rm_maker, mv_maker):
     assert mvd1.tags == {}
 
     # new model versions for same name autoincrement versions
-    mv2 = mv_maker(name)
+    mv2 = _mv_maker(store, name)
     mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
     assert mv2.version == 2
     assert mvd2.version == 2
 
     # create model version with tags return model version entity with tags
     tags = [ModelVersionTag("key", "value"), ModelVersionTag("anotherKey", "some other value")]
-    mv3 = mv_maker(name, tags=tags)
+    mv3 = _mv_maker(store, name, tags=tags)
     mvd3 = store.get_model_version(name=mv3.name, version=mv3.version)
     assert mv3.version == 3
     assert mv3.tags == {tag.key: tag.value for tag in tags}
@@ -493,7 +486,7 @@ def test_create_model_version(store, rm_maker, mv_maker):
 
     # create model versions with runLink
     run_link = "http://localhost:3000/path/to/run/"
-    mv4 = mv_maker(name, run_link=run_link)
+    mv4 = _mv_maker(store, name, run_link=run_link)
     mvd4 = store.get_model_version(name, mv4.version)
     assert mv4.version == 4
     assert mv4.run_link == run_link
@@ -502,7 +495,7 @@ def test_create_model_version(store, rm_maker, mv_maker):
 
     # create model version with description
     description = "the best model ever"
-    mv5 = mv_maker(name, description=description)
+    mv5 = _mv_maker(store, name, description=description)
     mvd5 = store.get_model_version(name, mv5.version)
     assert mv5.version == 5
     assert mv5.description == description
@@ -510,7 +503,7 @@ def test_create_model_version(store, rm_maker, mv_maker):
     assert mvd5.description == description
 
     # create model version without runId
-    mv6 = mv_maker(name, run_id=None)
+    mv6 = _mv_maker(store, name, run_id=None)
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
@@ -518,10 +511,10 @@ def test_create_model_version(store, rm_maker, mv_maker):
     assert mvd6.run_id is None
 
 
-def test_update_model_version(store, rm_maker, mv_maker):
+def test_update_model_version(store):
     name = "test_for_update_MV"
-    rm_maker(name)
-    mv1 = mv_maker(name)
+    _rm_maker(store, name)
+    mv1 = _mv_maker(store, name)
     mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd1.name == name
     assert mvd1.version == 1
@@ -570,14 +563,12 @@ def test_update_model_version(store, rm_maker, mv_maker):
         assert mvd5.current_stage == "Staging"
 
 
-def test_transition_model_version_stage_when_archive_existing_versions_is_false(
-    store, rm_maker, mv_maker
-):
+def test_transition_model_version_stage_when_archive_existing_versions_is_false(store):
     name = "model"
-    rm_maker(name)
-    mv1 = mv_maker(name)
-    mv2 = mv_maker(name)
-    mv3 = mv_maker(name)
+    _rm_maker(store, name)
+    mv1 = _mv_maker(store, name)
+    mv2 = _mv_maker(store, name)
+    mv3 = _mv_maker(store, name)
 
     # test that when `archive_existing_versions` is False, transitioning a model version
     # to the inactive stages ("Archived" and "None") does not throw.
@@ -607,14 +598,12 @@ def test_transition_model_version_stage_when_archive_existing_versions_is_false(
     assert mvd3.current_stage == "Production"
 
 
-def test_transition_model_version_stage_when_archive_existing_versions_is_true(
-    store, rm_maker, mv_maker
-):
+def test_transition_model_version_stage_when_archive_existing_versions_is_true(store):
     name = "model"
-    rm_maker(name)
-    mv1 = mv_maker(name)
-    mv2 = mv_maker(name)
-    mv3 = mv_maker(name)
+    _rm_maker(store, name)
+    mv1 = _mv_maker(store, name)
+    mv2 = _mv_maker(store, name)
+    mv3 = _mv_maker(store, name)
 
     msg = (
         r"Model version transition cannot archive existing model versions "
@@ -664,14 +653,14 @@ def test_transition_model_version_stage_when_archive_existing_versions_is_true(
         assert mvd2.current_stage == "Staging"
 
 
-def test_delete_model_version(store, rm_maker, mv_maker):
+def test_delete_model_version(store):
     name = "test_for_delete_MV"
     initial_tags = [
         ModelVersionTag("key", "value"),
         ModelVersionTag("anotherKey", "some other value"),
     ]
-    rm_maker(name)
-    mv = mv_maker(name, tags=initial_tags)
+    _rm_maker(store, name)
+    mv = _mv_maker(store, name, tags=initial_tags)
     mvd = store.get_model_version(name=mv.name, version=mv.version)
     assert mvd.name == name
 
@@ -702,13 +691,13 @@ def test_delete_model_version(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_delete_model_version_redaction(store, rm_maker, mv_maker):
+def test_delete_model_version_redaction(store):
     name = "test_for_delete_MV_redaction"
     run_link = "http://localhost:5000/path/to/run"
     run_id = "12345"
     source = "path/to/source"
-    rm_maker(name)
-    mv = mv_maker(name, source=source, run_id=run_id, run_link=run_link)
+    _rm_maker(store, name)
+    mv = _mv_maker(store, name, source=source, run_id=run_id, run_link=run_link)
     mvd = store.get_model_version(name=name, version=mv.version)
     assert mvd.run_link == run_link
     assert mvd.run_id == run_id
@@ -722,11 +711,11 @@ def test_delete_model_version_redaction(store, rm_maker, mv_maker):
     assert "REDACTED" in mvd_deleted.run_id
 
 
-def test_get_model_version_download_uri(store, rm_maker, mv_maker):
+def test_get_model_version_download_uri(store):
     name = "test_for_update_MV"
-    rm_maker(name)
+    _rm_maker(store, name)
     source_path = "path/to/source"
-    mv = mv_maker(name, source=source_path, run_id=uuid.uuid4().hex)
+    mv = _mv_maker(store, name, source=source_path, run_id=uuid.uuid4().hex)
     mvd1 = store.get_model_version(name=mv.name, version=mv.version)
     assert mvd1.name == name
     assert mvd1.source == source_path
@@ -753,20 +742,20 @@ def test_get_model_version_download_uri(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_search_model_versions(store, rm_maker, mv_maker):
+def test_search_model_versions(store):
     # create some model versions
     name = "test_for_search_MV"
-    rm_maker(name)
+    _rm_maker(store, name)
     run_id_1 = uuid.uuid4().hex
     run_id_2 = uuid.uuid4().hex
     run_id_3 = uuid.uuid4().hex
-    mv1 = mv_maker(name=name, source="A/B", run_id=run_id_1)
+    mv1 = _mv_maker(store, name=name, source="A/B", run_id=run_id_1)
     assert mv1.version == 1
-    mv2 = mv_maker(name=name, source="A/C", run_id=run_id_2)
+    mv2 = _mv_maker(store, name=name, source="A/C", run_id=run_id_2)
     assert mv2.version == 2
-    mv3 = mv_maker(name=name, source="A/D", run_id=run_id_2)
+    mv3 = _mv_maker(store, name=name, source="A/D", run_id=run_id_2)
     assert mv3.version == 3
-    mv4 = mv_maker(name=name, source="A/D", run_id=run_id_3)
+    mv4 = _mv_maker(store, name=name, source="A/D", run_id=run_id_3)
     assert mv4.version == 4
 
     def search_versions(filter_string, max_results=10, order_by=None, page_token=None):
@@ -901,15 +890,15 @@ def test_search_model_versions(store, rm_maker, mv_maker):
     assert mvds[0].description == "Online prediction model!"
 
 
-def test_search_model_versions_order_by_simple(store, rm_maker, mv_maker):
+def test_search_model_versions_order_by_simple(store):
     # create some model versions
     names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
     sources = ["A"] * 3 + ["B"] * 3
     run_ids = [uuid.uuid4().hex for _ in range(6)]
     for name in set(names):
-        rm_maker(name)
+        _rm_maker(store, name)
     for i in range(6):
-        mv_maker(name=names[i], source=sources[i], run_id=run_ids[i])
+        _mv_maker(store, name=names[i], source=sources[i], run_id=run_ids[i])
 
     # by default order by last_updated_timestamp DESC
     mvs = store.search_model_versions(filter_string=None)
@@ -938,12 +927,12 @@ def test_search_model_versions_order_by_simple(store, rm_maker, mv_maker):
     assert mvs[-1].version == 1
 
 
-def test_search_model_versions_order_by_errors(store, rm_maker, mv_maker):
+def test_search_model_versions_order_by_errors(store):
     # create some model versions
     name = "RM1"
-    rm_maker(name)
+    _rm_maker(store, name)
     for _ in range(6):
-        mv_maker(name=name)
+        _mv_maker(store, name=name)
     query = "name LIKE 'RM%'"
     # test that invalid columns throw even if they come after valid columns
     with pytest.raises(
@@ -967,7 +956,7 @@ def test_search_model_versions_order_by_errors(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_search_model_versions_pagination(store, rm_maker, mv_maker):
+def test_search_model_versions_pagination(store):
     def search_versions(filter_string, page_token=None, max_results=10):
         result = store.search_model_versions(
             filter_string=filter_string, page_token=page_token, max_results=max_results
@@ -975,8 +964,8 @@ def test_search_model_versions_pagination(store, rm_maker, mv_maker):
         return result.to_list(), result.token
 
     name = "test_for_search_MV_pagination"
-    rm_maker(name)
-    mvs = [mv_maker(name) for _ in range(50)][::-1]
+    _rm_maker(store, name)
+    mvs = [_mv_maker(store, name) for _ in range(50)][::-1]
 
     # test flow with fixed max_results
     returned_mvs = []
@@ -1022,21 +1011,23 @@ def test_search_model_versions_pagination(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_search_model_versions_by_tag(store, rm_maker, mv_maker):
+def test_search_model_versions_by_tag(store):
     # create some model versions
     name = "test_for_search_MV_by_tag"
-    rm_maker(name)
+    _rm_maker(store, name)
     run_id_1 = uuid.uuid4().hex
     run_id_2 = uuid.uuid4().hex
 
-    mv1 = mv_maker(
+    mv1 = _mv_maker(
+        store,
         name=name,
         source="A/B",
         run_id=run_id_1,
         tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
     )
     assert mv1.version == 1
-    mv2 = mv_maker(
+    mv2 = _mv_maker(
+        store,
         name=name,
         source="A/C",
         run_id=run_id_2,
@@ -1074,12 +1065,12 @@ def _search_registered_models(store, filter_string, max_results=10, order_by=Non
     return [registered_model.name for registered_model in result], result.token
 
 
-def test_search_registered_models(store, rm_maker):
+def test_search_registered_models(store):
     # create some registered models
     prefix = "test_for_search_"
     names = [prefix + name for name in ["RM1", "RM2", "RM3", "RM4", "RM4A", "RM4ab"]]
     for name in names:
-        rm_maker(name)
+        _rm_maker(store, name)
 
     # search with no filter should return all registered models
     rms, _ = _search_registered_models(store, None)
@@ -1194,7 +1185,7 @@ def test_search_registered_models(store, rm_maker):
     )
 
 
-def test_search_registered_models_by_tag(store, rm_maker):
+def test_search_registered_models_by_tag(store):
     name1 = "test_for_search_RM_by_tag1"
     name2 = "test_for_search_RM_by_tag2"
     tags1 = [
@@ -1206,8 +1197,8 @@ def test_search_registered_models_by_tag(store, rm_maker):
         RegisteredModelTag("t2", "xyz123"),
         RegisteredModelTag("t3", "XYZ"),
     ]
-    rm_maker(name1, tags1)
-    rm_maker(name2, tags2)
+    _rm_maker(store, name1, tags1)
+    _rm_maker(store, name2, tags2)
 
     rms, _ = _search_registered_models(store, "tag.t3 = 'XYZ'")
     assert rms == [name2]
@@ -1273,8 +1264,8 @@ def test_parse_search_registered_models_order_by():
         )
 
 
-def test_search_registered_model_pagination(store, rm_maker):
-    rms = [rm_maker(f"RM{i:03}").name for i in range(50)]
+def test_search_registered_model_pagination(store):
+    rms = [_rm_maker(store, f"RM{i:03}").name for i in range(50)]
 
     # test flow with fixed max_results
     returned_rms = []
@@ -1320,7 +1311,7 @@ def test_search_registered_model_pagination(store, rm_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_search_registered_model_order_by(store, rm_maker):
+def test_search_registered_model_order_by(store):
     rms = []
     # explicitly mock the creation_timestamps because timestamps seem to be unstable in Windows
     for i in range(50):
@@ -1328,7 +1319,7 @@ def test_search_registered_model_order_by(store, rm_maker):
             "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
             return_value=i,
         ):
-            rms.append(rm_maker(f"RM{i:03}").name)
+            rms.append(_rm_maker(store, f"RM{i:03}").name)
 
     # test flow with fixed max_results and order_by (test stable order across pages)
     returned_rms = []
@@ -1382,13 +1373,13 @@ def test_search_registered_model_order_by(store, rm_maker):
     with mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=1
     ):
-        rm1 = rm_maker("MR1").name
-        rm2 = rm_maker("MR2").name
+        rm1 = _rm_maker(store, "MR1").name
+        rm2 = _rm_maker(store, "MR2").name
     with mock.patch(
         "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis", return_value=2
     ):
-        rm3 = rm_maker("MR3").name
-        rm4 = rm_maker("MR4").name
+        rm3 = _rm_maker(store, "MR3").name
+        rm4 = _rm_maker(store, "MR4").name
     query = "name LIKE 'MR%'"
     # test with multiple clauses
     result, _ = _search_registered_models(
@@ -1475,21 +1466,21 @@ def test_search_registered_model_order_by_errors(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_set_model_version_tag(store, rm_maker, mv_maker):
+def test_set_model_version_tag(store):
     name1 = "SetModelVersionTag_TestMod"
     name2 = "SetModelVersionTag_TestMod 2"
     initial_tags = [
         ModelVersionTag("key", "value"),
         ModelVersionTag("anotherKey", "some other value"),
     ]
-    rm_maker(name1)
-    rm_maker(name2)
+    _rm_maker(store, name1)
+    _rm_maker(store, name2)
     run_id_1 = uuid.uuid4().hex
     run_id_2 = uuid.uuid4().hex
     run_id_3 = uuid.uuid4().hex
-    mv_maker(name1, "A/B", run_id_1, initial_tags)
-    mv_maker(name1, "A/C", run_id_2, initial_tags)
-    mv_maker(name2, "A/D", run_id_3, initial_tags)
+    _mv_maker(store, name1, "A/B", run_id_1, initial_tags)
+    _mv_maker(store, name1, "A/C", run_id_2, initial_tags)
+    _mv_maker(store, name2, "A/D", run_id_3, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     all_tags = initial_tags + [new_tag]
@@ -1545,21 +1536,21 @@ def test_set_model_version_tag(store, rm_maker, mv_maker):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_delete_model_version_tag(store, rm_maker, mv_maker):
+def test_delete_model_version_tag(store):
     name1 = "DeleteModelVersionTag_TestMod"
     name2 = "DeleteModelVersionTag_TestMod 2"
     initial_tags = [
         ModelVersionTag("key", "value"),
         ModelVersionTag("anotherKey", "some other value"),
     ]
-    rm_maker(name1)
-    rm_maker(name2)
+    _rm_maker(store, name1)
+    _rm_maker(store, name2)
     run_id_1 = uuid.uuid4().hex
     run_id_2 = uuid.uuid4().hex
     run_id_3 = uuid.uuid4().hex
-    mv_maker(name1, "A/B", run_id_1, initial_tags)
-    mv_maker(name1, "A/C", run_id_2, initial_tags)
-    mv_maker(name2, "A/D", run_id_3, initial_tags)
+    _mv_maker(store, name1, "A/B", run_id_1, initial_tags)
+    _mv_maker(store, name1, "A/C", run_id_2, initial_tags)
+    _mv_maker(store, name2, "A/D", run_id_3, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     store.delete_model_version_tag(name1, 1, "randomTag")
