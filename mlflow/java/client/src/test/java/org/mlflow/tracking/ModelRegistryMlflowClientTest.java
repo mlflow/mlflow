@@ -10,11 +10,13 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.apache.commons.io.FileUtils;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
 import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+import org.mlflow.api.proto.Service;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -159,5 +161,72 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getName(), modelName);
         Assert.assertEquals(details.getVersion(), version);
+    }
+
+    @Test
+    public void testSearchModelVersions() {
+        List<ModelVersion> mvsBefore = client.searchModelVersions().getItems();
+
+        // create new model version of existing registered model
+        String newVersionRunId = "newVersionRunId";
+        String newVersionSource = "newVersionSource";
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName, newVersionRunId, newVersionSource));
+
+        // create new registered model
+        String modelName2 = "modelName2";
+        String runId2 = "runId2";
+        String source2 = "source2";
+        client.sendPost("registered-models/create",
+                mapper.makeCreateModel(modelName2));
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName2, runId2, source2));
+
+        List<ModelVersion> mvsAfter = client.searchModelVersions().getItems();
+        Assert.assertEquals(mvsAfter.size(), 2 + mvsBefore.size());
+
+        String filter1 = String.format("name = '%s'", modelName);
+        List<ModelVersion> mvs1 = client.searchModelVersions(filter1).getItems();
+        Assert.assertEquals(mvs1.size(), 2);
+        Assert.assertEquals(mvs1.get(0).getName(), modelName);
+        Assert.assertEquals(mvs1.get(1).getName(), modelName);
+
+        String filter2 = String.format("name = '%s'", modelName2);
+        List<ModelVersion> mvs2 = client.searchModelVersions(filter2).getItems();
+        Assert.assertEquals(mvs2.size(), 1);
+        Assert.assertEquals(mvs2.get(0).getName(), modelName2);
+        Assert.assertEquals(mvs2.get(0).getVersion(), "1");
+
+        String filter3 = String.format("run_id = '%s'", newVersionRunId);
+        List<ModelVersion> mvs3 = client.searchModelVersions(filter3).getItems();
+        Assert.assertEquals(mvs3.size(), 1);
+        Assert.assertEquals(mvs3.get(0).getName(), modelName);
+        Assert.assertEquals(mvs3.get(0).getVersion(), "2");
+
+        ModelVersionsPage page1 = client.searchModelVersions(
+            "", 1, Arrays.asList("creation_timestamp ASC")
+        );
+        Assert.assertEquals(page1.getItems().size(), 1);
+        Assert.assertEquals(page1.getItems().get(0).getName(), modelName);
+        Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+        ModelVersionsPage page2 = client.searchModelVersions(
+            "",
+            2,
+            Arrays.asList("creation_timestamp ASC"),
+            page1.getNextPageToken().get()
+        );
+        Assert.assertEquals(page2.getItems().size(), 2);
+        Assert.assertEquals(page2.getItems().get(0).getName(), modelName);
+        Assert.assertEquals(page2.getItems().get(0).getRunId(), newVersionRunId);
+        Assert.assertEquals(page2.getItems().get(1).getName(), modelName2);
+        Assert.assertEquals(page2.getItems().get(1).getRunId(), runId2);
+        Assert.assertFalse(page2.getNextPageToken().isPresent());
+
+        ModelVersionsPage nextPageFromPrevPage = (ModelVersionsPage) page1.getNextPage();
+        Assert.assertEquals(nextPageFromPrevPage.getItems().size(), 1);
+        Assert.assertEquals(page2.getItems().get(0).getName(), modelName);
+        Assert.assertEquals(page2.getItems().get(0).getRunId(), newVersionRunId);
+        Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
     }
 }

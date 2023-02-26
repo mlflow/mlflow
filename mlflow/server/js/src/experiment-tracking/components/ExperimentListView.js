@@ -5,7 +5,7 @@ import {
   Input,
   Typography,
   CaretDownSquareIcon,
-  PlusCircleBorderIcon,
+  PlusCircleIcon,
   PencilIcon,
 } from '@databricks/design-system';
 import { Link, withRouter } from 'react-router-dom';
@@ -101,10 +101,10 @@ export class ExperimentListView extends Component {
     const isActive = activeExperimentIds.includes(key);
     const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
     return (
-      <div style={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
+      <div css={{ display: 'flex', marginLeft: '8px' }} data-test-id={dataTestId}>
         <Link
           to={Routes.getExperimentPageRoute(key)}
-          style={{
+          css={{
             width: '180px',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -116,14 +116,14 @@ export class ExperimentListView extends Component {
         <IconButton
           icon={<PencilIcon />}
           onClick={this.handleRenameExperiment(key, title)}
-          style={{ marginRight: 5 }}
+          css={{ marginRight: 5 }}
           data-test-id='rename-experiment-button'
         />
         <IconButton
           icon={<i className='far fa-trash-o' />}
           onClick={this.handleDeleteExperiment(key, title)}
           // Use a larger margin to avoid overlapping the vertical scrollbar
-          style={{ marginRight: 15 }}
+          css={{ marginRight: 15 }}
           data-test-id='delete-experiment-button'
         />
       </div>
@@ -173,55 +173,53 @@ export class ExperimentListView extends Component {
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
         />
-        <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px',
+        <div
+          css={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '8px',
+          }}
+        >
+          <Typography.Title level={2} style={{ margin: 0 }}>
+            Experiments
+          </Typography.Title>
+          <PlusCircleIcon
+            onClick={this.handleCreateExperiment}
+            css={{
+              fontSize: '24px',
+              marginLeft: 'auto',
             }}
-          >
-            <Typography.Title level={2} style={{ margin: 0 }}>
-              Experiments
-            </Typography.Title>
-            <PlusCircleBorderIcon
-              onClick={this.handleCreateExperiment}
-              css={{
-                fontSize: '24px',
-                marginLeft: 'auto',
-              }}
-              title='New Experiment'
-              data-test-id='create-experiment-button'
-            />
-            <CaretDownSquareIcon
-              onClick={() => this.setState({ hidden: true })}
-              rotate={90}
-              css={{ fontSize: '24px' }}
-              title='Hide experiment list'
-            />
-          </div>
-          <Input
-            placeholder='Search Experiments'
-            aria-label='search experiments'
-            value={searchInput}
-            onChange={this.handleSearchInputChange}
-            data-test-id='search-experiment-input'
+            title='New Experiment'
+            data-test-id='create-experiment-button'
           />
-          <div css={classNames.experimentListContainer}>
-            <Tree
-              treeData={treeData}
-              dangerouslySetAntdProps={{
-                selectable: true,
-                checkable: true,
-                multiple: true,
-                selectedKeys: activeExperimentIds,
-                checkedKeys: activeExperimentIds,
-                onCheck: this.handleCheck,
-                titleRender: this.renderListItem,
-              }}
-            />
-          </div>
+          <CaretDownSquareIcon
+            onClick={() => this.setState({ hidden: true })}
+            rotate={90}
+            css={{ fontSize: '24px' }}
+            title='Hide experiment list'
+          />
+        </div>
+        <Input
+          placeholder='Search Experiments'
+          aria-label='search experiments'
+          value={searchInput}
+          onChange={this.handleSearchInputChange}
+          data-test-id='search-experiment-input'
+        />
+        <div css={classNames.experimentListContainer}>
+          <Tree
+            treeData={treeData}
+            dangerouslySetAntdProps={{
+              selectable: true,
+              checkable: true,
+              multiple: true,
+              selectedKeys: activeExperimentIds,
+              checkedKeys: activeExperimentIds,
+              onCheck: this.handleCheck,
+              titleRender: this.renderListItem,
+            }}
+          />
         </div>
       </div>
     );
@@ -233,12 +231,15 @@ const classNames = {
     boxSizing: 'border-box',
     marginLeft: '24px',
     marginRight: '8px',
+    flex: '1',
+    display: 'flex',
+    flexDirection: 'column',
   },
   experimentListContainer: {
+    flex: '1',
     overflowY: 'scroll',
     overflowX: 'hidden',
     width: ' 100%',
-    height: '90vh',
     marginTop: '8px',
     // Remove an empty space (transparent switcher) in the tree node to align the experiment name
     // to the left.

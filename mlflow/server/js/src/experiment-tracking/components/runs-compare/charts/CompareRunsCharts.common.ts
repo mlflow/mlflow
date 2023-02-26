@@ -2,7 +2,12 @@ import { throttle } from 'lodash';
 import { Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import { KeyValueEntity, MetricEntitiesByName, RunInfoEntity } from '../../../types';
+import {
+  KeyValueEntity,
+  MetricEntitiesByName,
+  MetricHistoryByName,
+  RunInfoEntity,
+} from '../../../types';
 
 /**
  * Common props for all charts used in compare runs
@@ -26,7 +31,7 @@ export interface CompareRunsCommonPlotProps {
   /**
    * Callback fired when a run is hovered
    */
-  onHover?: (runUuid: string) => void;
+  onHover?: (runUuid: string, event?: MouseEvent, additionalAxisData?: any) => void;
 
   /**
    * Callback fired when no run is hovered anymore
@@ -47,6 +52,16 @@ export interface CompareRunsCommonPlotProps {
    * Height in pixels. If not provided, chart uses auto-sizing.
    */
   height?: number;
+
+  /**
+   * If true, renders default plotly.js powered hover box with run data
+   */
+  useDefaultHoverBox?: boolean;
+
+  /**
+   * Indicates which run is currently selected in the global context and should be highlighted
+   */
+  selectedRunUuid?: string | null;
 }
 
 /**
@@ -63,9 +78,14 @@ export interface CompareChartRunData {
    */
   runInfo: RunInfoEntity;
   /**
-   * Object containing run's metrics by key
+   * Object containing latest run's metrics by key
    */
   metrics: MetricEntitiesByName;
+  /**
+   * Dictionary with the metrics by name. This field is optional
+   * as it's used only by certain chart types.
+   */
+  metricsHistory?: MetricHistoryByName;
   /**
    * Object containing run's params by key
    */
@@ -74,6 +94,14 @@ export interface CompareChartRunData {
    * Color corresponding to the run
    */
   color?: string;
+  /**
+   * Set to "true" if the run is pinned
+   */
+  pinned?: boolean;
+  /**
+   * Set to "true" if the run is pinnable (e.g. not a child run)
+   */
+  pinnable?: boolean;
 }
 
 /**
@@ -113,7 +141,10 @@ export const useDynamicPlotSize = (throttleMs = 100) => {
         return;
       }
 
-      setDimensionsThrottled(observerEntry.contentRect.width, observerEntry.contentRect.height);
+      setDimensionsThrottled(
+        Math.round(observerEntry.contentRect.width),
+        Math.round(observerEntry.contentRect.height),
+      );
     });
 
     observer.observe(containerDiv);
@@ -123,7 +154,7 @@ export const useDynamicPlotSize = (throttleMs = 100) => {
     };
   }, [containerDiv, setDimensionsThrottled]);
 
-  return { setContainerDiv, layoutWidth, layoutHeight, isDynamicSizeSupported };
+  return { containerDiv, setContainerDiv, layoutWidth, layoutHeight, isDynamicSizeSupported };
 };
 
 export type UseMemoizedChartLayoutParams<T = any> = Pick<CompareRunsCommonPlotProps, 'margin'> & {
@@ -140,18 +171,70 @@ export type UseMemoizedChartLayoutParams<T = any> = Pick<CompareRunsCommonPlotPr
  * Styles used in all compare run charts
  */
 export const commonRunsChartStyles = {
-  chartWrapper: { width: '100%', height: '100%', overflow: 'hidden', fontSize: 0, lineHeight: 0 },
+  // Styles used for highlighting traces in both scatter and contour chart types
+  scatterChartHighlightStyles: {
+    '.trace.scatter path.point': {
+      transition: 'var(--trace-transition)',
+    },
+    '.trace.scatter.is-highlight path.point': {
+      opacity: 'var(--trace-opacity-dimmed-low) !important',
+    },
+    '.trace.scatter path.point.is-hover-highlight': {
+      opacity: 'var(--trace-opacity-highlighted) !important',
+    },
+    '.trace.scatter path.point.is-selection-highlight': {
+      opacity: 'var(--trace-opacity-highlighted) !important',
+      stroke: 'var(--trace-stroke-color)',
+      strokeWidth: 'var(--trace-stroke-width) !important',
+    },
+  },
+  chartWrapper: () => ({
+    width: '100%',
+    height: '100%',
+    overflow: 'hidden',
+    position: 'relative' as const,
+    fontSize: 0,
+    lineHeight: 0,
+    '.js-plotly-plot .plotly .cursor-ew-resize, .js-plotly-plot .plotly .cursor-crosshair': {
+      cursor: 'pointer',
+    },
+    // Add a little stroke to the Y axis text so if despite the margin
+    // tick texts would overlay the axis label, it would still look decent
+    '.js-plotly-plot g.infolayer > g.g-ytitle > text': {
+      stroke: 'white',
+      strokeWidth: 16,
+      paintOrder: 'stroke',
+    },
+    // Variable used by chart trace highlighting
+    '--trace-transition': 'opacity .16s',
+    '--trace-opacity-highlighted': '1',
+    '--trace-opacity-dimmed-low': '0.45',
+    '--trace-opacity-dimmed-high': '0.55',
+    '--trace-stroke-color': 'black',
+    '--trace-stroke-width': '1',
+  }),
   chart: { width: '100%', height: '100%' },
 };
 
 /**
- * Default margin for all compare run charts
+ * Default margin for all compare run charts but contour
  */
 export const compareRunsChartDefaultMargin: Partial<Margin> = {
   t: 0,
   b: 48,
   r: 0,
   l: 48,
+  pad: 0,
+};
+
+/**
+ * Default margin for contour compare run charts
+ */
+export const compareRunsChartDefaultContourMargin: Partial<Margin> = {
+  t: 0,
+  b: 48,
+  r: 0,
+  l: 80,
   pad: 0,
 };
 
@@ -164,4 +247,38 @@ export const compareRunsChartHoverlabel = {
   font: {
     color: 'black',
   },
+};
+
+/**
+ * Function that makes sure that extreme values e.g. infinities masked as 1.79E+308
+ * are normalized to be displayed properly in charts.
+ */
+export const normalizeChartValue = (value?: number | string) => {
+  const parsedValue = typeof value === 'string' ? parseFloat(value) : value;
+
+  // Return all falsy values as-is
+  if (!parsedValue) {
+    return parsedValue;
+  }
+  if (!Number.isFinite(parsedValue) || Number.isNaN(parsedValue)) {
+    return undefined;
+  }
+  if (Math.abs(parsedValue) === Number.MAX_VALUE) {
+    return Number.POSITIVE_INFINITY * Math.sign(parsedValue);
+  }
+
+  return value;
+};
+
+export const truncateString = (fullStr: string, strLen: number) => {
+  if (fullStr.length <= strLen) return fullStr;
+
+  const separator = '...';
+
+  const sepLen = separator.length,
+    charsToShow = strLen - sepLen,
+    frontChars = Math.ceil(charsToShow / 2),
+    backChars = Math.floor(charsToShow / 2);
+
+  return fullStr.substr(0, frontChars) + separator + fullStr.substr(fullStr.length - backChars);
 };

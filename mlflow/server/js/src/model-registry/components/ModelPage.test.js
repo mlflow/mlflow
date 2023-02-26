@@ -10,6 +10,7 @@ import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { modelListPageRoute } from '../routes';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
   let wrapper;
@@ -69,11 +70,11 @@ describe('ModelPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
-    const mockError = {
-      getErrorCode() {
-        return 'RESOURCE_DOES_NOT_EXIST';
-      },
-    };
+    const mockError = new ErrorWrapper(
+      '{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }',
+      404,
+    );
+
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
     return instance.pollData().then(() => {

@@ -41,7 +41,8 @@ jobs:
         with:
           node-version: "16"
       - name: Disable problem matcher
-        if: runner.os == 'Windows'
+        # TODO: Reenable ES lint warnings before the MLflow 2.3.0 release
+        # if: runner.os == 'Windows'
         run: |
           echo "::remove-matcher owner=eslint-compact::"
           echo "::remove-matcher owner=eslint-stylish::"

@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import qs from 'qs';
-import { getExperimentApi, getMetricHistoryApi, getRunApi } from '../actions';
+import { getExperimentApi, getRunApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import NotFoundPage from './NotFoundPage';
 import { MetricView } from './MetricView';
@@ -36,11 +36,6 @@ export class MetricPageImpl extends Component {
       this.requestIds.push(...getExperimentsRequestIds);
     }
     this.props.runUuids.forEach((runUuid) => {
-      const getMetricHistoryReqId = getUUID();
-      this.requestIds.push(getMetricHistoryReqId);
-      this.props.dispatch(
-        getMetricHistoryApi(runUuid, this.props.metricKey, getMetricHistoryReqId),
-      );
       // Fetch tags for each run. TODO: it'd be nice if we could just fetch the tags directly
       const getRunRequestId = getUUID();
       this.requestIds.push(getRunRequestId);

@@ -86,6 +86,7 @@ export const Default = () => {
                 window.alert('Downloading dummy CSV...');
               }}
               sortOptions={sortOptions}
+              requestError={null}
             />
             <div
               css={{

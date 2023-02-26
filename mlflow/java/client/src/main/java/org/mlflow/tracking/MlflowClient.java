@@ -930,6 +930,76 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of model versions desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter,
+                                               int maxResults,
+                                               List<String> orderBy) {
+    return searchModelVersions(searchFilter, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return up to 1000 model versions.
+   *
+   * @return A page of model versions with up to 1000 items.
+   */
+  public ModelVersionsPage searchModelVersions() {
+    return searchModelVersions("", 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to 1000 model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of model versions with up to 1000 items.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter) {
+    return searchModelVersions(searchFilter, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of model versions desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchModelVersions(String)}.
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter,
+                                               int maxResults,
+                                               List<String> orderBy,
+                                               String pageToken) {
+    String json = sendGet(mapper.makeSearchModelVersions(
+            searchFilter, maxResults, orderBy, pageToken
+    ));
+    SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(json);
+    return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
+            searchFilter, maxResults, orderBy, this);
+  }
+
+  /**
    * Closes the MlflowClient and releases any associated resources.
    */
   public void close() {
