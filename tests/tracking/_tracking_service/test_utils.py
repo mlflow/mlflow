@@ -385,6 +385,7 @@ def test_get_store_raises_on_uc_uri(store_uri):
     set_tracking_uri(store_uri)
     with pytest.raises(
         MlflowException,
-        match="Setting the tracking URI to a Unity Catalog backend is currently unsupported",
+        match="Setting the tracking URI to a Unity Catalog backend is not "
+        "supported in the current version of the MLflow client",
     ):
         mlflow.tracking.MlflowClient()

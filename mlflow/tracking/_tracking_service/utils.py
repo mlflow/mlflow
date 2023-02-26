@@ -172,13 +172,15 @@ def _get_databricks_rest_store(store_uri, **_):
 
 def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.exceptions import MlflowException
+    from mlflow.version import VERSION
 
     global _tracking_store_registry
     raise MlflowException(
         f"Detected Unity Catalog tracking URI '{store_uri}'. "
-        f"Setting the tracking URI to a Unity Catalog backend is currently unsupported. "
+        f"Setting the tracking URI to a Unity Catalog backend is not supported in the current "
+        f"version of the MLflow client ({VERSION}). "
         f"Please specify a different tracking URI via mlflow.set_tracking_uri, with "
-        f"one of the following supported schemes: "
+        f"one of the supported schemes: "
         f"{list(_tracking_store_registry._registry.keys())}. "
         f"If you're trying to access models in the Unity Catalog, please upgrade to the "
         f"latest version of the MLflow Python client, then specify a Unity Catalog "
