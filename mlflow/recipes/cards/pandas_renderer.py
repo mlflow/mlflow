@@ -5,6 +5,7 @@ import base64
 import numpy as np
 import pandas as pd
 import sys
+from packaging.version import Version
 
 from typing import Union, Iterable, Tuple
 from mlflow.protos import facet_feature_statistics_pb2
@@ -116,9 +117,12 @@ def convert_to_dataset_feature_statistics(
             if converter:
                 date_time_converted = converter(current_column_value)
                 current_column_value = pd.DataFrame(date_time_converted)[0]
-                pandas_describe_key = current_column_value.describe(
-                    datetime_is_numeric=True, include="all"
+                kwargs = (
+                    {}
+                    if Version(pd.__version__) > Version("1.5")
+                    else {"datetime_is_numeric": True}
                 )
+                pandas_describe_key = current_column_value.describe(include="all", **kwargs)
                 quantiles[key] = current_column_value.quantile(quantiles_to_get)
 
             default_value = 0
