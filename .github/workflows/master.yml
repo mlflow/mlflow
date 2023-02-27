@@ -114,7 +114,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
-          ./dev/install-pyspark-dev.sh
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
       - name: Import check
         run: |
           python tests/check_mlflow_lazily_imports_ml_packages.py
@@ -249,7 +249,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          ./dev/install-pyspark-dev.sh
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -270,8 +270,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          ./dev/install-pyspark-dev.sh
-          pip install tensorflow
+          pip install tensorflow https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
@@ -312,7 +311,7 @@ jobs:
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install pyspark
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
           pip install mleap
       - name: Download Hadoop winutils for Spark
         run: |
