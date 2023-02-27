@@ -381,7 +381,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
-            return values.astype("datetime64[ns]", errors="raise")
+            return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
                 "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)
