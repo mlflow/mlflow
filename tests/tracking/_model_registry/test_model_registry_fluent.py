@@ -30,7 +30,7 @@ def test_register_model_with_runs_uri():
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
         MlflowClient.create_model_version.assert_called_once_with(
             "Model 1",
-            "s3:/path/to/source",
+            "runs:/run12345/path/to/model",
             "run12345",
             tags=None,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
@@ -120,7 +120,7 @@ def test_register_model_with_tags():
         MlflowClient.create_registered_model.assert_called_once_with("Model 1")
         MlflowClient.create_model_version.assert_called_once_with(
             "Model 1",
-            "s3:/path/to/source",
+            "runs:/run12345/path/to/model",
             "run12345",
             tags=tags,
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,

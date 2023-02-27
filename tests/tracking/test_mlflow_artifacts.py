@@ -308,21 +308,23 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
     assert get_artifact_response.text == "abcdefg"
 
 
-def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_server):
-    url = artifacts_server.url
-    artifact_file = pathlib.Path(artifacts_server.artifacts_destination, "a.txt")
-    artifact_file.parent.mkdir(exist_ok=True, parents=True)
-    artifact_file.write_text("abcdefg")
+def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_server, tmp_path):
+    text_file = tmp_path.joinpath("a.txt")
+    text_file.write_text("abcdefg")
 
+    mlflow.set_tracking_uri(artifacts_server.backend_store_uri)
     name = "GetModelVersionTest"
     mlflow_client = MlflowClient(artifacts_server.backend_store_uri)
+    run = mlflow_client.create_run(experiment_id="0")
+    mlflow_client.log_artifact(run.info.run_id, text_file)
     mlflow_client.create_registered_model(name)
     # An artifact root with scheme http, https, or mlflow-artifacts is a proxied artifact root
-    mlflow_client.create_model_version(name, "mlflow-artifacts:", 1)
+    mlflow_client.create_model_version(name, f"runs:/{run.info.run_id}", 1)
+    assert mlflow_client.get_model_version(name, 1).source.startswith("http")
 
     get_model_version_artifact_response = requests.get(
-        url=f"{url}/model-versions/get-artifact",
-        params={"name": name, "version": "1", "path": "a.txt"},
+        url=f"{artifacts_server.url}/model-versions/get-artifact",
+        params={"name": name, "version": "1", "path": text_file.name},
     )
     get_model_version_artifact_response.raise_for_status()
     assert get_model_version_artifact_response.text == "abcdefg"
