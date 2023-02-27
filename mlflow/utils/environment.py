@@ -460,6 +460,8 @@ def _generate_mlflow_version_pinning():
     the current installed minor version(i.e., 'mlflow<3,>=2.1')
     :return: string for MLflow dependency version
     """
+    if mlflow_home := os.getenv("MLFLOW_HOME"):
+        return mlflow_home
     mlflow_version = Version(VERSION)
     current_major_version = mlflow_version.major
     current_minor_version = mlflow_version.minor
