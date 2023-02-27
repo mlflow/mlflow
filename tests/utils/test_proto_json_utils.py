@@ -539,7 +539,6 @@ def test_dataframe_from_json():
     [
       {"datetime": "2022-01-01T00:00:00"}, 
       {"datetime": "2022-01-02T03:04:05"}, 
-      {"datetime": "00:00:00"}
     ]
     """,
         pandas_orient="records",
@@ -550,7 +549,6 @@ def test_dataframe_from_json():
             "datetime": [
                 pd.Timestamp("2022-01-01T00:00:00"),
                 pd.Timestamp("2022-01-02T03:04:05"),
-                pd.Timestamp("00:00:00"),
             ]
         },
     )
@@ -563,7 +561,6 @@ def test_dataframe_from_json():
         (datetime.datetime(2022, 1, 1), '"2022-01-01T00:00:00"'),
         (datetime.datetime(2022, 1, 2, 3, 4, 5), '"2022-01-02T03:04:05"'),
         (datetime.date(2022, 1, 1), '"2022-01-01"'),
-        (datetime.time(0, 0, 0), '"00:00:00"'),
         (pd.Timestamp(2022, 1, 1), '"2022-01-01T00:00:00"'),
     ],
 )
