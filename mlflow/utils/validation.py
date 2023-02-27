@@ -346,16 +346,20 @@ def _validate_model_name(model_name):
         raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+_RUN_ARTIFACTS_URI_REGEX = re.compile(r"^.+/[0-9a-f]{32}/artifacts/?")
+
+
 def _validate_and_resolve_source(source):
     from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 
-    if not RunsArtifactRepository.is_runs_uri(source):
-        raise MlflowException(
-            f"Model version source must be a runs URI ('runs:/<run_id>/...'), got '{source}'",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    return RunsArtifactRepository.get_underlying_uri(source)
+    if RunsArtifactRepository.is_runs_uri(source):
+        return RunsArtifactRepository.get_underlying_uri(source)
+    else:
+        if not _RUN_ARTIFACTS_URI_REGEX.match(source):
+            raise MlflowException(
+                f"Invalid source URI: '{source}'. Source URI must contain '<run_id>/artifacts'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 def _validate_model_version(model_version):

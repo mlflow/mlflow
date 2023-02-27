@@ -519,7 +519,13 @@ def test_create_model_version(store):
 def test_create_model_version_with_invalid_source(store):
     name = "test"
     _rm_maker(store, name)
-    with pytest.raises(MlflowException, match=r"source must be a runs URI"):
+
+    store.create_model_version(name, f"path/{uuid.uuid4().hex}/artifacts", uuid.uuid4().hex)
+    store.create_model_version(name, f"path/{uuid.uuid4().hex}/artifacts/model", uuid.uuid4().hex)
+    run = create_run()
+    store.create_model_version(name, run.uri, run.id)
+
+    with pytest.raises(MlflowException, match=r"Invalid source URI"):
         store.create_model_version(name, "path/to/foo", uuid.uuid4().hex)
 
 
