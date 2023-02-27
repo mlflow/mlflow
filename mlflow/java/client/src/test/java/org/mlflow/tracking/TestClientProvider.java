@@ -9,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,6 +124,8 @@ public class TestClientProvider {
             "--backend-store-uri", backendStoreUri,
             "--workers", "1",
             "--default-artifact-root", defaultArtifactRoot);
+    Map<String, String> env = pb.environment();
+    env.put("MLFLOW_TRACKING_URI", backendStoreUri);
     serverProcess = pb.start();
 
     // NB: We cannot use pb.inheritIO() because that interacts poorly with the Maven

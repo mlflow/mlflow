@@ -5,6 +5,7 @@ from typing import NamedTuple, List
 
 import pytest
 
+import mlflow
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag, RegisteredModelTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -45,6 +46,20 @@ def rm_data(registered_model_names, tmp_path):
         tags_dir = rm_folder.joinpath(FileStore.TAGS_FOLDER_NAME)
         tags_dir.mkdir(parents=True, exist_ok=True)
     return rm_data
+
+
+class Run(NamedTuple):
+    id: str
+    artifact_uri: str
+
+    @property
+    def uri(self):
+        return "runs:/{}".format(self.id)
+
+
+def create_run():
+    with mlflow.start_run() as run:
+        return Run(run.info.run_id, run.info.artifact_uri)
 
 
 def test_create_registered_model(store):
@@ -199,13 +214,18 @@ def test_list_registered_model_paginated_errors(store):
 def _create_model_version(
     fs,
     name,
-    source="path/to/source",
-    run_id=uuid.uuid4().hex,
+    source=None,
+    run_id=None,
     tags=None,
     run_link=None,
     description=None,
 ):
     time.sleep(0.001)
+    if run_id is None:
+        run = create_run()
+        run_id = run.id
+    if source is None:
+        source = f"runs:/{run_id}"
     return fs.create_model_version(
         name, source, run_id, tags, run_link=run_link, description=description
     )
@@ -395,9 +415,9 @@ def test_delete_registered_model_tag(store):
 def test_create_model_version(store):
     name = "test_for_create_MV"
     store.create_registered_model(name)
-    run_id = uuid.uuid4().hex
+    run = create_run()
     with mock.patch("time.time", return_value=456778):
-        mv1 = _create_model_version(store, name, "a/b/CD", run_id)
+        mv1 = _create_model_version(store, name, f"runs:/{run.id}/model", run.id)
         assert mv1.name == name
         assert mv1.version == 1
 
@@ -408,8 +428,8 @@ def test_create_model_version(store):
     assert mvd1.creation_timestamp == 456778000
     assert mvd1.last_updated_timestamp == 456778000
     assert mvd1.description is None
-    assert mvd1.source == "a/b/CD"
-    assert mvd1.run_id == run_id
+    assert mvd1.source == f"{run.artifact_uri}/model"
+    assert mvd1.run_id == run.id
     assert mvd1.status == "READY"
     assert mvd1.status_message is None
     assert mvd1.tags == {}
@@ -448,12 +468,19 @@ def test_create_model_version(store):
     assert mvd5.description == description
 
     # create model version without runId
-    mv6 = _create_model_version(store, name, run_id=None)
+    mv6 = store.create_model_version(name, f"runs:/{run.id}/model")
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
     assert mvd6.version == 6
     assert mvd6.run_id is None
+
+
+def test_create_model_version_with_invalid_source(store):
+    name = "test"
+    store.create_registered_model(name)
+    with pytest.raises(MlflowException, match=r"Model version source must be a runs or models URI"):
+        store.create_model_version(name, "path/to/foo", uuid.uuid4().hex)
 
 
 def test_update_model_version(store):
@@ -649,16 +676,16 @@ def test_search_model_versions(store):
     # create some model versions
     name = "test_for_search_MV"
     store.create_registered_model(name)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    mv1 = _create_model_version(store, name=name, source="A/B", run_id=run_id_1)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    mv1 = _create_model_version(store, name=name, source=f"{run1.uri}/A/B", run_id=run1.id)
     assert mv1.version == 1
-    mv2 = _create_model_version(store, name=name, source="A/C", run_id=run_id_2)
+    mv2 = _create_model_version(store, name=name, source=f"{run2.uri}/A/C", run_id=run2.id)
     assert mv2.version == 2
-    mv3 = _create_model_version(store, name=name, source="A/D", run_id=run_id_2)
+    mv3 = _create_model_version(store, name=name, source=f"{run2.uri}/A/D", run_id=run2.id)
     assert mv3.version == 3
-    mv4 = _create_model_version(store, name=name, source="A/D", run_id=run_id_3)
+    mv4 = _create_model_version(store, name=name, source=f"{run3.uri}/A/D", run_id=run3.id)
     assert mv4.version == 4
 
     def search_versions(filter_string):
@@ -672,19 +699,19 @@ def test_search_model_versions(store):
     assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
     # search using run_id_1 should return version 1
-    assert set(search_versions(f"run_id='{run_id_1}'")) == {1}
+    assert set(search_versions(f"run_id='{run1.id}'")) == {1}
 
     # search using run_id_2 should return versions 2 and 3
-    assert set(search_versions(f"run_id='{run_id_2}'")) == {2, 3}
+    assert set(search_versions(f"run_id='{run2.id}'")) == {2, 3}
 
     # search using the IN operator should return all versions
-    assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id}','{run2.id}')")) == {1, 2, 3}
 
     # search IN operator is case sensitive
-    assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id.upper()}','{run2.id}')")) == {2, 3}
 
     # search IN operator with right-hand side value containing whitespaces
-    assert set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")) == {1, 2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id}', '{run2.id}')")) == {1, 2, 3}
 
     # search using the IN operator with bad lists should return exceptions
     with pytest.raises(
@@ -698,9 +725,9 @@ def test_search_model_versions(store):
         search_versions("run_id IN (1,2,3)")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-    assert set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")) == {2, 3}
+    assert set(search_versions(f"run_id LIKE '{run2.id[:30]}%'")) == {2, 3}
 
-    assert set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")) == {2, 3}
+    assert set(search_versions(f"run_id ILIKE '{run2.id[:30].upper()}%'")) == {2, 3}
 
     # search using the IN operator with empty lists should return exceptions
     with pytest.raises(
@@ -756,7 +783,7 @@ def test_search_model_versions(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # search using source_path "A/D" should return version 3 and 4
-    assert set(search_versions("source_path = 'A/D'")) == {3, 4}
+    assert set(search_versions("source_path LIKE '%/A/D'")) == {3, 4}
 
     # search using source_path "A" should not return anything
     assert len(search_versions("source_path = 'A'")) == 0
@@ -779,12 +806,12 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run1.id}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
-    assert mvds[0].run_id == run_id_1
-    assert mvds[0].source == "A/B"
+    assert mvds[0].run_id == run1.id
+    assert mvds[0].source == f"{run1.artifact_uri}/A/B"
     assert mvds[0].description == "Online prediction model!"
 
 
@@ -792,11 +819,13 @@ def test_search_model_versions_order_by_simple(store):
     # create some model versions
     names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
     sources = ["A"] * 3 + ["B"] * 3
-    run_ids = [uuid.uuid4().hex for _ in range(6)]
+    runs = [create_run() for _ in range(6)]
     for name in set(names):
         store.create_registered_model(name)
-    for i in range(6):
-        _create_model_version(store, name=names[i], source=sources[i], run_id=run_ids[i])
+    for i, run in enumerate(runs):
+        _create_model_version(
+            store, name=names[i], source=f"runs:/{run.id}/{sources[i]}", run_id=run.id
+        )
         time.sleep(0.001)  # sleep for windows fs timestamp precision issues
 
     # by default order by last_updated_timestamp DESC
@@ -885,22 +914,16 @@ def test_search_model_versions_by_tag(store):
     # create some model versions
     name = "test_for_search_MV_by_tag"
     store.create_registered_model(name)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
 
     mv1 = _create_model_version(
         store,
         name=name,
-        source="A/B",
-        run_id=run_id_1,
         tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
     )
     assert mv1.version == 1
     mv2 = _create_model_version(
         store,
         name=name,
-        source="A/C",
-        run_id=run_id_2,
         tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")],
     )
     assert mv2.version == 2
@@ -1286,12 +1309,12 @@ def test_set_model_version_tag(store):
     ]
     store.create_registered_model(name1)
     store.create_registered_model(name2)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    store.create_model_version(name1, "A/B", run_id_1, initial_tags)
-    store.create_model_version(name1, "A/C", run_id_2, initial_tags)
-    store.create_model_version(name2, "A/D", run_id_3, initial_tags)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    store.create_model_version(name1, f"{run1.uri}/A/B", run1.id, initial_tags)
+    store.create_model_version(name1, f"{run2.uri}/A/C", run2.id, initial_tags)
+    store.create_model_version(name2, f"{run3.uri}/A/D", run3.id, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     all_tags = [*initial_tags, new_tag]
@@ -1356,12 +1379,12 @@ def test_delete_model_version_tag(store):
     ]
     store.create_registered_model(name1)
     store.create_registered_model(name2)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    store.create_model_version(name1, "A/B", run_id_1, initial_tags)
-    store.create_model_version(name1, "A/C", run_id_2, initial_tags)
-    store.create_model_version(name2, "A/D", run_id_3, initial_tags)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    store.create_model_version(name1, f"{run1.uri}", run1.id, initial_tags)
+    store.create_model_version(name1, f"{run2.uri}", run2.id, initial_tags)
+    store.create_model_version(name2, f"{run3.uri}", run3.id, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     store.delete_model_version_tag(name1, 1, "randomTag")
@@ -1407,7 +1430,6 @@ def test_delete_model_version_tag(store):
 
 
 def test_pyfunc_model_registry_with_file_store(store):
-    import mlflow
     from mlflow.pyfunc import PythonModel
 
     class MyModel(PythonModel):

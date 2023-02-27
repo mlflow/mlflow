@@ -39,6 +39,7 @@ from mlflow.utils.validation import (
     _validate_registered_model_tag,
     _validate_model_version_tag,
     _validate_model_name,
+    _validate_and_resolve_source,
     _validate_model_version,
     _validate_tag_name,
 )
@@ -636,6 +637,7 @@ class SqlAlchemyStore(AbstractStore):
                 return 1
 
         _validate_model_name(name)
+        source = _validate_and_resolve_source(source)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:

@@ -38,6 +38,7 @@ from mlflow.utils.validation import (
     _validate_registered_model_tag,
     _validate_model_version_tag,
     _validate_model_name as _original_validate_model_name,
+    _validate_and_resolve_source,
     _validate_model_version,
     _validate_tag_name,
 )
@@ -529,6 +530,7 @@ class FileStore(AbstractStore):
                 return 1
 
         _validate_model_name(name)
+        source = _validate_and_resolve_source(source)
         for tag in tags or []:
             _validate_model_version_tag(tag.key, tag.value)
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):

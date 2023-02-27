@@ -8,6 +8,7 @@ import time
 
 import mlflow
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 _logger = logging.getLogger(__name__)
@@ -58,6 +59,7 @@ def _init_server(backend_uri, root_artifact_uri):
         ],
         env={
             **os.environ,
+            _TRACKING_URI_ENV_VAR: backend_uri,
             BACKEND_STORE_URI_ENV_VAR: backend_uri,
             ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
         },

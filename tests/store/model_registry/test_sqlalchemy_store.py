@@ -1,8 +1,11 @@
 import os
+import time
 from unittest import mock
 import uuid
 import pytest
+from typing import NamedTuple
 
+import mlflow
 from mlflow.entities.model_registry import (
     ModelVersion,
     RegisteredModelTag,
@@ -30,6 +33,7 @@ pytestmark = pytest.mark.notrackingurimock
 
 @pytest.fixture
 def store(tmp_sqlite_uri):
+    mlflow.set_tracking_uri(tmp_sqlite_uri)
     db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
     store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
     yield store
@@ -45,6 +49,20 @@ def store(tmp_sqlite_uri):
                 session.query(model).delete()
 
 
+class Run(NamedTuple):
+    id: str
+    artifact_uri: str
+
+    @property
+    def uri(self):
+        return "runs:/{}".format(self.id)
+
+
+def create_run():
+    with mlflow.start_run() as run:
+        return Run(run.info.run_id, run.info.artifact_uri)
+
+
 def _rm_maker(store, name, tags=None, description=None):
     return store.create_registered_model(name, tags, description)
 
@@ -52,12 +70,16 @@ def _rm_maker(store, name, tags=None, description=None):
 def _mv_maker(
     store,
     name,
-    source="path/to/source",
-    run_id=uuid.uuid4().hex,
+    source=None,
+    run_id=None,
     tags=None,
     run_link=None,
     description=None,
 ):
+    if run_id is None:
+        run_id = create_run().id
+    if source is None:
+        source = f"runs:/{run_id}"
     return store.create_model_version(
         name, source, run_id, tags, run_link=run_link, description=description
     )
@@ -432,10 +454,10 @@ def test_delete_registered_model_tag(store):
 def test_create_model_version(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
-    run_id = uuid.uuid4().hex
+    run = create_run()
     with mock.patch("time.time") as mock_time:
         mock_time.return_value = 456778
-        mv1 = _mv_maker(store, name, "a/b/CD", run_id)
+        mv1 = _mv_maker(store, name, f"{run.uri}/a/b/CD", run.id)
         assert mv1.name == name
         assert mv1.version == 1
 
@@ -446,8 +468,8 @@ def test_create_model_version(store):
     assert mvd1.creation_timestamp == 456778000
     assert mvd1.last_updated_timestamp == 456778000
     assert mvd1.description is None
-    assert mvd1.source == "a/b/CD"
-    assert mvd1.run_id == run_id
+    assert mvd1.source == f"{run.artifact_uri}/a/b/CD"
+    assert mvd1.run_id == run.id
     assert mvd1.status == "READY"
     assert mvd1.status_message is None
     assert mvd1.tags == {}
@@ -486,12 +508,19 @@ def test_create_model_version(store):
     assert mvd5.description == description
 
     # create model version without runId
-    mv6 = _mv_maker(store, name, run_id=None)
+    mv6 = store.create_model_version(name, run.uri, run_id=None)
     mvd6 = store.get_model_version(name, mv6.version)
     assert mv6.version == 6
     assert mv6.run_id is None
     assert mvd6.version == 6
     assert mvd6.run_id is None
+
+
+def test_create_model_version_with_invalid_source(store):
+    name = "test"
+    _rm_maker(store, name)
+    with pytest.raises(MlflowException, match=r"source must be a runs or models URI"):
+        store.create_model_version(name, "path/to/foo", uuid.uuid4().hex)
 
 
 def test_update_model_version(store):
@@ -677,14 +706,13 @@ def test_delete_model_version(store):
 def test_delete_model_version_redaction(store):
     name = "test_for_delete_MV_redaction"
     run_link = "http://localhost:5000/path/to/run"
-    run_id = "12345"
-    source = "path/to/source"
+    run = create_run()
     _rm_maker(store, name)
-    mv = _mv_maker(store, name, source=source, run_id=run_id, run_link=run_link)
+    mv = _mv_maker(store, name, source=run.uri, run_id=run.id, run_link=run_link)
     mvd = store.get_model_version(name=name, version=mv.version)
     assert mvd.run_link == run_link
-    assert mvd.run_id == run_id
-    assert mvd.source == source
+    assert mvd.run_id == run.id
+    assert mvd.source == run.artifact_uri
     # delete the MV now
     store.delete_model_version(name, mv.version)
     # verify that the relevant fields are redacted
@@ -697,14 +725,16 @@ def test_delete_model_version_redaction(store):
 def test_get_model_version_download_uri(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
-    source_path = "path/to/source"
-    mv = _mv_maker(store, name, source=source_path, run_id=uuid.uuid4().hex)
+    run = create_run()
+    mv = _mv_maker(store, name, source=run.uri, run_id=run.id)
     mvd1 = store.get_model_version(name=mv.name, version=mv.version)
     assert mvd1.name == name
-    assert mvd1.source == source_path
+    assert mvd1.source == run.artifact_uri
 
     # download location points to source
-    assert store.get_model_version_download_uri(name=mv.name, version=mv.version) == source_path
+    assert (
+        store.get_model_version_download_uri(name=mv.name, version=mv.version) == run.artifact_uri
+    )
 
     # download URI does not change even if model version is updated
     store.transition_model_version_stage(
@@ -712,8 +742,10 @@ def test_get_model_version_download_uri(store):
     )
     store.update_model_version(name=mv.name, version=mv.version, description="Test for Path")
     mvd2 = store.get_model_version(name=mv.name, version=mv.version)
-    assert mvd2.source == source_path
-    assert store.get_model_version_download_uri(name=mv.name, version=mv.version) == source_path
+    assert mvd2.source == run.artifact_uri
+    assert (
+        store.get_model_version_download_uri(name=mv.name, version=mv.version) == run.artifact_uri
+    )
 
     # cannot retrieve download URI for deleted model versions
     store.delete_model_version(name=mv.name, version=mv.version)
@@ -729,16 +761,16 @@ def test_search_model_versions(store):
     # create some model versions
     name = "test_for_search_MV"
     _rm_maker(store, name)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    mv1 = _mv_maker(store, name=name, source="A/B", run_id=run_id_1)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    mv1 = _mv_maker(store, name=name, source=f"{run1.uri}/A/B", run_id=run1.id)
     assert mv1.version == 1
-    mv2 = _mv_maker(store, name=name, source="A/C", run_id=run_id_2)
+    mv2 = _mv_maker(store, name=name, source=f"{run2.uri}/A/C", run_id=run2.id)
     assert mv2.version == 2
-    mv3 = _mv_maker(store, name=name, source="A/D", run_id=run_id_2)
+    mv3 = _mv_maker(store, name=name, source=f"{run2.uri}/A/D", run_id=run2.id)
     assert mv3.version == 3
-    mv4 = _mv_maker(store, name=name, source="A/D", run_id=run_id_3)
+    mv4 = _mv_maker(store, name=name, source=f"{run3.uri}/A/D", run_id=run3.id)
     assert mv4.version == 4
 
     def search_versions(filter_string, max_results=10, order_by=None, page_token=None):
@@ -754,20 +786,20 @@ def test_search_model_versions(store):
     assert set(search_versions("version_number=2")) == {2}
     assert set(search_versions("version_number<=3")) == {1, 2, 3}
 
-    # search using run_id_1 should return version 1
-    assert set(search_versions("run_id='%s'" % run_id_1)) == {1}
+    # search using run1.id should return version 1
+    assert set(search_versions(f"run_id='{run1.id}'")) == {1}
 
     # search using run_id_2 should return versions 2 and 3
-    assert set(search_versions("run_id='%s'" % run_id_2)) == {2, 3}
+    assert set(search_versions(f"run_id='{run2.id}'")) == {2, 3}
 
     # search using the IN operator should return all versions
-    assert set(search_versions(f"run_id IN ('{run_id_1}','{run_id_2}')")) == {1, 2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id}','{run2.id}')")) == {1, 2, 3}
 
     # search IN operator is case sensitive
-    assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id.upper()}','{run2.id}')")) == {2, 3}
 
     # search IN operator with right-hand side value containing whitespaces
-    assert set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")) == {1, 2, 3}
+    assert set(search_versions(f"run_id IN ('{run1.id}', '{run2.id}')")) == {1, 2, 3}
 
     # search using the IN operator with bad lists should return exceptions
     with pytest.raises(
@@ -781,9 +813,9 @@ def test_search_model_versions(store):
         search_versions("run_id IN (1,2,3)")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-    assert set(search_versions(f"run_id LIKE '{run_id_2[:30]}%'")) == {2, 3}
+    assert set(search_versions(f"run_id LIKE '{run2.id[:30]}%'")) == {2, 3}
 
-    assert set(search_versions(f"run_id ILIKE '{run_id_2[:30].upper()}%'")) == {2, 3}
+    assert set(search_versions(f"run_id ILIKE '{run2.id[:30].upper()}%'")) == {2, 3}
 
     # search using the IN operator with empty lists should return exceptions
     with pytest.raises(
@@ -839,11 +871,11 @@ def test_search_model_versions(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     # search using source_path "A/D" should return version 3 and 4
-    assert set(search_versions("source_path = 'A/D'")) == {3, 4}
+    assert set(search_versions("source_path LIKE '%/A/D'")) == {3, 4}
 
     # search using source_path "A" should not return anything
-    assert len(search_versions("source_path = 'A'")) == 0
-    assert len(search_versions("source_path = 'A/'")) == 0
+    assert len(search_versions("source_path LIKE '%/A'")) == 0
+    assert len(search_versions("source_path LIKE '%/A/'")) == 0
     assert len(search_versions("source_path = ''")) == 0
 
     # delete mv4. search should not return version 4
@@ -854,7 +886,7 @@ def test_search_model_versions(store):
 
     assert set(search_versions("name='%s'" % name)) == {1, 2, 3}
 
-    assert set(search_versions("source_path = 'A/D'")) == {3}
+    assert set(search_versions("source_path LIKE '%/A/D'")) == {3}
 
     store.transition_model_version_stage(
         name=mv1.name, version=mv1.version, stage="production", archive_existing_versions=False
@@ -864,12 +896,12 @@ def test_search_model_versions(store):
         name=mv1.name, version=mv1.version, description="Online prediction model!"
     )
 
-    mvds = store.search_model_versions("run_id = '%s'" % run_id_1, max_results=10)
+    mvds = store.search_model_versions(f"run_id = '{run1.id}'", max_results=10)
     assert len(mvds) == 1
     assert isinstance(mvds[0], ModelVersion)
     assert mvds[0].current_stage == "Production"
-    assert mvds[0].run_id == run_id_1
-    assert mvds[0].source == "A/B"
+    assert mvds[0].run_id == run1.id
+    assert mvds[0].source == f"{run1.artifact_uri}/A/B"
     assert mvds[0].description == "Online prediction model!"
 
 
@@ -877,11 +909,12 @@ def test_search_model_versions_order_by_simple(store):
     # create some model versions
     names = ["RM1", "RM2", "RM3", "RM4", "RM1", "RM4"]
     sources = ["A"] * 3 + ["B"] * 3
-    run_ids = [uuid.uuid4().hex for _ in range(6)]
+    runs = [create_run() for _ in range(6)]
     for name in set(names):
-        _rm_maker(store, name)
-    for i in range(6):
-        _mv_maker(store, name=names[i], source=sources[i], run_id=run_ids[i])
+        store.create_registered_model(name)
+    for i, run in enumerate(runs):
+        _mv_maker(store, name=names[i], source=f"{run.uri}/{sources[i]}", run_id=run.id)
+        time.sleep(0.001)  # sleep for windows fs timestamp precision issues
 
     # by default order by last_updated_timestamp DESC
     mvs = store.search_model_versions(filter_string=None)
@@ -998,22 +1031,15 @@ def test_search_model_versions_by_tag(store):
     # create some model versions
     name = "test_for_search_MV_by_tag"
     _rm_maker(store, name)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-
     mv1 = _mv_maker(
         store,
         name=name,
-        source="A/B",
-        run_id=run_id_1,
         tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "xyz")],
     )
     assert mv1.version == 1
     mv2 = _mv_maker(
         store,
         name=name,
-        source="A/C",
-        run_id=run_id_2,
         tags=[ModelVersionTag("t1", "abc"), ModelVersionTag("t2", "x123")],
     )
     assert mv2.version == 2
@@ -1458,12 +1484,12 @@ def test_set_model_version_tag(store):
     ]
     _rm_maker(store, name1)
     _rm_maker(store, name2)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    _mv_maker(store, name1, "A/B", run_id_1, initial_tags)
-    _mv_maker(store, name1, "A/C", run_id_2, initial_tags)
-    _mv_maker(store, name2, "A/D", run_id_3, initial_tags)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    store.create_model_version(name1, f"{run1.uri}/A/B", run1.id, initial_tags)
+    store.create_model_version(name1, f"{run2.uri}/A/C", run2.id, initial_tags)
+    store.create_model_version(name2, f"{run3.uri}/A/D", run3.id, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     all_tags = initial_tags + [new_tag]
@@ -1528,12 +1554,12 @@ def test_delete_model_version_tag(store):
     ]
     _rm_maker(store, name1)
     _rm_maker(store, name2)
-    run_id_1 = uuid.uuid4().hex
-    run_id_2 = uuid.uuid4().hex
-    run_id_3 = uuid.uuid4().hex
-    _mv_maker(store, name1, "A/B", run_id_1, initial_tags)
-    _mv_maker(store, name1, "A/C", run_id_2, initial_tags)
-    _mv_maker(store, name2, "A/D", run_id_3, initial_tags)
+    run1 = create_run()
+    run2 = create_run()
+    run3 = create_run()
+    store.create_model_version(name1, f"{run1.uri}/A/B", run1.id, initial_tags)
+    store.create_model_version(name1, f"{run2.uri}/A/C", run2.id, initial_tags)
+    store.create_model_version(name2, f"{run3.uri}/A/D", run3.id, initial_tags)
     new_tag = ModelVersionTag("randomTag", "not a random value")
     store.set_model_version_tag(name1, 1, new_tag)
     store.delete_model_version_tag(name1, 1, "randomTag")

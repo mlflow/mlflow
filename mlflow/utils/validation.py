@@ -346,6 +346,25 @@ def _validate_model_name(model_name):
         raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+def _validate_and_resolve_source(source):
+    from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    is_runs_uri = RunsArtifactRepository.is_runs_uri(source)
+    is_models_uri = ModelsArtifactRepository.is_models_uri(source)
+    if not (is_runs_uri or is_models_uri):
+        raise MlflowException(
+            "Model version source must be a runs or models "
+            f"URI ('runs:/<run_id>/...' or 'models:/<model_name>/...'), got '{source}'",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    if is_runs_uri:
+        return RunsArtifactRepository.get_underlying_uri(source)
+    else:
+        return ModelsArtifactRepository.get_underlying_uri(source)
+
+
 def _validate_model_version(model_version):
     try:
         model_version = int(model_version)

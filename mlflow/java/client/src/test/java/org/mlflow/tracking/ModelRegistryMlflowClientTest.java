@@ -36,6 +36,7 @@ public class ModelRegistryMlflowClientTest {
     private MlflowClient client;
 
     private String modelName;
+    private String artifactUri;
     private File tempDir;
     private File tempFile;
 
@@ -60,16 +61,18 @@ public class ModelRegistryMlflowClientTest {
 
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
+        artifactUri = runCreated.getArtifactUri();
 
         tempDir = Files.createTempDirectory("tempDir").toFile();
         tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
-
         FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+        client.logArtifact(runId, tempFile);
+
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, runId, String.format("runs:/%s", runId)));
     }
 
     @AfterTest
@@ -121,7 +124,7 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetModelVersionDownloadUri() {
         String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
-        Assert.assertEquals(tempDir.getAbsolutePath(), downloadUri);
+        Assert.assertEquals(artifactUri, downloadUri);
     }
 
     @Test
@@ -166,17 +169,19 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testSearchModelVersions() {
         List<ModelVersion> mvsBefore = client.searchModelVersions().getItems();
+        String expName = createExperimentName();
+        String expId = client.createExperiment(expName);
 
         // create new model version of existing registered model
-        String newVersionRunId = "newVersionRunId";
-        String newVersionSource = "newVersionSource";
+        String newVersionRunId = client.createRun(expId).getRunUuid();
+        String newVersionSource = String.format("runs:/%s", newVersionRunId);
         client.sendPost("model-versions/create",
                 mapper.makeCreateModelVersion(modelName, newVersionRunId, newVersionSource));
 
         // create new registered model
         String modelName2 = "modelName2";
-        String runId2 = "runId2";
-        String source2 = "source2";
+        String runId2 = client.createRun(expId).getRunUuid();
+        String source2 = String.format("runs:/%s", runId2);
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName2));
         client.sendPost("model-versions/create",

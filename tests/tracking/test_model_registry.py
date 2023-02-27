@@ -4,6 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 import time
 import pytest
+from typing import NamedTuple
 
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.exceptions import MlflowException
@@ -26,6 +27,20 @@ def client(request, tmp_path):
     )
     yield MlflowClient(url)
     _terminate_server(process)
+
+
+class Run(NamedTuple):
+    id: str
+    artifact_uri: str
+
+    @property
+    def uri(self):
+        return "runs:/{}".format(self.id)
+
+
+def create_run(client):
+    run = client.create_run(experiment_id="0")
+    return Run(id=run.info.run_id, artifact_uri=run.info.artifact_uri)
 
 
 def assert_is_between(start_time, end_time, expected_time):
@@ -270,6 +285,7 @@ def test_search_model_versions_filter_string(
     filter_string,
     filter_func,
 ):
+    run = create_run(client)
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
@@ -277,7 +293,7 @@ def test_search_model_versions_filter_string(
     for name in names + names[:10]:
         # Sleep for unique creation_time to make search results deterministic
         time.sleep(0.001)
-        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+        mvs.append(client.create_model_version(name, run.uri, run.id))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -306,6 +322,7 @@ def test_search_model_versions_filter_string(
 
 @pytest.mark.parametrize("max_results", [1, 8, 100])
 def test_search_model_versions_max_results(client, max_results):
+    run = create_run(client)
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
@@ -313,7 +330,7 @@ def test_search_model_versions_max_results(client, max_results):
     for name in names + names[:10]:
         # Sleep for unique creation_time to make search results deterministic
         time.sleep(0.001)
-        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+        mvs.append(client.create_model_version(name, run.uri, run.id))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -356,6 +373,7 @@ def test_search_model_versions_order_by(
     order_by_key,
     order_by_desc,
 ):
+    run = create_run(client)
     names = [f"CreateRMsearchForMV{i:03}" for i in range(29)]
     for name in names:
         client.create_registered_model(name)
@@ -363,7 +381,7 @@ def test_search_model_versions_order_by(
     for name in names + names[:10]:
         # Sleep for unique creation_time to make search results deterministic
         time.sleep(0.001)
-        mvs.append(client.create_model_version(name, "path/to/model", "run_id"))
+        mvs.append(client.create_model_version(name, run.uri, run.id))
     for mv in mvs:
         assert isinstance(mv, ModelVersion)
     mvs = mvs[::-1]
@@ -394,10 +412,11 @@ def test_search_model_versions_order_by(
 
 
 def test_create_and_query_model_version_flow(client):
+    run = create_run(client)
     name = "CreateMVTest"
     tags = {"key": "value", "another key": "some other value", "numeric value": 12345}
     client.create_registered_model(name)
-    mv1 = client.create_model_version(name, "path/to/model", "run_id_1", tags)
+    mv1 = client.create_model_version(name, f"{run.uri}/1", run.id, tags)
     assert mv1.version == "1"
     assert mv1.name == name
     assert mv1.tags == {"key": "value", "another key": "some other value", "numeric value": "12345"}
@@ -410,7 +429,7 @@ def test_create_and_query_model_version_flow(client):
     assert [rm.latest_versions for rm in client.search_registered_models() if rm.name == name] == [
         [mvd1]
     ]
-    mv2 = client.create_model_version(name, "another_path/to/model", "run_id_1")
+    mv2 = client.create_model_version(name, f"{run.uri}/2", run.id)
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = client.get_model_version(name, "2")
@@ -421,18 +440,20 @@ def test_create_and_query_model_version_flow(client):
     assert {mv.version for mv in model_versions_by_name} == {"1", "2"}
     assert {mv.name for mv in model_versions_by_name} == {name}
 
-    mv3 = client.create_model_version(name, "another_path/to/model", "run_id_2")
+    run3 = create_run(client)
+    mv3 = client.create_model_version(name, run3.uri, run3.id)
     assert mv3.version == "3"
-    assert client.search_model_versions("source_path = 'path/to/model'") == [mvd1]
-    assert client.search_model_versions("run_id = 'run_id_1'") == [mvd2, mvd1]
+    assert client.search_model_versions(f"source_path = '{run.artifact_uri}/1'") == [mvd1]
+    assert client.search_model_versions(f"run_id = '{run.id}'") == [mvd2, mvd1]
 
-    assert client.get_model_version_download_uri(name, "1") == "path/to/model"
+    assert client.get_model_version_download_uri(name, "1") == f"{run.artifact_uri}/1"
 
 
 def test_get_model_version(client):
+    run = create_run(client)
     name = "GetModelVersionTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "path/to/model", "run_id_1")
+    client.create_model_version(name, run.uri, run.id)
     model_version = client.get_model_version(name, "1")
     assert model_version.name == name
     assert model_version.version == "1"
@@ -444,6 +465,7 @@ def test_get_model_version(client):
 
 
 def test_update_model_version_flow(client):
+    run = create_run(client)
     name = "UpdateMVTest"
     start_time_0 = get_current_time_millis()
     client.create_registered_model(name)
@@ -453,7 +475,7 @@ def test_update_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
     start_time_1 = get_current_time_millis()
-    mv1 = client.create_model_version(name, "path/to/model", "run_id_1")
+    mv1 = client.create_model_version(name, f"{run.uri}/1", run.id)
     end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
@@ -470,7 +492,7 @@ def test_update_model_version_flow(client):
     assert [rm.latest_versions for rm in client.search_registered_models() if rm.name == name] == [
         [mvd1]
     ]
-    mv2 = client.create_model_version(name, "another_path/to/model", "run_id_1")
+    mv2 = client.create_model_version(name, f"{run.uri}/2", run.id)
     assert mv2.version == "2"
     assert mv2.name == name
     mvd2 = client.get_model_version(name, "2")
@@ -514,6 +536,7 @@ def test_update_model_version_flow(client):
 
 
 def test_latest_models(client):
+    run = create_run(client)
     version_stage_mapping = (
         ("1", "Archived"),
         ("2", "Production"),
@@ -529,7 +552,7 @@ def test_latest_models(client):
     for version, stage in version_stage_mapping:
         # Sleep for unique creation_time to make search results deterministic
         time.sleep(0.001)
-        mv = client.create_model_version(name, "path/to/model", "run_id")
+        mv = client.create_model_version(name, f"{run.uri}/{version}", run.id)
         assert mv.version == version
         if stage != "None":
             client.transition_model_version_stage(name, version, stage=stage)
@@ -548,6 +571,7 @@ def test_latest_models(client):
 
 
 def test_delete_model_version_flow(client):
+    run = create_run(client)
     name = "DeleteMVTest"
     start_time_0 = get_current_time_millis()
     client.create_registered_model(name)
@@ -557,7 +581,7 @@ def test_delete_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
 
     start_time_1 = get_current_time_millis()
-    mv1 = client.create_model_version(name, "path/to/model", "run_id_1")
+    mv1 = client.create_model_version(name, f"{run.uri}/1", run.id)
     end_time_1 = get_current_time_millis()
     assert mv1.version == "1"
     assert mv1.name == name
@@ -570,10 +594,10 @@ def test_delete_model_version_flow(client):
     assert_is_between(start_time_0, end_time_0, rmd2.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, rmd2.last_updated_timestamp)
 
-    mv2 = client.create_model_version(name, "another_path/to/model", "run_id_1")
+    mv2 = client.create_model_version(name, f"{run.uri}/2", run.id)
     assert mv2.version == "2"
     assert mv2.name == name
-    mv3 = client.create_model_version(name, "a/b/c", "run_id_2")
+    mv3 = client.create_model_version(name, f"{run.uri}/2", run.id)
     assert mv3.version == "3"
     assert mv3.name == name
     model_versions_detailed = [
@@ -613,7 +637,7 @@ def test_delete_model_version_flow(client):
     assert {mv.version for mv in client.search_model_versions("name = '%s'" % name)} == {"2"}
 
     # new model versions will not reuse existing version numbers
-    mv4 = client.create_model_version(name, "a/b/c", "run_id_2")
+    mv4 = client.create_model_version(name, f"{run.uri}/4", run.id)
     assert mv4.version == "4"
     assert mv4.name == name
     assert {mv.version for mv in client.search_model_versions("name = '%s'" % name)} == {
@@ -623,9 +647,10 @@ def test_delete_model_version_flow(client):
 
 
 def test_set_delete_model_version_tag_flow(client):
+    run = create_run(client)
     name = "SetDeleteMVTagTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "path/to/model", "run_id_1")
+    client.create_model_version(name, run.uri, run.id)
     model_version_detailed = client.get_model_version(name, "1")
     assert model_version_detailed.tags == {}
     tags = {"key": "value", "numeric value": 12345}
@@ -639,8 +664,9 @@ def test_set_delete_model_version_tag_flow(client):
 
 
 def test_set_model_version_tag_with_empty_string_as_value(client):
+    run = create_run(client)
     name = "SetMVTagEmptyValueTest"
     client.create_registered_model(name)
-    client.create_model_version(name, "path/to/model", "run_id_1")
+    client.create_model_version(name, run.uri, run.id)
     client.set_model_version_tag(name, "1", "tag_key", "")
     assert {"tag_key": ""}.items() <= client.get_model_version(name, "1").tags.items()
