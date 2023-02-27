@@ -6,6 +6,8 @@ import uuid
 from unittest import mock
 import os
 
+from requests import Response
+
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -21,7 +23,8 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteModelVersionRequest,
     SearchModelVersionsRequest,
     GetModelVersionDownloadUriRequest,
-    MODEL_VERSION_READ,
+    GenerateTemporaryModelVersionCredentialsRequest,
+    MODEL_VERSION_READ_WRITE,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
@@ -101,7 +104,7 @@ def test_update_registered_model_name(mock_http, store):
     name = "model_1"
     new_name = "model_2"
     with pytest.raises(
-        MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")
+            MlflowException, match=_expected_unsupported_method_error_message("rename_registered_model")
     ):
         store.rename_registered_model(name=name, new_name=new_name)
 
@@ -159,7 +162,7 @@ def test_search_registered_models_invalid_args(store):
         for combination in combinations(params_list, sz):
             params = {k: v for d in combination for k, v in d.items()}
             with pytest.raises(
-                MlflowException, match="unsupported for models in the Unity Catalog"
+                    MlflowException, match="unsupported for models in the Unity Catalog"
             ):
                 store.search_registered_models(**params)
 
@@ -207,68 +210,73 @@ def test_download_source_doesnt_leak_files(store, tmp_path):
     assert not os.path.exists(local_dir)
 
 
+def get_request_mock(temp_credentials, storage_location, source):
+    def request_mock(
+            host_creds,
+            endpoint,
+            method,
+            max_retries=None,
+            backoff_factor=None,
+            retry_codes=None,
+            timeout=None,
+            **kwargs,
+    ):
+        model_version_temp_credentials_response = {
+            "credentials": temp_credentials
+        }
+        expected_model_name = "model_1"
+        version = str(1)
+        model_version_info = {"model_version": {"version": version, "storage_location": storage_location}}
+        req_info_to_response = {
+            (
+                "/api/2.0/mlflow/unity-catalog/model-versions/create",
+                "POST",
+                json.dumps({"name": expected_model_name, "source": source}),
+            ): model_version_info,
+            (
+                "/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+                "POST",
+                json.dumps({"name": expected_model_name, "version": version, "operation": "MODEL_VERSION_READ_WRITE"})
+            ): model_version_temp_credentials_response,
+            (
+                "/api/2.0/mlflow/unity-catalog/model-versions/finalize",
+                "POST",
+                json.dumps({"name": expected_model_name, "version": version})
+            ): {},
+        }
+        resp_json = req_info_to_response[(endpoint, method, json.dumps(kwargs["json"]))]
+        mock_resp = mock.MagicMock(autospec=Response)
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps(resp_json)
+        return mock_resp
 
-def request_mock()
+    return request_mock
 
 
-@mock_http_200
-def test_create_model_version_aws(mock_http, store):
-
-
+def test_create_model_version_aws(store, tmp_path):
+    aws_temp_creds = {"aws_temp_credentials": {
+        "access_key_id": "fake-key",
+        "secret_access_key": "secret_key",
+        "session_token": "token",
+    }}
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.get_artifact_repo_from_storage_info",
-        return_value=mock_artifact_repo,
-    ) as get_artifact_repo_mock:
-        store.create_model_version("model_1", "path/to/source")
-        model_version_download_uri = "s3://blah"
-        model_version_info = {"version": "1", "storage_location": model_version_download_uri}
-        model_version_temp_credentials_response = (
-            {
-                "credentials": {
-                    "aws_temp_credentials": {
-                        "access_key_id": "fake-key",
-                        "secret_access_key": "secret_key",
-                        "session_token": "token",
-                    }
-                }
-            },
+    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
+            "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
+    ) as s3_artifact_repo_class_mock:
+        s3_artifact_repo_class_mock.return_value = mock_artifact_repo
+        model_version_uri = "s3://blah"
+        source = str(tmp_path)
+        request_mock.side_effect = get_request_mock(temp_credentials=aws_temp_creds, storage_location=model_version_uri,
+                                                    source=source)
+        store.create_model_version(name="model_1", source=source)
+        # Verify that s3 artifact repo mock was called with expected args
+        s3_artifact_repo_class_mock.assert_called_once_with(
+            artifact_uri=model_version_uri,
+            **aws_temp_creds["aws_temp_credentials"]
+
         )
-        # Test that we make the expected sequence of calls, with cloud-provider-appropriate
-        # response handling, when creating a model version.
-        # Basically, create, get creds, write files via artifact repo, then finalize.
-        for endpoint, method, req_proto_message, mock_resp_json in [
-            (
-                "model-versions/create",
-                "POST",
-                CreateModelVersionRequest(name="model_1", source="path/to/source"),
-                model_version_info,
-            ),
-            (
-                "model-versions/model-versions/generate-temporary-credentials",
-                "POST",
-                GetModelVersionDownloadUriRequest(
-                    name="model_1", source="path/to/source", operation=MODEL_VERSION_READ
-                ),
-                model_version_temp_credentials_response,
-            ),
-            (
-                "model-versions/model-versions/finalize",
-                "POST",
-                FinalizeModelVersionRequest(name="model_1", version=1),
-                {},
-            ),
-        ]:
-            mock_http.text = json.dumps(mock_resp_json)
-            _verify_requests(
-                mock_http,
-                endpoint=endpoint,
-                method=method,
-                proto_message=req_proto_message,
-            )
-        # Verify that artifact repo mock was called with expected
-        call_kwargs = get_artifact_repo_mock.calls[0][1]
-        assert call_kwargs["storage_location"] == model_version_download_uri
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+
 
 # @mock.patch("databricks_cli.configure.provider.get_config")
 def test_create_model_version_azure():
@@ -280,7 +288,7 @@ def test_create_model_version_azure():
         },
     }
     with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+            "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
     ) as adls_artifact_repo_class_mock:
         mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
@@ -302,6 +310,7 @@ def test_create_model_version_azure():
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
         )
+
 
 def test_create_model_version_optional_fields(mock_http, store):
     # test optional fields
@@ -325,28 +334,27 @@ def test_create_model_version_optional_fields(mock_http, store):
         ),
     )
 
+
 def test_create_model_version_unsupported_fields(store):
-    with pytest.raises(
-        MlflowException, match=_expected_unsupported_arg_error_message("run_link")
-    ):
-        store.create_model_version(
-            name="mymodel", source="mysource", run_link="https://google.com"
-        )
+    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("run_link")):
+        store.create_model_version(name="mymodel", source="mysource", run_link="https://google.com")
     with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("tags")):
         store.create_model_version(
             name="mymodel", source="mysource", tags=[ModelVersionTag("a", "b")]
         )
 
+
 def test_transition_model_version_stage_unsupported(store):
     name = "model_1"
     version = "5"
     with pytest.raises(
-        MlflowException,
-        match=_expected_unsupported_method_error_message("transition_model_version_stage"),
+            MlflowException,
+            match=_expected_unsupported_method_error_message("transition_model_version_stage"),
     ):
         store.transition_model_version_stage(
             name=name, version=version, stage="prod", archive_existing_versions=True
         )
+
 
 @mock_http_200
 def test_update_model_version_description(mock_http, store):
@@ -361,6 +369,7 @@ def test_update_model_version_description(mock_http, store):
         UpdateModelVersionRequest(name=name, version=version, description="test model version"),
     )
 
+
 @mock_http_200
 def test_delete_model_version(mock_http, store):
     name = "model_1"
@@ -372,6 +381,7 @@ def test_delete_model_version(mock_http, store):
         "DELETE",
         DeleteModelVersionRequest(name=name, version=version),
     )
+
 
 @mock_http_200
 def test_get_model_version_details(mock_http, store):
@@ -385,6 +395,7 @@ def test_get_model_version_details(mock_http, store):
         GetModelVersionRequest(name=name, version=version),
     )
 
+
 @mock_http_200
 def test_get_model_version_download_uri(mock_http, store):
     name = "model_11"
@@ -397,6 +408,7 @@ def test_get_model_version_download_uri(mock_http, store):
         GetModelVersionDownloadUriRequest(name=name, version=version),
     )
 
+
 @mock_http_200
 def test_search_model_versions(mock_http, store):
     store.search_model_versions(filter_string="name='model_12'")
@@ -407,19 +419,21 @@ def test_search_model_versions(mock_http, store):
         SearchModelVersionsRequest(filter="name='model_12'"),
     )
 
+
 def test_set_model_version_tag_unsupported(store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
     with pytest.raises(
-        MlflowException,
-        match=_expected_unsupported_method_error_message("set_model_version_tag"),
+            MlflowException,
+            match=_expected_unsupported_method_error_message("set_model_version_tag"),
     ):
         store.set_model_version_tag(name=name, version="1", tag=tag)
+
 
 def test_delete_model_version_tag_unsupported(store):
     name = "model_1"
     with pytest.raises(
-        MlflowException,
-        match=_expected_unsupported_method_error_message("delete_model_version_tag"),
+            MlflowException,
+            match=_expected_unsupported_method_error_message("delete_model_version_tag"),
     ):
         store.delete_model_version_tag(name=name, version="1", key="key")

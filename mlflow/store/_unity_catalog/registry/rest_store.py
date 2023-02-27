@@ -29,6 +29,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    MODEL_VERSION_READ_WRITE
 )
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -171,7 +172,7 @@ class UcModelRegistryStore(BaseRestStore):
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+            self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for registered models in backend that satisfy the filter criteria.
@@ -225,11 +226,11 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(
             method="get_latest_versions",
             message="If seeing this error while attempting to "
-            "load a models:/ URI of the form models:/<name>/<stage>, note that "
-            "staged-based model URIs are unsupported for models in UC. Future "
-            "MLflow Python client versions will include support for model "
-            "aliases and alias-based 'models:/' URIs "
-            "of the form models:/<name>@<alias> as an alternative.",
+                    "load a models:/ URI of the form models:/<name>/<stage>, note that "
+                    "staged-based model URIs are unsupported for models in UC. Future "
+                    "MLflow Python client versions will include support for model "
+                    "aliases and alias-based 'models:/' URIs "
+                    "of the form models:/<name>@<alias> as an alternative.",
         )
 
     def set_registered_model_tag(self, name, tag):
@@ -264,7 +265,7 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
         return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
 
-    def _get_temporary_model_version_credentials(self, name, version):
+    def _get_temporary_model_version_write_credentials(self, name, version):
         """
         Get temporary credentials for uploading model version files
         :param name:
@@ -272,11 +273,12 @@ class UcModelRegistryStore(BaseRestStore):
         :return:
         """
         req_body = message_to_json(
-            GenerateTemporaryModelVersionCredentialsRequest(name=name, version=version)
+            GenerateTemporaryModelVersionCredentialsRequest(name=name, version=version,
+                                                            operation=MODEL_VERSION_READ_WRITE)
         )
         return self._call_endpoint(
             GenerateTemporaryModelVersionCredentialsRequest, req_body
-        ).credential
+        ).credentials
 
     @contextmanager
     def _download_source(self, source):
@@ -285,7 +287,7 @@ class UcModelRegistryStore(BaseRestStore):
         shutil.rmtree(tmpdir)
 
     def create_model_version(
-        self, name, source, run_id=None, tags=None, run_link=None, description=None
+            self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
         """
         Create a new model version from given source and run ID.
@@ -313,7 +315,7 @@ class UcModelRegistryStore(BaseRestStore):
         with self._download_source(source) as local_model_dir:
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
-            scoped_token = self._get_temporary_model_version_credentials(
+            scoped_token = self._get_temporary_model_version_write_credentials(
                 name=name, version=version_number
             )
             store = get_artifact_repo_from_storage_info(
@@ -392,7 +394,7 @@ class UcModelRegistryStore(BaseRestStore):
         return response_proto.artifact_uri
 
     def search_model_versions(
-        self, filter_string=None, max_results=None, order_by=None, page_token=None
+            self, filter_string=None, max_results=None, order_by=None, page_token=None
     ):
         """
         Search for model versions in backend that satisfy the filter criteria.
