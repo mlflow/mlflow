@@ -275,6 +275,39 @@ def get_request_mock(
     return request_mock
 
 
+def _assert_create_model_version_endpoints_called(
+    request_mock, name, source, version, run_id=None, description=None
+):
+    """
+    Asserts that endpoints related to the model version creation flow were called on the provided
+    `request_mock`
+    """
+    for endpoint, proto_message in [
+        (
+            "model-versions/create",
+            CreateModelVersionRequest(
+                name=name, source=source, run_id=run_id, description=description
+            ),
+        ),
+        (
+            "model-versions/generate-temporary-credentials",
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+            ),
+        ),
+        (
+            "model-versions/finalize",
+            FinalizeModelVersionRequest(name=name, version=version),
+        ),
+    ]:
+        _verify_requests(
+            http_request=request_mock,
+            endpoint=endpoint,
+            method="POST",
+            proto_message=proto_message,
+        )
+
+
 def test_create_model_version_aws(store, tmp_path):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
@@ -311,25 +344,9 @@ def test_create_model_version_aws(store, tmp_path):
             session_token=session_token,
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
-        for endpoint, proto_message in [
-            ("model-versions/create", CreateModelVersionRequest(name=model_name, source=source)),
-            (
-                "model-versions/generate-temporary-credentials",
-                GenerateTemporaryModelVersionCredentialsRequest(
-                    name=model_name, version=version, operation=MODEL_VERSION_READ_WRITE
-                ),
-            ),
-            (
-                "model-versions/finalize",
-                FinalizeModelVersionRequest(name=model_name, version=version),
-            ),
-        ]:
-            _verify_requests(
-                http_request=request_mock,
-                endpoint=endpoint,
-                method="POST",
-                proto_message=proto_message,
-            )
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock, name=model_name, source=source, version=version
+        )
 
 
 def test_create_model_version_azure(store, tmp_path):
@@ -361,25 +378,9 @@ def test_create_model_version_azure(store, tmp_path):
         credential = adls_repo_args[1]["credential"]
         assert credential.signature == fake_sas_token
         mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
-        for endpoint, proto_message in [
-            ("model-versions/create", CreateModelVersionRequest(name=model_name, source=source)),
-            (
-                "model-versions/generate-temporary-credentials",
-                GenerateTemporaryModelVersionCredentialsRequest(
-                    name=model_name, version=version, operation=MODEL_VERSION_READ_WRITE
-                ),
-            ),
-            (
-                "model-versions/finalize",
-                FinalizeModelVersionRequest(name=model_name, version=version),
-            ),
-        ]:
-            _verify_requests(
-                http_request=request_mock,
-                endpoint=endpoint,
-                method="POST",
-                proto_message=proto_message,
-            )
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock, name=model_name, source=source, version=version
+        )
 
 
 @pytest.mark.parametrize(
@@ -395,7 +396,6 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
     temporary_creds = TemporaryCredentials(
         gcp_oauth_token=GcpOauthToken(oauth_token=fake_oauth_token)
     )
-
     source = str(tmp_path)
     model_name = "model_1"
     all_create_args = {
@@ -430,25 +430,9 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
-        for endpoint, proto_message in [
-            ("model-versions/create", CreateModelVersionRequest(**create_kwargs)),
-            (
-                "model-versions/generate-temporary-credentials",
-                GenerateTemporaryModelVersionCredentialsRequest(
-                    name=model_name, version=version, operation=MODEL_VERSION_READ_WRITE
-                ),
-            ),
-            (
-                "model-versions/finalize",
-                FinalizeModelVersionRequest(name=model_name, version=version),
-            ),
-        ]:
-            _verify_requests(
-                http_request=request_mock,
-                endpoint=endpoint,
-                method="POST",
-                proto_message=proto_message,
-            )
+        _assert_create_model_version_endpoints_called(
+            request_mock=request_mock, version=version, **create_kwargs
+        )
 
 
 def test_create_model_version_unsupported_fields(store):
