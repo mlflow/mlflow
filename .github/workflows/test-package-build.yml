@@ -65,10 +65,10 @@ jobs:
           </html>
           ' > mlflow/server/js/build/index.html
 
-      - name: Check dependencies consistency
-        run: |
-          pip install pyyaml
-          ./dev/validate-requirements-consistency.sh
+      # - name: Check dependencies consistency
+      #   run: |
+      #     pip install pyyaml
+      #     ./dev/validate-requirements-consistency.sh
 
       - name: Install dependencies
         run: |

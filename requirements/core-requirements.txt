@@ -7,7 +7,7 @@ docker<7,>=4.0.0
 Flask<3
 numpy<2
 scipy<2
-pandas==2.0.0rc0
+pandas<=2.0.0rc0
 querystring_parser<2
 sqlalchemy<3,>=1.4.0
 gunicorn<21; platform_system != 'Windows'
