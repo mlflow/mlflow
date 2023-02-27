@@ -299,7 +299,6 @@ const classNames = {
   experimentListOuterContainer: css({
     boxSizing: 'border-box',
     height: '100%',
-    marginTop: '24px',
     marginLeft: '24px',
     marginRight: '8px',
     paddingRight: '16px',
