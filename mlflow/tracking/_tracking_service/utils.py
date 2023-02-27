@@ -178,7 +178,7 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     global _tracking_store_registry
     supported_schemes = [
         scheme
-        for scheme in _tracking_store_registry._registry.keys()
+        for scheme in _tracking_store_registry._registry
         if scheme != _DATABRICKS_UNITY_CATALOG_SCHEME
     ]
     raise MlflowException(
