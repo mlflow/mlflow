@@ -348,21 +348,14 @@ def _validate_model_name(model_name):
 
 def _validate_and_resolve_source(source):
     from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 
-    is_runs_uri = RunsArtifactRepository.is_runs_uri(source)
-    is_models_uri = ModelsArtifactRepository.is_models_uri(source)
-    if not (is_runs_uri or is_models_uri):
+    if not RunsArtifactRepository.is_runs_uri(source):
         raise MlflowException(
-            "Model version source must be a runs or models "
-            f"URI ('runs:/<run_id>/...' or 'models:/<model_name>/...'), got '{source}'",
+            f"Model version source must be a runs URI ('runs:/<run_id>/...'), got '{source}'",
             INVALID_PARAMETER_VALUE,
         )
 
-    if is_runs_uri:
-        return RunsArtifactRepository.get_underlying_uri(source)
-    else:
-        return ModelsArtifactRepository.get_underlying_uri(source)
+    return RunsArtifactRepository.get_underlying_uri(source)
 
 
 def _validate_model_version(model_version):
