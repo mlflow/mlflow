@@ -505,10 +505,7 @@ def test_get_model_version_details(mock_http, store):
     version = "8"
     store.get_model_version(name=name, version=version)
     _verify_requests(
-        mock_http,
-        "model-versions/get",
-        "GET",
-        GetModelVersionRequest(name=name, version=version),
+        mock_http, "model-versions/get", "GET", GetModelVersionRequest(name=name, version=version)
     )
 
 
@@ -540,8 +537,7 @@ def test_set_model_version_tag_unsupported(store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
     with pytest.raises(
-        MlflowException,
-        match=_expected_unsupported_method_error_message("set_model_version_tag"),
+        MlflowException, match=_expected_unsupported_method_error_message("set_model_version_tag")
     ):
         store.set_model_version_tag(name=name, version="1", tag=tag)
 
