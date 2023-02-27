@@ -91,7 +91,8 @@ def convert_to_dataset_feature_statistics(
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     feature_stats = facet_feature_statistics_pb2.DatasetFeatureStatistics()
     data_type_custom_stat = facet_feature_statistics_pb2.CustomStatistic()
-    pandas_describe = df.describe(datetime_is_numeric=True, include="all")
+    kwargs = {} if Version(pd.__version__) > Version("1.5") else {"datetime_is_numeric": True}
+    pandas_describe = df.describe(include="all", **kwargs)
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
     try:
