@@ -14,6 +14,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
@@ -175,20 +176,26 @@ def _get_databricks_uc_rest_store(store_uri, **_):
     from mlflow.version import VERSION
 
     global _tracking_store_registry
+    supported_schemes = list(
+        filter(
+            lambda scheme: scheme != _DATABRICKS_UNITY_CATALOG_SCHEME,
+            list(_tracking_store_registry._registry.keys()),
+        )
+    )
     raise MlflowException(
         f"Detected Unity Catalog tracking URI '{store_uri}'. "
-        f"Setting the tracking URI to a Unity Catalog backend is not supported in the current "
+        "Setting the tracking URI to a Unity Catalog backend is not supported in the current "
         f"version of the MLflow client ({VERSION}). "
-        f"Please specify a different tracking URI via mlflow.set_tracking_uri, with "
-        f"one of the supported schemes: "
-        f"{list(_tracking_store_registry._registry.keys())}. "
-        f"If you're trying to access models in the Unity Catalog, please upgrade to the "
-        f"latest version of the MLflow Python client, then specify a Unity Catalog "
-        f"model registry URI via mlflow.set_registry_uri('databricks-uc') or "
-        f"mlflow.set_registry_uri('databricks-uc://profile_name'), where "
-        f"'profile_name' is the name of the Databricks CLI profile to use for "
-        f"authentication. Be sure to leave the tracking URI configured to use "
-        f"one of the supported schemes listed above."
+        "Please specify a different tracking URI via mlflow.set_tracking_uri, with "
+        "one of the supported schemes: "
+        f"{supported_schemes}. If you're trying to access models in the Unity "
+        "Catalog, please upgrade to the latest version of the MLflow Python "
+        "client, then specify a Unity Catalog model registry URI via "
+        f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}') or "
+        f"mlflow.set_registry_uri('{_DATABRICKS_UNITY_CATALOG_SCHEME}://profile_name'), where "
+        "'profile_name' is the name of the Databricks CLI profile to use for "
+        "authentication. Be sure to leave the tracking URI configured to use "
+        "one of the supported schemes listed above."
     )
 
 
@@ -196,7 +203,7 @@ _tracking_store_registry = TrackingStoreRegistry()
 _tracking_store_registry.register("", _get_file_store)
 _tracking_store_registry.register("file", _get_file_store)
 _tracking_store_registry.register("databricks", _get_databricks_rest_store)
-_tracking_store_registry.register("databricks-uc", _get_databricks_uc_rest_store)
+_tracking_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
 for scheme in ["http", "https"]:
     _tracking_store_registry.register(scheme, _get_rest_store)
