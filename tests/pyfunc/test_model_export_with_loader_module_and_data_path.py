@@ -272,11 +272,10 @@ def test_column_schema_enforcement():
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
 
-    # 12. datetime64[D] (date only) -> datetime64[x] works
-    pdf["h"] = pdf["h"].astype("datetime64[D]")
+    # 12. datetime64[s] -> datetime64[ns] works
+    pdf["h"] = pdf["h"].astype("datetime64[s]")
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
-    pdf["h"] = pdf["h"].astype("datetime64[s]")
 
     # 13. np.ndarrays can be converted to dataframe but have no columns
     with pytest.raises(MlflowException, match=match_missing_inputs):
