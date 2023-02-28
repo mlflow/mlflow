@@ -319,22 +319,24 @@ def test_create_model_version_aws(store, tmp_path):
             session_token=session_token,
         )
     )
+    storage_location = "s3://blah"
+    source = str(tmp_path)
+    model_name = "model_1"
+    version = "1"
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
-        return_value=mock_artifact_repo,
-    ) as s3_artifact_repo_class_mock:
-        storage_location = "s3://blah"
-        source = str(tmp_path)
-        model_name = "model_1"
-        version = "1"
-        request_mock.side_effect = get_request_mock(
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             name=model_name,
             version=version,
             temp_credentials=aws_temp_creds,
             storage_location=storage_location,
             source=source,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as s3_artifact_repo_class_mock:
         store.create_model_version(name=model_name, source=source)
         # Verify that s3 artifact repo mock was called with expected args
         s3_artifact_repo_class_mock.assert_called_once_with(
@@ -355,21 +357,23 @@ def test_create_model_version_azure(store, tmp_path):
     temporary_creds = TemporaryCredentials(
         azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
     )
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
-    ) as adls_artifact_repo_class_mock:
-        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
-        adls_artifact_repo_class_mock.return_value = mock_adls_repo
-        source = str(tmp_path)
-        model_name = "model_1"
-        version = "1"
-        request_mock.side_effect = get_request_mock(
+    source = str(tmp_path)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             name=model_name,
             version=version,
             temp_credentials=temporary_creds,
             storage_location=storage_location,
             source=source,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+    ) as adls_artifact_repo_class_mock:
+        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
+        adls_artifact_repo_class_mock.return_value = mock_adls_repo
         store.create_model_version(name=model_name, source=source)
         adls_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, credential=ANY
@@ -405,12 +409,11 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
         "run_id": "some_run_id",
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
+    mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
     with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client",
-        return_value = mock.MagicMock(autospec=GCSArtifactRepository)
+        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
     ) as gcs_client_class_mock, mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
-        return_value = mock.MagicMock(autospec=Client),
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
     ) as gcs_artifact_repo_class_mock:
         version = "1"
         request_mock.side_effect = get_request_mock(
