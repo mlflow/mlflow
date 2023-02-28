@@ -223,6 +223,16 @@ def test_download_source_doesnt_leak_files(store, tmp_path):
     assert not os.path.exists(local_dir)
 
 
+def test_get_workspace_id_returns_none_if_no_request_header(store):
+    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock:
+        mock_response = mock.MagicMock(autospec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.text = str(dict())
+        request_mock.return_value = mock_response
+        assert store._get_workspace_id(run_id="some_run_id") is None
+
+
 def _get_workspace_id_for_run(run_id=None):
     return str(123) if run_id is not None else None
 
@@ -286,7 +296,6 @@ def get_request_mock(
             json_dict = kwargs["json"]
         else:
             json_dict = kwargs["params"]
-        print(json_dict)
         response_message = req_info_to_response[(endpoint, method, json.dumps(json_dict, indent=2))]
         mock_resp = mock.MagicMock(autospec=Response)
         mock_resp.status_code = 200
@@ -447,9 +456,6 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
             temp_credentials=temporary_creds,
             storage_location=storage_location,
         )
-        from mlflow.utils.rest_utils import http_request
-
-        print(f"In test, mock http is {request_mock}, real http is {http_request}")
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
