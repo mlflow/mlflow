@@ -228,7 +228,7 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         mock_response = mock.MagicMock(autospec=Response)
         mock_response.status_code = 200
         mock_response.headers = {}
-        mock_response.text = str(dict())
+        mock_response.text = str({})
         request_mock.return_value = mock_response
         assert store._get_workspace_id(run_id="some_run_id") is None
 
