@@ -34,6 +34,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import Model
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
@@ -315,6 +316,40 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         return response.headers[_DATABRICKS_ORG_ID_HEADER]
 
+    def _validate_model_signature(self, local_model_dir):
+        try:
+            model = Model.load(local_model_dir)
+        except Exception:
+            _logger.exception(
+                "Unable to load model metadata. Ensure the source path of the model being registered "
+                "points to a valid MLflow model directory "
+                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a model "
+                "signature (https://mlflow.org/docs/latest/models.html#model-signature) specifying both "
+                "input and output type specifications."
+            )
+            raise
+        signature_required_explanation = (
+            "All models in the Unity Catalog must be logged with a "
+            "model signature containing both input and output "
+            "type specifications. See "
+            "https://mlflow.org/docs/latest/models.html#model-signature "
+            "for details on how to log a model with a signature"
+        )
+        if model.signature is None:
+            raise MlflowException(
+                f"Model passed for registration did not contain any signature metadata. {signature_required_explanation}"
+            )
+        if model.signature.inputs is None:
+            raise MlflowException(
+                "Model passed for registration contained a signature that did not specify model inputs. "
+                f"{signature_required_explanation}"
+            )
+        if model.signature.outputs is None:
+            raise MlflowException(
+                "Model passed for registration contained a signature that includes only inputs. "
+                f"{signature_required_explanation}"
+            )
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -333,17 +368,18 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        source_workspace_id = self._get_workspace_id(run_id)
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=name,
-                source=source,
-                run_id=run_id,
-                description=description,
-                run_tracking_server_id=source_workspace_id,
-            )
-        )
         with self._download_source(source) as local_model_dir:
+            self._validate_model_signature(local_model_dir)
+            source_workspace_id = self._get_workspace_id(run_id)
+            req_body = message_to_json(
+                CreateModelVersionRequest(
+                    name=name,
+                    source=source,
+                    run_id=run_id,
+                    description=description,
+                    run_tracking_server_id=source_workspace_id,
+                )
+            )
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(
