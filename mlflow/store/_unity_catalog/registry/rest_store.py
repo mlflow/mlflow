@@ -30,6 +30,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    TemporaryCredentials,
     MODEL_VERSION_READ_WRITE,
 )
 import mlflow
@@ -274,12 +275,13 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
         return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
 
-    def _get_temporary_model_version_write_credentials(self, name, version):
+    def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
         """
         Get temporary credentials for uploading model version files
-        :param name:
-        :param version:
-        :return:
+        :param name: Registered model name
+        :param version: Model version number
+        :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
+                 containing temporary model version credentials
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
