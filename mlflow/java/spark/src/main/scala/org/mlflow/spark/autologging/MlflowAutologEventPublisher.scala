@@ -145,11 +145,15 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     }
   }
 
+  // https://github.com/delta-io/delta/blob/aaf3cd77dae06118f5cb7716eb2e71c791c6a148/core/src/main/scala/org/apache/spark/sql/delta/util/FileNames.scala#L26
+  private val checkpointFilePattern = "\\d+\\.checkpoint(\\.\\d+\\.\\d+)?\\.parquet".r.pattern
+  private def isCheckpointFile(path: String): Boolean = checkpointFilePattern.matcher(path).matches()
+
   private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
-      case SparkTableInfo(path, version, format) =>
+      case SparkTableInfo(path, version, format) if !isCheckpointFile(path) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {
             try {
