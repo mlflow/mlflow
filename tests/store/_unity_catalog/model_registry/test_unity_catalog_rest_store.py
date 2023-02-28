@@ -115,17 +115,18 @@ def local_model_dir(tmp_path):
 
 def test_create_model_version_missing_mlmodel(store, tmp_path):
     with pytest.raises(
-        FileNotFoundError,
+        MlflowException,
         match="Unable to load model metadata. Ensure the source path of the model "
-              "being registered points to a valid MLflow model directory ",
+        "being registered points to a valid MLflow model directory ",
     ):
         store.create_model_version(name="mymodel", source=tmp_path)
 
+
 def test_create_model_version_missing_signature(store, tmp_path):
-    tmp_path.joinpath("MLmodel").write_text("")
+    tmp_path.joinpath("MLmodel").write_text(json.dumps({"a": "b"}))
     with pytest.raises(
-            MlflowException,
-            match="Model passed for registration did not contain any signature metadata",
+        MlflowException,
+        match="Model passed for registration did not contain any signature metadata",
     ):
         store.create_model_version(name="mymodel", source=tmp_path)
 
@@ -136,21 +137,10 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
     with open(tmp_path.joinpath("MLmodel"), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     with pytest.raises(
-            MlflowException,
-            match="Model passed for registration contained a signature that includes only inputs",
+        MlflowException,
+        match="Model passed for registration contained a signature that includes only inputs",
     ):
         store.create_model_version(name="mymodel", source=tmp_path)
-
-def test_create_model_version_missing_input_signature(store, tmp_path):
-    fake_mlmodel_contents = {"signature": {"outputs": Schema([]).to_dict()}}
-    with open(tmp_path.joinpath("MLmodel"), "w") as handle:
-        yaml.dump(fake_mlmodel_contents, handle)
-    with pytest.raises(
-            MlflowException,
-            match="Model passed for registration contained a signature that includes only inputs",
-    ):
-        store.create_model_version(name="mymodel", source=tmp_path)
-
 
 
 def test_create_registered_model_with_tags_unsupported(store):
