@@ -153,6 +153,7 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
+      // Checkpoint files don't provide useful information, so we filter them out
       case SparkTableInfo(path, version, format) if !isCheckpointFile(path) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {
