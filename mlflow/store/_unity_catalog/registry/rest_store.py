@@ -270,7 +270,7 @@ class UcModelRegistryStore(BaseRestStore):
         Get temporary credentials for uploading model version files
         :param name:
         :param version:
-        :return:
+        :return: ...
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(

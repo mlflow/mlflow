@@ -321,13 +321,13 @@ def test_create_model_version_aws(store, tmp_path):
     )
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
     with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
     ) as s3_artifact_repo_class_mock:
-        s3_artifact_repo_class_mock.return_value = mock_artifact_repo
         storage_location = "s3://blah"
         source = str(tmp_path)
         model_name = "model_1"
-        version = str(1)
+        version = "1"
         request_mock.side_effect = get_request_mock(
             name=model_name,
             version=version,
@@ -362,7 +362,7 @@ def test_create_model_version_azure(store, tmp_path):
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         source = str(tmp_path)
         model_name = "model_1"
-        version = str(1)
+        version = "1"
         request_mock.side_effect = get_request_mock(
             name=model_name,
             version=version,
@@ -406,15 +406,13 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client"
+        "google.cloud.storage.Client",
+        return_value = mock.MagicMock(autospec=GCSArtifactRepository)
     ) as gcs_client_class_mock, mock.patch(
         "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
+        return_value = mock.MagicMock(autospec=Client),
     ) as gcs_artifact_repo_class_mock:
-        mock_gcs_client = mock.MagicMock(autospec=Client)
-        gcs_client_class_mock.return_value = mock_gcs_client
-        mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
-        gcs_artifact_repo_class_mock.return_value = mock_gcs_repo
-        version = str(1)
+        version = "1"
         request_mock.side_effect = get_request_mock(
             **create_kwargs,
             version=version,
