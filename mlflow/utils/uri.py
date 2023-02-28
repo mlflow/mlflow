@@ -32,7 +32,7 @@ def is_local_uri(uri):
     if scheme == "" or scheme == "file":
         return True
 
-    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower():
+    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
         return True
 
     return False
