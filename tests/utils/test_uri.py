@@ -86,11 +86,13 @@ def test_get_db_info_from_uri_errors_invalid_profile(server_uri):
         get_db_info_from_uri(server_uri)
 
 
-def test_uri_types():
+def test_is_local_uri():
     assert is_local_uri("mlruns")
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
     assert is_local_uri("file:foo/mlruns")
+    assert is_local_uri("C:\\foo\\mlruns")
+    assert is_local_uri("C:/foo/mlruns")
 
     assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
@@ -99,12 +101,23 @@ def test_uri_types():
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
 
+
+@pytest.mark.skipif(not is_windows(), reason="Windows-only test")
+def test_is_local_uri_windows():
+    assert is_local_uri("C:\\foo\\mlruns")
+    assert is_local_uri("C:/foo/mlruns")
+    assert is_local_uri("file:///C:\\foo\\mlruns")
+
+
+def test_is_databricks_uri():
     assert is_databricks_uri("databricks")
     assert is_databricks_uri("databricks:whatever")
     assert is_databricks_uri("databricks://whatever")
     assert not is_databricks_uri("mlruns")
     assert not is_databricks_uri("http://whatever")
 
+
+def test_is_http_uri():
     assert is_http_uri("http://whatever")
     assert is_http_uri("https://whatever")
     assert not is_http_uri("file://whatever")

@@ -23,11 +23,19 @@ def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     if uri == "databricks":
         return False
+
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.hostname:
         return False
+
     scheme = parsed_uri.scheme
-    return scheme == "" or scheme == "file"
+    if scheme == "" or scheme == "file":
+        return True
+
+    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower():
+        return True
+
+    return False
 
 
 def is_http_uri(uri):
