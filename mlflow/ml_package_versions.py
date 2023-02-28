@@ -8,7 +8,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.22.1",
-            "maximum": "1.2.0"
+            "maximum": "1.2.1"
         }
     },
     "pytorch": {
@@ -26,7 +26,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.0.5",
-            "maximum": "1.8.5.post0"
+            "maximum": "1.9.3"
         }
     },
     "tensorflow": {
@@ -44,7 +44,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.1.1",
-            "maximum": "1.7.2"
+            "maximum": "1.7.4"
         }
     },
     "lightgbm": {
@@ -71,7 +71,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "2.4.1",
-            "maximum": "2.7.10"
+            "maximum": "2.7.11"
         }
     },
     "statsmodels": {
