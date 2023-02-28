@@ -457,7 +457,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     run_link = "localhost:5000/path/to/run"
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1",
-        source="A/B",
+        source=f"runs:/{run_id}",
         run_id=run_id,
         run_link=run_link,
         tags=[tag.to_proto() for tag in tags],
@@ -469,7 +469,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["name"] == "model_1"
-    assert args["source"] == "A/B"
+    assert args["source"] == f"runs:/{run_id}"
     assert args["run_id"] == run_id
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
