@@ -1042,3 +1042,21 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
             metric_key="mock_key",
             max_results=25000,
         )
+
+
+def test_create_model_version_with_local_source(mlflow_client):
+    name = "mode"
+    mlflow_client.create_registered_model(name)
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///tmp/model",
+            "run_id": "run_id",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json() == {
+        "error_code": "INVALID_PARAMETER_VALUE",
+        "message": "Model version source cannot be a local path: 'file:///tmp/model'",
+    }
