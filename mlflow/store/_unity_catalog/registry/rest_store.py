@@ -303,6 +303,7 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
+        # Import this method here to facilitate mocking it in tests
         from mlflow.utils.rest_utils import http_request
 
         response = http_request(
