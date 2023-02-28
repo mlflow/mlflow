@@ -11,6 +11,7 @@ from requests import Response
 
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
+from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
     UpdateRegisteredModelRequest,
@@ -38,7 +39,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
 from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store._unity_catalog.registry.rest_store import (
+    UcModelRegistryStore,
+    _DATABRICKS_ORG_ID_HEADER,
+)
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -50,7 +54,7 @@ def host_creds():
 
 @pytest.fixture
 def store():
-    return UcModelRegistryStore(host_creds)
+    return UcModelRegistryStore(host_creds, host_creds)
 
 
 def _args(endpoint, method, json_body):
@@ -219,6 +223,10 @@ def test_download_source_doesnt_leak_files(store, tmp_path):
     assert not os.path.exists(local_dir)
 
 
+def _get_workspace_id_for_run(run_id=None):
+    return str(123) if run_id is not None else None
+
+
 def get_request_mock(
     name, version, source, storage_location, temp_credentials, description=None, run_id=None
 ):
@@ -232,6 +240,7 @@ def get_request_mock(
         timeout=None,
         **kwargs,
     ):
+        run_workspace_id = _get_workspace_id_for_run(run_id)
         model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
             credentials=temp_credentials
         )
@@ -241,7 +250,11 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     CreateModelVersionRequest(
-                        name=name, source=source, description=description, run_id=run_id
+                        name=name,
+                        source=source,
+                        description=description,
+                        run_id=run_id,
+                        run_tracking_server_id=run_workspace_id,
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -264,12 +277,21 @@ def get_request_mock(
                 message_to_json(FinalizeModelVersionRequest(name=name, version=version)),
             ): FinalizeModelVersionResponse(),
         }
-        response_message = req_info_to_response[
-            (endpoint, method, json.dumps(kwargs["json"], indent=2))
-        ]
+        if run_id is not None:
+            req_info_to_response[
+                ("/api/2.0/mlflow/runs/get", "GET", message_to_json(GetRun(run_id=run_id)))
+            ] = GetRun.Response()
+
+        if method == "POST":
+            json_dict = kwargs["json"]
+        else:
+            json_dict = kwargs["params"]
+        print(json_dict)
+        response_message = req_info_to_response[(endpoint, method, json.dumps(json_dict, indent=2))]
         mock_resp = mock.MagicMock(autospec=Response)
         mock_resp.status_code = 200
         mock_resp.text = message_to_json(response_message)
+        mock_resp.headers = {_DATABRICKS_ORG_ID_HEADER: run_workspace_id}
         return mock_resp
 
     return request_mock
@@ -286,7 +308,11 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/create",
             CreateModelVersionRequest(
-                name=name, source=source, run_id=run_id, description=description
+                name=name,
+                source=source,
+                run_id=run_id,
+                description=description,
+                run_tracking_server_id=_get_workspace_id_for_run(run_id),
             ),
         ),
         (
@@ -421,6 +447,9 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
             temp_credentials=temporary_creds,
             storage_location=storage_location,
         )
+        from mlflow.utils.rest_utils import http_request
+
+        print(f"In test, mock http is {request_mock}, real http is {http_request}")
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
