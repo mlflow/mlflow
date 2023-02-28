@@ -97,7 +97,7 @@ class UcModelRegistryStore(BaseRestStore):
     """
 
     def __init__(self, get_host_creds, get_tracking_host_creds):
-        super(UcModelRegistryStore, self).__init__(get_host_creds=get_host_creds)
+        super().__init__(get_host_creds=get_host_creds)
         self.get_tracking_host_creds = get_tracking_host_creds
 
     def _get_response_from_method(self, method):
@@ -302,14 +302,12 @@ class UcModelRegistryStore(BaseRestStore):
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
         from mlflow.utils.rest_utils import http_request
-
-        print(f"Calling http request {http_request}")
         response = http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
         )
         response = verify_rest_response(response, endpoint)
         if _DATABRICKS_ORG_ID_HEADER not in response.headers:
-            _logger.warn(
+            _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
                 "No run link will be recorded for the model version"
             )

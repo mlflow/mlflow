@@ -29,7 +29,7 @@ MODELS_ARTIFACT_REPOSITORY = (
 @pytest.fixture()
 def mock_get_databricks_unity_catalog_store():
     def get_uc_rest_store(store_uri):
-        return UcModelRegistryStore(store_uri)
+        return UcModelRegistryStore(None, None)
 
     with mock.patch(
         "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store",
