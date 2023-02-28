@@ -9,7 +9,7 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.2.0"
+    maximum: "1.2.1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     run: |
@@ -17,7 +17,7 @@ sklearn:
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.2.0"
+    maximum: "1.2.1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]
@@ -59,7 +59,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "1.8.5.post0"
+    maximum: "1.9.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -123,7 +123,7 @@ xgboost:
 
   models:
     minimum: "1.1.1"
-    maximum: "1.7.2"
+    maximum: "1.7.4"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -131,7 +131,7 @@ xgboost:
 
   autologging:
     minimum: "1.1.1"
-    maximum: "1.7.2"
+    maximum: "1.7.4"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -208,7 +208,7 @@ fastai:
 
   models:
     minimum: "2.4.1"
-    maximum: "2.7.10"
+    maximum: "2.7.11"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -217,7 +217,7 @@ fastai:
 
   autologging:
     minimum: "2.4.1"
-    maximum: "2.7.10"
+    maximum: "2.7.11"
     requirements:
       "< 2.8.0": ["torch<1.13.0", "torchvision<0.14.0"]
       ">= 2.8.0": ["torch", "torchvision"]
@@ -248,7 +248,7 @@ onnx:
 
   models:
     minimum: "1.7.0"
-    maximum: "1.13.0"
+    maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
     run: |
@@ -262,7 +262,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.4.4"
+    maximum: "3.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
@@ -356,7 +356,7 @@ mleap:
 
   models:
     minimum: "0.18.0"
-    maximum: "0.21.0"
+    maximum: "0.22.0"
     requirements:
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark"]
@@ -383,7 +383,7 @@ prophet:
 
   models:
     minimum: "1.0.1"
-    maximum: "1.1.1"
+    maximum: "1.1.2"
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -444,7 +444,7 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.4.1"
-    maximum: "2.4.1"
+    maximum: "2.4.2"
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autolog:
