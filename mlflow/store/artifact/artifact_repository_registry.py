@@ -1,6 +1,7 @@
 import entrypoints
 import warnings
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
@@ -72,6 +73,9 @@ class ArtifactRepositoryRegistry:
         return repository(artifact_uri)
 
 
+def _get_models_artifact_repository(artifact_uri):
+    return ModelsArtifactRepository(artifact_uri=artifact_uri, registry_uri=mlflow.get_registry_uri())
+
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
 _artifact_repository_registry.register("", LocalArtifactRepository)
@@ -85,7 +89,7 @@ _artifact_repository_registry.register("dbfs", dbfs_artifact_repo_factory)
 _artifact_repository_registry.register("hdfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("viewfs", HdfsArtifactRepository)
 _artifact_repository_registry.register("runs", RunsArtifactRepository)
-_artifact_repository_registry.register("models", ModelsArtifactRepository)
+_artifact_repository_registry.register("models", _get_models_artifact_repository)
 for scheme in ["http", "https"]:
     _artifact_repository_registry.register(scheme, HttpArtifactRepository)
 _artifact_repository_registry.register("mlflow-artifacts", MlflowArtifactsRepository)
