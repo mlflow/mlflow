@@ -34,10 +34,9 @@ public class ModelRegistryMlflowClientTest {
     private final TestClientProvider testClientProvider = new TestClientProvider();
 
     private MlflowClient client;
+    private String source;
 
     private String modelName;
-    private File tempDir;
-    private File tempFile;
 
     private static final String content = "Hello, Worldz!";
 
@@ -60,16 +59,18 @@ public class ModelRegistryMlflowClientTest {
 
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
+        source = String.format("runs:/%s/model", runId);
 
-        tempDir = Files.createTempDirectory("tempDir").toFile();
-        tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
-
+        File tempDir = Files.createTempDirectory("tempDir").toFile();
+        File tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
         FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+        client.logArtifact(runId, tempFile, "model");
+
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, runId, String.format("runs:/%s/model", runId)));
     }
 
     @AfterTest
@@ -121,7 +122,7 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetModelVersionDownloadUri() {
         String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
-        Assert.assertEquals(tempDir.getAbsolutePath(), downloadUri);
+        Assert.assertEquals(source, downloadUri);
     }
 
     @Test
@@ -169,14 +170,14 @@ public class ModelRegistryMlflowClientTest {
 
         // create new model version of existing registered model
         String newVersionRunId = "newVersionRunId";
-        String newVersionSource = "newVersionSource";
+        String newVersionSource = "runs:/newVersionRunId/model";
         client.sendPost("model-versions/create",
                 mapper.makeCreateModelVersion(modelName, newVersionRunId, newVersionSource));
 
         // create new registered model
         String modelName2 = "modelName2";
         String runId2 = "runId2";
-        String source2 = "source2";
+        String source2 = "runs:/runId2/model";
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName2));
         client.sendPost("model-versions/create",
