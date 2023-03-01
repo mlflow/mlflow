@@ -774,15 +774,14 @@ class _PyTorchWrapper:
 
     def predict(self, data, device=None):
         import torch
-        # only try to infer the device if it is not explicitly specified
+        # if CUDA is available, we use the default CUDA device.
+        # To force inference to the CPU when the GPU is available, please set
+        # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
+        # If a specific non-default device is passed in, we continue to respect that.
         if device is None:
             if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
                 device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
             elif torch.cuda.is_available():
-                # if CUDA is available, we use the default CUDA device.
-                # To force inference to the CPU when the GPU is available, please set
-                # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
-                # If a specific non-default device is passed in, we continue to respect that.
                 device = _TORCH_DEFAULT_GPU_DEVICE_NAME
             else:
                 device = _TORCH_CPU_DEVICE_NAME
