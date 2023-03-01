@@ -42,4 +42,3 @@ repos:
         entry: 'grep "Signed-off-by:"'
         language: system
         stages: [prepare-commit-msg]
-
