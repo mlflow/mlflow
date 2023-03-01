@@ -310,7 +310,9 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            mlflow.artifacts.download_artifacts(artifact_uri=source, dst_path=tmpdir)
+            local_model_dir = mlflow.artifacts.download_artifacts(
+                artifact_uri=source, dst_path=tmpdir
+            )
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(

@@ -335,7 +335,7 @@ def test_create_model_version_aws(store, tmp_path):
             secret_access_key=secret_access_key,
             session_token=session_token,
         )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -371,7 +371,7 @@ def test_create_model_version_azure(store, tmp_path):
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
         assert credential.signature == fake_sas_token
-        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -417,7 +417,7 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
         gcs_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, client=ANY
         )
-        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
