@@ -1,4 +1,4 @@
-import { Button, Option, Select, Tooltip } from '@databricks/design-system';
+import { Button, Option, Select } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
