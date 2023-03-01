@@ -29,13 +29,11 @@ class ModelRegistryClient:
     models and model versions.
     """
 
-    def __init__(self, registry_uri, tracking_uri):
+    def __init__(self, registry_uri):
         """
         :param registry_uri: Address of local or remote model registry server.
-        :param tracking_uri: Address of local or remote tracking server.
         """
         self.registry_uri = registry_uri
-        self.tracking_uri = tracking_uri
         # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
@@ -43,7 +41,7 @@ class ModelRegistryClient:
 
     @property
     def store(self):
-        return utils._get_store(self.registry_uri, self.tracking_uri)
+        return utils._get_store(self.registry_uri)
 
     # Registered Model Methods
 
@@ -171,7 +169,6 @@ class ModelRegistryClient:
         run_link=None,
         description=None,
         await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        run_source_tracking_server_id=None,
     ):
         """
         Create a new model version from given source.
@@ -186,7 +183,6 @@ class ModelRegistryClient:
         :param await_creation_for: Number of seconds to wait for the model version to finish being
                                     created and is in ``READY`` status. By default, the function
                                     waits for five minutes. Specify 0 or None to skip waiting.
-        :param run_source_tracking_server_id: Optional string ID of tracking server containing source run
         Wait until the model version is finished being created and is in ``READY`` status.
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
