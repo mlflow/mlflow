@@ -22,6 +22,7 @@ import posixpath
 import mlflow
 import shutil
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_PYTORCH_DISABLE_AUTOMATIC_GPU_USAGE
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
@@ -63,6 +64,7 @@ _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
+_DEFAULT_PYTORCH_PREDICTION_DEVICE = "cpu"
 
 _logger = logging.getLogger(__name__)
 
@@ -769,9 +771,15 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, device="cpu"):
+    def predict(self, data, device=_DEFAULT_PYTORCH_PREDICTION_DEVICE):
         import torch
-
+        if not MLFLOW_PYTORCH_DISABLE_AUTOMATIC_GPU_USAGE.get() and torch.cuda.is_available():
+            # if CUDA is available, we use the default CUDA device.
+            # To force inference to the CPU when the GPU is available, please set
+            # MLFLOW_PYTORCH_DISABLE_AUTOMATIC_GPU_USAGE to false
+            # If a specific non-default device is passed in, we continue to respect that.
+            if device == _DEFAULT_PYTORCH_PREDICTION_DEVICE:
+                device = "cuda"
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
