@@ -1,4 +1,4 @@
-from contextlib import contextmanager
+import functools
 import logging
 import tempfile
 
@@ -92,16 +92,17 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every model registry REST API request to get the
-      :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
-      is a function so that we can obtain fresh credentials in the case of expiry.
-    :param get_host_creds: Similar to get_host_creds, method to be invoked prior to every MLflow
-       tracking REST request to get the :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request.
+    :param registry_uri: URI with scheme 'databricks-uc'
+    :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch run info and download run
+                         artifacts, when creating new model versions from source artifacts logged to an MLflow run.
     """
 
-    def __init__(self, get_host_creds, get_tracking_host_creds):
-        super().__init__(get_host_creds=get_host_creds)
-        self.get_tracking_host_creds = get_tracking_host_creds
+    def __init__(self, registry_uri, tracking_uri):
+        from mlflow.utils.databricks_utils import get_databricks_host_creds
+
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
+        self.tracking_uri = tracking_uri
+        self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
     def _get_response_from_method(self, method):
         method_to_response = {
@@ -344,7 +345,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             local_model_dir = mlflow.artifacts.download_artifacts(
-                artifact_uri=source, dst_path=tmpdir
+                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
             )
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version

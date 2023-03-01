@@ -46,19 +46,36 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
 
-
-def host_creds():
-    return MlflowHostCreds("https://hello")
+_REGISTRY_URI = "databricks-uc"
+_TRACKING_URI = "databricks"
+_REGISTRY_HOST_CREDS = MlflowHostCreds("https://hello-registry")
+_TRACKING_HOST_CREDS = MlflowHostCreds("https://hello-tracking")
 
 
 @pytest.fixture
-def store():
-    return UcModelRegistryStore(host_creds, host_creds)
+def mock_databricks_host_creds():
+    def mock_host_creds(uri):
+        if uri == _TRACKING_URI:
+            return _TRACKING_HOST_CREDS
+        elif uri == _REGISTRY_URI:
+            return _REGISTRY_HOST_CREDS
+        raise Exception(f"Got unexpected store URI {uri}")
+
+    with mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_host_creds", side_effect=mock_host_creds
+    ):
+        yield
+
+
+@pytest.fixture
+def store(mock_databricks_host_creds):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        yield UcModelRegistryStore(registry_uri="databricks-uc", tracking_uri="databricks")
 
 
 def _args(endpoint, method, json_body):
     res = {
-        "host_creds": host_creds(),
+        "host_creds": _REGISTRY_HOST_CREDS,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
     }
