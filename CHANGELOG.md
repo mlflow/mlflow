@@ -9,7 +9,7 @@ Features:
 - [Recipes] Add support for score calibration to the classification recipe (#7744, @sunishsheth2009)
 - [Recipes] Add automatic label encoding to the classification recipe (#7711, @sunishsheth2009)
 - [Recipes] Support custom data splitting logic in the classification and regression recipes (#7815, #7588, @sunishsheth2009)
-- [Recipes] Introduce customizable MLflow Run name prefixes to the classification and regression recipes (#7763, #7746, @kamalesh0406, @sunishsheth2009)
+- [Recipes] Introduce customizable MLflow Run name prefixes to the classification and regression recipes (#7746, @kamalesh0406; #7763, @sunishsheth2009)
 - [UI] Add a new Chart View to the MLflow Experiment Page for model performance insights (#7864, @hubertzub-db, @apurva-koti, @prithvikannan, @ridhimag11, @sunishseth2009, @dbczumar)
 - [Tracking] Introduce autologging support for native PyTorch models (#7627, @temporaer)
 - [Tracking] Allow specifying ``model_format`` when autologging XGBoost models (#7781, @guyrosin)
@@ -31,13 +31,16 @@ Bug fixes:
 - [Recipes] Add ``run_id`` and ``artifact_path`` keys to logged MLmodel files (#7651, @sunishsheth2009)
 - [UI] Fix bugs in UI validation of experiment names, model names, and tag keys (#7818, @subramaniam02)
 - [Tracking] Resolve artifact locations to absolute paths when creating experiments (#7670, @bali0019)
-- [Tracking] Consistently return an empty list from GetMetricHistory when a metric does not exist (#7659, #7589, @bali0019, @harupy)
+- [Tracking] Exclude Delta checkpoints from Spark datasource autologging (#7902, @harupy)
+- [Tracking] Consistently return an empty list from GetMetricHistory when a metric does not exist (#7589, @bali0019; #7659, @harupy)
 - [Artifacts] Fix support for artifact operations on Windows paths in UNC format (#7750, @bali0019)
 - [Artifacts] Fix bug in HDFS artifact listing (#7581, @pwnywiz)
+- [Model Registry] Disallow creation of model versions with local filesystem sources in ``mlflow server`` (#7908, @harupy)
 - [Model Registry] Fix handling of deleted model versions in FileStore (#7716, @harupy)
 - [Model Registry] Correctly initialize Model Registry SQL tables independently of MLflow Tracking (#7704, @harupy)
 - [Models] Correctly move PyTorch model outputs from GPUs to CPUs during inference with pyfunc (#7885, @ankit-db)
 - [Build] Fix compatiblility issues with Python installations compiled using ``PYTHONOPTIMIZE=2`` (#7791, @dbczumar)
+- [Build] Fix compatibility issues with the upcoming pandas 2.0 release (#7899, @harupy; #7910, @dbczumar)
 
 Documentation updates:
 
