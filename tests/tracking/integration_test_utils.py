@@ -18,12 +18,11 @@ def _await_server_up_or_die(port, timeout=5):
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
     while time.time() - start_time < timeout:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        result = sock.connect_ex((LOCALHOST, port))
-        if result == 0:
-            _logger.info(f"Server is up on {LOCALHOST}:{port}!")
-            break
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(2)
+            if sock.connect_ex((LOCALHOST, port)) == 0:
+                _logger.info(f"Server is up on {LOCALHOST}:{port}!")
+                break
         _logger.info("Server not yet up, waiting...")
         time.sleep(0.5)
     else:
