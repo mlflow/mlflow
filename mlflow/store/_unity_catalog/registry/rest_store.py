@@ -1,6 +1,6 @@
-from contextlib import contextmanager
 import logging
 import shutil
+import tempfile
 
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -283,12 +283,6 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
-    @contextmanager
-    def _download_source(self, source):
-        tmpdir = mlflow.artifacts.download_artifacts(artifact_uri=source)
-        yield tmpdir
-        shutil.rmtree(tmpdir)
-
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -315,7 +309,8 @@ class UcModelRegistryStore(BaseRestStore):
                 description=description,
             )
         )
-        with self._download_source(source) as local_model_dir:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mlflow.artifacts.download_artifacts(artifact_uri=source, dst_path=tmpdir)
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(

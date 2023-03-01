@@ -209,16 +209,6 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-def test_download_source_doesnt_leak_files(store, tmp_path):
-    parentd = tmp_path.joinpath("data")
-    parentd.mkdir()
-    parentd.joinpath("a.txt").write_text("A")
-    with store._download_source(parentd) as local_dir:
-        with open(os.path.join(local_dir, "a.txt"), "r") as handle:
-            assert handle.read() == "A"
-    assert not os.path.exists(local_dir)
-
-
 def get_request_mock(
     name, version, source, storage_location, temp_credentials, description=None, run_id=None
 ):
