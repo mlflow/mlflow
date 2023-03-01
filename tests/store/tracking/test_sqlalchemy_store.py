@@ -1204,9 +1204,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        assert sorted(
-            [(m.key, m.value, m.timestamp) for m in expected],
-        ) == sorted(
+        assert sorted([(m.key, m.value, m.timestamp) for m in expected],) == sorted(
             [(m.key, m.value, m.timestamp) for m in actual],
         )
 
@@ -1654,14 +1652,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
         assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
         assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
+        assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
+        assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]

@@ -1,5 +1,6 @@
 import os
 import shutil
+import subprocess
 import sys
 import platform
 import yaml
@@ -201,9 +202,13 @@ class WheeledModel:
             f"{sys.executable} -m pip wheel --only-binary=:all: --wheel-dir={dst_path} -r"
             f"{pip_requirements_path} --no-cache-dir"
         )
-        rc = os.system(download_command)
-        if rc != 0:
-            raise MlflowException("Error downloading dependency wheels")
+
+        try:
+            subprocess.run([download_command], check=True)
+        except Exception as e:
+            raise MlflowException(
+                "An error occurred while downloading the wheel:   {}".format(str(e))
+            )
 
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):
         """
