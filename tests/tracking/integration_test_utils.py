@@ -17,19 +17,17 @@ def _await_server_up_or_die(port, timeout=5):
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
-    connected = False
-    while not connected and time.time() - start_time < timeout:
+    while time.time() - start_time < timeout:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(2)
         result = sock.connect_ex((LOCALHOST, port))
         if result == 0:
-            connected = True
-        else:
-            _logger.info("Server not yet up, waiting...")
-            time.sleep(0.5)
-    if not connected:
+            _logger.info(f"Server is up on {LOCALHOST}:{port}!")
+            break
+        _logger.info("Server not yet up, waiting...")
+        time.sleep(0.5)
+    else:
         raise Exception(f"Failed to connect on {LOCALHOST}:{port} after {timeout} seconds")
-    _logger.info(f"Server is up on {LOCALHOST}:{port}!")
 
 
 # NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
