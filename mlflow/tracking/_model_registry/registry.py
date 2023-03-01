@@ -29,7 +29,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
                           is passed to the constructor of the implementation.
         :param tracking_uri The optional string tracking URI to use for any MLflow tracking-related operations
                             in the registry client, e.g. downloading source run artifacts in order to re-upload
-                            them to the
+                            them to the model registry location
 
         :return: An instance of `mlflow.store.model_registry.AbstractStore` that fulfills the
                  store URI requirements.
@@ -49,9 +49,9 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         """
         builder = self.get_store_builder(resolved_store_uri)
         try:
+            return builder(store_uri=resolved_store_uri, tracking_uri=resolved_tracking_uri)
+        except TypeError:
             # Not all model registry stores accept a tracking_uri parameter
             # (e.g. old plugins may not recognize it), so we fall back to
             # passing just the registry URI
-            return builder(store_uri=resolved_store_uri, tracking_uri=resolved_tracking_uri)
-        except TypeError:
             return builder(store_uri=resolved_store_uri)
