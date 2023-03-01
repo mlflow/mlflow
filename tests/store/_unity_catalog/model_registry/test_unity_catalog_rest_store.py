@@ -4,7 +4,6 @@ import json
 import pytest
 from unittest import mock
 from unittest.mock import ANY
-import os
 
 from google.cloud.storage import Client
 from requests import Response

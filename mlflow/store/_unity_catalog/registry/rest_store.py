@@ -1,5 +1,4 @@
 import logging
-import shutil
 import tempfile
 
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
