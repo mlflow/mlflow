@@ -350,6 +350,7 @@ def test_create_model_version_azure(store, tmp_path):
     source = str(tmp_path)
     model_name = "model_1"
     version = "1"
+    mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=get_request_mock(
@@ -360,9 +361,9 @@ def test_create_model_version_azure(store, tmp_path):
             source=source,
         ),
     ) as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
+        return_value=mock_adls_repo,
     ) as adls_artifact_repo_class_mock:
-        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         store.create_model_version(name=model_name, source=source)
         adls_artifact_repo_class_mock.assert_called_once_with(
@@ -400,18 +401,20 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
-    ) as gcs_client_class_mock, mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
-    ) as gcs_artifact_repo_class_mock:
-        version = "1"
-        request_mock.side_effect = get_request_mock(
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             **create_kwargs,
             version=version,
             temp_credentials=temporary_creds,
             storage_location=storage_location,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
+    ) as gcs_client_class_mock, mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
+    ) as gcs_artifact_repo_class_mock:
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
