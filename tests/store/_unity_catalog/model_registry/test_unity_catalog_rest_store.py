@@ -101,13 +101,6 @@ def _expected_unsupported_arg_error_message(arg):
     return f"Argument '{arg}' is unsupported for models in the Unity Catalog"
 
 
-def _verify_all_requests(http_request, endpoints, proto_message):
-    json_body = message_to_json(proto_message)
-    http_request.assert_has_calls(
-        [mock.call(**(_args(endpoint, method, json_body))) for endpoint, method in endpoints]
-    )
-
-
 @mock_http_200
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
