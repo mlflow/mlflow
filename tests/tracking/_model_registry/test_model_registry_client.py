@@ -29,7 +29,7 @@ def mock_store():
 
 
 def newModelRegistryClient():
-    return ModelRegistryClient("uri:/fake")
+    return ModelRegistryClient("uri:/fake", "uri:/fake")
 
 
 def _model_version(name, version, stage, source="some:/source", run_id="run13579", tags=None):
@@ -206,9 +206,7 @@ def test_create_model_version_when_wait_exceeds_time(mock_store):
     mock_store.get_model_version.return_value = mv
 
     with pytest.raises(MlflowException, match="Exceeded max wait time"):
-        newModelRegistryClient().create_model_version(
-            name, "uri:/source", "run123", await_creation_for=1
-        )
+        newModelRegistryClient().create_model_version(name, "uri:/source", "run123", await_creation_for=1)
 
 
 def test_create_model_version_does_not_wait_when_await_creation_param_is_false(mock_store):
@@ -219,12 +217,8 @@ def test_create_model_version_does_not_wait_when_await_creation_param_is_false(m
         name=name, version=version, creation_timestamp=123, status="PENDING_REGISTRATION"
     )
 
-    result = newModelRegistryClient().create_model_version(
-        name, "uri:/source", "run123", await_creation_for=None
-    )
-    result = newModelRegistryClient().create_model_version(
-        name, "uri:/source", "run123", await_creation_for=0
-    )
+    result = newModelRegistryClient().create_model_version(name, "uri:/source", "run123", await_creation_for=None)
+    result = newModelRegistryClient().create_model_version(name, "uri:/source", "run123", await_creation_for=0)
 
     mock_store.get_model_version.assert_not_called()
 
@@ -247,9 +241,8 @@ def test_create_model_version(mock_store):
         run_link=None,
         description=description,
     )
-    result = newModelRegistryClient().create_model_version(
-        name, "uri:/for/source", "run123", tags_dict, None, description
-    )
+    result = newModelRegistryClient().create_model_version(name, "uri:/for/source", "run123", tags_dict, None,
+                                                           description)
     mock_store.create_model_version.assert_called_once_with(
         name, "uri:/for/source", "run123", tags, None, description
     )
@@ -274,9 +267,8 @@ def test_create_model_version_no_run_id(mock_store):
         run_link=None,
         description=description,
     )
-    result = newModelRegistryClient().create_model_version(
-        name, "uri:/for/source", tags=tags_dict, run_link=None, description=description
-    )
+    result = newModelRegistryClient().create_model_version(name, "uri:/for/source", tags=tags_dict, run_link=None,
+                                                           description=description)
     mock_store.create_model_version.assert_called_once_with(
         name, "uri:/for/source", None, tags, None, description
     )

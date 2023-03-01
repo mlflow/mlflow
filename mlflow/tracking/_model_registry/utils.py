@@ -192,5 +192,6 @@ def _get_store_registry():
     return _model_registry_store_registry
 
 
-def _get_store(store_uri=None):
-    return _get_store_registry().get_store(store_uri)
+# @SID registry _get_store
+def _get_store(store_uri=None, tracking_uri=None):
+    return _get_store_registry().get_store(store_uri, tracking_uri)

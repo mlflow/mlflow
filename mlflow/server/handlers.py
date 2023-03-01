@@ -1376,14 +1376,12 @@ def _create_model_version():
             "description": [_assert_string],
         },
     )
-    model_version = _get_model_registry_store().create_model_version(
-        name=request_message.name,
-        source=request_message.source,
-        run_id=request_message.run_id,
-        run_link=request_message.run_link,
-        tags=request_message.tags,
-        description=request_message.description,
-    )
+    model_version = _get_model_registry_store().create_model_version(name=request_message.name,
+                                                                     source=request_message.source,
+                                                                     run_id=request_message.run_id,
+                                                                     tags=request_message.tags,
+                                                                     run_link=request_message.run_link,
+                                                                     description=request_message.description)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
