@@ -1,4 +1,5 @@
 import logging
+import tempfile
 
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -27,7 +28,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    TemporaryCredentials,
+    MODEL_VERSION_READ_WRITE,
 )
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
@@ -37,6 +41,7 @@ from mlflow.utils.rest_utils import (
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
+from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
@@ -249,6 +254,34 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
+    def _finalize_model_version(self, name, version):
+        """
+        Finalize a UC model version after its files have been written to managed storage,
+        updating its status from PENDING_REGISTRATION to READY
+        :param name: Registered model name
+        :param version: Model version number
+        :return Protobuf ModelVersion describing the finalized model version
+        """
+        req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
+        return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
+
+    def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
+        """
+        Get temporary credentials for uploading model version files
+        :param name: Registered model name
+        :param version: Model version number
+        :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
+                 containing temporary model version credentials
+        """
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+            )
+        )
+        return self._call_endpoint(
+            GenerateTemporaryModelVersionCredentialsRequest, req_body
+        ).credentials
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -267,7 +300,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        # TODO: Implement client-side model version upload and finalization logic here
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
@@ -276,8 +308,21 @@ class UcModelRegistryStore(BaseRestStore):
                 description=description,
             )
         )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-        return response_proto.model_version
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_model_dir = mlflow.artifacts.download_artifacts(
+                artifact_uri=source, dst_path=tmpdir
+            )
+            model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
+            version_number = model_version.version
+            scoped_token = self._get_temporary_model_version_write_credentials(
+                name=name, version=version_number
+            )
+            store = get_artifact_repo_from_storage_info(
+                storage_location=model_version.storage_location, scoped_token=scoped_token
+            )
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        finalized_mv = self._finalize_model_version(name=name, version=version_number)
+        return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
