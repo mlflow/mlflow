@@ -1,5 +1,6 @@
 import json
 import re
+from pathlib import Path
 from unittest import mock
 import pytest
 
@@ -30,7 +31,6 @@ def change_working_directory(tmp_path, monkeypatch):
     Changes the current working directory to a temporary directory to avoid modifying files in the
     repository.
     """
-    tmp_path.joinpath("mlflow").mkdir()
     monkeypatch.chdir(tmp_path)
 
 
@@ -39,14 +39,14 @@ def run_test(src, src_expected, mock_responses):
         package_name = re.search(r"https://pypi.python.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
 
-    with open("mlflow/ml-package-versions.yml", "w") as f:
-        f.write(src)
+    versions_yaml = Path("mlflow/ml-package-versions.yml")
+    versions_yaml.parent.mkdir()
+    versions_yaml.write_text(src)
 
     with mock.patch("urllib.request.urlopen", new=patch_urlopen):
         update_ml_package_versions.main()
 
-    with open("mlflow/ml-package-versions.yml") as f:
-        assert f.read() == src_expected
+    assert versions_yaml.read_text() == src_expected
 
 
 def test_multiple_flavors_are_correctly_updated():
