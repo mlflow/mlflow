@@ -26,7 +26,7 @@ def _await_server_up_or_die(port, timeout=5):
         _logger.info("Server not yet up, waiting...")
         time.sleep(0.5)
     else:
-        raise Exception(f"Failed to connect on {LOCALHOST}:{port} after {timeout} seconds")
+        raise Exception(f"Failed to connect on {LOCALHOST}:{port} within {timeout} seconds")
 
 
 # NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
