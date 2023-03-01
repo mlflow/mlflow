@@ -212,17 +212,6 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-<<<<<<< HEAD
-def test_download_source_doesnt_leak_files(store, tmp_path):
-    parentd = tmp_path.joinpath("data")
-    parentd.mkdir()
-    parentd.joinpath("a.txt").write_text("A")
-    with store._download_source(parentd) as local_dir:
-        with open(os.path.join(local_dir, "a.txt"), "r") as handle:
-            assert handle.read() == "A"
-    assert not os.path.exists(local_dir)
-
-
 def test_get_workspace_id_returns_none_if_no_request_header(store):
     with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock:
         mock_response = mock.MagicMock(autospec=Response)
@@ -237,8 +226,6 @@ def _get_workspace_id_for_run(run_id=None):
     return str(123) if run_id is not None else None
 
 
-=======
->>>>>>> master
 def get_request_mock(
     name, version, source, storage_location, temp_credentials, description=None, run_id=None
 ):
@@ -252,10 +239,7 @@ def get_request_mock(
         timeout=None,
         **kwargs,
     ):
-<<<<<<< HEAD
         run_workspace_id = _get_workspace_id_for_run(run_id)
-=======
->>>>>>> master
         model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
             credentials=temp_credentials
         )
@@ -265,15 +249,11 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     CreateModelVersionRequest(
-<<<<<<< HEAD
                         name=name,
                         source=source,
                         description=description,
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
-=======
-                        name=name, source=source, description=description, run_id=run_id
->>>>>>> master
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -296,7 +276,6 @@ def get_request_mock(
                 message_to_json(FinalizeModelVersionRequest(name=name, version=version)),
             ): FinalizeModelVersionResponse(),
         }
-<<<<<<< HEAD
         if run_id is not None:
             req_info_to_response[
                 ("/api/2.0/mlflow/runs/get", "GET", message_to_json(GetRun(run_id=run_id)))
@@ -311,14 +290,6 @@ def get_request_mock(
         mock_resp.status_code = 200
         mock_resp.text = message_to_json(response_message)
         mock_resp.headers = {_DATABRICKS_ORG_ID_HEADER: run_workspace_id}
-=======
-        response_message = req_info_to_response[
-            (endpoint, method, json.dumps(kwargs["json"], indent=2))
-        ]
-        mock_resp = mock.MagicMock(autospec=Response)
-        mock_resp.status_code = 200
-        mock_resp.text = message_to_json(response_message)
->>>>>>> master
         return mock_resp
 
     return request_mock
@@ -335,15 +306,11 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/create",
             CreateModelVersionRequest(
-<<<<<<< HEAD
                 name=name,
                 source=source,
                 run_id=run_id,
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
-=======
-                name=name, source=source, run_id=run_id, description=description
->>>>>>> master
             ),
         ),
         (
@@ -402,11 +369,7 @@ def test_create_model_version_aws(store, tmp_path):
             secret_access_key=secret_access_key,
             session_token=session_token,
         )
-<<<<<<< HEAD
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
-=======
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
->>>>>>> master
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
