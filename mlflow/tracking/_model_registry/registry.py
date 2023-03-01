@@ -37,7 +37,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         from mlflow.tracking._model_registry.utils import _resolve_registry_uri
         from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
         resolved_store_uri = _resolve_registry_uri(store_uri)
-        resolved_tracking_uri = _resolve_tracking_uri
+        resolved_tracking_uri = _resolve_tracking_uri(tracking_uri)
         return self._get_store_with_resolved_uri(resolved_store_uri, resolved_tracking_uri)
 
     @lru_cache(maxsize=100)
@@ -48,4 +48,10 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         depending on external configuration, such as environment variables
         """
         builder = self.get_store_builder(resolved_store_uri)
-        return builder(store_uri=resolved_store_uri)
+        try:
+            # Not all model registry stores accept a tracking_uri parameter
+            # (e.g. old plugins may not recognize it), so we fall back to
+            # passing just the registry URI
+            return builder(store_uri=resolved_store_uri, tracking_uri=resolved_tracking_uri)
+        except TypeError:
+            return builder(store_uri=resolved_store_uri)
