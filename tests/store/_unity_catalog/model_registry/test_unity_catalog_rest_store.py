@@ -4,7 +4,6 @@ import json
 import pytest
 from unittest import mock
 from unittest.mock import ANY
-import os
 
 from google.cloud.storage import Client
 from requests import Response
@@ -213,6 +212,7 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
+<<<<<<< HEAD
 def test_download_source_doesnt_leak_files(store, tmp_path):
     parentd = tmp_path.joinpath("data")
     parentd.mkdir()
@@ -237,6 +237,8 @@ def _get_workspace_id_for_run(run_id=None):
     return str(123) if run_id is not None else None
 
 
+=======
+>>>>>>> master
 def get_request_mock(
     name, version, source, storage_location, temp_credentials, description=None, run_id=None
 ):
@@ -250,7 +252,10 @@ def get_request_mock(
         timeout=None,
         **kwargs,
     ):
+<<<<<<< HEAD
         run_workspace_id = _get_workspace_id_for_run(run_id)
+=======
+>>>>>>> master
         model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
             credentials=temp_credentials
         )
@@ -260,11 +265,15 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     CreateModelVersionRequest(
+<<<<<<< HEAD
                         name=name,
                         source=source,
                         description=description,
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
+=======
+                        name=name, source=source, description=description, run_id=run_id
+>>>>>>> master
                     )
                 ),
             ): CreateModelVersionResponse(
@@ -287,6 +296,7 @@ def get_request_mock(
                 message_to_json(FinalizeModelVersionRequest(name=name, version=version)),
             ): FinalizeModelVersionResponse(),
         }
+<<<<<<< HEAD
         if run_id is not None:
             req_info_to_response[
                 ("/api/2.0/mlflow/runs/get", "GET", message_to_json(GetRun(run_id=run_id)))
@@ -301,6 +311,14 @@ def get_request_mock(
         mock_resp.status_code = 200
         mock_resp.text = message_to_json(response_message)
         mock_resp.headers = {_DATABRICKS_ORG_ID_HEADER: run_workspace_id}
+=======
+        response_message = req_info_to_response[
+            (endpoint, method, json.dumps(kwargs["json"], indent=2))
+        ]
+        mock_resp = mock.MagicMock(autospec=Response)
+        mock_resp.status_code = 200
+        mock_resp.text = message_to_json(response_message)
+>>>>>>> master
         return mock_resp
 
     return request_mock
@@ -317,11 +335,15 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/create",
             CreateModelVersionRequest(
+<<<<<<< HEAD
                 name=name,
                 source=source,
                 run_id=run_id,
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
+=======
+                name=name, source=source, run_id=run_id, description=description
+>>>>>>> master
             ),
         ),
         (
@@ -380,7 +402,11 @@ def test_create_model_version_aws(store, tmp_path):
             secret_access_key=secret_access_key,
             session_token=session_token,
         )
+<<<<<<< HEAD
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+=======
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
+>>>>>>> master
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -395,6 +421,7 @@ def test_create_model_version_azure(store, tmp_path):
     source = str(tmp_path)
     model_name = "model_1"
     version = "1"
+    mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=get_request_mock(
@@ -405,9 +432,9 @@ def test_create_model_version_azure(store, tmp_path):
             source=source,
         ),
     ) as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
+        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
+        return_value=mock_adls_repo,
     ) as adls_artifact_repo_class_mock:
-        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         store.create_model_version(name=model_name, source=source)
         adls_artifact_repo_class_mock.assert_called_once_with(
@@ -416,7 +443,7 @@ def test_create_model_version_azure(store, tmp_path):
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
         assert credential.signature == fake_sas_token
-        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -445,24 +472,26 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
-    ) as gcs_client_class_mock, mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
-    ) as gcs_artifact_repo_class_mock:
-        version = "1"
-        request_mock.side_effect = get_request_mock(
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             **create_kwargs,
             version=version,
             temp_credentials=temporary_creds,
             storage_location=storage_location,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
+    ) as gcs_client_class_mock, mock.patch(
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
+    ) as gcs_artifact_repo_class_mock:
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, client=ANY
         )
-        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
