@@ -748,8 +748,7 @@ via :py:func:`mlflow.pyfunc.load_model()`.
 .. note::
     When using the PyTorch flavor, if a GPU is available at prediction time, the default GPU will be used to run
     inference. To disable this behavior, users can set `MLFLOW_DEFAULT_PREDICTION_DEVICE="cpu"` or explicitly
-    pass in a device with the `device` parameter for the `predict` function. Note that this environment variable is
-    only supported for the PyTorch flavor at this time.
+    pass in a device with the `device` parameter for the `predict` function.
 
 .. note::
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
