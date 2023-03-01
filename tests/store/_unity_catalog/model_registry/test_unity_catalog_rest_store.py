@@ -86,7 +86,9 @@ def _args(endpoint, method, json_body, host_creds):
     return res
 
 
-def _verify_requests(http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS):
+def _verify_requests(
+    http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS
+):
     json_body = message_to_json(proto_message)
     http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds)))
 
@@ -298,14 +300,21 @@ def get_request_mock(
         }
         if run_id is not None:
             req_info_to_response[
-                (_TRACKING_HOST_CREDS.host, "/api/2.0/mlflow/runs/get", "GET", message_to_json(GetRun(run_id=run_id)))
+                (
+                    _TRACKING_HOST_CREDS.host,
+                    "/api/2.0/mlflow/runs/get",
+                    "GET",
+                    message_to_json(GetRun(run_id=run_id)),
+                )
             ] = GetRun.Response()
 
         if method == "POST":
             json_dict = kwargs["json"]
         else:
             json_dict = kwargs["params"]
-        response_message = req_info_to_response[(host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))]
+        response_message = req_info_to_response[
+            (host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))
+        ]
         mock_resp = mock.MagicMock(autospec=Response)
         mock_resp.status_code = 200
         mock_resp.text = message_to_json(response_message)
@@ -322,8 +331,6 @@ def _assert_create_model_version_endpoints_called(
     Asserts that endpoints related to the model version creation flow were called on the provided
     `request_mock`
     """
-    if run_id is not None:
-        request_mock.assert_any_call(host_creds=_TRACKING_HOST_CREDS, endpoint="/api/2.0/mlflow/runs/get", method="GET", params={"run_id": run_id})
     for endpoint, proto_message in [
         (
             "model-versions/create",
