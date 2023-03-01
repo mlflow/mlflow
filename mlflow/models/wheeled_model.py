@@ -204,10 +204,10 @@ class WheeledModel:
         )
 
         try:
-            subprocess.run([download_command], check=True)
+            subprocess.run([download_command], check=True, shell=True)
         except Exception as e:
             raise MlflowException(
-                "An error occurred while downloading the wheel:   {}".format(str(e))
+                "An error occurred while downloading the dependency wheels: {}".format(str(e))
             )
 
     def _overwrite_pip_requirements_with_wheels(self, pip_requirements_path, wheels_dir):
