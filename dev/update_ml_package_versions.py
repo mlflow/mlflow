@@ -7,12 +7,10 @@ $ pip install packaging pyyaml
 # How to run (make sure you're in the repository root):
 $ python dev/update_ml_package_versions.py
 """
-import argparse
 import json
 from pathlib import Path
 from packaging.version import Version
 import re
-import sys
 import urllib.request
 import yaml
 
@@ -90,18 +88,6 @@ def update_max_version(src, key, new_max_version, category):
     return re.sub(pattern, rf'\g<1>"{new_max_version}"', src, flags=re.DOTALL)
 
 
-def parse_args(args):
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-p",
-        "--path",
-        help="Path to the ML package versions yaml (default: mlflow/ml-package-versions.yml)",
-        default="mlflow/ml-package-versions.yml",
-        required=False,
-    )
-    return parser.parse_args(args)
-
-
 def extract_field(d, keys):
     for key in keys:
         if key in d:
@@ -132,7 +118,7 @@ def update_ml_package_versions_py(config_path):
                 },
             }
 
-        this_file = Path(__file__).resolve().relative_to(Path.cwd())
+        this_file = Path(__file__).name
         dst = Path("mlflow", "ml_package_versions.py")
         config = json.dumps(config, indent=4)
         Path(dst).write_text(
@@ -145,10 +131,8 @@ _ML_PACKAGE_VERSIONS = {config}
         )
 
 
-def main(args):
-    args = parse_args(args)
-
-    yml_path = args.path
+def main():
+    yml_path = "mlflow/ml-package-versions.yml"
     old_src = read_file(yml_path)
     new_src = old_src
     config_dict = yaml.load(old_src, Loader=yaml.SafeLoader)
@@ -176,4 +160,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    main()
