@@ -92,9 +92,11 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every REST request to get the
+    :param get_host_creds: Method to be invoked prior to every model registry REST API request to get the
       :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
       is a function so that we can obtain fresh credentials in the case of expiry.
+    :param get_host_creds: Similar to get_host_creds, method to be invoked prior to every MLflow
+       tracking REST request to get the :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request.
     """
 
     def __init__(self, get_host_creds, get_tracking_host_creds):
