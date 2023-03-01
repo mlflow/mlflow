@@ -79,6 +79,9 @@ message ModelVersion {
 
   // Details on current ``status``, if it is pending or failed.
   optional string status_message = 12;
+
+  // Current storage location of model version files, e.g. in blob storage
+  optional string storage_location = 13;
 }
 
 enum ModelVersionOperation {
@@ -328,5 +331,5 @@ message FinalizeModelVersionRequest {
 
 
 message FinalizeModelVersionResponse {
+  optional ModelVersion model_version = 1;
 }
-
