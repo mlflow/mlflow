@@ -95,7 +95,7 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                registry_client = ModelRegistryClient(self._registry_uri)
+                registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
                 # that the variable name is consistent with the variable name specified in the
@@ -2284,6 +2284,8 @@ class MlflowClient:
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
+            # @SID client-side copy in client.create_model_Version when source and dest tracking URI
+            # are different
             eprint(
                 "=== Copying model files from the source location to the model"
                 + " registry workspace ==="
@@ -2299,15 +2301,9 @@ class MlflowClient:
                 + " model version is in 'READY' status. You can also find this location in the"
                 + " `source` field of the created model version. ==="
             )
-        return self._get_registry_client().create_model_version(
-            name=name,
-            source=new_source,
-            run_id=run_id,
-            tags=tags,
-            run_link=run_link,
-            description=description,
-            await_creation_for=await_creation_for,
-        )
+        return self._get_registry_client().create_model_version(name=name, source=new_source, run_id=run_id, tags=tags,
+                                                                run_link=run_link, description=description,
+                                                                await_creation_for=await_creation_for)
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
