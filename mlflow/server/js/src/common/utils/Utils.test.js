@@ -413,47 +413,51 @@ test('dropExtension', () => {
   expect(Utils.dropExtension('.foo/.bar/.xyz')).toEqual('.foo/.bar/.xyz');
 });
 
-test('getGitHubRegex', () => {
-  const gitHubRegex = Utils.getGitHubRegex();
+test('getGitRegex', () => {
+  const gitRegex = Utils.getGitRegex();
   const urlAndExpected = [
     [
       'http://github.com/mlflow/mlflow-apps',
-      ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
+      ['http://github.com', 'mlflow/mlflow-apps', undefined],
     ],
     [
       'https://github.com/mlflow/mlflow-apps',
-      ['/github.com/mlflow/mlflow-apps', 'mlflow', 'mlflow-apps', ''],
+      ['https://github.com', 'mlflow/mlflow-apps', undefined],
     ],
     [
       'http://github.com/mlflow/mlflow-apps.git',
-      ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+      [ 'http://github.com', 'mlflow/mlflow-apps', undefined],
     ],
     [
       'https://github.com/mlflow/mlflow-apps.git',
-      ['/github.com/mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+      ['https://github.com', 'mlflow/mlflow-apps', undefined],
     ],
     [
       'https://github.com/mlflow/mlflow#example/tutorial',
-      ['/github.com/mlflow/mlflow#example/tutorial', 'mlflow', 'mlflow', 'example/tutorial'],
+      ['https://github.com', 'mlflow/mlflow', 'example/tutorial'],
     ],
     [
       'https://github.com/username/repo.name#mlproject',
-      ['/github.com/username/repo.name#mlproject', 'username', 'repo.name', 'mlproject'],
+      ['https://github.com', 'username/repo.name', 'mlproject'],
     ],
     [
       'git@github.com:mlflow/mlflow-apps.git',
-      ['@github.com:mlflow/mlflow-apps.git', 'mlflow', 'mlflow-apps', ''],
+      ['git@github.com', 'mlflow/mlflow-apps', undefined],
     ],
-    ['https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git', [null]],
-    ['ssh@some-server:mlflow/mlflow-apps.git', [null]],
+    ['https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git', [undefined]],
+    ['ssh@some-server:mlflow/mlflow-apps.git', [undefined]],
+    [
+      'https://custom.git.domain/repo/directory#project/directory',
+      ['https://custom.git.domain', 'repo/directory', 'project/directory']
+    ]
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
-    const match = url.match(gitHubRegex);
+    const match = url.match(gitRegex);
     if (match) {
       match[2] = match[2].replace(/.git/, '');
     }
-    expect([].concat(match)).toEqual(lst[1]);
+    expect([].concat(match?.slice(1))).toEqual(lst[1]);
   });
 });
 
@@ -906,3 +910,4 @@ test('isValidHttpUrl', () => {
   /* eslint-disable no-script-url*/
   expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
 });
+

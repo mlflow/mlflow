@@ -236,12 +236,8 @@ class Utils {
     return withoutTrailingSlash;
   }
 
-  static getGitHubRegex() {
-    return /[@/]github.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
-  }
-
-  static getGitLabRegex() {
-    return /[@/]gitlab.com[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  static getGitRegex() {
+    return /(.*?[@/][^?]*git.*?)[:/]([^#]+)(?:#(.*))?/;
   }
 
   static getBitbucketRegex() {
@@ -249,16 +245,14 @@ class Utils {
   }
 
   static getGitRepoUrl(sourceName) {
-    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
-    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const gitMatch = sourceName.match(Utils.getGitRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
-      url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
-      if (match[3]) {
-        url = url + '/tree/master/' + match[3];
+    if (gitMatch) {
+      const [_, baseUrl, repoDir, fileDir] = gitMatch;
+      url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
+      if (fileDir) {
+        url = url + '/tree/master/' + fileDir;
       }
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
@@ -271,22 +265,19 @@ class Utils {
   }
 
   static getGitCommitUrl(sourceName, sourceVersion) {
-    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
-    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const gitMatch = sourceName.match(Utils.getGitRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
-    if (gitHubMatch || gitLabMatch) {
-      const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
-      const match = gitHubMatch || gitLabMatch;
+    if (gitMatch) {
+      const [_, baseUrl, repoDir, fileDir] = gitMatch;
       url =
-        baseUrl +
-        match[1] +
+        baseUrl.replace(/git@/, 'https://') +
         '/' +
-        match[2].replace(/.git/, '') +
+        repoDir.replace(/.git/, '') +
         '/tree/' +
         sourceVersion +
         '/' +
-        match[3];
+        fileDir;
     } else if (bitbucketMatch) {
       const baseUrl = 'https://bitbucket.org/';
       url =
@@ -1119,3 +1110,4 @@ class Utils {
 }
 
 export default Utils;
+
