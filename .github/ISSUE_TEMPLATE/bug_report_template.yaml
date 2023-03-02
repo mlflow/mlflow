@@ -1,4 +1,4 @@
-name: Bug Report
+name: Bug Report (use "UI Bug Report" for UI bugs)
 description: Create a report to help us reproduce and correct the bug
 labels: "bug"
 title: "[BUG]"
