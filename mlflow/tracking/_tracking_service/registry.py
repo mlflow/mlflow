@@ -38,7 +38,7 @@ class TrackingStoreRegistry(StoreRegistry):
         resolved_store_uri = utils._resolve_tracking_uri(store_uri)
         return self._get_store_with_resolved_uri(resolved_store_uri, artifact_uri)
 
-    @lru_cache(maxsize=100)
+    # @lru_cache(maxsize=100)
     def _get_store_with_resolved_uri(self, resolved_store_uri, artifact_uri=None):
         """
         Retrieve the store associated with a resolved (non-None) store URI and an artifact URI.

@@ -4,9 +4,10 @@ import shlex
 import sys
 import textwrap
 
-from flask import Flask, send_from_directory, Response
+from flask import Flask, send_from_directory, Response, request
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import (
+    auth_required,
     Security,
     SQLAlchemyUserDatastore,
     hash_password,
@@ -24,6 +25,7 @@ from mlflow.server.handlers import (
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
+from . import permissions
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -89,15 +91,84 @@ app.security = Security(app, user_datastore)
 with app.app_context():
     # Create User to test with
     db.create_all()
-    if not app.security.datastore.find_user(email="test@me.com"):
-        app.security.datastore.create_user(email="test@me.com", password=hash_password("password"))
+    if not app.security.datastore.find_user(email="user_a@test.com"):
+        app.security.datastore.create_user(
+            email="user_a@test.com", password=hash_password("password_a")
+        )
+    if not app.security.datastore.find_user(email="user_b@test.com"):
+        app.security.datastore.create_user(
+            email="user_b@test.com", password=hash_password("password_b")
+        )
     db.session.commit()
+
+permissions.init_db()
 
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+
+@auth_required("basic")
+@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["PUT"])
+def _create_experiment_permissions(experiment_id):
+    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
+    if perm is None:
+        return "You do not have access to this experiment", 403
+
+    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
+        return "You do not have access to manage permissions of this experiment", 403
+
+    permissions.create(
+        request.json["user"],
+        "experiments",
+        experiment_id,
+        request.json["access_level"],
+    )
+
+    return "OK", 200
+
+
+@auth_required("basic")
+@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["POST"])
+def _update_experiment_permissions(experiment_id):
+    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
+    if perm is None:
+        return "You do not have access to this experiment", 403
+
+    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
+        return "You do not have access to manage permissions of this experiment", 403
+
+    permissions.update(
+        request.json["user"],
+        "experiments",
+        experiment_id,
+        request.json["access_level"],
+    )
+
+    return "OK", 200
+
+
+@auth_required("basic")
+@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["DELETE"])
+def _delete_experiment_permissions(experiment_id):
+    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
+    if perm is None:
+        return "You do not have access to this experiment", 403
+
+    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
+        return "You do not have access to manage permissions of this experiment", 403
+
+    permissions.upsert(
+        request.json["user"],
+        "experiments",
+        experiment_id,
+        request.json["access_level"],
+    )
+
+    return "OK", 200
+
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter

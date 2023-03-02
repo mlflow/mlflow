@@ -40,7 +40,7 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 )
 
 
-@lru_cache(maxsize=64)
+# @lru_cache(maxsize=64)
 def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
     Returns a cached Requests.Session object for making HTTP request.
