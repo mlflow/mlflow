@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.2.1 (2023-03-02)
+
+MLflow 2.2.1 is a patch release containing the following bug fixes:
+
+- [Model Registry] Fix a bug that caused too many results to be requested by default when calling ``MlflowClient.search_model_versions()`` (#7935, @dbczumar)
+
 ## 2.2.0 (2023-02-28)
 
 MLflow 2.2.0 includes several major features and improvements
