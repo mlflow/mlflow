@@ -640,3 +640,54 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
     @staticmethod
     def handles_format(dataset_format: str) -> bool:
         return dataset_format == "spark_sql"
+
+
+class HuggingFaceDataset(_Dataset):
+    """
+    Representation of a Huggingface dataset
+    """
+
+    def __init__(self, location: str, dataset_builder: str, source: str, dataset_format: str):
+        """
+        :param location: The location of the dataset
+                    (e.g. 'path/to/local/my_dataset.json', 'path/to/local_dir',
+                        'path/to/local/loading_script/loading_script.py').
+        :param dataset_builder: dataset type used to read the dataset.
+        :param source: direct huggingface source from huggingface dataset hub.
+        :param dataset_format: The format of the dataset (e.g. 'csv', 'parquet', ...).
+        """
+        super().__init__(dataset_format=dataset_format)
+        self.location = location
+        self.dataset_builder = dataset_builder
+        self.source = source
+
+    def resolve_to_parquet(self, dst_path: str):
+        if self.location is None and self.dataset_builder is None and self.source is None:
+            raise MlflowException(
+                "Either location and dataset_builder configuration key must be specified or "
+                "source much be specified for dataset with format huggingface"
+            ) from None
+        from datasets import load_dataset, get_dataset_split_names, concatenate_datasets
+
+        if self.location is not None:
+            huggingfaceData = load_dataset(self.dataset_builder, data_files=self.location)
+            splits = get_dataset_split_names(self.location)
+        elif self.source is not None:
+            huggingfaceData = load_dataset(self.source)
+            splits = get_dataset_split_names(self.source)
+
+        merged_dataset = concatenate_datasets([huggingfaceData[split] for split in splits])
+        merged_dataset.to_parquet(dst_path)
+
+    @classmethod
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+        return cls(
+            location=dataset_config.get("location"),
+            dataset_builder=dataset_config.get("dataset_format"),
+            source=dataset_config.get("source"),
+            dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
+        )
+
+    @staticmethod
+    def handles_format(dataset_format: str) -> bool:
+        return dataset_format == "huggingface"

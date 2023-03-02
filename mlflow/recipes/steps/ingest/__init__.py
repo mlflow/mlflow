@@ -15,6 +15,7 @@ from mlflow.recipes.steps.ingest.datasets import (
     ParquetDataset,
     DeltaTableDataset,
     SparkSqlDataset,
+    HuggingFaceDataset,
     CustomDataset,
 )
 from typing import Dict, Any
@@ -33,6 +34,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         ParquetDataset,
         DeltaTableDataset,
         SparkSqlDataset,
+        HuggingFaceDataset,
         # NB: The custom dataset is deliberately listed last as a catch-all for any
         # format not matched by the datasets above. When mapping a format to a dataset,
         # datasets are explored in the listed order
