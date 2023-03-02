@@ -1,3 +1,4 @@
 [submodule "examples/recipes"]
 	path = examples/recipes
 	url = https://github.com/mlflow/recipes-examples.git
+	branch = huggingface
