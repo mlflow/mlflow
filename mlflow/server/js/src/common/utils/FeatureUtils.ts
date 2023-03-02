@@ -7,3 +7,7 @@
  * UI feature preview: new ("next") version of runs comparison view within experiment runs table.
  */
 export const shouldUseNextRunsComparisonUI = () => true;
+/**
+ * Use unified pattern for all list pages (model list page etc.)
+ */
+export const shouldUseUnifiedListPattern = () => false;
