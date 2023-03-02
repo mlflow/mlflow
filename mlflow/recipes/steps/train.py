@@ -276,6 +276,8 @@ class TrainStep(BaseStep):
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
+        from transformers import Trainer
+        from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
 
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
@@ -306,9 +308,61 @@ class TrainStep(BaseStep):
             )
             dataset = load_dataset("parquet", data_files={
                 'train': transformed_training_data_path,
-                'test': transformed_validation_data_path
+                'eval': transformed_validation_data_path
             })
+            # Parse training args
+            training_args = {}
 
+            # Parse data args
+            data_args = {}
+
+            # Find previous checkpoint if applicable
+            # last_checkpoint = None
+            # if os.path.isdir(training_args.output_dir) and training_args.do_train and not training_args.overwrite_output_dir:
+            #     last_checkpoint = get_last_checkpoint(training_args.output_dir)
+            #     if last_checkpoint is None and len(os.listdir(training_args.output_dir)) > 0:
+            #         raise ValueError(
+            #             f"Output directory ({training_args.output_dir}) already exists and is not empty. "
+            #             "Use --overwrite_output_dir to overcome."
+            #         )
+            #     elif last_checkpoint is not None and training_args.resume_from_checkpoint is None:
+            #         logger.info(
+            #             f"Checkpoint detected, resuming training at {last_checkpoint}. To avoid this behavior, change "
+            #             "the `--output_dir` or add `--overwrite_output_dir` to train from scratch."
+            #         )
+
+            # Initialize our Trainer
+            trainer = Trainer(
+                model='distilbert-base-uncased',
+                args=training_args,
+                train_dataset=dataset['train'] if training_args.do_train else None,
+                eval_dataset=dataset['eval'] if training_args.do_eval else None,
+                # tokenizer=tokenizer,
+                # data_collator=data_collator,
+                # compute_metrics=compute_metrics if training_args.predict_with_generate else None,
+                # post_process_function=post_processing_function,
+            )
+
+            # Run trainer
+            # checkpoint = None
+            # if training_args.resume_from_checkpoint is not None:
+            #     checkpoint = training_args.resume_from_checkpoint
+            # elif last_checkpoint is not None:
+            #     checkpoint = last_checkpoint
+            # train_result = trainer.train(resume_from_checkpoint=checkpoint)
+            
+            train_result = trainer.train()
+            trainer.save_model()  # Saves the tokenizer too for easy upload
+
+            metrics = train_result.metrics
+            max_train_samples = (
+                data_args.max_train_samples if data_args.max_train_samples is not None else len(dataset['train'])
+            )
+            metrics["train_samples"] = min(max_train_samples, len(dataset['train']))
+
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+            trainer.save_state()
 
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
