@@ -23,6 +23,12 @@ def before_req_hook():
 
     Can implement things such as authentication, special handling, etc.
     """
-    app_logger.warning("Hello from before request!")
     if not is_logged_in():
+        app_logger.warning("Hello from before request!")
         return "Unauthorized", 403
+
+
+@custom_app.route("/custom/endpoint", methods=["GET"])
+def custom_endpoint():
+    """A custom endpoint."""
+    return "custom_endpoint", 200
