@@ -96,7 +96,7 @@ def pre_migration(verbose):
     SNAPSHOTS_DIR.mkdir(exist_ok=True)
     with connect_to_mlflow_db() as conn:
         for table in TABLES:
-            df = pd.read_sql(f"SELECT * FROM {table}", conn)
+            df = pd.read_sql(sa.text(f"SELECT * FROM {table}"), conn)
             df.to_pickle(SNAPSHOTS_DIR / f"{table}.pkl")
             if verbose:
                 click.secho(f"\n{table}\n", fg="blue")
@@ -107,7 +107,7 @@ def pre_migration(verbose):
 def post_migration():
     with connect_to_mlflow_db() as conn:
         for table in TABLES:
-            df_actual = pd.read_sql(f"SELECT * FROM {table}", conn)
+            df_actual = pd.read_sql(sa.text(f"SELECT * FROM {table}"), conn)
             df_expected = pd.read_pickle(SNAPSHOTS_DIR / f"{table}.pkl")
             pd.testing.assert_frame_equal(df_actual, df_expected)
 
