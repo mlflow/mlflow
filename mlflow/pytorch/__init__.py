@@ -774,7 +774,7 @@ class _PyTorchWrapper:
 
     def predict(self, data, device=None):
         import torch
-        
+
         # if CUDA is available, we use the default CUDA device.
         # To force inference to the CPU when the GPU is available, please set
         # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
