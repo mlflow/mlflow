@@ -1,4 +1,4 @@
-import { Button, Option, Select, Tooltip } from '@databricks/design-system';
+import { Button, Option, Select } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -119,9 +119,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
               }}
               data-test-id='start-time-select-dropdown'
               // Temporarily we're disabling virtualized list to maintain
-              // backwards compatiblity. Functional unit tests rely heavily
+              // backwards compatibility. Functional unit tests rely heavily
               // on non-virtualized values.
-              dangerouslySetAntdProps={{ virtual: false } as any}
+              virtual={false}
             >
               {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
                 <Option

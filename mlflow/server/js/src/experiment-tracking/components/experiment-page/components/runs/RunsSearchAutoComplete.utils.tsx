@@ -22,6 +22,12 @@ export type Clause = {
   startIndex: number;
 };
 
+export type EntityNameGroup = {
+  metricNames: string[];
+  paramNames: string[];
+  tagNames: string[];
+};
+
 export const ATTRIBUTE_OPTIONS = [
   'run_id',
   'run_name',
@@ -33,16 +39,17 @@ export const ATTRIBUTE_OPTIONS = [
   'created',
 ].map((s) => ({ value: `attributes.${s}` }));
 
-export const getOptionsFromRunsData = (
-  prevRunsData: ExperimentRunsSelectorResult,
+export const getEntityNamesFromRunsData = (
   newRunsData: ExperimentRunsSelectorResult,
-): OptionGroup[] => {
+  existingNames: EntityNameGroup,
+): EntityNameGroup => {
   const mergeDedup = (list1: any[], list2: any[]) => [...new Set([...list1, ...list2])];
   const getTagNames = (tagsList: any[]) => tagsList.flatMap((tagRecord) => Object.keys(tagRecord));
-  const metricNames = mergeDedup(prevRunsData.metricKeyList, newRunsData.metricKeyList);
-  const paramNames = mergeDedup(prevRunsData.paramKeyList, newRunsData.paramKeyList);
+
+  const metricNames = mergeDedup(existingNames.metricNames, newRunsData.metricKeyList);
+  const paramNames = mergeDedup(existingNames.paramNames, newRunsData.paramKeyList);
   const tagNames = mergeDedup(
-    getTagNames(prevRunsData.tagsList),
+    getTagNames(existingNames.tagNames),
     getTagNames(newRunsData.tagsList),
   );
   // Filter out internal tag names and wrap names that include control characters in backticks.
@@ -55,25 +62,31 @@ export const getOptionsFromRunsData = (
         return `"${s}"`;
       } else return s;
     });
-  return [
-    {
-      label: 'Metrics',
-      options: metricNames.map((m) => ({ value: `metrics.${m}` })),
-    },
-    {
-      label: 'Parameters',
-      options: paramNames.map((p) => ({ value: `params.${p}` })),
-    },
-    {
-      label: 'Tags',
-      options: tagNamesCleaned.map((t) => ({ value: `tags.${t}` })),
-    },
-    {
-      label: 'Attributes',
-      options: ATTRIBUTE_OPTIONS,
-    },
-  ];
+  return {
+    metricNames,
+    paramNames,
+    tagNames: tagNamesCleaned,
+  };
 };
+
+export const getOptionsFromEntityNames = (entityNames: EntityNameGroup): OptionGroup[] => [
+  {
+    label: 'Metrics',
+    options: entityNames.metricNames.map((m) => ({ value: `metrics.${m}` })),
+  },
+  {
+    label: 'Parameters',
+    options: entityNames.paramNames.map((p) => ({ value: `params.${p}` })),
+  },
+  {
+    label: 'Tags',
+    options: entityNames.tagNames.map((t) => ({ value: `tags.${t}` })),
+  },
+  {
+    label: 'Attributes',
+    options: ATTRIBUTE_OPTIONS,
+  },
+];
 
 // Bolds a specified segment of `wholeText`.
 const boldedText = (wholeText: string, shouldBeBold: string) => {

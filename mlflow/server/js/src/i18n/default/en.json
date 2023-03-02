@@ -43,6 +43,10 @@
     "defaultMessage": "Share and manage machine learning models.",
     "description": "Default text for model registry onboarding on the model list page"
   },
+  "08WP3h": {
+    "defaultMessage": "Staging",
+    "description": "Column title for staging phase version in the registered model page"
+  },
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
@@ -391,6 +395,10 @@
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
   },
+  "CruI7o": {
+    "defaultMessage": "Latest version",
+    "description": "Column title for latest model version in the registered model page"
+  },
   "DUnrWL": {
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
@@ -499,6 +507,10 @@
     "defaultMessage": "Failed to add tag. Error: {errorTrace}",
     "description": "Error message when add to tag feature fails"
   },
+  "Gs+blV": {
+    "defaultMessage": "Last modified",
+    "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
   "H+4gFh": {
     "defaultMessage": "Show diff only",
     "description": "Toggle text that determines whether to show diff only in the model\n                      comparison page"
@@ -559,6 +571,10 @@
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
   },
+  "JNS471": {
+    "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
+    "description": "Models table > no results after filtering"
+  },
   "K+s7ez": {
     "defaultMessage": "Last Modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
@@ -570,6 +586,10 @@
   "KwMekr": {
     "defaultMessage": "Download CSV",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
+  },
+  "L/EK2M": {
+    "defaultMessage": "Create a model",
+    "description": ""
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -646,6 +666,10 @@
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
     "description": "Placeholder text for parameters in parallel coordinates plot in MLflow"
+  },
+  "PGbCZD": {
+    "defaultMessage": "Production",
+    "description": "Column title for production phase version in the registered model page"
   },
   "PRe/8y": {
     "defaultMessage": "None",
@@ -787,6 +811,10 @@
     "defaultMessage": "Z-axis:",
     "description": "Label text for z-axis in contour plot comparison in MLflow"
   },
+  "WP1pyQ": {
+    "defaultMessage": "Created by",
+    "description": "Column title for created by column for a model in the registered model page"
+  },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
@@ -850,6 +878,10 @@
   "Zc48NC": {
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
+  },
+  "Ziqjve": {
+    "defaultMessage": "No models yet. Use the button below to create your first model.",
+    "description": "Models table > no models present yet"
   },
   "ZvBSjw": {
     "defaultMessage": "Value",
@@ -1127,6 +1159,10 @@
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
   },
+  "lBZK7O": {
+    "defaultMessage": "Filter models",
+    "description": "Placeholder text inside model search bar"
+  },
   "lISqyJ": {
     "defaultMessage": "Run details",
     "description": "Compare table title on the compare runs page"
@@ -1270,6 +1306,10 @@
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
+  },
+  "rkvRS7": {
+    "defaultMessage": "Reset filters",
+    "description": "Models table > filters > reset filters button"
   },
   "sByLVU": {
     "defaultMessage": "No runs logged",

@@ -21,9 +21,11 @@ import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalS
 import { RunsSearchTooltipContent } from './RunsSearchTooltipContent';
 import {
   Entity,
+  EntityNameGroup,
   getEntitiesAndIndices,
+  getEntityNamesFromRunsData,
   getFilteredOptionsFromEntityName,
-  getOptionsFromRunsData,
+  getOptionsFromEntityNames,
   OptionGroup,
 } from './RunsSearchAutoComplete.utils';
 
@@ -53,7 +55,11 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   // Determines whether the text was changed by making a selection in the autocomplete
   // dialog, as opposed to by typing.
   const [lastSetBySelection, setLastSetBySelection] = useState(false);
-  const prevRunsDataRef = useRef<ExperimentRunsSelectorResult>(runsData);
+  const existingEntityNamesRef = useRef<EntityNameGroup>({
+    metricNames: [],
+    paramNames: [],
+    tagNames: [],
+  });
   // How many suggestions should be shown per entity group before the group is ellipsized.
   const [suggestionLimits, setSuggestionLimits] = useState({
     Metrics: 10,
@@ -70,10 +76,11 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
   }, [searchFacetsState]);
 
   const baseOptions = useMemo<OptionGroup[]>(() => {
-    const oldRunData = prevRunsDataRef.current;
-    prevRunsDataRef.current = runsData;
-    return getOptionsFromRunsData(oldRunData, runsData);
-    // prevRunsDataRef is only set here. Omit from dependencies to avoid infinite loop
+    const existingEntityNames = existingEntityNamesRef.current;
+    const mergedEntityNames = getEntityNamesFromRunsData(runsData, existingEntityNames);
+    existingEntityNamesRef.current = mergedEntityNames;
+    return getOptionsFromEntityNames(mergedEntityNames);
+    // existingEntityNamesRef is only set here. Omit from dependencies to avoid infinite loop
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [runsData]);
 

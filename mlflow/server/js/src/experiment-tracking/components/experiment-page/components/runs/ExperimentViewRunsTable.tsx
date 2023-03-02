@@ -123,11 +123,14 @@ export const ExperimentViewRunsTable = React.memo(
      * and if true, (de)select them as well.
      */
     const handleRowSelected = useCallback((event: RowSelectedEvent) => {
-      const selectedRows = event.api.getSelectedRows();
+      const selectedRunRows = event.api.getSelectedRows().filter((row) => !row.isLoadMoreRow);
 
       // Let's check if the actual number of selected rows have changed
       // to avoid empty runs
-      if (prevSelectRunUuids.current && selectedRows.length !== prevSelectRunUuids.current.length) {
+      if (
+        prevSelectRunUuids.current &&
+        selectedRunRows.length !== prevSelectRunUuids.current.length
+      ) {
         const isSelected = Boolean(event.node.isSelected());
 
         // We will continue only if the selected row has properly set runDateInfo
@@ -143,6 +146,9 @@ export const ExperimentViewRunsTable = React.memo(
           const childrenIdsToSelect = childrenIds;
 
           event.api.forEachNode((node) => {
+            if (node.data?.isLoadMoreRow) {
+              return;
+            }
             const { runInfo, runDateAndNestInfo: childRunDateInfo } = node.data as RunRowType;
 
             const childrenRunUuid = runInfo.run_uuid;

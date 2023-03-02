@@ -21,7 +21,25 @@ export interface KeyValueEntity {
 }
 
 /**
- * An entity defining a single model entity
+ * An entity defining a single model
+ */
+export interface ModelEntity {
+  creation_timestamp: number;
+  current_stage: string;
+  version: string;
+  description: string;
+  id: string;
+  name: string;
+  source: string;
+  status: string;
+  tags: KeyValueEntity[];
+  permission_level: string;
+  email_subscription_status: string;
+  latest_versions: ModelInfoEntity[];
+}
+
+/**
+ * An entity defining a single model version
  */
 export interface ModelInfoEntity {
   name: string;
