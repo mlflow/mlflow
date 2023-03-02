@@ -11,6 +11,7 @@ import pathlib
 import logging
 from functools import wraps
 
+import flask_security
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -903,6 +904,7 @@ def _get_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@flask_security.auth_required("basic", within=1)
 def _search_runs():
     request_message = _get_request_message(
         SearchRuns(),
@@ -1098,6 +1100,7 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@flask_security.auth_required("basic")
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),

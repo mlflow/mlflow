@@ -5,6 +5,13 @@ import sys
 import textwrap
 
 from flask import Flask, send_from_directory, Response
+from flask_sqlalchemy import SQLAlchemy
+from flask_security import (
+    Security,
+    SQLAlchemyUserDatastore,
+    hash_password,
+)
+from flask_security.models import fsqla_v3 as fsqla
 
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -31,6 +38,61 @@ ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
+app.config["DEBUG"] = True
+
+# Generate a nice key using secrets.token_urlsafe()
+app.config["SECRET_KEY"] = os.environ.get(
+    "SECRET_KEY", "pf9Wkove4IKEAXvy-cQkeDPhv9Cb3Ag-wyJILbq_dFw"
+)
+# Bcrypt is set as default SECURITY_PASSWORD_HASH, which requires a salt
+# Generate a good salt using: secrets.SystemRandom().getrandbits(128)
+app.config["SECURITY_PASSWORD_SALT"] = os.environ.get(
+    "SECURITY_PASSWORD_SALT", "146585145368132386173505678016728509634"
+)
+
+# have session and remember cookie be samesite (flask/flask_login)
+app.config["REMEMBER_COOKIE_SAMESITE"] = "strict"
+app.config["SESSION_COOKIE_SAMESITE"] = "strict"
+
+# Use an in-memory db
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+# As of Flask-SQLAlchemy 2.4.0 it is easy to pass in options directly to the
+# underlying engine. This option makes sure that DB connections from the
+# pool are still valid. Important for entire application since
+# many DBaaS options automatically close idle connections.
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,
+}
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+# Create database connection object
+db = SQLAlchemy(app)
+
+# Define models
+fsqla.FsModels.set_db_info(db)
+
+
+class Role(db.Model, fsqla.FsRoleMixin):
+    pass
+
+
+class User(db.Model, fsqla.FsUserMixin):
+    pass
+
+
+# Setup Flask-Security
+user_datastore = SQLAlchemyUserDatastore(db, User, Role)
+app.security = Security(app, user_datastore)
+
+
+# one time setup
+with app.app_context():
+    # Create User to test with
+    db.create_all()
+    if not app.security.datastore.find_user(email="test@me.com"):
+        app.security.datastore.create_user(email="test@me.com", password=hash_password("password"))
+    db.session.commit()
+
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
 
