@@ -449,7 +449,7 @@ test('getGitRegex', () => {
     [
       'https://custom.git.domain/repo/directory#project/directory',
       ['https://custom.git.domain', 'repo/directory', 'project/directory']
-    ]
+    ],
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
