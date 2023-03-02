@@ -40,12 +40,11 @@ def main():
     reqs_files = ["requirements/core-requirements.yaml", "requirements/skinny-requirements.yaml"]
     validation = True
     for reqs in reqs_files:
-
         with open(reqs) as f:
             requirements_src = f.read()
             requirements = yaml.load(requirements_src)
 
-        for key, req_info in requirements.items():
+        for req_info in requirements.values():
             pip_release = req_info["pip_release"]
             max_major_version = req_info["max_major_version"]
             latest_major_version = get_latest_major_version(pip_release)
