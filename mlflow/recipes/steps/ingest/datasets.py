@@ -519,6 +519,15 @@ class _SparkDatasetMixin:
     and conversion to parquet format.
     """
 
+    def _convert_spark_df_to_pandas(self, spark_df):
+        import pandas as pd
+
+        datetime_cols = [schema[0] for schema in spark_df.dtypes if schema[1].startswith("date")]
+        pandas_df = spark_df.toPandas()
+        pandas_df[datetime_cols] = pandas_df[datetime_cols].apply(pd.to_datetime, errors="coerce")
+
+        return pandas_df
+
     def _get_or_create_spark_session(self):
         """
         Obtains the active Spark session, throwing if a session does not exist.
@@ -578,7 +587,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         if self.timestamp is not None:
             spark_read_op = spark_read_op.option("timestampAsOf", self.timestamp)
         spark_df = spark_read_op.load(self.location)
-        pandas_df = spark_df.toPandas()
+        pandas_df = self._convert_spark_df_to_pandas(spark_df)
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @staticmethod
@@ -626,7 +635,7 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
             spark_df = spark_session.sql(self.sql)
         elif self.location is not None:
             spark_df = spark_session.table(self.location)
-        pandas_df = spark_df.toPandas()
+        pandas_df = self._convert_spark_df_to_pandas(spark_df)
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @classmethod
