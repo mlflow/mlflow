@@ -387,7 +387,11 @@ def _create_makefile(recipe_root_path, execution_directory_path, template) -> No
     """
     makefile_path = os.path.join(execution_directory_path, "Makefile")
 
-    if template == "regression/v1" or template == "classification/v1":
+    if (
+        template == "regression/v1"
+        or template == "classification/v1"
+        or template == "huggingface/v1"
+    ):
         makefile_to_use = _MAKEFILE_FORMAT_STRING
         steps_folder_path = os.path.join(recipe_root_path, "steps")
         if not os.path.exists(steps_folder_path):

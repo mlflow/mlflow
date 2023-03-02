@@ -667,16 +667,20 @@ class HuggingFaceDataset(_Dataset):
                 "Either location and dataset_builder configuration key must be specified or "
                 "source much be specified for dataset with format huggingface"
             ) from None
-        from datasets import load_dataset, get_dataset_split_names, concatenate_datasets
+        from datasets import load_dataset, concatenate_datasets
 
+        splits = []
         if self.location is not None:
-            huggingfaceData = load_dataset(self.dataset_builder, data_files=self.location)
-            splits = get_dataset_split_names(self.location)
+            if self.dataset_builder is None:
+                huggingfaceData = load_dataset(self.location)
+            else:
+                huggingfaceData = load_dataset(self.dataset_builder, data_files=self.location)
         elif self.source is not None:
             huggingfaceData = load_dataset(self.source)
-            splits = get_dataset_split_names(self.source)
 
-        merged_dataset = concatenate_datasets([huggingfaceData[split] for split in splits])
+        merged_dataset = concatenate_datasets(
+            [huggingfaceData[split] for split in huggingfaceData.keys()]
+        )
         merged_dataset.to_parquet(dst_path)
 
     @classmethod

@@ -116,6 +116,8 @@ def _get_extended_task(recipe: str, positive_class: str) -> str:
     """
     if "regression" in recipe:
         return "regression"
+    if "huggingface" in recipe:
+        return "huggingface"
     elif "classification" in recipe:
         if positive_class is not None:
             return "classification/binary"
