@@ -1,6 +1,7 @@
 """
-This script updates the `max_major_version` attribute of each package in a YAML dependencies
-specification (e.g. requirements/core-requirements.yaml) to the maximum available version on PyPI.
+This script performs manual validation checks on any packages that are released on pypi against
+those defined in our requirements files. It will print out invalid configurations if any are
+encountered.
 """
 
 from ruamel.yaml import YAML
