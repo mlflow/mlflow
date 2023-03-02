@@ -520,7 +520,7 @@ module.exports = {
         // adding "React" manually results in TS(6133) error
         'react/react-in-jsx-scope': 'off',
 
-        '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^oss_' }],
+        '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^oss_' }],
       },
     },
     {

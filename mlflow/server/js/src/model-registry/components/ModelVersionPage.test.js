@@ -151,9 +151,6 @@ describe('ModelVersionPage', () => {
 
   test('should show ErrorView when resource is not found', () => {
     getUUID.mockImplementation(() => 'resource_not_found_error');
-    const myProps = {
-      ...minimalProps,
-    };
     // Populate store with failed model version get request
     const myStore = mockStore({
       ...minimalStoreState,
@@ -169,7 +166,7 @@ describe('ModelVersionPage', () => {
     wrapper = mountWithIntl(
       <Provider store={myStore}>
         <BrowserRouter>
-          <ModelVersionPage {...myProps} />
+          <ModelVersionPage {...minimalProps} />
         </BrowserRouter>
       </Provider>,
     );
@@ -181,9 +178,6 @@ describe('ModelVersionPage', () => {
   test('should show ErrorView when resource conflict error is thrown', () => {
     const testMessage = 'Detected model version conflict';
     getUUID.mockImplementation(() => 'resource_conflict_id');
-    const myProps = {
-      ...minimalProps,
-    };
     // Populate store with failed model version get request
     const myStore = mockStore({
       ...minimalStoreState,
@@ -202,7 +196,7 @@ describe('ModelVersionPage', () => {
     wrapper = mountWithIntl(
       <Provider store={myStore}>
         <BrowserRouter>
-          <ModelVersionPage {...myProps} />
+          <ModelVersionPage {...minimalProps} />
         </BrowserRouter>
       </Provider>,
     );
