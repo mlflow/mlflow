@@ -71,6 +71,7 @@ class TransformStep(BaseStep):
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
     def _validate_and_apply_step_config(self):
+        self.recipe = self.step_config.get("recipe")
         self.target_col = self.step_config.get("target_col")
         self.positive_class = self.step_config.get("positive_class")
         if self.target_col is None:
@@ -133,7 +134,9 @@ class TransformStep(BaseStep):
             )
             transformer = _validate_user_code_output(transformer_fn)
         transformer = transformer if transformer else get_identity_transformer()
-        transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
+        # For HuggingFace transformers, we don't need to fit the transformer on the training data.
+        if self.recipe != "huggingface/v1":
+            transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
 
         def transform_dataset(dataset):
             features = dataset.drop(columns=[self.target_col])
@@ -145,8 +148,25 @@ class TransformStep(BaseStep):
             transformed_features[self.target_col] = dataset[self.target_col].values
             return transformed_features
 
-        train_transformed = transform_dataset(train_df)
-        validation_transformed = transform_dataset(validation_df)
+        def transform_huggingface_dataset(dataset):
+            import transformers
+
+            transformed_dataset = transformer.transform(dataset)
+            if isinstance(transformed_dataset, transformers.BatchEncoding):
+                return pd.DataFrame.from_dict(transformed_dataset.data)
+            elif not isinstance(transformed_dataset, pd.DataFrame):
+                raise ValueError(
+                    "Type: {} is not supported for HuggingFace transformers.",
+                    type(transformed_dataset),
+                )
+            return transformed_dataset
+
+        if self.recipe != "huggingface/v1":
+            train_transformed = transform_dataset(train_df)
+            validation_transformed = transform_dataset(validation_df)
+        else:
+            train_transformed = transform_huggingface_dataset(train_df)
+            validation_transformed = transform_huggingface_dataset(validation_df)
 
         with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
             cloudpickle.dump(transformer, f)
@@ -165,7 +185,7 @@ class TransformStep(BaseStep):
 
     def _build_profiles_and_card(self, train_df, train_transformed, transformer) -> BaseCard:
         # Build card
-        card = BaseCard(self.recipe_name, self.name)
+        card = BaseCard(self.recipe, self.name)
 
         if not self.skip_data_profiling:
             # Tab 1: build profiles for train_transformed
