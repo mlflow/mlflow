@@ -275,6 +275,8 @@ class TrainStep(BaseStep):
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
+        from transformers import Trainer
+        from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
 
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
@@ -286,7 +288,7 @@ class TrainStep(BaseStep):
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
             # Get estimator
             sys.path.append(self.recipe_root)
-            estimator_fn = getattr(
+            trainer_fn = getattr(
                 importlib.import_module(_USER_DEFINED_TRAIN_STEP_MODULE),
                 self.step_config["estimator_method"],
             )
@@ -301,13 +303,47 @@ class TrainStep(BaseStep):
                 step_name="transform",
                 relative_path="transformed_validation_data.parquet",
             )
-            dataset = load_dataset(
-                "parquet",
-                data_files={
-                    "train": transformed_training_data_path,
-                    "test": transformed_validation_data_path,
-                },
-            )
+            dataset = load_dataset("parquet", data_files={
+                'train': transformed_training_data_path,
+                'eval': transformed_validation_data_path
+            })
+            estimator_params = self.step_config["estimator_params"]
+            estimator_params["train_dataset"] = dataset['train']
+            estimator_params["cache_dir"] = output_directory
+
+            # Initialize our Trainer
+            trainer = trainer_fn(estimator_params)
+
+            # Write to mlflow
+            from tqdm.auto import tqdm
+            import torch
+            from transformers import pipeline
+            
+            pipeline_artifact_name = "pipeline"
+            class TextClassificationPipelineModel(mlflow.pyfunc.PythonModel):
+                def load_context(self, context):
+                    device = 0 if torch.cuda.is_available() else -1
+                    self.pipeline = pipeline("text-classification", context.artifacts[pipeline_artifact_name], device=device)
+                    
+                def predict(self, context, model_input): 
+                    import pandas as pd
+                    texts = model_input[model_input.columns[0]].to_list()
+                    pipe = tqdm(self.pipeline(texts, truncation=True, batch_size=8), total=len(texts), miniters=10)
+                    labels = [prediction['label'] for prediction in pipe]
+                    return pd.Series(labels)
+
+            # Run trainer
+            train_result = trainer.train()
+            trainer.save_model(output_directory)
+            print(run.info.run_id)
+            mlflow.pyfunc.log_model(artifacts={pipeline_artifact_name: output_directory}, artifact_path="my_path", python_model=TextClassificationPipelineModel())
+
+            metrics = train_result.metrics
+            metrics["train_samples"] = len(dataset['train'])
+
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+            trainer.save_state()
 
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
