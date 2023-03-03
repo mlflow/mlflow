@@ -47,7 +47,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
@@ -632,7 +632,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
         filter_string="source_path = 'A/B/CD'",
-        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token="",
     )
@@ -643,7 +643,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
         filter_string="name='model_1'",
-        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token="",
     )
