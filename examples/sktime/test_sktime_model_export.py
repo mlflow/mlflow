@@ -1,6 +1,6 @@
-# -*- coding: utf-8 -*-
 """Tests for sktime custom model flavor."""
 
+import flavor
 import os
 from pathlib import Path
 from unittest import mock
@@ -9,16 +9,15 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from sktime.datatypes import convert
 from sktime.datasets import load_airline, load_longley
 from sktime.forecasting.arima import AutoARIMA
 from sktime.forecasting.model_selection import temporal_train_test_split
 from sktime.forecasting.naive import NaiveForecaster
-from sktime.utils.multiindex import flatten_multiindex
 import boto3
 import moto
 from botocore.config import Config
 from mlflow.utils.environment import _mlflow_conda_env
-import flavor
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -27,6 +26,11 @@ from mlflow import pyfunc
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.exceptions import MlflowException
+
+FH = [1, 2, 3]
+COVERAGE = [0.1, 0.5, 0.9]
+ALPHA = [0.1, 0.5, 0.9]
+COV = False
 
 
 @pytest.fixture
@@ -60,13 +64,13 @@ def sktime_custom_env(tmp_path):
 
 
 @pytest.fixture(scope="module")
-def test_data_airline():
+def data_airline():
     """Create sample data for univariate model without exogenous regressor."""
     return load_airline()
 
 
 @pytest.fixture(scope="module")
-def test_data_longley():
+def data_longley():
     """Create sample data for univariate model with exogenous regressor."""
     y, X = load_longley()
     y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
@@ -74,19 +78,17 @@ def test_data_longley():
 
 
 @pytest.fixture(scope="module")
-def auto_arima_model(test_data_airline):
+def auto_arima_model(data_airline):
     """Create instance of fitted auto arima model."""
-    return AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
-        test_data_airline, fh=[1, 2, 3]
-    )
+    return AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(data_airline)
 
 
 @pytest.fixture(scope="module")
-def naive_forecaster_model_with_regressor(test_data_longley):
+def naive_forecaster_model_with_regressor(data_longley):
     """Create instance of fitted naive forecaster model."""
-    y_train, _, X_train, _ = test_data_longley
+    y_train, _, X_train, _ = data_longley
     model = NaiveForecaster()
-    return model.fit(y_train, X_train, fh=[1, 2, 3])
+    return model.fit(y_train, X_train)
 
 
 @pytest.mark.parametrize("serialization_format", ["pickle", "cloudpickle"])
@@ -101,20 +103,12 @@ def test_auto_arima_model_save_and_load(auto_arima_model, model_path, serializat
         model_uri=model_path,
     )
 
-    np.testing.assert_array_equal(auto_arima_model.predict(), loaded_model.predict())
+    np.testing.assert_array_equal(auto_arima_model.predict(fh=FH), loaded_model.predict(fh=FH))
 
 
 @pytest.mark.parametrize("serialization_format", ["pickle", "cloudpickle"])
 def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serialization_format):
     """Test auto arima prediction of loaded pyfunc model."""
-    auto_arima_model.pyfunc_predict_conf = {
-        "predict_method": [
-            "predict",
-            "predict_interval",
-            "predict_quantiles",
-            "predict_var",
-        ]
-    }
     flavor.save_model(
         sktime_model=auto_arima_model,
         path=model_path,
@@ -122,186 +116,116 @@ def test_auto_arima_model_pyfunc_output(auto_arima_model, model_path, serializat
     )
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
 
-    model_predict = auto_arima_model.predict()
-    model_predict_interval = auto_arima_model.predict_interval()
-    model_predict_interval.columns = flatten_multiindex(model_predict_interval)
-    model_predict_quantiles = auto_arima_model.predict_quantiles()
-    model_predict_quantiles.columns = flatten_multiindex(model_predict_quantiles)
-    model_predict_var = auto_arima_model.predict_var()
-    model_predictions = pd.concat(
+    model_predict = auto_arima_model.predict(fh=FH)
+    predict_conf = pd.DataFrame([{"fh": FH, "predict_method": "predict"}])
+    pyfunc_predict = loaded_pyfunc.predict(predict_conf)
+    np.testing.assert_array_equal(model_predict, pyfunc_predict)
+
+    model_predict_interval = auto_arima_model.predict_interval(fh=FH, coverage=COVERAGE)
+    predict_interval_conf = pd.DataFrame(
         [
-            model_predict,
-            model_predict_interval,
-            model_predict_quantiles,
-            model_predict_var,
-        ],
-        axis=1,
-        keys=[
-            "model_predict",
-            "model_predict_interval",
-            "model_predict_quantiles",
-            "model_predict_var",
-        ],
+            {
+                "fh": FH,
+                "predict_method": "predict_interval",
+                "coverage": COVERAGE,
+            }
+        ]
     )
+    pyfunc_predict_interval = loaded_pyfunc.predict(predict_interval_conf)
+    np.testing.assert_array_equal(model_predict_interval.values, pyfunc_predict_interval.values)
 
-    pyfunc_predict = loaded_pyfunc.predict(pd.DataFrame())
-    np.testing.assert_array_equal(model_predictions.values, pyfunc_predict.values)
-
-
-def test_auto_arima_model_pyfunc_with_params_output(auto_arima_model, model_path):
-    """Test auto arima prediction of loaded pyfunc model with parameters."""
-    auto_arima_model.pyfunc_predict_conf = {
-        "predict_method": {
-            "predict": {},
-            "predict_interval": {"coverage": [0.1, 0.9]},
-            "predict_quantiles": {"alpha": [0.1, 0.9]},
-            "predict_var": {"cov": True},
-        }
-    }
-    flavor.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    model_predict = auto_arima_model.predict()
-    model_predict_interval = auto_arima_model.predict_interval(coverage=[0.1, 0.9])
-    model_predict_interval.columns = flatten_multiindex(model_predict_interval)
-    model_predict_quantiles = auto_arima_model.predict_quantiles(alpha=[0.1, 0.9])
-    model_predict_quantiles.columns = flatten_multiindex(model_predict_quantiles)
-    model_predict_var = auto_arima_model.predict_var(cov=True)
-    model_predictions = pd.concat(
+    model_predict_quantiles = auto_arima_model.predict_quantiles(fh=FH, alpha=ALPHA)
+    predict_quantiles_conf = pd.DataFrame(
         [
-            model_predict,
-            model_predict_interval,
-            model_predict_quantiles,
-            model_predict_var,
-        ],
-        axis=1,
-        keys=[
-            "model_predict",
-            "model_predict_interval",
-            "model_predict_quantiles",
-            "model_predict_var",
-        ],
+            {
+                "fh": FH,
+                "predict_method": "predict_quantiles",
+                "alpha": ALPHA,
+            }
+        ]
     )
+    pyfunc_predict_quantiles = loaded_pyfunc.predict(predict_quantiles_conf)
+    np.testing.assert_array_equal(model_predict_quantiles.values, pyfunc_predict_quantiles.values)
 
-    pyfunc_predict = loaded_pyfunc.predict(pd.DataFrame())
-    np.testing.assert_array_equal(model_predictions.values, pyfunc_predict.values)
-
-
-def test_auto_arima_model_pyfunc_without_params_output(auto_arima_model, model_path):
-    """Test auto arima prediction of loaded pyfunc model without parameters."""
-    auto_arima_model.pyfunc_predict_conf = {
-        "predict_method": {
-            "predict": {},
-            "predict_interval": {},
-            "predict_quantiles": {},
-            "predict_var": {},
-        }
-    }
-    flavor.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    model_predict = auto_arima_model.predict()
-    model_predict_interval = auto_arima_model.predict_interval()
-    model_predict_interval.columns = flatten_multiindex(model_predict_interval)
-    model_predict_quantiles = auto_arima_model.predict_quantiles()
-    model_predict_quantiles.columns = flatten_multiindex(model_predict_quantiles)
-    model_predict_var = auto_arima_model.predict_var()
-    model_predictions = pd.concat(
-        [
-            model_predict,
-            model_predict_interval,
-            model_predict_quantiles,
-            model_predict_var,
-        ],
-        axis=1,
-        keys=[
-            "model_predict",
-            "model_predict_interval",
-            "model_predict_quantiles",
-            "model_predict_var",
-        ],
-    )
-
-    pyfunc_predict = loaded_pyfunc.predict(pd.DataFrame())
-    np.testing.assert_array_equal(model_predictions.values, pyfunc_predict.values)
-
-
-def test_auto_arima_model_pyfunc_without_conf_output(auto_arima_model, model_path):
-    """Test auto arima prediction of loaded pyfunc model without config."""
-    delattr(auto_arima_model, "pyfunc_predict_conf") if hasattr(
-        auto_arima_model, "pyfunc_predict_conf"
-    ) else None
-    flavor.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    model_predict = auto_arima_model.predict()
-
-    pyfunc_predict = loaded_pyfunc.predict(pd.DataFrame())
-    np.testing.assert_array_equal(model_predict.values, pyfunc_predict.values)
+    model_predict_var = auto_arima_model.predict_var(fh=FH, cov=COV)
+    predict_var_conf = pd.DataFrame([{"fh": FH, "predict_method": "predict_var", "cov": COV}])
+    pyfunc_predict_var = loaded_pyfunc.predict(predict_var_conf)
+    np.testing.assert_array_equal(model_predict_var.values, pyfunc_predict_var.values)
 
 
 def test_naive_forecaster_model_with_regressor_pyfunc_output(
-    naive_forecaster_model_with_regressor, model_path, test_data_longley
+    naive_forecaster_model_with_regressor, model_path, data_longley
 ):
     """Test naive forecaster prediction of loaded pyfunc model."""
-    _, _, _, X_test = test_data_longley
+    _, _, _, X_test = data_longley
 
-    naive_forecaster_model_with_regressor.pyfunc_predict_conf = {
-        "predict_method": [
-            "predict",
-            "predict_interval",
-            "predict_quantiles",
-            "predict_var",
-        ]
-    }
     flavor.save_model(sktime_model=naive_forecaster_model_with_regressor, path=model_path)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
 
-    model_predict = naive_forecaster_model_with_regressor.predict(X=X_test)
-    model_predict_interval = naive_forecaster_model_with_regressor.predict_interval(X=X_test)
-    model_predict_interval.columns = flatten_multiindex(model_predict_interval)
-    model_predict_quantiles = naive_forecaster_model_with_regressor.predict_quantiles(X=X_test)
-    model_predict_quantiles.columns = flatten_multiindex(model_predict_quantiles)
-    model_predict_var = naive_forecaster_model_with_regressor.predict_var(X=X_test)
-    model_predictions = pd.concat(
-        [
-            model_predict,
-            model_predict_interval,
-            model_predict_quantiles,
-            model_predict_var,
-        ],
-        axis=1,
-        keys=[
-            "model_predict",
-            "model_predict_interval",
-            "model_predict_quantiles",
-            "model_predict_var",
-        ],
-    )
+    X_test_array = convert(X_test, "pd.DataFrame", "np.ndarray")
 
-    pyfunc_predict = loaded_pyfunc.predict(X_test)
-    np.testing.assert_array_equal(model_predictions.values, pyfunc_predict.values)
+    model_predict = naive_forecaster_model_with_regressor.predict(fh=FH, X=X_test)
+    predict_conf = pd.DataFrame([{"fh": FH, "predict_method": "predict", "X": X_test_array}])
+    pyfunc_predict = loaded_pyfunc.predict(predict_conf)
+    np.testing.assert_array_equal(model_predict, pyfunc_predict)
+
+    model_predict_interval = naive_forecaster_model_with_regressor.predict_interval(
+        fh=FH, coverage=COVERAGE, X=X_test
+    )
+    predict_interval_conf = pd.DataFrame(
+        [
+            {
+                "fh": FH,
+                "predict_method": "predict_interval",
+                "coverage": COVERAGE,
+                "X": X_test_array,
+            }
+        ]
+    )
+    pyfunc_predict_interval = loaded_pyfunc.predict(predict_interval_conf)
+    np.testing.assert_array_equal(model_predict_interval.values, pyfunc_predict_interval.values)
+
+    model_predict_quantiles = naive_forecaster_model_with_regressor.predict_quantiles(
+        fh=FH, alpha=ALPHA, X=X_test
+    )
+    predict_quantiles_conf = pd.DataFrame(
+        [
+            {
+                "fh": FH,
+                "predict_method": "predict_quantiles",
+                "alpha": ALPHA,
+                "X": X_test_array,
+            }
+        ]
+    )
+    pyfunc_predict_quantiles = loaded_pyfunc.predict(predict_quantiles_conf)
+    np.testing.assert_array_equal(model_predict_quantiles.values, pyfunc_predict_quantiles.values)
+
+    model_predict_var = naive_forecaster_model_with_regressor.predict_var(fh=FH, cov=COV, X=X_test)
+    predict_var_conf = pd.DataFrame(
+        [
+            {
+                "fh": FH,
+                "predict_method": "predict_var",
+                "cov": COV,
+                "X": X_test_array,
+            }
+        ]
+    )
+    pyfunc_predict_var = loaded_pyfunc.predict(predict_var_conf)
+    np.testing.assert_array_equal(model_predict_var.values, pyfunc_predict_var.values)
 
 
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
 def test_signature_and_examples_saved_correctly(
-    auto_arima_model, test_data_airline, model_path, use_signature, use_example
+    auto_arima_model, data_airline, model_path, use_signature, use_example
 ):
     """Test saving of mlflow signature and example for native sktime predict method."""
     # Note: Signature inference fails on native model predict_interval/predict_quantiles
-    prediction = auto_arima_model.predict()
-    signature = infer_signature(test_data_airline, prediction) if use_signature else None
-    example = pd.DataFrame(test_data_airline[0:5].copy(deep=False)) if use_example else None
+    prediction = auto_arima_model.predict(fh=FH)
+    signature = infer_signature(data_airline, prediction) if use_signature else None
+    example = pd.DataFrame(data_airline[0:5].copy(deep=False)) if use_example else None
     flavor.save_model(auto_arima_model, path=model_path, signature=signature, input_example=example)
     mlflow_model = Model.load(model_path)
     assert signature == mlflow_model.signature
@@ -314,12 +238,11 @@ def test_signature_and_examples_saved_correctly(
 
 @pytest.mark.parametrize("use_signature", [True, False])
 def test_predict_var_signature_saved_correctly(
-    auto_arima_model, test_data_airline, model_path, use_signature
+    auto_arima_model, data_airline, model_path, use_signature
 ):
     """Test saving of mlflow signature for native sktime predict_var method."""
-    # Note: Signature inference fails on native model predict_interval/predict_quantiles
-    prediction = auto_arima_model.predict_var()
-    signature = infer_signature(test_data_airline, prediction) if use_signature else None
+    prediction = auto_arima_model.predict_var(fh=FH)
+    signature = infer_signature(data_airline, prediction) if use_signature else None
     flavor.save_model(auto_arima_model, path=model_path, signature=signature)
     mlflow_model = Model.load(model_path)
     assert signature == mlflow_model.signature
@@ -327,26 +250,26 @@ def test_predict_var_signature_saved_correctly(
 
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
-def test_signature_and_example_for_pyfunc_predict(
-    auto_arima_model, model_path, test_data_airline, use_signature, use_example
+def test_signature_and_example_for_pyfunc_predict_inteval(
+    auto_arima_model, model_path, data_airline, use_signature, use_example
 ):
     """Test saving of mlflow signature and example for pyfunc predict."""
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
-    auto_arima_model.pyfunc_predict_conf = {
-        "predict_method": {
-            "predict": None,
-            "predict_interval": {"coverage": [0.1, 0.9]},
-            "predict_quantiles": {"alpha": [0.1, 0.9]},
-            "predict_var": {"cov": False},
-        }
-    }
     flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path_primary)
-
-    forecast = loaded_pyfunc.predict(pd.DataFrame())
-    signature = infer_signature(test_data_airline, forecast) if use_signature else None
-    example = pd.DataFrame(test_data_airline[0:5].copy(deep=False)) if use_example else None
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": FH,
+                "predict_method": "predict_interval",
+                "coverage": COVERAGE,
+            }
+        ]
+    )
+    forecast = loaded_pyfunc.predict(predict_conf)
+    signature = infer_signature(data_airline, forecast) if use_signature else None
+    example = pd.DataFrame(data_airline[0:5].copy(deep=False)) if use_example else None
     flavor.save_model(
         auto_arima_model,
         path=model_path_secondary,
@@ -362,6 +285,31 @@ def test_signature_and_example_for_pyfunc_predict(
         np.testing.assert_array_equal(r_example, example)
 
 
+@pytest.mark.parametrize("use_signature", [True, False])
+def test_signature_for_pyfunc_predict_quantiles(
+    auto_arima_model, model_path, data_airline, use_signature
+):
+    """Test saving of mlflow signature for pyfunc sktime predict_quantiles method."""
+    model_path_primary = model_path.joinpath("primary")
+    model_path_secondary = model_path.joinpath("secondary")
+    flavor.save_model(sktime_model=auto_arima_model, path=model_path_primary)
+    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path_primary)
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": FH,
+                "predict_method": "predict_quantiles",
+                "alpha": ALPHA,
+            }
+        ]
+    )
+    forecast = loaded_pyfunc.predict(predict_conf)
+    signature = infer_signature(data_airline, forecast) if use_signature else None
+    flavor.save_model(auto_arima_model, path=model_path_secondary, signature=signature)
+    mlflow_model = Model.load(model_path_secondary)
+    assert signature == mlflow_model.signature
+
+
 def test_load_from_remote_uri_succeeds(auto_arima_model, model_path, mock_s3_bucket):
     """Test loading native sktime model from mock S3 bucket."""
     flavor.save_model(sktime_model=auto_arima_model, path=model_path)
@@ -375,8 +323,8 @@ def test_load_from_remote_uri_succeeds(auto_arima_model, model_path, mock_s3_buc
     reloaded_sktime_model = flavor.load_model(model_uri=model_uri)
 
     np.testing.assert_array_equal(
-        auto_arima_model.predict(),
-        reloaded_sktime_model.predict(),
+        auto_arima_model.predict(fh=FH),
+        reloaded_sktime_model.predict(fh=FH),
     )
 
 
@@ -445,76 +393,24 @@ def test_log_model_no_registered_model_name(auto_arima_model, tmp_path):
         mlflow.register_model.assert_not_called()
 
 
-def test_pyfunc_raises_invalid_attribute_type(auto_arima_model, model_path):
-    """Test pyfunc raises exception with invalid attribute type."""
-    auto_arima_model.pyfunc_predict_conf = ["predict"]
+def test_sktime_pyfunc_raises_invalid_df_input(auto_arima_model, model_path):
+    """Test pyfunc call raises error with invalid dataframe configuration."""
     flavor.save_model(sktime_model=auto_arima_model, path=model_path)
     loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
 
-    with pytest.raises(
-        MlflowException,
-        match=f"Attribute {flavor.PYFUNC_PREDICT_CONF} must be of type dict.",
-    ):
-        loaded_pyfunc.predict(pd.DataFrame())
+    with pytest.raises(MlflowException, match="The provided prediction pd.DataFrame "):
+        loaded_pyfunc.predict(pd.DataFrame([{"predict_method": "predict"}, {"fh": FH}]))
+
+    with pytest.raises(MlflowException, match="The provided prediction configuration "):
+        loaded_pyfunc.predict(pd.DataFrame([{"invalid": True}]))
+
+    with pytest.raises(MlflowException, match="Invalid `predict_method` value"):
+        loaded_pyfunc.predict(pd.DataFrame([{"predict_method": "predict_proba"}]))
 
 
-def test_pyfunc_raises_invalid_dict_key(auto_arima_model, model_path):
-    """Test pyfunc raises exception with invalid dict key."""
-    auto_arima_model.pyfunc_predict_conf = {"prediction_method": ["predict"]}
-    flavor.save_model(sktime_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"Attribute {flavor.PYFUNC_PREDICT_CONF} must contain ",
-    ):
-        loaded_pyfunc.predict(pd.DataFrame())
-
-
-def test_pyfunc_raises_invalid_dict_value_type(auto_arima_model, model_path):
-    """Test pyfunc raises exception with invalid dict value type."""
-    auto_arima_model.pyfunc_predict_conf = {"predict_method": "predict"}
-    flavor.save_model(sktime_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    with pytest.raises(MlflowException, match="Dictionary value must be of type dict or list"):
-        loaded_pyfunc.predict(pd.DataFrame())
-
-
-def test_pyfunc_raises_invalid_dict_value(auto_arima_model, model_path):
-    """Test pyfunc raises exception with invalid dict value."""
-    auto_arima_model.pyfunc_predict_conf = {"predict_method": ["forecast"]}
-    flavor.save_model(sktime_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"The provided {flavor.PYFUNC_PREDICT_CONF_KEY} values must be ",
-    ):
-        loaded_pyfunc.predict(pd.DataFrame())
-
-
-def test_pyfunc_predict_proba_raises_invalid_attribute_type(auto_arima_model, model_path):
-    """Test pyfunc predict_proba raises exception with invalid attribute type."""
-    auto_arima_model.pyfunc_predict_conf = {"predict_method": ["predict_proba"]}
-    flavor.save_model(sktime_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing a " f"dictionary.",
-    ):
-        loaded_pyfunc.predict(pd.DataFrame())
-
-
-def test_pyfunc_predict_proba_raises_invalid_dict_value(auto_arima_model, model_path):
-    """Test pyfunc predict_proba raises exception with invalid dict value."""
-    auto_arima_model.pyfunc_predict_conf = {"predict_method": {"predict_proba": {"marginal": True}}}
-    flavor.save_model(sktime_model=auto_arima_model, path=model_path)
-    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_path)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"Method {flavor.SKTIME_PREDICT_PROBA} requires passing " f"quantile values.",
-    ):
-        loaded_pyfunc.predict(pd.DataFrame())
+def test_sktime_save_model_raises_invalid_serialization_format(auto_arima_model, model_path):
+    """Test save_model call raises error with invalid serialization format."""
+    with pytest.raises(MlflowException, match="Unrecognized serialization format: "):
+        flavor.save_model(
+            sktime_model=auto_arima_model, path=model_path, serialization_format="json"
+        )

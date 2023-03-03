@@ -3,45 +3,66 @@
 This module exports ``sktime`` models in the following formats:
 
 sktime (native) format
-    This is the main flavor that can be loaded back into sktime, which relies on pickle
+    This is the main flavor that can be loaded back into ``sktime``, which relies on pickle
     internally to serialize a model.
+
+    Note that pickle serialization requires using the same python environment (version) in
+    whatever environment you're going to use this model for inference to ensure that the model
+    will load with appropriate version of pickle.
 mlflow.pyfunc
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 
-    The `pyfunc` flavor of the model supports sktime predict methods `predict`,
-    `predict_interval`, `predict_proba`, `predict_quantiles`, `predict_var`.
+    The interface for utilizing a ``sktime`` model loaded as a ``pyfunc`` type for generating
+    forecast predictions uses a *single-row* ``Pandas DataFrame`` configuration argument. The
+    following columns in this configuration ``Pandas DataFrame`` are supported:
 
-    The interface for utilizing a sktime model loaded as a `pyfunc` type for
-    generating forecasts requires passing an exogenous regressor as Pandas
-    DataFrame to the `pyfunc.predict()` method (an empty DataFrame must be
-    passed if no exogenous regressor is used). The configuration of predict
-    methods and parameter values passed to the predict methods is defined by
-    a dictionary to be saved as an attribute of the fitted sktime model
-    instance. If no prediction configuration is defined `pyfunc.predict()`
-    will return output from sktime `predict` method. Note that for `pyfunc`
-    flavor the forecasting horizon `fh` must be passed to the fit method.
+    * ``predict_method`` (required) - specifies the ``sktime`` predict method. The
+        supported predict methods in this example flavor are ``predict``, ``predict_interval``,
+        ``predict_quantiles``, ``predict_var``. Additional methods (e.g. ``predict_proba``) could
+        be added in a similar fashion.
+    * ``fh`` (optional) - specifies the number of future periods to generate starting from
+        the last datetime value of the training dataset, utilizing the frequency of the input
+        training series when the model was trained. (for example, if the training data series
+        elements represent one value per hour, in order to forecast 3 hours of future data, set
+        the column ``fh`` to ``[1,2,3]``. If the paramter is not provided it must be passed
+        during fit(). (Default: ``None``)
+    * ``X`` (optional) - exogenous regressor values as a 2D numpy ndarray of values for future
+        time period events. For more information, read the underlying library explanation
+        https://www.sktime.net/en/latest/examples/AA_datatypes_and_datasets.html#Section-1:-in-memory-data-containers.
+        (Default: ``None``)
+    * ``coverage`` (optional) - the nominal coverage value for calculating prediction interval
+        forecasts. Can only be provided in combination with predict method ``predict_interval``.
+        (Default: ``0.9``)
+    * ``alpha`` (optional) - the probability value for calculating prediction quantile forecasts.
+        Can only be provided in combination with predict method ``predict_quantiles``.
+        (Default: ``None``)
+    * ``cov`` (optional) - if True, computes covariance matrix forecast.
+        Can only be provided in combination with predict method ``predict_var``.
+        (Default: ``False``)
 
-    Predict methods and parameter values for `pyfunc` flavor can be defined
-    in two ways: `Dict[str, dict]` if parameter values are passed to
-    `pyfunc.predict()`, for example
-    `{"predict_method": {"predict": {}, "predict_interval": {"coverage": [0.1, 0.9]}}`.
-    `Dict[str, list]`, with default parameters in predict method, for example
-    `{"predict_method": ["predict", "predict_interval"}` (Note: when including
-    `predict_proba` method the former appraoch must be followed as `quantiles`
-    parameter has to be provided by the user). If no prediction config is defined
-    `pyfunc.predict()` will return output from sktime `predict()` method.
+An example configuration for the ``pyfunc`` predict of a ``sktime`` model is shown below, using an
+interval forecast with nominal coverage value ``[0.9,0.95]``, a future forecast horizon of 3 periods,
+and no exogenous regressor elements:
+
+====== ================= ============ ========
+Index  predict_method    coverage     fh
+====== ================= ============ ========
+0      predict_interval  [0.9,0.95]   [1,2,3]
+====== ================= ============ ========
 """
 import logging
 import os
 import pickle
 import flavor
 
+import numpy as np
 import pandas as pd
 import yaml
 
 import sktime
 from sktime.utils.multiindex import flatten_multiindex
 
+import mlflow
 from mlflow import pyfunc
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.environment import _mlflow_conda_env
@@ -72,19 +93,15 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
-FLAVOR_NAME = "flavor"
+FLAVOR_NAME = "sktime"
 
-PYFUNC_PREDICT_CONF = "pyfunc_predict_conf"
-PYFUNC_PREDICT_CONF_KEY = "predict_method"
 SKTIME_PREDICT = "predict"
 SKTIME_PREDICT_INTERVAL = "predict_interval"
-SKTIME_PREDICT_PROBA = "predict_proba"
 SKTIME_PREDICT_QUANTILES = "predict_quantiles"
 SKTIME_PREDICT_VAR = "predict_var"
 SUPPORTED_SKTIME_PREDICT_METHODS = [
     SKTIME_PREDICT,
     SKTIME_PREDICT_INTERVAL,
-    SKTIME_PREDICT_PROBA,
     SKTIME_PREDICT_QUANTILES,
     SKTIME_PREDICT_VAR,
 ]
@@ -138,12 +155,12 @@ def save_model(
     extra_pip_requirements=None,
     serialization_format=SERIALIZATION_FORMAT_PICKLE,
 ):
-    """Save a sktime model to a path on the local file system.
+    """Save a ``sktime`` model to a path on the local file system.
 
     Parameters
     ----------
     sktime_model :
-        Fitted sktime model object.
+        Fitted ``sktime`` model object.
     path : str
         Local path where the model is to be saved.
     conda_env : Union[dict, str], optional (default=None)
@@ -172,7 +189,7 @@ def save_model(
           signature = infer_signature(train, predictions)
 
         .. Warning:: if performing probabilistic forecasts (``predict_interval``,
-          ``predict_quantiles``) with a sktime model, the signature
+          ``predict_quantiles``) with a ``sktime`` model, the signature
           on the returned prediction object will not be correctly inferred due
           to the Pandas MultiIndex column type when using the these methods.
           ``infer_schema`` will function correctly if using the ``pyfunc`` flavor
@@ -201,12 +218,9 @@ def save_model(
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
             message=(
-                "Unrecognized serialization format: {serialization_format}. "
+                f"Unrecognized serialization format: {serialization_format}. "
                 "Please specify one of the following supported formats: "
-                "{supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
+                "{SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
@@ -247,7 +261,10 @@ def save_model(
         if pip_requirements is None:
             include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
             default_reqs = get_default_pip_requirements(include_cloudpickle)
-            default_reqs = sorted(default_reqs)
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                path, FLAVOR_NAME, fallback=default_reqs
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
@@ -282,12 +299,12 @@ def log_model(
     **kwargs,
 ):
     """
-    Log a sktime model as an MLflow artifact for the current run.
+    Log a ``sktime`` model as an MLflow artifact for the current run.
 
     Parameters
     ----------
-    sktime_model : fitted sktime model
-        Fitted sktime model object.
+    sktime_model : fitted ``sktime`` model
+        Fitted ``sktime`` model object.
     artifact_path : str
         Run-relative artifact path to save the model to.
     conda_env : Union[dict, str], optional (default=None)
@@ -317,14 +334,11 @@ def log_model(
           signature = infer_signature(train, predictions)
 
         .. Warning:: if performing probabilistic forecasts (``predict_interval``,
-          ``predict_quantiles``) with a sktime model, the signature
+          ``predict_quantiles``) with a ``sktime`` model, the signature
           on the returned prediction object will not be correctly inferred due
           to the Pandas MultiIndex column type when using the these methods.
           ``infer_schema`` will function correctly if using the ``pyfunc`` flavor
-          of the model, though. The ``pyfunc`` flavor of the model supports sktime
-          predict methods ``predict``, ``predict_interval``, ``predict_quantiles``
-          and ``predict_var`` while ``predict_proba`` and ``predict_residuals`` are
-          currently not supported.
+          of the model, though.
     input_example : Union[pandas.core.frame.DataFrame, numpy.ndarray, dict, list, csr_matrix, csc_matrix], optional (default=None)
         Input example provides one or several instances of valid model input.
         The example can be used as a hint of what data to feed the model. The given
@@ -374,7 +388,7 @@ def log_model(
 
 def load_model(model_uri, dst_path=None):
     """
-    Load a sktime model from a local file or a run.
+    Load a ``sktime`` model from a local file or a run.
 
     Parameters
     ----------
@@ -397,7 +411,7 @@ def load_model(model_uri, dst_path=None):
 
     Returns
     -------
-    A sktime model instance.
+    A ``sktime`` model instance.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
@@ -411,32 +425,13 @@ def _save_model(model, path, serialization_format):
     with open(path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             pickle.dump(model, out)
-        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+        else:
             import cloudpickle
 
             cloudpickle.dump(model, out)
-        else:
-            raise MlflowException(
-                message="Unrecognized serialization format: "
-                "{serialization_format}".format(serialization_format=serialization_format),
-                error_code=INTERNAL_ERROR,
-            )
 
 
 def _load_model(path, serialization_format):
-    if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
-        raise MlflowException(
-            message=(
-                "Unrecognized serialization format: {serialization_format}. "
-                "Please specify one of the following supported formats: "
-                "{supported_formats}.".format(
-                    serialization_format=serialization_format,
-                    supported_formats=SUPPORTED_SERIALIZATION_FORMATS,
-                )
-            ),
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     with open(path, "rb") as pickled_model:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             return pickle.load(pickled_model)
@@ -452,29 +447,23 @@ def _load_pyfunc(path):
     Parameters
     ----------
     path : str
-        Local filesystem path to the MLflow Model with the sktime flavor.
+        Local filesystem path to the MLflow Model with the ``sktime`` flavor.
 
     """
-    if os.path.isfile(path):
-        serialization_format = SERIALIZATION_FORMAT_PICKLE
-        _logger.warning("Loading procedure in older versions of MLflow using pickle.load()")
-    else:
-        try:
-            sktime_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-            serialization_format = sktime_flavor_conf.get(
-                "serialization_format", SERIALIZATION_FORMAT_PICKLE
-            )
-        except MlflowException:
-            _logger.warning(
-                "Could not find sktime flavor configuration during model "
-                "loading process. Assuming 'pickle' serialization format."
-            )
-            serialization_format = SERIALIZATION_FORMAT_PICKLE
-
-        pyfunc_flavor_conf = _get_flavor_configuration(
-            model_path=path, flavor_name=pyfunc.FLAVOR_NAME
+    try:
+        sktime_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+        serialization_format = sktime_flavor_conf.get(
+            "serialization_format", SERIALIZATION_FORMAT_PICKLE
         )
-        path = os.path.join(path, pyfunc_flavor_conf["model_path"])
+    except MlflowException:
+        _logger.warning(
+            "Could not find sktime flavor configuration during model "
+            "loading process. Assuming 'pickle' serialization format."
+        )
+        serialization_format = SERIALIZATION_FORMAT_PICKLE
+
+    pyfunc_flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+    path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
     return _SktimeModelWrapper(_load_model(path, serialization_format=serialization_format))
 
@@ -483,157 +472,73 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, X):
-        X = None if X.empty else X
-        raw_predictions = {}
+    def predict(self, dataframe) -> pd.DataFrame:
+        df_schema = dataframe.columns.values.tolist()
 
-        if not hasattr(self.sktime_model, "pyfunc_predict_conf"):
-            raw_predictions[SKTIME_PREDICT] = self.sktime_model.predict(X=X)
-
-        else:
-            if not isinstance(self.sktime_model.pyfunc_predict_conf, dict):
-                raise MlflowException(
-                    f"Attribute {PYFUNC_PREDICT_CONF} must be of type dict.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            if PYFUNC_PREDICT_CONF_KEY not in self.sktime_model.pyfunc_predict_conf:
-                raise MlflowException(
-                    f"Attribute {PYFUNC_PREDICT_CONF} must contain "
-                    f"a dictionary key {PYFUNC_PREDICT_CONF_KEY}.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            if isinstance(self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY], list):
-                predict_methods = self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY]
-                predict_params = False
-            elif isinstance(self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY], dict):
-                predict_methods = list(
-                    self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY].keys()
-                )
-                predict_params = True
-            else:
-                raise MlflowException(
-                    "Dictionary value must be of type dict or list.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            if not set(predict_methods).issubset(set(SUPPORTED_SKTIME_PREDICT_METHODS)):
-                raise MlflowException(
-                    f"The provided {PYFUNC_PREDICT_CONF_KEY} values must be "
-                    f"a subset of {SUPPORTED_SKTIME_PREDICT_METHODS}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            if SKTIME_PREDICT in predict_methods:
-                raw_predictions[SKTIME_PREDICT] = self.sktime_model.predict(X=X)
-
-            if SKTIME_PREDICT_INTERVAL in predict_methods:
-                if predict_params:
-                    coverage = (
-                        0.9
-                        if "coverage"
-                        not in self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_INTERVAL
-                        ]
-                        else self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_INTERVAL
-                        ]["coverage"]
-                    )
-                else:
-                    coverage = 0.9
-
-                raw_predictions[SKTIME_PREDICT_INTERVAL] = self.sktime_model.predict_interval(
-                    X=X, coverage=coverage
-                )
-
-            if SKTIME_PREDICT_PROBA in predict_methods:
-                if not isinstance(
-                    self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY], dict
-                ):
-                    raise MlflowException(
-                        f"Method {SKTIME_PREDICT_PROBA} requires passing a dictionary.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                if (
-                    "quantiles"
-                    not in self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                        SKTIME_PREDICT_PROBA
-                    ]
-                ):
-                    raise MlflowException(
-                        f"Method {SKTIME_PREDICT_PROBA} requires passing " f"quantile values.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-
-                quantiles = self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                    SKTIME_PREDICT_PROBA
-                ]["quantiles"]
-                marginal = (
-                    True
-                    if "marginal"
-                    not in self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                        SKTIME_PREDICT_PROBA
-                    ]
-                    else self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                        SKTIME_PREDICT_PROBA
-                    ]["marginal"]
-                )
-
-                y_pred_dist = self.sktime_model.predict_proba(X=X, marginal=marginal)
-                y_pred_dist_quantiles = pd.DataFrame(y_pred_dist.quantile(quantiles))
-                y_pred_dist_quantiles.columns = [f"Quantiles_{q}" for q in quantiles]
-                y_pred_dist_quantiles.index = y_pred_dist.parameters["loc"].index
-
-                raw_predictions[SKTIME_PREDICT_PROBA] = y_pred_dist_quantiles
-
-            if SKTIME_PREDICT_QUANTILES in predict_methods:
-                if predict_params:
-                    alpha = (
-                        None
-                        if "alpha"
-                        not in self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_QUANTILES
-                        ]
-                        else self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_QUANTILES
-                        ]["alpha"]
-                    )
-                else:
-                    alpha = None
-                raw_predictions[SKTIME_PREDICT_QUANTILES] = self.sktime_model.predict_quantiles(
-                    X=X, alpha=alpha
-                )
-
-            if SKTIME_PREDICT_VAR in predict_methods:
-                if predict_params:
-                    cov = (
-                        False
-                        if "cov"
-                        not in self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_VAR
-                        ]
-                        else self.sktime_model.pyfunc_predict_conf[PYFUNC_PREDICT_CONF_KEY][
-                            SKTIME_PREDICT_VAR
-                        ]["cov"]
-                    )
-                else:
-                    cov = False
-                raw_predictions[SKTIME_PREDICT_VAR] = self.sktime_model.predict_var(X=X, cov=cov)
-
-        for k, v in raw_predictions.items():
-            if hasattr(v, "columns") and isinstance(v.columns, pd.MultiIndex):
-                raw_predictions[k].columns = flatten_multiindex(v)
-
-        if len(raw_predictions) > 1:
-            predictions = pd.concat(
-                list(raw_predictions.values()),
-                axis=1,
-                keys=list(raw_predictions.keys()),
+        if len(dataframe) > 1:
+            raise MlflowException(
+                f"The provided prediction pd.DataFrame contains {len(dataframe)} rows. "
+                "Only 1 row should be supplied.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
+
+        # Convert the configuration dataframe into a dictionary to simplify the
+        # extraction of parameters passed to the sktime predcition methods.
+        attrs = dataframe.to_dict(orient="index").get(0)
+        predict_method = attrs.get("predict_method")
+
+        if not predict_method:
+            raise MlflowException(
+                f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not "
+                "contain the required column `predict_method` for specifying the prediction method.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if predict_method not in SUPPORTED_SKTIME_PREDICT_METHODS:
+            raise MlflowException(
+                "Invalid `predict_method` value."
+                f"The supported prediction methods are {SUPPORTED_SKTIME_PREDICT_METHODS}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # For inference parameters 'fh', 'X', 'coverage', 'alpha', and 'cov'
+        # the respective sktime default value is used if the value was not
+        # provided in the configuration dataframe.
+        fh = attrs.get("fh", None)
+
+        # Any model that is trained with exogenous regressor elements will need
+        # to provide `X` entries as a numpy ndarray to the predict method.
+        X = attrs.get("X", None)
+
+        # When the model is served via REST API the exogenous regressor must be
+        # provided as a list to the configuration DataFrame to be JSON serializable.
+        # Below we convert the list back to ndarray type as required by sktime
+        # predict methods.
+        if isinstance(X, list):
+            X = np.array(X)
+
+        # For illustration purposes only a subset of the available sktime prediction
+        # methods is exposed. Additional methods (e.g. predict_proba) could be added
+        # in a similar fashion.
+        if predict_method == SKTIME_PREDICT:
+            predictions = self.sktime_model.predict(fh=fh, X=X)
+
+        if predict_method == SKTIME_PREDICT_INTERVAL:
+            coverage = attrs.get("coverage", 0.9)
+            predictions = self.sktime_model.predict_interval(fh=fh, X=X, coverage=coverage)
+
+        if predict_method == SKTIME_PREDICT_QUANTILES:
+            alpha = attrs.get("alpha", None)
+            predictions = self.sktime_model.predict_quantiles(fh=fh, X=X, alpha=alpha)
+
+        if predict_method == SKTIME_PREDICT_VAR:
+            cov = attrs.get("cov", False)
+            predictions = self.sktime_model.predict_var(fh=fh, X=X, cov=cov)
+
+        # Methods predict_interval() and predict_quantiles() return a pandas
+        # MultiIndex column structure. As MLflow signature inference does not
+        # support MultiIndex column structure the columns must be flattened.
+        if predict_method in [SKTIME_PREDICT_INTERVAL, SKTIME_PREDICT_QUANTILES]:
             predictions.columns = flatten_multiindex(predictions)
-        else:
-            predictions = raw_predictions[list(raw_predictions.keys())[0]]
 
         return predictions
