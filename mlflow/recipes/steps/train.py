@@ -285,6 +285,7 @@ class TrainStep(BaseStep):
             MLFLOW_RECIPE_STEP_NAME: os.getenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR),
         }
         run_name = self.tracking_config.run_name
+        apply_recipe_tracking_config(self.tracking_config)
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
             # Get estimator
             sys.path.append(self.recipe_root)
