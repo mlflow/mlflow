@@ -199,7 +199,7 @@ class WheeledModel:
             os.makedirs(dst_path)
 
         download_command = (
-            f"{sys.executable} -m pip wheel --only-binary=:all: --wheel-dir={dst_path} -r"
+            f"{sys.executable} -m pip wheel --prefer-binary --wheel-dir={dst_path} -r"
             f"{pip_requirements_path} --no-cache-dir"
         )
 
