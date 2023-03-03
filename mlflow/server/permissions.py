@@ -8,15 +8,14 @@ from sqlalchemy.orm import sessionmaker
 Base = declarative_base()
 
 
-class Permission(Base):
-    __tablename__ = "permissions"
-    __table_args__ = (sqlalchemy.UniqueConstraint("resource", "user", "key"),)
+class ExperimentPermission(Base):
+    __tablename__ = "experiment_permissions"
+    __table_args__ = (sqlalchemy.UniqueConstraint("experiment_id", "user"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    resource = Column(String(length=255))
+    experiment_id = Column(String(length=255))
     user = Column(String(length=255))
-    key = Column(String(length=255))
-    access_level = Column(String(length=255))
+    permission = Column(String(length=255))
 
 
 DB_PATH = "permissions.db"
@@ -27,33 +26,54 @@ def create_engine():
 
 
 def init_db():
-    os.unlink(DB_PATH)
+    if os.path.exists(DB_PATH):
+        os.unlink(DB_PATH)
     Base.metadata.create_all(bind=create_engine())
 
 
-def get(user, resource, key):
+def list_permissions(experiment_id):
     session = sessionmaker(bind=create_engine())()
-    permission = session.query(Permission).filter_by(resource=resource, user=user, key=key).first()
+    permissions = session.query(ExperimentPermission).filter_by(experiment_id=experiment_id).all()
+    return permissions
+
+
+def get_permission(user, experiment_id):
+    session = sessionmaker(bind=create_engine())()
+    permission = (
+        session.query(ExperimentPermission)
+        .filter_by(user=user, experiment_id=experiment_id)
+        .first()
+    )
     return permission
 
 
-def create(user, resource, key, access_level):
+def create_permission(user, experiment_id, permission):
     session = sessionmaker(bind=create_engine())()
-    session.add(Permission(resource=resource, user=user, key=key, access_level=access_level))
+    session.add(ExperimentPermission(user=user, experiment_id=experiment_id, permission=permission))
     session.commit()
 
 
-def update(user, resource, key, access_level):
+def update_permission(user, experiment_id, permission):
     session = sessionmaker(bind=create_engine())()
-    permission = session.query(Permission).filter_by(resource=resource, user=user, key=key).first()
-    permission.access_level = access_level
-    session.commit()
-
-
-def delete(user, resource, key):
-    session = sessionmaker(bind=create_engine())()
-    permission = session.query(Permission).filter_by(resource=resource, user=user, key=key).first()
+    perm = (
+        session.query(ExperimentPermission)
+        .filter_by(user=user, experiment_id=experiment_id)
+        .first()
+    )
     if permission is None:
-        return
+        raise Exception("Permission not found")
+    perm.permission = permission
+    session.commit()
+
+
+def delete_permission(user, experiment_id):
+    session = sessionmaker(bind=create_engine())()
+    permission = (
+        session.query(ExperimentPermission)
+        .filter_by(user=user, experiment_id=experiment_id)
+        .first()
+    )
+    if permission is None:
+        raise Exception("Permission not found")
     session.delete(permission)
     session.commit()

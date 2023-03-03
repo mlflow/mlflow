@@ -4,20 +4,50 @@ import os
 import requests
 import base64
 
-USERNAME_A = "user_a@test.com"
-PASSWORD_A = "password_a"
-USERNAME_B = "user_b@test.com"
-PASSWORD_B = "password_b"
+
+class User:
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+        self.u = None
+        self.p = None
+
+    @property
+    def name(self):
+        """
+        Alias for username
+        """
+        return self.username
+
+    def __enter__(self):
+        self.u = os.environ.get("MLFLOW_TRACKING_USERNAME")
+        self.p = os.environ.get("MLFLOW_TRACKING_PASSWORD")
+        os.environ["MLFLOW_TRACKING_USERNAME"] = self.username
+        os.environ["MLFLOW_TRACKING_PASSWORD"] = self.password
+
+    def __exit__(self, *args):
+        if self.u is None:
+            del os.environ["MLFLOW_TRACKING_USERNAME"]
+        else:
+            os.environ["MLFLOW_TRACKING_USERNAME"] = self.u
+        if self.p is None:
+            del os.environ["MLFLOW_TRACKING_PASSWORD"]
+        else:
+            os.environ["MLFLOW_TRACKING_PASSWORD"] = self.p
 
 
-def use_a():
-    os.environ["MLFLOW_TRACKING_USERNAME"] = USERNAME_A
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = PASSWORD_A
+a = User("user_a@test.com", "password_a")
+b = User("user_b@test.com", "password_b")
 
 
-def use_b():
-    os.environ["MLFLOW_TRACKING_USERNAME"] = USERNAME_B
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = PASSWORD_B
+def should_fail(f):
+    try:
+        f()
+    except Exception as e:
+        print(e)
+    else:
+        raise Exception("Should not reach here")
 
 
 TRACKING_URI = "http://localhost:5000"
@@ -38,35 +68,86 @@ def api(endpoint, method="GET", **kwargs):
 mlflow.set_tracking_uri(TRACKING_URI)
 
 
-use_a()
-name_a = uuid.uuid4().hex
-# This doesn't work
-exp_id_a = mlflow.create_experiment(name_a)
+name_a = f"a_{uuid.uuid4().hex}"
+should_fail(lambda: mlflow.create_experiment(name_a))
 
-use_b()
-name_b = uuid.uuid4().hex
-exp_id_b = mlflow.create_experiment(name_b)
+with a:
+    # This doesn't work
+    exp_id_a = mlflow.create_experiment(name_a)
 
-try:
-    mlflow.get_experiment(exp_id_a)
-except Exception as e:
-    print(e)
-else:
-    raise Exception("Should not reach here")
+with b:
+    name_b = f"b_{uuid.uuid4().hex}"
+    exp_id_b = mlflow.create_experiment(name_b)
+
+    should_fail(lambda: mlflow.get_experiment(exp_id_a))
+
+    api(
+        f"experiments/{exp_id_b}/permissions",
+        "PUT",
+        json={"user": a.name, "permission": "READ"},
+    )
+
+with a:
+    mlflow.search_experiments()
 
 
 # Allow B to read A's experiment
-use_a()
-api(
-    f"experiments/{exp_id_a}/permissions",
-    "PUT",
-    json={"user": USERNAME_B, "access_level": "CAN_READ"},
-)
+with a:
+    api(
+        f"experiments/{exp_id_a}/permissions",
+        "PUT",
+        json={"user": b.name, "permission": "READ"},
+    )
 
-print(mlflow.get_experiment(exp_id_a))
+    print(
+        api(
+            f"experiments/{exp_id_a}/permissions",
+            "GET",
+        )
+    )
 
-api(
-    f"experiments/{exp_id_a}/permissions",
-    "POST",
-    json={"user": USERNAME_B, "access_level": "CAN_"},
-)
+
+with b:
+    # B can read
+    mlflow.get_experiment(exp_id_a)
+
+    # but not edit
+    should_fail(lambda: mlflow.MlflowClient().rename_experiment(exp_id_a, "new_name"))
+
+
+with a:
+    api(
+        f"experiments/{exp_id_a}/permissions",
+        "POST",
+        json={"user": b.name, "permission": "EDIT"},
+    )
+
+with b:
+    new_name = f"a_{uuid.uuid4().hex}"
+    # B can edit
+    mlflow.MlflowClient().rename_experiment(exp_id_a, new_name)
+
+    # but not delete
+    should_fail(lambda: mlflow.MlflowClient().delete_experiment(exp_id_a))
+
+    # B can't update permissions on A's experiments
+    should_fail(
+        lambda: api(
+            f"experiments/{exp_id_a}/permissions",
+            "POST",
+            json={"user": b.name, "permission": "MANAGE"},
+        )
+    )
+
+
+with a:
+    api(
+        f"experiments/{exp_id_a}/permissions",
+        "DELETE",
+        json={"user": b.name},
+    )
+
+with b:
+    should_fail(lambda: mlflow.get_experiment(exp_id_a))
+
+print("SUCCESS")

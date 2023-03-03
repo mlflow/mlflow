@@ -4,10 +4,11 @@ import shlex
 import sys
 import textwrap
 
-from flask import Flask, send_from_directory, Response, request
+from flask import Flask, send_from_directory, Response, request, redirect
 from flask_sqlalchemy import SQLAlchemy
 from flask_security import (
     auth_required,
+    login_required,
     Security,
     SQLAlchemyUserDatastore,
     hash_password,
@@ -51,6 +52,7 @@ app.config["SECRET_KEY"] = os.environ.get(
 app.config["SECURITY_PASSWORD_SALT"] = os.environ.get(
     "SECURITY_PASSWORD_SALT", "146585145368132386173505678016728509634"
 )
+app.config["SECURITY_POST_LOGIN_VIEW"] = "/mlflow"
 
 # have session and remember cookie be samesite (flask/flask_login)
 app.config["REMEMBER_COOKIE_SAMESITE"] = "strict"
@@ -111,62 +113,56 @@ for http_path, handler, methods in handlers.get_endpoints():
 
 
 @auth_required("basic")
+@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["GET"])
+def _list_experiment_permissions(experiment_id):
+    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    if perm is None or not handlers.get_permission(perm.permission).can_manage():
+        return "You do not have access to view permissions of this experiment", 403
+
+    perms = permissions.list_permissions(experiment_id)
+
+    # Make permissions serializable
+    perms = [
+        {
+            "user": p.user,
+            "permission": p.permission,
+        }
+        for p in perms
+    ]
+
+    return {"permissions": perms}, 200
+
+
+@auth_required("basic")
 @app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["PUT"])
 def _create_experiment_permissions(experiment_id):
-    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
-    if perm is None:
-        return "You do not have access to this experiment", 403
+    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    if perm is None or not handlers.get_permission(perm.permission).can_manage():
+        return "You do not have access to create permissions of this experiment", 403
 
-    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
-        return "You do not have access to manage permissions of this experiment", 403
-
-    permissions.create(
-        request.json["user"],
-        "experiments",
-        experiment_id,
-        request.json["access_level"],
-    )
-
+    permissions.create_permission(request.json["user"], experiment_id, request.json["permission"])
     return "OK", 200
 
 
 @auth_required("basic")
 @app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["POST"])
 def _update_experiment_permissions(experiment_id):
-    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
-    if perm is None:
-        return "You do not have access to this experiment", 403
+    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    if perm is None or not handlers.get_permission(perm.permission).can_manage():
+        return "You do not have access to update permissions of this experiment", 403
 
-    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
-        return "You do not have access to manage permissions of this experiment", 403
-
-    permissions.update(
-        request.json["user"],
-        "experiments",
-        experiment_id,
-        request.json["access_level"],
-    )
-
+    permissions.update_permission(request.json["user"], experiment_id, request.json["permission"])
     return "OK", 200
 
 
 @auth_required("basic")
 @app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["DELETE"])
 def _delete_experiment_permissions(experiment_id):
-    perm = permissions.get(request.authorization.username, "experiments", experiment_id)
-    if perm is None:
-        return "You do not have access to this experiment", 403
+    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    if perm is None or not handlers.get_permission(perm.permission).can_manage():
+        return "You do not have permission to delete permissions of this experiment", 403
 
-    if not handlers.get_access_level(perm.access_level).can_manage_permissions():
-        return "You do not have access to manage permissions of this experiment", 403
-
-    permissions.upsert(
-        request.json["user"],
-        "experiments",
-        experiment_id,
-        request.json["access_level"],
-    )
-
+    permissions.delete_permission(request.json["user"], experiment_id)
     return "OK", 200
 
 
@@ -216,9 +212,15 @@ def serve_static_file(path):
     return send_from_directory(STATIC_DIR, path)
 
 
-# Serve the index.html for the React App for all other routes.
 @app.route(_add_static_prefix("/"))
-def serve():
+def index():
+    return redirect("/login", code=302)
+
+
+# Serve the index.html for the React App for all other routes.
+@app.route(_add_static_prefix("/mlflow"))
+@login_required
+def mlflow():
     if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
         return send_from_directory(STATIC_DIR, "index.html")
 

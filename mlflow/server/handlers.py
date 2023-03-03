@@ -611,33 +611,26 @@ def _not_implemented():
 # Tracking Server APIs
 
 
-class AbstractAccessLevel(ABC):
+class AbstractExperimentPermission(ABC):
     @abstractmethod
-    def can_create(self):
+    def can_read(self) -> bool:
         pass
 
     @abstractmethod
-    def can_create(self):
+    def can_update(self) -> bool:
         pass
 
     @abstractmethod
-    def can_update(self):
+    def can_delete(self) -> bool:
         pass
 
     @abstractmethod
-    def can_delete(self):
-        pass
-
-    @abstractmethod
-    def can_manage_permissions(self):
+    def can_manage(self) -> bool:
         pass
 
 
-class CanRead(AbstractAccessLevel):
-    NAME = "CAN_READ"
-
-    def can_create(self):
-        return False
+class Read(AbstractExperimentPermission):
+    NAME = "READ"
 
     def can_read(self):
         return True
@@ -648,15 +641,28 @@ class CanRead(AbstractAccessLevel):
     def can_delete(self):
         return False
 
-    def can_manage_permissions(self):
+    def can_manage(self):
         pass
 
 
-class CanEdit(AbstractAccessLevel):
-    NAME = "CAN_EDIT"
+class Edit(AbstractExperimentPermission):
+    NAME = "EDIT"
 
-    def can_create(self):
+    def can_read(self):
+        return True
+
+    def can_update(self):
+        return True
+
+    def can_delete(self):
         return False
+
+    def can_manage(self):
+        return False
+
+
+class Manage(AbstractExperimentPermission):
+    NAME = "MANAGE"
 
     def can_read(self):
         return True
@@ -667,37 +673,18 @@ class CanEdit(AbstractAccessLevel):
     def can_delete(self):
         return True
 
-    def can_manage_permissions(self):
-        return False
-
-
-class CanManage(AbstractAccessLevel):
-    NAME = "CAN_MANAGE"
-
-    def can_create(self):
-        return True
-
-    def can_read(self):
-        return True
-
-    def can_update(self):
-        return True
-
-    def can_delete(self):
-        return True
-
-    def can_manage_permissions(self):
+    def can_manage(self):
         return True
 
 
 ROLE_TO_ACCESS_LEVEL = {
-    CanRead.NAME: CanRead(),
-    CanEdit.NAME: CanEdit(),
-    CanManage.NAME: CanManage(),
+    Read.NAME: Read(),
+    Edit.NAME: Edit(),
+    Manage.NAME: Manage(),
 }
 
 
-def get_access_level(x):
+def get_permission(x):
     return ROLE_TO_ACCESS_LEVEL[x]
 
 
@@ -718,7 +705,7 @@ def _create_experiment():
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
-    permissions.create(request.authorization.username, "experiments", experiment_id, CanManage.NAME)
+    permissions.create_permission(request.authorization.username, experiment_id, Manage.NAME)
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype="application/json")
@@ -734,14 +721,9 @@ def _get_experiment():
         GetExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     response_message = GetExperiment.Response()
-    perm = permissions.get(
-        request.authorization.username, "experiments", request_message.experiment_id
-    )
-    if perm is None:
-        return "You do not have access to this experiment", 403
-
-    if not get_access_level(perm.access_level).can_read():
-        return "You do not have access to this experiment", 403
+    perm = permissions.get_permission(request.authorization.username, request_message.experiment_id)
+    if perm is None or not get_permission(perm.permission).can_read():
+        return "You do not have permission to read this experiment", 403
 
     experiment = _get_tracking_store().get_experiment(request_message.experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
@@ -764,14 +746,9 @@ def _get_experiment_by_name():
             error_code=RESOURCE_DOES_NOT_EXIST,
         )
 
-    access_level = get_access_level(
-        request.authorization.username, "experiments", store_exp.experiment_id
-    )
-    if access_level is None:
-        return "You do not have access to this experiment", 403
-
-    if not access_level.can_read():
-        return "You do not have access to this experiment", 403
+    perm = permissions.get_permission(request.authorization.username, store_exp.experiment_id)
+    if perm is None or not get_permission(perm.permission).can_read():
+        return "You do not have permission to read this experiment", 403
     experiment = store_exp.to_proto()
     response_message.experiment.MergeFrom(experiment)
     response = Response(mimetype="application/json")
@@ -785,6 +762,9 @@ def _delete_experiment():
     request_message = _get_request_message(
         DeleteExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
+    perm = permissions.get_permission(request.authorization.username, request_message.experiment_id)
+    if perm is None or not get_permission(perm.permission).can_delete():
+        return "You do not have permission to delete this experiment", 403
     _get_tracking_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype="application/json")
@@ -807,6 +787,7 @@ def _restore_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@flask_security.auth_required("basic")
 def _update_experiment():
     request_message = _get_request_message(
         UpdateExperiment(),
@@ -816,14 +797,12 @@ def _update_experiment():
         },
     )
 
-    perm = permissions.get(
-        request.authorization.username, "experiments", request_message.experiment_id
-    )
+    perm = permissions.get_permission(request.authorization.username, request_message.experiment_id)
     if perm is None:
         return "You do not have access to this experiment", 403
 
-    if not get_access_level(perm.access_level).can_update():
-        return "You do not have access to this experiment", 403
+    if not get_permission(perm.permission).can_update():
+        return "You do not have permission to update this experiment", 403
 
     if request_message.new_name:
         _get_tracking_store().rename_experiment(
@@ -1242,8 +1221,18 @@ def _search_experiments():
         filter_string=request_message.filter,
         page_token=request_message.page_token,
     )
+
+    # Filter out experiments that the user doesn't have READ permission on
+    experiments = []
+    for e in experiment_entities:
+        perm = permissions.get_permission(request.authorization.username, e.experiment_id)
+        if perm is None:
+            continue
+        if get_permission(perm.permission).can_read():
+            experiments.append(e)
+
     response_message = SearchExperiments.Response()
-    response_message.experiments.extend([e.to_proto() for e in experiment_entities])
+    response_message.experiments.extend([e.to_proto() for e in experiments])
     if experiment_entities.token:
         response_message.next_page_token = experiment_entities.token
     response = Response(mimetype="application/json")
