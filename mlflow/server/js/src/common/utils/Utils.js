@@ -236,6 +236,14 @@ class Utils {
     return withoutTrailingSlash;
   }
 
+  /**
+   * Regular expression for URLs containing the string 'git'.
+   * It can be http (e.g. https://github.com/mlflow/mlflow#examples/sklearn_elasticnet_wine),
+   * ssh (e.g. git@github.com:mlflow/mlflow.git) or
+   * custom git domain (e.g. https://git.custom.in/repo/dir#file/dir).
+   * Excluding the first overall match, there are three groups: git url, repo directory, and file directory.
+   * (e.g. group1: https://github.com, group2: mlflow/mlflow, group3: examples/sklearn_elasticnet_wine)
+   */
   static getGitRegex() {
     return /(.*?[@/][^?]*git.*?)[:/]([^#]+)(?:#(.*))?/;
   }
@@ -1110,4 +1118,5 @@ class Utils {
 }
 
 export default Utils;
+
 
