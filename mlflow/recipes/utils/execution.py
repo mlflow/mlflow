@@ -61,7 +61,10 @@ def run_recipe_step(
         recipe_steps=[
             step
             for step in recipe_steps[: target_step_index + 1]
-            if get_execution_state(step).status != StepStatus.SUCCEEDED
+            if get_execution_state(step).status != StepStatus.SUCCEEDED and not (
+                get_execution_state(step).status == StepStatus.RUNNING and
+                step.name == "train" and "huggingface" in template
+            )
         ],
     )
 
