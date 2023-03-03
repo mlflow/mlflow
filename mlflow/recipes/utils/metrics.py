@@ -67,6 +67,10 @@ BUILTIN_REGRESSION_RECIPE_METRICS = [
     RecipeMetric(name="mean_absolute_percentage_error", greater_is_better=False),
 ]
 
+BUILTIN_HUGGINGFACE_RECIPE_METRICS = [
+    RecipeMetric(name="squad_v2", greater_is_better=False),
+]
+
 DEFAULT_METRICS = {
     "regression": "root_mean_squared_error",
     "classification/binary": "f1_score",
@@ -156,6 +160,8 @@ def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
         return BUILTIN_BINARY_CLASSIFICATION_RECIPE_METRICS
     elif ext_task == "classification/multiclass":
         return BUILTIN_MULTICLASS_CLASSIFICATION_RECIPE_METRICS
+    elif ext_task == "huggingface":
+        return BUILTIN_HUGGINGFACE_RECIPE_METRICS
     raise MlflowException(
         f"No builtin metrics for template kind {ext_task}",
         error_code=INVALID_PARAMETER_VALUE,

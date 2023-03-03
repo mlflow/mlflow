@@ -276,6 +276,8 @@ class TrainStep(BaseStep):
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
+        from transformers import Trainer
+        from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
 
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
@@ -289,7 +291,7 @@ class TrainStep(BaseStep):
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
             # Get estimator
             sys.path.append(self.recipe_root)
-            estimator_fn = getattr(
+            trainer_fn = getattr(
                 importlib.import_module(_USER_DEFINED_TRAIN_STEP_MODULE),
                 self.step_config["estimator_method"],
             )
@@ -306,9 +308,25 @@ class TrainStep(BaseStep):
             )
             dataset = load_dataset("parquet", data_files={
                 'train': transformed_training_data_path,
-                'test': transformed_validation_data_path
+                'eval': transformed_validation_data_path
             })
+            estimator_params = self.step_config["estimator_params"]
+            estimator_params["train_dataset"] = dataset['train']
+            estimator_params["cache_dir"] = output_directory
 
+            # Initialize our Trainer
+            trainer = trainer_fn(estimator_params)
+
+            # Run trainer
+            train_result = trainer.train()
+            trainer.save_model()  # Saves the tokenizer too for easy upload
+
+            metrics = train_result.metrics
+            metrics["train_samples"] = len(dataset['train'])
+
+            trainer.log_metrics("train", metrics)
+            trainer.save_metrics("train", metrics)
+            trainer.save_state()
 
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
