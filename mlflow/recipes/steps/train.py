@@ -317,9 +317,29 @@ class TrainStep(BaseStep):
             # Initialize our Trainer
             trainer = trainer_fn(estimator_params)
 
+            # Write to mlflow
+            from tqdm.auto import tqdm
+            import torch
+            from transformers import pipeline
+            
+            pipeline_artifact_name = "pipeline"
+            class TextClassificationPipelineModel(mlflow.pyfunc.PythonModel):
+                def load_context(self, context):
+                    device = 0 if torch.cuda.is_available() else -1
+                    self.pipeline = pipeline("text-classification", context.artifacts[pipeline_artifact_name], device=device)
+                    
+                def predict(self, context, model_input): 
+                    import pandas as pd
+                    texts = model_input[model_input.columns[0]].to_list()
+                    pipe = tqdm(self.pipeline(texts, truncation=True, batch_size=8), total=len(texts), miniters=10)
+                    labels = [prediction['label'] for prediction in pipe]
+                    return pd.Series(labels)
+
             # Run trainer
             train_result = trainer.train()
-            trainer.save_model()  # Saves the tokenizer too for easy upload
+            trainer.save_model(output_directory)
+            print(run.info.run_id)
+            mlflow.pyfunc.log_model(artifacts={pipeline_artifact_name: output_directory}, artifact_path="my_path", python_model=TextClassificationPipelineModel())
 
             metrics = train_result.metrics
             metrics["train_samples"] = len(dataset['train'])
