@@ -272,7 +272,6 @@ class TrainStep(BaseStep):
 
         return estimator, {"target_column_class_labels": target_column_class_labels}
 
-
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
@@ -281,9 +280,7 @@ class TrainStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
             MLFLOW_RECIPE_TEMPLATE_NAME: self.recipe,
             MLFLOW_RECIPE_PROFILE_NAME: self.step_config["profile"],
-            MLFLOW_RECIPE_STEP_NAME: os.getenv(
-                _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
-            ),
+            MLFLOW_RECIPE_STEP_NAME: os.getenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR),
         }
         run_name = self.tracking_config.run_name
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
@@ -304,15 +301,18 @@ class TrainStep(BaseStep):
                 step_name="transform",
                 relative_path="transformed_validation_data.parquet",
             )
-            dataset = load_dataset("parquet", data_files={
-                'train': transformed_training_data_path,
-                'test': transformed_validation_data_path
-            })
-
+            dataset = load_dataset(
+                "parquet",
+                data_files={
+                    "train": transformed_training_data_path,
+                    "test": transformed_validation_data_path,
+                },
+            )
 
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
             return self._run_huggingface(output_directory)
+
         def my_warn(*args, **kwargs):
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
             stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
