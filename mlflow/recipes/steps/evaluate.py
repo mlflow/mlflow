@@ -127,7 +127,95 @@ class EvaluateStep(BaseStep):
             )
         return summary
 
+    def _run_huggingface_evaluate(self, output_directory):
+        def my_warn(*args, **kwargs):
+            import sys
+            import datetime
+
+            timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
+            frame = sys._getframe(stacklevel)
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
+            open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
+
+        import warnings
+
+        original_warn = warnings.warn
+        warnings.warn = my_warn
+        try:
+            import pandas as pd
+
+            open(os.path.join(output_directory, "warning_logs.txt"), "w")
+
+            test_df_path = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name="split",
+                relative_path="test.parquet",
+            )
+            test_df = pd.read_parquet(test_df_path)
+
+            # validation_df_path = get_step_output_path(
+            #     recipe_root_path=self.recipe_root,
+            #     step_name="split",
+            #     relative_path="validation.parquet",
+            # )
+            # validation_df = pd.read_parquet(validation_df_path)
+
+            run_id_path = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name="train",
+                relative_path="run_id",
+            )
+            run_id = Path(run_id_path).read_text()
+
+            model_uri = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name="train",
+                relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
+            )
+
+            transformer = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name="transform",
+                relative_path="transformer",
+            )
+
+            apply_recipe_tracking_config(self.tracking_config)
+            exp_id = _get_experiment_id()
+
+            primary_metric_greater_is_better = self.evaluation_metrics[
+                self.primary_metric
+            ].greater_is_better
+
+            _set_experiment_primary_metric(
+                exp_id, f"test_{self.primary_metric}", primary_metric_greater_is_better
+            )
+
+            with mlflow.start_run(run_id=run_id):
+                model = mlflow.pyfunc.load_model(model_uri)
+                transformed_test_dataset = transformer.transform(
+                    test_df.drop(columns=[self.target_col]), test_df[self.target_col]
+                )
+                predicted_result = model.predict(transformed_test_dataset)
+
+                import evaluate
+
+                metric = evaluate.load(self.primary_metric)
+                score = metric.compute(
+                    predictions=predicted_result.predictions, references=predicted_result.label_ids
+                )
+
+                mlflow.log_metric(self.primary_metric, score)
+
+        finally:
+            warnings.warn = original_warn
+
     def _run(self, output_directory):
+        if self.recipe == "huggingface/v1":
+            return self._run_huggingface_evaluate(output_directory)
+
         def my_warn(*args, **kwargs):
             import sys
             import datetime

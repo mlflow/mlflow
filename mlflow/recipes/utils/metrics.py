@@ -75,6 +75,7 @@ DEFAULT_METRICS = {
     "regression": "root_mean_squared_error",
     "classification/binary": "f1_score",
     "classification/multiclass": "f1_score_macro",
+    "huggingface": "squad_v2",
 }
 
 

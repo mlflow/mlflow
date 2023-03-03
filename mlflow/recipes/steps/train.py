@@ -272,7 +272,6 @@ class TrainStep(BaseStep):
 
         return estimator, {"target_column_class_labels": target_column_class_labels}
 
-
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
@@ -283,9 +282,7 @@ class TrainStep(BaseStep):
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
             MLFLOW_RECIPE_TEMPLATE_NAME: self.recipe,
             MLFLOW_RECIPE_PROFILE_NAME: self.step_config["profile"],
-            MLFLOW_RECIPE_STEP_NAME: os.getenv(
-                _MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR
-            ),
+            MLFLOW_RECIPE_STEP_NAME: os.getenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR),
         }
         run_name = self.tracking_config.run_name
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
@@ -306,12 +303,15 @@ class TrainStep(BaseStep):
                 step_name="transform",
                 relative_path="transformed_validation_data.parquet",
             )
-            dataset = load_dataset("parquet", data_files={
-                'train': transformed_training_data_path,
-                'eval': transformed_validation_data_path
-            })
+            dataset = load_dataset(
+                "parquet",
+                data_files={
+                    "train": transformed_training_data_path,
+                    "eval": transformed_validation_data_path,
+                },
+            )
             estimator_params = self.step_config["estimator_params"]
-            estimator_params["train_dataset"] = dataset['train']
+            estimator_params["train_dataset"] = dataset["train"]
             estimator_params["cache_dir"] = output_directory
 
             # Initialize our Trainer
@@ -321,28 +321,45 @@ class TrainStep(BaseStep):
             from tqdm.auto import tqdm
             import torch
             from transformers import pipeline
-            
+
             pipeline_artifact_name = "pipeline"
+
             class TextClassificationPipelineModel(mlflow.pyfunc.PythonModel):
                 def load_context(self, context):
                     device = 0 if torch.cuda.is_available() else -1
-                    self.pipeline = pipeline("text-classification", context.artifacts[pipeline_artifact_name], device=device)
-                    
-                def predict(self, context, model_input): 
+                    self.pipeline = pipeline(
+                        "text-classification",
+                        context.artifacts[pipeline_artifact_name],
+                        device=device,
+                    )
+
+                def predict(self, context, model_input):
                     import pandas as pd
+
                     texts = model_input[model_input.columns[0]].to_list()
-                    pipe = tqdm(self.pipeline(texts, truncation=True, batch_size=8), total=len(texts), miniters=10)
-                    labels = [prediction['label'] for prediction in pipe]
+                    pipe = tqdm(
+                        self.pipeline(texts, truncation=True, batch_size=8),
+                        total=len(texts),
+                        miniters=10,
+                    )
+                    labels = [prediction["label"] for prediction in pipe]
                     return pd.Series(labels)
 
             # Run trainer
             train_result = trainer.train()
             trainer.save_model(output_directory)
-            print(run.info.run_id)
-            mlflow.pyfunc.log_model(artifacts={pipeline_artifact_name: output_directory}, artifact_path="my_path", python_model=TextClassificationPipelineModel())
+            mlflow.pyfunc.log_model(
+                artifacts={pipeline_artifact_name: output_directory},
+                artifact_path="my_path",
+                python_model=TextClassificationPipelineModel(),
+            )
+            with open(os.path.join(output_directory, "run_id"), "w") as f:
+                f.write(run.info.run_id)
+
+            log_code_snapshot(self.recipe_root, run.info.run_id, recipe_config=self.recipe_config)
 
             metrics = train_result.metrics
-            metrics["train_samples"] = len(dataset['train'])
+            metrics["train_samples"] = len(dataset["train"])
 
             trainer.log_metrics("train", metrics)
             trainer.save_metrics("train", metrics)
@@ -351,6 +368,7 @@ class TrainStep(BaseStep):
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
             return self._run_huggingface(output_directory)
+
         def my_warn(*args, **kwargs):
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
             stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
