@@ -144,6 +144,7 @@ def test_search_experiments_filter_by_time_attribute(store):
     experiments = store.search_experiments(filter_string=f"creation_time > {now}")
     assert experiments == []
 
+    time.sleep(0.001)
     time_before_rename = get_current_time_millis()
     store.rename_experiment(exp_id1, "new_name")
     experiments = store.search_experiments(

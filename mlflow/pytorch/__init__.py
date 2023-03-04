@@ -22,6 +22,7 @@ import posixpath
 import mlflow
 import shutil
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
@@ -63,6 +64,8 @@ _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
+_TORCH_CPU_DEVICE_NAME = "cpu"
+_TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
 _logger = logging.getLogger(__name__)
 
@@ -769,9 +772,20 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, device="cpu"):
+    def predict(self, data, device=None):
         import torch
 
+        # if CUDA is available, we use the default CUDA device.
+        # To force inference to the CPU when the GPU is available, please set
+        # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
+        # If a specific non-default device is passed in, we continue to respect that.
+        if device is None:
+            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
+            elif torch.cuda.is_available():
+                device = _TORCH_DEFAULT_GPU_DEVICE_NAME
+            else:
+                device = _TORCH_CPU_DEVICE_NAME
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
@@ -789,8 +803,10 @@ class _PyTorchWrapper:
         with torch.no_grad():
             input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
-            if device != "cpu":
-                preds = preds.to("cpu")
+            # if the predictions happened on a remote device, copy them back to
+            # the host CPU for processing
+            if device != _TORCH_CPU_DEVICE_NAME:
+                preds = preds.to(_TORCH_CPU_DEVICE_NAME)
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "

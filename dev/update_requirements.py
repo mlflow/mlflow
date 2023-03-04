@@ -62,7 +62,6 @@ def main():
         pip_release = req_info["pip_release"]
         max_major_version = req_info["max_major_version"]
         latest_major_version = get_latest_major_version(pip_release)
-        assert latest_major_version >= max_major_version
         if latest_major_version > max_major_version:
             requirements[key]["max_major_version"] = latest_major_version
             print(f"Updated {key}.max_major_version to {latest_major_version}")

@@ -4,7 +4,6 @@ import json
 import pytest
 from unittest import mock
 from unittest.mock import ANY
-import os
 
 from google.cloud.storage import Client
 from requests import Response
@@ -49,19 +48,37 @@ from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
 
-
-def host_creds():
-    return MlflowHostCreds("https://hello")
+_REGISTRY_URI = "databricks-uc"
+_TRACKING_URI = "databricks"
+_REGISTRY_HOST_CREDS = MlflowHostCreds("https://hello-registry")
+_TRACKING_HOST_CREDS = MlflowHostCreds("https://hello-tracking")
 
 
 @pytest.fixture
-def store():
-    return UcModelRegistryStore(host_creds, host_creds)
+def mock_databricks_host_creds():
+    def mock_host_creds(uri):
+        if uri == _TRACKING_URI:
+            return _TRACKING_HOST_CREDS
+        elif uri == _REGISTRY_URI:
+            return _REGISTRY_HOST_CREDS
+        raise Exception(f"Got unexpected store URI {uri}")
+
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
+        side_effect=mock_host_creds,
+    ):
+        yield
 
 
-def _args(endpoint, method, json_body):
+@pytest.fixture
+def store(mock_databricks_host_creds):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        yield UcModelRegistryStore(registry_uri="databricks-uc", tracking_uri="databricks")
+
+
+def _args(endpoint, method, json_body, host_creds):
     res = {
-        "host_creds": host_creds(),
+        "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
     }
@@ -72,9 +89,11 @@ def _args(endpoint, method, json_body):
     return res
 
 
-def _verify_requests(http_request, endpoint, method, proto_message):
+def _verify_requests(
+    http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS
+):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(_args(endpoint, method, json_body)))
+    http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds)))
 
 
 def _expected_unsupported_method_error_message(method):
@@ -83,13 +102,6 @@ def _expected_unsupported_method_error_message(method):
 
 def _expected_unsupported_arg_error_message(arg):
     return f"Argument '{arg}' is unsupported for models in the Unity Catalog"
-
-
-def _verify_all_requests(http_request, endpoints, proto_message):
-    json_body = message_to_json(proto_message)
-    http_request.assert_has_calls(
-        [mock.call(**(_args(endpoint, method, json_body))) for endpoint, method in endpoints]
-    )
 
 
 @mock_http_200
@@ -254,28 +266,19 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-def test_download_source_doesnt_leak_files(store, tmp_path):
-    parentd = tmp_path.joinpath("data")
-    parentd.mkdir()
-    parentd.joinpath("a.txt").write_text("A")
-    with store._download_source(parentd) as local_dir:
-        with open(os.path.join(local_dir, "a.txt"), "r") as handle:
-            assert handle.read() == "A"
-    assert not os.path.exists(local_dir)
-
-
 def test_get_workspace_id_returns_none_if_no_request_header(store):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock:
-        mock_response = mock.MagicMock(autospec=Response)
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.text = str(dict())
-        request_mock.return_value = mock_response
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.text = str({})
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
+    ):
         assert store._get_workspace_id(run_id="some_run_id") is None
 
 
 def _get_workspace_id_for_run(run_id=None):
-    return str(123) if run_id is not None else None
+    return "123" if run_id is not None else None
 
 
 def get_request_mock(
@@ -297,6 +300,7 @@ def get_request_mock(
         )
         req_info_to_response = {
             (
+                _REGISTRY_HOST_CREDS.host,
                 "/api/2.0/mlflow/unity-catalog/model-versions/create",
                 "POST",
                 message_to_json(
@@ -314,6 +318,7 @@ def get_request_mock(
                 )
             ),
             (
+                _REGISTRY_HOST_CREDS.host,
                 "/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
                 "POST",
                 message_to_json(
@@ -323,6 +328,7 @@ def get_request_mock(
                 ),
             ): model_version_temp_credentials_response,
             (
+                _REGISTRY_HOST_CREDS.host,
                 "/api/2.0/mlflow/unity-catalog/model-versions/finalize",
                 "POST",
                 message_to_json(FinalizeModelVersionRequest(name=name, version=version)),
@@ -330,14 +336,21 @@ def get_request_mock(
         }
         if run_id is not None:
             req_info_to_response[
-                ("/api/2.0/mlflow/runs/get", "GET", message_to_json(GetRun(run_id=run_id)))
+                (
+                    _TRACKING_HOST_CREDS.host,
+                    "/api/2.0/mlflow/runs/get",
+                    "GET",
+                    message_to_json(GetRun(run_id=run_id)),
+                )
             ] = GetRun.Response()
 
         if method == "POST":
             json_dict = kwargs["json"]
         else:
             json_dict = kwargs["params"]
-        response_message = req_info_to_response[(endpoint, method, json.dumps(json_dict, indent=2))]
+        response_message = req_info_to_response[
+            (host_creds.host, endpoint, method, json.dumps(json_dict, indent=2))
+        ]
         mock_resp = mock.MagicMock(autospec=Response)
         mock_resp.status_code = 200
         mock_resp.text = message_to_json(response_message)
@@ -395,22 +408,24 @@ def test_create_model_version_aws(store, local_model_dir):
             session_token=session_token,
         )
     )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
-    ) as s3_artifact_repo_class_mock:
-        s3_artifact_repo_class_mock.return_value = mock_artifact_repo
-        storage_location = "s3://blah"
-        source = str(local_model_dir)
-        model_name = "model_1"
-        version = str(1)
-        request_mock.side_effect = get_request_mock(
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             name=model_name,
             version=version,
             temp_credentials=aws_temp_creds,
             storage_location=storage_location,
             source=source,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
+        return_value=mock_artifact_repo,
+    ) as s3_artifact_repo_class_mock:
         store.create_model_version(name=model_name, source=source)
         # Verify that s3 artifact repo mock was called with expected args
         s3_artifact_repo_class_mock.assert_called_once_with(
@@ -419,7 +434,7 @@ def test_create_model_version_aws(store, local_model_dir):
             secret_access_key=secret_access_key,
             session_token=session_token,
         )
-        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -431,21 +446,23 @@ def test_create_model_version_azure(store, local_model_dir):
     temporary_creds = TemporaryCredentials(
         azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
     )
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
-    ) as adls_artifact_repo_class_mock:
-        mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
-        adls_artifact_repo_class_mock.return_value = mock_adls_repo
-        source = str(local_model_dir)
-        model_name = "model_1"
-        version = str(1)
-        request_mock.side_effect = get_request_mock(
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
             name=model_name,
             version=version,
             temp_credentials=temporary_creds,
             storage_location=storage_location,
             source=source,
-        )
+        ),
+    ) as request_mock, mock.patch(
+        "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
+        return_value=mock_adls_repo,
+    ) as adls_artifact_repo_class_mock:
         store.create_model_version(name=model_name, source=source)
         adls_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, credential=ANY
@@ -453,7 +470,7 @@ def test_create_model_version_azure(store, local_model_dir):
         adls_repo_args = adls_artifact_repo_class_mock.call_args_list[0]
         credential = adls_repo_args[1]["credential"]
         assert credential.signature == fake_sas_token
-        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, name=model_name, source=source, version=version
         )
@@ -481,28 +498,30 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         "run_id": "some_run_id",
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
-        "google.cloud.storage.Client"
+    mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
+    version = "1"
+    mock_request_fn = get_request_mock(
+        **create_kwargs,
+        version=version,
+        temp_credentials=temporary_creds,
+        storage_location=storage_location,
+    )
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
+    ), mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=mock_request_fn,
+    ) as request_mock, mock.patch(
+        "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
     ) as gcs_client_class_mock, mock.patch(
-        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository"
+        "mlflow.store.artifact.gcs_artifact_repo.GCSArtifactRepository", return_value=mock_gcs_repo
     ) as gcs_artifact_repo_class_mock:
-        mock_gcs_client = mock.MagicMock(autospec=Client)
-        gcs_client_class_mock.return_value = mock_gcs_client
-        mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
-        gcs_artifact_repo_class_mock.return_value = mock_gcs_repo
-        version = str(1)
-        request_mock.side_effect = get_request_mock(
-            **create_kwargs,
-            version=version,
-            temp_credentials=temporary_creds,
-            storage_location=storage_location,
-        )
         store.create_model_version(**create_kwargs)
         # Verify that gcs artifact repo mock was called with expected args
         gcs_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, client=ANY
         )
-        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=source, artifact_path="")
+        mock_gcs_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token

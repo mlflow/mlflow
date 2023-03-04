@@ -1,3 +1,4 @@
+import entrypoints
 import os
 import shlex
 import sys
@@ -5,6 +6,7 @@ import textwrap
 
 from flask import Flask, send_from_directory, Response
 
+from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
     get_artifact_handler,
@@ -105,19 +107,37 @@ def serve():
     return Response(text, mimetype="text/plain")
 
 
-def _build_waitress_command(waitress_opts, host, port):
+def _get_app_name() -> str:
+    """Search for plugins for custom mlflow app, otherwise return default."""
+    apps = list(entrypoints.get_group_all("mlflow.app"))
+    # Default, nothing installed
+    if len(apps) == 0:
+        return f"{__name__}:app"
+    # Cannot install more than one
+    if len(apps) > 1:
+        raise MlflowException(
+            "Multiple server plugins detected. "
+            "Only one server plugin may be installed. "
+            f"Detected plugins: {', '.join([f'{a.module_name}.{a.object_name}' for a in apps])}"
+        )
+    # Has a plugin installed
+    plugin_app = apps[0]
+    return f"{plugin_app.module_name}:{plugin_app.object_name}"
+
+
+def _build_waitress_command(waitress_opts, host, port, app_name):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return (
         ["waitress-serve"]
         + opts
-        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", "mlflow.server:app"]
+        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", app_name]
     )
 
 
-def _build_gunicorn_command(gunicorn_opts, host, port, workers):
+def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, app_name]
 
 
 def _run_server(
@@ -160,9 +180,10 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
+    app_name = _get_app_name()
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port)
+        full_command = _build_waitress_command(waitress_opts, host, port, app_name)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_name)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)

@@ -26,7 +26,7 @@ scipy:
 
 pandas:
   pip_release: pandas
-  max_major_version: 1
+  max_major_version: 2
 
 querystring_parser:
   pip_release: querystring_parser
@@ -54,7 +54,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 10
+  max_major_version: 11
 
 shap:
   pip_release: shap
