@@ -174,6 +174,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
+    endpoint_config={},
     env=None,
     tags=None,
 ):
@@ -311,6 +312,24 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
+    :param endpoint_config: The name to assign to the endpoint_config on the sagemaker endpoint.
+                                    .. code-block:: python
+                                        :caption: Example
+                                             endpointConfig = {
+                                                "EndpointConfigName": None, #config_name,
+                                                "ProductionVariants": [production_variant],
+                                                "Tags": [{"Key": "app_name", "Value": None}],
+                                                "AsyncInferenceConfig": {
+                                                    "ClientConfig": {
+                                                        "MaxConcurrentInvocationsPerInstance": 4
+                                                    },
+                                                    #TODO: modify this to be a parameter for args input
+                                                    "OutputConfig": {
+                                                        "S3OutputPath": "", #f"s3://<path-to-output-bucket>",
+                                                        "NotificationConfig": {}
+                                                    }
+                                                },
+                                            }
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -1668,6 +1687,11 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
+    # This is the hardcoded config for endpoint
+    """
+    If you pass an argument called endpoint_config then it will use that value, otherwise it will
+    use the below as the default value.
+    """
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
@@ -1965,6 +1989,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             "variant_name": None,
             "env": None,
             "tags": None,
+            "endpoint_config": {}
         }
 
         if create_mode:
@@ -1979,7 +2004,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config", "data_capture_config", "tags", "env"}
+        dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "endpoint_config"}
         for key, value in custom_config.items():
             if key not in config:
                 continue
@@ -2104,6 +2129,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a
                                            production variant.  Defaults to ``None``.
+                       - ``endpoint_config``: A dictionary specifying the endpoint configuration 
+                        as key-value pairs to be set for the deployed endpoint
 
                        - ``env``: A dictionary specifying environment variables as key-value
                          pairs to be set for the deployed model. Defaults to ``None``.
@@ -2336,8 +2363,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          Defaults to ``None``.
 
                        - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.
-
+                                           production variant.  Defaults to ``None``.                                           
+                       - ``endpoint_config``: A dictionary specifying the endpoint configuration 
+                        as key-value pairs to be set for the deployed endpoint
                        - ``env``: A dictionary specifying environment variables as key-value pairs
                          to be set for the deployed model. Defaults to ``None``.
 
@@ -2454,6 +2482,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
+            endpoint_config=final_config["endpoint_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
