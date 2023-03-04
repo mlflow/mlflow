@@ -43,6 +43,7 @@ from mlflow.utils.rest_utils import (
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
     verify_rest_response,
+    http_request,
 )
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -51,6 +52,8 @@ from mlflow.store._unity_catalog.registry.utils import (
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -99,8 +102,6 @@ class UcModelRegistryStore(BaseRestStore):
     """
 
     def __init__(self, registry_uri, tracking_uri):
-        from mlflow.utils.databricks_utils import get_databricks_host_creds
-
         super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
@@ -301,9 +302,6 @@ class UcModelRegistryStore(BaseRestStore):
             return None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
-        # Import this method here to facilitate mocking it in tests
-        from mlflow.utils.rest_utils import http_request
-
         response = http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
         )

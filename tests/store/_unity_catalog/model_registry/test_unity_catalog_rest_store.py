@@ -62,7 +62,8 @@ def mock_databricks_host_creds():
         raise Exception(f"Got unexpected store URI {uri}")
 
     with mock.patch(
-        "mlflow.utils.databricks_utils.get_databricks_host_creds", side_effect=mock_host_creds
+        "mlflow.store._unity_catalog.registry.rest_store.get_databricks_host_creds",
+        side_effect=mock_host_creds,
     ):
         yield
 
@@ -225,17 +226,18 @@ def test_delete_registered_model_tag_unsupported(store):
 
 
 def test_get_workspace_id_returns_none_if_no_request_header(store):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as request_mock:
-        mock_response = mock.MagicMock(autospec=Response)
-        mock_response.status_code = 200
-        mock_response.headers = {}
-        mock_response.text = str({})
-        request_mock.return_value = mock_response
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.text = str({})
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
+    ) as request_mock:
         assert store._get_workspace_id(run_id="some_run_id") is None
 
 
 def _get_workspace_id_for_run(run_id=None):
-    return str(123) if run_id is not None else None
+    return "123" if run_id is not None else None
 
 
 def get_request_mock(
@@ -420,7 +422,6 @@ def test_create_model_version_azure(store, tmp_path):
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
         return_value=mock_adls_repo,
     ) as adls_artifact_repo_class_mock:
-        adls_artifact_repo_class_mock.return_value = mock_adls_repo
         store.create_model_version(name=model_name, source=source)
         adls_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, credential=ANY
@@ -458,14 +459,17 @@ def test_create_model_version_gcp(store, tmp_path, create_args):
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
     version = "1"
+    mock_request_fn = get_request_mock(
+        **create_kwargs,
+        version=version,
+        temp_credentials=temporary_creds,
+        storage_location=storage_location,
+    )
     with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
+    ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
-        side_effect=get_request_mock(
-            **create_kwargs,
-            version=version,
-            temp_credentials=temporary_creds,
-            storage_location=storage_location,
-        ),
+        side_effect=mock_request_fn,
     ) as request_mock, mock.patch(
         "google.cloud.storage.Client", return_value=mock.MagicMock(autospec=Client)
     ) as gcs_client_class_mock, mock.patch(
