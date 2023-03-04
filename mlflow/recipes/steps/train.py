@@ -322,7 +322,7 @@ class TrainStep(BaseStep):
             # Write to mlflow
             from tqdm.auto import tqdm
             import torch
-            from transformers import pipeline
+            from transformers import pipeline, TrainerCallback
 
             pipeline_artifact_name = "pipeline"
 
@@ -347,10 +347,90 @@ class TrainStep(BaseStep):
                     labels = [prediction["label"] for prediction in pipe]
                     return pd.Series(labels)
 
+            class MLflowRecipesCallback(TrainerCallback):
+                def __init__(self):
+                    import mlflow
+
+                    self._MAX_PARAM_VAL_LENGTH = mlflow.utils.validation.MAX_PARAM_VAL_LENGTH
+                    self._MAX_PARAMS_TAGS_PER_BATCH = (
+                        mlflow.utils.validation.MAX_PARAMS_TAGS_PER_BATCH
+                    )
+
+                    self._initialized = False
+
+                def setup(self, args, state, model):
+                    if state.is_world_process_zero:
+                        combined_dict = args.to_dict()
+                        if hasattr(model, "config") and model.config is not None:
+                            model_config = model.config.to_dict()
+                            combined_dict = {**model_config, **combined_dict}
+                        # remove params that are too long for MLflow
+                        for name, value in list(combined_dict.items()):
+                            # internally, all values are converted to str in MLflow
+                            if len(str(value)) > self._MAX_PARAM_VAL_LENGTH:
+                                _logger.warning(
+                                    f'Trainer is attempting to log a value of "{value}" for key "{name}" as a parameter. MLflow\'s'
+                                    " log_param() only accepts values no longer than 250 characters so we dropped this attribute."
+                                    " You can use `MLFLOW_FLATTEN_PARAMS` environment variable to flatten the parameters and"
+                                    " avoid this message."
+                                )
+                                del combined_dict[name]
+                        # MLflow cannot log more than 100 values in one go, so we have to split it
+                        combined_dict_items = list(combined_dict.items())
+                        for i in range(
+                            0, len(combined_dict_items), self._MAX_PARAMS_TAGS_PER_BATCH
+                        ):
+                            mlflow.log_params(
+                                dict(combined_dict_items[i : i + self._MAX_PARAMS_TAGS_PER_BATCH])
+                            )
+                    self._initialized = True
+
+                def on_train_begin(self, args, state, control, model=None, **kwargs):
+                    if not self._initialized:
+                        self.setup(args, state, model)
+
+                def on_log(self, args, state, control, logs, model=None, **kwargs):
+                    if not self._initialized:
+                        self.setup(args, state, model)
+                    if state.is_world_process_zero:
+                        metrics = {}
+                        for k, v in logs.items():
+                            if isinstance(v, (int, float)):
+                                metrics[k] = v
+                            else:
+                                _logger.warning(
+                                    f'Trainer is attempting to log a value of "{v}" of type {type(v)} for key "{k}" as a metric. '
+                                    "MLflow's log_metric() only accepts float and int types so we dropped this attribute."
+                                )
+                        mlflow.log_metrics(metrics=metrics, step=state.global_step)
+
+                def on_train_end(self, args, state, control, **kwargs):
+                    pass
+
+                def on_save(self, args, state, control, **kwargs):
+                    if self._initialized and state.is_world_process_zero:
+                        ckpt_dir = f"checkpoint-{state.global_step}"
+                        artifact_path = os.path.join(args.output_dir, ckpt_dir)
+                        _logger.info(
+                            f"Logging checkpoint artifacts in {ckpt_dir}. This may take time."
+                        )
+                        mlflow.pyfunc.log_model(
+                            ckpt_dir,
+                            artifacts={"model_path": artifact_path},
+                            python_model=mlflow.pyfunc.PythonModel(),
+                        )
+
             # Run trainer
             _resume = False
             if get_last_checkpoint(output_directory) is not None:
                 _resume = True
+            # Remove native callback for tracking.
+            from transformers.integrations import MLflowCallback, WandbCallback
+
+            trainer.remove_callback(MLflowCallback)
+            trainer.remove_callback(WandbCallback)
+            # Add our own callback for MLflow tracking.
+            trainer.add_callback(MLflowRecipesCallback)
             train_result = trainer.train(resume_from_checkpoint=_resume)
             trainer.save_model(output_directory)
             mlflow.pyfunc.log_model(
