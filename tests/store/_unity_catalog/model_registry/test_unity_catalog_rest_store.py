@@ -131,7 +131,7 @@ def test_create_model_version_missing_mlmodel(store, tmp_path):
         match="Unable to load model metadata. Ensure the source path of the model "
         "being registered points to a valid MLflow model directory ",
     ):
-        store.create_model_version(name="mymodel", source=tmp_path)
+        store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
 def test_create_model_version_missing_signature(store, tmp_path):
@@ -140,7 +140,7 @@ def test_create_model_version_missing_signature(store, tmp_path):
         MlflowException,
         match="Model passed for registration did not contain any signature metadata",
     ):
-        store.create_model_version(name="mymodel", source=tmp_path)
+        store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
 def test_create_model_version_missing_output_signature(store, tmp_path):
@@ -152,7 +152,7 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         MlflowException,
         match="Model passed for registration contained a signature that includes only inputs",
     ):
-        store.create_model_version(name="mymodel", source=tmp_path)
+        store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
 def test_create_registered_model_with_tags_unsupported(store):
