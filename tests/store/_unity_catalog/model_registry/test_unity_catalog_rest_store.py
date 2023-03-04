@@ -232,7 +232,7 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
     mock_response.text = str({})
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
-    ) as request_mock:
+    ):
         assert store._get_workspace_id(run_id="some_run_id") is None
 
 
