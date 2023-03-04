@@ -115,4 +115,7 @@ export class MlflowService {
    */
   static setExperimentTag = (data) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/set-experiment-tag', data });
+
+  static signup = (data) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/auth/signup', data });
+  static signin = (data) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/auth/signin', data });
 }

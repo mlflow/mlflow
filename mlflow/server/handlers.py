@@ -12,7 +12,6 @@ from abc import ABC, abstractmethod
 import logging
 from functools import wraps
 
-import flask_security
 from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
@@ -87,7 +86,8 @@ from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from . import permissions
+from flask_jwt_extended import jwt_required, get_jwt_identity
+from . import db
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -690,7 +690,7 @@ def get_permission(x):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@flask_security.auth_required("basic")
+@jwt_required()
 def _create_experiment():
     request_message = _get_request_message(
         CreateExperiment(),
@@ -701,11 +701,13 @@ def _create_experiment():
         },
     )
 
+    user = get_jwt_identity()
+    user = db.get_user_by_email(user)
     tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
     experiment_id = _get_tracking_store().create_experiment(
         request_message.name, request_message.artifact_location, tags
     )
-    permissions.create_permission(request.authorization.username, experiment_id, Manage.NAME)
+    db.create_experiment_permission(experiment_id, user.id, Manage.NAME)
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype="application/json")
@@ -715,13 +717,14 @@ def _create_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@flask_security.auth_required("basic")
+@jwt_required()
 def _get_experiment():
     request_message = _get_request_message(
         GetExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
     )
     response_message = GetExperiment.Response()
-    perm = permissions.get_permission(request.authorization.username, request_message.experiment_id)
+    user = db.get_user_by_email(get_jwt_identity())
+    perm = db.get_experiment_permission(request_message.experiment_id, user.id)
     if perm is None or not get_permission(perm.permission).can_read():
         return "You do not have permission to read this experiment", 403
 
@@ -787,7 +790,6 @@ def _restore_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@flask_security.auth_required("basic")
 def _update_experiment():
     request_message = _get_request_message(
         UpdateExperiment(),
@@ -1006,7 +1008,7 @@ def _get_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@flask_security.auth_required("basic", within=1)
+@jwt_required()
 def _search_runs():
     request_message = _get_request_message(
         SearchRuns(),
@@ -1202,7 +1204,7 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@flask_security.auth_required("basic")
+@jwt_required()
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),
@@ -1223,9 +1225,11 @@ def _search_experiments():
     )
 
     # Filter out experiments that the user doesn't have READ permission on
+    # This can be expensive, but is necessary to ensure that users can't
     experiments = []
+    user = db.get_user_by_email(get_jwt_identity())
     for e in experiment_entities:
-        perm = permissions.get_permission(request.authorization.username, e.experiment_id)
+        perm = db.get_experiment_permission(e.experiment_id, user.id)
         if perm is None:
             continue
         if get_permission(perm.permission).can_read():

@@ -44,6 +44,12 @@ export const getDefaultHeaders = (cookieStr) => {
   };
 };
 
+const getTokenAuthHeader = (token) => {
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
 export const getAjaxUrl = (relativeUrl) => {
   if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
@@ -107,6 +113,7 @@ export const fetchEndpointRaw = ({
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
     ...getDefaultHeaders(document.cookie),
+    ...getTokenAuthHeader(localStorage.getItem('access_token')),
     ...headerOptions,
   };
 

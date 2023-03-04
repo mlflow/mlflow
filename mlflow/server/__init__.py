@@ -4,16 +4,8 @@ import shlex
 import sys
 import textwrap
 
-from flask import Flask, send_from_directory, Response, request, redirect
-from flask_sqlalchemy import SQLAlchemy
-from flask_security import (
-    auth_required,
-    login_required,
-    Security,
-    SQLAlchemyUserDatastore,
-    hash_password,
-)
-from flask_security.models import fsqla_v3 as fsqla
+from flask import Flask, send_from_directory, Response, request, redirect, jsonify
+from werkzeug.security import check_password_hash
 
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
@@ -26,7 +18,14 @@ from mlflow.server.handlers import (
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
-from . import permissions
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity,
+    JWTManager,
+    set_access_cookies,
+)
+from . import db
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -42,68 +41,19 @@ REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 app.config["DEBUG"] = True
+app.config["JWT_SECRET_KEY"] = "secret"
+jwt = JWTManager(app)
 
-# Generate a nice key using secrets.token_urlsafe()
-app.config["SECRET_KEY"] = os.environ.get(
-    "SECRET_KEY", "pf9Wkove4IKEAXvy-cQkeDPhv9Cb3Ag-wyJILbq_dFw"
-)
 # Bcrypt is set as default SECURITY_PASSWORD_HASH, which requires a salt
 # Generate a good salt using: secrets.SystemRandom().getrandbits(128)
 app.config["SECURITY_PASSWORD_SALT"] = os.environ.get(
     "SECURITY_PASSWORD_SALT", "146585145368132386173505678016728509634"
 )
-app.config["SECURITY_POST_LOGIN_VIEW"] = "/mlflow"
-
-# have session and remember cookie be samesite (flask/flask_login)
-app.config["REMEMBER_COOKIE_SAMESITE"] = "strict"
-app.config["SESSION_COOKIE_SAMESITE"] = "strict"
-
-# Use an in-memory db
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
-# As of Flask-SQLAlchemy 2.4.0 it is easy to pass in options directly to the
-# underlying engine. This option makes sure that DB connections from the
-# pool are still valid. Important for entire application since
-# many DBaaS options automatically close idle connections.
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_pre_ping": True,
-}
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-# Create database connection object
-db = SQLAlchemy(app)
-
-# Define models
-fsqla.FsModels.set_db_info(db)
 
 
-class Role(db.Model, fsqla.FsRoleMixin):
-    pass
-
-
-class User(db.Model, fsqla.FsUserMixin):
-    pass
-
-
-# Setup Flask-Security
-user_datastore = SQLAlchemyUserDatastore(db, User, Role)
-app.security = Security(app, user_datastore)
-
-
-# one time setup
+db.init_app(app)
 with app.app_context():
-    # Create User to test with
-    db.create_all()
-    if not app.security.datastore.find_user(email="user_a@test.com"):
-        app.security.datastore.create_user(
-            email="user_a@test.com", password=hash_password("password_a")
-        )
-    if not app.security.datastore.find_user(email="user_b@test.com"):
-        app.security.datastore.create_user(
-            email="user_b@test.com", password=hash_password("password_b")
-        )
-    db.session.commit()
-
-permissions.init_db()
+    db.init_tables()
 
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
@@ -112,57 +62,73 @@ for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
 
-@auth_required("basic")
-@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["GET"])
+@app.route("/ajax-api/2.0/mlflow/auth/signup", methods=["POST"])
+def signup():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+    db.create_user(email, password)
+    return jsonify({"message": "User created successfully"}), 200
+
+
+@app.route("/ajax-api/2.0/mlflow/auth/signin", methods=["POST"])
+def singin():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+    user = db.get_user_by_email(email)
+    if user is None or not check_password_hash(user.password, password):
+        return jsonify({"error": "error"}), 401
+
+    access_token = create_access_token(identity=email)
+    return jsonify(access_token=access_token)
+
+
+@app.route("/api/2.0/mlflow/auth/experiments/<experiment_id>/permissions", methods=["GET"])
+@jwt_required()
 def _list_experiment_permissions(experiment_id):
-    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    user = db.get_user_by_email(get_jwt_identity())
+    perm = db.get_experiment_permission(experiment_id, user.id)
     if perm is None or not handlers.get_permission(perm.permission).can_manage():
         return "You do not have access to view permissions of this experiment", 403
-
-    perms = permissions.list_permissions(experiment_id)
 
     # Make permissions serializable
     perms = [
         {
-            "user": p.user,
+            "user_id": p.user_id,
             "permission": p.permission,
         }
-        for p in perms
+        for p in db.list_experiment_permissions(experiment_id)
     ]
 
     return {"permissions": perms}, 200
 
 
-@auth_required("basic")
-@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["PUT"])
+@app.route("/api/2.0/mlflow/auth/experiments/<experiment_id>/permissions", methods=["PUT"])
 def _create_experiment_permissions(experiment_id):
-    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    perm = db.get_experiment_permission(request.authorization.username, experiment_id)
     if perm is None or not handlers.get_permission(perm.permission).can_manage():
         return "You do not have access to create permissions of this experiment", 403
 
-    permissions.create_permission(request.json["user"], experiment_id, request.json["permission"])
+    db.create_experiment_permission(request.json["user"], experiment_id, request.json["permission"])
     return "OK", 200
 
 
-@auth_required("basic")
-@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["POST"])
+@app.route("/api/2.0/mlflow/auth/experiments/<experiment_id>/permissions", methods=["POST"])
 def _update_experiment_permissions(experiment_id):
-    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    perm = db.get_experiment_permission(request.authorization.username, experiment_id)
     if perm is None or not handlers.get_permission(perm.permission).can_manage():
         return "You do not have access to update permissions of this experiment", 403
 
-    permissions.update_permission(request.json["user"], experiment_id, request.json["permission"])
+    db.update_e(request.json["user"], experiment_id, request.json["permission"])
     return "OK", 200
 
 
-@auth_required("basic")
-@app.route("/api/2.0/mlflow/experiments/<experiment_id>/permissions", methods=["DELETE"])
+@app.route("/api/2.0/mlflow/auth/experiments/<experiment_id>/permissions", methods=["DELETE"])
 def _delete_experiment_permissions(experiment_id):
-    perm = permissions.get_permission(request.authorization.username, experiment_id)
+    perm = db.get_experiment_permission(request.authorization.username, experiment_id)
     if perm is None or not handlers.get_permission(perm.permission).can_manage():
         return "You do not have permission to delete permissions of this experiment", 403
 
-    permissions.delete_permission(request.json["user"], experiment_id)
+    db.delete_experiment_permission(request.json["user"], experiment_id)
     return "OK", 200
 
 
@@ -212,14 +178,8 @@ def serve_static_file(path):
     return send_from_directory(STATIC_DIR, path)
 
 
-@app.route(_add_static_prefix("/"))
-def index():
-    return redirect("/login", code=302)
-
-
 # Serve the index.html for the React App for all other routes.
-@app.route(_add_static_prefix("/mlflow"))
-@login_required
+@app.route(_add_static_prefix("/"))
 def mlflow():
     if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
         return send_from_directory(STATIC_DIR, "index.html")
