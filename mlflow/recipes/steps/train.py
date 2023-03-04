@@ -285,6 +285,7 @@ class TrainStep(BaseStep):
             MLFLOW_RECIPE_STEP_NAME: os.getenv(_MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME_ENV_VAR),
         }
         run_name = self.tracking_config.run_name
+        apply_recipe_tracking_config(self.tracking_config)
         with mlflow.start_run(run_name=run_name, tags=tags) as run:
             # Get estimator
             sys.path.append(self.recipe_root)
@@ -346,14 +347,27 @@ class TrainStep(BaseStep):
                     return pd.Series(labels)
 
             # Run trainer
-            train_result = trainer.train()
+            _resume = False
+            if get_last_checkpoint(output_directory) is not None:
+                _resume = True
+            train_result = trainer.train(resume_from_checkpoint = _resume)
             trainer.save_model(output_directory)
+<<<<<<< HEAD
             print(run.info.run_id)
+=======
+>>>>>>> 47943f7740ff66d0730a97cac4db712902a0784e
             mlflow.pyfunc.log_model(
                 artifacts={pipeline_artifact_name: output_directory},
                 artifact_path="my_path",
                 python_model=TextClassificationPipelineModel(),
             )
+<<<<<<< HEAD
+=======
+            with open(os.path.join(output_directory, "run_id"), "w") as f:
+                f.write(run.info.run_id)
+
+            log_code_snapshot(self.recipe_root, run.info.run_id, recipe_config=self.recipe_config)
+>>>>>>> 47943f7740ff66d0730a97cac4db712902a0784e
 
             metrics = train_result.metrics
             metrics["train_samples"] = len(dataset["train"])

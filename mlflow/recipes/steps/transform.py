@@ -129,6 +129,7 @@ class TransformStep(BaseStep):
         method_config = self.step_config.get("transformer_method")
         # For HuggingFace transformers, we don't need to fit the transformer on the training data.
         transformer = None
+<<<<<<< HEAD
         if self.recipe != "huggingface/v1":
             if method_config and self.step_config["using"] == "custom":
                 transformer_fn = getattr(
@@ -136,6 +137,16 @@ class TransformStep(BaseStep):
                 )
                 transformer = _validate_user_code_output(transformer_fn)
             transformer = transformer if transformer else get_identity_transformer()
+=======
+        if method_config and self.step_config["using"] == "custom":
+            transformer_fn = getattr(
+                importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
+            )
+            transformer = _validate_user_code_output(transformer_fn)
+        transformer = transformer if transformer else get_identity_transformer()
+        # For HuggingFace transformers, we don't need to fit the transformer on the training data.
+        if self.recipe != "huggingface/v1":
+>>>>>>> 47943f7740ff66d0730a97cac4db712902a0784e
             transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
 
             def transform_dataset(dataset):
@@ -148,6 +159,7 @@ class TransformStep(BaseStep):
                 transformed_features[self.target_col] = dataset[self.target_col].values
                 return transformed_features
 
+<<<<<<< HEAD
             train_transformed = transform_dataset(train_df)
             validation_transformed = transform_dataset(validation_df)
             with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
@@ -157,6 +169,27 @@ class TransformStep(BaseStep):
                 process_fn = getattr(
                     importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
                 )()
+=======
+        def transform_huggingface_dataset(dataset):
+            import transformers
+
+            transformed_dataset = transformer.transform(dataset)
+            if isinstance(transformed_dataset, transformers.BatchEncoding):
+                return pd.DataFrame.from_dict(transformed_dataset.data)
+            elif not isinstance(transformed_dataset, pd.DataFrame):
+                raise ValueError(
+                    "Type: {} is not supported for HuggingFace transformers.",
+                    type(transformed_dataset),
+                )
+            return transformed_dataset
+
+        if self.recipe != "huggingface/v1":
+            train_transformed = transform_dataset(train_df)
+            validation_transformed = transform_dataset(validation_df)
+        else:
+            train_transformed = transform_huggingface_dataset(train_df)
+            validation_transformed = transform_huggingface_dataset(validation_df)
+>>>>>>> 47943f7740ff66d0730a97cac4db712902a0784e
 
             def transform_huggingface_dataset(dataset):
                 from datasets import Dataset

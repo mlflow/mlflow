@@ -113,7 +113,17 @@ class PredictStep(BaseStep):
 
         return card
 
+    # ALL hackathon run code goes here!
+    def _run_huggingface(self, output_directory):
+        from datasets import load_dataset
+        from transformers import Trainer
+        from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
+
+
     def _run(self, output_directory):
+        if self.recipe == "huggingface/v1":
+            return self._run_huggingface(output_directory)
+
         import pandas as pd
         from pyspark.sql.functions import struct
 
