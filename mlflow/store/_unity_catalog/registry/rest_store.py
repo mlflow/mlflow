@@ -1,6 +1,8 @@
+import functools
 import logging
 import tempfile
 
+from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
     CreateRegisteredModelResponse,
@@ -40,6 +42,8 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
+    verify_rest_response,
+    http_request,
 )
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -48,7 +52,11 @@ from mlflow.store._unity_catalog.registry.utils import (
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+
+_DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
+_TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
@@ -87,10 +95,16 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every REST request to get the
-      :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
-      is a function so that we can obtain fresh credentials in the case of expiry.
+    :param registry_uri: URI with scheme 'databricks-uc'
+    :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
+                         run info and download run artifacts, when creating new model
+                         versions from source artifacts logged to an MLflow run.
     """
+
+    def __init__(self, registry_uri, tracking_uri):
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
+        self.tracking_uri = tracking_uri
+        self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
     def _get_response_from_method(self, method):
         method_to_response = {
@@ -108,6 +122,7 @@ class UcModelRegistryStore(BaseRestStore):
             SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
             # pylint: disable=line-too-long
             GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+            GetRun: GetRun.Response,
         }
         return method_to_response[method]()
 
@@ -282,6 +297,23 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
+    def _get_workspace_id(self, run_id):
+        if run_id is None:
+            return None
+        host_creds = self.get_tracking_host_creds()
+        endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
+        response = http_request(
+            host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
+        )
+        response = verify_rest_response(response, endpoint)
+        if _DATABRICKS_ORG_ID_HEADER not in response.headers:
+            _logger.warning(
+                "Unable to get model version source run's workspace ID from request headers. "
+                "No run link will be recorded for the model version"
+            )
+            return None
+        return response.headers[_DATABRICKS_ORG_ID_HEADER]
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -300,17 +332,19 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
+        source_workspace_id = self._get_workspace_id(run_id)
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
                 source=source,
                 run_id=run_id,
                 description=description,
+                run_tracking_server_id=source_workspace_id,
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
             local_model_dir = mlflow.artifacts.download_artifacts(
-                artifact_uri=source, dst_path=tmpdir
+                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
             )
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
