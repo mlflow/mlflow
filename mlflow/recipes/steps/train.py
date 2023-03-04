@@ -308,11 +308,12 @@ class TrainStep(BaseStep):
                 "parquet",
                 data_files={
                     "train": transformed_training_data_path,
-                    "eval": transformed_validation_data_path,
+                    "validation": transformed_validation_data_path,
                 },
             )
             estimator_params = self.step_config["estimator_params"]
             estimator_params["train_dataset"] = dataset["train"]
+            estimator_params["validation_dataset"] = dataset["validation"]
             estimator_params["cache_dir"] = output_directory
 
             # Initialize our Trainer

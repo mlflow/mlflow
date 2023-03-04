@@ -92,7 +92,78 @@ class TransformStep(BaseStep):
         self.execution_duration = None
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
 
+    def _run_huggingface(self, output_directory):
+        import pandas as pd
+
+        run_start_time = time.time()
+
+        train_data_path = get_step_output_path(
+            recipe_root_path=self.recipe_root,
+            step_name="split",
+            relative_path="train.parquet",
+        )
+        train_df = pd.read_parquet(train_data_path)
+        validate_classification_config(self.task, self.positive_class, train_df, self.target_col)
+
+        validation_data_path = get_step_output_path(
+            recipe_root_path=self.recipe_root,
+            step_name="split",
+            relative_path="validation.parquet",
+        )
+        validation_df = pd.read_parquet(validation_data_path)
+
+        sys.path.append(self.recipe_root)
+        if "transformer_method" not in self.step_config and self.step_config["using"] == "custom":
+            raise MlflowException(
+                "Missing 'transformer_method' configuration in the transform step, "
+                "which is using 'custom'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        method_config = self.step_config.get("transformer_method")
+        # By default use an identity transformer function returning the input.
+        preprocess_fn = lambda x: x
+        if method_config and self.step_config["using"] == "custom":
+            preprocess_fn = getattr(
+                importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
+            )()
+
+        def transform_huggingface_dataset(dataset):
+            import os
+            from datasets import Dataset
+            from datasets.utils.logging import disable_progress_bar
+
+            disable_progress_bar()
+            transformed_dataset = Dataset.from_pandas(dataset).map(
+                preprocess_fn,
+                batched=True,
+                num_proc=os.cpu_count(),
+            )
+            return transformed_dataset.to_pandas()
+
+        train_transformed = transform_huggingface_dataset(train_df)
+        validation_transformed = transform_huggingface_dataset(validation_df)
+
+        with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
+            from sklearn.preprocessing import FunctionTransformer
+
+            cloudpickle.dump(FunctionTransformer(preprocess_fn), f)
+
+        train_transformed.to_parquet(
+            os.path.join(output_directory, "transformed_training_data.parquet")
+        )
+        validation_transformed.to_parquet(
+            os.path.join(output_directory, "transformed_validation_data.parquet")
+        )
+
+        self.run_end_time = time.time()
+        self.execution_duration = self.run_end_time - run_start_time
+
+        return self._build_profiles_and_card(train_df, train_transformed, transformer=None)
+
     def _run(self, output_directory):
+        if self.recipe == "huggingface/v1":
+            return self._run_huggingface(output_directory)
+
         import pandas as pd
 
         run_start_time = time.time()
@@ -127,51 +198,29 @@ class TransformStep(BaseStep):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         method_config = self.step_config.get("transformer_method")
-        # For HuggingFace transformers, we don't need to fit the transformer on the training data.
         transformer = None
-        if self.recipe != "huggingface/v1":
-            if method_config and self.step_config["using"] == "custom":
-                transformer_fn = getattr(
-                    importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
-                )
-                transformer = _validate_user_code_output(transformer_fn)
-            transformer = transformer if transformer else get_identity_transformer()
-            transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
+        if method_config and self.step_config["using"] == "custom":
+            transformer_fn = getattr(
+                importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
+            )
+            transformer = _validate_user_code_output(transformer_fn)
+        transformer = transformer if transformer else get_identity_transformer()
+        transformer.fit(train_df.drop(columns=[self.target_col]), train_df[self.target_col])
 
-            def transform_dataset(dataset):
-                features = dataset.drop(columns=[self.target_col])
-                transformed_features = transformer.transform(features)
-                if not isinstance(transformed_features, pd.DataFrame):
-                    num_features = transformed_features.shape[1]
-                    columns = _get_output_feature_names(transformer, num_features, features.columns)
-                    transformed_features = pd.DataFrame(transformed_features, columns=columns)
-                transformed_features[self.target_col] = dataset[self.target_col].values
-                return transformed_features
+        def transform_dataset(dataset):
+            features = dataset.drop(columns=[self.target_col])
+            transformed_features = transformer.transform(features)
+            if not isinstance(transformed_features, pd.DataFrame):
+                num_features = transformed_features.shape[1]
+                columns = _get_output_feature_names(transformer, num_features, features.columns)
+                transformed_features = pd.DataFrame(transformed_features, columns=columns)
+            transformed_features[self.target_col] = dataset[self.target_col].values
+            return transformed_features
 
-            train_transformed = transform_dataset(train_df)
-            validation_transformed = transform_dataset(validation_df)
-            with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
-                cloudpickle.dump(transformer, f)
-        else:
-            if method_config and self.step_config["using"] == "custom":
-                process_fn = getattr(
-                    importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
-                )()
-
-            def transform_huggingface_dataset(dataset):
-                from datasets import Dataset
-
-                transformed_dataset = Dataset.from_pandas(dataset).map(
-                    process_fn,
-                    batched=True,
-                    num_proc=1,
-                    load_from_cache_file=True,
-                    desc="Running tokenizer to transform dataset in transform step",
-                )
-                return transformed_dataset.to_pandas()
-
-            train_transformed = transform_huggingface_dataset(train_df)
-            validation_transformed = transform_huggingface_dataset(validation_df)
+        train_transformed = transform_dataset(train_df)
+        validation_transformed = transform_dataset(validation_df)
+        with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
+            cloudpickle.dump(transformer, f)
 
         train_transformed.to_parquet(
             os.path.join(output_directory, "transformed_training_data.parquet")
@@ -185,7 +234,7 @@ class TransformStep(BaseStep):
 
         return self._build_profiles_and_card(train_df, train_transformed, transformer)
 
-    def _build_profiles_and_card(self, train_df, train_transformed, transformer=None) -> BaseCard:
+    def _build_profiles_and_card(self, train_df, train_transformed, transformer) -> BaseCard:
         # Build card
         card = BaseCard(self.recipe, self.name)
 
