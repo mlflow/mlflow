@@ -350,7 +350,7 @@ class TrainStep(BaseStep):
             _resume = False
             if get_last_checkpoint(output_directory) is not None:
                 _resume = True
-            train_result = trainer.train(resume_from_checkpoint = _resume)
+            train_result = trainer.train(resume_from_checkpoint=_resume)
             trainer.save_model(output_directory)
             mlflow.pyfunc.log_model(
                 artifacts={pipeline_artifact_name: output_directory},

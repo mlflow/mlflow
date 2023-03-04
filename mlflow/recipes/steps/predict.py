@@ -119,7 +119,6 @@ class PredictStep(BaseStep):
         from transformers import Trainer
         from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
 
-
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":
             return self._run_huggingface(output_directory)
