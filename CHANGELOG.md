@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## 2.2.1 (2023-03-02)
+
+MLflow 2.2.1 is a patch release containing the following bug fixes:
+
+- [Model Registry] Fix a bug that caused too many results to be requested by default when calling ``MlflowClient.search_model_versions()`` (#7935, @dbczumar)
+
 ## 2.2.0 (2023-02-28)
 
 MLflow 2.2.0 includes several major features and improvements
@@ -22,6 +28,7 @@ Features:
 - [Model Registry] Introduce ``max_results``, ``order_by`` and ``page_token`` arguments to ``MlflowClient.search_model_versions()`` (#7623, @serena-ruan)
 - [Models] Support logging large ONNX models by using external data (#7808, @dogeplusplus)
 - [Models] Add support for logging Diviner models fit in Spark (#7800, @BenWilson2)
+- [Models] Introduce ``MLFLOW_DEFAULT_PREDICTION_DEVICE`` environment variable to set the device for pyfunc model inference (#7922, @ankit-db)
 - [Scoring] Publish official Docker images for the MLflow Model scoring server at github.com/mlflow/mlflow/pkgs (#7759, @dbczumar)
 
 Bug fixes:
@@ -55,7 +62,7 @@ Documentation updates:
 
 Small bug fixes and documentation updates:
 
-#7866, #7751, #7724, #7699, #7697, #7666, @alekseyolg; #7896, #7861, #7858, #7862, #7872, #7859, #7863, #7767, #7766, #7765, #7741, @smurching; #7895, #7877, @viditjain99; #7898, @midhun1998; #7891, #7892, #7886, #7882, #7883, #7875, #7874, #7871, #7868, #7854, #7847, #7845, #7838, #7830, #7837, #7836, #7834, #7831, #7828, #7825, #7826, #7824, #7823, #7778, #7780, #7776, #7775, #7773, #7772, #7769, #7756, #7768, #7764, #7685, #7726, #7722, #7720, #7423, #7712, #7710, #7713, #7688, #7663, #7674, #7673, #7672, #7662, #7653, #7646, #7615, #7614, #7586, #7601, #7598, #7602, #7599, #7577, #7585, #7583, #7584, @harupy; #7865, #7803, #7753, #7719, @dipanjank; #7796, @serena-ruan; #7849, @turbotimon; #7822, #7600, @WeichenXu123; #7811, @guyrosin; #7812, #7788, #7787, #7748, #7730, #7616, #7593, @dbczumar; #7793, @Joel-hanson; #7792, #7694, #7643, @BenWilson2; #7771, #7657, #7644, @nsenno-dbr; #7738, @wkrt7; #7740, @Ark-kun; #7739, #7733, @bali0019; #7723, @andrehp; #7691, #7582, @agoyot; #7721, @Eseeldur; #7709, @srowen; #7693, @ry3s; #7649, @funkypenguin; #7665, @benjaminbluhm; #7668, @eltociear; #7550, @danielhstahl
+#7866, #7751, #7724, #7699, #7697, #7666, @alekseyolg; #7896, #7861, #7858, #7862, #7872, #7859, #7863, #7767, #7766, #7765, #7741, @smurching; #7895, #7877, @viditjain99; #7898, @midhun1998; #7891, #7892, #7886, #7882, #7883, #7875, #7874, #7871, #7868, #7854, #7847, #7845, #7838, #7830, #7837, #7836, #7834, #7831, #7828, #7825, #7826, #7824, #7823, #7778, #7780, #7776, #7775, #7773, #7772, #7769, #7756, #7768, #7764, #7685, #7726, #7722, #7720, #7423, #7712, #7710, #7713, #7688, #7663, #7674, #7673, #7672, #7662, #7653, #7646, #7615, #7614, #7586, #7601, #7598, #7602, #7599, #7577, #7585, #7583, #7584, @harupy; #7865, #7803, #7753, #7719, @dipanjank; #7796, @serena-ruan; #7849, @turbotimon; #7822, #7600, @WeichenXu123; #7811, @guyrosin; #7812, #7788, #7787, #7748, #7730, #7616, #7593, @dbczumar; #7793, @Joel-hanson; #7792, #7694, #7643, @BenWilson2; #7771, #7657, #7644, @nsenno-dbr; #7738, @wkrt7; #7740, @Ark-kun; #7739, #7733, @bali0019; #7723, @andrehp; #7691, #7582, @agoyot; #7721, @Eseeldur; #7709, @srowen; #7693, @ry3s; #7649, @funkypenguin; #7665, @benjaminbluhm; #7668, @eltociear; #7550, @danielhstahl; #7920, @arjundc-db
 
 ## 2.1.0 (2022-12-21)
 
