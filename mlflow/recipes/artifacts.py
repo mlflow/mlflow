@@ -84,11 +84,19 @@ class TransformerArtifact(Artifact):
         return self._path
 
     def load(self):
+        import os
+
         run_id = read_run_id(self._recipe_root)
         if run_id:
             with _use_tracking_uri(self._tracking_uri, self._recipe_root):
                 return mlflow.sklearn.load_model(f"runs:/{run_id}/{self._step_name}/transformer")
-        log_artifact_not_found_warning(self._name, self._step_name)
+        elif os.path.exists(self._path):
+            with open(self._path, "rb") as f:
+                import cloudpickle
+
+                return cloudpickle.load(f)
+        else:
+            log_artifact_not_found_warning(self._name, self._step_name)
         return None
 
 
