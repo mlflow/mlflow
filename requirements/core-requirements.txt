@@ -7,13 +7,13 @@ docker<7,>=4.0.0
 Flask<3
 numpy<2
 scipy<2
-pandas<2
+pandas<3
 querystring_parser<2
 sqlalchemy<3,>=1.4.0
 gunicorn<21; platform_system != 'Windows'
 waitress<3; platform_system == 'Windows'
 scikit-learn<2
-pyarrow<11,>=4.0.0
+pyarrow<12,>=4.0.0
 shap<1,>=0.40
 markdown<4,>=3.3
 Jinja2<4,>=2.11; platform_system != 'Windows'

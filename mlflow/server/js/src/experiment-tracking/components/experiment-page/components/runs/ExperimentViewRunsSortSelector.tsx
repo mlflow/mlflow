@@ -87,11 +87,10 @@ export const ExperimentViewRunsSortSelector = React.memo(
         }}
         labelInValue
         // Temporarily we're disabling virtualized list to maintain
-        // backwards compatiblity. Functional unit tests rely heavily
+        // backwards compatibility. Functional unit tests rely heavily
         // on non-virtualized values.
-        dangerouslySetAntdProps={
-          { virtual: false, dropdownStyle: styles.sortSelectDropdown } as any
-        }
+        virtual={false}
+        dangerouslySetAntdProps={{ dropdownStyle: styles.sortSelectDropdown }}
         onChange={onSortKeyChanged}
         data-test-id='sort-select-dropdown'
       >

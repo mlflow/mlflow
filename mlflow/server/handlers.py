@@ -83,6 +83,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import is_local_uri
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
@@ -1376,12 +1377,21 @@ def _create_model_version():
             "description": [_assert_string],
         },
     )
-    model_version = _get_model_registry_store().create_model_version(name=request_message.name,
-                                                                     source=request_message.source,
-                                                                     run_id=request_message.run_id,
-                                                                     tags=request_message.tags,
-                                                                     run_link=request_message.run_link,
-                                                                     description=request_message.description)
+
+    if is_local_uri(request_message.source):
+        raise MlflowException(
+            f"Model version source cannot be a local path: '{request_message.source}'",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    model_version = _get_model_registry_store().create_model_version(
+        name=request_message.name,
+        source=request_message.source,
+        run_id=request_message.run_id,
+        run_link=request_message.run_link,
+        tags=request_message.tags,
+        description=request_message.description,
+    )
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
@@ -1571,6 +1581,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -1595,6 +1606,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -1620,7 +1632,11 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = request_message.path if request_message.HasField("path") else None
+    if request_message.HasField("path"):
+        validate_path_is_safe(request_message.path)
+        path = request_message.path
+    else:
+        path = None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -1641,6 +1657,7 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)

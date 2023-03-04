@@ -47,7 +47,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
 from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
@@ -457,7 +457,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     run_link = "localhost:5000/path/to/run"
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1",
-        source="A/B",
+        source=f"runs:/{run_id}",
         run_id=run_id,
         run_link=run_link,
         tags=[tag.to_proto() for tag in tags],
@@ -469,7 +469,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["name"] == "model_1"
-    assert args["source"] == "A/B"
+    assert args["source"] == f"runs:/{run_id}"
     assert args["run_id"] == run_id
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
@@ -632,7 +632,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
         filter_string="source_path = 'A/B/CD'",
-        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token="",
     )
@@ -643,7 +643,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
         filter_string="name='model_1'",
-        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
         order_by=[],
         page_token="",
     )

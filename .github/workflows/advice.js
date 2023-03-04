@@ -49,7 +49,7 @@ module.exports = async ({ context, github }) => {
     );
   }
 
-  if (!body.includes("How should the PR be classified in the release notes?")) {
+  if (!(body || "").includes("How should the PR be classified in the release notes?")) {
     messages.push(
       "#### &#x26a0; Invalid PR template\n\n" +
         "This PR does not appear to have been filed using the MLflow PR template. " +

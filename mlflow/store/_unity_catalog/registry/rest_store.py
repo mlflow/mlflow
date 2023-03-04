@@ -1,6 +1,6 @@
-from contextlib import contextmanager
+import functools
 import logging
-import shutil
+import tempfile
 
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -30,6 +30,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    TemporaryCredentials,
     MODEL_VERSION_READ_WRITE,
 )
 import mlflow
@@ -42,6 +43,7 @@ from mlflow.utils.rest_utils import (
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
     verify_rest_response,
+    http_request,
 )
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
@@ -50,6 +52,8 @@ from mlflow.store._unity_catalog.registry.utils import (
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -91,14 +95,16 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every REST request to get the
-      :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
-      is a function so that we can obtain fresh credentials in the case of expiry.
+    :param registry_uri: URI with scheme 'databricks-uc'
+    :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
+                         run info and download run artifacts, when creating new model
+                         versions from source artifacts logged to an MLflow run.
     """
 
-    def __init__(self, get_host_creds, get_tracking_host_creds):
-        super().__init__(get_host_creds=get_host_creds)
-        self.get_tracking_host_creds = get_tracking_host_creds
+    def __init__(self, registry_uri, tracking_uri):
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
+        self.tracking_uri = tracking_uri
+        self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
     def _get_response_from_method(self, method):
         method_to_response = {
@@ -274,12 +280,13 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
         return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
 
-    def _get_temporary_model_version_write_credentials(self, name, version):
+    def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
         """
         Get temporary credentials for uploading model version files
-        :param name:
-        :param version:
-        :return:
+        :param name: Registered model name
+        :param version: Model version number
+        :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
+                 containing temporary model version credentials
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
@@ -290,19 +297,11 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
-    @contextmanager
-    def _download_source(self, source):
-        tmpdir = mlflow.artifacts.download_artifacts(artifact_uri=source)
-        yield tmpdir
-        shutil.rmtree(tmpdir)
-
     def _get_workspace_id(self, run_id):
         if run_id is None:
             return None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
-        from mlflow.utils.rest_utils import http_request
-
         response = http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
         )
@@ -363,18 +362,21 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        with self._download_source(source) as local_model_dir:
-            self._validate_model_signature(local_model_dir)
-            source_workspace_id = self._get_workspace_id(run_id)
-            req_body = message_to_json(
-                CreateModelVersionRequest(
-                    name=name,
-                    source=source,
-                    run_id=run_id,
-                    description=description,
-                    run_tracking_server_id=source_workspace_id,
-                )
+        source_workspace_id = self._get_workspace_id(run_id)
+        req_body = message_to_json(
+            CreateModelVersionRequest(
+                name=name,
+                source=source,
+                run_id=run_id,
+                description=description,
+                run_tracking_server_id=source_workspace_id,
             )
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_model_dir = mlflow.artifacts.download_artifacts(
+                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+            )
+            self._validate_model_signature(local_model_dir)
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(

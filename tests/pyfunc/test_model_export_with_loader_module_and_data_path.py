@@ -161,7 +161,7 @@ def test_column_schema_enforcement():
     pdf["b"] = pdf["b"].astype(np.int64)
     pdf["c"] = pdf["c"].astype(np.float32)
     pdf["d"] = pdf["d"].astype(np.float64)
-    pdf["h"] = pdf["h"].astype(np.datetime64)
+    pdf["h"] = pdf["h"].astype(np.dtype("datetime64[ns]"))
     # test that missing column raises
     match_missing_inputs = "Model is missing inputs"
     with pytest.raises(MlflowException, match=match_missing_inputs):
