@@ -326,26 +326,19 @@ class TrainStep(BaseStep):
 
             pipeline_artifact_name = "pipeline"
 
-            class TextClassificationPipelineModel(mlflow.pyfunc.PythonModel):
+            class HuggingFaceModel(mlflow.pyfunc.PythonModel):
                 def load_context(self, context):
                     device = 0 if torch.cuda.is_available() else -1
-                    self.pipeline = pipeline(
-                        "text-classification",
-                        context.artifacts[pipeline_artifact_name],
-                        device=device,
-                    )
+                    from transformers import AutoModel, Trainer
+
+                    model = AutoModel.from_pretrained(context.artifacts[pipeline_artifact_name])
+                    self.pipeline = Trainer(model)
 
                 def predict(self, context, model_input):
                     import pandas as pd
 
-                    texts = model_input[model_input.columns[0]].to_list()
-                    pipe = tqdm(
-                        self.pipeline(texts, truncation=True, batch_size=8),
-                        total=len(texts),
-                        miniters=10,
-                    )
-                    labels = [prediction["label"] for prediction in pipe]
-                    return pd.Series(labels)
+                    prediction = self.pipeline.predict(model_input)
+                    return prediction
 
             class MLflowRecipesCallback(TrainerCallback):
                 def __init__(self):
@@ -436,7 +429,7 @@ class TrainStep(BaseStep):
             mlflow.pyfunc.log_model(
                 artifacts={pipeline_artifact_name: output_directory},
                 artifact_path="my_path",
-                python_model=TextClassificationPipelineModel(),
+                python_model=HuggingFaceModel(),
             )
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
