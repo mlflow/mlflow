@@ -9,6 +9,7 @@ from google.cloud.storage import Client
 from requests import Response
 import yaml
 
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
@@ -120,7 +121,7 @@ def test_create_registered_model(mock_http, store):
 def local_model_dir(tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
     fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
-    with open(tmp_path.joinpath("MLmodel"), "w") as handle:
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     yield tmp_path
 
@@ -135,7 +136,7 @@ def test_create_model_version_missing_mlmodel(store, tmp_path):
 
 
 def test_create_model_version_missing_signature(store, tmp_path):
-    tmp_path.joinpath("MLmodel").write_text(json.dumps({"a": "b"}))
+    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
     with pytest.raises(
         MlflowException,
         match="Model passed for registration did not contain any signature metadata",
@@ -146,7 +147,7 @@ def test_create_model_version_missing_signature(store, tmp_path):
 def test_create_model_version_missing_output_signature(store, tmp_path):
     fake_signature = ModelSignature(inputs=Schema([]))
     fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
-    with open(tmp_path.joinpath("MLmodel"), "w") as handle:
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     with pytest.raises(
         MlflowException,
