@@ -322,12 +322,11 @@ class UcModelRegistryStore(BaseRestStore):
             model = Model.load(local_model_dir)
         except Exception as e:
             raise MlflowException(
-                "Unable to load model metadata. Ensure the source path of the model being "
-                "registered points to a valid MLflow model directory "
+                "Unable to load model metadata. Ensure the source path of the model "
+                "being registered points to a valid MLflow model directory "
                 "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
-                "model signature "
-                "(https://mlflow.org/docs/latest/models.html#model-signature) specifying both "
-                "input and output type specifications."
+                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+                "specifying both input and output type specifications."
             ) from e
         signature_required_explanation = (
             "All models in the Unity Catalog must be logged with a "
@@ -338,8 +337,8 @@ class UcModelRegistryStore(BaseRestStore):
         )
         if model.signature is None:
             raise MlflowException(
-                "Model passed for registration did not contain any signature "
-                f"metadata. {signature_required_explanation}"
+                "Model passed for registration did not contain any signature metadata. "
+                f"{signature_required_explanation}"
             )
         if model.signature.outputs is None:
             raise MlflowException(
