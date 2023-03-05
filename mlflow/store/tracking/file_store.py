@@ -710,7 +710,7 @@ class FileStore(AbstractStore):
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line)
+            FileStore._get_metric_from_line(metric_name, line, parent_path)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -734,12 +734,12 @@ class FileStore(AbstractStore):
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line):
+    def _get_metric_from_line(metric_name, metric_line, parent_path):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException(
                 "Metric '%s' is malformed; persisted metric data contained %s "
-                "fields. Expected 2 or 3 fields." % (metric_name, len(metric_parts)),
+                "fields. Expected 2 or 3 fields. Experiment path: %s" % (metric_name, len(metric_parts), parent_path),
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
@@ -781,7 +781,7 @@ class FileStore(AbstractStore):
             return PagedList([], None)
         return PagedList(
             [
-                FileStore._get_metric_from_line(metric_key, line)
+                FileStore._get_metric_from_line(metric_key, line, parent_path)
                 for line in read_file_lines(parent_path, metric_key)
             ],
             None,
