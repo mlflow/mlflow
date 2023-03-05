@@ -174,7 +174,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
-    endpoint_config={},
+    async_inference_config={},  # NEW: I ADDED THIS TO THE FUNCTION DEF
     env=None,
     tags=None,
 ):
@@ -312,24 +312,19 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
-    :param endpoint_config: The name to assign to the endpoint_config on the sagemaker endpoint.
+    :param async_inference_config: The name to assign to the endpoint_config on the sagemaker endpoint.
                                     .. code-block:: python
                                         :caption: Example
-                                             endpointConfig = {
-                                                "EndpointConfigName": None, #config_name,
-                                                "ProductionVariants": [production_variant],
-                                                "Tags": [{"Key": "app_name", "Value": None}],
                                                 "AsyncInferenceConfig": {
                                                     "ClientConfig": {
                                                         "MaxConcurrentInvocationsPerInstance": 4
                                                     },
-                                                    #TODO: modify this to be a parameter for args input
                                                     "OutputConfig": {
-                                                        "S3OutputPath": "", #f"s3://<path-to-output-bucket>",
+                                                        "S3OutputPath": "s3://<path-to-output-bucket>",
                                                         "NotificationConfig": {}
                                                     }
-                                                },
-                                            }
+                                                }
+                                            
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -388,6 +383,7 @@ def _deploy(
         )
 
     model_name = _get_sagemaker_model_name(endpoint_name=app_name)
+
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
@@ -406,6 +402,7 @@ def _deploy(
     )
 
     if endpoint_exists:
+        # @TODO: add support for updating the endpoint config
         deployment_operation = _update_sagemaker_endpoint(
             endpoint_name=app_name,
             model_name=model_name,
@@ -426,6 +423,7 @@ def _deploy(
             tags=tags,
         )
     else:
+        # @TODO: add support for endpoint config
         deployment_operation = _create_sagemaker_endpoint(
             endpoint_name=app_name,
             model_name=model_name,
@@ -440,6 +438,7 @@ def _deploy(
             role=execution_role_arn,
             sage_client=sage_client,
             variant_name=variant_name,
+            async_inference_config=async_inference_config,
             env=env,
             tags=tags,
         )
@@ -1493,6 +1492,7 @@ def _create_sagemaker_endpoint(
     role,
     sage_client,
     variant_name=None,
+    async_inference_config=None,
     env=None,
     tags=None,
 ):
@@ -1548,9 +1548,10 @@ def _create_sagemaker_endpoint(
         "ProductionVariants": [production_variant],
         "Tags": [{"Key": "app_name", "Value": endpoint_name}],
     }
+    if async_inference_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
-
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
@@ -1989,7 +1990,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             "variant_name": None,
             "env": None,
             "tags": None,
-            "endpoint_config": {}
+            "async_inference_config": {}
         }
 
         if create_mode:
@@ -2004,7 +2005,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "endpoint_config"}
+        dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "async_inference_config"}
         for key, value in custom_config.items():
             if key not in config:
                 continue
@@ -2129,8 +2130,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a
                                            production variant.  Defaults to ``None``.
-                       - ``endpoint_config``: A dictionary specifying the endpoint configuration 
-                        as key-value pairs to be set for the deployed endpoint
+                       - ``async_inference_config``: A dictionary specifying the async_inference_configuration 
 
                        - ``env``: A dictionary specifying environment variables as key-value
                          pairs to be set for the deployed model. Defaults to ``None``.
@@ -2223,6 +2223,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
+            async_inference_config=final_config["async_inference_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
@@ -2482,7 +2483,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
-            endpoint_config=final_config["endpoint_config"],
+            async_inference_config=final_config["endpoint_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
