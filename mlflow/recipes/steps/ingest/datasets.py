@@ -522,7 +522,9 @@ class _SparkDatasetMixin:
     def _convert_spark_df_to_pandas(self, spark_df):
         import pandas as pd
 
-        datetime_cols = [schema[0] for schema in spark_df.dtypes if schema[1].startswith("date")]
+        datetime_cols = [
+            field.name for field in spark_df.schema.fields if str(field.dataType) == "DateType"
+        ]
         pandas_df = spark_df.toPandas()
         pandas_df[datetime_cols] = pandas_df[datetime_cols].apply(pd.to_datetime, errors="coerce")
 
