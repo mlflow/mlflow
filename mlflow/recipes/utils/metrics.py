@@ -68,6 +68,7 @@ BUILTIN_REGRESSION_RECIPE_METRICS = [
 ]
 
 BUILTIN_HUGGINGFACE_RECIPE_METRICS = [
+    RecipeMetric(name="accuracy", greater_is_better=True),
     RecipeMetric(name="squad_v2", greater_is_better=False),
 ]
 

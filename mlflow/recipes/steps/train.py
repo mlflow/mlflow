@@ -152,6 +152,12 @@ class TrainStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.huggingface_task = self.step_config.get("huggingface_task")
+        if self.recipe == "huggingface/v1" and self.huggingface_task is None:
+            raise MlflowException(
+                "Missing HuggingFace task in the recipe config.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         self.positive_class = self.step_config.get("positive_class")
         self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.rebalance_training_data = self.step_config.get("rebalance_training_data", True)
@@ -275,8 +281,7 @@ class TrainStep(BaseStep):
     # ALL hackathon run code goes here!
     def _run_huggingface(self, output_directory):
         from datasets import load_dataset
-        from transformers import Trainer
-        from transformers.trainer_utils import EvalLoopOutput, EvalPrediction, get_last_checkpoint
+        from transformers.trainer_utils import get_last_checkpoint
 
         tags = {
             MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.RECIPE),
@@ -314,30 +319,34 @@ class TrainStep(BaseStep):
             estimator_params = self.step_config["estimator_params"]
             estimator_params["train_dataset"] = dataset["train"]
             estimator_params["validation_dataset"] = dataset["validation"]
-            estimator_params["cache_dir"] = output_directory
+            estimator_params["output_dir"] = output_directory
 
             # Initialize our Trainer
             trainer = trainer_fn(estimator_params)
 
             # Write to mlflow
-            from tqdm.auto import tqdm
-            import torch
+            from torch import cuda
             from transformers import pipeline, TrainerCallback
 
             pipeline_artifact_name = "model"
+            huggingface_task = self.huggingface_task
 
             class HuggingFaceModel(mlflow.pyfunc.PythonModel):
                 def load_context(self, context):
-                    device = 0 if torch.cuda.is_available() else -1
-                    from transformers import AutoModel, Trainer
+                    from transformers import Trainer
 
-                    hfpipeline = pipeline("fill-mask", context.artifacts[pipeline_artifact_name])
-                    self.model = Trainer(model=hfpipeline.model, tokenizer=hfpipeline.tokenizer)
+                    hfpipeline = pipeline(
+                        huggingface_task, context.artifacts[pipeline_artifact_name]
+                    )
+                    self.trainer = Trainer(model=hfpipeline.model, tokenizer=hfpipeline.tokenizer)
+                    self.model = hfpipeline.model
+                    self.tokenizer = hfpipeline.tokenizer
+
+                    device = "cuda" if cuda.is_available() else "cpu"
+                    self.model.to(device)
 
                 def predict(self, context, model_input):
-                    import pandas as pd
-
-                    prediction = self.model.predict(model_input)
+                    prediction = self.trainer.predict(model_input)
                     return prediction
 
             class MLflowRecipesCallback(TrainerCallback):
@@ -409,8 +418,8 @@ class TrainStep(BaseStep):
                         )
                         mlflow.pyfunc.log_model(
                             ckpt_dir,
-                            artifacts={"model_path": artifact_path},
-                            python_model=mlflow.pyfunc.PythonModel(),
+                            artifacts={"model_checkpoints": artifact_path},
+                            python_model=HuggingFaceModel(),
                         )
 
             # Run trainer
@@ -423,23 +432,23 @@ class TrainStep(BaseStep):
             trainer.remove_callback(MLflowCallback)
             trainer.remove_callback(WandbCallback)
             # Add our own callback for MLflow tracking.
-            trainer.add_callback(MLflowRecipesCallback)
+            # trainer.add_callback(MLflowRecipesCallback)
             train_result = trainer.train(resume_from_checkpoint=_resume)
             trained_pipeline = pipeline(
-                "fill-mask",
+                huggingface_task,
                 model=trainer.model,
                 batch_size=8,
                 tokenizer=trainer.tokenizer,
             )
             trained_pipeline.save_pretrained(output_directory)
-            mlflow.pyfunc.log_model(
-                artifacts={pipeline_artifact_name: output_directory},
-                artifact_path="my_path",
-                python_model=HuggingFaceModel(),
-            )
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
-
+            with mlflow.start_run(run_id=run.info.run_id):
+                mlflow.pyfunc.log_model(
+                    artifact_path="model",
+                    artifacts={pipeline_artifact_name: output_directory},
+                    python_model=HuggingFaceModel(),
+                )
             log_code_snapshot(self.recipe_root, run.info.run_id, recipe_config=self.recipe_config)
 
             metrics = train_result.metrics
@@ -1236,6 +1245,7 @@ class TrainStep(BaseStep):
         if recipe_config.get("primary_metric") is not None:
             step_config["primary_metric"] = recipe_config["primary_metric"]
         step_config["recipe"] = recipe_config.get("recipe")
+        step_config["huggingface_task"] = recipe_config.get("huggingface_task")
         step_config["profile"] = recipe_config.get("profile")
         step_config["target_col"] = recipe_config.get("target_col")
         if "positive_class" in recipe_config:

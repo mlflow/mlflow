@@ -163,7 +163,7 @@ class EvaluateStep(BaseStep):
             )
             run_id = Path(run_id_path).read_text()
 
-            model_artifact_path = "my_path"
+            model_artifact_path = "model"
             model_uri = "runs:/{run_id}/{model_artifact_path}".format(
                 run_id=run_id, model_artifact_path=model_artifact_path
             )
