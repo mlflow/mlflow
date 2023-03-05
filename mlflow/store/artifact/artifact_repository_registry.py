@@ -74,7 +74,10 @@ class ArtifactRepositoryRegistry:
 
 
 def _get_models_artifact_repository(artifact_uri):
-    return ModelsArtifactRepository(artifact_uri=artifact_uri, registry_uri=mlflow.get_registry_uri())
+    return ModelsArtifactRepository(
+        artifact_uri=artifact_uri, registry_uri=mlflow.get_registry_uri()
+    )
+
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 

@@ -535,7 +535,9 @@ def test_create_model_version_unsupported_fields(store):
     with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("run_link")):
         store.create_model_version(name="mymodel", source="mysource", run_link="https://google.com")
     with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("tags")):
-        store.create_model_version(name="mymodel", source="mysource", tags=[ModelVersionTag("a", "b")])
+        store.create_model_version(
+            name="mymodel", source="mysource", tags=[ModelVersionTag("a", "b")]
+        )
 
 
 def test_transition_model_version_stage_unsupported(store):

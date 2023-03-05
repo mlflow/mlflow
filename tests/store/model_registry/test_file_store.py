@@ -206,7 +206,9 @@ def _create_model_version(
     description=None,
 ):
     time.sleep(0.001)
-    return fs.create_model_version(name, source, run_id, tags, run_link=run_link, description=description)
+    return fs.create_model_version(
+        name, source, run_id, tags, run_link=run_link, description=description
+    )
 
 
 def _stage_to_version_map(latest_versions):

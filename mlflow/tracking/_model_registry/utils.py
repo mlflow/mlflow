@@ -154,8 +154,11 @@ def _get_databricks_rest_store(store_uri, **_):
 
 
 def _get_databricks_uc_rest_store(store_uri, **_):
-    return UcModelRegistryStore(get_host_creds=partial(get_databricks_host_creds, store_uri),
-                                get_tracking_host_creds=partial(get_databricks_host_creds, mlflow.get_tracking_uri()))
+    return UcModelRegistryStore(
+        get_host_creds=partial(get_databricks_host_creds, store_uri),
+        get_tracking_host_creds=partial(get_databricks_host_creds, mlflow.get_tracking_uri()),
+    )
+
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.

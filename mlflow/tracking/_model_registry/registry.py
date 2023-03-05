@@ -36,6 +36,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         """
         from mlflow.tracking._model_registry.utils import _resolve_registry_uri
         from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
+
         resolved_store_uri = _resolve_registry_uri(store_uri)
         resolved_tracking_uri = _resolve_tracking_uri(tracking_uri)
         return self._get_store_with_resolved_uri(resolved_store_uri, resolved_tracking_uri)

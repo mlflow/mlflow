@@ -2301,9 +2301,15 @@ class MlflowClient:
                 + " model version is in 'READY' status. You can also find this location in the"
                 + " `source` field of the created model version. ==="
             )
-        return self._get_registry_client().create_model_version(name=name, source=new_source, run_id=run_id, tags=tags,
-                                                                run_link=run_link, description=description,
-                                                                await_creation_for=await_creation_for)
+        return self._get_registry_client().create_model_version(
+            name=name,
+            source=new_source,
+            run_id=run_id,
+            tags=tags,
+            run_link=run_link,
+            description=description,
+            await_creation_for=await_creation_for,
+        )
 
     def update_model_version(
         self, name: str, version: str, description: Optional[str] = None
