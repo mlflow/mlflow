@@ -121,9 +121,9 @@ class TransformStep(BaseStep):
             )
         method_config = self.step_config.get("transformer_method")
         # By default use an identity transformer function returning the input.
-        preprocess_fn = lambda x: x
+        transformer = lambda x: x
         if method_config and self.step_config["using"] == "custom":
-            preprocess_fn = getattr(
+            transformer = getattr(
                 importlib.import_module(_USER_DEFINED_TRANSFORM_STEP_MODULE), method_config
             )()
 
@@ -134,7 +134,7 @@ class TransformStep(BaseStep):
 
             disable_progress_bar()
             transformed_dataset = Dataset.from_pandas(dataset).map(
-                preprocess_fn,
+                transformer.transform,
                 batched=True,
                 num_proc=os.cpu_count(),
             )
@@ -144,9 +144,7 @@ class TransformStep(BaseStep):
         validation_transformed = transform_huggingface_dataset(validation_df)
 
         with open(os.path.join(output_directory, "transformer.pkl"), "wb") as f:
-            from sklearn.preprocessing import FunctionTransformer
-
-            cloudpickle.dump(FunctionTransformer(preprocess_fn), f)
+            cloudpickle.dump(transformer, f)
 
         train_transformed.to_parquet(
             os.path.join(output_directory, "transformed_training_data.parquet")
@@ -158,7 +156,7 @@ class TransformStep(BaseStep):
         self.run_end_time = time.time()
         self.execution_duration = self.run_end_time - run_start_time
 
-        return self._build_profiles_and_card(train_df, train_transformed, transformer=None)
+        return self._build_profiles_and_card(train_df, train_transformed, transformer)
 
     def _run(self, output_directory):
         if self.recipe == "huggingface/v1":

@@ -156,13 +156,6 @@ class EvaluateStep(BaseStep):
             )
             test_df = pd.read_parquet(test_df_path)
 
-            # validation_df_path = get_step_output_path(
-            #     recipe_root_path=self.recipe_root,
-            #     step_name="split",
-            #     relative_path="validation.parquet",
-            # )
-            # validation_df = pd.read_parquet(validation_df_path)
-
             run_id_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="train",
@@ -170,17 +163,21 @@ class EvaluateStep(BaseStep):
             )
             run_id = Path(run_id_path).read_text()
 
-            model_uri = get_step_output_path(
-                recipe_root_path=self.recipe_root,
-                step_name="train",
-                relative_path=TrainStep.SKLEARN_MODEL_ARTIFACT_RELATIVE_PATH,
+            model_artifact_path = "my_path"
+            model_uri = "runs:/{run_id}/{model_artifact_path}".format(
+                run_id=run_id, model_artifact_path=model_artifact_path
             )
 
-            transformer = get_step_output_path(
+            transformer_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="transform",
-                relative_path="transformer",
+                relative_path="transformer.pkl",
             )
+
+            import cloudpickle
+
+            with open(transformer_path, "rb") as f:
+                transformer = cloudpickle.load(f)
 
             apply_recipe_tracking_config(self.tracking_config)
             exp_id = _get_experiment_id()
@@ -193,18 +190,35 @@ class EvaluateStep(BaseStep):
                 exp_id, f"test_{self.primary_metric}", primary_metric_greater_is_better
             )
 
+            def transform_dataset(dataset):
+                import os
+                from datasets import Dataset
+                from datasets.utils.logging import disable_progress_bar
+
+                transformed_dataset = Dataset.from_pandas(dataset).map(
+                    transformer.transform,
+                    batched=True,
+                    num_proc=os.cpu_count(),
+                )
+                return transformed_dataset
+
             with mlflow.start_run(run_id=run_id):
                 model = mlflow.pyfunc.load_model(model_uri)
-                transformed_test_dataset = transformer.transform(
-                    test_df.drop(columns=[self.target_col]), test_df[self.target_col]
-                )
+                transformed_test_dataset = transform_dataset(test_df)
                 predicted_result = model.predict(transformed_test_dataset)
+                import numpy as np
 
+                preds = np.argmax(predicted_result.predictions, axis=-1)
+
+                print("predicted_result", predicted_result)
+                print("predicted_result", preds)
+                print("REF", predicted_result.label_ids)
                 import evaluate
 
                 metric = evaluate.load(self.primary_metric)
                 score = metric.compute(
-                    predictions=predicted_result.predictions, references=predicted_result.label_ids
+                    predictions=preds,
+                    references=predicted_result.label_ids,
                 )
 
                 mlflow.log_metric(self.primary_metric, score)
