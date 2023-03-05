@@ -174,7 +174,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
-    async_inference_config={},  # NEW: I ADDED THIS TO THE FUNCTION DEF
+    async_inference_config={},
     env=None,
     tags=None,
 ):
