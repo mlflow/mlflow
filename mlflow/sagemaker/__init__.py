@@ -402,7 +402,6 @@ def _deploy(
     )
 
     if endpoint_exists:
-        # @TODO: add support for updating the endpoint config
         deployment_operation = _update_sagemaker_endpoint(
             endpoint_name=app_name,
             model_name=model_name,
@@ -418,12 +417,12 @@ def _deploy(
             sage_client=sage_client,
             s3_client=s3_client,
             variant_name=variant_name,
+            async_inference_config=async_inference_config,
             data_capture_config=data_capture_config,
             env=env,
             tags=tags,
         )
     else:
-        # @TODO: add support for endpoint config
         deployment_operation = _create_sagemaker_endpoint(
             endpoint_name=app_name,
             model_name=model_name,
@@ -1609,6 +1608,7 @@ def _update_sagemaker_endpoint(
     sage_client,
     s3_client,
     variant_name=None,
+    async_inference_config=None,
     data_capture_config=None,
     env=None,
     tags=None,
@@ -1630,7 +1630,10 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
-    :variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param async_inference_config: A dictionary specifying the async inference configuration to use.
+                         For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
+                         Defaults to ``None``.
     :param: data_capture_config: A dictionary specifying the data capture configuration to use.
                                  For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                                  Defaults to ``None``.
@@ -1698,6 +1701,8 @@ def _update_sagemaker_endpoint(
         "ProductionVariants": production_variants,
         "Tags": [{"Key": "app_name", "Value": endpoint_name}],
     }
+    if async_inference_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
@@ -2483,7 +2488,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
-            async_inference_config=final_config["endpoint_config"],
+            async_inference_config=final_config["async_inference_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
