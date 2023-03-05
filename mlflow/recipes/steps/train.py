@@ -324,20 +324,20 @@ class TrainStep(BaseStep):
             import torch
             from transformers import pipeline, TrainerCallback
 
-            pipeline_artifact_name = "pipeline"
+            pipeline_artifact_name = "model"
 
             class HuggingFaceModel(mlflow.pyfunc.PythonModel):
                 def load_context(self, context):
                     device = 0 if torch.cuda.is_available() else -1
                     from transformers import AutoModel, Trainer
 
-                    model = AutoModel.from_pretrained(context.artifacts[pipeline_artifact_name])
-                    self.pipeline = Trainer(model)
+                    hfpipeline = pipeline("fill-mask", context.artifacts[pipeline_artifact_name])
+                    self.model = Trainer(model=hfpipeline.model, tokenizer=hfpipeline.tokenizer)
 
                 def predict(self, context, model_input):
                     import pandas as pd
 
-                    prediction = self.pipeline.predict(model_input)
+                    prediction = self.model.predict(model_input)
                     return prediction
 
             class MLflowRecipesCallback(TrainerCallback):
@@ -425,7 +425,13 @@ class TrainStep(BaseStep):
             # Add our own callback for MLflow tracking.
             trainer.add_callback(MLflowRecipesCallback)
             train_result = trainer.train(resume_from_checkpoint=_resume)
-            trainer.save_model(output_directory)
+            trained_pipeline = pipeline(
+                "fill-mask",
+                model=trainer.model,
+                batch_size=8,
+                tokenizer=trainer.tokenizer,
+            )
+            trained_pipeline.save_pretrained(output_directory)
             mlflow.pyfunc.log_model(
                 artifacts={pipeline_artifact_name: output_directory},
                 artifact_path="my_path",

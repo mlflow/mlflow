@@ -211,16 +211,15 @@ class EvaluateStep(BaseStep):
                 preds = np.argmax(predicted_result.predictions, axis=-1)
 
                 print("predicted_result", predicted_result)
-                print("predicted_result", preds)
+                print("predicted_data", preds)
                 print("REF", predicted_result.label_ids)
                 import evaluate
 
                 metric = evaluate.load(self.primary_metric)
-                score = metric.compute(
-                    predictions=preds,
-                    references=predicted_result.label_ids,
-                )
+                print("PRIMARY METRIC", self.primary_metric)
+                score = metric.compute(predictions=preds, references=predicted_result.label_ids)
 
+                print("SCORE", score)
                 mlflow.log_metric(self.primary_metric, score)
 
         finally:
