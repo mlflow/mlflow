@@ -174,7 +174,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
-    async_inference_config={},
+    async_inference_config=None,
     env=None,
     tags=None,
 ):
@@ -312,18 +312,19 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
-    :param async_inference_config: The name to assign to the endpoint_config on the sagemaker endpoint.
+    :param async_inference_config: The name to assign to the endpoint_config 
+                                    on the sagemaker endpoint.
                                     .. code-block:: python
                                         :caption: Example
-                                                "AsyncInferenceConfig": {
-                                                    "ClientConfig": {
-                                                        "MaxConcurrentInvocationsPerInstance": 4
-                                                    },
-                                                    "OutputConfig": {
-                                                        "S3OutputPath": "s3://<path-to-output-bucket>",
-                                                        "NotificationConfig": {}
-                                                    }
+                                            "AsyncInferenceConfig": {
+                                                "ClientConfig": {
+                                                    "MaxConcurrentInvocationsPerInstance": 4 # pylint: disable=line-too-long
+                                                },
+                                                "OutputConfig": {
+                                                    "S3OutputPath": "s3://<path-to-output-bucket>", # pylint: disable=line-too-long
+                                                    "NotificationConfig": {} # pylint: disable=line-too-long
                                                 }
+                                            }
 
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
@@ -1630,7 +1631,7 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
-    :param variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
     :param async_inference_config: A dictionary specifying the async inference configuration to use.
                          For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
                          Defaults to ``None``.
@@ -1692,10 +1693,6 @@ def _update_sagemaker_endpoint(
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
     # This is the hardcoded config for endpoint
-    """
-    If you pass an argument called endpoint_config then it will use that value, otherwise it will
-    use the below as the default value.
-    """
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
@@ -2135,7 +2132,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a
                                            production variant.  Defaults to ``None``.
-                       - ``async_inference_config``: A dictionary specifying the async_inference_configuration 
+                       - ``async_inference_config``: A dictionary specifying the async_inference_configuration # pylint: disable=line-too-long
 
                        - ``env``: A dictionary specifying environment variables as key-value
                          pairs to be set for the deployed model. Defaults to ``None``.

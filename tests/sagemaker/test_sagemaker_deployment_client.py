@@ -323,15 +323,9 @@ def test_update_deployment_with_async_config_when_endpoint_exists(
         "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
         "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
     }
-    """
-    Create deployment with no async config    
-    """
     sagemaker_deployment_client.create_deployment(
         name=app_name, model_uri=pretrained_model.model_uri
     )
-    """
-    Update deployment with async config
-    """
     sagemaker_deployment_client.update_deployment(
         name=app_name,
         model_uri=pretrained_model.model_uri,
