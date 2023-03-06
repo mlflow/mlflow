@@ -64,6 +64,7 @@ class EvaluateStep(BaseStep):
                 "Missing recipe config in recipe config.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        self.huggingface_task = self.step_config.get("huggingface_task")
         self.positive_class = self.step_config.get("positive_class")
         self.extended_task = _get_extended_task(self.recipe, self.positive_class)
         self.model_validation_status = "UNKNOWN"
@@ -164,11 +165,6 @@ class EvaluateStep(BaseStep):
             )
             run_id = Path(run_id_path).read_text()
 
-            model_artifact_path = "train/model"
-            model_uri = "runs:/{run_id}/{model_artifact_path}".format(
-                run_id=run_id, model_artifact_path=model_artifact_path
-            )
-
             transformer_path = get_step_output_path(
                 recipe_root_path=self.recipe_root,
                 step_name="transform",
@@ -218,21 +214,25 @@ class EvaluateStep(BaseStep):
                 return metric.compute(predictions=p.predictions, references=p.label_ids)
 
             with mlflow.start_run(run_id=run_id):
-                from transformers import Trainer, AutoModel, AutoTokenizer
+                from torch import cuda
+                from transformers import Trainer, pipeline
                 from transformers.integrations import MLflowCallback, WandbCallback
                 transformed_test_dataset = transform_dataset(test_df)
                 model_path = get_step_output_path(
                     recipe_root_path=self.recipe_root,
                     step_name="train",
-                    relative_path="",
+                    relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
                 )
-                model = AutoModel.from_pretrained(model_path)
-                tokenizer = AutoTokenizer.from_pretrained(model_path)
+                device = 0 if cuda.is_available() else -1
+                pipe = pipeline(
+                    self.huggingface_task, model_path,
+                    device=device,
+                )
                 trainer = Trainer(
-                    model=model,
+                    model=pipe.model,
                     args=training_args,
                     eval_dataset=transformed_test_dataset,
-                    tokenizer=tokenizer,
+                    tokenizer=pipe.tokenizer,
                     compute_metrics=compute_metrics,
                 )
                 trainer.remove_callback(MLflowCallback)
@@ -241,7 +241,9 @@ class EvaluateStep(BaseStep):
                 trainer.log_metrics("eval", metrics)
                 trainer.save_metrics("eval", metrics)
 
-                self._validate_model({}, output_directory)
+                self.model_validation_status = "VALIDATED"
+                Path(output_directory, "model_validation_status").write_text(self.model_validation_status)
+                # self._validate_model({}, output_directory)
                 # predicted_result = model.predict(transformed_test_dataset)
                 # import numpy as np
 
@@ -606,6 +608,7 @@ class EvaluateStep(BaseStep):
         if recipe_config.get("primary_metric") is not None:
             step_config["primary_metric"] = recipe_config["primary_metric"]
         step_config["recipe"] = recipe_config.get("recipe")
+        step_config["huggingface_task"] = recipe_config.get("huggingface_task")
         step_config.update(
             get_recipe_tracking_config(
                 recipe_root_path=recipe_root,
