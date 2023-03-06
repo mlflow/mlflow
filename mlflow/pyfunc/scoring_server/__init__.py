@@ -324,7 +324,7 @@ def _serve(model_uri, port, host):
 
 
 def get_cmd(
-    model_uri: str, port: int = None, host: int = None, timeout: int = None, nworkers: int = None
+    model_uri: str, port: int = None, host: str = None, timeout: int = None, nworkers: int = None
 ) -> Tuple[str, Dict[str, str]]:
     local_uri = path_to_local_file_uri(model_uri)
     timeout = timeout or MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get()
