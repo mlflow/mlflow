@@ -351,9 +351,12 @@ class TrainStep(BaseStep):
                     self.tokenizer = self.pipe.tokenizer
 
                 def predict(self, context, model_input):
+                    import pandas as pd
                     if isinstance(model_input, str) or isinstance(model_input, list):
                         return self.pipe(model_input)
                     # Assuming model_input is a dict or a pandas.DataFrame
+                    if isinstance(model_input, pd.DataFrame):
+                        model_input = model_input.apply(str)
                     return self.pipe(model_input['text'])
 
 
