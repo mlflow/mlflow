@@ -317,7 +317,6 @@ class UcModelRegistryStore(BaseRestStore):
     def _validate_model_signature(self, local_model_dir):
         # Import Model here to avoid circular import
         from mlflow.models.model import Model
-
         try:
             model = Model.load(local_model_dir)
         except Exception as e:
