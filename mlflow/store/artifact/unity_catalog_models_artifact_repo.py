@@ -40,7 +40,6 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri, registry_uri):
-        print("yoyo from sid")
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "

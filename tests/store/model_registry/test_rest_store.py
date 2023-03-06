@@ -226,7 +226,12 @@ def test_create_model_version(store, creds):
     description = "version description"
     with mock_http_request_200() as mock_http:
         store.create_model_version(
-            "model_1", "path/to/source", run_id, tags, run_link=run_link, description=description
+            "model_1",
+            "path/to/source",
+            run_id,
+            tags,
+            run_link=run_link,
+            description=description,
         )
     _verify_requests(
         mock_http,

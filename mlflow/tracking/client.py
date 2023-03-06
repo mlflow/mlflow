@@ -2284,8 +2284,6 @@ class MlflowClient:
         new_source = source
         if is_databricks_uri(self._registry_uri) and tracking_uri != self._registry_uri:
             # Print out some info for user since the copy may take a while for large models.
-            # @SID client-side copy in client.create_model_Version when source and dest tracking URI
-            # are different
             eprint(
                 "=== Copying model files from the source location to the model"
                 + " registry workspace ==="
