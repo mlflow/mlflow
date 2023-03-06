@@ -194,3 +194,11 @@ MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT = _EnvironmentVariable(
 MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT", int, None
 )
+
+#: Specifies the device intended for use in the predict function - can be used
+#: to override behavior where the GPU is used by default when available by
+#: setting this environment variable to be ``cpu``. Currently, this
+#: variable is only supported for the MLflow PyTorch flavor.
+MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
+    "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
+)

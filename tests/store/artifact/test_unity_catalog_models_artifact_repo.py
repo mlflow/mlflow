@@ -8,7 +8,7 @@ from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_uc_registry_messages_pb2 import MODEL_VERSION_READ_WRITE
+from mlflow.protos.databricks_uc_registry_messages_pb2 import MODEL_VERSION_READ
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -29,7 +29,7 @@ MODELS_ARTIFACT_REPOSITORY = (
 @pytest.fixture()
 def mock_get_databricks_unity_catalog_store():
     def get_uc_rest_store(store_uri):
-        return UcModelRegistryStore(store_uri)
+        return UcModelRegistryStore(None, None)
 
     with mock.patch(
         "mlflow.tracking._model_registry.utils._get_databricks_uc_rest_store",
@@ -147,7 +147,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
             host_creds=ANY,
             endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )
 
 
@@ -185,7 +185,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
             host_creds=ANY,
             endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )
 
 
@@ -227,5 +227,5 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
             host_creds=ANY,
             endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ_WRITE},
+            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )

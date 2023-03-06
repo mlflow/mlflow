@@ -3,7 +3,7 @@ import json
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsResponse,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_READ,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -81,7 +81,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         req_body = {
             "name": self.model_name,
             "version": self.model_version,
-            "operation": MODEL_VERSION_READ_WRITE,
+            "operation": MODEL_VERSION_READ,
         }
         db_creds = get_databricks_host_creds(self.registry_uri)
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
