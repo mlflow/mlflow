@@ -351,7 +351,10 @@ class TrainStep(BaseStep):
                     self.tokenizer = self.pipe.tokenizer
 
                 def predict(self, context, model_input):
-                    return self.pipe(model_input)
+                    if isinstance(model_input, str) or isinstance(model_input, list):
+                        return self.pipe(model_input)
+                    # Assuming model_input is a dict or a pandas.DataFrame
+                    return self.pipe(model_input['text'])
 
 
             class MLflowRecipesCallback(TrainerCallback):
