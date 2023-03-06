@@ -28,14 +28,14 @@ class ModelsArtifactRepository(ArtifactRepository):
     and uses the artifact repository for that URI.
     """
 
-    def __init__(self, artifact_uri, registry_uri=None):
+    def __init__(self, artifact_uri):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri)
-        self.registry_uri = registry_uri
-        if self.registry_uri is not None and is_databricks_unity_catalog_uri(uri=self.registry_uri):
+        registry_uri = mlflow.get_registry_uri()
+        if is_databricks_unity_catalog_uri(uri=registry_uri):
             self.repo = UnityCatalogModelsArtifactRepository(
-                artifact_uri=artifact_uri, registry_uri=self.registry_uri
+                artifact_uri=artifact_uri, registry_uri=registry_uri
             )
         elif is_using_databricks_registry(artifact_uri):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.

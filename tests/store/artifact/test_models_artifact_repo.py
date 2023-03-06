@@ -57,8 +57,8 @@ def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_wit
 def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_context():
     uri_without_profile = "models:/MyModel/12"
     uc_registry_uri = "databricks-uc://getRegistryUriDefault"
-    with mock.patch(UC_MODELS_ARTIFACT_REPOSITORY, autospec=True) as mock_repo:
-        models_repo = ModelsArtifactRepository(uri_without_profile, registry_uri=uc_registry_uri)
+    with mock.patch(UC_MODELS_ARTIFACT_REPOSITORY, autospec=True) as mock_repo, mock.patch("mlflow.get_registry_uri", return_value=uc_registry_uri):
+        models_repo = ModelsArtifactRepository(uri_without_profile)
         assert models_repo.artifact_uri == uri_without_profile
         assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
         mock_repo.assert_called_once_with(uri_without_profile, registry_uri=uc_registry_uri)
