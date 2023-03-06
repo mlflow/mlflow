@@ -315,7 +315,9 @@ class UcModelRegistryStore(BaseRestStore):
         return response.headers[_DATABRICKS_ORG_ID_HEADER]
 
     def _validate_model_signature(self, local_model_dir):
-        # Import Model here to avoid circular import
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
         from mlflow.models.model import Model
         try:
             model = Model.load(local_model_dir)
