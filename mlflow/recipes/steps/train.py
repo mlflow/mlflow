@@ -335,19 +335,19 @@ class TrainStep(BaseStep):
                 def load_context(self, context):
                     from transformers import Trainer
 
-                    hfpipeline = pipeline(
-                        huggingface_task, context.artifacts[pipeline_artifact_name]
+                    device = 0 if cuda.is_available() else -1
+                    self.pipe = pipeline(
+                        huggingface_task, context.artifacts[pipeline_artifact_name],
+                        device=device,
                     )
-                    self.trainer = Trainer(model=hfpipeline.model, tokenizer=hfpipeline.tokenizer)
-                    self.model = hfpipeline.model
-                    self.tokenizer = hfpipeline.tokenizer
-
-                    device = "cuda" if cuda.is_available() else "cpu"
-                    self.model.to(device)
+                    self.trainer = Trainer(model=self.pipe.model, tokenizer=self.pipe.tokenizer)
+                    self.model = self.pipe.model
+                    self.model.to('cuda' if device >= 0 else 'cpu')
+                    self.tokenizer = self.pipe.tokenizer
 
                 def predict(self, context, model_input):
-                    prediction = self.trainer.predict(model_input)
-                    return prediction
+                    return self.pipe(model_input, context)
+
 
             class MLflowRecipesCallback(TrainerCallback):
                 def __init__(self):
@@ -418,7 +418,7 @@ class TrainStep(BaseStep):
                         )
                         mlflow.pyfunc.log_model(
                             ckpt_dir,
-                            artifacts={"model_checkpoints": artifact_path},
+                            artifacts={"train/model_checkpoints": artifact_path},
                             python_model=HuggingFaceModel(),
                         )
 
@@ -443,12 +443,13 @@ class TrainStep(BaseStep):
             trained_pipeline.save_pretrained(output_directory)
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
-            with mlflow.start_run(run_id=run.info.run_id):
-                mlflow.pyfunc.log_model(
-                    artifact_path="model",
-                    artifacts={pipeline_artifact_name: output_directory},
-                    python_model=HuggingFaceModel(),
-                )
+            with open(os.path.join(output_directory, "training_args.pkl"), "wb") as f:
+                f.write(cloudpickle.dumps(trainer.args))
+            mlflow.pyfunc.log_model(
+                artifact_path="train/model",
+                artifacts={pipeline_artifact_name: output_directory},
+                python_model=HuggingFaceModel(),
+            )
             log_code_snapshot(self.recipe_root, run.info.run_id, recipe_config=self.recipe_config)
 
             metrics = train_result.metrics

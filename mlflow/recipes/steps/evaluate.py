@@ -1,3 +1,4 @@
+import cloudpickle
 import logging
 import operator
 import os
@@ -163,7 +164,7 @@ class EvaluateStep(BaseStep):
             )
             run_id = Path(run_id_path).read_text()
 
-            model_artifact_path = "model"
+            model_artifact_path = "train/model"
             model_uri = "runs:/{run_id}/{model_artifact_path}".format(
                 run_id=run_id, model_artifact_path=model_artifact_path
             )
@@ -173,11 +174,16 @@ class EvaluateStep(BaseStep):
                 step_name="transform",
                 relative_path="transformer.pkl",
             )
-
-            import cloudpickle
-
             with open(transformer_path, "rb") as f:
                 transformer = cloudpickle.load(f)
+
+            training_args_path = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name="train",
+                relative_path="training_args.pkl",
+            )
+            with open(training_args_path, "rb") as f:
+                training_args = cloudpickle.load(f)
 
             apply_recipe_tracking_config(self.tracking_config)
             exp_id = _get_experiment_id()
@@ -195,6 +201,7 @@ class EvaluateStep(BaseStep):
                 from datasets import Dataset
                 from datasets.utils.logging import disable_progress_bar
 
+                disable_progress_bar()
                 transformed_dataset = Dataset.from_pandas(dataset).map(
                     transformer.transform,
                     batched=True,
@@ -202,25 +209,55 @@ class EvaluateStep(BaseStep):
                 )
                 return transformed_dataset
 
+            from transformers.trainer_utils import EvalPrediction
+            import evaluate
+
+            metric = evaluate.load(self.primary_metric)
+
+            def compute_metrics(p: EvalPrediction):
+                return metric.compute(predictions=p.predictions, references=p.label_ids)
+
             with mlflow.start_run(run_id=run_id):
-                model = mlflow.pyfunc.load_model(model_uri)
+                from transformers import Trainer, AutoModel, AutoTokenizer
+                from transformers.integrations import MLflowCallback, WandbCallback
                 transformed_test_dataset = transform_dataset(test_df)
-                predicted_result = model.predict(transformed_test_dataset)
-                import numpy as np
+                model_path = get_step_output_path(
+                    recipe_root_path=self.recipe_root,
+                    step_name="train",
+                    relative_path="",
+                )
+                model = AutoModel.from_pretrained(model_path)
+                tokenizer = AutoTokenizer.from_pretrained(model_path)
+                trainer = Trainer(
+                    model=model,
+                    args=training_args,
+                    eval_dataset=transformed_test_dataset,
+                    tokenizer=tokenizer,
+                    compute_metrics=compute_metrics,
+                )
+                trainer.remove_callback(MLflowCallback)
+                trainer.remove_callback(WandbCallback)
+                metrics = trainer.evaluate(metric_key_prefix="eval")
+                trainer.log_metrics("eval", metrics)
+                trainer.save_metrics("eval", metrics)
 
-                preds = np.argmax(predicted_result.predictions, axis=-1)
+                self._validate_model({}, output_directory)
+                # predicted_result = model.predict(transformed_test_dataset)
+                # import numpy as np
 
-                print("predicted_result", predicted_result)
-                print("predicted_data", preds)
-                print("REF", predicted_result.label_ids)
-                import evaluate
+                # preds = np.argmax(predicted_result.predictions, axis=-1)
 
-                metric = evaluate.load(self.primary_metric)
-                print("PRIMARY METRIC", self.primary_metric)
-                score = metric.compute(predictions=preds, references=predicted_result.label_ids)
+                # print("predicted_result", predicted_result)
+                # print("predicted_data", preds)
+                # print("REF", predicted_result.label_ids)
+                # import evaluate
 
-                print("SCORE", score)
-                mlflow.log_metric(self.primary_metric, score)
+                # metric = evaluate.load(self.primary_metric)
+                # print("PRIMARY METRIC", self.primary_metric)
+                # score = metric.compute(predictions=preds, references=predicted_result.label_ids)
+
+                # print("SCORE", score)
+                # mlflow.log_metric(self.primary_metric, score)
 
         finally:
             warnings.warn = original_warn
