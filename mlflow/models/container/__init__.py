@@ -208,8 +208,10 @@ def _serve_pyfunc(model, env_manager):
     cpu_count = multiprocessing.cpu_count()
 
     inference_server = mlserver if enable_mlserver else scoring_server
-    # Since MLServer will run without NGINX, expose the server in the `8080`
-    # port, which is the assumed "public" port.
+    # If the scoring server runs without NGINX, expose the server in the "primary"
+    # port (DEFAULT_PRIMARY_PORT or SAGEMAKER_BIND_TO_PORT env var),
+    # which is the assumed "public" port; otherwise, expose the "upstream"
+    # port (DEFAULT_UPSTREAM_PORT or selected from SAGEMAKER_SAFE_PORT_RANGE).
     port = primary_port if disable_nginx else upstream_port
     cmd, cmd_env = inference_server.get_cmd(
         model_uri=MODEL_PATH,
