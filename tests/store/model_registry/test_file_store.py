@@ -89,6 +89,12 @@ def test_get_registered_model(store, registered_model_names, rm_data):
     with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
         store.get_registered_model(name)
 
+    name = "../../path"
+    with pytest.raises(
+        MlflowException, match="Registered model name cannot contain path separator"
+    ):
+        store.get_registered_model(name)
+
 
 def test_list_registered_model(store, registered_model_names, rm_data):
     for rm in store.list_registered_models(max_results=10, page_token=None):
