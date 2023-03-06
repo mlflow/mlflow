@@ -335,6 +335,7 @@ class FileStore(AbstractStore):
         :param name: Registered model name.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
+        _validate_model_name(name)
         model_path = self._get_registered_model_path(name)
         if not exists(model_path):
             raise MlflowException(
