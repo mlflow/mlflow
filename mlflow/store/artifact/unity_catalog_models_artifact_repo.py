@@ -33,17 +33,14 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     Temporary scoped tokens for the appropriate cloud storage locations are fetched from the
     remote backend and used to download model artifacts.
 
-    The artifact_uri is expected to be of the form
-    - `models:/<model_name>/<model_version>`
-    - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models:/<model_name>/latest`  (refers to the latest of all model versions)
-    - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
+    The artifact_uri is expected to be of the form `models:/<model_name>/<model_version>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the client is pointing to a Unity Catalog model registry.
     """
 
     def __init__(self, artifact_uri, registry_uri):
+        print("yoyo from sid")
         if not is_databricks_unity_catalog_uri(registry_uri):
             raise MlflowException(
                 message="Attempted to instantiate an artifact repo to access models in the "

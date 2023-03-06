@@ -153,11 +153,8 @@ def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
-def _get_databricks_uc_rest_store(store_uri, **_):
-    return UcModelRegistryStore(
-        get_host_creds=partial(get_databricks_host_creds, store_uri),
-        get_tracking_host_creds=partial(get_databricks_host_creds, mlflow.get_tracking_uri()),
-    )
+def _get_databricks_uc_rest_store(store_uri, tracking_uri, **_):
+    return UcModelRegistryStore(registry_uri=store_uri, tracking_uri=tracking_uri)
 
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular
@@ -195,6 +192,5 @@ def _get_store_registry():
     return _model_registry_store_registry
 
 
-# @SID registry _get_store
 def _get_store(store_uri=None, tracking_uri=None):
     return _get_store_registry().get_store(store_uri, tracking_uri)
