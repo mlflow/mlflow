@@ -316,10 +316,15 @@ class TrainStep(BaseStep):
                     "validation": transformed_validation_data_path,
                 },
             )
+            model_output_dir = get_step_output_path(
+                recipe_root_path=self.recipe_root,
+                step_name=self.name,
+                relative_path=TrainStep.MODEL_ARTIFACT_RELATIVE_PATH,
+            )
             estimator_params = self.step_config["estimator_params"]
             estimator_params["train_dataset"] = dataset["train"]
             estimator_params["validation_dataset"] = dataset["validation"]
-            estimator_params["output_dir"] = output_directory
+            estimator_params["output_dir"] = model_output_dir
 
             # Initialize our Trainer
             trainer = trainer_fn(estimator_params)
@@ -424,7 +429,7 @@ class TrainStep(BaseStep):
 
             # Run trainer
             _resume = False
-            if get_last_checkpoint(output_directory) is not None:
+            if get_last_checkpoint(model_output_dir) is not None:
                 _resume = True
             # Remove native callback for tracking.
             from transformers.integrations import MLflowCallback, WandbCallback
@@ -440,14 +445,14 @@ class TrainStep(BaseStep):
                 batch_size=8,
                 tokenizer=trainer.tokenizer,
             )
-            trained_pipeline.save_pretrained(output_directory)
+            trained_pipeline.save_pretrained(model_output_dir)
             with open(os.path.join(output_directory, "run_id"), "w") as f:
                 f.write(run.info.run_id)
             with open(os.path.join(output_directory, "training_args.pkl"), "wb") as f:
                 f.write(cloudpickle.dumps(trainer.args))
             mlflow.pyfunc.log_model(
                 artifact_path="train/model",
-                artifacts={pipeline_artifact_name: output_directory},
+                artifacts={pipeline_artifact_name: model_output_dir},
                 python_model=HuggingFaceModel(),
             )
             log_code_snapshot(self.recipe_root, run.info.run_id, recipe_config=self.recipe_config)
