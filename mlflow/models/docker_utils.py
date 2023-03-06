@@ -82,6 +82,9 @@ _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve mlflow models.
 FROM ubuntu:20.04
 
+# Set a docker label to enable container to use SAGEMAKER_BIND_TO_PORT environment variable if present 
+LABEL com.amazonaws.sagemaker.capabilities.accept-bind-to-port=true
+
 RUN apt-get -y update
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt-get install -y --no-install-recommends \
          wget \
