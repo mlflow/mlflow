@@ -3,12 +3,12 @@ import './AppErrorBoundary.css';
 import defaultErrorImg from '../../static/default-error.svg';
 import PropTypes from 'prop-types';
 import Utils from '../../utils/Utils';
-import { withNotifications } from '@databricks/design-system';
+import { withNotifications, Accordion, Typography } from '@databricks/design-system';
 
 class AppErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
 
   static propTypes = {
@@ -24,17 +24,25 @@ class AppErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    this.setState({ hasError: true });
+    this.setState({ hasError: true, error });
     console.error(error, errorInfo);
   }
 
   render() {
+    const { error } = this.state;
     return (
       <>
         {this.state.hasError ? (
           <div>
             <img className='error-image' alt='Error' src={defaultErrorImg} />
-            <h1 className={'center'}>Something went wrong</h1>
+            <h1 className={'center'}>Something went wrong: {error.toString()}</h1>
+            <Accordion>
+              <Accordion.Panel header='Show details'>
+                <Typography css={{ fontSize: 10, whiteSpace: 'pre-wrap' }}>
+                  {error.stack.toString()}
+                </Typography>
+              </Accordion.Panel>
+            </Accordion>
             <h4 className={'center'}>
               If this error persists, please report an issue {/* Reported during ESLint upgrade */}
               {/* eslint-disable-next-line react/jsx-no-target-blank */}
