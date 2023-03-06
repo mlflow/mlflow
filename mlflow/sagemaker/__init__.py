@@ -324,7 +324,7 @@ def _deploy(
                                                         "NotificationConfig": {}
                                                     }
                                                 }
-                                            
+
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -1995,7 +1995,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             "variant_name": None,
             "env": None,
             "tags": None,
-            "async_inference_config": {}
+            "async_inference_config": {},
         }
 
         if create_mode:

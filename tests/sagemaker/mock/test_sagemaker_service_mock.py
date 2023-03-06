@@ -224,16 +224,13 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
         },
     ]
     async_inference_config = {
-            "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
-            "OutputConfig": {
-                "S3OutputPath": "s3://bucket_name/",
-                "NotificationConfig": {}
-            }
+        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+        "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
     }
     sagemaker_client.create_endpoint_config(
         EndpointConfigName=endpoint_config_name,
         ProductionVariants=production_variants,
-        AsyncInferenceConfig=async_inference_config
+        AsyncInferenceConfig=async_inference_config,
     )
 
     describe_endpoint_config_response = sagemaker_client.describe_endpoint_config(
@@ -247,6 +244,7 @@ def test_describe_endpoint_config_response_contains_expected_attributes(sagemake
     assert describe_endpoint_config_response["ProductionVariants"] == production_variants
     assert "AsyncInferenceConfig" in describe_endpoint_config_response
     assert describe_endpoint_config_response["AsyncInferenceConfig"] == async_inference_config
+
 
 @mock_sagemaker
 def test_describe_endpoint_config_throws_exception_for_nonexistent_config(sagemaker_client):

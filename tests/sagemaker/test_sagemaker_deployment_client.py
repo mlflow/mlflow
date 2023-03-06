@@ -273,18 +273,13 @@ def test_create_deployment_with_async_config(
 ):
     app_name = "deploy_with_async_config"
     expected_async_inference_config = {
-            "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
-            "OutputConfig": {
-                "S3OutputPath": "s3://bucket_name/",
-                "NotificationConfig": {}
-            }
+        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+        "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
     }
     sagemaker_deployment_client.create_deployment(
         name=app_name,
         model_uri=pretrained_model.model_uri,
-        config={
-            "async_inference_config": expected_async_inference_config
-        }
+        config={"async_inference_config": expected_async_inference_config},
     )
     configs = sagemaker_client.list_endpoint_configs()
     target_config = None
@@ -298,7 +293,6 @@ def test_create_deployment_with_async_config(
     )
     assert "AsyncInferenceConfig" in endpoint_config
     assert endpoint_config["AsyncInferenceConfig"] == expected_async_inference_config
-
 
 
 @mock_sagemaker_aws_services
@@ -326,18 +320,14 @@ def test_update_deployment_with_async_config_when_endpoint_exists(
 ):
     app_name = "update_deploy_with_async_config"
     expected_async_inference_config = {
-            "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
-            "OutputConfig": {
-                "S3OutputPath": "s3://bucket_name/",
-                "NotificationConfig": {}
-            }
+        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+        "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
     }
     """
     Create deployment with no async config    
     """
     sagemaker_deployment_client.create_deployment(
-        name=app_name,
-        model_uri=pretrained_model.model_uri
+        name=app_name, model_uri=pretrained_model.model_uri
     )
     """
     Update deployment with async config
@@ -345,9 +335,7 @@ def test_update_deployment_with_async_config_when_endpoint_exists(
     sagemaker_deployment_client.update_deployment(
         name=app_name,
         model_uri=pretrained_model.model_uri,
-        config={
-            "async_inference_config": expected_async_inference_config
-        }
+        config={"async_inference_config": expected_async_inference_config},
     )
     configs = sagemaker_client.list_endpoint_configs()
     target_config = None
@@ -380,6 +368,7 @@ def test_update_deployment_without_async_config(
     if target_config is None:
         raise Exception("Endpoint config not found")
     assert "AsyncInferenceConfig" not in target_config
+
 
 def test_create_deployment_with_unsupported_flavor_raises_exception(
     pretrained_model, sagemaker_deployment_client
