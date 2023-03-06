@@ -351,7 +351,7 @@ class TrainStep(BaseStep):
                     self.tokenizer = self.pipe.tokenizer
 
                 def predict(self, context, model_input):
-                    return self.pipe(model_input, context)
+                    return self.pipe(model_input)
 
 
             class MLflowRecipesCallback(TrainerCallback):
