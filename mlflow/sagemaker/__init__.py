@@ -312,18 +312,18 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
-    :param async_inference_config: The name to assign to the endpoint_config 
+    :param async_inference_config: The name to assign to the endpoint_config
                                     on the sagemaker endpoint.
                                     .. code-block:: python
                                         :caption: Example
                                             "AsyncInferenceConfig": {
                                                 "ClientConfig": {
-                                                    "MaxConcurrentInvocationsPerInstance": 4 # pylint: disable=line-too-long
+                                                    "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
                                                 },
                                                 "OutputConfig": {
-                                                    "S3OutputPath": "s3://<path-to-output-bucket>", # pylint: disable=line-too-long
-                                                    "NotificationConfig": {} # pylint: disable=line-too-long
-                                                }
+                                                    "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
+                                                    "NotificationConfig": {},  # pylint: disable=line-too-long
+                                                },
                                             }
 
     :param env: An optional dictionary of environment variables to set for the model.
