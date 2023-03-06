@@ -7,7 +7,10 @@ from unittest.mock import ANY
 
 from google.cloud.storage import Client
 from requests import Response
+import yaml
 
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import ModelSignature, Schema
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import GetRun
@@ -112,6 +115,45 @@ def test_create_registered_model(mock_http, store):
         "POST",
         CreateRegisteredModelRequest(name="model_1", description=description),
     )
+
+
+@pytest.fixture()
+def local_model_dir(tmp_path):
+    fake_signature = ModelSignature(inputs=Schema([]), outputs=Schema([]))
+    fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    yield tmp_path
+
+
+def test_create_model_version_missing_mlmodel(store, tmp_path):
+    with pytest.raises(
+        MlflowException,
+        match="Unable to load model metadata. Ensure the source path of the model "
+        "being registered points to a valid MLflow model directory ",
+    ):
+        store.create_model_version(name="mymodel", source=str(tmp_path))
+
+
+def test_create_model_version_missing_signature(store, tmp_path):
+    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
+    with pytest.raises(
+        MlflowException,
+        match="Model passed for registration did not contain any signature metadata",
+    ):
+        store.create_model_version(name="mymodel", source=str(tmp_path))
+
+
+def test_create_model_version_missing_output_signature(store, tmp_path):
+    fake_signature = ModelSignature(inputs=Schema([]))
+    fake_mlmodel_contents = {"signature": fake_signature.to_dict()}
+    with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
+        yaml.dump(fake_mlmodel_contents, handle)
+    with pytest.raises(
+        MlflowException,
+        match="Model passed for registration contained a signature that includes only inputs",
+    ):
+        store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
 def test_create_registered_model_with_tags_unsupported(store):
@@ -356,7 +398,7 @@ def _assert_create_model_version_endpoints_called(
         )
 
 
-def test_create_model_version_aws(store, tmp_path):
+def test_create_model_version_aws(store, local_model_dir):
     access_key_id = "fake-key"
     secret_access_key = "secret-key"
     session_token = "session-token"
@@ -368,7 +410,7 @@ def test_create_model_version_aws(store, tmp_path):
         )
     )
     storage_location = "s3://blah"
-    source = str(tmp_path)
+    source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
@@ -399,13 +441,13 @@ def test_create_model_version_aws(store, tmp_path):
         )
 
 
-def test_create_model_version_azure(store, tmp_path):
+def test_create_model_version_azure(store, local_model_dir):
     storage_location = "abfss://filesystem@account.dfs.core.windows.net"
     fake_sas_token = "fake_session_token"
     temporary_creds = TemporaryCredentials(
         azure_user_delegation_sas=AzureUserDelegationSAS(sas_token=fake_sas_token)
     )
-    source = str(tmp_path)
+    source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
     mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
@@ -442,13 +484,13 @@ def test_create_model_version_azure(store, tmp_path):
         ("name", "source", "description", "run_id"),
     ],
 )
-def test_create_model_version_gcp(store, tmp_path, create_args):
+def test_create_model_version_gcp(store, local_model_dir, create_args):
     storage_location = "gs://test_bucket/some/path"
     fake_oauth_token = "fake_session_token"
     temporary_creds = TemporaryCredentials(
         gcp_oauth_token=GcpOauthToken(oauth_token=fake_oauth_token)
     )
-    source = str(tmp_path)
+    source = str(local_model_dir)
     model_name = "model_1"
     all_create_args = {
         "name": model_name,
