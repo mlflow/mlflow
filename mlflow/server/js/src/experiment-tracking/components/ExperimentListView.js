@@ -55,7 +55,7 @@ export class ExperimentListView extends Component {
     const { experiments } = this.props;
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? this.props.experiments
+      ? experiments.filter(({ name }) => !name.startsWith('.'))
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
