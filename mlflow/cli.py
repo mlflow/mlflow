@@ -9,6 +9,7 @@ from click import UsageError
 from datetime import timedelta
 
 import mlflow.db
+import mlflow.server
 from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
@@ -347,6 +348,16 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "doesn't exist, it will be created. "
     "Activate prometheus exporter to expose metrics on /metrics endpoint.",
 )
+@click.option(
+    "--app-name",
+    default=None,
+    type=click.Choice(mlflow.server._get_mlflow_app_names()),
+    show_default=True,
+    help=(
+        "Application name to be used for the tracking server. "
+        f"If not specified, '{mlflow.server.__name__}:app' will be used."
+    ),
+)
 def server(
     backend_store_uri,
     registry_store_uri,
@@ -361,6 +372,7 @@ def server(
     gunicorn_opts,
     waitress_opts,
     expose_prometheus,
+    app_name,
 ):
     """
     Run the MLflow tracking server.
@@ -410,6 +422,7 @@ def server(
             gunicorn_opts,
             waitress_opts,
             expose_prometheus,
+            app_name,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")

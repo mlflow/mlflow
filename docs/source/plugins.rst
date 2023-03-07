@@ -221,7 +221,7 @@ plugin:
      - The entry point name (e.g. ``mlflow_test_plugin:app``) specifies a customized flask application. This can be useful for implementing
        request hooks, custom logging and custom flask configurations. The plugin must import `mlflow.server.app` (e.g. ``from mlflow.server import app``) and may add custom configuration, middleware etc. to the app.
        The plugin should avoid altering the existing application routes, handlers and environment variables to avoid unexpected behavior.
-       Users who install the example plugin will have a customized flask application.
+       Users who install the example plugin will have a customized flask application. To run a tracking server with the customized flask application, ``mlflow server --app-name <app_name>`` can be used.
      - `app <https://github.com/mlflow/mlflow/blob/v2.3.0/tests/resources/mlflow-test-plugin/mlflow_test_plugin/app.py>`_.
 
 
