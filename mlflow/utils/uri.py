@@ -24,6 +24,10 @@ def is_local_uri(uri):
     if uri == "databricks":
         return False
 
+    if is_windows() and uri.startswith("\\"):
+        # windows network drive path like: "\\<server name>\path\..."
+        return False
+
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.hostname:
         return False
