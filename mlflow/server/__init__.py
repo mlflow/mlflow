@@ -107,17 +107,9 @@ def serve():
     return Response(text, mimetype="text/plain")
 
 
-def _get_mlflow_app_entrypoints():
-    return entrypoints.get_group_all("mlflow.app")
-
-
-def _get_mlflow_app_names():
-    return [a.name for a in _get_mlflow_app_entrypoints()]
-
-
 def _find_app(app_name: str) -> str:
     """Find the entrypoint for the given app name."""
-    apps = _get_mlflow_app_entrypoints()
+    apps = entrypoints.get_group_all("mlflow.app")
     for app in apps:
         return f"{app.module_name}:{app.object_name}"
 

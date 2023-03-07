@@ -5,11 +5,11 @@ import sys
 import logging
 
 import click
+import entrypoints
 from click import UsageError
 from datetime import timedelta
 
 import mlflow.db
-import mlflow.server
 from mlflow.entities import ViewType
 import mlflow.experiments
 import mlflow.deployments.cli
@@ -351,11 +351,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--app-name",
     default=None,
-    type=click.Choice(mlflow.server._get_mlflow_app_names()),
+    type=click.Choice([e.name for e in entrypoints.get_group_all("mlflow.app")]),
     show_default=True,
     help=(
         "Application name to be used for the tracking server. "
-        f"If not specified, '{mlflow.server.__name__}:app' will be used."
+        "If not specified, 'mlflow.server:app' will be used."
     ),
 )
 def server(
