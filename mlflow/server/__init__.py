@@ -108,7 +108,6 @@ def serve():
 
 
 def _find_app(app_name: str) -> str:
-    """Find the entrypoint for the given app name."""
     apps = importlib.metadata.entry_points().get("mlflow.app", [])
     for app in apps:
         if app.name == app_name:
