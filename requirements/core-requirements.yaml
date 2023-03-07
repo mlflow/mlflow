@@ -6,8 +6,7 @@
 alembic:
   pip_release: alembic
   max_major_version: 1
-  # TODO: Temporarily avoid alembic 1.10.0 until https://github.com/sqlalchemy/alembic/issues/1195
-  #       is fixed
+  # alembic 1.10.0 contains a regression: https://github.com/sqlalchemy/alembic/issues/1195
   unsupported: ["1.10.0"]
 
 docker:
