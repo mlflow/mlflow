@@ -60,6 +60,7 @@ def upgrade():
                 *new_run_statuses,
                 create_constraint=True,
                 native_enum=False,
+                name="status",
             ),
             existing_type=Enum(
                 *old_run_statuses,
