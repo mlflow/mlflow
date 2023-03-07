@@ -1,8 +1,8 @@
-import entrypoints
 import os
 import shlex
 import sys
 import textwrap
+import importlib.metadata
 
 from flask import Flask, send_from_directory, Response
 
@@ -109,13 +109,13 @@ def serve():
 
 def _find_app(app_name: str) -> str:
     """Find the entrypoint for the given app name."""
-    apps = entrypoints.get_group_all("mlflow.app")
+    apps = importlib.metadata.entry_points().get("mlflow.app", [])
     for app in apps:
         if app.name == app_name:
-            return f"{app.module_name}:{app.object_name}"
+            return app.value
 
     raise MlflowException(
-        f"Failed to find app: {app_name}. Available apps: {[a.name for a in apps]}"
+        f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
     )
 
 

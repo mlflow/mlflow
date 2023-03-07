@@ -5,7 +5,7 @@ import sys
 import logging
 
 import click
-import entrypoints
+import importlib.metadata
 from click import UsageError
 from datetime import timedelta
 
@@ -351,7 +351,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option(
     "--app-name",
     default=None,
-    type=click.Choice([e.name for e in entrypoints.get_group_all("mlflow.app")]),
+    type=click.Choice([e.name for e in importlib.metadata.entry_points().get("mlflow.app", [])]),
     show_default=True,
     help=(
         "Application name to be used for the tracking server. "
