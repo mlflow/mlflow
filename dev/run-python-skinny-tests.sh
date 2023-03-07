@@ -18,9 +18,7 @@ pytest tests/test_skinny_client_omits_sql_libs.py
 # After verifying skinny client does not include store specific requirements,
 # we are installing sqlalchemy store requirements as our example store for the test suite.
 # SQL Alchemy serves as a simple, fully featured option to test skinny client store scenarios.
-# TODO: Temporarily avoid alembic 1.10.0 until https://github.com/sqlalchemy/alembic/issues/1195
-#       is fixed
-python -m pip install sqlalchemy alembic!=1.10.0
+python -m pip install sqlalchemy alembic
 
 # Given the example store does not delete dependencies, we verify non store related dependencies
 # after the example store setup. This verifies both the example store and skinny client do not add
