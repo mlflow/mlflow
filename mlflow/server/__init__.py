@@ -111,7 +111,8 @@ def _find_app(app_name: str) -> str:
     """Find the entrypoint for the given app name."""
     apps = entrypoints.get_group_all("mlflow.app")
     for app in apps:
-        return f"{app.module_name}:{app.object_name}"
+        if app.name == app_name:
+            return f"{app.module_name}:{app.object_name}"
 
     raise MlflowException(
         f"Failed to find app: {app_name}. Available apps: {[a.name for a in apps]}"
