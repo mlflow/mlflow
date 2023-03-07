@@ -182,10 +182,10 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    app_name = f"{__name__}:app" if app_name is None else _find_app(app_name)
+    app_spec = f"{__name__}:app" if app_name is None else _find_app(app_name)
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app_name)
+        full_command = _build_waitress_command(waitress_opts, host, port, app_spec)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_name)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_spec)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)
