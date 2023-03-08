@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { IntlProvider } from 'react-intl';
 import './index.css';
 import '@databricks/design-system/dist/index.css';
@@ -8,11 +8,13 @@ import store from './store';
 import { I18nUtils } from './i18n/I18nUtils';
 import { DesignSystemContainer } from './common/components/DesignSystemContainer';
 import { ConfigProvider } from 'antd';
+import { BrowserRouter as Router} from 'react-router-dom';
 
 export function MLFlowRoot() {
   const { locale, messages } = I18nUtils.getIntlProviderParams();
 
   return (
+    <Router>
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
         <DesignSystemContainer flags={{ USE_NEW_ICONS: true }}>
@@ -22,5 +24,5 @@ export function MLFlowRoot() {
         </DesignSystemContainer>
       </Provider>
     </IntlProvider>
-  );
+    </Router>);
 }

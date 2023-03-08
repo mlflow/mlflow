@@ -1,0 +1,16 @@
+version: "3.8"
+
+services:
+  app:
+    tty: true
+    stdin_open: true
+    env_file:
+      - .env.dev
+    command: serve -s build -p 3000
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app

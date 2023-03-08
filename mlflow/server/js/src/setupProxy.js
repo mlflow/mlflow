@@ -8,21 +8,31 @@ module.exports = function(app) {
   // there.
   const proxyTarget = process.env.MLFLOW_PROXY || 'http://localhost:5000/';
   const proxyStaticTarget = process.env.MLFLOW_STATIC_PROXY || proxyTarget;
+  const iamTarget = process.env.IAM_PROXY || 'http://localhost:5002/';
   app.use(
-    createProxyMiddleware('/ajax-api', {
+    createProxyMiddleware('/user-service/v1/entities-mapping/v1/iam-api', {
+      target: iamTarget,
+      changeOrigin: true,
+      pathRewrite: {
+        '^/user-service/v1/entities-mapping/v1/iam-api': '/',
+      },
+    }),
+  );
+  app.use(
+    createProxyMiddleware('/user-service/v1/entities-mapping/v1/ajax-api', {
       target: proxyTarget,
       changeOrigin: true,
     }),
   );
   app.use(
-    createProxyMiddleware('/get-artifact', {
+createProxyMiddleware('/user-service/v1/entities-mapping/v1/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
       changeOrigin: true,
     }),
   );
   app.use(
-    createProxyMiddleware('/model-versions/get-artifact', {
+createProxyMiddleware('/user-service/v1/entities-mapping/v1/model-versions/get-artifact', {
       target: proxyStaticTarget,
       ws: true,
       changeOrigin: true,

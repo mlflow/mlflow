@@ -299,6 +299,7 @@ module.exports = function ({ env }) {
           SHOW_GDPR_PURGING_MESSAGES: process.env.SHOW_GDPR_PURGING_MESSAGES ? 'true' : 'false',
           USE_ABSOLUTE_AJAX_URLS: process.env.USE_ABSOLUTE_AJAX_URLS ? 'true' : 'false',
           SHOULD_REDIRECT_IFRAME: process.env.SHOULD_REDIRECT_IFRAME ? 'true' : 'false',
+          IAM_GET_TOKEN_URL: process.env.IAM_GET_TOKEN_URL,
         }),
       ],
     },

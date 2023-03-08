@@ -44,11 +44,17 @@ export const getDefaultHeaders = (cookieStr) => {
   };
 };
 
-export const getAjaxUrl = (relativeUrl) => {
-  if (process.env.USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
-    return '/' + relativeUrl;
+export const getAjaxUrl = (url) => {
+  if(url.startsWith('http') || url.startsWith('https')) {
+    return url;
   }
-  return relativeUrl;
+
+  const prod = process.env.NODE_ENV === 'production';
+  const host = prod ? process.env.BACKEND_HOST: '';
+    if (!url.startsWith('/')) {
+      return `${host}/user-service/v1/entities-mapping/v1/${url}`
+    }
+    return `${host}/user-service/v1/entities-mapping/v1${url}`
 };
 
 // return response json by default, if response is not parsable to json,
@@ -186,6 +192,38 @@ export const retry = async (
   }
 };
 
+const AUTH_ERROR_CODE = 403;
+
+const getTokenUrl = () => process.env.NODE_ENV === 'production' ? `${process.env.IAM_HOST}${process.env.IAM_GET_TOKEN_URL}` : process.env.IAM_GET_TOKEN_URL;
+
+export const getToken = () => {
+  return new Promise((resolve, reject) => retry(
+      () => {
+        return fetchEndpointRaw({
+          relativeUrl: getTokenUrl(),
+          method: 'GET',
+        });
+      },
+       {
+         retries: 2,
+         interval: 2,
+         retryIntervalMultiplier: 2,
+         successCondition: (res) => res && res.ok,
+         success: ({ res }) => defaultResponseParser({ resolve, reject, response: res }),
+         errorCondition: (res) => !res,
+         error: ({ res, err }) => defaultError({ resolve, reject, response: res, err: err }),
+       },
+     ))
+}
+
+const getAuthTokenFromStorage = () => {
+  try {
+    return JSON.parse(localStorage.getItem('auth_token'));
+  } catch(e) {
+    console.log(e);
+  }
+}
+
 /**
  * Makes a fetch request.
  * @param relativeUrl: relative URL to the shard URL
@@ -203,7 +241,31 @@ export const retry = async (
  * See https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API#differences_from_jquery
  * @returns {Promise<T>}
  */
-export const fetchEndpoint = ({
+
+const refetchTokenIfOld = () => {
+  const ten_min = 600;
+  const token = getAuthTokenFromStorage();
+  if(!token) return;
+  if(Date.now() - Number(token.date) > ten_min) {
+    getToken();
+  }
+}
+
+const getTokenIfAuthErr = (status) => {
+  if(status === AUTH_ERROR_CODE) {
+    const retry = (Number(sessionStorage.getItem('token_err')) || 0) + 1;
+    if(retry < 3) {
+      sessionStorage.setItem('token_err', `${retry}`);
+      getToken();
+    } else {
+      throw new Error('Authorization error. Please try later');
+    }
+  } else {
+    sessionStorage.setItem('token_err', '0');
+  }
+}
+
+const fetchEndpoint = async ({
   relativeUrl,
   method = HTTPMethods.GET,
   body = undefined,
@@ -215,31 +277,46 @@ export const fetchEndpoint = ({
   success = defaultResponseParser,
   error = defaultError,
 }) => {
-  return new Promise((resolve, reject) =>
+  let token = null;
+  if(!getAuthTokenFromStorage()) {
+    await getToken();
+  }
+
+    return new Promise((resolve, reject) => {
     retry(
-      () =>
-        fetchEndpointRaw({
+     async () => {
+        return fetchEndpointRaw({
           relativeUrl,
           method,
           body,
-          headerOptions,
+          headerOptions: {
+            ...headerOptions,
+            'Authorization': `Bearer ${token}`,
+          },
           options,
           timeoutMs,
-        }),
+        });
+      },
       {
         retries,
         interval: initialDelay,
         retryIntervalMultiplier: 2,
         // 200s
-        successCondition: (res) => res && res.ok,
-        success: ({ res }) => success({ resolve, reject, response: res }),
+        successCondition: async (res) => {
+          refetchTokenIfOld();
+          getTokenIfAuthErr(res.status);
+          return res && res.ok && res.status !== 403;
+        },
+        success: ({ res }) => {
+          return success({ resolve, reject, response: res });
+        },
         // not a 200 and also not a retryable HTTP status code
         errorCondition: (res) => !res || (!res.ok && !HTTPRetryStatuses.includes(res.status)),
         error: ({ res, err }) => error({ resolve, reject, response: res, err: err }),
       },
-    ),
-  );
-};
+    );
+  });
+}
 
 const filterUndefinedFields = (data) => {
   if (!Array.isArray(data)) {

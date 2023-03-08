@@ -1,6 +1,7 @@
-import React, { Component } from 'react';
+import React, { Component, useEffect } from 'react';
 import { connect } from 'react-redux';
-import { HashRouter as Router, Link, NavLink, Route, Switch } from 'react-router-dom';
+import { HashRouter as Router, Link, NavLink, Route, Switch, useLocation } from 'react-router-dom';
+import { getToken } from 'src/common/utils/FetchUtils';
 import AppErrorBoundary from '../../common/components/error-boundaries/AppErrorBoundary';
 import { HomePageDocsUrl, Version } from '../../common/constants';
 import logo from '../../common/static/home-logo.png';
@@ -43,93 +44,104 @@ const classNames = {
 // eslint-disable-next-line no-unused-vars
 const InteractionTracker = ({ children }) => children;
 
-class App extends Component {
-  render() {
-    const marginRight = 24;
-    return (
-      <Router
-        basename={mlflowHashRouting ? '/mlflow' : undefined}
-        hashType={mlflowHashRouting ? 'noslash' : undefined}
-      >
-        <div style={{ height: '100vh' }}>
-          <ErrorModal />
-          {process.env.HIDE_HEADER === 'true' ? null : (
-            <header className='App-header'>
-              <div className='mlflow-logo'>
-                <Link to={Routes.rootRoute} className='App-mlflow'>
-                  <img className='mlflow-logo' alt='MLflow' src={logo} />
-                </Link>
-                <span className={'mlflow-version'}>{Version}</span>
-              </div>
-              <div className='header-route-links'>
-                <NavLink
-                  strict
-                  to={Routes.rootRoute}
-                  css={{ marginRight }}
-                  activeStyle={classNames.activeNavLink}
-                  isActive={isExperimentsActive}
-                  className='header-nav-link'
-                >
-                  <div className='experiments'>
-                    <span>Experiments</span>
-                  </div>
-                </NavLink>
-                <NavLink
-                  strict
-                  to={modelListPageRoute}
-                  css={{ marginRight }}
-                  activeStyle={classNames.activeNavLink}
-                  className='header-nav-link header-nav-link-models'
-                >
-                  <div className='models'>
-                    <span>Models</span>
-                  </div>
-                </NavLink>
-              </div>
-              <div className='header-links'>
-                <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
-                  <div className='github'>
-                    <span>GitHub</span>
-                  </div>
-                </a>
-                <a href={HomePageDocsUrl} css={{ marginRight }}>
-                  <div className='docs'>
-                    <span>Docs</span>
-                  </div>
-                </a>
-              </div>
-            </header>
-          )}
-          <AppErrorBoundary service='mlflow'>
-            <InteractionTracker>
-              <Switch>
-                <Route exact path={Routes.rootRoute} component={HomePage} />
-                <Route exact path={Routes.experimentPageRoute} component={HomePage} />
-                <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
-                <Route exact path={Routes.runPageRoute} component={RunPage} />
-                <Route exact path={Routes.metricPageRoute} component={MetricPage} />
-                <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
-                <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
-                <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
-                {/* TODO(Zangr) see if route component can be injected here */}
-                <Route exact path={modelListPageRoute} component={ModelListPage} />
-                <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
-                <Route exact path={modelPageRoute} component={ModelPage} />
-                <Route exact path={modelSubpageRoute} component={ModelPage} />
-                <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
-                <Route
-                  exact
-                  path={compareModelVersionsPageRoute}
-                  component={CompareModelVersionsPage}
-                />
-                <Route component={PageNotFoundView} />
-              </Switch>
-            </InteractionTracker>
-          </AppErrorBoundary>
-        </div>
-      </Router>
-    );
-  }
+const useTokenHandler = () => {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if(token)
+      localStorage.setItem('auth_token', JSON.stringify({date: Date.now(), value: token}));
+    }, [location.search]);
+}
+
+const App = () => {
+  useTokenHandler();
+  const marginRight = 24;
+
+  return (
+    <Router
+      basename={mlflowHashRouting ? '/mlflow' : undefined}
+      hashType={mlflowHashRouting ? 'noslash' : undefined}
+    >
+      <div style={{ height: '100vh' }}>
+        <ErrorModal />
+        {process.env.HIDE_HEADER === 'true' ? null : (
+          <header className='App-header'>
+            <div className='mlflow-logo'>
+              <Link to={Routes.rootRoute} className='App-mlflow'>
+                <img className='mlflow-logo' alt='MLflow' src={logo} />
+              </Link>
+              <span className={'mlflow-version'}>{Version}</span>
+            </div>
+            <div className='header-route-links'>
+              <NavLink
+                strict
+                to={Routes.rootRoute}
+                css={{ marginRight }}
+                activeStyle={classNames.activeNavLink}
+                isActive={isExperimentsActive}
+                className='header-nav-link'
+              >
+                <div className='experiments'>
+                  <span>Experiments</span>
+                </div>
+              </NavLink>
+              <NavLink
+                strict
+                to={modelListPageRoute}
+                css={{ marginRight }}
+                activeStyle={classNames.activeNavLink}
+                className='header-nav-link header-nav-link-models'
+              >
+                <div className='models'>
+                  <span>Models</span>
+                </div>
+              </NavLink>
+            </div>
+            <div className='header-links'>
+              <a href={'https://github.com/mlflow/mlflow'} css={{ marginRight }}>
+                <div className='github'>
+                  <span>GitHub</span>
+                </div>
+              </a>
+              <a href={HomePageDocsUrl} css={{ marginRight }}>
+                <div className='docs'>
+                  <span>Docs</span>
+                </div>
+              </a>
+            </div>
+          </header>
+        )}
+        <AppErrorBoundary service='mlflow'>
+          <InteractionTracker>
+            <Switch>
+              <Route exact path={Routes.rootRoute} component={HomePage} />
+              <Route exact path={Routes.experimentPageRoute} component={HomePage} />
+              <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
+              <Route exact path={Routes.runPageRoute} component={RunPage} />
+              <Route exact path={Routes.metricPageRoute} component={MetricPage} />
+              <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+              <Route exact path={Routes.compareExperimentsSearchPageRoute} component={HomePage} />
+              <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
+              {/* TODO(Zangr) see if route component can be injected here */}
+              <Route exact path={modelListPageRoute} component={ModelListPage} />
+              <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
+              <Route exact path={modelPageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRoute} component={ModelPage} />
+              <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
+              <Route
+                exact
+                path={compareModelVersionsPageRoute}
+                component={CompareModelVersionsPage}
+              />
+              <Route component={PageNotFoundView} />
+            </Switch>
+          </InteractionTracker>
+        </AppErrorBoundary>
+      </div>
+    </Router>
+  );
 }
 
 const mapStateToProps = (state) => {

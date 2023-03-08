@@ -128,7 +128,7 @@
   },
   "scripts": {
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`, `start:mfe` and `test:ci`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
-    "start": "craco start",
+    "start": "IAM_GET_TOKEN_URL=/iam-api/get_token craco start",
     "start:iframe": "HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true craco start",
     "start:dev-proxy-fs": "START_FEATURE_STORE=true yarn start:dev-proxy-iframe",
     "start:dev-proxy-iframe": "MLFLOW_DEV_PROXY_MODE=true yarn start:iframe",
