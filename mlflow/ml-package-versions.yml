@@ -87,10 +87,11 @@ tensorflow:
       "< 2.7.0": ["pandas==1.3.5"]
       # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
       # transitive dependency version conflicts with the `typing-extensions` package
-      "== 2.3.4": ["sqlalchemy<2"]
-      "== 2.4.4": ["sqlalchemy<2"]
-      "== 2.5.3": ["sqlalchemy<2"]
-      "== 2.6.5": ["sqlalchemy<2"]
+      # They are also incompatible with alembic 1.10.1 with the TypeGuard dependency in py3.8
+      "== 2.3.4": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.4.4": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.5.3": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.6.5": ["sqlalchemy<2", "alembic<1.10"]
     run: |
       pytest \
         tests/tensorflow/test_load_saved_tensorflow_estimator.py \
@@ -108,10 +109,11 @@ tensorflow:
       "< 2.7.0": ["pandas==1.3.5"]
       # TensorFlow 2.3.4, 2.4.4, 2.5.3, and 2.6.5 are incompatible with SQLAlchemy 2.x due to
       # transitive dependency version conflicts with the `typing-extensions` package
-      "== 2.3.4": ["sqlalchemy<2"]
-      "== 2.4.4": ["sqlalchemy<2"]
-      "== 2.5.3": ["sqlalchemy<2"]
-      "== 2.6.5": ["sqlalchemy<2"]
+      # They are also incompatible with alembic 1.10.1 with the TypeGuard dependency in py3.8
+      "== 2.3.4": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.4.4": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.5.3": ["sqlalchemy<2", "alembic<1.10"]
+      "== 2.6.5": ["sqlalchemy<2", "alembic<1.10"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
