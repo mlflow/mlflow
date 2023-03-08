@@ -1372,8 +1372,8 @@ def _validate_source(source: str, run_id: str) -> None:
         store = _get_tracking_store()
         run = store.get_run(run_id)
         source = pathlib.Path(local_file_uri_to_path(source))
-        run_artifact_uri = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri))
-        if source in run_artifact_uri.parents:
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri))
+        if run_artifact_dir in [source, *source.parents]:
             return
 
     raise MlflowException(
@@ -1398,7 +1398,7 @@ def _create_model_version():
         },
     )
 
-    _validate_source(request_message.source, request.run_id)
+    _validate_source(request_message.source, request_message.run_id)
 
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
