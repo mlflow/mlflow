@@ -285,7 +285,7 @@ class Utils {
       if (fileDir) {
         url = url + '/tree/master/' + fileDir;
       }
-    } 
+    }
     return url;
   }
 
@@ -329,7 +329,7 @@ class Utils {
         sourceVersion +
         '/' +
         fileDir;
-    } 
+    }
     return url;
   }
 
@@ -1063,8 +1063,7 @@ class Utils {
   }
 
   // eslint-disable-next-line prettier/prettier
-  static updatePageTitle(title) {
-  }
+  static updatePageTitle(title) {}
 
   /**
    * Check if current browser tab is the visible tab.
@@ -1150,4 +1149,3 @@ class Utils {
 }
 
 export default Utils;
-

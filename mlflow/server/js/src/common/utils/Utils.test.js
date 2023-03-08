@@ -462,11 +462,11 @@ test('getRegex', () => {
   const urlAndExpected = [
     [
       'https://custom.git.domain/repo/directory#project/directory',
-      ['https://custom.git.domain', 'repo/directory', 'project/directory']
+      ['https://custom.git.domain', 'repo/directory', 'project/directory'],
     ],
     [
       'git@git.custom.in/repo/directory#project/directory',
-      ['git@git.custom.in', 'repo/directory', 'project/directory']
+      ['git@git.custom.in', 'repo/directory', 'project/directory'],
     ],
     ['https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git', [undefined]],
     ['ssh@some-server:mlflow/mlflow-apps.git', [undefined]],
@@ -930,4 +930,3 @@ test('isValidHttpUrl', () => {
   /* eslint-disable no-script-url*/
   expect(Utils.isValidHttpUrl('javascript:void(0)')).toEqual(false);
 });
-
