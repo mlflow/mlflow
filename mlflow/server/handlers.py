@@ -84,6 +84,7 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
@@ -1370,7 +1371,9 @@ def _validate_source(source: str, run_id: str) -> None:
     if run_id:
         store = _get_tracking_store()
         run = store.get_run(run_id)
-        if source.startswith(run.info.artifact_uri):
+        source = pathlib.Path(local_file_uri_to_path(source))
+        run_artifact_uri = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri))
+        if source in run_artifact_uri.parents:
             return
 
     raise MlflowException(
