@@ -36,24 +36,18 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
         from azure.storage.blob import BlobServiceClient
 
-        host_creds = _get_default_host_creds(artifact_uri)
-        if host_creds.server_cert_path is None:
-            verify = not host_creds.ignore_tls_verification
-        else:
-            verify = host_creds.server_cert_path
-            
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
                 conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
-                connection_verify=verify,
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = f"https://{account}.{api_uri_suffix}"
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
-                connection_verify=verify,
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
         else:
             try:
@@ -68,7 +62,7 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             self.client = BlobServiceClient(
                 account_url=account_url,
                 credential=DefaultAzureCredential(),
-                connection_verify=verify,
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
 
     @staticmethod

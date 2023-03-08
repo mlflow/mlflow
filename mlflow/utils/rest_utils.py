@@ -147,11 +147,6 @@ def http_request(
     if auth_str:
         headers["Authorization"] = auth_str
 
-    if host_creds.server_cert_path is None:
-        verify = not host_creds.ignore_tls_verification
-    else:
-        verify = host_creds.server_cert_path
-
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
 
@@ -171,7 +166,7 @@ def http_request(
             backoff_factor,
             retry_codes,
             headers=headers,
-            verify=verify,
+            verify=host_creds.verify,
             timeout=timeout,
             **kwargs,
         )
@@ -398,3 +393,10 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    @property
+    def verify(self):
+        if self.server_cert_path is None:
+            return not self.ignore_tls_verification
+        else:
+            return self.server_cert_path
