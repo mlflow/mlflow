@@ -170,3 +170,29 @@ class SqlModelVersionTag(Base):
     # entity mappers
     def to_mlflow_entity(self):
         return ModelVersionTag(self.key, self.value)
+
+
+class SqlRegisteredModelAlias(Base):
+    __tablename__ = "registered_model_aliases"
+    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
+    alias = Column(String(256), nullable=False)
+    version = Column(Integer, nullable=False)
+
+    # linked entities
+    registered_model = relationship(
+        "SqlRegisteredModel", backref=backref("registered_model_aliases", cascade="all")
+    )
+    model_version = relationship(
+        "SqlModelVersion",
+        foreign_keys=[name, version],
+        backref=backref("registered_model_aliases", cascade="all"),
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("name", "alias", name="model_version_alias_pk"),
+        ForeignKeyConstraint(
+            ("name", "version"),
+            ("model_versions.name", "model_versions.version"),
+            onupdate="cascade",
+        ),
+    )
