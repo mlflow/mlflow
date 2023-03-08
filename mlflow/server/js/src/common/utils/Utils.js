@@ -251,7 +251,8 @@ class Utils {
   /**
    * Regular expression for URLs containing the string 'git'.
    * It can be a custom git domain (e.g. https://git.custom.in/repo/dir#file/dir).
-   * Excluding the first overall match, there are three groups: git url, repo directory, and file directory.
+   * Excluding the first overall match, there are three groups:
+   *    git url, repo directory, and file directory.
    * (e.g. group1: https://custom.git.domain, group2: repo/directory, group3: project/directory)
    */
   static getGitRegex() {
@@ -265,7 +266,6 @@ class Utils {
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
-      console.log("getGitRepoUrl gitHubMatch");
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
       url = baseUrl + match[1] + '/' + match[2].replace(/.git/, '');
@@ -279,8 +279,8 @@ class Utils {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
     } else if (gitMatch) {
-      console.log("getGitRepoUrl gitMatch");
-      const [_, baseUrl, repoDir, fileDir] = gitMatch;
+      // eslint-disable-next-line no-unused-vars
+      const [_fullUrl, baseUrl, repoDir, fileDir] = gitMatch;
       url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
       if (fileDir) {
         url = url + '/tree/master/' + fileDir;
@@ -296,7 +296,6 @@ class Utils {
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
-      console.log("getGitCommitUrl gitHubMatch");
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
       const match = gitHubMatch || gitLabMatch;
       url =
@@ -320,8 +319,8 @@ class Utils {
         '/' +
         bitbucketMatch[3];
     } else if (gitMatch) {
-      console.log("getGitCommitUrl gitMatch");
-      const [_, baseUrl, repoDir, fileDir] = gitMatch;
+      // eslint-disable-next-line no-unused-vars
+      const [_fullUrl, baseUrl, repoDir, fileDir] = gitMatch;
       url =
         baseUrl.replace(/git@/, 'https://') +
         '/' +
