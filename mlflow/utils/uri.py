@@ -25,7 +25,7 @@ def is_local_uri(uri):
         return False
 
     if is_windows() and uri.startswith("\\\\"):
-        # windows network drive path like: "\\<server name>\path\..."
+        # windows network drive path looks like: "\\<server name>\path\..."
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
