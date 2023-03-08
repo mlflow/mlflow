@@ -105,6 +105,7 @@ def test_is_local_uri_windows():
     assert is_local_uri("C:\\foo\\mlruns")
     assert is_local_uri("C:/foo/mlruns")
     assert is_local_uri("file:///C:\\foo\\mlruns")
+    assert not is_local_uri("\\\\server\\aa\\bb")
 
 
 def test_is_databricks_uri():
