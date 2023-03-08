@@ -1363,6 +1363,23 @@ def _delete_registered_model_tag():
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
+def _validate_source(source: str, run_id: str) -> None:
+    if not is_local_uri(source):
+        return
+
+    if run_id:
+        store = _get_tracking_store()
+        run = store.get_run(run_id)
+        if source.startswith(run.info.artifact_uri):
+            return
+
+    raise MlflowException(
+        f"Invalid source: '{source}'. source must be a local path within "
+        "a run's artifact directory or a non-local path.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_model_version():
@@ -1378,11 +1395,7 @@ def _create_model_version():
         },
     )
 
-    if is_local_uri(request_message.source):
-        raise MlflowException(
-            f"Model version source cannot be a local path: '{request_message.source}'",
-            INVALID_PARAMETER_VALUE,
-        )
+    _validate_source(request_message.source, request.run_id)
 
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
