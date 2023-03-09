@@ -1,8 +1,8 @@
 """Add Model Aliases table
 
-Revision ID: 29599da4828d
+Revision ID: 3500859a5d39
 Revises: 97727af70f4d
-Create Date: 2023-03-08 13:22:37.174258
+Create Date: 2023-03-09 15:33:54.951736
 
 """
 from alembic import op
@@ -10,9 +10,8 @@ import sqlalchemy as sa
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelAlias
 
 # revision identifiers, used by Alembic.
-
-revision = "29599da4828d"
-down_revision = "97727af70f4d"
+revision = '3500859a5d39'
+down_revision = '97727af70f4d'
 branch_labels = None
 depends_on = None
 
