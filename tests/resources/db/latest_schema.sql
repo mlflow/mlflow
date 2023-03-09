@@ -132,19 +132,19 @@ CREATE TABLE params (
 )
 
 
-CREATE TABLE tags (
-	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
-	run_uuid VARCHAR(32) NOT NULL,
-	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
-	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
-)
-
-
 CREATE TABLE registered_model_aliases (
 	name VARCHAR(256) NOT NULL,
 	alias VARCHAR(250) NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias, version),
 	CONSTRAINT registered_model_alias_name_version_fkey FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)
+
+
+CREATE TABLE tags (
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	run_uuid VARCHAR(32) NOT NULL,
+	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
+	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
