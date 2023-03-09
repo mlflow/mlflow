@@ -11,8 +11,8 @@ from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelAlias
 
 # revision identifiers, used by Alembic.
 
-revision = '29599da4828d'
-down_revision = '97727af70f4d'
+revision = "29599da4828d"
+down_revision = "97727af70f4d"
 branch_labels = None
 depends_on = None
 
@@ -29,12 +29,13 @@ def upgrade():
         ),
         sa.Column("alias", sa.String(length=250), primary_key=True, nullable=False),
         sa.Column("version", sa.Integer(), primary_key=True, nullable=False),
+        sa.PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),
         sa.ForeignKeyConstraint(
             ("name", "version"),
             ("model_versions.name", "model_versions.version"),
             onupdate="cascade",
+            name="registered_model_alias_name_version_fkey",
         ),
-        sa.PrimaryKeyConstraint("name", "alias", name="model_version_alias_pk"),
     )
 
 

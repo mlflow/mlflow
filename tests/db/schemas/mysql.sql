@@ -138,3 +138,12 @@ CREATE TABLE tags (
 	PRIMARY KEY (key, run_uuid),
 	CONSTRAINT tags_ibfk_1 FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
+
+
+CREATE TABLE registered_model_aliases (
+	name VARCHAR(256) NOT NULL,
+	alias VARCHAR(250) NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias, version),
+	CONSTRAINT registered_model_alias_name_version_fkey FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)

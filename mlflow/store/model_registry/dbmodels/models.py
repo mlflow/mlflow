@@ -189,10 +189,11 @@ class SqlRegisteredModelAlias(Base):
     )
 
     __table_args__ = (
-        PrimaryKeyConstraint("name", "alias", name="model_version_alias_pk"),
+        PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),
         ForeignKeyConstraint(
             ("name", "version"),
             ("model_versions.name", "model_versions.version"),
             onupdate="cascade",
+            name="registered_model_alias_name_version_fkey",
         ),
     )
