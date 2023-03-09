@@ -1377,8 +1377,9 @@ def _validate_source(source: str, run_id: str) -> None:
             return
 
     raise MlflowException(
-        f"Invalid source: '{source}'. source must be a local path within "
-        "a run's artifact directory or a non-local path.",
+        f"Invalid source: '{source}'. To use a local path, the run_id request parameter "
+        "has to be specified and the local path has to be contained within the artifact directory "
+        "of the run specified by the run_id.",
         INVALID_PARAMETER_VALUE,
     )
 
