@@ -1074,6 +1074,16 @@ def test_create_model_version_with_local_source(mlflow_client):
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
+            "source": f"{run.info.artifact_uri}/.",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
             "source": run.info.artifact_uri[len("file://") :],
             "run_id": run.info.run_id,
         },
