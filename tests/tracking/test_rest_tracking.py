@@ -1112,3 +1112,13 @@ def test_create_model_version_with_local_source(mlflow_client):
     assert response.status_code == 400
     resp = response.json()
     assert "Invalid source" in resp["message"]
+
+
+def test_logging_model_with_local_artifact_uri(mlflow_client):
+    from sklearn.linear_model import LogisticRegression
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    with mlflow.start_run() as run:
+        assert run.info.artifact_uri.startswith("file://")
+        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.pyfunc.load_model("models:/rmn/1")
