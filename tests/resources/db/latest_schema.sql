@@ -148,3 +148,4 @@ CREATE TABLE tags (
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
+
