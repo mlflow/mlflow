@@ -174,14 +174,11 @@ class SqlModelVersionTag(Base):
 
 class SqlRegisteredModelAlias(Base):
     __tablename__ = "registered_model_aliases"
-    name = Column(String(256), ForeignKey("registered_models.name", onupdate="cascade"))
+    name = Column(String(256))
     alias = Column(String(256), nullable=False)
     version = Column(Integer, nullable=False)
 
     # linked entities
-    registered_model = relationship(
-        "SqlRegisteredModel", backref=backref("registered_model_aliases", cascade="all")
-    )
     model_version = relationship(
         "SqlModelVersion",
         foreign_keys=[name, version],

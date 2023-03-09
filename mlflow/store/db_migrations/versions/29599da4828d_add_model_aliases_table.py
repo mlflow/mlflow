@@ -20,15 +20,9 @@ depends_on = None
 def upgrade():
     op.create_table(
         SqlRegisteredModelAlias.__tablename__,
-        sa.Column(
-            "name",
-            sa.String(length=256),
-            sa.ForeignKey("registered_models.name", onupdate="cascade"),
-            primary_key=True,
-            nullable=False,
-        ),
+        sa.Column("name", sa.String(length=256), primary_key=True, nullable=False),
         sa.Column("alias", sa.String(length=250), primary_key=True, nullable=False),
-        sa.Column("version", sa.Integer(), primary_key=True, nullable=False),
+        sa.Column("version", sa.Integer(), nullable=False),
         sa.PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),
         sa.ForeignKeyConstraint(
             ("name", "version"),
