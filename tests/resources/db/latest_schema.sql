@@ -132,6 +132,15 @@ CREATE TABLE params (
 )
 
 
+CREATE TABLE registered_model_aliases (
+	name VARCHAR(256) NOT NULL,
+	alias VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
+	CONSTRAINT registered_model_alias_name_version_fkey FOREIGN KEY(name, version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
+)
+
+
 CREATE TABLE tags (
 	key VARCHAR(250) NOT NULL,
 	value VARCHAR(5000),
