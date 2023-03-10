@@ -8,12 +8,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class Dataset:
-
     def __init__(
-        self,
-        source: DatasetSource,
-        name: Optional[str] = None,
-        digest: Optional[str] = None
+        self, source: DatasetSource, name: Optional[str] = None, digest: Optional[str] = None
     ):
         """
         Base constructor for a dataset. All subclasses must call this
@@ -48,10 +44,9 @@ class Dataset:
             "name": self._name,
             "digest": self._digest,
             "source": json.dumps(self._source.to_dict()),
-            "source_type": self._source.source_type
+            "source_type": self._source.source_type,
         }
         return json.dumps(self._to_dict(base_dict))
-
 
     @property
     def name(self) -> str:
@@ -62,7 +57,7 @@ class Dataset:
             return self._name
         else:
             return "dummy_name"
-           # TODO: Compute the name from the digest and source, then return.
+        # TODO: Compute the name from the digest and source, then return.
 
     @property
     def digest(self) -> str:

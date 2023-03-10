@@ -1,3 +1,5 @@
+import warnings
+import entrypoints
 from typing import Any
 
 from mlflow.exceptions import MlflowException
@@ -21,6 +23,14 @@ class DatasetSourceRegistry:
         Registers dataset sources defined as Python entrypoints. For reference, see
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
+        for entrypoint in entrypoints.get_group_all("mlflow.dataset_source"):
+            try:
+                self.register(entrypoint.load())
+            except (AttributeError, ImportError) as exc:
+                warnings.warn(
+                    f'Failure attempting to register dataset source with source type "{entrypoint.source_type}": {exc}',
+                    stacklevel=2,
+                )
 
     def resolve(self, raw_source: Any) -> DatasetSource:
         """
