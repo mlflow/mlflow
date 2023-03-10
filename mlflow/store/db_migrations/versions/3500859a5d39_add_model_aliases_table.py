@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModelAlias
 
 # revision identifiers, used by Alembic.
-revision = '3500859a5d39'
-down_revision = '97727af70f4d'
+revision = "3500859a5d39"
+down_revision = "97727af70f4d"
 branch_labels = None
 depends_on = None
 

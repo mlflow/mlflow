@@ -40,4 +40,3 @@ class RegisteredModelAlias(_ModelRegistryEntity):
         alias.alias = self.alias
         alias.version = self.version
         return alias
-
