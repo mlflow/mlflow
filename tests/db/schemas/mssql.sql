@@ -134,7 +134,7 @@ CREATE TABLE tags (
 
 CREATE TABLE registered_model_aliases (
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	alias VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
 	CONSTRAINT registered_model_alias_name_version_fkey FOREIGN KEY(version) REFERENCES model_versions (name, version) ON UPDATE CASCADE
