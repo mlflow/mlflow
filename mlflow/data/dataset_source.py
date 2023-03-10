@@ -6,7 +6,6 @@ DatasetSourceType = TypeVar("DatasetSourceType", bound="DatasetSource")
 
 
 class DatasetSource:
-
     @staticmethod
     @abstractmethod
     def source_type() -> str:
@@ -21,7 +20,6 @@ class DatasetSource:
         :return: The downloaded source, e.g. a local filesystem path, a Spark
                  DataFrame, etc.
         """
-
 
     @staticmethod
     @abstractmethod
