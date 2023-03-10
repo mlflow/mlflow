@@ -174,7 +174,7 @@ class SqlModelVersionTag(Base):
 
 class SqlRegisteredModelAlias(Base):
     __tablename__ = "registered_model_aliases"
-    name = Column(String(256))
+    name = Column(String(256), nullable=False)
     alias = Column(String(256), nullable=False)
     version = Column(Integer, nullable=False)
 
