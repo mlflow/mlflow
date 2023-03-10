@@ -1,8 +1,8 @@
-import entrypoints
 import os
 import shlex
 import sys
 import textwrap
+import importlib.metadata
 
 from flask import Flask, send_from_directory, Response
 
@@ -107,22 +107,15 @@ def serve():
     return Response(text, mimetype="text/plain")
 
 
-def _get_app_name() -> str:
-    """Search for plugins for custom mlflow app, otherwise return default."""
-    apps = list(entrypoints.get_group_all("mlflow.app"))
-    # Default, nothing installed
-    if len(apps) == 0:
-        return f"{__name__}:app"
-    # Cannot install more than one
-    if len(apps) > 1:
-        raise MlflowException(
-            "Multiple server plugins detected. "
-            "Only one server plugin may be installed. "
-            f"Detected plugins: {', '.join([f'{a.module_name}.{a.object_name}' for a in apps])}"
-        )
-    # Has a plugin installed
-    plugin_app = apps[0]
-    return f"{plugin_app.module_name}:{plugin_app.object_name}"
+def _find_app(app_name: str) -> str:
+    apps = importlib.metadata.entry_points().get("mlflow.app", [])
+    for app in apps:
+        if app.name == app_name:
+            return app.value
+
+    raise MlflowException(
+        f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
+    )
 
 
 def _build_waitress_command(waitress_opts, host, port, app_name):
@@ -154,6 +147,7 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
+    app_name=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -180,10 +174,10 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    app_name = _get_app_name()
+    app_spec = f"{__name__}:app" if app_name is None else _find_app(app_name)
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app_name)
+        full_command = _build_waitress_command(waitress_opts, host, port, app_spec)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_name)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_spec)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)

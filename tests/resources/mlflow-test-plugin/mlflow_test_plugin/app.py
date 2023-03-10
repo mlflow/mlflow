@@ -1,3 +1,6 @@
+"""
+To run a tracking server with this app, use `mlflow server --app-name custom_app`.
+"""
 import logging
 
 # This would be all that plugin author is required to import
@@ -11,6 +14,7 @@ app_logger = logging.getLogger(__name__)
 
 # Configure the app
 custom_app.config["MY_VAR"] = "config-var"
+app_logger.warning(f"Using {__name__}")
 
 
 def is_logged_in():

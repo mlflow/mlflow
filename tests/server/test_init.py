@@ -1,6 +1,5 @@
 from unittest import mock
 
-import entrypoints
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -13,26 +12,14 @@ def mock_exec_cmd():
         yield m
 
 
-def test_get_app_name():
-    # Hard to test if the test plugin is installed.
-    with mock.patch("mlflow.server.entrypoints.get_group_all", return_value=[]):
-        assert server._get_app_name() == f"{server.__name__}:app"
-
-
-def test_get_app_name_two_plugins():
-    """Two server apps cannot exist, which one would be served?"""
-    plugins = [
-        entrypoints.EntryPoint("one", "one.app", "app"),
-        entrypoints.EntryPoint("two", "two.app", "two"),
-    ]
-    with mock.patch("mlflow.server.entrypoints.get_group_all", return_value=plugins):
-        with pytest.raises(MlflowException, match=r"one.*two"):
-            server._get_app_name()
-
-
-def test_get_app_name_custom_app_plugin():
+def test_find_app_custom_app_plugin():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-    assert server._get_app_name() == "mlflow_test_plugin.app:custom_app"
+    assert server._find_app("custom_app") == "mlflow_test_plugin.app:custom_app"
+
+
+def test_find_app_non_existing_app():
+    with pytest.raises(MlflowException, match=r"Failed to find app 'does_not_exist'"):
+        server._find_app("does_not_exist")
 
 
 def test_build_waitress_command():
