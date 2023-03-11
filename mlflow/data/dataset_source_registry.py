@@ -32,21 +32,23 @@ class DatasetSourceRegistry:
                     stacklevel=2,
                 )
 
-    def resolve(self, raw_source: Any, candidate_sources: List[DatasetSource] = None) -> DatasetSource:
+    def resolve(
+        self, raw_source: Any, candidate_sources: List[DatasetSource] = None
+    ) -> DatasetSource:
         """
         :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
         """
         matching_sources = []
         for source in self._sources.values():
-            if candidate_sources and not any([issubclass(source, candidate_src) for candidate_src in candidate_sources]):
+            if candidate_sources and not any(
+                [issubclass(source, candidate_src) for candidate_src in candidate_sources]
+            ):
                 continue
             if source._can_resolve(raw_source):
                 matching_sources.append(source)
 
         if len(matching_sources) > 1:
-            source_types_str = ", ".join(
-                [source._get_source_type() for source in matching_sources]
-            )
+            source_types_str = ", ".join([source._get_source_type() for source in matching_sources])
             warnings.warn(
                 f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {matching_sources[0]._get_source_type()} source",
                 stacklevel=2,
@@ -77,8 +79,12 @@ register_artifact_dataset_sources()
 dataset_source_registry.register_entrypoints()
 
 
-def resolve_dataset_source(raw_source: Any, candidate_sources: List[DatasetSource] = None) -> DatasetSource:
-    return dataset_source_registry.resolve(raw_source=raw_source, candidate_sources=candidate_sources)
+def resolve_dataset_source(
+    raw_source: Any, candidate_sources: List[DatasetSource] = None
+) -> DatasetSource:
+    return dataset_source_registry.resolve(
+        raw_source=raw_source, candidate_sources=candidate_sources
+    )
 
 
 def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:

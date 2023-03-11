@@ -85,7 +85,7 @@ def _create_dataset_source_for_artifact_repo(
             return download_artifacts(self.uri)
 
         @staticmethod
-        def _can_resolve(raw_source: str):
+        def _can_resolve(raw_source: Any):
             if not isinstance(raw_source, str):
                 return False
 
@@ -96,7 +96,7 @@ def _create_dataset_source_for_artifact_repo(
                 return False
 
         @classmethod
-        def _resolve(cls, raw_source: str) -> DatasetForArtifactRepoSourceType:
+        def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(raw_source)
 
         def to_json(self):
@@ -107,7 +107,7 @@ def _create_dataset_source_for_artifact_repo(
             )
 
         @classmethod
-        def _from_json(cls, source_json: str):
+        def _from_json(cls, source_json: str) -> DatasetForArtifactRepoSourceType:
             parsed_json = json.loads(source_json)
             if not isinstance(parsed_json, dict):
                 raise MlflowException(
