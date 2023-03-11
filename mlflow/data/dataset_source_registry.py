@@ -4,6 +4,8 @@ from typing import Any, List
 
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.dbfs_dataset_source import DBFSDatasetSource
+from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 
@@ -77,6 +79,8 @@ class DatasetSourceRegistry:
 dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
 dataset_source_registry.register_entrypoints()
+dataset_source_registry.register(DBFSDatasetSource)
+dataset_source_registry.register(HuggingFaceDatasetSource)
 
 
 def resolve_dataset_source(

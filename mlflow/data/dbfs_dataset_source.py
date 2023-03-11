@@ -68,9 +68,9 @@ class DBFSDatasetSource(FileSystemDatasetSource):
         :return: A JSON string representation of the DBFSDatasetSourceType.
         """
         # TODO: Include workspace information in the source
-        return {
+        return json.dumps({
             "uri": self.uri
-        }
+        })
 
     @classmethod
     def _from_json(cls, source_json: str) -> DBFSDatasetSourceType:

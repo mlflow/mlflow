@@ -3,7 +3,7 @@ import warnings
 
 import datasets
 
-from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, NoneType
+from typing import TypeVar, Any, Union, Optional, Mapping, Sequence 
 
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
@@ -23,10 +23,10 @@ class HuggingFaceDatasetSource(DatasetSource):
     def __init__(
         self,
         path: str,
-        split: Union[str, datasets.splits.Split, NoneType] = None,
-        revision: Union[str, datasets.utils.version.Version, NoneType] = None,
+        split: Union[str, datasets.splits.Split, None] = None,
+        revision: Union[str, datasets.utils.version.Version, None] = None,
         data_files: Union[
-            str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], NoneType
+            str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], None
         ] = None,
     ):
         self.path = path
