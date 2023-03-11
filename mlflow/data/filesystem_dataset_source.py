@@ -4,11 +4,12 @@ from typing import TypeVar, Any
 from mlflow.data.dataset_source import DatasetSource
 
 
-FileSystemDatasetSourceType = TypeVar("FileSystemDatasetSourceType", bound="FileSystemDatasetSource")
+FileSystemDatasetSourceType = TypeVar(
+    "FileSystemDatasetSourceType", bound="FileSystemDatasetSource"
+)
 
 
 class FileSystemDatasetSource(DatasetSource):
-
     @property
     @abstractmethod
     def uri(self):

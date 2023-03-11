@@ -7,7 +7,7 @@ from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.dbfs_dataset_source import DBFSDatasetSource
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 
 class DatasetSourceRegistry:
@@ -59,7 +59,7 @@ class DatasetSourceRegistry:
         if len(matching_sources) >= 1:
             return matching_sources[-1]._resolve(raw_source)
         else:
-            # TODO: SUPPORT PASSING IN DATASET INFO TO ADD CONTEXT TO THIS ERROR
+            # TODO: Support passing in dataset info to add context to this error
             raise MlflowException(
                 f"Could not find a source information resolver for the specified dataset source: {raw_source}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -84,22 +84,50 @@ class DatasetSourceRegistry:
 # HuggingFaceDatasetSource, so these sources are registered next. Finally, externally-defined
 # dataset sources are registered last because externally-defined behavior should take precedence
 # over any internally-defined generic behavior
-dataset_source_registry = DatasetSourceRegistry()
+_dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
-dataset_source_registry.register(DBFSDatasetSource)
-dataset_source_registry.register(HuggingFaceDatasetSource)
-dataset_source_registry.register_entrypoints()
+_dataset_source_registry.register(DBFSDatasetSource)
+_dataset_source_registry.register(HuggingFaceDatasetSource)
+_dataset_source_registry.register_entrypoints()
+
+
+def register_dataset_source(self, source: DatasetSource):
+    """
+    Registers a DatasetSource for use with MLflow.
+
+    :param source: The DatasetSource to register.
+    """
+    _dataset_source_registry.register(source)
 
 
 def resolve_dataset_source(
     raw_source: Any, candidate_sources: List[DatasetSource] = None
 ) -> DatasetSource:
-    return dataset_source_registry.resolve(
+    """
+    Resolves a raw source object, such as a string URI, to a DatasetSource for use with MLflow.
+
+    :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
+                       HuggingFace `datasets.Dataset` object.
+    :param candidate_sources: A list of DatasetSource classes to consider as potential sources
+                              when resolving the raw source. Subclasses of the specified candidate
+                              sources are also considered. If unspecified, all registered sources
+                              are considered.
+    :throws: MlflowException if no DatasetSource class can resolve the raw source.
+    :return: The resolved DatasetSource.
+    """
+    return _dataset_source_registry.resolve(
         raw_source=raw_source, candidate_sources=candidate_sources
     )
 
 
 def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:
-    return dataset_source_registry.get_source_from_json(
+    """
+    Parses and returns a DatasetSource object from its JSON representation.
+
+    :param source_json: The JSON representation of the DatasetSource.
+    :param source_type: The string type of the DatasetSource, which indicates how to parse the
+                        source JSON.
+    """
+    return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
     )
