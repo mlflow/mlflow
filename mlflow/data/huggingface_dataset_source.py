@@ -14,11 +14,21 @@ from mlflow.store.artifact.artifact_repository_registry import _artifact_reposit
 from mlflow.data.dataset_source import DatasetSource
 
 
-HuggingFaceDatasetSourceType = TypeVar("HuggingFaceDatasetSourceType", bound="HuggingFaceDatasetSource")
+HuggingFaceDatasetSourceType = TypeVar(
+    "HuggingFaceDatasetSourceType", bound="HuggingFaceDatasetSource"
+)
 
 
 class HuggingFaceDatasetSource(DatasetSource):
-    def __init__(self, path: str, split: Union[str, datasets.splits.Split, NoneType] = None, revision: Union[str, datasets.utils.version.Version, NoneType] = None, data_files: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], NoneType] = None):
+    def __init__(
+        self,
+        path: str,
+        split: Union[str, datasets.splits.Split, NoneType] = None,
+        revision: Union[str, datasets.utils.version.Version, NoneType] = None,
+        data_files: Union[
+            str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], NoneType
+        ] = None,
+    ):
         self.path = path
         self.split = split
         self.revision = revision
