@@ -44,15 +44,20 @@ class DatasetSourceRegistry:
                 candidate_sources.append(source)
 
         if len(candidate_sources) > 1:
-            source_types_str = ", ".join([source._get_source_type() for source in candidate_sources])
-            warnings.warn(f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {candidate_sources[0]._get_source_type()} source", stacklevel=2)
+            source_types_str = ", ".join(
+                [source._get_source_type() for source in candidate_sources]
+            )
+            warnings.warn(
+                f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {candidate_sources[0]._get_source_type()} source",
+                stacklevel=2,
+            )
 
         if len(candidate_sources) >= 1:
             return candidate_sources[-1]._resolve(raw_source)
         else:
             raise MlflowException(
                 f"Could not find a source information resolver for the specified dataset source: {raw_source}",
-                RESOURCE_DOES_NOT_EXIST
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:

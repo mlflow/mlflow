@@ -26,7 +26,9 @@ def register_artifact_dataset_sources():
             # Artifact repository name is something like "LocalArtifactRepository",
             # "S3ArtifactRepository", etc. To preserve capitalization, strip ArtifactRepository
             # and replace it with DatasetSource
-            dataset_source_name = artifact_repo.__name__.replace("ArtifactRepository", "DatasetSource")
+            dataset_source_name = artifact_repo.__name__.replace(
+                "ArtifactRepository", "DatasetSource"
+            )
         else:
             # Artifact repository name has some other form, e.g. "dbfs_artifact_repo_factory".
             # In this case, generate the name by capitalizing the first letter of the scheme and
@@ -47,19 +49,25 @@ def register_artifact_dataset_sources():
 
         try:
             registered_source_schemes.add(scheme)
-            dataset_source = _create_dataset_source_for_artifact_repo(scheme=scheme, dataset_source_name=dataset_source_name, artifact_repo=artifact_repo)
+            dataset_source = _create_dataset_source_for_artifact_repo(
+                scheme=scheme, dataset_source_name=dataset_source_name, artifact_repo=artifact_repo
+            )
             dataset_source_registry.register(dataset_source)
         except Exception as e:
-            warnings.warn(f"Failed to register a dataset source for URIs with scheme '{scheme}': {e}", stacklevel=2)
+            warnings.warn(
+                f"Failed to register a dataset source for URIs with scheme '{scheme}': {e}",
+                stacklevel=2,
+            )
 
 
-def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: str, artifact_repo: ArtifactRepository):
+def _create_dataset_source_for_artifact_repo(
+    scheme: str, dataset_source_name: str, artifact_repo: ArtifactRepository
+):
     from mlflow.data.dataset_source import DatasetSource
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
     class ArtifactRepoSource(DatasetSource):
-
         def __init__(self, uri: str):
             self.uri = uri
 
@@ -90,9 +98,11 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             return cls(raw_source)
 
         def to_json(self):
-            return json.dumps({
-                "uri": self.uri,
-            })
+            return json.dumps(
+                {
+                    "uri": self.uri,
+                }
+            )
 
         @classmethod
         def _from_json(cls, source_json: str):
@@ -100,14 +110,14 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             if not isinstance(parsed_json, dict):
                 raise MlflowException(
                     f"Failed to parse {dataset_source_name} from JSON. Expected a JSON dictionary, but received: {source_json}",
-                    INVALID_PARAMETER_VALUE
+                    INVALID_PARAMETER_VALUE,
                 )
 
             uri = parsed_json.get("uri")
             if uri is None:
                 raise MlflowException(
-                    f"Failed to parse {dataset_source_name} from JSON. Missing expected key: \"uri\"",
-                    INVALID_PARAMETER_VALUE
+                    f'Failed to parse {dataset_source_name} from JSON. Missing expected key: "uri"',
+                    INVALID_PARAMETER_VALUE,
                 )
 
             return cls(uri=uri)
