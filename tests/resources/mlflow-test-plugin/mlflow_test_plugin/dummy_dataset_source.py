@@ -1,6 +1,4 @@
-import json
-
-from typing import Any
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -41,22 +39,15 @@ class DummyDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
-    def to_json(self) -> str:
-        return json.dumps({"uri": self.uri})
+    def to_dict(self) -> Dict[str, str]:
+        return {"uri": self.uri}
 
     @classmethod
-    def _from_json(cls, source_json: str) -> DatasetSource:
-        parsed_json = json.loads(source_json)
-        if not isinstance(parsed_json, dict):
-            raise MlflowException(
-                f"Failed to parse dummy dataset source from JSON. Expected a JSON dictionary, but received: {source_json}",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        uri = parsed_json.get("uri")
+    def _from_dict(cls, source_dict: Dict[str, str]) -> DatasetSource:
+        uri = source_dict.get("uri")
         if uri is None:
             raise MlflowException(
-                f'Failed to parse dummy dataset source from JSON. Missing expected key: "uri"',
+                'Failed to parse dummy dataset source. Missing expected key: "uri"',
                 INVALID_PARAMETER_VALUE,
             )
 

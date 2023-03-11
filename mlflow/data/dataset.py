@@ -39,10 +39,10 @@ class Dataset:
 
     def to_json(self) -> str:
         base_dict = {
-            "name": self._name,
-            "digest": self._digest,
+            "name": self.name,
+            "digest": self.digest,
             "source": json.dumps(self._source.to_dict()),
-            "source_type": self._source.source_type,
+            "source_type": self._source._get_source_type(),
         }
         return json.dumps(self._to_dict(base_dict))
 

@@ -1,9 +1,8 @@
-import json
 import warnings
 
 import datasets
 
-from typing import TypeVar, Any, Union, Optional, Mapping, Sequence 
+from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
 
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
@@ -50,19 +49,11 @@ class HuggingFaceDatasetSource(DatasetSource):
         # TODO: Implement this
         raise NotImplementedError
 
-    def to_json(self):
+    def to_dict(self) -> Dict[str, str]:
         # TODO: Implement this
         raise NotImplementedError
 
     @classmethod
-    def _from_json(cls, source_json: str) -> HuggingFaceDatasetSourceType:
-        parsed_json = json.loads(source_json)
-
-        if not isinstance(parsed_json, dict):
-            raise MlflowException(
-                f"Failed to parse HuggingFace dataset source from JSON. Expected a JSON dictionary, but received: {source_json}",
-                INVALID_PARAMETER_VALUE,
-            )
-
+    def _from_dict(cls, source_dict: Dict[str, str]) -> HuggingFaceDatasetSourceType:
         # TODO: Implement this
         raise NotImplementedError

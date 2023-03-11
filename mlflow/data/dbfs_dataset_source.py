@@ -1,7 +1,6 @@
-import json
 import os
 
-from typing import TypeVar, Any
+from typing import TypeVar, Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -63,31 +62,24 @@ class DBFSDatasetSource(FileSystemDatasetSource):
         """
         return cls(raw_source)
 
-    def to_json(self) -> str:
+    def to_dict(self) -> Dict[str, str]:
         """
-        :return: A JSON string representation of the DBFSDatasetSourceType.
+        :return: A string dictionary representation of the DBFSDatasetSourceType.
         """
         # TODO: Include workspace information in the source
-        return json.dumps({
+        return {
             "uri": self.uri
-        })
+        }
 
     @classmethod
-    def _from_json(cls, source_json: str) -> DBFSDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[str, str]) -> DBFSDatasetSourceType:
         """
-        :param json: A JSON string representation of the FileSystemDatasetSource.
+        :param source_dict: A string dictionary representation of the FileSystemDatasetSource.
         """
-        parsed_json = json.loads(source_json)
-        if not isinstance(parsed_json, dict):
-            raise MlflowException(
-                f"Failed to parse DBFS dataset source from JSON. Expected a JSON dictionary, but received: {source_json}",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        uri = parsed_json.get("uri")
+        uri = source_dict.get("uri")
         if uri is None:
             raise MlflowException(
-                f'Failed to parse DBFS dataset source from JSON. Missing expected key: "uri"',
+                f'Failed to parse DBFS dataset source. Missing expected key: "uri"',
                 INVALID_PARAMETER_VALUE,
             )
 
