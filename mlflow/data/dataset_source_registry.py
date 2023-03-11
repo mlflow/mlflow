@@ -76,22 +76,7 @@ class DatasetSourceRegistry:
             )
 
 
-# NB: The ordering here is important. The last dataset source to be registered takes precedence
-# when resolving dataset information for a raw source (e.g. a string like "s3://mybucket/my/path").
-# Dataset sources derived from artifact repositories are the most generic / provide the most
-# general information about dataset source locations, so they are registered first. More specific
-# source information is provided by specialized dataset platform sources like
-# HuggingFaceDatasetSource, so these sources are registered next. Finally, externally-defined
-# dataset sources are registered last because externally-defined behavior should take precedence
-# over any internally-defined generic behavior
-_dataset_source_registry = DatasetSourceRegistry()
-register_artifact_dataset_sources()
-_dataset_source_registry.register(DBFSDatasetSource)
-_dataset_source_registry.register(HuggingFaceDatasetSource)
-_dataset_source_registry.register_entrypoints()
-
-
-def register_dataset_source(self, source: DatasetSource):
+def register_dataset_source(source: DatasetSource):
     """
     Registers a DatasetSource for use with MLflow.
 
@@ -131,3 +116,18 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
     return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
     )
+
+
+# NB: The ordering here is important. The last dataset source to be registered takes precedence
+# when resolving dataset information for a raw source (e.g. a string like "s3://mybucket/my/path").
+# Dataset sources derived from artifact repositories are the most generic / provide the most
+# general information about dataset source locations, so they are registered first. More specific
+# source information is provided by specialized dataset platform sources like
+# HuggingFaceDatasetSource, so these sources are registered next. Finally, externally-defined
+# dataset sources are registered last because externally-defined behavior should take precedence
+# over any internally-defined generic behavior
+_dataset_source_registry = DatasetSourceRegistry()
+register_artifact_dataset_sources()
+_dataset_source_registry.register(DBFSDatasetSource)
+_dataset_source_registry.register(HuggingFaceDatasetSource)
+_dataset_source_registry.register_entrypoints()

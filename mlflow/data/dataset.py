@@ -6,7 +6,6 @@ from mlflow.data.dataset_source import DatasetSource
 
 
 class Dataset:
-
     def __init__(
         self, source: DatasetSource, name: Optional[str] = None, digest: Optional[str] = None
     ):

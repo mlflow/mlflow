@@ -12,7 +12,7 @@ from mlflow.store.artifact.artifact_repository_registry import _artifact_reposit
 
 
 def register_artifact_dataset_sources():
-    from mlflow.data.dataset_source_registry import dataset_source_registry
+    from mlflow.data.dataset_source_registry import register_dataset_source
 
     registered_source_schemes = set()
     artifact_schemes_to_exclude = [
@@ -64,7 +64,7 @@ def register_artifact_dataset_sources():
             dataset_source = _create_dataset_source_for_artifact_repo(
                 scheme=scheme, dataset_source_name=dataset_source_name, artifact_repo=artifact_repo
             )
-            dataset_source_registry.register(dataset_source)
+            register_dataset_source(dataset_source)
         except Exception as e:
             warnings.warn(
                 f"Failed to register a dataset source for URIs with scheme '{scheme}': {e}",
