@@ -1047,16 +1047,88 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
 def test_create_model_version_with_local_source(mlflow_client):
     name = "mode"
     mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "file:///tmp/model",
-            "run_id": "run_id",
+            "source": run.info.artifact_uri,
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/.",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model/..",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri[len("file://") :],
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
         },
     )
     assert response.status_code == 400
-    assert response.json() == {
-        "error_code": "INVALID_PARAMETER_VALUE",
-        "message": "Model version source cannot be a local path: 'file:///tmp/model'",
-    }
+    resp = response.json()
+    assert "Invalid source" in resp["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "/tmp",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    resp = response.json()
+    assert "Invalid source" in resp["message"]
+
+
+def test_logging_model_with_local_artifact_uri(mlflow_client):
+    from sklearn.linear_model import LogisticRegression
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    with mlflow.start_run() as run:
+        assert run.info.artifact_uri.startswith("file://")
+        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.pyfunc.load_model("models:/rmn/1")

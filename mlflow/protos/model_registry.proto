@@ -651,3 +651,13 @@ message DeleteModelVersionTag {
   message Response {
   }
 }
+
+// Alias for a registered model
+message RegisteredModelAlias {
+  // The name of the registered model associated with the alias.
+  optional string name = 1;
+  // The name of the alias.
+  optional string alias = 2;
+  // The model version number that the alias points to.
+  optional string version = 3;
+}

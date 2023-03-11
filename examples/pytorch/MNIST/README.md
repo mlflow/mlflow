@@ -1,7 +1,7 @@
 ## MNIST example with MLFlow
 
 In this example, we train a Pytorch Lightning model to predict handwritten digits, leveraging early stopping.
-The code, adapted from this [repository](https://github.com/PyTorchLightning/pytorch-lightning/blob/master/pl_examples/basic_examples/mnist.py), is almost entirely dedicated to model training, with the addition of a single `mlflow.pytorch.autolog()` call to enable automatic logging of params, metrics, and models,
+The code is almost entirely dedicated to model training, with the addition of a single `mlflow.pytorch.autolog()` call to enable automatic logging of params, metrics, and models,
 including the best model from early stopping.
 
 ### Running the code
