@@ -76,6 +76,14 @@ class DatasetSourceRegistry:
             )
 
 
+# NB: The ordering here is important. The last dataset source to be registered takes precedence
+# when resolving dataset information for a raw source (e.g. a string like "s3://mybucket/my/path").
+# Dataset sources derived from artifact repositories are the most generic / provide the most
+# general information about dataset source locations, so they are registered first. More specific
+# source information is provided by specialized dataset platform sources like
+# HuggingFaceDatasetSource, so these sources are registered next. Finally, externally-defined
+# dataset sources are registered last because externally-defined behavior should take precedence
+# over any internally-defined generic behavior
 dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
 dataset_source_registry.register(DBFSDatasetSource)

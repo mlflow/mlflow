@@ -27,8 +27,9 @@ class FileSystemDatasetSource(DatasetSource):
     @abstractmethod
     def download(self) -> str:
         """
-        :return: The downloaded source, e.g. a local filesystem path, a Spark
-                 DataFrame, etc.
+        Downloads the dataset to the local filesystem.
+
+        :return: The path to the downloaded dataset on the local filesystem.
         """
 
     @staticmethod

@@ -77,6 +77,13 @@ def _create_dataset_source_for_artifact_repo(
 ):
     from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 
+    if scheme in ["", "file"]:
+        source_type = "local"
+        class_docstring = "Represents the source of a dataset stored on the local filesystem."
+    else:
+        source_type = scheme
+        class_docstring = f"Represents a filesystem-based dataset source identified by a URI with scheme {scheme}"
+
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
     class ArtifactRepoSource(FileSystemDatasetSource):
@@ -85,16 +92,21 @@ def _create_dataset_source_for_artifact_repo(
 
         @property
         def uri(self):
+            """
+            :return: The dataset source URI.
+            """
             return self._uri
 
         @staticmethod
         def _get_source_type() -> str:
-            if scheme in ["", "file"]:
-                return "local"
-            else:
-                return scheme
+            return source_type
 
         def download(self) -> str:
+            """
+            Downloads the dataset to the local filesystem.
+
+            :return: The path to the downloaded dataset on the local filesystem.
+            """
             return download_artifacts(self.uri)
 
         @staticmethod
@@ -113,6 +125,9 @@ def _create_dataset_source_for_artifact_repo(
             return cls(raw_source)
 
         def to_json(self):
+            """
+            :return: A JSON string representation of the {dataset_source_name}.
+            """
             return json.dumps(
                 {
                     "uri": self.uri,
@@ -137,6 +152,8 @@ def _create_dataset_source_for_artifact_repo(
 
             return cls(uri=uri)
 
-    setattr(ArtifactRepoSource, "__name__", dataset_source_name)
-    setattr(ArtifactRepoSource, "__qualname__", dataset_source_name)
+    ArtifactRepoSource.__name__ = dataset_source_name
+    ArtifactRepoSource.__qualname__ = dataset_source_name
+    ArtifactRepoSource.__doc__ = class_docstring
+    ArtifactRepoSource.to_json.__doc__ = ArtifactRepoSource.to_json.__doc__.format(dataset_source_name=dataset_source_name)
     return ArtifactRepoSource
