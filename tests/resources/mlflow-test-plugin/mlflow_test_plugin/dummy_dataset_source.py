@@ -1,6 +1,6 @@
 import json
 
-from typing import TypeVar, Any
+from typing import Any
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -9,11 +9,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-DBFSDatasetSourceType = TypeVar("DBFSDatasetSourceType", bound="DBFSDatasetSource")
-
-
-class DBFSDatasetSource(DatasetSource):
-
+class DummyDatasetSource(DatasetSource):
     def __init__(self, uri):
         self._uri = uri
 
@@ -42,16 +38,14 @@ class DBFSDatasetSource(DatasetSource):
             return False
 
     @classmethod
-    def _resolve(cls, raw_source: Any) -> DBFSDatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
     def to_json(self) -> str:
-        return json.dumps({
-            "uri": self.uri
-        })
+        return json.dumps({"uri": self.uri})
 
     @classmethod
-    def _from_json(cls, source_json: str) -> DBFSDatasetSourceType:
+    def _from_json(cls, source_json: str) -> DatasetSource:
         parsed_json = json.loads(source_json)
         if not isinstance(parsed_json, dict):
             raise MlflowException(

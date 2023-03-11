@@ -78,9 +78,9 @@ class DatasetSourceRegistry:
 
 dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
-dataset_source_registry.register_entrypoints()
 dataset_source_registry.register(DBFSDatasetSource)
 dataset_source_registry.register(HuggingFaceDatasetSource)
+dataset_source_registry.register_entrypoints()
 
 
 def resolve_dataset_source(
