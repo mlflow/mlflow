@@ -1,6 +1,6 @@
 import warnings
 import entrypoints
-from typing import Any
+from typing import Any, List
 
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset_source import DatasetSource
@@ -32,29 +32,30 @@ class DatasetSourceRegistry:
                     stacklevel=2,
                 )
 
-    def resolve(self, raw_source: Any) -> DatasetSource:
+    def resolve(self, raw_source: Any, candidate_sources: List[DatasetSource] = None) -> DatasetSource:
         """
-        :param raw_source: The raw source, e.g. a string like
-                           "s3://mybucket/path/to/iris/data".
+        :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
         """
-        candidate_sources = []
-        source_for_resolution = None
+        matching_sources = []
         for source in self._sources.values():
+            if candidate_sources and not any([issubclass(source, candidate_src) for candidate_src in candidate_sources]):
+                continue
             if source._can_resolve(raw_source):
-                candidate_sources.append(source)
+                matching_sources.append(source)
 
-        if len(candidate_sources) > 1:
+        if len(matching_sources) > 1:
             source_types_str = ", ".join(
-                [source._get_source_type() for source in candidate_sources]
+                [source._get_source_type() for source in matching_sources]
             )
             warnings.warn(
-                f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {candidate_sources[0]._get_source_type()} source",
+                f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {matching_sources[0]._get_source_type()} source",
                 stacklevel=2,
             )
 
-        if len(candidate_sources) >= 1:
-            return candidate_sources[-1]._resolve(raw_source)
+        if len(matching_sources) >= 1:
+            return matching_sources[-1]._resolve(raw_source)
         else:
+            # TODO: SUPPORT PASSING IN DATASET INFO TO ADD CONTEXT TO THIS ERROR
             raise MlflowException(
                 f"Could not find a source information resolver for the specified dataset source: {raw_source}",
                 RESOURCE_DOES_NOT_EXIST,
@@ -76,8 +77,8 @@ register_artifact_dataset_sources()
 dataset_source_registry.register_entrypoints()
 
 
-def resolve_dataset_source(raw_source: Any) -> DatasetSource:
-    return dataset_source_registry.resolve(raw_source)
+def resolve_dataset_source(raw_source: Any, candidate_sources: List[DatasetSource] = None) -> DatasetSource:
+    return dataset_source_registry.resolve(raw_source=raw_source, candidate_sources=candidate_sources)
 
 
 def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:

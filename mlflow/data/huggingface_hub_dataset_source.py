@@ -1,6 +1,8 @@
 import json
 import warnings
 
+import dataset
+
 from typing import TypeVar, Any, Union
 from urllib.parse import urlparse
 
@@ -13,21 +15,21 @@ from mlflow.store.artifact.artifact_repository_registry import _artifact_reposit
 from mlflow.data.dataset_source import DatasetSource
 
 
-class HuggingFace(DatasetSource):
-    def __init__(self, uri: str, split: str = None):
-        self.uri = uri
+# Require the user to construct this?
+
+
+class HuggingFaceHubDatasetSource(DatasetSource):
+    def __init__(self, repository: str, split: str = None, revision: str = None):
+        self.repository = repository
+        self.revision = revision
         self.split = split
 
     @staticmethod
     def _get_source_type() -> str:
-        if scheme:
-            return scheme
-        else:
-            # An empty scheme indicates a file / directory on the local filesystem
-            return "file"
+        return "huggingface_hub"
 
     def download(self) -> str:
-        return download_artifacts(self.uri)
+        return datasets.load_dataset(self.repository, self.split, self.revision)
 
     @staticmethod
     def _can_resolve(raw_source: str):

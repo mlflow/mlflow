@@ -12,7 +12,6 @@ from mlflow.store.artifact.artifact_repository_registry import _artifact_reposit
 
 
 def register_artifact_dataset_sources():
-    from mlflow.data.dataset_source import DatasetSource
     from mlflow.data.dataset_source_registry import dataset_source_registry
 
     registered_source_schemes = set()
@@ -63,21 +62,24 @@ def register_artifact_dataset_sources():
 def _create_dataset_source_for_artifact_repo(
     scheme: str, dataset_source_name: str, artifact_repo: ArtifactRepository
 ):
-    from mlflow.data.dataset_source import DatasetSource
+    from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
-    class ArtifactRepoSource(DatasetSource):
+    class ArtifactRepoSource(FileSystemDatasetSource):
         def __init__(self, uri: str):
-            self.uri = uri
+            self._uri = uri
+
+        @property
+        def uri(self):
+            return self._uri
 
         @staticmethod
         def _get_source_type() -> str:
-            if scheme:
-                return scheme
+            if scheme in ["", "file"]:
+                return "local"
             else:
-                # An empty scheme indicates a file / directory on the local filesystem
-                return "file"
+                return scheme
 
         def download(self) -> str:
             return download_artifacts(self.uri)
