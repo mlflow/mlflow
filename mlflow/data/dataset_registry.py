@@ -1,5 +1,6 @@
-import warnings
+import inspect
 import entrypoints
+import warnings
 from typing import Any, Callable
 from typing_extensions import Protocol
 
@@ -34,10 +35,10 @@ class DatasetRegistry:
                           inputs and returns an instance of a subclass of
                           mlflow.data.Dataset:
 
-                          - source: Required. A DatasetSource object.
                           - name: Optional. A string dataset name
                           - digest: Optional. A string dataset digest.
         """
+        DatasetRegistry._validate_loader_or_constructor_fn(loader_fn)
         setattr(mlflow.data, loader_name, loader_fn)
 
     def register_constructor(self, constructor_name: str, constructor_fn: ConstructorFunction):
@@ -51,20 +52,10 @@ class DatasetRegistry:
                                inputs and returns an instance of a subclass of
                                mlflow.data.Dataset:
 
-                               - source: Required. A DatasetSource object.
                                - name: Optional. A string dataset name
                                - digest: Optional. A string dataset digest.
         """
-        # Verify that constructor_name is prefixed with "from_"
-        # Validate constructor_fn; verify that it accepts name, digest, source
-
-        # When a user calls a constructor like mlflow.data.from_spark,
-        # they don't pass in a DatasetSource. They pass in a raw source object,
-        # e.g. a string like "mycatalog.myschema.mytable@2". Accordingly,
-        # we create a wrapped function that resolves the raw source to a
-        # DatasetSource so that the developer doesn't have to do it.
-        # wrapper_fn = create_wrapper_that_resolves_source(constructor_fn)
-        # setattr(mlflow.data, constructor_name, wrapper_fn)
+        DatasetRegistry._validate_loader_or_constructor_fn(constructor_fn)
         setattr(mlflow.data, constructor_name, constructor_fn)
 
     def register_entrypoints(self):
@@ -86,8 +77,19 @@ class DatasetRegistry:
                 self.register_constructor(entrypoint.name, entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    f'Failure attempting to register dataset loader "{entrypoint.name}": {exc}',
+                    f'Failure attempting to register dataset constructor "{entrypoint.name}": {exc}',
                     stacklevel=2,
+                )
+
+    @staticmethod
+    def _validate_loader_or_constructor_fn(fn):
+        parameters = inspect.signature(fn).parameters
+        for expected_kwarg in ["name", "digest"]:
+            if expected_kwarg not in parameters or parameters[expected_kwarg].kind not in [inspect.Parameter.KEYWORD_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD]:
+                raise MlflowException(
+                    "Invalid loader or constructor function: {fn.__name__}. Function must define"
+                    "an optional parameter named '{expected_kwarg}'.",
+                    INVALID_PARAMETER_VALUE
                 )
 
 

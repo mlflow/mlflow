@@ -6,6 +6,7 @@ from mlflow.data.dataset_source import DatasetSource
 
 
 class Dataset:
+
     def __init__(
         self, source: DatasetSource, name: Optional[str] = None, digest: Optional[str] = None
     ):
@@ -54,8 +55,8 @@ class Dataset:
         if self._name is not None:
             return self._name
         else:
+            # TODO: Compute the name from the digest and source
             return "dummy_name"
-        # TODO: Compute the name from the digest and source, then return.
 
     @property
     def digest(self) -> str:
@@ -73,14 +74,14 @@ class Dataset:
 
     @property
     @abstractmethod
-    def size() -> Optional[Any]:
+    def size(self) -> Optional[Any]:
         """
         Dataset size information, e.g. number of rows, size in bytes, etc.
         """
 
     @property
     @abstractmethod
-    def schema() -> Optional[Any]:
+    def schema(self) -> Optional[Any]:
         """
         Optional. The schema of the dataset, e.g. an instance of `mlflow.types.Schema`
         """
