@@ -54,7 +54,9 @@ class PandasDataset(Dataset):
                  (optional).
         """
         base_dict.update({
-            "schema": self.schema.to_json(),
+            "schema": json.dumps({
+                "mlflow_colspec": self.schema.to_dict()
+            }),
             "size": json.dumps(self.size),
         })
         return base_dict
