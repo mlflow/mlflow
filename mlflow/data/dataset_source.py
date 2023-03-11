@@ -8,7 +8,7 @@ DatasetSourceType = TypeVar("DatasetSourceType", bound="DatasetSource")
 class DatasetSource:
     @staticmethod
     @abstractmethod
-    def source_type() -> str:
+    def _get_source_type() -> str:
         """
         :return: A string representing the source type of the dataset,
                  e.g. "s3"
@@ -23,7 +23,7 @@ class DatasetSource:
 
     @staticmethod
     @abstractmethod
-    def can_resolve(raw_source: Any) -> bool:
+    def _can_resolve(raw_source: Any) -> bool:
         """
         :param raw_source: The raw source, e.g. a string like
                            "s3://mybucket/path/to/iris/data".
@@ -32,7 +32,7 @@ class DatasetSource:
 
     @classmethod
     @abstractmethod
-    def resolve(cls, raw_source: Any) -> DatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> DatasetSourceType:
         """
         :param raw_source: The raw source, e.g. a string like
                            "s3://mybucket/path/to/iris/data".
@@ -46,7 +46,7 @@ class DatasetSource:
 
     @classmethod
     @abstractmethod
-    def from_json(cls, json: str) -> DatasetSourceType:
+    def _from_json(cls, source_json: str) -> DatasetSourceType:
         """
         :param json: A JSON string representation of the DatasetSource.
         """

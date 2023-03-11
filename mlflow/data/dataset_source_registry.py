@@ -4,11 +4,11 @@ from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 
 
 class DatasetSourceRegistry:
-
     def __init__(self):
         self._sources = {}
 
@@ -16,7 +16,7 @@ class DatasetSourceRegistry:
         """
         Registers the DatasetSource
         """
-        self._sources[source.source_type] = source
+        self._sources[source._get_source_type] = source
 
     def register_entrypoints(self):
         """
@@ -37,31 +37,45 @@ class DatasetSourceRegistry:
         :param raw_source: The raw source, e.g. a string like
                            "s3://mybucket/path/to/iris/data".
         """
+        candidate_sources = []
+        source_for_resolution = None
         for source in self._sources.values():
-            if source.can_resolve(raw_source):
-                return source.resolve(raw_source)
+            if source._can_resolve(raw_source):
+                candidate_sources.append(source)
+
+        if len(candidate_sources) > 1:
+            source_types_str = ", ".join([source._get_source_type() for source in candidate_sources])
+            warnings.warn(f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {candidate_sources[0]._get_source_type()} source", stacklevel=2)
+
+        if len(candidate_sources) >= 1:
+            return candidate_sources[-1]._resolve(raw_source)
+        else:
+            raise MlflowException(
+                f"Could not find a source information resolver for the specified dataset source: {raw_source}",
+                RESOURCE_DOES_NOT_EXIST
+            )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
         source = self._sources.get(source_type)
         if source is not None:
-            return source.from_json(source_json)
+            return source._from_json(source_json)
         else:
             raise MlflowException(
                 f"Could not parse dataset source from JSON due to unrecognized source type: {source_type}",
-                INVALID_PARAMETER_VALUE
+                RESOURCE_DOES_NOT_EXIST,
             )
 
 
-_dataset_source_registry = DatasetSourceRegistry()
-# _dataset_source_registry.register(DeltaTableDatasetSource)
-# _dataset_source_registry.register(HuggingFaceHubDatasetSource)
-# _dataset_source_registry.register(S3DatasetSource)
-# _dataset_source_registry.register_entrypoints()
+dataset_source_registry = DatasetSourceRegistry()
+register_artifact_dataset_sources()
+dataset_source_registry.register_entrypoints()
 
 
-def resolve_dataset_source(self, raw_source: Any) -> DatasetSource:
-    return _dataset_source_registry.resolve(raw_source)
+def resolve_dataset_source(raw_source: Any) -> DatasetSource:
+    return dataset_source_registry.resolve(raw_source)
 
 
-def get_dataset_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
-    return _dataset_source_registry.get_source_from_json(source_json=source_json, source_type=source_type)
+def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetSource:
+    return dataset_source_registry.get_source_from_json(
+        source_json=source_json, source_type=source_type
+    )
