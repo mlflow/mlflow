@@ -15,7 +15,7 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def download() -> Any:
+    def download(self) -> Any:
         """
         :return: The downloaded source, e.g. a local filesystem path, a Spark
                  DataFrame, etc.
@@ -27,7 +27,7 @@ class DatasetSource:
         """
         :param raw_source: The raw source, e.g. a string like
                            "s3://mybucket/path/to/iris/data".
-        :return: True if this resolver can resolve the source to a
+        :return: True if this DatsetSource can resolve the raw source, False otherwise.
         """
 
     @classmethod
@@ -39,7 +39,7 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def to_json() -> str:
+    def to_json(self) -> str:
         """
         :return: A JSON string representation of the DatasetSource.
         """
