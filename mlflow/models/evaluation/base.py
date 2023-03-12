@@ -824,8 +824,8 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
-        comparator_fn = operator.__ge__ if metric_threshold.higher_is_better else operator.__le__
-        operator_fn = operator.add if metric_threshold.higher_is_better else operator.sub
+        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
             # metric threshold fails
@@ -866,7 +866,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # metric comparsion relative change fails
             # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
-            if metric_threshold.higher_is_better:
+            if metric_threshold.greater_is_better:
                 relative_change = (
                     candidate_metric_value - baseline_metric_value
                 ) / baseline_metric_value
@@ -1237,7 +1237,7 @@ def evaluate(
                     min_absolute_change=0.05,
                     # accuracy should be at least 0.05 greater than baseline model accuracy
                     min_relative_change=0.05,
-                    higher_is_better=True,
+                    greater_is_better=True,
                 ),
             }
 

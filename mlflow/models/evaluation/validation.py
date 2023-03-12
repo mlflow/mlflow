@@ -1,6 +1,9 @@
+import logging
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import deprecated
 
+_logger = logging.getLogger(__name__)
 
 class MetricThreshold:
     """
@@ -40,8 +43,8 @@ class MetricThreshold:
                                   is better; metric value <= baseline model metric value - 1e-10 if
                                   lower is better.
 
-    :param higher_is_better: A required boolean representing whether higher value is
-                             better for the metric.
+    :param greater_is_better: A required boolean representing whether higher value is
+                              better for the metric.
     """
 
     def __init__(
@@ -49,6 +52,7 @@ class MetricThreshold:
         threshold=None,
         min_absolute_change=None,
         min_relative_change=None,
+        greater_is_better=None,
         higher_is_better=None,
     ):
         if threshold is not None and not type(threshold) in {int, float}:
@@ -68,16 +72,19 @@ class MetricThreshold:
                 raise MetricThresholdClassException(
                     "`min_relative_change` parameter must be between 0 and 1."
                 )
-        if higher_is_better is None:
-            raise MetricThresholdClassException("`higher_is_better` parameter must be defined.")
-        if not isinstance(higher_is_better, bool):
-            raise MetricThresholdClassException("`higher_is_better` parameter must be a boolean.")
+        if higher_is_better is None and greater_is_better is None:
+            raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
+        if greater_is_better is None:
+            _logger.warn("The `higher_is_better` parameter is deprecated. Use `greater_is_better` instead.")
+            greater_is_better = higher_is_better
+        if not isinstance(greater_is_better, bool):
+            raise MetricThresholdClassException("`greater_is_better` parameter must be a boolean.")
         if threshold is None and min_absolute_change is None and min_relative_change is None:
             raise MetricThresholdClassException("no threshold was specified.")
         self._threshold = threshold
         self._min_absolute_change = min_absolute_change
         self._min_relative_change = min_relative_change
-        self._higher_is_better = higher_is_better
+        self._greater_is_better = greater_is_better
 
     @property
     def threshold(self):
@@ -101,12 +108,20 @@ class MetricThreshold:
         """
         return self._min_relative_change
 
+    @deprecated("The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead.")
     @property
     def higher_is_better(self):
         """
         Boolean value representing whether higher value is better for the metric.
         """
-        return self._higher_is_better
+        return self._greater_is_better
+
+    @property
+    def greater_is_better(self):
+        """
+        Boolean value representing whether higher value is better for the metric.
+        """
+        return self._greater_is_better
 
     def __str__(self):
         """
@@ -119,8 +134,8 @@ class MetricThreshold:
             threshold_strs.append(f"Minimum Absolute Change: {self._min_absolute_change}.")
         if self._min_relative_change is not None:
             threshold_strs.append(f"Minimum Relative Change: {self._min_relative_change}.")
-        if self._higher_is_better is not None:
-            if self._higher_is_better:
+        if self._greater_is_better is not None:
+            if self._greater_is_better:
                 threshold_strs.append("Higher value is better.")
             else:
                 threshold_strs.append("Lower value is better.")
