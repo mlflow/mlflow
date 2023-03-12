@@ -1,7 +1,6 @@
 import logging
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
@@ -111,9 +110,6 @@ class MetricThreshold:
         """
         return self._min_relative_change
 
-    @deprecated(  # type: ignore
-        "The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead."
-    )
     @property
     def higher_is_better(self):
         """
