@@ -748,10 +748,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     with mock.patch(
         "mlflow.utils._spark_utils._get_active_spark_session",
         return_value=mock_spark_session,
-    ), mock.patch(
-        "mlflow.get_artifact_uri",
-        return_value=artifact_uri,
-    ), mock.patch(
+    ), mock.patch("mlflow.get_artifact_uri", return_value=artifact_uri,), mock.patch(
         "mlflow.spark._HadoopFileSystem.is_filesystem_available",
         return_value=mlflowdbfs_available,
     ), mock.patch(

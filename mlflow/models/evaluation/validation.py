@@ -5,6 +5,7 @@ from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
+
 class MetricThreshold:
     """
     This class allows you to define metric thresholds for model validation.
@@ -75,7 +76,9 @@ class MetricThreshold:
         if higher_is_better is None and greater_is_better is None:
             raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
         if greater_is_better is None:
-            _logger.warn("The `higher_is_better` parameter is deprecated. Use `greater_is_better` instead.")
+            _logger.warn(
+                "The `higher_is_better` parameter is deprecated. Use `greater_is_better` instead."
+            )
             greater_is_better = higher_is_better
         if not isinstance(greater_is_better, bool):
             raise MetricThresholdClassException("`greater_is_better` parameter must be a boolean.")
@@ -108,7 +111,9 @@ class MetricThreshold:
         """
         return self._min_relative_change
 
-    @deprecated("The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead.")
+    @deprecated(  # type: ignore
+        "The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead."
+    )
     @property
     def higher_is_better(self):
         """

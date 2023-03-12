@@ -248,11 +248,7 @@ def _get_multiclass_classifier_metrics(
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
-        (
-            y_bin,
-            y_pred_bin,
-            _,
-        ) = _get_binary_sum_up_label_pred_prob(
+        (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
