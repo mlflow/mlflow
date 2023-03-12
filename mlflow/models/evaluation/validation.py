@@ -1,8 +1,5 @@
-import logging
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-
-_logger = logging.getLogger(__name__)
 
 
 class MetricThreshold:
@@ -75,9 +72,6 @@ class MetricThreshold:
         if higher_is_better is None and greater_is_better is None:
             raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
         if greater_is_better is None:
-            _logger.warn(
-                "The `higher_is_better` parameter is deprecated. Use `greater_is_better` instead."
-            )
             greater_is_better = higher_is_better
         if not isinstance(greater_is_better, bool):
             raise MetricThresholdClassException("`greater_is_better` parameter must be a boolean.")
