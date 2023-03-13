@@ -43,7 +43,11 @@ class MetricThreshold:
     :param greater_is_better: A required boolean representing whether higher value is
                               better for the metric.
 
-    :param higher_is_better: Deprecated. Use `greater_is_better` instead.
+    :param higher_is_better:
+        .. deprecated:: 2.3.0
+            Use ``greater_is_better`` instead.
+
+        A required boolean representing whether higher value is better for the metric.
                              A required boolean representing whether higher value is
                              better for the metric.
     """
