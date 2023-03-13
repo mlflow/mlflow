@@ -15,7 +15,6 @@ DBFSDatasetSourceType = TypeVar("DBFSDatasetSourceType", bound="DBFSDatasetSourc
 
 
 class DBFSDatasetSource(FileSystemDatasetSource):
-
     def __init__(self, uri):
         self._uri = uri
 
@@ -51,7 +50,11 @@ class DBFSDatasetSource(FileSystemDatasetSource):
                 return True
 
             parsed_source = urlparse(raw_source)
-            return is_in_databricks_runtime() and not parsed_source.scheme and os.path.normpath(parsed_source.path).startswith("/dbfs")
+            return (
+                is_in_databricks_runtime()
+                and not parsed_source.scheme
+                and os.path.normpath(parsed_source.path).startswith("/dbfs")
+            )
         except Exception:
             return False
 
@@ -67,9 +70,7 @@ class DBFSDatasetSource(FileSystemDatasetSource):
         :return: A string dictionary representation of the DBFSDatasetSourceType.
         """
         # TODO: Include workspace information in the source
-        return {
-            "uri": self.uri
-        }
+        return {"uri": self.uri}
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[str, str]) -> DBFSDatasetSourceType:

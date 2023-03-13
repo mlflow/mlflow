@@ -7,7 +7,7 @@ from typing_extensions import Protocol
 import mlflow.data
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset import Dataset
-from mlflow.data.pandas_dataset import from_pandas 
+from mlflow.data.pandas_dataset import from_pandas
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
@@ -17,11 +17,12 @@ class ConstructorFunction(Protocol):
 
 
 class DatasetRegistry:
-
     def __init__(self):
         self._constructors = {}
 
-    def register_constructor(self, constructor_fn: ConstructorFunction, constructor_name: str = None):
+    def register_constructor(
+        self, constructor_fn: ConstructorFunction, constructor_name: str = None
+    ):
         """
         Registers a dataset constructor.
 
@@ -41,7 +42,7 @@ class DatasetRegistry:
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
         DatasetRegistry._validate_constructor(constructor_fn, constructor_name)
-        self._constructors[constructor_name] = constructor_fn 
+        self._constructors[constructor_name] = constructor_fn
 
     def register_entrypoints(self):
         """
@@ -50,7 +51,9 @@ class DatasetRegistry:
         """
         for entrypoint in entrypoints.get_group_all("mlflow.dataset_constructor"):
             try:
-                self.register_constructor(constructor_fn=entrypoint.load(), constructor_name=entrypoint.name)
+                self.register_constructor(
+                    constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
+                )
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
                     f'Failure attempting to register dataset constructor "{entrypoint.name}": {exc}',

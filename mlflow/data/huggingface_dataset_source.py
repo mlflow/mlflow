@@ -24,9 +24,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         path: str,
         split: Union[str, datasets.splits.Split, None] = None,
         revision: Union[str, datasets.utils.version.Version, None] = None,
-        data_files: Union[
-            str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], None
-        ] = None,
+        data_files: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], None] = None,
     ):
         self.path = path
         self.split = split

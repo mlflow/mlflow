@@ -81,7 +81,9 @@ def _create_dataset_source_for_artifact_repo(
         class_docstring = "Represents the source of a dataset stored on the local filesystem."
     else:
         source_type = scheme
-        class_docstring = f"Represents a filesystem-based dataset source identified by a URI with scheme {scheme}"
+        class_docstring = (
+            f"Represents a filesystem-based dataset source identified by a URI with scheme {scheme}"
+        )
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
@@ -145,5 +147,7 @@ def _create_dataset_source_for_artifact_repo(
     ArtifactRepoSource.__name__ = dataset_source_name
     ArtifactRepoSource.__qualname__ = dataset_source_name
     ArtifactRepoSource.__doc__ = class_docstring
-    ArtifactRepoSource._to_dict.__doc__ = ArtifactRepoSource._to_dict.__doc__.format(dataset_source_name=dataset_source_name)
+    ArtifactRepoSource._to_dict.__doc__ = ArtifactRepoSource._to_dict.__doc__.format(
+        dataset_source_name=dataset_source_name
+    )
     return ArtifactRepoSource
