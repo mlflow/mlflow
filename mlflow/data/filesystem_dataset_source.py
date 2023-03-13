@@ -50,7 +50,7 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, str]:
         """
         :return: A string dictionary representation of the FileSystemDatasetSource.
         """

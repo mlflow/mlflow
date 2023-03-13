@@ -39,7 +39,7 @@ class DummyDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: Any) -> DatasetSource:
         return cls(raw_source)
 
-    def to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, str]:
         return {"uri": self.uri}
 
     @classmethod

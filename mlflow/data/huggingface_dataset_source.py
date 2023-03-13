@@ -49,7 +49,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         # TODO: Implement this
         raise NotImplementedError
 
-    def to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, str]:
         # TODO: Implement this
         raise NotImplementedError
 

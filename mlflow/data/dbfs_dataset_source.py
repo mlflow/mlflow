@@ -62,7 +62,7 @@ class DBFSDatasetSource(FileSystemDatasetSource):
         """
         return cls(raw_source)
 
-    def to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, str]:
         """
         :return: A string dictionary representation of the DBFSDatasetSourceType.
         """

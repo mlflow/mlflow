@@ -123,7 +123,7 @@ def _create_dataset_source_for_artifact_repo(
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(raw_source)
 
-        def to_dict(self) -> Dict[str, str]:
+        def _to_dict(self) -> Dict[str, str]:
             """
             :return: A string dictionary representation of the {dataset_source_name}.
             """
@@ -145,5 +145,5 @@ def _create_dataset_source_for_artifact_repo(
     ArtifactRepoSource.__name__ = dataset_source_name
     ArtifactRepoSource.__qualname__ = dataset_source_name
     ArtifactRepoSource.__doc__ = class_docstring
-    ArtifactRepoSource.to_dict.__doc__ = ArtifactRepoSource.to_dict.__doc__.format(dataset_source_name=dataset_source_name)
+    ArtifactRepoSource._to_dict.__doc__ = ArtifactRepoSource._to_dict.__doc__.format(dataset_source_name=dataset_source_name)
     return ArtifactRepoSource

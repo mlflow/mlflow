@@ -19,7 +19,7 @@ class DatasetSourceRegistry:
         """
         Registers the DatasetSource
         """
-        self._sources[source._get_source_type] = source
+        self._sources[source._get_source_type()] = source
 
     def register_entrypoints(self):
         """
@@ -69,7 +69,7 @@ class DatasetSourceRegistry:
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
         source = self._sources.get(source_type)
         if source is not None:
-            return source._from_dict(json.loads(source_json))
+            return source.from_json(source_json)
         else:
             raise MlflowException(
                 f"Could not parse dataset source from JSON due to unrecognized source type: {source_type}",

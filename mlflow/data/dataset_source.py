@@ -1,3 +1,5 @@
+import json
+
 from abc import abstractmethod
 from typing import TypeVar, Any, Dict
 
@@ -39,10 +41,16 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def to_dict(self) -> str:
+    def _to_dict(self) -> Dict[str, str]:
         """
         :return: A string dictionary representation of the DatasetSource.
         """
+
+    def to_json(self) -> str:
+        """
+        :return: A JSON string representation of the DatasetSource.
+        """
+        return json.dumps(self._to_dict())
 
     @classmethod
     @abstractmethod
@@ -50,3 +58,7 @@ class DatasetSource:
         """
         :param source_dict: A string dictionary representation of the DatasetSource.
         """
+
+    @classmethod
+    def from_json(cls, source_json: str) -> DatasetSourceType:
+        return cls._from_dict(json.loads(source_json))
