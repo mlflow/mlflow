@@ -48,8 +48,6 @@ class MetricThreshold:
             Use ``greater_is_better`` instead.
 
         A required boolean representing whether higher value is better for the metric.
-                             A required boolean representing whether higher value is
-                             better for the metric.
     """
 
     def __init__(
