@@ -42,6 +42,8 @@ class MetricThreshold:
 
     :param greater_is_better: A required boolean representing whether higher value is
                               better for the metric.
+
+    :param higher_is_better: This parameter is deprecated. Please use greater_is_better instead.
     """
 
     def __init__(
@@ -71,6 +73,10 @@ class MetricThreshold:
                 )
         if higher_is_better is None and greater_is_better is None:
             raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
+        if higher_is_better is not None and greater_is_better is not None:
+            raise MetricThresholdClassException(
+                "`higher_is_better` parameter must be None when `greater_is_better` is defined."
+            )
         if greater_is_better is None:
             greater_is_better = higher_is_better
         if not isinstance(greater_is_better, bool):
