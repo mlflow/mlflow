@@ -13,7 +13,7 @@ export const ExperimentViewHeaderShareButton = () => {
   return (
     <>
       <GetLinkModal
-        link={window.top?.location.href || window.location.href}
+        link={window.location.href}
         visible={showGetLinkModal}
         onCancel={() => setShowGetLinkModal(false)}
       />
