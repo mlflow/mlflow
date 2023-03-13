@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## 2.2.1 (2023-03-14)
+## 2.2.2 (2023-03-14)
 
 MLflow 2.2.2 is a patch release containing the following bug fixes and improvements:
 
