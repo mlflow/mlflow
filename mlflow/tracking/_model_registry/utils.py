@@ -153,10 +153,6 @@ def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
-def _get_databricks_uc_rest_store(store_uri, tracking_uri, **_):
-    return UcModelRegistryStore(registry_uri=store_uri, tracking_uri=tracking_uri)
-
-
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.
 _model_registry_store_registry = None
@@ -176,7 +172,7 @@ def _get_store_registry():
     # Register a placeholder function that raises if users pass a registry URI with scheme
     # "databricks-uc"
     _model_registry_store_registry.register(
-        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
+        _DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore
     )
 
     for scheme in ["http", "https"]:
