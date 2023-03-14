@@ -2,7 +2,6 @@ import pytest
 from unittest import mock
 from unittest.mock import Mock
 
-import mlflow
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
