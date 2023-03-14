@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2.2.2 (2023-03-14)
+
+MLflow 2.2.2 is a patch release containing the following bug fixes:
+
+- [Model Registry] Allow `source` to be a local path within a run's artifact directory if a `run_id` is specified (#7993, @harupy)
+- [Model Registry] Fix a bug where a windows UNC path is considered a local path (#7988, @WeichenXu123)
+- [Model Registry] Disallow `name` to be a file path in  `FileStore.get_registered_model` (#7965, @harupy)
+
 ## 2.2.1 (2023-03-02)
 
 MLflow 2.2.1 is a patch release containing the following bug fixes:
