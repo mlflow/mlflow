@@ -135,7 +135,7 @@
     "redux-mock-store": "^1.5.3",
     "resolve": "^1.22.1",
     "typescript": "^4.9.3",
-    "webpack": "^5.75.0"
+    "webpack": "^5.76.0"
   },
   "scripts": {
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`, `start:mfe` and `test:ci`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
