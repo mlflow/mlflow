@@ -279,8 +279,7 @@ class Utils {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
     } else if (gitMatch) {
-      // eslint-disable-next-line no-unused-vars
-      const [_fullUrl, baseUrl, repoDir, fileDir] = gitMatch;
+      const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
       if (fileDir) {
         url = url + '/tree/master/' + fileDir;
