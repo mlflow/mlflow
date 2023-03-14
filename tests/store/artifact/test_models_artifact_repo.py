@@ -2,13 +2,21 @@ import pytest
 from unittest import mock
 from unittest.mock import Mock
 
+import mlflow
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
+    UnityCatalogModelsArtifactRepository,
+)
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow import MlflowClient
 
+
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".ModelsArtifactRepository"
+UC_MODELS_ARTIFACT_REPOSITORY = (
+    f"{MODELS_ARTIFACT_REPOSITORY_PACKAGE}.UnityCatalogModelsArtifactRepository"
+)
 
 
 @pytest.mark.parametrize(
@@ -44,6 +52,18 @@ def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_wit
         assert models_repo.artifact_uri == uri_without_profile
         assert isinstance(models_repo.repo, DatabricksModelsArtifactRepository)
         mock_repo.assert_called_once_with(uri_without_profile)
+
+
+def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_context():
+    uri_without_profile = "models:/MyModel/12"
+    uc_registry_uri = "databricks-uc://getRegistryUriDefault"
+    with mock.patch(UC_MODELS_ARTIFACT_REPOSITORY, autospec=True) as mock_repo, mock.patch(
+        "mlflow.get_registry_uri", return_value=uc_registry_uri
+    ):
+        models_repo = ModelsArtifactRepository(uri_without_profile)
+        assert models_repo.artifact_uri == uri_without_profile
+        assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
+        mock_repo.assert_called_once_with(uri_without_profile, registry_uri=uc_registry_uri)
 
 
 def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():

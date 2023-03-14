@@ -1,6 +1,7 @@
 import entrypoints
 import warnings
 
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.dbfs_artifact_repo import dbfs_artifact_repo_factory
