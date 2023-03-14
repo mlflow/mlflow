@@ -78,9 +78,10 @@ def serve_get_metric_history_bulk():
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
+# The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    return send_from_directory(STATIC_DIR, path)
+    return send_from_directory(STATIC_DIR, path, max_age=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
