@@ -1062,7 +1062,8 @@ class Utils {
   }
 
   // eslint-disable-next-line prettier/prettier
-  static updatePageTitle(title) {}
+  static updatePageTitle(title) {
+  }
 
   /**
    * Check if current browser tab is the visible tab.
