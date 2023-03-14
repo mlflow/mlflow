@@ -123,7 +123,7 @@ def post_release(new_version: str):
     current_version = Version(get_current_py_version())
     msg = (
         "It appears you ran this command on a release branch because the current version "
-        f"({current_version}) is not a dev version. Please re-run this command on the master "
+        f"({current_version}) is not a dev version. Please re-run this command on a non-release "
         "branch."
     )
     assert current_version.is_devrelease, msg
