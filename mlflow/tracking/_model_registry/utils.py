@@ -171,9 +171,7 @@ def _get_store_registry():
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
     # Register a placeholder function that raises if users pass a registry URI with scheme
     # "databricks-uc"
-    _model_registry_store_registry.register(
-        _DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore
-    )
+    _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
