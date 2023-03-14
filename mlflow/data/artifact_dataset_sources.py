@@ -117,7 +117,10 @@ def _create_dataset_source_for_artifact_repo(
 
             try:
                 parsed_source = urlparse(raw_source)
-                return parsed_source.scheme == scheme
+                if ArtifactRepoSource._get_source_type() == "local":
+                    return parsed_source.scheme in ["", "file"]
+                else:
+                    return parsed_source.scheme == scheme
             except Exception:
                 return False
 

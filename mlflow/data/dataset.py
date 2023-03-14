@@ -41,7 +41,7 @@ class Dataset:
         base_dict = {
             "name": self.name,
             "digest": self.digest,
-            "source": json.dumps(self._source.to_dict()),
+            "source": self._source.to_json(),
             "source_type": self._source._get_source_type(),
         }
         return json.dumps(self._to_dict(base_dict))
