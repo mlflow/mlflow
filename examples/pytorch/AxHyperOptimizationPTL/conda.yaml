@@ -17,5 +17,7 @@ dependencies:
       # required by many versions of pytorch
       - gpytorch<1.9.0
       - protobuf<4.0.0
+      # Pinning pandas version less than 1.4.4 due to https://github.com/facebook/Ax/issues/1153
+      - pandas<=1.4.4
       # TODO: Remove this requirement once ax-platform achieves compatibility with SQLAlchemy 2.x
       - sqlalchemy<2
