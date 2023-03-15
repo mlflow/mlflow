@@ -312,6 +312,12 @@ def _select_port_from_range(lower_bound: int, upper_bound: int, busy_port: int) 
     """
     Returns a port value within lower and upper bounds excluding a given busy port.
     """
+    if lower_bound > upper_bound:
+        raise ValueError(
+            f"The lower bound port value must be less than or equal to the upper one,"
+            f" '{lower_bound}' > '{upper_bound}' given."
+        )
+
     port = lower_bound
     if port != busy_port:
         return port
