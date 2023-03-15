@@ -48,7 +48,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 
 .. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1b7gbsopj-ckYE002CMSDR4_Bioztv8g
 
-Nightly Job Statuses
+Job Statuses
 
 |examples| |cross-version-tests| |r-devel| |test-requirements| |stale|
 
@@ -63,6 +63,8 @@ Nightly Job Statuses
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
 .. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/stale.yml?branch=master&event=schedule&label=stale&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
+.. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/push-images.yml?branch=master&event=release&label=push-images&logo=github&style=for-the-badge
+    :target: https://github.com/mlflow/mlflow/actions/workflows/push-images.yml?query=event%3Arelease
 
 Installing
 ----------
