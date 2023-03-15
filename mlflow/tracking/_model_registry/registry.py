@@ -28,7 +28,7 @@ class ModelRegistryStoreRegistry(StoreRegistry):
                           is used to select which tracking store implementation to instantiate and
                           is passed to the constructor of the implementation.
         :param tracking_uri: The optional string tracking URI to use for any MLflow tracking-related
-                             operations in the registry client, e.g. downloading source run 
+                             operations in the registry client, e.g. downloading source run
                              artifacts in order to re-upload them to the model registry location.
 
         :return: An instance of `mlflow.store.model_registry.AbstractStore` that fulfills the
