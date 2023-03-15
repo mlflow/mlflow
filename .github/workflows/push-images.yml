@@ -73,7 +73,8 @@ jobs:
         run: |
           set -x
 
-          for tag in ${{ join(steps.modelmeta.outputs.tags, ' ') }}; do
+          tags=$(echo -n "${{ steps.modelmeta.outputs.tags }}" | tr '\n' ' ')
+          for tag in $tags; do
             docker tag model-server:latest $tag
             docker push $tag
           done
