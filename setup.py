@@ -149,9 +149,9 @@ setup(
         ],
         "databricks": [
             # Required to write model artifacts to unity catalog locations
-            "azure_storage_blob",
-            "google-cloud-storage<3,>=2.7.0",
-            "boto3",
+            "azure-storage-blob>12",
+            "google-cloud-storage>=1.30.0",
+            "boto3>1",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
