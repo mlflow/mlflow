@@ -23,6 +23,7 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     DeleteTag,
     SetExperimentTag,
+    DeleteExperimentTag,
     GetExperimentByName,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -218,6 +219,16 @@ class RestStore(AbstractStore):
             SetExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetExperimentTag, req_body)
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag for the specified experiment
+
+        :param experiment_id: String ID of the experiment
+        :param key: String key of the tag to delete
+        """
+        req_body = message_to_json(DeleteExperimentTag(experiment_id=experiment_id, key=key))
+        self._call_endpoint(DeleteExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):
         """
