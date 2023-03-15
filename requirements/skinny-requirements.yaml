@@ -64,3 +64,18 @@ sqlparse:
   # Lower bound sqlparse for: https://github.com/andialbrecht/sqlparse/pull/567
   minimum: "0.4.0"
   max_major_version: 0
+
+azure_storage_blob:
+  pip_release: azure_storage_blob
+  minimum: "12.15.0"
+  max_major_version: 12
+
+google-cloud-storage:
+  pip_release: google-cloud-storage
+  minimum: "2.7.0"
+  max_major_version: 2
+
+boto3:
+  pip_release: boto3
+  minimum: "1.26.91"
+  max_major_version: 1
