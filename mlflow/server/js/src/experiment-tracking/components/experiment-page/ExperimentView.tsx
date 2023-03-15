@@ -1,14 +1,14 @@
-import { Skeleton } from '@databricks/design-system';
-
-import { useEffect } from 'react';
 import { ErrorCodes } from '../../../common/constants';
-import NotFoundPage from '../NotFoundPage';
-import { PermissionDeniedView } from '../PermissionDeniedView';
 import { ExperimentViewDescriptions } from './components/ExperimentViewDescriptions';
-import { ExperimentViewNotes } from './components/ExperimentViewNotes';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
+import { ExperimentViewNotes } from './components/ExperimentViewNotes';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
+import { ExperimentViewTags } from './components/ExperimentViewTags';
+import NotFoundPage from '../NotFoundPage';
+import { PermissionDeniedView } from '../PermissionDeniedView';
+import { Skeleton } from '@databricks/design-system';
+import { useEffect } from 'react';
 import { useExperimentIds } from './hooks/useExperimentIds';
 import { useExperiments } from './hooks/useExperiments';
 import { useFetchExperiments } from './hooks/useFetchExperiments';
@@ -48,6 +48,7 @@ export const ExperimentView = () => {
           <ExperimentViewHeader experiment={firstExperiment} />
           <ExperimentViewDescriptions experiment={firstExperiment} />
           <ExperimentViewNotes experiment={firstExperiment} />
+          <ExperimentViewTags experiment={firstExperiment} />
         </>
       )}
 
