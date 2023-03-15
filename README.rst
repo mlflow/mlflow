@@ -63,7 +63,7 @@ Job Statuses
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3ATest%2Brequirements+event%3Aschedule
 .. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/stale.yml?branch=master&event=schedule&label=stale&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions?query=workflow%3AStale+event%3Aschedule
-.. |stale| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/push-images.yml?event=release&label=push-images&logo=github&style=for-the-badge
+.. |push-images| image:: https://img.shields.io/github/actions/workflow/status/mlflow/mlflow/push-images.yml?event=release&label=push-images&logo=github&style=for-the-badge
     :target: https://github.com/mlflow/mlflow/actions/workflows/push-images.yml?query=event%3Arelease
 
 Installing
