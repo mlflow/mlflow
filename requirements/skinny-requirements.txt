@@ -14,6 +14,3 @@ requests<3,>=2.17.3
 packaging<24
 importlib_metadata<7,>=3.7.0,!=4.7.0
 sqlparse<1,>=0.4.0
-azure_storage_blob<13,>=12.15.0
-google-cloud-storage<3,>=2.7.0
-boto3<2,>=1.26.91
