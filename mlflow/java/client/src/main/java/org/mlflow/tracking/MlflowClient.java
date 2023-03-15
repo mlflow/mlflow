@@ -500,6 +500,16 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   * Delete a tag against the given experiment.
+   * @param experimentId The ID of the experiment on which to delete the tag
+   * @param key The key used to identify the tag.
+   */
+  public void setExperimentTag(String experimentId, String key) {
+    sendPost("experiments/delete-experiment-tag",
+            mapper.makeDeleteExperimentTag(experimentId, key));
+  }
+
+  /**
    * Log a new tag against the given run, as a key-value pair.
    * @param runId The ID of the run on which to set the tag
    * @param key The key used to identify the tag.
