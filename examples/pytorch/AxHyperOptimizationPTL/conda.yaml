@@ -17,4 +17,3 @@ dependencies:
       # required by many versions of pytorch
       - gpytorch<1.9.0
       - protobuf<4.0.0
-
