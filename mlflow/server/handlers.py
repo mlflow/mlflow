@@ -44,6 +44,7 @@ from mlflow.protos.service_pb2 import (
     LogBatch,
     DeleteTag,
     SetExperimentTag,
+    DeleteExperimentTag,
     GetExperimentByName,
     LogModel,
 )
@@ -846,6 +847,23 @@ def _set_experiment_tag():
     tag = ExperimentTag(request_message.key, request_message.value)
     _get_tracking_store().set_experiment_tag(request_message.experiment_id, tag)
     response_message = SetExperimentTag.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_experiment_tag():
+    request_message = _get_request_message(
+        DeleteExperimentTag(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+    _get_tracking_store().delete_experiment_tag(request_message.experiment_id, request_message.key)
+    response_message = DeleteExperimentTag.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -1745,6 +1763,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetExperimentTag: _set_experiment_tag,
+    DeleteExperimentTag: _delete_experiment_tag,
     SetTag: _set_tag,
     DeleteTag: _delete_tag,
     LogBatch: _log_batch,

@@ -1,20 +1,23 @@
-import { useEffect } from 'react';
-import { useIntl } from 'react-intl';
 // prettier-ignore
 import {
+  deleteExperimentTagApi,
   getExperimentApi,
   setCompareExperiments,
-  setExperimentTagApi,
+  setExperimentTagApi
 } from '../../actions';
-import Utils from '../../../common/utils/Utils';
-import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext';
+
 import { ExperimentView } from './ExperimentView';
+import { GetExperimentsContextProvider } from './contexts/GetExperimentsContext';
+import Utils from '../../../common/utils/Utils';
+import { useEffect } from 'react';
+import { useIntl } from 'react-intl';
 
 /**
  * Concrete actions for GetExperiments context
  */
 const getExperimentActions = {
   setExperimentTagApi,
+  deleteExperimentTagApi,
   getExperimentApi,
   setCompareExperiments,
 };

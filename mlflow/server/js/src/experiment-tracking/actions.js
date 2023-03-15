@@ -1,9 +1,10 @@
-import { MlflowService } from './sdk/MlflowService';
-import { getUUID } from '../common/utils/ActionUtils';
-import { ErrorCodes } from '../common/constants';
-import { isArray } from 'lodash';
-import { ViewType } from './sdk/MlflowEnums';
 import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
+
+import { ErrorCodes } from '../common/constants';
+import { MlflowService } from './sdk/MlflowService';
+import { ViewType } from './sdk/MlflowEnums';
+import { getUUID } from '../common/utils/ActionUtils';
+import { isArray } from 'lodash';
 import { stringify as queryStringStringify } from 'qs';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
@@ -377,6 +378,18 @@ export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUI
       value: tagValue,
     }),
     meta: { id, experimentId, key: tagName, value: tagValue },
+  };
+};
+
+export const DELETE_EXPERIMENT_TAG_API = 'DELETE_EXPERIMENT_TAG_API';
+export const deleteExperimentTagApi = (experimentId, tagName, id = getUUID()) => {
+  return {
+    type: DELETE_EXPERIMENT_TAG_API,
+    payload: MlflowService.deleteExperimentTag({
+      experiment_id: experimentId,
+      key: tagName,
+    }),
+    meta: { id, experimentId, key: tagName},
   };
 };
 

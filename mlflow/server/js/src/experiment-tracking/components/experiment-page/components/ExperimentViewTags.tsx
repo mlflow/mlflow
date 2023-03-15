@@ -30,7 +30,7 @@ export const ExperimentViewTags = React.memo(({ experiment }: ExperimentViewTags
   const formRef = React.createRef();
 
   const {
-    actions: { setExperimentTagApi },
+    actions: { setExperimentTagApi, deleteExperimentTagApi },
   } = useFetchExperiments();
 
   const handleSaveEdit = ({ name, value }: { name: string; value: string }) => {
@@ -39,6 +39,13 @@ export const ExperimentViewTags = React.memo(({ experiment }: ExperimentViewTags
         console.error(ex);
       },
     );
+    return action;
+  };
+
+  const handleDeleteTag = ({ name }: { name: string }) => {
+    const action = deleteExperimentTagApi(experiment.experiment_id, name).payload.catch((ex) => {
+      console.error(ex);
+    });
     return action;
   };
 
@@ -59,7 +66,7 @@ export const ExperimentViewTags = React.memo(({ experiment }: ExperimentViewTags
       <EditableTagsTableView
         innerRef={formRef}
         handleAddTag={null}
-        handleDeleteTag={null}
+        handleDeleteTag={handleDeleteTag}
         handleSaveEdit={handleSaveEdit}
         tags={storedTags}
         isRequestPending={false}

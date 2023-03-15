@@ -1,27 +1,19 @@
-import { combineReducers } from 'redux';
 import {
   CLOSE_ERROR_MODAL,
+  DELETE_EXPERIMENT_TAG_API,
+  DELETE_TAG_API,
   GET_EXPERIMENT_API,
   GET_RUN_API,
   LIST_ARTIFACTS_API,
-  SEARCH_EXPERIMENTS_API,
-  OPEN_ERROR_MODAL,
-  SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
+  OPEN_ERROR_MODAL,
+  SEARCH_EXPERIMENTS_API,
+  SEARCH_RUNS_API,
+  SET_COMPARE_EXPERIMENTS,
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API,
-  DELETE_TAG_API,
-  SET_COMPARE_EXPERIMENTS,
 } from '../actions';
-import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
-import { ArtifactNode } from '../utils/ArtifactUtils';
-import {
-  metricsByRunUuid,
-  latestMetricsByRunUuid,
-  minMetricsByRunUuid,
-  maxMetricsByRunUuid,
-} from './MetricReducer';
-import modelRegistryReducers from '../../model-registry/reducers';
+import { Experiment, ExperimentTag, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import _, { isArray } from 'lodash';
 import {
   fulfilled,
@@ -30,9 +22,19 @@ import {
   isRejectedApi,
   rejected,
 } from '../../common/utils/ActionUtils';
+import {
+  latestMetricsByRunUuid,
+  maxMetricsByRunUuid,
+  metricsByRunUuid,
+  minMetricsByRunUuid,
+} from './MetricReducer';
+
+import { ArtifactNode } from '../utils/ArtifactUtils';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
-import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
+import { combineReducers } from 'redux';
+import { getProtoField } from '../../model-registry/utils';
+import modelRegistryReducers from '../../model-registry/reducers';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -300,6 +302,16 @@ export const experimentTagsByExperimentId = (state = {}, action) => {
     case fulfilled(SET_EXPERIMENT_TAG_API): {
       const tag = { key: action.meta.key, value: action.meta.value };
       return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
+    }
+    case fulfilled(DELETE_EXPERIMENT_TAG_API): {
+      const { experiment, key } = action.meta;
+      const oldTags = state[experiment.experiment_id] || {};
+      const newTags = _.omit(oldTags, key);
+      if (Object.keys(newTags).length === 0) {
+        return _.omit({ ...state }, experiment);
+      } else {
+        return { ...state, [experiment.experiment_id]: newTags };
+      }
     }
     default:
       return state;

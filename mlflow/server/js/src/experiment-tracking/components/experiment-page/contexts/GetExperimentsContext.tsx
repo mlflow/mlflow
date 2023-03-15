@@ -1,18 +1,20 @@
-import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
-import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
-import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
-import Utils from '../../../../common/utils/Utils';
-
 import type {
+  deleteExperimentTagApi,
   getExperimentApi,
   setCompareExperiments,
   setExperimentTagApi,
 } from '../../../actions';
+
+import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
+import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
+import Utils from '../../../../common/utils/Utils';
+import { isEqual } from 'lodash';
 import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
 
 export interface GetExperimentsContextActions {
   setExperimentTagApi: typeof setExperimentTagApi;
+  deleteExperimentTagApi: typeof deleteExperimentTagApi;
   getExperimentApi: typeof getExperimentApi;
   setCompareExperiments: typeof setCompareExperiments;
 }

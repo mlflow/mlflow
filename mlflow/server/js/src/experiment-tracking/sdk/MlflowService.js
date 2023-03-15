@@ -115,4 +115,10 @@ export class MlflowService {
    */
   static setExperimentTag = (data) =>
     postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/set-experiment-tag', data });
+
+  /**
+   * Delete mlflow experiment tag
+   */
+  static deleteExperimentTag = (data) =>
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/experiments/delete-experiment-tag', data });
 }
