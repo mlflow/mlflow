@@ -1,7 +1,6 @@
 import os
 from functools import partial
 
-import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore

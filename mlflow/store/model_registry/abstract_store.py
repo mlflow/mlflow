@@ -16,9 +16,10 @@ class AbstractStore:
         would be forced to create one.
 
         :param store_uri: The model registry store URI
-        :param tracking_uri: URI of the current MLflow tracking server, used to perform operations like
-                             fetching source run metadata or downloading source run artifacts to support
-                             subsequently uploading them to the model registry storage location
+        :param tracking_uri: URI of the current MLflow tracking server, used to perform operations
+                             like fetching source run metadata or downloading source run artifacts
+                             to support subsequently uploading them to the model registry storage
+                             location
         """
         pass
 

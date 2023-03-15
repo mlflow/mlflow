@@ -4,8 +4,6 @@ import os
 import pytest
 from unittest import mock
 
-import mlflow.tracking
-from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
