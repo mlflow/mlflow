@@ -569,6 +569,28 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
+def delete_experiment_tag(key: str) -> None:
+    """
+    Delete a tag on the current experiment.
+
+    :param key: Tag name (string). This string may only contain alphanumerics, underscores
+                (_), dashes (-), periods (.), spaces ( ), and slashes (/).
+                All backend stores will support keys up to length 250, but some may
+                support larger keys.
+
+    .. test-code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        with mlflow.start_run():
+            mlflow.set_experiment_tag("release.version", "2.2.0")
+            mlflow.delete_experiment_tag("release.version")
+    """
+    experiment_id = _get_experiment_id()
+    MlflowClient().delete_experiment_tag(experiment_id, key)
+
+
 def set_tag(key: str, value: Any) -> None:
     """
     Set a tag under the current run. If no run is active, this method will create a

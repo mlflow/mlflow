@@ -786,6 +786,43 @@ class MlflowClient:
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
 
+    def delete_experiment_tag(self, experiment_id: str, key: str) -> None:
+        """
+        Delete a tag on the experiment with the specified ID.
+
+        :param experiment_id: String ID of the experiment.
+        :param key: Name of the tag.
+
+        .. code-block:: python
+            :caption: Example
+
+            from mlflow import MlflowClient
+
+            # Create an experiment and set its tag
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information
+            experiment = client.get_experiment(experiment_id)
+            print("Name: {}".format(experiment.name))
+            print("Tags: {}".format(experiment.tags))
+
+            # Delete the tag and fetch updated info
+            client.delete_experiment_tag(experiment_id, "nlp.framework")
+            experiment = client.get_experiment(experiment_id)
+            print("Tags after deletion: {}".format(experiment.tags))
+
+
+        .. code-block:: text
+            :caption: Output
+
+            Name: Social Media NLP Experiments
+            Tags: {'nlp.framework': 'Spark NLP'}
+            Tags after deletion: {}
+        """
+        self._tracking_client.delete_experiment_tag(experiment_id, key)
+
     def set_tag(self, run_id: str, key: str, value: Any) -> None:
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
