@@ -67,7 +67,7 @@ def update_versions(new_py_version: str) -> None:
     replace_occurrences(
         files=[Path("mlflow", "R", "mlflow", "DESCRIPTION")],
         pattern=f"Version: {re.escape(current_py_version_without_suffix)}",
-        repl=f"Version: {current_py_version_without_suffix}",
+        repl=f"Version: {replace_dev_suffix_with(new_py_version, '')}",
     )
 
 
