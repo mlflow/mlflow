@@ -2367,8 +2367,8 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a
                                            production variant.  Defaults to ``None``.                                           
-                       - ``endpoint_config``: A dictionary specifying the endpoint configuration 
-                        as key-value pairs to be set for the deployed endpoint
+                       - ``async_inference_config``: A dictionary specifying the async config 
+                                                     configuration. Defaults to ``None``.
                        - ``env``: A dictionary specifying environment variables as key-value pairs
                          to be set for the deployed model. Defaults to ``None``.
 
