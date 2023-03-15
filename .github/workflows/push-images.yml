@@ -2,7 +2,9 @@ name: Push-Images
 
 on:
   release:
-    types: [published]
+    types:
+      - published
+      - edited
 
 jobs:
   push-images:
@@ -69,7 +71,9 @@ jobs:
 
       - name: Push Model Server Image
         run: |
-          for tag in ${{ steps.modelmeta.outputs.tags }}; do
+          set -x
+
+          for tag in ${{ join(steps.modelmeta.outputs.tags, ' ') }}; do
             docker tag model-server:latest $tag
             docker push $tag
           done
