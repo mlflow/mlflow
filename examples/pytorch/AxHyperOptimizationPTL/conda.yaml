@@ -17,3 +17,5 @@ dependencies:
       # required by many versions of pytorch
       - gpytorch<1.9.0
       - protobuf<4.0.0
+      # TODO: Remove this requirement once ax-platform achieves compatibility with SQLAlchemy 2.x
+      - sqlalchemy<2

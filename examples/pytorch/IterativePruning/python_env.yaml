@@ -6,6 +6,10 @@ dependencies:
   - torchvision>=0.9.1
   - cloudpickle==1.6.0
   - pytorch_lightning==1.7.6
+  # typeguard is used for type validation in the ax-platform code base. 3.0.0 release has
+  # breaking changes that need to be resolved in ax. Remove this pin when
+  # https://github.com/facebook/Ax/issues/1509 is addressed
+  - typeguard<3.0.0
   - ax-platform
   - prettytable
   - torch>=1.9.0
