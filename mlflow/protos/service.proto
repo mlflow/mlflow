@@ -236,6 +236,21 @@ service MlflowService {
     };
   }
 
+  // Delete a tag on an experiment.
+  //
+  rpc deleteExperimentTag(DeleteExperimentTag) returns (DeleteExperimentTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/delete-experiment-tag"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Experiment Tag",
+    };
+  }
+
   // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
@@ -825,6 +840,20 @@ message SetExperimentTag {
   // String value of the tag being logged. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message DeleteExperimentTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the experiment under which to log the tag. Must be provided.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2 [(validate_required) = true];
 
   message Response {
   }
