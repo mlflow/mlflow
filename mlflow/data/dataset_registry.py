@@ -1,7 +1,7 @@
 import inspect
 import entrypoints
 import warnings
-from typing import Any
+from typing import Any, Dict
 from typing_extensions import Protocol
 
 import mlflow.data
@@ -18,7 +18,7 @@ class ConstructorFunction(Protocol):
 
 class DatasetRegistry:
     def __init__(self):
-        self._constructors = {}
+        self.constructors = {}
 
     def register_constructor(
         self, constructor_fn: ConstructorFunction, constructor_name: str = None
@@ -43,7 +43,7 @@ class DatasetRegistry:
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
         DatasetRegistry._validate_constructor(constructor_fn, constructor_name)
-        self._constructors[constructor_name] = constructor_fn
+        self.constructors[constructor_name] = constructor_fn
         return constructor_name
 
     def register_entrypoints(self):
@@ -59,7 +59,8 @@ class DatasetRegistry:
                 )
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    f'Failure attempting to register dataset constructor "{entrypoint.name}": {exc}',
+                    f"Failure attempting to register dataset constructor"
+                    f' "{entrypoint.name}": {exc}.',
                     stacklevel=2,
                 )
 
@@ -117,6 +118,15 @@ def register_constructor(constructor_fn: ConstructorFunction, constructor_name: 
     setattr(mlflow.data, registered_constructor_name, constructor_fn)
     mlflow.data.__all__.append(registered_constructor_name)
     return registered_constructor_name
+
+
+def get_registered_constructors() -> Dict[str, ConstructorFunction]:
+    """
+    Obtains the registered dataset constructors.
+
+    :return: A dictionary mapping constructor names to constructor functions.
+    """
+    return _dataset_registry.constructors
 
 
 _dataset_registry = DatasetRegistry()
