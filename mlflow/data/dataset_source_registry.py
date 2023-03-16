@@ -1,4 +1,3 @@
-import json
 import entrypoints
 import warnings
 from typing import Any, List
@@ -31,7 +30,8 @@ class DatasetSourceRegistry:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
                 warnings.warn(
-                    f'Failure attempting to register dataset source with source type "{entrypoint.source_type}": {exc}',
+                    f"Failure attempting to register dataset source with source type"
+                    f' "{entrypoint.source_type}": {exc}',
                     stacklevel=2,
                 )
 
@@ -44,7 +44,7 @@ class DatasetSourceRegistry:
         matching_sources = []
         for source in self._sources.values():
             if candidate_sources and not any(
-                [issubclass(source, candidate_src) for candidate_src in candidate_sources]
+                issubclass(source, candidate_src) for candidate_src in candidate_sources
             ):
                 continue
             if source._can_resolve(raw_source):
@@ -53,16 +53,18 @@ class DatasetSourceRegistry:
         if len(matching_sources) > 1:
             source_types_str = ", ".join([source._get_source_type() for source in matching_sources])
             warnings.warn(
-                f"The specified dataset source can be interpreted in multiple ways: {source_types_str}. MLflow will assume that this is a {matching_sources[0]._get_source_type()} source",
+                f"The specified dataset source can be interpreted in multiple ways:"
+                f" {source_types_str}. MLflow will assume that this is a"
+                f" {matching_sources[0]._get_source_type()} source.",
                 stacklevel=2,
             )
 
         if len(matching_sources) >= 1:
             return matching_sources[-1]._resolve(raw_source)
         else:
-            # TODO: Support passing in dataset info to add context to this error
             raise MlflowException(
-                f"Could not find a source information resolver for the specified dataset source: {raw_source}",
+                f"Could not find a source information resolver for the specified"
+                f" dataset source: {raw_source}.",
                 RESOURCE_DOES_NOT_EXIST,
             )
 
@@ -72,7 +74,8 @@ class DatasetSourceRegistry:
             return source.from_json(source_json)
         else:
             raise MlflowException(
-                f"Could not parse dataset source from JSON due to unrecognized source type: {source_type}",
+                f"Could not parse dataset source from JSON due to unrecognized"
+                f" source type: {source_type}.",
                 RESOURCE_DOES_NOT_EXIST,
             )
 
