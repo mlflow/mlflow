@@ -71,9 +71,6 @@ class ArtifactRepositoryRegistry:
             )
         return repository(artifact_uri)
 
-    def get_registered_artifact_repositories(self):
-        return self._registry
-
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
