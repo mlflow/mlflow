@@ -38,7 +38,6 @@ import click
     "--dry-run/--no-dry-run", is_flag=True, default=True, show_default=True, envvar="DRY_RUN"
 )
 def main(new_version: str, remote: str, dry_run: bool = False):
-
     release_tag = f"v{new_version}"
     subprocess.run(["git", "tag", release_tag], check=True)
     subprocess.run(
