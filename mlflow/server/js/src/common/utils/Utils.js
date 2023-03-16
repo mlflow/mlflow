@@ -248,10 +248,22 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
+  /**
+   * Regular expression for URLs containing the string 'git'.
+   * It can be a custom git domain (e.g. https://git.custom.in/repo/dir#file/dir).
+   * Excluding the first overall match, there are three groups:
+   *    git url, repo directory, and file directory.
+   * (e.g. group1: https://custom.git.domain, group2: repo/directory, group3: project/directory)
+   */
+  static getGitRegex() {
+    return /(.*?[@/][^?]*git.*?)[:/]([^#]+)(?:#(.*))?/;
+  }
+
   static getGitRepoUrl(sourceName) {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
@@ -266,6 +278,12 @@ class Utils {
       if (bitbucketMatch[3]) {
         url = url + '/src/master/' + bitbucketMatch[3];
       }
+    } else if (gitMatch) {
+      const [, baseUrl, repoDir, fileDir] = gitMatch;
+      url = baseUrl.replace(/git@/, 'https://') + '/' + repoDir.replace(/.git/, '');
+      if (fileDir) {
+        url = url + '/tree/master/' + fileDir;
+      }
     }
     return url;
   }
@@ -274,6 +292,7 @@ class Utils {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? 'https://github.com/' : 'https://gitlab.com/';
@@ -298,6 +317,16 @@ class Utils {
         sourceVersion +
         '/' +
         bitbucketMatch[3];
+    } else if (gitMatch) {
+      const [, baseUrl, repoDir, fileDir] = gitMatch;
+      url =
+        baseUrl.replace(/git@/, 'https://') +
+        '/' +
+        repoDir.replace(/.git/, '') +
+        '/tree/' +
+        sourceVersion +
+        '/' +
+        fileDir;
     }
     return url;
   }
