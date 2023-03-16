@@ -35,13 +35,13 @@ class DummyDataset(Dataset):
                           dataset, including: name, digest, source, and source
                           type.
         :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), size
+                 digest, source, source type, schema (optional), profile
                  (optional).
         """
         base_dict.update(
             {
                 "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
-                "size": json.dumps(self.size),
+                "profile": json.dumps(self.profile),
             }
         )
         return base_dict
@@ -55,9 +55,9 @@ class DummyDataset(Dataset):
         return self._source
 
     @property
-    def size(self) -> Optional[Any]:
+    def profile(self) -> Optional[Any]:
         return {
-            "length": len(self._data_list.size),
+            "length": len(self._data_list),
         }
 
     @property

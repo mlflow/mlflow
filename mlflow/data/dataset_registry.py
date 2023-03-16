@@ -7,7 +7,6 @@ from typing_extensions import Protocol
 import mlflow.data
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset import Dataset
-from mlflow.data.pandas_dataset import from_pandas
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
@@ -131,4 +130,3 @@ def get_registered_constructors() -> Dict[str, ConstructorFunction]:
 
 _dataset_registry = DatasetRegistry()
 _dataset_registry.register_entrypoints()
-_dataset_registry.register_constructor(constructor_name="from_pandas", constructor_fn=from_pandas)

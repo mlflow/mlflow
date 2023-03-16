@@ -13,12 +13,12 @@ def test_conversion_to_json():
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
-    assert parsed_json.keys() <= {"name", "digest", "source", "source_type", "schema", "size"}
+    assert parsed_json.keys() <= {"name", "digest", "source", "source_type", "schema", "profile"}
     assert parsed_json["name"] == dataset.name
     assert parsed_json["digest"] == dataset.digest
     assert parsed_json["source"] == dataset.source.to_json()
     assert parsed_json["source_type"] == dataset.source._get_source_type()
-    assert parsed_json["size"] == json.dumps(dataset.size)
+    assert parsed_json["profile"] == json.dumps(dataset.profile)
 
     schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_colspec"])
     assert Schema.from_json(schema_json) == dataset.schema

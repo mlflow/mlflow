@@ -33,7 +33,7 @@ class Dataset:
                           dataset, including: name, digest, source, and source
                           type.
         :return: A string dictionary containing the following fields: name,
-                 digest, source, source type, schema (optional), size
+                 digest, source, source type, schema (optional), profile
                  (optional).
         """
 
@@ -73,9 +73,10 @@ class Dataset:
 
     @property
     @abstractmethod
-    def size(self) -> Optional[Any]:
+    def profile(self) -> Optional[Any]:
         """
-        Dataset size information, e.g. number of rows, size in bytes, etc.
+        Summary statistics for the dataset, e.g. number of rows in a
+        table, mean / median / std of each column, etc.
         """
 
     @property
