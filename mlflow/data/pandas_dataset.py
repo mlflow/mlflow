@@ -7,8 +7,8 @@ import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-from mlflow.types.utils import _infer_schema
 from mlflow.types import Schema 
+from mlflow.types.utils import _infer_schema
 
 
 class PandasDataset(Dataset):
@@ -60,13 +60,6 @@ class PandasDataset(Dataset):
             "size": json.dumps(self.size),
         })
         return base_dict
-
-    @property
-    def digest(self) -> str:
-        """
-        The digest (hash) of the dataset, e.g. "498c7496"
-        """
-        return self._digest
 
     @property
     def source(self) -> FileSystemDatasetSource:

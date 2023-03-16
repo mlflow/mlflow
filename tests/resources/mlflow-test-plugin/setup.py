@@ -33,7 +33,10 @@ setup(
         "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",  # pylint: disable=line-too-long
         # Define a custom Mlflow application with name custom_app
         "mlflow.app": "app=mlflow_test_plugin.app:custom_app",
-        # Define an MLflow dataset source called "dummy"
-        "mlflow.dataset_source": "dummy=mlflow_test_plugin.dummy_dataset_source:DummyDatasetSource",
+        # Define an MLflow dataset source called "dummy_source"
+        "mlflow.dataset_source": "dummy_source=mlflow_test_plugin.dummy_dataset_source:DummyDatasetSource",
+        # Define an MLflow dataset constructor called "from_dummy"
+        "mlflow.dataset_constructor": "from_dummy=mlflow_test_plugin.dummy_dataset:from_dummy",
+        # "mlflow.dataset_constructor": "from_dummy=mlflow_test_plugin.dummy_dataset.from_dummy",
     },
 )

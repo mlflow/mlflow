@@ -22,7 +22,7 @@ class DatasetRegistry:
 
     def register_constructor(
         self, constructor_fn: ConstructorFunction, constructor_name: str = None
-    ):
+    ) -> str:
         """
         Registers a dataset constructor.
 
@@ -38,11 +38,13 @@ class DatasetRegistry:
                                  string "from_" or "load_". If unspecified, the `__name__`
                                  attribute of the `constructor_fn` is used instead and must
                                  begin with the string "from_" or "load_".
+        :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
         """
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
         DatasetRegistry._validate_constructor(constructor_fn, constructor_name)
         self._constructors[constructor_name] = constructor_fn
+        return constructor_name
 
     def register_entrypoints(self):
         """
@@ -50,6 +52,7 @@ class DatasetRegistry:
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
         for entrypoint in entrypoints.get_group_all("mlflow.dataset_constructor"):
+            entrypoint.load()
             try:
                 self.register_constructor(
                     constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
@@ -90,7 +93,7 @@ class DatasetRegistry:
             )
 
 
-def register_constructor(constructor_fn: ConstructorFunction, constructor_name: str):
+def register_constructor(constructor_fn: ConstructorFunction, constructor_name: str = None) -> str:
     """
     Registers a dataset constructor.
 
@@ -106,9 +109,12 @@ def register_constructor(constructor_fn: ConstructorFunction, constructor_name: 
                              string "from_" or "load_". If unspecified, the `__name__`
                              attribute of the `constructor_fn` is used instead and must
                              begin with the string "from_" or "load_".
+    :return: The name of the registered constructor, e.g. "from_pandas" or "load_delta".
     """
-    _dataset_registry.register_constructor(constructor_name, constructor_fn)
-    setattr(mlflow.data, constructor_name, constructor_fn)
+    registered_constructor_name = _dataset_registry.register_constructor(constructor_fn=constructor_fn, constructor_name=constructor_name)
+    setattr(mlflow.data, registered_constructor_name, constructor_fn)
+    mlflow.data.__all__.append(registered_constructor_name)
+    return registered_constructor_name
 
 
 _dataset_registry = DatasetRegistry()
