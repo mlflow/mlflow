@@ -205,8 +205,8 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                         "skip_data_profiling": True,
                         "using": "csv",
                         "location": [
-                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv",
-                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-white.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv",
                         ],
                         "loader_method": "load_file_as_dataframe",
                     }
