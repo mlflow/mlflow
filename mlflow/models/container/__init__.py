@@ -31,10 +31,10 @@ MODEL_PATH = "/opt/ml/model"
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
-DEFAULT_SAGEMAKER_SERVER_PORT = 8080
-DEFAULT_INFERENCE_SERVER_PORT = 8000
-DEFAULT_NGINX_SERVER_PORT = 8080
-DEFAULT_MLSERVER_PORT = 8080
+DEFAULT_SAGEMAKER_SERVER_PORT = int(os.environ.get('DEFAULT_SAGEMAKER_SERVER_PORT', 8080))
+DEFAULT_INFERENCE_SERVER_PORT = int(os.environ.get('DEFAULT_INFERENCE_SERVER_PORT', 8000))
+DEFAULT_NGINX_SERVER_PORT = int(os.environ.get('DEFAULT_NGINX_SERVER_PORT', 8080))
+DEFAULT_MLSERVER_PORT = int(os.environ.get('DEFAULT_MLSERVER_PORT', 8080))
 
 SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
@@ -192,7 +192,7 @@ def _serve_pyfunc(model, env_manager):
     # Since MLServer will run without NGINX, expose the server in the `8080`
     # port, which is the assumed "public" port.
     port = DEFAULT_MLSERVER_PORT if enable_mlserver else DEFAULT_INFERENCE_SERVER_PORT
-    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count, port=port)
+    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count, port=port, host='127.0.0.1')
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
