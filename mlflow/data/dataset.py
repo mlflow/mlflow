@@ -15,7 +15,7 @@ class Dataset:
         """
         self._name = name
         self._source = source
-        # Note: Users should call super() once they've initialized all of
+        # Note: Subclasses should call super() once they've initialized all of
         # the class attributes necessary for digest computation
         self._digest = digest or self._compute_digest()
 
