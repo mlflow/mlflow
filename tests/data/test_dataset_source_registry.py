@@ -65,7 +65,7 @@ def test_register_entrypoints_and_resolve(tmp_path):
     registry = DatasetSourceRegistry()
     registry.register_entrypoints()
 
-    uri = "dummy:" + str(tmp_path) 
+    uri = "dummy:" + str(tmp_path)
     resolved_source = registry.resolve(uri)
     assert isinstance(resolved_source, DummyDatasetSource)
     # Verify that the DummyDatasetSource is constructed with the correct URI
@@ -75,8 +75,8 @@ def test_register_entrypoints_and_resolve(tmp_path):
 def test_register_dataset_source_and_resolve(tmp_path):
     registry = DatasetSourceRegistry()
     registry.register(TestDatasetSource)
-    
-    uri = "test:" + str(tmp_path) 
+
+    uri = "test:" + str(tmp_path)
     resolved_source = registry.resolve(uri)
     assert isinstance(resolved_source, TestDatasetSource)
     # Verify that the TestDatasetSource is constructed with the correct URI
@@ -88,7 +88,9 @@ def test_register_dataset_source_and_load_from_json(tmp_path):
     registry.register(TestDatasetSource)
     resolved_source = registry.resolve("test:" + str(tmp_path))
     resolved_source_json = resolved_source.to_json()
-    source_from_json = registry.get_source_from_json(source_json=resolved_source_json, source_type="test")
+    source_from_json = registry.get_source_from_json(
+        source_json=resolved_source_json, source_type="test"
+    )
     assert source_from_json.uri == resolved_source.uri
 
 
@@ -139,4 +141,4 @@ def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
     registry.register(TestDatasetSource)
 
     with pytest.raises(MlflowException, match="unrecognized source type: foo"):
-        registry.get_source_from_json(source_json="{\"bar\": \"123\"}", source_type="foo")
+        registry.get_source_from_json(source_json='{"bar": "123"}', source_type="foo")

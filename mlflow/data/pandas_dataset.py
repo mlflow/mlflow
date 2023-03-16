@@ -7,14 +7,17 @@ import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-from mlflow.types import Schema 
+from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
 
 class PandasDataset(Dataset):
-
     def __init__(
-        self, df: pd.DataFrame, source: FileSystemDatasetSource, name: Optional[str] = None, digest: Optional[str] = None
+        self,
+        df: pd.DataFrame,
+        source: FileSystemDatasetSource,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
     ):
         """
         TODO: Pandas docs
@@ -30,7 +33,7 @@ class PandasDataset(Dataset):
         MAX_ROWS = 10000
 
         # drop object columns
-        df = self._df.select_dtypes(exclude=['object'])
+        df = self._df.select_dtypes(exclude=["object"])
         trimmed_df = df.head(MAX_ROWS)
         # hash trimmed dataframe contents
         md5 = hashlib.md5(pd.util.hash_pandas_object(trimmed_df).values)
@@ -40,7 +43,7 @@ class PandasDataset(Dataset):
         # hash column names
         columns = df.columns
         for x in columns:
-          md5.update(x.encode())
+            md5.update(x.encode())
         # TODO: Make this a normalize_hash function (truncation)
         return md5.hexdigest()[:8]
 
@@ -53,12 +56,12 @@ class PandasDataset(Dataset):
                  digest, source, source type, schema (optional), size
                  (optional).
         """
-        base_dict.update({
-            "schema": json.dumps({
-                "mlflow_colspec": self.schema.to_dict()
-            }),
-            "size": json.dumps(self.size),
-        })
+        base_dict.update(
+            {
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "size": json.dumps(self.size),
+            }
+        )
         return base_dict
 
     @property
@@ -87,11 +90,15 @@ class PandasDataset(Dataset):
         return _infer_schema(self._df)
 
 
-def from_pandas(df: pd.DataFrame, source: str, name: Optional[str] = None, digest: Optional[str] = None) -> PandasDataset:
+def from_pandas(
+    df: pd.DataFrame, source: str, name: Optional[str] = None, digest: Optional[str] = None
+) -> PandasDataset:
     """
     TODO: Pandas docs
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source: FileSystemDatasetSource = resolve_dataset_source(source, candidate_sources=[FileSystemDatasetSource])
+    resolved_source: FileSystemDatasetSource = resolve_dataset_source(
+        source, candidate_sources=[FileSystemDatasetSource]
+    )
     return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)

@@ -9,7 +9,7 @@ from tests.resources.data.dataset import TestDataset
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TestDataset(data_list=[1,2,3], source=source, name="testname")
+    dataset = TestDataset(data_list=[1, 2, 3], source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -27,5 +27,5 @@ def test_conversion_to_json():
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TestDataset(data_list=[1,2,3], source=source, name="testname")
+    dataset = TestDataset(data_list=[1, 2, 3], source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()

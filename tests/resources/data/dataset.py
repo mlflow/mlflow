@@ -14,9 +14,12 @@ from tests.resources.data.dataset_source import TestDatasetSource
 
 
 class TestDataset(Dataset):
-
     def __init__(
-        self, data_list: List[int], source: TestDatasetSource, name: Optional[str] = None, digest: Optional[str] = None
+        self,
+        data_list: List[int],
+        source: TestDatasetSource,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
     ):
         self._data_list = data_list
         super().__init__(source=source, name=name, digest=digest)
@@ -40,12 +43,12 @@ class TestDataset(Dataset):
                  digest, source, source type, schema (optional), size
                  (optional).
         """
-        base_dict.update({
-            "schema": json.dumps({
-                "mlflow_colspec": self.schema.to_dict()
-            }),
-            "size": json.dumps(self.size),
-        })
+        base_dict.update(
+            {
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "size": json.dumps(self.size),
+            }
+        )
         return base_dict
 
     @property
