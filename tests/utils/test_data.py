@@ -3,7 +3,7 @@ import os
 import shutil
 import tempfile
 
-from mlflow.data import is_uri
+from mlflow.utils.data_utils import is_uri
 from mlflow.projects import _project_spec
 
 TEST_DIR = "tests"
