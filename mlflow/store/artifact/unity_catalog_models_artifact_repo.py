@@ -33,11 +33,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     Temporary scoped tokens for the appropriate cloud storage locations are fetched from the
     remote backend and used to download model artifacts.
 
-    The artifact_uri is expected to be of the form
-    - `models:/<model_name>/<model_version>`
-    - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models:/<model_name>/latest`  (refers to the latest of all model versions)
-    - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
+    The artifact_uri is expected to be of the form `models:/<model_name>/<model_version>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the client is pointing to a Unity Catalog model registry.
