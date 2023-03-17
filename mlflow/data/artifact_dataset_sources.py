@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
+from mlflow.utils.uri import is_local_uri
 
 
 def register_artifact_dataset_sources():
@@ -124,10 +125,10 @@ def _create_dataset_source_for_artifact_repo(
                 return False
 
             try:
-                parsed_source = urlparse(str(raw_source))
                 if is_local_source_type:
-                    return parsed_source.scheme in ["", "file"]
+                    return is_local_uri(str(raw_source), is_tracking_or_registry_uri=False)
                 else:
+                    parsed_source = urlparse(str(raw_source))
                     return parsed_source.scheme == scheme
             except Exception:
                 return False
