@@ -10,10 +10,17 @@ FileSystemDatasetSourceType = TypeVar(
 
 
 class FileSystemDatasetSource(DatasetSource):
+    """
+    Represents the source of a dataset stored on a filesystem, e.g. a local UNIX filesystem,
+    blob storage services like S3, etc.
+    """
+
     @property
     @abstractmethod
     def uri(self):
         """
+        The URI of the dataset filesystem containing the dataset.
+
         :return: The URI referring to the dataset filesystem location,
                  e.g "s3://mybucket/path/to/mydataset", "/tmp/path/to/my/dataset" etc.
         """

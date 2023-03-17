@@ -1,5 +1,5 @@
 import warnings
-
+from pathlib import Path
 from typing import TypeVar, Any, Dict
 from urllib.parse import urlparse
 
@@ -36,9 +36,9 @@ def register_artifact_dataset_sources():
         if "ArtifactRepository" in artifact_repo.__name__:
             # Artifact repository name is something like "LocalArtifactRepository",
             # "S3ArtifactRepository", etc. To preserve capitalization, strip ArtifactRepository
-            # and replace it with DatasetSource
+            # and replace it with ArtifactDatasetSource
             dataset_source_name = artifact_repo.__name__.replace(
-                "ArtifactRepository", "DatasetSource"
+                "ArtifactRepository", "ArtifactDatasetSource"
             )
         else:
             # Artifact repository name has some other form, e.g. "dbfs_artifact_repo_factory".
@@ -56,7 +56,7 @@ def register_artifact_dataset_sources():
             else:
                 source_name_prefix = scheme.capitalize()
 
-            dataset_source_name = source_name_prefix + "ArtifactRepository"
+            dataset_source_name = source_name_prefix + "ArtifactDatasetSource"
 
         try:
             registered_source_schemes.add(scheme)
@@ -113,11 +113,11 @@ def _create_dataset_source_for_artifact_repo(
 
         @staticmethod
         def _can_resolve(raw_source: Any):
-            if not isinstance(raw_source, str):
+            if not isinstance(raw_source, str) and not isinstance(raw_source, Path):
                 return False
 
             try:
-                parsed_source = urlparse(raw_source)
+                parsed_source = urlparse(str(raw_source))
                 if ArtifactRepoSource._get_source_type() == "local":
                     return parsed_source.scheme in ["", "file"]
                 else:
@@ -127,7 +127,7 @@ def _create_dataset_source_for_artifact_repo(
 
         @classmethod
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
-            return cls(raw_source)
+            return cls(str(raw_source))
 
         def _to_dict(self) -> Dict[str, str]:
             """
