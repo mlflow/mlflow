@@ -8,8 +8,11 @@ import multiprocessing
 import os
 import signal
 import shutil
+import string
 from subprocess import check_call, Popen
 import sys
+import tempfile
+import typing
 import logging
 
 from pkg_resources import resource_filename
@@ -31,10 +34,14 @@ MODEL_PATH = "/opt/ml/model"
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
-DEFAULT_SAGEMAKER_SERVER_PORT = 8080
-DEFAULT_INFERENCE_SERVER_PORT = 8000
-DEFAULT_NGINX_SERVER_PORT = 8080
-DEFAULT_MLSERVER_PORT = 8080
+PRIMARY_HOST_ADDRESS = "0.0.0.0"
+UPSTREAM_HOST_ADDRESS = "127.0.0.1"
+
+DEFAULT_PRIMARY_PORT = 8080
+DEFAULT_UPSTREAM_PORT = 8000
+
+SAGEMAKER_BIND_TO_PORT = "SAGEMAKER_BIND_TO_PORT"
+SAGEMAKER_SAFE_PORT_RANGE = "SAGEMAKER_SAFE_PORT_RANGE"
 
 SUPPORTED_FLAVORS = [pyfunc.FLAVOR_NAME, mleap.FLAVOR_NAME]
 
@@ -171,9 +178,21 @@ def _serve_pyfunc(model, env_manager):
     if disable_nginx or enable_mlserver:
         start_nginx = False
 
+    upstream_host = PRIMARY_HOST_ADDRESS
+    primary_port = _derive_primary_port(DEFAULT_PRIMARY_PORT)
+    upstream_port = _derive_upstream_port(primary_port, DEFAULT_UPSTREAM_PORT)
+
     if start_nginx:
         nginx_conf = resource_filename(
             mlflow.models.__name__, "container/scoring_server/nginx.conf"
+        )
+
+        upstream_host = UPSTREAM_HOST_ADDRESS
+        nginx_conf = _interpolate_nginx_config(
+            nginx_conf,
+            upstream_host,
+            primary_port,
+            upstream_port,
         )
 
         nginx = Popen(["nginx", "-c", nginx_conf]) if start_nginx else None
@@ -189,10 +208,17 @@ def _serve_pyfunc(model, env_manager):
     cpu_count = multiprocessing.cpu_count()
 
     inference_server = mlserver if enable_mlserver else scoring_server
-    # Since MLServer will run without NGINX, expose the server in the `8080`
-    # port, which is the assumed "public" port.
-    port = DEFAULT_MLSERVER_PORT if enable_mlserver else DEFAULT_INFERENCE_SERVER_PORT
-    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count, port=port)
+    # If the scoring server runs without NGINX, expose the server in the "primary"
+    # port (DEFAULT_PRIMARY_PORT or SAGEMAKER_BIND_TO_PORT env var),
+    # which is the assumed "public" port; otherwise, expose the "upstream"
+    # port (DEFAULT_UPSTREAM_PORT or selected from SAGEMAKER_SAFE_PORT_RANGE).
+    port = primary_port if disable_nginx else upstream_port
+    cmd, cmd_env = inference_server.get_cmd(
+        model_uri=MODEL_PATH,
+        nworkers=cpu_count,
+        host=upstream_host,
+        port=port,
+    )
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)
@@ -205,13 +231,14 @@ def _serve_pyfunc(model, env_manager):
 
 
 def _serve_mleap():
+    primary_port = _derive_primary_port(DEFAULT_PRIMARY_PORT)
     serve_cmd = [
         "java",
         "-cp",
         '"/opt/java/jars/*"',
         "org.mlflow.sagemaker.ScoringServer",
         MODEL_PATH,
-        str(DEFAULT_SAGEMAKER_SERVER_PORT),
+        str(primary_port),
     ]
     # Invoke `Popen` with a single string command in the shell to support wildcard usage
     # with the mlflow jar version.
@@ -254,3 +281,87 @@ def _sigterm_handler(pids):
             pass
 
     sys.exit(0)
+
+
+def _derive_primary_port(default_port: int) -> int:
+    """
+    Returns SAGEMAKER_BIND_TO_PORT environment variable value, if present, or a given default port.
+    """
+    return int(os.getenv(SAGEMAKER_BIND_TO_PORT, default_port))
+
+
+def _derive_upstream_port(busy_port: int, default_port: int) -> int:
+    """
+    Returns port from SAGEMAKER_SAFE_PORT_RANGE environment variable value, if present,
+    or a given default port. SAGEMAKER_SAFE_PORT_RANGE specifies the value as an inclusive
+    range in the format "XXXX-YYYY".
+
+    :param busy_port: denotes an already occupied primary port;
+        the returned value must not coincide with this value.
+    """
+    port_range = os.getenv(SAGEMAKER_SAFE_PORT_RANGE)
+    if port_range is None:
+        return default_port
+    else:
+        lower_bound, upper_bound = _parse_sagemaker_safe_port_range(port_range)
+        port = _select_port_from_range(lower_bound, upper_bound, busy_port)
+        return port
+
+
+def _select_port_from_range(lower_bound: int, upper_bound: int, busy_port: int) -> int:
+    """
+    Returns a port value within lower and upper bounds excluding a given busy port.
+    """
+    if lower_bound > upper_bound:
+        raise ValueError(
+            f"The lower bound port value must be less than or equal to the upper one,"
+            f" '{lower_bound}' > '{upper_bound}' given."
+        )
+
+    port = lower_bound
+    if port != busy_port:
+        return port
+    else:
+        port += 1
+        if port > upper_bound:
+            # in case when lower_bound == busy_port AND lower_bound == upper_bound
+            raise ValueError(
+                f"Could not find a vacant port within an inclusive range"
+                f" '{lower_bound}'-'{upper_bound}' and a busy port '{busy_port}'."
+            )
+        return port
+
+
+def _parse_sagemaker_safe_port_range(port_range: str) -> typing.Tuple[int, int]:
+    """
+    Parses values range string in "XXXX-YYYY" format (SAGEMAKER_SAFE_PORT_RANGE environment
+    variable, if present) and returns a lower bound (XXXX) and an upper bound (YYYY) values.
+    """
+    lower_bound, upper_bound = port_range.split("-", maxsplit=1)
+    return int(lower_bound), int(upper_bound)
+
+
+def _interpolate_nginx_config(
+    config_path: str,
+    upstream_host: str,
+    primary_port: int,
+    upstream_port: int,
+) -> str:
+    """
+    Reads the original nginx config file, given as config_path, interpolates
+    upstream_host, primary_port, upstream_port values, writes an updated
+    nginx config file to a temporary destination, and returns its path.
+    """
+    with open(config_path) as file:
+        nginx_conf_content = file.read()
+
+    nginx_conf_content = string.Template(nginx_conf_content).safe_substitute(
+        upstream_host=upstream_host,
+        primary_port=primary_port,
+        upstream_port=upstream_port,
+    )
+
+    with tempfile.NamedTemporaryFile("w+", delete=False) as fp:
+        fp.write(nginx_conf_content)
+
+    return fp.name
