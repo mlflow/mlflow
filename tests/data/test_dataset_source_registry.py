@@ -204,3 +204,15 @@ def test_resolve_dataset_source_warns_when_multiple_matching_sources_found(tmp_p
     with mock.patch("mlflow.data.dataset_source_registry.warnings.warn") as mock_warn:
         registry1.resolve("test:/" + str(tmp_path))
         mock_warn.assert_called_once()
+        call_args, _ = mock_warn.call_args
+        multiple_match_msg = call_args[0]
+        assert (
+            "The specified dataset source can be interpreted in multiple ways" in multiple_match_msg
+        )
+        assert (
+            "TestDatasetSource, TestDatasetSourceCopy1, TestDatasetSourceCopy2"
+            in multiple_match_msg
+        )
+        assert (
+            "MLflow will assume that this is a TestDatasetSourceCopy2 source" in multiple_match_msg
+        )

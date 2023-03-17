@@ -60,11 +60,11 @@ class DatasetSourceRegistry:
                 matching_sources.append(source)
 
         if len(matching_sources) > 1:
-            source_types_str = ", ".join([source._get_source_type() for source in matching_sources])
+            source_class_names_str = ", ".join([source.__name__ for source in matching_sources])
             warnings.warn(
                 f"The specified dataset source can be interpreted in multiple ways:"
-                f" {source_types_str}. MLflow will assume that this is a"
-                f" {matching_sources[0]._get_source_type()} source.",
+                f" {source_class_names_str}. MLflow will assume that this is a"
+                f" {matching_sources[-1].__name__} source.",
                 stacklevel=2,
             )
 
