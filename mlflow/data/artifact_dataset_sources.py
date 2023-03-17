@@ -7,7 +7,7 @@ from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
+from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
 
 
 def register_artifact_dataset_sources():
@@ -28,7 +28,7 @@ def register_artifact_dataset_sources():
         # a separate DBFSDatasetSource elsewhere
         "dbfs",
     ]
-    schemes_to_artifact_repos = _artifact_repository_registry.get_registered_artifact_repositories()
+    schemes_to_artifact_repos = get_registered_artifact_repositories()
     for scheme, artifact_repo in schemes_to_artifact_repos.items():
         if scheme in artifact_schemes_to_exclude or scheme in registered_source_schemes:
             continue
@@ -82,7 +82,8 @@ def _create_dataset_source_for_artifact_repo(
     else:
         source_type = scheme
         class_docstring = (
-            f"Represents a filesystem-based dataset source identified by a URI with scheme {scheme}"
+            f"Represents a filesystem-based or blob-storage-based dataset source identified by a"
+            f" URI with scheme '{scheme}'."
         )
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)

@@ -71,6 +71,14 @@ class ArtifactRepositoryRegistry:
             )
         return repository(artifact_uri)
 
+    def get_registered_artifact_repositories(self):
+        """
+        Get all registered artifact repositories.
+
+        :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+        """
+        return self._registry
+
 
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
@@ -104,3 +112,12 @@ def get_artifact_repository(artifact_uri):
              requirements.
     """
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)
+
+
+def get_registered_artifact_repositories():
+    """
+    Get all registered artifact repositories.
+
+    :return: A dictionary mapping string artifact URI schemes to artifact repositories.
+    """
+    return _artifact_repository_registry.get_registered_artifact_repositories()
