@@ -1,4 +1,5 @@
 from functools import lru_cache
+import inspect
 
 from mlflow.tracking.registry import StoreRegistry
 
@@ -49,9 +50,10 @@ class ModelRegistryStoreRegistry(StoreRegistry):
         depending on external configuration, such as environment variables
         """
         builder = self.get_store_builder(resolved_store_uri)
-        try:
+        builder_param_names = set(inspect.signature(builder).parameters.keys())
+        if "store_uri" in builder_param_names and "tracking_uri" in builder_param_names:
             return builder(store_uri=resolved_store_uri, tracking_uri=resolved_tracking_uri)
-        except TypeError:
+        else:
             # Not all model registry stores accept a tracking_uri parameter
             # (e.g. old plugins may not recognize it), so we fall back to
             # passing just the registry URI
