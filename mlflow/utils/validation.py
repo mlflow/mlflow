@@ -40,6 +40,7 @@ MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
+MAX_REGISTERED_MODEL_ALIAS_LENGTH = 250
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
 
@@ -354,6 +355,16 @@ def _validate_model_version(model_version):
             f"Model version must be an integer, got '{model_version}'",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+
+def _validate_model_alias_name(model_alias_name):
+    if model_alias_name is None or model_alias_name == "":
+        raise MlflowException(
+            "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
+        )
+    _validate_length_limit(
+        "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name
+    )
 
 
 def _validate_experiment_artifact_location(artifact_location):

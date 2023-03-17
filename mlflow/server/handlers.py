@@ -67,6 +67,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     MlflowArtifactsService,
@@ -1588,6 +1591,57 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_registered_model_alias():
+    request_message = _get_request_message(
+        SetRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().set_registered_model_alias(
+        name=request_message.name, alias=request_message.alias, version=request_message.version
+    )
+    return _wrap_response(SetRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_registered_model_alias():
+    request_message = _get_request_message(
+        DeleteRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().set_registered_model_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    return _wrap_response(DeleteRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_model_version_by_alias():
+    request_message = _get_request_message(
+        GetModelVersionByAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    model_version = _get_model_registry_store().get_model_version_by_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    response_proto = model_version.to_proto()
+    response_message = GetModelVersionByAlias.Response(model_version=response_proto)
+    return _wrap_response(response_message)
+
+
 # MLflow Artifacts APIs
 
 
@@ -1773,6 +1827,9 @@ HANDLERS = {
     DeleteRegisteredModelTag: _delete_registered_model_tag,
     SetModelVersionTag: _set_model_version_tag,
     DeleteModelVersionTag: _delete_model_version_tag,
+    SetRegisteredModelAlias: _set_registered_model_alias,
+    DeleteRegisteredModelAlias: _delete_registered_model_alias,
+    GetModelVersionByAlias: _get_model_version_by_alias,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,

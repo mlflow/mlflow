@@ -27,6 +27,7 @@ class ModelVersion(_ModelRegistryEntity):
         status_message=None,
         tags=None,
         run_link=None,
+        aliases=None,
     ):
         super().__init__()
         self._name = name
@@ -42,6 +43,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._status = status
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
+        self._aliases = aliases
 
     @property
     def name(self):
@@ -125,6 +127,11 @@ class ModelVersion(_ModelRegistryEntity):
         """Dictionary of tag key (string) -> tag value for the current model version."""
         return self._tags
 
+    @property
+    def aliases(self):
+        """List of aliases (string) for the current registered model."""
+        return self._aliases
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
@@ -151,6 +158,7 @@ class ModelVersion(_ModelRegistryEntity):
             ModelVersionStatus.to_string(proto.status),
             proto.status_message,
             run_link=proto.run_link,
+            aliases=proto.aliases,
         )
         for tag in proto.tags:
             model_version._add_tag(ModelVersionTag.from_proto(tag))
@@ -181,6 +189,8 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
+        if self.aliases:
+            model_version.aliases = self.aliases
         model_version.tags.extend(
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )

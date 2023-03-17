@@ -55,6 +55,7 @@ class SqlRegisteredModel(Base):
             self.description,
             [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
+            [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
         )
 
 
@@ -108,6 +109,7 @@ class SqlModelVersion(Base):
             self.status_message,
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
+            [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
         )
 
 

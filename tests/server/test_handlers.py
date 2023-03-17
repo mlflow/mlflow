@@ -41,6 +41,9 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _delete_model_version_tag,
     _guess_mime_type,
+    _set_registered_model_alias,
+    _delete_registered_model_alias,
+    _get_model_version_by_alias,
 )
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
@@ -68,6 +71,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -701,6 +707,38 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     _delete_model_version_tag()
     _, args = mock_model_registry_store.delete_model_version_tag.call_args
     assert args == {"name": name, "version": version, "key": key}
+
+
+def test_set_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    version = "1"
+    mock_get_request_message.return_value = SetRegisteredModelAlias(
+        name=name, alias=alias, version=version
+    )
+    _set_registered_model_alias()
+    _, args = mock_model_registry_store._set_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias, "version": version}
+
+
+def test_delete_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    version = "1"
+    mock_get_request_message.return_value = DeleteRegisteredModelAlias(name=name, alias=alias)
+    _delete_registered_model_alias()
+    _, args = mock_model_registry_store._delete_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias}
+
+
+def test_get_model_version_by_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    version = "1"
+    mock_get_request_message.return_value = GetModelVersionByAlias(name=name, alias=alias)
+    _get_model_version_by_alias()
+    _, args = mock_model_registry_store._get_model_version_by_alias.call_args
+    assert args == {"name": name, "alias": alias}
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
