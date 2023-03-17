@@ -47,6 +47,11 @@ class Dataset:
         """
 
     def to_json(self) -> str:
+        """
+        Obtains a JSON string representation of the dataset.
+
+        :return: A JSON string representation of the dataset.
+        """
         base_dict = {
             "name": self.name,
             "digest": self.digest,
