@@ -19,9 +19,9 @@ class FileSystemDatasetSource(DatasetSource):
     @abstractmethod
     def uri(self):
         """
-        The URI of the dataset filesystem containing the dataset.
+        The URI referring to the dataset source filesystem location.
 
-        :return: The URI referring to the dataset filesystem location,
+        :return: The URI referring to the dataset source filesystem location,
                  e.g "s3://mybucket/path/to/mydataset", "/tmp/path/to/my/dataset" etc.
         """
 
@@ -35,9 +35,9 @@ class FileSystemDatasetSource(DatasetSource):
     @abstractmethod
     def download(self) -> str:
         """
-        Downloads the dataset to the local filesystem.
+        Downloads the dataset source to the local filesystem.
 
-        :return: The path to the downloaded dataset on the local filesystem.
+        :return: The path to the downloaded dataset source on the local filesystem.
         """
 
     @staticmethod

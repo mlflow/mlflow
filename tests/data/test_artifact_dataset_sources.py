@@ -6,6 +6,7 @@ from unittest import mock
 
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.dataset_source_registry import resolve_dataset_source, get_dataset_source_from_json
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
 
 @pytest.mark.parametrize(
@@ -93,7 +94,7 @@ def test_local_downloads(tmp_path):
         f.write("text")
 
     file_dataset_source = resolve_dataset_source(file_path)
-    assert type(file_dataset_source).__name__ == "LocalArtifactDatasetSource"
+    assert file_dataset_source._get_source_type() == "local"
     assert file_dataset_source.download() == file_path
 
     # Test directory paths with pathlib.Path
@@ -101,5 +102,20 @@ def test_local_downloads(tmp_path):
     os.makedirs(dir_path)
 
     dir_dataset_source = resolve_dataset_source(dir_path)
-    assert type(dir_dataset_source).__name__ == "LocalArtifactDatasetSource"
+    assert file_dataset_source._get_source_type() == "local"
     assert dir_dataset_source.download() == str(dir_path)
+
+
+def test_s3_downloads(mock_s3_bucket, tmp_path):
+    file_path = str(tmp_path / "myfile.txt")
+    with open(file_path, "w") as f:
+        f.write("text")
+
+    S3ArtifactRepository(f"s3://{mock_s3_bucket}").log_artifact(file_path)
+
+    s3_source_uri = f"s3://{mock_s3_bucket}/myfile.txt"
+    s3_dataset_source = resolve_dataset_source(s3_source_uri)
+    assert s3_dataset_source._get_source_type() == "s3"
+    downloaded_source = s3_dataset_source.download()
+    with open(downloaded_source, "r") as f:
+        assert f.read() == "text"

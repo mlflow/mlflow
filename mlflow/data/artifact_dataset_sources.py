@@ -95,7 +95,10 @@ def _create_dataset_source_for_artifact_repo(
         @property
         def uri(self):
             """
-            :return: The dataset source URI.
+            The URI with scheme '{scheme}' referring to the dataset source filesystem location.
+
+            :return: The URI with scheme '{scheme}' referring to the dataset source filesystem
+                     location.
             """
             return self._uri
 
@@ -113,12 +116,16 @@ def _create_dataset_source_for_artifact_repo(
 
         @staticmethod
         def _can_resolve(raw_source: Any):
-            if not isinstance(raw_source, str) and not isinstance(raw_source, Path):
+            is_local_source_type = ArtifactRepoSource._get_source_type() == "local"
+
+            if not isinstance(raw_source, str) and (
+                not isinstance(raw_source, Path) and is_local_source_type
+            ):
                 return False
 
             try:
                 parsed_source = urlparse(str(raw_source))
-                if ArtifactRepoSource._get_source_type() == "local":
+                if is_local_source_type:
                     return parsed_source.scheme in ["", "file"]
                 else:
                     return parsed_source.scheme == scheme
@@ -154,4 +161,5 @@ def _create_dataset_source_for_artifact_repo(
     ArtifactRepoSource._to_dict.__doc__ = ArtifactRepoSource._to_dict.__doc__.format(
         dataset_source_name=dataset_source_name
     )
+    ArtifactRepoSource.uri.__doc__ = ArtifactRepoSource.uri.__doc__.format(scheme=scheme)
     return ArtifactRepoSource
