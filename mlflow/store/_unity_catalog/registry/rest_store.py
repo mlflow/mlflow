@@ -35,7 +35,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import Model
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
@@ -316,6 +315,11 @@ class UcModelRegistryStore(BaseRestStore):
         return response.headers[_DATABRICKS_ORG_ID_HEADER]
 
     def _validate_model_signature(self, local_model_dir):
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
+        from mlflow.models.model import Model
+
         try:
             model = Model.load(local_model_dir)
         except Exception as e:
