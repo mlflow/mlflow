@@ -2,6 +2,7 @@ from typing import Any, Dict
 from urllib.parse import urlparse
 
 import pytest
+from unittest import mock
 
 from mlflow.artifacts import download_artifacts
 from mlflow.data.dataset_source import DatasetSource
@@ -94,7 +95,15 @@ def test_register_dataset_source_and_load_from_json(tmp_path):
     assert source_from_json.uri == resolved_source.uri
 
 
-def test_resolve_dataset_only_considers_candidates_if_specified_using_inheritance(tmp_path):
+def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
+    registry = DatasetSourceRegistry()
+    registry.register(TestDatasetSource)
+
+    with pytest.raises(MlflowException, match="unrecognized source type: foo"):
+        registry.get_source_from_json(source_json='{"bar": "123"}', source_type="foo")
+
+
+def test_resolve_dataset_source_only_considers_candidates_if_specified_using_inheritance(tmp_path):
     class CandidateDatasetSource1(TestDatasetSource):
         @staticmethod
         def _get_source_type() -> str:
@@ -136,9 +145,62 @@ def test_resolve_dataset_only_considers_candidates_if_specified_using_inheritanc
         registry.resolve("candidate1:" + str(tmp_path), candidate_sources=[CandidateDatasetSource2])
 
 
-def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
-    registry = DatasetSourceRegistry()
-    registry.register(TestDatasetSource)
+def test_resolve_dataset_source_maintains_consistent_order_and_uses_last_registered_match(tmp_path):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    with pytest.raises(MlflowException, match="unrecognized source type: foo"):
-        registry.get_source_from_json(source_json='{"bar": "123"}', source_type="foo")
+    from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
+
+    class TestDatasetSourceCopy1(TestDatasetSource):
+        pass
+
+    class TestDatasetSourceCopy2(TestDatasetSource):
+        pass
+
+    registry1 = DatasetSourceRegistry()
+    registry1.register(TestDatasetSource)
+    registry1.register(TestDatasetSourceCopy1)
+    registry1.register(TestDatasetSourceCopy2)
+    source1 = registry1.resolve("test:/" + str(tmp_path))
+    assert isinstance(source1, TestDatasetSourceCopy2)
+
+    registry2 = DatasetSourceRegistry()
+    registry2.register(TestDatasetSource)
+    registry2.register(TestDatasetSourceCopy2)
+    registry2.register(TestDatasetSourceCopy1)
+    source2 = registry2.resolve("test:/" + str(tmp_path))
+    assert isinstance(source2, TestDatasetSourceCopy1)
+
+    # Verify that a different matching dataset source can still be resolved via `candidates`
+    source3 = registry2.resolve(
+        "test:/" + str(tmp_path), candidate_sources=[TestDatasetSourceCopy2]
+    )
+    assert isinstance(source3, TestDatasetSourceCopy2)
+
+    # Verify that last registered order applies to entrypoints too
+    class DummyDatasetSourceCopy(DummyDatasetSource):
+        pass
+
+    registry3 = DatasetSourceRegistry()
+    registry3.register(DummyDatasetSourceCopy)
+    source4 = registry3.resolve("dummy:/" + str(tmp_path))
+    assert isinstance(source4, DummyDatasetSourceCopy)
+    registry3.register_entrypoints()
+    source5 = registry3.resolve("dummy:/" + str(tmp_path))
+    assert isinstance(source5, DummyDatasetSource)
+
+
+def test_resolve_dataset_source_warns_when_multiple_matching_sources_found(tmp_path):
+    class TestDatasetSourceCopy1(TestDatasetSource):
+        pass
+
+    class TestDatasetSourceCopy2(TestDatasetSource):
+        pass
+
+    registry1 = DatasetSourceRegistry()
+    registry1.register(TestDatasetSource)
+    registry1.register(TestDatasetSourceCopy1)
+    registry1.register(TestDatasetSourceCopy2)
+
+    with mock.patch("mlflow.data.dataset_source_registry.warnings.warn") as mock_warn:
+        registry1.resolve("test:/" + str(tmp_path))
+        mock_warn.assert_called_once()
