@@ -234,7 +234,7 @@ def _fetch_git_repo(uri, version, dst_dir):
         _logger.info("Fetched '%s' branch", head_branch)
         repo.create_head(head_branch, ref)
         repo.heads[head_branch].checkout()
-    repo.submodule_update(init=True, recursive=True)
+    repo.git.submodule('update', '--init')
 
 
 def _fetch_zip_repo(uri):
