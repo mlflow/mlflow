@@ -5,6 +5,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
@@ -151,19 +152,6 @@ def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
 
-def _get_databricks_uc_rest_store(store_uri, **_):
-    from mlflow.exceptions import MlflowException
-    from mlflow.version import VERSION
-
-    raise MlflowException(
-        f"Detected Unity Catalog model registry URI '{store_uri}'. "
-        f"However, the current version of the MLflow client ({VERSION}) does not support models "
-        f"in the Unity Catalog. Please upgrade to the latest version of the MLflow Python client "
-        f"to access models in the Unity Catalog, or specify a different registry URI via "
-        f"mlflow.set_registry_uri()"
-    )
-
-
 # We define the global variable as `None` so that instantiating the store does not lead to circular
 # dependency issues.
 _model_registry_store_registry = None
@@ -182,9 +170,7 @@ def _get_store_registry():
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
     # Register a placeholder function that raises if users pass a registry URI with scheme
     # "databricks-uc"
-    _model_registry_store_registry.register(
-        _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
-    )
+    _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
@@ -199,5 +185,5 @@ def _get_store_registry():
     return _model_registry_store_registry
 
 
-def _get_store(store_uri=None):
-    return _get_store_registry().get_store(store_uri)
+def _get_store(store_uri=None, tracking_uri=None):
+    return _get_store_registry().get_store(store_uri, tracking_uri)
