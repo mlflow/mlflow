@@ -1,0 +1,36 @@
+{{- if or .Values.artifacts.gcp.existingSecret .Values.artifacts.gcp.createSecret.keyFile -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mlflow.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "mlflow.deploymentTemplateMetadataValues" . | nindent 4 }}
+    spec:
+      {{- include "mlflow.deploymentCommonTemplateSpecValues" . | nindent 6 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- include "mlflow.trackingServerContainerCommonValues" . | nindent 10 }}
+          env:
+            {{- include "mlflow.defaultArtifactRoot" . | nindent 12 }}
+            {{- include "mlflow.backendStoreUri" . | nindent 12 }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: "/keyfile.json"
+          volumeMounts:
+          - name: gcp-credentials
+            mountPath: "/keyfile.json"
+            readOnly: true
+      volumes:
+      - name: gcp-credentials
+        secret:
+          secretName: {{ or .Values.artifacts.gcp.existingSecret (include "mlflow.artifactCredentialName" .) }}
+          optional: false
+{{- end -}}
