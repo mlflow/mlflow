@@ -1,0 +1,14 @@
+artifacts: 
+
+  serve: false
+
+  gcp:
+    ## the default GCP Storage artifact root. e.g. gs://mlflow
+    defaultArtifactRoot: "gs://mlflow"
+
+    ## secret name containing credentials to access artifact storage on GCP
+    existingSecret: "test-gcp-secret"
+
+backendStore:
+  ## secret name containing sqlalchemy connection uri
+  existingSecret: "test-backend-secret"

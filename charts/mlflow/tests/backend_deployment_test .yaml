@@ -1,0 +1,20 @@
+suite: Test backend store deployment configuration
+tests:
+
+  - it: Test existing backend store environment secret mount
+    values:
+      - values/backend-store/use-existing-secrets.yaml
+    template: templates/deployments/deployment-azure.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "BACKEND_STORE_URI")].valueFrom.secretKeyRed.name
+          value: test-backend-secret
+
+  - it: Test created backend store environment secret mount
+    values:
+      - values/backend-store/use-existing-secrets.yaml
+    template: templates/deployments/deployment-azure.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "BACKEND_STORE_URI")].valueFrom.secretKeyRed.name
+          value: mlflow-backend-store-credentials

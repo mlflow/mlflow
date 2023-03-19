@@ -1,0 +1,41 @@
+suite: Test GCP credentials
+tests:
+
+  - it: Test created artifacts credentials secret mount
+    values:
+      - values/gcp/create-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[?(@.name == "gcp-credentials")].secret.secretName
+          value: mlflow-artifacts-credentials
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts[?(@.name == "gcp-credentials")].mountPath
+          value: /keyfile.json
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "GOOGLE_APPLICATION_CREDENTIALS")].value
+          value: /keyfile.json
+
+  - it: Test existing artifacts credentials secret mount
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[?(@.name == "gcp-credentials")].secret.secretName
+          value: test-gcp-secret
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts[?(@.name == "gcp-credentials")].mountPath
+          value: /keyfile.json
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "GOOGLE_APPLICATION_CREDENTIALS")].value
+          value: /keyfile.json
+
+  - it: Test default artifact root store environment variable
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "DEFAULT_ARTIFACT_ROOT")].value
+          value: gs://mlflow

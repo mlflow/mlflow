@@ -1,0 +1,27 @@
+suite: Test Azure deployment configuration
+tests:
+
+  - it: Test created artifacts credentials secret mount
+    values:
+      - values/azure/create-secrets.yaml
+    template: templates/deployments/deployment-azure.yaml
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom[?(@.secretRef.name == "mlflow-artifacts-credentials")].secretRef.name
+
+  - it: Test existing artifacts credentials secret mount
+    values:
+      - values/azure/use-existing-secrets.yaml
+    template: templates/deployments/deployment-azure.yaml
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom[?(@.secretRef.name == "test-azure-secret")].secretRef.name
+
+  - it: Test default artifact root store environment variable
+    values:
+      - values/azure/use-existing-secrets.yaml
+    template: templates/deployments/deployment-azure.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "DEFAULT_ARTIFACT_ROOT")].value
+          value: wasbs://mlflow@default.blob.core.windows.net/mlflow

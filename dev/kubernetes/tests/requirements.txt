@@ -1,0 +1,4 @@
+sklearn
+mlflow
+pytest
+boto3

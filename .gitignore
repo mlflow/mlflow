@@ -115,3 +115,6 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# helm
+charts/*/templates/charts/*.tgz
