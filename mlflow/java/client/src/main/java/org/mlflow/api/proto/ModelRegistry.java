@@ -40784,7 +40784,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -40795,7 +40795,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -40806,7 +40806,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -41428,7 +41428,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -41442,7 +41442,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -41467,7 +41467,7 @@ public final class ModelRegistry {
      * <pre>
      * Name of the alias. Maximum size depends on storage backend.
      * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-     * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42028,7 +42028,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42041,7 +42041,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42065,7 +42065,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42088,7 +42088,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42109,7 +42109,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42125,7 +42125,7 @@ public final class ModelRegistry {
        * <pre>
        * Name of the alias. Maximum size depends on storage backend.
        * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
-       * All storage backends are guaranteed to support alias name values up to 250 bytes in size.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42338,7 +42338,7 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42347,7 +42347,7 @@ public final class ModelRegistry {
     boolean hasAlias();
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42356,7 +42356,7 @@ public final class ModelRegistry {
     java.lang.String getAlias();
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42940,7 +42940,7 @@ public final class ModelRegistry {
     private volatile java.lang.Object alias_;
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42952,7 +42952,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -42975,7 +42975,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43448,7 +43448,7 @@ public final class ModelRegistry {
       private java.lang.Object alias_ = "";
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43459,7 +43459,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43481,7 +43481,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43502,7 +43502,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43521,7 +43521,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43535,7 +43535,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 250 bytes.
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43640,7 +43640,7 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43649,7 +43649,7 @@ public final class ModelRegistry {
     boolean hasAlias();
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -43658,7 +43658,7 @@ public final class ModelRegistry {
     java.lang.String getAlias();
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44456,7 +44456,7 @@ public final class ModelRegistry {
     private volatile java.lang.Object alias_;
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44468,7 +44468,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44491,7 +44491,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
-     * Name of the alias. Maximum size is 250 bytes.
+     * Name of the alias. Maximum size is 256 bytes.
      * </pre>
      *
      * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44964,7 +44964,7 @@ public final class ModelRegistry {
       private java.lang.Object alias_ = "";
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44975,7 +44975,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -44997,7 +44997,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -45018,7 +45018,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -45037,7 +45037,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
@@ -45051,7 +45051,7 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * Name of the alias. Maximum size is 250 bytes.
+       * Name of the alias. Maximum size is 256 bytes.
        * </pre>
        *
        * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>

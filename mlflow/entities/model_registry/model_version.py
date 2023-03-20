@@ -129,7 +129,7 @@ class ModelVersion(_ModelRegistryEntity):
 
     @property
     def aliases(self):
-        """List of aliases (string) for the current registered model."""
+        """List of aliases (string) for the current model version."""
         return self._aliases
 
     @classmethod

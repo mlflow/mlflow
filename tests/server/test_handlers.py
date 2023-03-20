@@ -724,7 +724,6 @@ def test_set_registered_model_alias(mock_get_request_message, mock_model_registr
 def test_delete_registered_model_alias(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     alias = "test_alias"
-    version = "1"
     mock_get_request_message.return_value = DeleteRegisteredModelAlias(name=name, alias=alias)
     _delete_registered_model_alias()
     _, args = mock_model_registry_store._delete_registered_model_alias.call_args
@@ -734,7 +733,6 @@ def test_delete_registered_model_alias(mock_get_request_message, mock_model_regi
 def test_get_model_version_by_alias(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     alias = "test_alias"
-    version = "1"
     mock_get_request_message.return_value = GetModelVersionByAlias(name=name, alias=alias)
     _get_model_version_by_alias()
     _, args = mock_model_registry_store._get_model_version_by_alias.call_args
