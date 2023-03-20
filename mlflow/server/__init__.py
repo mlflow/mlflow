@@ -2,9 +2,11 @@ import os
 import shlex
 import sys
 import textwrap
+import importlib.metadata
 
 from flask import Flask, send_from_directory, Response
 
+from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
     get_artifact_handler,
@@ -76,9 +78,10 @@ def serve_get_metric_history_bulk():
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
+# The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    return send_from_directory(STATIC_DIR, path)
+    return send_from_directory(STATIC_DIR, path, max_age=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
@@ -105,19 +108,30 @@ def serve():
     return Response(text, mimetype="text/plain")
 
 
-def _build_waitress_command(waitress_opts, host, port):
+def _find_app(app_name: str) -> str:
+    apps = importlib.metadata.entry_points().get("mlflow.app", [])
+    for app in apps:
+        if app.name == app_name:
+            return app.value
+
+    raise MlflowException(
+        f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
+    )
+
+
+def _build_waitress_command(waitress_opts, host, port, app_name):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return (
         ["waitress-serve"]
         + opts
-        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", "mlflow.server:app"]
+        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", app_name]
     )
 
 
-def _build_gunicorn_command(gunicorn_opts, host, port, workers):
+def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, app_name]
 
 
 def _run_server(
@@ -134,6 +148,7 @@ def _run_server(
     gunicorn_opts=None,
     waitress_opts=None,
     expose_prometheus=None,
+    app_name=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -160,9 +175,10 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
+    app_spec = f"{__name__}:app" if app_name is None else _find_app(app_name)
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port)
+        full_command = _build_waitress_command(waitress_opts, host, port, app_spec)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_spec)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)

@@ -22,12 +22,8 @@ _logger = logging.getLogger(__name__)
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
 _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
-    "Logging model metadata to the tracking server has failed, possibly due older "
-    "server version. The model artifacts have been logged successfully under %s. "
-    "In addition to exporting model artifacts, MLflow clients 1.7.0 and above "
-    "attempt to record model metadata to the tracking store. If logging to a "
-    "mlflow server via REST, consider upgrading the server version to MLflow "
-    "1.7.0 or above. Set logging level to DEBUG via "
+    "Logging model metadata to the tracking server has failed. The model artifacts "
+    "have been logged successfully under %s. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable

@@ -71,14 +71,17 @@ message ModelVersion {
   // ID of the MLflow experiment containing the MLflow run that generated this model version
   optional string run_experiment_id = 9;
 
-  // ID of the workspace containing the MLflow run that generated this model version
-  optional int64 run_workspace_id = 10 ;
+  // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
+  optional string run_tracking_server_id = 10;
 
   // Current status of ``model_version``
   optional ModelVersionStatus status = 11;
 
   // Details on current ``status``, if it is pending or failed.
   optional string status_message = 12;
+
+  // Current storage location of model version files, e.g. in blob storage
+  optional string storage_location = 13;
 }
 
 enum ModelVersionOperation {
@@ -209,6 +212,9 @@ message CreateModelVersionRequest {
 
   // Optional description for model version.
   optional string description = 4;
+
+  // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
+  optional string run_tracking_server_id = 5;
 }
 
 message CreateModelVersionResponse {
@@ -299,7 +305,7 @@ message GenerateTemporaryModelVersionCredentialsRequest {
 
 message GenerateTemporaryModelVersionCredentialsResponse {
   // Temporary credentials for model version read/write
-  optional TemporaryCredentials credentials = 1 [(json_inline) = true];
+  optional TemporaryCredentials credentials = 1;
 }
 
 message GetModelVersionDownloadUriRequest {
@@ -328,5 +334,5 @@ message FinalizeModelVersionRequest {
 
 
 message FinalizeModelVersionResponse {
+  optional ModelVersion model_version = 1;
 }
-

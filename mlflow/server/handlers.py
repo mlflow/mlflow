@@ -83,6 +83,8 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import is_local_uri
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
@@ -558,22 +560,18 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
-    measure to prevent path traversal attacks. The implementation is based on
-    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    measure to prevent path traversal attacks.
     """
-    if path != "":
-        path = posixpath.normpath(path)
     if (
-        any(sep in path for sep in _os_alt_seps)
-        or os.path.isabs(path)
-        or path == ".."
-        or path.startswith("../")
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split(posixpath.sep)
+        or posixpath.isabs(path)
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
@@ -1366,6 +1364,26 @@ def _delete_registered_model_tag():
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
+def _validate_source(source: str, run_id: str) -> None:
+    if not is_local_uri(source):
+        return
+
+    if run_id:
+        store = _get_tracking_store()
+        run = store.get_run(run_id)
+        source = pathlib.Path(local_file_uri_to_path(source)).resolve()
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
+        if run_artifact_dir in [source, *source.parents]:
+            return
+
+    raise MlflowException(
+        f"Invalid source: '{source}'. To use a local path as source, the run_id request parameter "
+        "has to be specified and the local path has to be contained within the artifact directory "
+        "of the run specified by the run_id.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_model_version():
@@ -1380,6 +1398,9 @@ def _create_model_version():
             "description": [_assert_string],
         },
     )
+
+    _validate_source(request_message.source, request_message.run_id)
+
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
         source=request_message.source,
@@ -1577,6 +1598,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -1601,6 +1623,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -1626,7 +1649,11 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = request_message.path if request_message.HasField("path") else None
+    if request_message.HasField("path"):
+        validate_path_is_safe(request_message.path)
+        path = request_message.path
+    else:
+        path = None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -1642,11 +1669,12 @@ def _list_artifacts_mlflow_artifacts():
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
-def _delete_artifact_mflflow_artifacts(artifact_path):
+def _delete_artifact_mlflow_artifacts(artifact_path):
     """
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)
@@ -1749,5 +1777,5 @@ HANDLERS = {
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
-    DeleteArtifact: _delete_artifact_mflflow_artifacts,
+    DeleteArtifact: _delete_artifact_mlflow_artifacts,
 }

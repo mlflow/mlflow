@@ -375,13 +375,13 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # NB: datetime values have variable precision denoted by brackets, e.g. datetime64[ns]
         # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
         # ignore precision when matching datetime columns.
-        return values
+        return values.astype(np.dtype("datetime64[ns]"))
 
     if t == DataType.datetime and values.dtype == object:
         # NB: Pyspark date columns get converted to object when converted to a pandas
         # DataFrame. To respect the original typing, we convert the column to datetime.
         try:
-            return values.astype(np.datetime64, errors="raise")
+            return values.astype(np.dtype("datetime64[ns]"), errors="raise")
         except ValueError as e:
             raise MlflowException(
                 "Failed to convert column {} from type {} to {}.".format(name, values.dtype, t)

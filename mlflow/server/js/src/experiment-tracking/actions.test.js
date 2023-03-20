@@ -223,4 +223,18 @@ describe('searchRunsPayload', () => {
       }),
     );
   });
+
+  it('should mark additionally fetched parent runs as correctly filtered ones', async () => {
+    jest
+      .spyOn(MlflowService, 'searchRuns')
+      .mockImplementation(() => Promise.resolve({ runs: [a] }));
+
+    jest
+      .spyOn(MlflowService, 'getRun')
+      .mockImplementation((data) => Promise.resolve({ run: aParent }));
+
+    const result = await searchRunsPayload({ shouldFetchParents: true });
+
+    expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([aParent]));
+  });
 });

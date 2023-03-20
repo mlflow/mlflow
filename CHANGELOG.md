@@ -1,5 +1,77 @@
 # CHANGELOG
 
+## 2.2.2 (2023-03-14)
+
+MLflow 2.2.2 is a patch release containing the following bug fixes:
+
+- [Model Registry] Allow `source` to be a local path within a run's artifact directory if a `run_id` is specified (#7993, @harupy)
+- [Model Registry] Fix a bug where a windows UNC path is considered a local path (#7988, @WeichenXu123)
+- [Model Registry] Disallow `name` to be a file path in  `FileStore.get_registered_model` (#7965, @harupy)
+
+## 2.2.1 (2023-03-02)
+
+MLflow 2.2.1 is a patch release containing the following bug fixes:
+
+- [Model Registry] Fix a bug that caused too many results to be requested by default when calling ``MlflowClient.search_model_versions()`` (#7935, @dbczumar)
+
+## 2.2.0 (2023-02-28)
+
+MLflow 2.2.0 includes several major features and improvements
+
+Features:
+
+- [Recipes] Add support for score calibration to the classification recipe (#7744, @sunishsheth2009)
+- [Recipes] Add automatic label encoding to the classification recipe (#7711, @sunishsheth2009)
+- [Recipes] Support custom data splitting logic in the classification and regression recipes (#7815, #7588, @sunishsheth2009)
+- [Recipes] Introduce customizable MLflow Run name prefixes to the classification and regression recipes (#7746, @kamalesh0406; #7763, @sunishsheth2009)
+- [UI] Add a new Chart View to the MLflow Experiment Page for model performance insights (#7864, @hubertzub-db, @apurva-koti, @prithvikannan, @ridhimag11, @sunishseth2009, @dbczumar)
+- [UI] Modernize and improve parallel coordinates chart for model tuning (#7864, @hubertzub-db, @apurva-koti, @prithvikannan, @ridhimag11, @sunishseth2009, @dbczumar)
+- [UI] Add typeahead suggestions to the MLflow Experiment Page search bar (#7864, @hubertzub-db, @apurva-koti, @prithvikannan, @ridhimag11, @sunishseth2009, @dbczumar)
+- [UI] Improve performance of Experiments Sidebar for large numbers of experiments (#7804, @jmahlik)
+- [Tracking] Introduce autologging support for native PyTorch models (#7627, @temporaer)
+- [Tracking] Allow specifying ``model_format`` when autologging XGBoost models (#7781, @guyrosin)
+- [Tracking] Add ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` environment variable to configure artifact operation timeouts (#7783, @wamartin-aml)
+- [Artifacts] Include ``Content-Type`` response headers for artifacts downloaded from ``mlflow server`` (#7827, @bali0019)
+- [Model Registry] Introduce the ``searchModelVersions()`` API to the Java client (#7880, @gabrielfu)
+- [Model Registry] Introduce ``max_results``, ``order_by`` and ``page_token`` arguments to ``MlflowClient.search_model_versions()`` (#7623, @serena-ruan)
+- [Models] Support logging large ONNX models by using external data (#7808, @dogeplusplus)
+- [Models] Add support for logging Diviner models fit in Spark (#7800, @BenWilson2)
+- [Models] Introduce ``MLFLOW_DEFAULT_PREDICTION_DEVICE`` environment variable to set the device for pyfunc model inference (#7922, @ankit-db)
+- [Scoring] Publish official Docker images for the MLflow Model scoring server at github.com/mlflow/mlflow/pkgs (#7759, @dbczumar)
+
+Bug fixes:
+
+- [Recipes] Fix dataset format validation in the ingest step for custom dataset sources (#7638, @sunishsheth2009)
+- [Recipes] Fix bug in identification of worst performing examples during training (#7658, @sunishsheth2009)
+- [Recipes] Ensure consistent rendering of the recipe graph when ``inspect()`` is called (#7852, @sunishsheth2009)
+- [Recipes] Correctly respect ``positive_class`` configuration in the transform step (#7626, @sunishsheth2009)
+- [Recipes] Make logged metric names consistent with ``mlflow.evaluate()`` (#7613, @sunishsheth2009)
+- [Recipes] Add ``run_id`` and ``artifact_path`` keys to logged MLmodel files (#7651, @sunishsheth2009)
+- [UI] Fix bugs in UI validation of experiment names, model names, and tag keys (#7818, @subramaniam02)
+- [Tracking] Resolve artifact locations to absolute paths when creating experiments (#7670, @bali0019)
+- [Tracking] Exclude Delta checkpoints from Spark datasource autologging (#7902, @harupy)
+- [Tracking] Consistently return an empty list from GetMetricHistory when a metric does not exist (#7589, @bali0019; #7659, @harupy)
+- [Artifacts] Fix support for artifact operations on Windows paths in UNC format (#7750, @bali0019)
+- [Artifacts] Fix bug in HDFS artifact listing (#7581, @pwnywiz)
+- [Model Registry] Disallow creation of model versions with local filesystem sources in ``mlflow server`` (#7908, @harupy)
+- [Model Registry] Fix handling of deleted model versions in FileStore (#7716, @harupy)
+- [Model Registry] Correctly initialize Model Registry SQL tables independently of MLflow Tracking (#7704, @harupy)
+- [Models] Correctly move PyTorch model outputs from GPUs to CPUs during inference with pyfunc (#7885, @ankit-db)
+- [Build] Fix compatiblility issues with Python installations compiled using ``PYTHONOPTIMIZE=2`` (#7791, @dbczumar)
+- [Build] Fix compatibility issues with the upcoming pandas 2.0 release (#7899, @harupy; #7910, @dbczumar)
+
+Documentation updates:
+
+- [Docs] Add an example of saving and loading Spark MLlib models with MLflow (#7706, @dipanjank)
+- [Docs] Add usage examples for ``mlflow.lightgbm`` APIs (#7565, @canerturkseven)
+- [Docs] Add an example of custom model flavor creation with ``sktime`` (#7624, @benjaminbluhm)
+- [Docs] Clarify ``precision_recall_auc`` metric calculation in ``mlflow.evaluate()`` (#7701, @BenWilson2)
+- [Docs] Remove outdated example links (#7587, @asloan7)
+
+Small bug fixes and documentation updates:
+
+#7866, #7751, #7724, #7699, #7697, #7666, @alekseyolg; #7896, #7861, #7858, #7862, #7872, #7859, #7863, #7767, #7766, #7765, #7741, @smurching; #7895, #7877, @viditjain99; #7898, @midhun1998; #7891, #7892, #7886, #7882, #7883, #7875, #7874, #7871, #7868, #7854, #7847, #7845, #7838, #7830, #7837, #7836, #7834, #7831, #7828, #7825, #7826, #7824, #7823, #7778, #7780, #7776, #7775, #7773, #7772, #7769, #7756, #7768, #7764, #7685, #7726, #7722, #7720, #7423, #7712, #7710, #7713, #7688, #7663, #7674, #7673, #7672, #7662, #7653, #7646, #7615, #7614, #7586, #7601, #7598, #7602, #7599, #7577, #7585, #7583, #7584, @harupy; #7865, #7803, #7753, #7719, @dipanjank; #7796, @serena-ruan; #7849, @turbotimon; #7822, #7600, @WeichenXu123; #7811, @guyrosin; #7812, #7788, #7787, #7748, #7730, #7616, #7593, @dbczumar; #7793, @Joel-hanson; #7792, #7694, #7643, @BenWilson2; #7771, #7657, #7644, @nsenno-dbr; #7738, @wkrt7; #7740, @Ark-kun; #7739, #7733, @bali0019; #7723, @andrehp; #7691, #7582, @agoyot; #7721, @Eseeldur; #7709, @srowen; #7693, @ry3s; #7649, @funkypenguin; #7665, @benjaminbluhm; #7668, @eltociear; #7550, @danielhstahl; #7920, @arjundc-db
+
 ## 2.1.0 (2022-12-21)
 
 MLflow 2.1.0 includes several major features and improvements

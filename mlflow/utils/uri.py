@@ -23,11 +23,23 @@ def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     if uri == "databricks":
         return False
+
+    if is_windows() and uri.startswith("\\\\"):
+        # windows network drive path looks like: "\\<server name>\path\..."
+        return False
+
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.hostname:
         return False
+
     scheme = parsed_uri.scheme
-    return scheme == "" or scheme == "file"
+    if scheme == "" or scheme == "file":
+        return True
+
+    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
+        return True
+
+    return False
 
 
 def is_http_uri(uri):
@@ -42,6 +54,11 @@ def is_databricks_uri(uri):
     """
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == "databricks" or uri == "databricks"
+
+
+def is_databricks_unity_catalog_uri(uri):
+    scheme = urllib.parse.urlparse(uri).scheme
+    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
 
 
 def construct_db_uri_from_profile(profile):
@@ -76,7 +93,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks":
+    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
@@ -97,20 +114,20 @@ def get_db_info_from_uri(uri):
     return None, None
 
 
-def get_databricks_profile_uri_from_artifact_uri(uri):
+def get_databricks_profile_uri_from_artifact_uri(uri, result_scheme="databricks"):
     """
-    Retrieves the netloc portion of the URI as a ``databricks://`` URI,
+    Retrieves the netloc portion of the URI as a ``databricks://`` or `databricks-uc://` URI,
     if it is a proper Databricks profile specification, e.g.
     ``profile@databricks`` or ``secret_scope:key_prefix@databricks``.
     """
     parsed = urllib.parse.urlparse(uri)
-    if not parsed.netloc or parsed.hostname != "databricks":
+    if not parsed.netloc or parsed.hostname != result_scheme:
         return None
     if not parsed.username:  # no profile or scope:key
-        return "databricks"  # the default tracking/registry URI
+        return result_scheme  # the default tracking/registry URI
     validate_db_scope_prefix_info(parsed.username, parsed.password)
     key_prefix = ":" + parsed.password if parsed.password else ""
-    return "databricks://" + parsed.username + key_prefix
+    return f"{result_scheme}://" + parsed.username + key_prefix
 
 
 def remove_databricks_profile_info_from_artifact_uri(artifact_uri):

@@ -216,6 +216,13 @@ plugin:
        ``dataset`` (an instance of ``mlflow.models.evaluation.base._EvaluationDataset`` containing features and labels (optional) for model evaluation),
        ``run_id`` (the ID of the MLflow Run to which to log results), and ``evaluator_config`` (a dictionary of additional configurations for the evaluator).
      - `DummyEvaluator <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_.
+   * - [Experimental] Plugins for custom mlflow server flask app configuration `mlflow.server.app <https://github.com/mlflow/mlflow/blob/v2.2.0/mlflow/server/__init__.py#L31>`_.
+     - mlflow.app
+     - The entry point ``<app_name>=<object_reference>`` (e.g. ``custom_app=mlflow_test_plugin.app:app``) specifies a customized flask application. This can be useful for implementing
+       request hooks for authentication/authorization, custom logging and custom flask configurations. The plugin must import `mlflow.server.app` (e.g. ``from mlflow.server import app``) and may add custom configuration, middleware etc. to the app.
+       The plugin should avoid altering the existing application routes, handlers and environment variables to avoid unexpected behavior.
+       Users who install the example plugin will have a customized flask application. To run the customized flask application, use ``mlflow server --app-name <app_name>``.
+     - `app <https://github.com/mlflow/mlflow/blob/v2.3.0/tests/resources/mlflow-test-plugin/mlflow_test_plugin/app.py>`_.
 
 
 Testing Your Plugin
@@ -231,6 +238,7 @@ reference implementations as an example:
 * `Example RunContextProvider tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/tracking/context/test_git_context.py>`_
 * `Example Model Registry Store tests <https://github.com/mlflow/mlflow/blob/branch-1.5/tests/store/model_registry/test_sqlalchemy_store.py>`_
 * `Example Custom Mlflow Evaluator tests <https://github.com/mlflow/mlflow/blob/branch-1.23/tests/resources/mlflow-test-plugin/mlflow_test_plugin/dummy_evaluator.py>`_
+* `Example Custom Mlflow server tests <https://github.com/mlflow/mlflow/blob/branch-2.2.0/tests/server/test_handlers.py>`_
 
 
 Distributing Your Plugin

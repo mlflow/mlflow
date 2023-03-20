@@ -205,8 +205,8 @@ def test_ingests_remote_http_datasets_with_multiple_files_successfully(tmp_path)
                         "skip_data_profiling": True,
                         "using": "csv",
                         "location": [
-                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-red.csv",
-                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/data/winequality-white.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv",
+                            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv",
                         ],
                         "loader_method": "load_file_as_dataframe",
                     }
@@ -864,3 +864,58 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
         step_card_html_content = f.read()
     assert "facets-overview" not in step_card_html_content
     mock_profiling.assert_not_called()
+
+
+@pytest.mark.usefixtures("enter_test_recipe_directory")
+def test_ingests_spark_sql_datetime_successfully(spark_session, tmp_path):
+    from pyspark.sql.functions import (
+        col,
+        rand,
+        lit,
+        date_sub,
+        unix_timestamp,
+        to_timestamp,
+        current_date,
+        current_timestamp,
+    )
+
+    spark = spark_session.builder.getOrCreate()
+    spark_df = (
+        spark.range(10)
+        .withColumn("f1", rand(seed=123))
+        .withColumn("date_today", current_date())
+        .withColumn("time_now", current_timestamp())
+        .withColumn(
+            "timestamp", to_timestamp(unix_timestamp("time_now") - col("f1") * 60 * 60 * 24)
+        )
+        .drop("time_now")
+    )
+    # data = [("2019-01-23", 1), ("2019-06-24", 2), ("2019-09-20", 3)]
+    # spark_df = spark_session.createDataFrame(data).toDF("date", "increment")
+    spark_df.write.mode("overwrite").saveAsTable("test_table")
+
+    IngestStep.from_recipe_config(
+        recipe_config={
+            "target_col": "f1",
+            "steps": {
+                "ingest": {
+                    "using": "spark_sql",
+                    "sql": "SELECT * FROM test_table ORDER BY id",
+                }
+            },
+        },
+        recipe_root=os.getcwd(),
+    ).run(output_directory=tmp_path)
+
+    # Spark DataFrames are not ingested with a consistent row order, as doing so would incur a
+    # substantial performance cost. Accordingly, we sort the ingested DataFrame and the original
+    # DataFrame on the `id` column and reset the DataFrame index to achieve a consistent ordering
+    # before testing their equivalence
+    reloaded_df = (
+        pd.read_parquet(str(tmp_path / "dataset.parquet"))
+        .sort_values(by="id")
+        .reset_index(drop=True)
+    )
+
+    assert reloaded_df["date_today"].dtype == "datetime64[ns]"
+    assert reloaded_df["timestamp"].dtype == "datetime64[ns]"

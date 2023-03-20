@@ -1,6 +1,6 @@
 import { shallow, mount } from 'enzyme';
 import React from 'react';
-import { Table } from '@databricks/design-system';
+import { LegacyTable } from '@databricks/design-system';
 import { HtmlTableView } from './HtmlTableView';
 
 describe('HtmlTableView', () => {
@@ -33,8 +33,8 @@ describe('HtmlTableView', () => {
     };
 
     wrapper = mount(<HtmlTableView {...props} />);
-    const table = wrapper.find(Table);
-    expect(wrapper.find(Table).length).toBe(1);
+    const table = wrapper.find(LegacyTable);
+    expect(wrapper.find(LegacyTable).length).toBe(1);
 
     const rows = table.find('tr');
     expect(rows.length).toBe(3);
@@ -65,7 +65,7 @@ describe('HtmlTableView', () => {
     };
 
     wrapper = shallow(<HtmlTableView {...props} />);
-    const tableStlye = wrapper.find(Table).get(0).props.style;
+    const tableStlye = wrapper.find(LegacyTable).get(0).props.style;
     expect(tableStlye).toHaveProperty('width', 'auto');
     expect(tableStlye).toHaveProperty('minWidth', '400px');
   });

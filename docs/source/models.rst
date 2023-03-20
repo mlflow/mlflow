@@ -746,6 +746,12 @@ the ``python_function`` flavor, allowing you to load them as generic Python func
 via :py:func:`mlflow.pyfunc.load_model()`.
 
 .. note::
+    When using the PyTorch flavor, if a GPU is available at prediction time, the default GPU will be used to run
+    inference. To disable this behavior, users can use the
+    `MLFLOW_DEFAULT_PREDICTION_DEVICE <python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_DEFAULT_PREDICTION_DEVICE>`_
+    or pass in a device with the `device` parameter for the `predict` function.
+
+.. note::
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
     logging multiple copies of the same model.
 
@@ -2056,7 +2062,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
             threshold=0.8,  # accuracy should be >=0.8
             min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
             min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
-            higher_is_better=True,
+            greater_is_better=True,
         ),
     }
 

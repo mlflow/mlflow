@@ -1,5 +1,8 @@
+import functools
 import logging
+import tempfile
 
+from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
     CreateRegisteredModelResponse,
@@ -27,7 +30,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    TemporaryCredentials,
+    MODEL_VERSION_READ_WRITE,
 )
+import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
@@ -36,14 +42,21 @@ from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
+    verify_rest_response,
+    http_request,
 )
+from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+
+_DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
+_TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UcModelRegistryService, _REST_API_PATH_PREFIX
@@ -82,10 +95,16 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param get_host_creds: Method to be invoked prior to every REST request to get the
-      :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
-      is a function so that we can obtain fresh credentials in the case of expiry.
+    :param store_uri: URI with scheme 'databricks-uc'
+    :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
+                         run info and download run artifacts, when creating new model
+                         versions from source artifacts logged to an MLflow run.
     """
+
+    def __init__(self, store_uri, tracking_uri):
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
+        self.tracking_uri = tracking_uri
+        self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
     def _get_response_from_method(self, method):
         method_to_response = {
@@ -103,6 +122,7 @@ class UcModelRegistryStore(BaseRestStore):
             SearchRegisteredModelsRequest: SearchRegisteredModelsResponse,
             # pylint: disable=line-too-long
             GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
+            GetRun: GetRun.Response,
         }
         return method_to_response[method]()
 
@@ -218,7 +238,15 @@ class UcModelRegistryStore(BaseRestStore):
                        each stage.
         :return: List of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
-        _raise_unsupported_method(method="get_latest_versions")
+        _raise_unsupported_method(
+            method="get_latest_versions",
+            message="If seeing this error while attempting to "
+            "load a models:/ URI of the form models:/<name>/<stage>, note that "
+            "staged-based model URIs are unsupported for models in UC. Future "
+            "MLflow Python client versions will include support for model "
+            "aliases and alias-based 'models:/' URIs "
+            "of the form models:/<name>@<alias> as an alternative.",
+        )
 
     def set_registered_model_tag(self, name, tag):
         """
@@ -241,6 +269,85 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(method="delete_registered_model_tag")
 
     # CRUD API for ModelVersion objects
+    def _finalize_model_version(self, name, version):
+        """
+        Finalize a UC model version after its files have been written to managed storage,
+        updating its status from PENDING_REGISTRATION to READY
+        :param name: Registered model name
+        :param version: Model version number
+        :return Protobuf ModelVersion describing the finalized model version
+        """
+        req_body = message_to_json(FinalizeModelVersionRequest(name=name, version=version))
+        return self._call_endpoint(FinalizeModelVersionRequest, req_body).model_version
+
+    def _get_temporary_model_version_write_credentials(self, name, version) -> TemporaryCredentials:
+        """
+        Get temporary credentials for uploading model version files
+        :param name: Registered model name
+        :param version: Model version number
+        :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
+                 containing temporary model version credentials
+        """
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+            )
+        )
+        return self._call_endpoint(
+            GenerateTemporaryModelVersionCredentialsRequest, req_body
+        ).credentials
+
+    def _get_workspace_id(self, run_id):
+        if run_id is None:
+            return None
+        host_creds = self.get_tracking_host_creds()
+        endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
+        response = http_request(
+            host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
+        )
+        response = verify_rest_response(response, endpoint)
+        if _DATABRICKS_ORG_ID_HEADER not in response.headers:
+            _logger.warning(
+                "Unable to get model version source run's workspace ID from request headers. "
+                "No run link will be recorded for the model version"
+            )
+            return None
+        return response.headers[_DATABRICKS_ORG_ID_HEADER]
+
+    def _validate_model_signature(self, local_model_dir):
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
+        from mlflow.models.model import Model
+
+        try:
+            model = Model.load(local_model_dir)
+        except Exception as e:
+            raise MlflowException(
+                "Unable to load model metadata. Ensure the source path of the model "
+                "being registered points to a valid MLflow model directory "
+                "(see https://mlflow.org/docs/latest/models.html#storage-format) containing a "
+                "model signature (https://mlflow.org/docs/latest/models.html#model-signature) "
+                "specifying both input and output type specifications."
+            ) from e
+        signature_required_explanation = (
+            "All models in the Unity Catalog must be logged with a "
+            "model signature containing both input and output "
+            "type specifications. See "
+            "https://mlflow.org/docs/latest/models.html#model-signature "
+            "for details on how to log a model with a signature"
+        )
+        if model.signature is None:
+            raise MlflowException(
+                "Model passed for registration did not contain any signature metadata. "
+                f"{signature_required_explanation}"
+            )
+        if model.signature.outputs is None:
+            raise MlflowException(
+                "Model passed for registration contained a signature that includes only inputs. "
+                f"{signature_required_explanation}"
+            )
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -259,17 +366,32 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags)
-        # TODO: Implement client-side model version upload and finalization logic here
+        source_workspace_id = self._get_workspace_id(run_id)
         req_body = message_to_json(
             CreateModelVersionRequest(
                 name=name,
                 source=source,
                 run_id=run_id,
                 description=description,
+                run_tracking_server_id=source_workspace_id,
             )
         )
-        response_proto = self._call_endpoint(CreateModelVersionRequest, req_body)
-        return response_proto.model_version
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_model_dir = mlflow.artifacts.download_artifacts(
+                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+            )
+            self._validate_model_signature(local_model_dir)
+            model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
+            version_number = model_version.version
+            scoped_token = self._get_temporary_model_version_write_credentials(
+                name=name, version=version_number
+            )
+            store = get_artifact_repo_from_storage_info(
+                storage_location=model_version.storage_location, scoped_token=scoped_token
+            )
+            store.log_artifacts(local_dir=local_model_dir, artifact_path="")
+        finalized_mv = self._finalize_model_version(name=name, version=version_number)
+        return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """

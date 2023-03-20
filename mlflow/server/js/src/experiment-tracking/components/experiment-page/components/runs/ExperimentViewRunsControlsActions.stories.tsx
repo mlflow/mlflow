@@ -49,7 +49,6 @@ const createComponentWrapper = (viewState: SearchExperimentRunsViewState) => () 
               <h2>Component:</h2>
             </div>
             <ExperimentViewRunsControlsActions
-              visibleRowsCount={MOCK_RUNS_DATA.runInfos.length}
               runsData={MOCK_RUNS_DATA}
               searchFacetsState={searchFacetsState}
               viewState={viewState}

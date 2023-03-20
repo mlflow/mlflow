@@ -18,6 +18,7 @@ import {
   persistExperimentSearchFacetsState,
   restoreExperimentSearchFacetsState,
 } from '../utils/persistSearchFacets';
+import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 
 export interface GetExperimentRunsContextActions {
   searchRunsApi: typeof searchRunsApi;
@@ -59,7 +60,7 @@ export interface GetExperimentRunsContextType {
   /**
    * Contains error descriptor if fetching runs failed
    */
-  requestError: any;
+  requestError: ErrorWrapper | null;
 
   /**
    * All run-related actions creators
@@ -121,6 +122,10 @@ export const GetExperimentRunsContextProvider = ({
     },
   );
 
+  // Let's save the immediate array of active requests so
+  // it will be checked against later on
+  const activeRequests = useRef<{ active: boolean; id: string }[]>([]);
+
   // Next page token is not a stateful field and can be mutable.
   const nextPageToken = useRef<string>('');
 
@@ -161,13 +166,24 @@ export const GetExperimentRunsContextProvider = ({
       // otherwise it will result in the unnecessary rerender
       setIsLoadingRuns(true);
       dispatch(action)
-        .then(({ value }) => {
+        .then((data) => {
+          const { value } = data;
           nextPageToken.current = value.next_page_token;
           setMoreRunsAvailable(Boolean(value.next_page_token));
           fetchModelVersionsForRuns(value.runs || [], actions.searchModelVersionsApi, dispatch);
+
+          // If this request is the current one (meaning found in the active requests list), set loading flag to false
+          if (
+            activeRequests.current.some(
+              (activeRequest) => activeRequest.id === action.meta.id && !activeRequest.active,
+            )
+          ) {
+            setIsLoadingRuns(false);
+          }
         })
         .catch((e) => {
-          Utils.logErrorAndNotifyUser(e);
+          Utils.logErrorAndNotifyUser(e, 0);
+          setIsLoadingRuns(false);
         });
 
       setSearchRunsRequestId(action.meta.id);
@@ -192,14 +208,19 @@ export const GetExperimentRunsContextProvider = ({
   }, [experimentIds, internalFetchExperimentRuns, searchFacetsState]);
 
   const persistState = useCallback(
-    (sortFilterModelToSave: SearchExperimentRunsFacetsState) => {
+    (sortFilterModelToSave: SearchExperimentRunsFacetsState, replaceHistory: boolean) => {
       const newQueryString = persistExperimentSearchFacetsState(
         sortFilterModelToSave,
         experimentIdsHash,
         history.location.search,
       );
       if (history.location.search !== newQueryString) {
-        history.push(`${history.location.pathname}${newQueryString}`);
+        const newPath = `${history.location.pathname}${newQueryString}`;
+        if (replaceHistory) {
+          history.replace(newPath);
+        } else {
+          history.push(newPath);
+        }
       }
     },
     [history, experimentIdsHash],
@@ -242,7 +263,11 @@ export const GetExperimentRunsContextProvider = ({
    */
   const updateSearchFacets = useCallback<UpdateExperimentSearchFacetsFn>(
     (newFilterModel, updateOptions = {}) => {
-      const { forceRefresh = false, preservePristine = false } = updateOptions;
+      const {
+        forceRefresh = false,
+        preservePristine = false,
+        replaceHistory = false,
+      } = updateOptions;
       // While dispatching new state, append new filter model
       // and fetch new runs using it
       setSearchFacetsState((oldModel) => {
@@ -252,7 +277,7 @@ export const GetExperimentRunsContextProvider = ({
         if (forceRefresh || shouldRefetchRuns(oldModel, newModel)) {
           internalFetchExperimentRuns(newModel, experimentIds);
         }
-        persistState(newModel);
+        persistState(newModel, replaceHistory);
         return newModel;
       });
       // Update the flag which indicates that the user have performed
@@ -305,18 +330,11 @@ export const GetExperimentRunsContextProvider = ({
   );
 
   const renderFn = (_isLoading: false, _renderError: any, requests: any[]) => {
-    /**
-     * TODO:
-     * Defer setting this state because currently it might happen inside
-     * RequestStateWrapper's render function which causes React to act up.
-     * Either rebuild RequestStateWrapper or introduce some workaround.
-     */
-    setIsLoadingRuns(requests.some((r) => r.id === searchRunsRequestId && r.active));
+    // Retain the current version of requests array
+    activeRequests.current = requests;
 
     requests.forEach((request) => {
-      if (request.error) {
-        setRequestError(request.error);
-      }
+      setRequestError(request.error);
     });
     return children;
   };

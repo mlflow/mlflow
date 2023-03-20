@@ -9,3 +9,8 @@ declare module '*.svg' {
   // eslint-disable-next-line import/no-default-export -- SVGs are always default exported
   export default defaultExport;
 }
+
+declare module '*.gif' {
+  const defaultExport: string;
+  export default defaultExport;
+}

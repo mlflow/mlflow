@@ -62,6 +62,14 @@ def test_create_registered_model(store):
     assert model.tags == {}
 
 
+def test_create_registered_model_with_name_that_looks_like_path(store, tmp_path):
+    name = str(tmp_path.joinpath("test"))
+    with pytest.raises(
+        MlflowException, match=r"Registered model name cannot contain path separator"
+    ):
+        store.get_registered_model(name)
+
+
 def _verify_registered_model(fs, name, rm_data):
     rm = fs.get_registered_model(name)
     assert rm.name == name
@@ -79,6 +87,12 @@ def test_get_registered_model(store, registered_model_names, rm_data):
     # test that fake registered models dont exist.
     name = random_str()
     with pytest.raises(MlflowException, match=f"Registered Model with name={name} not found"):
+        store.get_registered_model(name)
+
+    name = "../../path"
+    with pytest.raises(
+        MlflowException, match="Registered model name cannot contain path separator"
+    ):
         store.get_registered_model(name)
 
 

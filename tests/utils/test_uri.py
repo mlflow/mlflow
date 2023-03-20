@@ -50,6 +50,10 @@ def test_extract_db_type_from_uri():
         ("nondatabricks://profile:prefix", (None, None)),
         ("databricks://profile", ("profile", None)),
         ("databricks://profile/", ("profile", None)),
+        ("databricks-uc://profile:prefix", ("profile", "prefix")),
+        ("databricks-uc://profile:prefix/extra", ("profile", "prefix")),
+        ("databricks-uc://profile", ("profile", None)),
+        ("databricks-uc://profile/", ("profile", None)),
     ],
 )
 def test_get_db_info_from_uri(server_uri, result):
@@ -82,7 +86,7 @@ def test_get_db_info_from_uri_errors_invalid_profile(server_uri):
         get_db_info_from_uri(server_uri)
 
 
-def test_uri_types():
+def test_is_local_uri():
     assert is_local_uri("mlruns")
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
@@ -95,12 +99,24 @@ def test_uri_types():
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
 
+
+@pytest.mark.skipif(not is_windows(), reason="Windows-only test")
+def test_is_local_uri_windows():
+    assert is_local_uri("C:\\foo\\mlruns")
+    assert is_local_uri("C:/foo/mlruns")
+    assert is_local_uri("file:///C:\\foo\\mlruns")
+    assert not is_local_uri("\\\\server\\aa\\bb")
+
+
+def test_is_databricks_uri():
     assert is_databricks_uri("databricks")
     assert is_databricks_uri("databricks:whatever")
     assert is_databricks_uri("databricks://whatever")
     assert not is_databricks_uri("mlruns")
     assert not is_databricks_uri("http://whatever")
 
+
+def test_is_http_uri():
     assert is_http_uri("http://whatever")
     assert is_http_uri("https://whatever")
     assert not is_http_uri("file://whatever")
@@ -338,33 +354,69 @@ def test_is_databricks_acled_artifacts_uri():
     )
 
 
+def _get_databricks_profile_uri_test_cases():
+    # Each test case is (uri, result, result_scheme)
+    test_case_groups = [
+        [
+            # URIs with no databricks profile info -> return None
+            ("ftp://user:pass@realhost:port/path/to/nowhere", None, result_scheme),
+            ("dbfs:/path/to/nowhere", None, result_scheme),
+            ("dbfs://nondatabricks/path/to/nowhere", None, result_scheme),
+            ("dbfs://incorrect:netloc:format/path/to/nowhere", None, result_scheme),
+            # URIs with legit databricks profile info
+            (f"dbfs://{result_scheme}", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}/", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://@{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://@{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (
+                f"dbfs://profile@{result_scheme}/path/to/nowhere",
+                f"{result_scheme}://profile",
+                result_scheme,
+            ),
+            (
+                f"dbfs://profile@{result_scheme}:port/path/to/nowhere",
+                f"{result_scheme}://profile",
+                result_scheme,
+            ),
+            (
+                f"dbfs://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"dbfs://scope:key_prefix@{result_scheme}:port/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            # Doesn't care about the scheme of the artifact URI
+            (
+                f"runs://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"models://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"s3://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+        ]
+        for result_scheme in ["databricks", "databricks-uc"]
+    ]
+    return [test_case for test_case_group in test_case_groups for test_case in test_case_group]
+
+
 @pytest.mark.parametrize(
-    ("uri", "result"),
-    [
-        # URIs with no databricks profile info -> return None
-        ("ftp://user:pass@realhost:port/path/to/nowhere", None),
-        ("dbfs:/path/to/nowhere", None),
-        ("dbfs://nondatabricks/path/to/nowhere", None),
-        ("dbfs://incorrect:netloc:format/path/to/nowhere", None),
-        # URIs with legit databricks profile info
-        ("dbfs://databricks", "databricks"),
-        ("dbfs://databricks/", "databricks"),
-        ("dbfs://databricks/path/to/nowhere", "databricks"),
-        ("dbfs://databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://profile@databricks/path/to/nowhere", "databricks://profile"),
-        ("dbfs://profile@databricks:port/path/to/nowhere", "databricks://profile"),
-        ("dbfs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("dbfs://scope:key_prefix@databricks:port/path/abc", "databricks://scope:key_prefix"),
-        # Doesn't care about the scheme of the artifact URI
-        ("runs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("models://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("s3://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-    ],
+    ("uri", "result", "result_scheme"), _get_databricks_profile_uri_test_cases()
 )
-def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
-    assert get_databricks_profile_uri_from_artifact_uri(uri) == result
+def test_get_databricks_profile_uri_from_artifact_uri(uri, result, result_scheme):
+    assert get_databricks_profile_uri_from_artifact_uri(uri, result_scheme=result_scheme) == result
 
 
 @pytest.mark.parametrize(

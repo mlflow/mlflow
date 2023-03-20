@@ -1,5 +1,6 @@
 import { isEqual } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
+import { ErrorWrapper } from '../../../../common/utils/ErrorWrapper';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import Utils from '../../../../common/utils/Utils';
 
@@ -30,7 +31,7 @@ export interface GetExperimentsContextType {
   /**
    * Contains error descriptor if fetching runs failed
    */
-  requestError: any;
+  requestError: ErrorWrapper | null;
 
   /**
    * All experiment-related actions creators

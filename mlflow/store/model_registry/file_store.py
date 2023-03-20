@@ -37,7 +37,7 @@ from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.validation import (
     _validate_registered_model_tag,
     _validate_model_version_tag,
-    _validate_model_name,
+    _validate_model_name as _original_validate_model_name,
     _validate_model_version,
     _validate_tag_name,
 )
@@ -56,6 +56,7 @@ from mlflow.utils.file_utils import (
     make_containing_dirs,
     list_all,
     local_file_uri_to_path,
+    contains_path_separator,
 )
 from mlflow.utils.time_utils import get_current_time_millis
 
@@ -65,6 +66,15 @@ _REGISTRY_DIR_ENV_VAR = "MLFLOW_REGISTRY_DIR"
 
 def _default_root_dir():
     return get_env(_REGISTRY_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+
+
+def _validate_model_name(name):
+    _original_validate_model_name(name)
+    if contains_path_separator(name):
+        raise MlflowException(
+            f"Invalid name: '{name}'. Registered model name cannot contain path separator",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 class FileStore(AbstractStore):
@@ -325,6 +335,7 @@ class FileStore(AbstractStore):
         :param name: Registered model name.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
+        _validate_model_name(name)
         model_path = self._get_registered_model_path(name)
         if not exists(model_path):
             raise MlflowException(

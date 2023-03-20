@@ -56,25 +56,27 @@ export class RequestStateWrapper extends Component {
       ? nextProps.requests.every((r) => r && r.active === false)
       : false;
 
+    const requestErrors = RequestStateWrapper.getErrorRequests(
+      nextProps.requests,
+      nextProps.requestIdsWith404sToIgnore,
+    );
+
     return {
       shouldRender,
-      shouldRenderError:
-        RequestStateWrapper.getErrorRequests(
-          nextProps.requests,
-          nextProps.requestIdsWith404sToIgnore,
-        ).length > 0,
+      shouldRenderError: requestErrors.length > 0,
+      requestErrors,
     };
   }
 
   getRenderedContent() {
     const { children, requests, customSpinner } = this.props;
-    const { shouldRender, shouldRenderError } = this.state;
+    const { shouldRender, shouldRenderError, requestErrors } = this.state;
 
     if (typeof children === 'function') {
       return children(!shouldRender, shouldRenderError, requests);
     } else if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
       if (shouldRenderError) {
-        triggerError(requests);
+        triggerError(requestErrors);
       }
 
       return children;
@@ -91,7 +93,7 @@ export class RequestStateWrapper extends Component {
 export const triggerError = (requests) => {
   // This triggers the OOPS error boundary.
   console.error('ERROR', requests);
-  throw Error(DEFAULT_ERROR_MESSAGE);
+  throw Error(`${DEFAULT_ERROR_MESSAGE}: ${requests.error}`);
 };
 
 const mapStateToProps = (state, ownProps) => ({
