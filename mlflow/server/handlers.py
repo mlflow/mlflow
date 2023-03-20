@@ -748,13 +748,14 @@ def _update_run():
         schema={
             "run_id": [_assert_required, _assert_string],
             "end_time": [_assert_intlike],
+            "start_time": [_assert_intlike],
             "status": [_assert_string],
             "run_name": [_assert_string],
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time, request_message.run_name
+        run_id, request_message.status, request_message.start_time, request_message.end_time, request_message.run_name
     )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
