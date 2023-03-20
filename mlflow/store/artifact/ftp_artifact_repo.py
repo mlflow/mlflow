@@ -25,7 +25,7 @@ class FTPArtifactRepository(ArtifactRepository):
             "username": parsed.username,
             "password": parsed.password,
         }
-        self.path = parsed.path
+        self.path = parsed.path or "/"
 
         if self.config["host"] is None:
             self.config["host"] = "localhost"

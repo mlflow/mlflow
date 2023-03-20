@@ -48,7 +48,7 @@ class SFTPArtifactRepository(ArtifactRepository):
             "username": parsed.username,
             "password": parsed.password,
         }
-        self.path = parsed.path
+        self.path = parsed.path or "/"
 
         import pysftp
         import paramiko
