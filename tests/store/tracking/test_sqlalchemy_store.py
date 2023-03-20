@@ -294,7 +294,7 @@ def test_default_experiment(store):
     assert first.name == "Default"
 
 
-def test_default_experiment_lifecycle(store):
+def test_default_experiment_lifecycle(store, tmp_sqlite_uri):
     default_experiment = store.get_experiment(experiment_id=0)
     assert default_experiment.name == Experiment.DEFAULT_EXPERIMENT_NAME
     assert default_experiment.lifecycle_stage == entities.LifecycleStage.ACTIVE
@@ -315,7 +315,10 @@ def test_default_experiment_lifecycle(store):
 
     # destroy SqlStore and make a new one
     del store
-    # store = self._get_store(self.db_url)
+    db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
+    store = SqlAlchemyStore(
+        db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri, ARTIFACT_URI
+    )
 
     # test that default experiment is not reactivated
     default_experiment = store.get_experiment(experiment_id=0)
