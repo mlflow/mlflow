@@ -11,7 +11,7 @@ from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sourc
 
 class DatasetSourceRegistry:
     def __init__(self):
-        self._sources = {}
+        self._sources = []
 
     def register(self, source: DatasetSource):
         """
@@ -19,7 +19,7 @@ class DatasetSourceRegistry:
 
         :param source: The DatasetSource to register.
         """
-        self._sources[source._get_source_type()] = source
+        self._sources.append(source)
 
     def register_entrypoints(self):
         """
@@ -53,7 +53,7 @@ class DatasetSourceRegistry:
         :return: The resolved DatasetSource.
         """
         matching_sources = []
-        for source in self._sources.values():
+        for source in self._sources:
             if candidate_sources and not any(
                 issubclass(source, candidate_src) for candidate_src in candidate_sources
             ):
@@ -62,11 +62,11 @@ class DatasetSourceRegistry:
                 matching_sources.append(source)
 
         if len(matching_sources) > 1:
-            source_types_str = ", ".join([source._get_source_type() for source in matching_sources])
+            source_class_names_str = ", ".join([source.__name__ for source in matching_sources])
             warnings.warn(
                 f"The specified dataset source can be interpreted in multiple ways:"
-                f" {source_types_str}. MLflow will assume that this is a"
-                f" {matching_sources[0]._get_source_type()} source.",
+                f" {source_class_names_str}. MLflow will assume that this is a"
+                f" {matching_sources[-1].__name__} source.",
                 stacklevel=2,
             )
 
@@ -87,15 +87,15 @@ class DatasetSourceRegistry:
         :param source_type: The string type of the DatasetSource, which indicates how to parse the
                             source JSON.
         """
-        source = self._sources.get(source_type)
-        if source is not None:
-            return source.from_json(source_json)
-        else:
-            raise MlflowException(
-                f"Could not parse dataset source from JSON due to unrecognized"
-                f" source type: {source_type}.",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+        for source in reversed(self._sources):
+            if source._get_source_type() == source_type:
+                return source.from_json(source_json)
+
+        raise MlflowException(
+            f"Could not parse dataset source from JSON due to unrecognized"
+            f" source type: {source_type}.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
 
 
 def register_dataset_source(source: DatasetSource):
