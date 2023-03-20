@@ -21,6 +21,10 @@ _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 # including alphanumerics, underscores, or dashes.
 _EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
 
+# Regex for valid registered model alias names: may only contain alphanumerics,
+# underscores, and dashes.
+_REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
+
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
     " spaces ( ), and slashes (/)."
@@ -361,6 +365,11 @@ def _validate_model_alias_name(model_alias_name):
     if model_alias_name is None or model_alias_name == "":
         raise MlflowException(
             "Registered model alias name cannot be empty.", INVALID_PARAMETER_VALUE
+        )
+    if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
+        raise MlflowException(
+            f"Invalid alias name: '{model_alias_name}'. {_BAD_CHARACTERS_MESSAGE}",
+            INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
         "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name

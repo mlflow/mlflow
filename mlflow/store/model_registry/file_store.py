@@ -668,16 +668,7 @@ class FileStore(AbstractStore):
         self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, updated_time)
 
-    def get_model_version(self, name, version):
-        """
-        Get the model version instance by name and version.
-
-        :param name: Registered model name.
-        :param version: Registered model version.
-        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
-        """
-        _validate_model_name(name)
-        _validate_model_version(version)
+    def _fetch_model_version_if_exists(self, name, version):
         registered_model_version_dir = self._get_model_version_dir(name, version)
         if not exists(registered_model_version_dir):
             raise MlflowException(
@@ -691,6 +682,18 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         return model_version
+
+    def get_model_version(self, name, version):
+        """
+        Get the model version instance by name and version.
+
+        :param name: Registered model name.
+        :param version: Registered model version.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        _validate_model_name(name)
+        _validate_model_version(version)
+        return self._fetch_model_version_if_exists(name, version)
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -779,18 +782,8 @@ class FileStore(AbstractStore):
         _validate_model_name(name)
         _validate_model_version(version)
         _validate_tag_name(tag_name)
+        self._fetch_model_version_if_exists(name, version)
         registered_model_version_path = self._get_model_version_dir(name, version)
-        if not exists(registered_model_version_path):
-            raise MlflowException(
-                f"Model Version (name={name}, version={version}) not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
-        model_version = self._get_model_version_from_dir(registered_model_version_path)
-        if model_version.current_stage == STAGE_DELETED_INTERNAL:
-            raise MlflowException(
-                f"Model Version (name={name}, version={version}) not found",
-                RESOURCE_DOES_NOT_EXIST,
-            )
         return os.path.join(registered_model_version_path, FileStore.TAGS_FOLDER_NAME, tag_name)
 
     def set_model_version_tag(self, name, version, tag):
@@ -847,6 +840,7 @@ class FileStore(AbstractStore):
         :return: None
         """
         alias_path = self._get_registered_model_alias_path(name, alias)
+        self._fetch_model_version_if_exists(name, version)
         make_containing_dirs(alias_path)
         write_to(alias_path, self._writeable_value(version))
         updated_time = get_current_time_millis()
