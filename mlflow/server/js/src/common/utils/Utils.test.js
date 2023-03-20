@@ -457,6 +457,30 @@ test('getGitHubRegex', () => {
   });
 });
 
+test('getRegex', () => {
+  const gitRegex = Utils.getGitRegex();
+  const urlAndExpected = [
+    [
+      'https://custom.git.domain/repo/directory#project/directory',
+      ['https://custom.git.domain', 'repo/directory', 'project/directory'],
+    ],
+    [
+      'git@git.custom.in/repo/directory#project/directory',
+      ['git@git.custom.in', 'repo/directory', 'project/directory'],
+    ],
+    ['https://some-other-site.com?q=github.com/mlflow/mlflow-apps.git', [undefined]],
+    ['ssh@some-server:mlflow/mlflow-apps.git', [undefined]],
+  ];
+  urlAndExpected.forEach((lst) => {
+    const url = lst[0];
+    const match = url.match(gitRegex);
+    if (match) {
+      match[2] = match[2].replace(/.git/, '');
+    }
+    expect([].concat(match?.slice(1))).toEqual(lst[1]);
+  });
+});
+
 test('getMetricPlotStateFromUrl', () => {
   const url0 =
     '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]' +

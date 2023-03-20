@@ -74,7 +74,7 @@ def mock_databricks_host_creds():
 @pytest.fixture
 def store(mock_databricks_host_creds):
     with mock.patch("databricks_cli.configure.provider.get_config"):
-        yield UcModelRegistryStore(registry_uri="databricks-uc", tracking_uri="databricks")
+        yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
 def _args(endpoint, method, json_body, host_creds):

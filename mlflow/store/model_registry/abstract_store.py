@@ -10,10 +10,16 @@ class AbstractStore:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, store_uri=None, tracking_uri=None):
         """
         Empty constructor. This is deliberately not marked as abstract, else every derived class
         would be forced to create one.
+
+        :param store_uri: The model registry store URI
+        :param tracking_uri: URI of the current MLflow tracking server, used to perform operations
+                             like fetching source run metadata or downloading source run artifacts
+                             to support subsequently uploading them to the model registry storage
+                             location
         """
         pass
 

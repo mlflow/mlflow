@@ -35,7 +35,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import Model
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
@@ -96,14 +95,14 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param registry_uri: URI with scheme 'databricks-uc'
+    :param store_uri: URI with scheme 'databricks-uc'
     :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
                          run info and download run artifacts, when creating new model
                          versions from source artifacts logged to an MLflow run.
     """
 
-    def __init__(self, registry_uri, tracking_uri):
-        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
+    def __init__(self, store_uri, tracking_uri):
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
@@ -316,6 +315,11 @@ class UcModelRegistryStore(BaseRestStore):
         return response.headers[_DATABRICKS_ORG_ID_HEADER]
 
     def _validate_model_signature(self, local_model_dir):
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
+        from mlflow.models.model import Model
+
         try:
             model = Model.load(local_model_dir)
         except Exception as e:
