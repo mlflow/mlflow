@@ -2544,10 +2544,11 @@ def test_log_batch_params_max_length_value(store):
         store.log_batch(run.info.run_id, [], param_entities, [])
 
 
-def test_upgrade_cli_idempotence():
+def test_upgrade_cli_idempotence(store, tmp_sqlite_uri):
     # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
     # succeeds and that the DB has the latest schema
-    db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+    db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
+    db_url = db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri
     engine = sqlalchemy.create_engine(db_url)
     assert _get_schema_version(engine) == _get_latest_schema_revision()
     for _ in range(3):
@@ -2556,7 +2557,9 @@ def test_upgrade_cli_idempotence():
     engine.dispose()
 
 
-def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(store):
+def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
+    store, tmp_sqlite_uri
+):
     """
     Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
     the MLflow Tracking SQLite database located at
@@ -2603,21 +2606,20 @@ def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_m
         db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json"
     )
 
-    with TempDir() as tmp_db_dir:
-        db_path = tmp_db_dir.path("tmp_db.sql")
-        db_url = "sqlite:///" + db_path
-        shutil.copyfile(
-            src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
-            dst=db_path,
-        )
+    db_path = tmp_sqlite_uri.replace("sqlite:///", "")
+    db_url = tmp_sqlite_uri
+    shutil.copyfile(
+        src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
+        dst=db_path,
+    )
 
-        invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
-        with open(expected_metric_values_path) as f:
-            expected_metric_values = json.load(f)
+    invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
+    with open(expected_metric_values_path) as f:
+        expected_metric_values = json.load(f)
 
-        for run_id, expected_metrics in expected_metric_values.items():
-            fetched_run = store.get_run(run_id=run_id)
-            assert fetched_run.data.metrics == expected_metrics
+    for run_id, expected_metrics in expected_metric_values.items():
+        fetched_run = store.get_run(run_id=run_id)
+        assert fetched_run.data.metrics == expected_metrics
 
 
 def _generate_large_data(store, nb_runs=1000):
