@@ -872,6 +872,10 @@ class FileStore(AbstractStore):
         if exists(alias_path):
             version = read_file(os.path.dirname(alias_path), os.path.basename(alias_path))
             return self.get_model_version(name, version)
+        else:
+            raise MlflowException(
+                f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
+            )
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):

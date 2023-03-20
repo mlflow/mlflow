@@ -1112,3 +1112,7 @@ class SqlAlchemyStore(AbstractStore):
                     session, name, sql_model_version.to_mlflow_entity()
                 )
                 return model_version_entity
+            else:
+                raise MlflowException(
+                    f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
+                )
