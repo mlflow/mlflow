@@ -102,8 +102,6 @@ def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
     with pytest.raises(MlflowException, match="unrecognized source type: foo"):
         registry.get_source_from_json(source_json='{"bar": "123"}', source_type="foo")
 
-
-def test_resolve_dataset_source_only_considers_candidates_if_specified_using_inheritance(tmp_path):
     class CandidateDatasetSource1(TestDatasetSource):
         @staticmethod
         def _get_source_type() -> str:
