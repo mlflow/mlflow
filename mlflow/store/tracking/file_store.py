@@ -402,7 +402,6 @@ class FileStore(AbstractStore):
         """
         Fetch the experiment.
         Note: This API will search for active as well as deleted experiments.
-
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
@@ -750,7 +749,6 @@ class FileStore(AbstractStore):
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
         Return all logged values for a given metric.
-
         :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
         :param max_results: An indicator for paginated results. This functionality is not
@@ -758,7 +756,6 @@ class FileStore(AbstractStore):
         :param page_token: An indicator for paginated results. This functionality is not
             implemented for FileStore and if the value is overridden with a value other than
             ``None``, an MlflowException will be thrown.
-
         :return: A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
         """
@@ -954,7 +951,6 @@ class FileStore(AbstractStore):
     def set_experiment_tag(self, experiment_id, tag):
         """
         Set a tag for the specified experiment
-
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
@@ -1065,7 +1061,6 @@ class FileStore(AbstractStore):
         Read data from yaml file and return as dictionary, retrying up to
         a specified number of times if the file contents are unexpectedly
         empty due to a concurrent write.
-
         :param root: Directory name.
         :param file_name: File name. Expects to have '.yaml' extension.
         :param retries: The number of times to retry for unexpected empty content.
