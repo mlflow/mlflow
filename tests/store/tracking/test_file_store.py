@@ -1129,10 +1129,10 @@ def test_search_runs_run_name(store):
         run1.info.run_id,
         RunStatus.FINISHED,
         start_time=run1.info.start_time,
-            end_time=run1.info.end_time,
-            run_name="new_run_name1",
-        )
-        result = store.search_runs(
+        end_time=run1.info.end_time,
+        run_name="new_run_name1",
+    )
+    result = store.search_runs(
         [exp_id],
         filter_string="attributes.run_name = 'new_run_name1'",
         run_view_type=ViewType.ACTIVE_ONLY,
