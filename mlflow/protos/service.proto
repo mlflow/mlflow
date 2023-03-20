@@ -742,6 +742,9 @@ message UpdateRun {
   // Updated name of the run.
   optional string run_name = 5;
 
+  //Unix timestamp in milliseconds of when the run started.
+  optional int64 start_time = 6;
+
   message Response {
     // Updated metadata of the run.
     optional RunInfo run_info = 1;
