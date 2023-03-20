@@ -684,8 +684,10 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _populate_model_version_aliases(cls, session, name, version):
-        model_aliases = cls._get_registered_model(session, name).aliases
-        version.aliases = [alias.alias for alias in model_aliases if alias.version == version]
+        model_aliases = cls._get_registered_model(session, name).registered_model_aliases
+        version.aliases = [
+            alias.alias for alias in model_aliases if alias.version == version.version
+        ]
         return version
 
     @classmethod

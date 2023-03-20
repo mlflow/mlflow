@@ -132,6 +132,10 @@ class ModelVersion(_ModelRegistryEntity):
         """List of aliases (string) for the current model version."""
         return self._aliases
 
+    @aliases.setter
+    def aliases(self, aliases):
+        self._aliases = aliases
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically

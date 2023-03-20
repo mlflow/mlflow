@@ -1586,7 +1586,7 @@ def _setup_and_test_aliases(store, model_name):
     store.create_model_version(model_name, "v2", run_id_2)
     store.set_registered_model_alias(model_name, "test_alias", "2")
     model = store.get_registered_model(model_name)
-    assert model.aliases == {"test_alias": "2"}
+    assert model.aliases == {"test_alias": 2}
     mv1 = store.get_model_version(model_name, 1)
     mv2 = store.get_model_version(model_name, 2)
     assert mv1.aliases == []
