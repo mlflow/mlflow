@@ -1,7 +1,6 @@
 import os
 import pathlib
 import shutil
-import unittest
 import re
 from pathlib import Path
 
@@ -2829,40 +2828,41 @@ class TextClauseMatcher:
 
 
 @mock.patch("sqlalchemy.orm.session.Session", spec=True)
-class TestZeroValueInsertion(unittest.TestCase):
-    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-        )
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(spec=SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+    )
 
-    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-        )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+    )
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
-        mock_store = mock.Mock(SqlAlchemyStore)
-        mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
-            mock_store, mock_session
-        )
-        mock_session.execute.assert_called_with(
-            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-        )
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MYSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+
+
+@mock.patch("sqlalchemy.orm.session.Session", spec=True)
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+    mock_store = mock.Mock(SqlAlchemyStore)
+    mock_store.db_type = MSSQL
+    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+    mock_session.execute.assert_called_with(
+        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+    )
 
 
 def test_get_attribute_name():
