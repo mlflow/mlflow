@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # Read the wine-quality csv file from the URL
     csv_url = (
-        "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
     )
     try:
         data = pd.read_csv(csv_url, sep=";")
