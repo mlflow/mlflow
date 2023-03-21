@@ -483,11 +483,10 @@ class TrackingServiceClient:
         :param end_time: If not provided, defaults to the current time."""
         end_time = end_time if end_time else get_current_time_millis()
         status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        run = self.get_run(run_id)
         self.store.update_run_info(
             run_id,
             run_status=RunStatus.from_string(status),
-            start_time=run.info.start_time,
+            start_time=None,
             end_time=end_time,
             run_name=None,
         )
