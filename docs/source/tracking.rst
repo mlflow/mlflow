@@ -545,7 +545,7 @@ containing the following data:
 
 Keras
 -----
-Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras/Tensorflow <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
+Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only ``tensorflow>=2.3`` are supported.
 The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
