@@ -25,9 +25,7 @@ export const MFEAttributesContextProvider = ({
 };
 
 /**
- * MFE attributes passed down from the overarching Databricks application.
- * Currently used and recognized attribute fields:
- * - `initialInteraction` containing intitial performance metrics interaction
+ * MFE attributes passed down from the overarching host application.
  */
 export const useMFEAttributes = () => useContext(MFEAttributesContext) || ({} as MFEAttributesType);
 

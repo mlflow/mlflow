@@ -425,9 +425,9 @@ yarn lint:fix
 
 #### Using MLflow UI as a Web Component (experimental)
 
-It's possible to build and export MLflow as a W3C-compliant Web Component: `<mlflow-ui />` . In order to use this flavor, user needs to build MLflow UI as an importable library and load it into any web application. Then the custom Web cComponent will automatically register itself and MLflow application will be rendered in every place a `<mlflow-ui></mlflow-ui>` HTML element is used. The JS logic, React rendering engine and styles are self-contained within the component and should be isolated from the host application.
+It's possible to build and export MLflow as a W3C-compliant Web Component: `<mlflow-ui />` . In order to use this flavor, user needs to build MLflow UI as an importable library and load it into any web application. Then the custom Web Component will automatically register itself and MLflow application will be rendered in every place a `<mlflow-ui></mlflow-ui>` HTML element is used. The JS logic, React rendering engine and styles are self-contained within the component and should be isolated from the host application.
 
-The purpose for using this the application as a Web Component is enabling interoperability between MLflow UI and the host application. At the current moment, it's possible to provide custom logic for registering models on the run details page. This can be done using specialized API described below.
+The main purpose for this solution is enabling interoperability between MLflow UI and the host web application. At the current moment, it's possible to provide custom logic for registering models on the run details page. This can be done using specialized API described below.
 
 Steps to build and import MLflow UI as a Web Component:
 
