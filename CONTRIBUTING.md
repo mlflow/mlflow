@@ -423,45 +423,6 @@ In `mlflow/server/js`, run the following command to lint your code.
 yarn lint:fix
 ```
 
-#### Using MLflow UI as a Web Component (experimental)
-
-It's possible to build and export MLflow as a W3C-compliant Web Component: `<mlflow-ui />` . In order to use this flavor, user needs to build MLflow UI as an importable library and load it into any web application. Then the custom Web Component will automatically register itself and MLflow application will be rendered in every place a `<mlflow-ui></mlflow-ui>` HTML element is used. The JS logic, React rendering engine and styles are self-contained within the component and should be isolated from the host application.
-
-The main purpose for this solution is enabling interoperability between MLflow UI and the host web application. At the current moment, it's possible to provide custom logic for registering models on the run details page. This can be done using specialized API described below.
-
-Steps to build and import MLflow UI as a Web Component:
-
-1. Build MLflow as a library using following command (executed in `mlflow/server/js` directory):
-
-```sh
-yarn build:library
-```
-
-2. Import the library in the target application (does not need to be React-powered):
-
-```html
-<script src="build/mlflow.js"></script>
-```
-
-3. Embed the MLflow UI using special HTML tag:
-
-```html
-<mlflow-ui></mlflow-ui>
-```
-
-4. (Optional) Register listeners to particular actions within app, e.g. intercept registering ML models:
-
-```javascript
-document.querySelector("mlflow-ui").addMlflowListener("registerModel", (runInfo) => {
-  // Custom code here...
-  console.log(`(...) Custom code for registering model from run #${runInfo.run_uuid}`);
-});
-```
-
-Sample HTML/JS code that communicates with the MLflow UI as a Web Component can be found in `mlflow/server/js/index-demo-web-component.html` file. You need to build the MLflow as a library first, then serve this HTML file using a HTTP server (e.g. `serve`, `http-server` etc.). 
-
-**Note: Just like UI built in a standard way, Web Component assumes that Tracking API is available on the same origin host (under `/ajax-api/2.0/mlflow` endpoint prefix). Some sort of proxying mechanism might be needed, depending on your setup.**
-
 ### R
 
 If contributing to MLflow's R APIs, install
