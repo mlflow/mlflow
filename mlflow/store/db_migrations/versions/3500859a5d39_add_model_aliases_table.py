@@ -35,6 +35,7 @@ def upgrade():
                 sa.ForeignKey(
                     "registered_models.name",
                     onupdate="cascade",
+                    ondelete="cascade",
                     name="registered_model_alias_name_fkey",
                 ),
                 primary_key=True,

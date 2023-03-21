@@ -179,7 +179,10 @@ class SqlRegisteredModelAlias(Base):
     name = Column(
         String(256),
         ForeignKey(
-            "registered_models.name", onupdate="cascade", name="registered_model_alias_name_fkey"
+            "registered_models.name",
+            onupdate="cascade",
+            ondelete="cascade",
+            name="registered_model_alias_name_fkey",
         ),
     )
     alias = Column(String(256), nullable=False)
