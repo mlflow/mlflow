@@ -13,7 +13,7 @@ import os
 import lightning as L
 import torch
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.cli import LightningArgumentParser, LightningCLI
+from lightning.pytorch.cli import LightningCLI
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
 from torchmetrics.functional import accuracy
@@ -23,7 +23,7 @@ import mlflow.pytorch
 
 
 class MNISTDataModule(L.LightningDataModule):
-    def __init__(self, **kwargs):
+    def __init__(self, batch_size=64, num_workers=3):
         """
         Initialization of inherited lightning data module
         """
@@ -34,7 +34,8 @@ class MNISTDataModule(L.LightningDataModule):
         self.train_data_loader = None
         self.val_data_loader = None
         self.test_data_loader = None
-        self.args = kwargs
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
         # transforms for images
         self.transform = transforms.Compose(
@@ -64,9 +65,7 @@ class MNISTDataModule(L.LightningDataModule):
 
         :return: Returns the constructed dataloader
         """
-        return DataLoader(
-            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
-        )
+        return DataLoader(df, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def train_dataloader(self):
         """
@@ -88,7 +87,7 @@ class MNISTDataModule(L.LightningDataModule):
 
 
 class LightningMNISTClassifier(L.LightningModule):
-    def __init__(self, **kwargs):
+    def __init__(self, learning_rate=0.01):
         """
         Initializes the network
         """
@@ -100,7 +99,7 @@ class LightningMNISTClassifier(L.LightningModule):
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
-        self.args = kwargs
+        self.learning_rate = learning_rate
         self.val_outputs = []
         self.test_outputs = []
 
@@ -206,7 +205,7 @@ class LightningMNISTClassifier(L.LightningModule):
 
         :return: output - Initialized optimizer and scheduler
         """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
@@ -221,14 +220,6 @@ class LightningMNISTClassifier(L.LightningModule):
         return [self.optimizer], [self.scheduler]
 
 
-class MNISTLightningCLI(LightningCLI):
-    def add_arguments_to_parser(self, parser: LightningArgumentParser) -> None:
-        parser.add_argument("--model.lr", default=0.001)
-        parser.add_argument("--data.batch_size", default=64)
-        parser.add_argument("--data.num_workers", default=3)
-        return super().add_arguments_to_parser(parser)
-
-
 def cli_main():
     mlflow.pytorch.autolog()
     early_stopping = EarlyStopping(
@@ -239,7 +230,7 @@ def cli_main():
         dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min"
     )
     lr_logger = LearningRateMonitor()
-    cli = MNISTLightningCLI(
+    cli = LightningCLI(
         LightningMNISTClassifier,
         MNISTDataModule,
         run=False,
