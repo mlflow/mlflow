@@ -6,6 +6,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
+from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
+
 
 class DatasetSourceRegistry:
     def __init__(self):
@@ -148,4 +150,5 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
 # dataset sources are registered last because externally-defined behavior should take precedence
 # over any internally-defined generic behavior
 _dataset_source_registry = DatasetSourceRegistry()
+register_artifact_dataset_sources()
 _dataset_source_registry.register_entrypoints()
