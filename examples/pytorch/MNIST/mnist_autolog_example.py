@@ -8,8 +8,11 @@
 # pylint: disable=arguments-differ
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
+import os
+
 import lightning as L
 import torch
+from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
 from lightning.pytorch.cli import LightningArgumentParser, LightningCLI
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
@@ -222,13 +225,27 @@ class MNISTLightningCLI(LightningCLI):
     def add_arguments_to_parser(self, parser: LightningArgumentParser) -> None:
         parser.add_argument("--model.lr", default=0.001)
         parser.add_argument("--data.batch_size", default=64)
-        parser.add_argument("--data.num_workers", default=1)
+        parser.add_argument("--data.num_workers", default=3)
         return super().add_arguments_to_parser(parser)
 
 
 def cli_main():
     mlflow.pytorch.autolog()
-    cli = MNISTLightningCLI(LightningMNISTClassifier, MNISTDataModule, run=False, save_config_callback=None)
+    early_stopping = EarlyStopping(
+        monitor="val_loss",
+    )
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min"
+    )
+    lr_logger = LearningRateMonitor()
+    cli = MNISTLightningCLI(
+        LightningMNISTClassifier,
+        MNISTDataModule,
+        run=False,
+        save_config_callback=None,
+        trainer_defaults={"callbacks": [early_stopping, checkpoint_callback, lr_logger]},
+    )
     cli.trainer.fit(cli.model, datamodule=cli.datamodule)
     cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
