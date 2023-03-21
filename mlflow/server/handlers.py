@@ -755,7 +755,11 @@ def _update_run():
     )
     run_id = request_message.run_id or request_message.run_uuid
     updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.start_time, request_message.end_time, request_message.run_name
+        run_id,
+        request_message.status,
+        request_message.start_time,
+        request_message.end_time,
+        request_message.run_name,
     )
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
