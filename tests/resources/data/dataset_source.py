@@ -19,7 +19,7 @@ class TestDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "test"
 
-    def download(self) -> str:
+    def load(self) -> str:
         # Ignore the "test" URI scheme and download the local path
         parsed_uri = urlparse(self._uri)
         return download_artifacts(parsed_uri.path)

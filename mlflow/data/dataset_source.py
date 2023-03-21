@@ -23,9 +23,10 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def download(self) -> Any:
+    def load(self) -> Any:
         """
-        Downloads the files / objects referred to be this DatasetSource.
+        Loads files / objects referred to by this DatasetSource, e.g. downloads source CSV files
+        from S3 to the local filesystem or loads a Delta Table as a Spark DataFrame.
 
         :return: The downloaded source, e.g. a local filesystem path, a Spark DataFrame, etc.
         """

@@ -78,16 +78,24 @@ def test_to_and_from_json(source_uri, source_type):
         ("viewfs://host_name:8020/path/to/my/dir", "viewfs"),
     ],
 )
-def test_download_makes_expected_mlflow_artifacts_download_call(source_uri, source_type):
+def test_load_makes_expected_mlflow_artifacts_download_call(source_uri, source_type, tmp_path):
     dataset_source = resolve_dataset_source(source_uri)
     assert dataset_source._get_source_type() == source_type
 
     with mock.patch("mlflow.data.artifact_dataset_sources.download_artifacts") as download_imp_mock:
-        dataset_source.download()
-        download_imp_mock.assert_called_once_with(source_uri)
+        dataset_source.load()
+        download_imp_mock.assert_called_once_with(artifact_uri=source_uri, dst_path=None)
+
+    with mock.patch("mlflow.data.artifact_dataset_sources.download_artifacts") as download_imp_mock:
+        dataset_source.load(dst_path=str(tmp_path))
+        download_imp_mock.assert_called_once_with(artifact_uri=source_uri, dst_path=str(tmp_path))
 
 
-def test_local_downloads(tmp_path):
+@pytest.mark.parametrize("dst_path", [None, "dst"])
+def test_local_load(dst_path, tmp_path):
+    if dst_path is not None:
+        dst_path = str(tmp_path / dst_path)
+
     # Test string file paths
     file_path = str(tmp_path / "myfile.txt")
     with open(file_path, "w") as f:
@@ -95,7 +103,7 @@ def test_local_downloads(tmp_path):
 
     file_dataset_source = resolve_dataset_source(file_path)
     assert file_dataset_source._get_source_type() == "local"
-    assert file_dataset_source.download() == file_path
+    assert file_dataset_source.load(dst_path=dst_path) == dst_path or file_path
     with open(file_path, "r") as f:
         assert f.read() == "text"
 
@@ -105,10 +113,14 @@ def test_local_downloads(tmp_path):
 
     dir_dataset_source = resolve_dataset_source(dir_path)
     assert file_dataset_source._get_source_type() == "local"
-    assert dir_dataset_source.download() == str(dir_path)
+    assert dir_dataset_source.load() == dst_path or str(dir_path)
 
 
-def test_s3_downloads(mock_s3_bucket, tmp_path):
+@pytest.mark.parametrize("dst_path", [None, "dst"])
+def test_s3_load(mock_s3_bucket, dst_path, tmp_path):
+    if dst_path is not None:
+        dst_path = str(tmp_path / dst_path)
+
     file_path = str(tmp_path / "myfile.txt")
     with open(file_path, "w") as f:
         f.write("text")
@@ -118,6 +130,8 @@ def test_s3_downloads(mock_s3_bucket, tmp_path):
     s3_source_uri = f"s3://{mock_s3_bucket}/myfile.txt"
     s3_dataset_source = resolve_dataset_source(s3_source_uri)
     assert s3_dataset_source._get_source_type() == "s3"
-    downloaded_source = s3_dataset_source.download()
+    downloaded_source = s3_dataset_source.load(dst_path=dst_path)
+    if dst_path is not None:
+        assert downloaded_source == os.path.join(dst_path, "myfile.txt")
     with open(downloaded_source, "r") as f:
         assert f.read() == "text"

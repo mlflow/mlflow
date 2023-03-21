@@ -3,8 +3,8 @@ import json
 from tests.resources.data.dataset_source import TestDatasetSource
 
 
-def test_download(tmp_path):
-    assert TestDatasetSource("test:" + str(tmp_path)).download() == str(tmp_path)
+def test_load(tmp_path):
+    assert TestDatasetSource("test:" + str(tmp_path)).load() == str(tmp_path)
 
 
 def test_conversion_to_json_and_back():
