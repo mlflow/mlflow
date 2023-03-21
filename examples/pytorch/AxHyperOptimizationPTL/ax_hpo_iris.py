@@ -56,7 +56,12 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
+
+    parser.add_argument(
+        "--max_epochs",
+        default=50,
+        help="number of epochs",
+    )
 
     parser.add_argument(
         "--total_trials",
