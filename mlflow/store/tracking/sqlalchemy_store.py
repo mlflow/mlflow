@@ -553,7 +553,8 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
-            run.start_time = start_time
+            if start_time is not None:
+                run.start_time = start_time
             run.end_time = end_time
             if run_name:
                 run.name = run_name
