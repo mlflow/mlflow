@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 
 export interface MFECustomActionCallbacks {
-  onRegisterModel?: () => void;
+  registerModel?: (...data: any[]) => void;
 }
 
 export interface MFEAttributesType {

@@ -4,7 +4,6 @@ import { CacheProvider, Global } from '@emotion/react';
 import createCache from '@emotion/cache';
 import { prefixer } from 'stylis';
 import { stylisExtraScopePlugin } from './stylisExtraScopePlugin';
-import { MFEAttributesContextProvider } from './MFEAttributesContext';
 import type { MFECustomActionCallbacks } from './MFEAttributesContext';
 import { MLFlowMFERoot } from './MLFlowMFERoot';
 
@@ -139,7 +138,7 @@ const registerMlflowWebComponent = () => {
         const emotionCache = createCache({
           key: 'mlflow-css',
           // We need to inject styles directly into Shadow DOM root
-          // @ts-expect-error emotion types are not valid with
+          // @ts-expect-error fix emotion types
           container: this._shadowRoot,
           // @ts-expect-error emotion types are not compatible with prefixes
           stylisPlugins: [prefixer, stylisExtraScopePlugin('.mlflow-wc-root')],
@@ -148,12 +147,10 @@ const registerMlflowWebComponent = () => {
         });
 
         ReactDOM.render(
-          <MFEAttributesContextProvider value={{}}>
-            <CacheProvider value={emotionCache}>
-              <MLflowWebComponent onCustomCallbacksChange={registerCustomCallbackListChange} />
-              <GlobalMlflowStyles />
-            </CacheProvider>
-          </MFEAttributesContextProvider>,
+          <CacheProvider value={emotionCache}>
+            <MLflowWebComponent onCustomCallbacksChange={registerCustomCallbackListChange} />
+            <GlobalMlflowStyles />
+          </CacheProvider>,
           this._container,
         );
       }
