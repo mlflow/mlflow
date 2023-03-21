@@ -69,6 +69,7 @@ describe('ArtifactView', () => {
       artifactsByRunUuid: { fakeUuid: node },
       artifactRootUriByRunUuid: { fakeUuid: 'test_root' },
       modelVersionsByModel: {},
+      runInfosByUuid: {},
     };
     minimalStore = mockStore({
       entities: minimalEntities,
