@@ -2,6 +2,7 @@ import React from 'react';
 import _ from 'lodash';
 import { Modal, Button } from '@databricks/design-system';
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { withMFEAttributes } from '../../mfe/MFEAttributesContext';
 
 import {
   RegisterModelForm,
@@ -31,6 +32,8 @@ export class RegisterModelButtonImpl extends React.Component {
     modelPath: PropTypes.string,
     // connected props
     modelByName: PropTypes.object.isRequired,
+    appAttributes: PropTypes.object,
+    runInfo: PropTypes.object,
     createRegisteredModelApi: PropTypes.func.isRequired,
     createModelVersionApi: PropTypes.func.isRequired,
     searchModelVersionsApi: PropTypes.func.isRequired,
@@ -56,6 +59,15 @@ export class RegisterModelButtonImpl extends React.Component {
   }
 
   showRegisterModal = () => {
+    // Check if there is a custom action defined for model registration
+    const { registerModel } = this.props.appAttributes?.customActionCallbacks || {};
+    if (registerModel) {
+      // If present, call the custom action listener and return
+      registerModel(this.props.runInfo);
+      return;
+    }
+
+    // If there is no custom action, display regular modal
     this.setState({ visible: true });
   };
 
@@ -195,8 +207,9 @@ export class RegisterModelButtonImpl extends React.Component {
   }
 }
 
-const mapStateToProps = (state) => ({
+const mapStateToProps = (state, ownProps) => ({
   modelByName: state.entities.modelByName,
+  runInfo: state.entities.runInfosByUuid[ownProps.runUuid],
 });
 
 const mapDispatchToProps = {
@@ -207,7 +220,6 @@ const mapDispatchToProps = {
 };
 
 export const RegisterModelButtonWithIntl = injectIntl(RegisterModelButtonImpl);
-export const RegisterModelButton = connect(
-  mapStateToProps,
-  mapDispatchToProps,
-)(RegisterModelButtonWithIntl);
+export const RegisterModelButton = withMFEAttributes(
+  connect(mapStateToProps, mapDispatchToProps)(RegisterModelButtonWithIntl),
+);

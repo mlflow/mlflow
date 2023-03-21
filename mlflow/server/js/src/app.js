@@ -15,7 +15,7 @@ export function MLFlowRoot() {
   return (
     <IntlProvider locale={locale} messages={messages}>
       <Provider store={store}>
-        <DesignSystemContainer flags={{ USE_NEW_ICONS: true }}>
+        <DesignSystemContainer>
           <ConfigProvider prefixCls='ant'>
             <App />
           </ConfigProvider>

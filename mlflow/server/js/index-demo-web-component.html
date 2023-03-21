@@ -1,0 +1,71 @@
+<!--
+  This HTML document is used as a test environment for embedding MLflow as a Web Componant.
+  Instructions:
+  - build MLflow as a standalone library using `yarn build:library` command
+  - serve this file via HTTP (e.g. using serve or http-server package) and open it in the browser
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MLflow UI web component demo</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: sans-serif;
+        background-color: rgb(244, 255, 216);
+      }
+      .app-container {
+        display: grid;
+        grid-template-columns: 350px auto 50px;
+      }
+      .mlflow {
+        background-color: white;
+      }
+      .sidebar {
+        padding: 20px;
+      }
+      ul {
+        background-color: white;
+        padding-top: 16px;
+        padding-bottom: 16px;
+        border: 1px solid #ccc;
+      }
+      mlflow-ui {
+        height: 100vh;
+        display: block;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-container">
+      <div class="sidebar">
+        <h2>Demo application</h2>
+        <p>
+          This is a part of demo host application. On the right, there's a MLflow embedded using
+          <code>&lt;mlflow-ui &sol;&gt;</code> web component.
+        </p>
+        <p><string>Event log:</string></p>
+        <ul></ul>
+      </div>
+      <div class="mlflow">
+        <mlflow-ui></mlflow-ui>
+      </div>
+      <div />
+    </div>
+    <script src="build/mlflow.js"></script>
+    <script>
+      const logEvent = (eventText) => {
+        const eventElement = document.createElement('li');
+        eventElement.innerHTML = `<code>${eventText}</code>`;
+        document.querySelector('ul').appendChild(eventElement);
+      };
+      document.querySelector('mlflow-ui').addMlflowListener('registerModel', (runInfo) => {
+        logEvent(`[registerModel] ${runInfo.run_uuid}`);
+      });
+    </script>
+  </body>
+</html>

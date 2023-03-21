@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const { ModuleFederationPlugin } = require('webpack').container;
 const { execSync } = require('child_process');
+const { configureWebComponentOutput } = require('./scripts/craco-config-utils');
 const webpack = require('webpack');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
@@ -280,6 +281,8 @@ module.exports = function ({ env }) {
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
+        webpackConfig = configureWebComponentOutput(webpackConfig);
+
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;
       },
