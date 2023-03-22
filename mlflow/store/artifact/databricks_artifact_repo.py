@@ -435,6 +435,21 @@ class DatabricksArtifactRepository(ArtifactRepository):
             augmented_raise_for_status(response)
             return response.headers["ETag"]
 
+    def _upload_part_retry(self, cred_info, upload_id, part_number, data):
+        try:
+            return self._upload_part(cred_info, data)
+        except requests.HTTPError as e:
+            if e.response.status_code not in (401, 403):
+                raise e
+            _logger.info(
+                "Failed to authorize request, possibly due to credential expiration."
+                " Refreshing credentials and trying again..."
+            )
+            resp = self._get_presigned_upload_part_url(
+                cred_info.run_id, cred_info.path, upload_id, part_number
+            )
+            return self._upload_part(resp.upload_credential_info, data)
+
     def _upload_parts(self, local_file, run_id, path, upload_id, upload_infos):
         part_etags = []
         # TODO: Parallelize part uploads
@@ -442,20 +457,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for idx, upload_info in enumerate(upload_infos):
                 part_number = idx + 1
                 data = f.read(_MULTIPART_UPLOAD_CHUNK_SIZE)
-                try:
-                    etag = self._upload_part(upload_info, data)
-                    part_etags.append(PartEtag(part_number=part_number, etag=etag))
-                except requests.HTTPError as e:
-                    if e.response.status_code not in (401, 403):
-                        raise e
-
-                    _logger.info(
-                        "Failed to authorize request, possibly due to credential expiration."
-                        " Refreshing credentials and trying again..."
-                    )
-                    resp = self._get_presigned_upload_part_url(run_id, path, upload_id, part_number)
-                    etag = self._upload_part(resp.upload_credential_info, data)
-                    part_etags.append(PartEtag(part_number=part_number, etag=etag))
+                etag = self._upload_part_retry(upload_info, upload_id, part_number, data)
+                part_etags.append(PartEtag(part_number=part_number, etag=etag))
 
         return part_etags
 
