@@ -982,7 +982,7 @@ def autolog(
     Enables autologging for ``tf.keras`` and ``keras``.
     Note that only ``tensorflow>=2.3`` are supported.
     As an example, try running the
-    `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+    `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
     For each TensorFlow module, autologging captures the following information:
 
