@@ -27,7 +27,6 @@ class IterativePrune:
         self.pruning_amount = None
 
     def run_mnist_model(self, base=False):
-        parser_dict = vars(self.parser_args)
         if base:
             mlflow.start_run(run_name="BaseModel")
         mlflow.pytorch.autolog()
