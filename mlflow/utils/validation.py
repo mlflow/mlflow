@@ -30,6 +30,10 @@ _BAD_CHARACTERS_MESSAGE = (
     " spaces ( ), and slashes (/)."
 )
 
+_BAD_ALIAS_CHARACTERS_MESSAGE = (
+    "Names may only contain alphanumerics, underscores (_), and dashes (-)."
+)
+
 _MISSING_KEY_NAME_MESSAGE = "A key name must be provided."
 
 MAX_PARAMS_TAGS_PER_BATCH = 100
@@ -44,7 +48,7 @@ MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
-MAX_REGISTERED_MODEL_ALIAS_LENGTH = 250
+MAX_REGISTERED_MODEL_ALIAS_LENGTH = 256
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
 
@@ -368,7 +372,7 @@ def _validate_model_alias_name(model_alias_name):
         )
     if not _REGISTERED_MODEL_ALIAS_REGEX.match(model_alias_name):
         raise MlflowException(
-            f"Invalid alias name: '{model_alias_name}'. {_BAD_CHARACTERS_MESSAGE}",
+            f"Invalid alias name: '{model_alias_name}'. {_BAD_ALIAS_CHARACTERS_MESSAGE}",
             INVALID_PARAMETER_VALUE,
         )
     _validate_length_limit(
