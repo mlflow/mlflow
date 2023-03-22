@@ -25,10 +25,12 @@ This chart has three dependencies:
 
 To install the chart with the release name `mlflow`:
 
-```console
+```bash
 helm install mlflow /path/to/chart
 ```
+
 > Depending on your cluster, you will likely want to set the following values:
+>
 > - `minio.persistence.storageClass`
 > - `mlflow.service.type=NodePort` or configure ingress
 > - `minio.service.type-NodePort` or configure ingress
@@ -43,7 +45,7 @@ cluster in the default configuration.
 
 To uninstall/delete the `mlflow` deployment:
 
-```console
+```bash
 helm delete mlflow
 ```
 
@@ -55,7 +57,7 @@ See `values.yaml` for all the helm chart parameters and descriptions
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
-```console
+```bash
 helm install mlflow \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   mlflow-quickstart/mlflow
@@ -63,6 +65,6 @@ helm install mlflow \
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
-```console
+```bash
 helm install mlflow -f values.yaml mlflow/mlflow
 ```

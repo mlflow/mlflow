@@ -38,6 +38,9 @@ def config():
 
 
 def test_kubernetes_tracking_server(model, model_signature, config):
+    """
+    Test logging a model to mlflow and MinIO deployed with mlflow-quickstart chart.
+    """
 
     with mock.patch.dict(os.environ, config):
         experiment = mlflow.get_experiment_by_name("test")
@@ -48,11 +51,11 @@ def test_kubernetes_tracking_server(model, model_signature, config):
 
         with mlflow.start_run(experiment_id=experiment_id):
             mlflow.sklearn.log_model(
-                sk_model=model, 
+                sk_model=model,
                 artifact_path="model",
                 signature=model_signature,
                 registered_model_name="test-model",
-                pip_requirements=['sklearn'],
+                pip_requirements=["sklearn"],
             )
-        
-        mlflow.pyfunc.load_model('models:/test-model/None')
+
+        mlflow.pyfunc.load_model("models:/test-model/None")
