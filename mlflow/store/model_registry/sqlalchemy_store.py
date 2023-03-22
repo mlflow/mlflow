@@ -1042,7 +1042,7 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _get_registered_model_alias(cls, session, name, alias):
-        aliases = (
+        alias = (
             session.query(SqlRegisteredModelAlias)
             .filter(
                 SqlRegisteredModelAlias.name == name,
@@ -1050,15 +1050,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             .first()
         )
-        if len(aliases) == 0:
-            return None
-        if len(aliases) > 1:
-            raise MlflowException(
-                "Expected only 1 registered model alias with name={}, alias={}. "
-                "Found {}.".format(name, alias, len(aliases)),
-                INVALID_STATE,
-            )
-        return aliases[0]
+        return alias
 
     def set_registered_model_alias(self, name, alias, version):
         """

@@ -573,6 +573,7 @@ class FileStore(AbstractStore):
                     run_id=run_id,
                     run_link=run_link,
                     tags=tags,
+                    aliases=[],
                 )
                 model_version_dir = self._get_model_version_dir(name, version)
                 mkdir(model_version_dir)

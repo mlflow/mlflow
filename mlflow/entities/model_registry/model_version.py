@@ -193,9 +193,8 @@ class ModelVersion(_ModelRegistryEntity):
             model_version.status = ModelVersionStatus.from_string(self.status)
         if self.status_message:
             model_version.status_message = self.status_message
-        if self.aliases:
-            model_version.aliases = self.aliases
         model_version.tags.extend(
             [ProtoModelVersionTag(key=key, value=value) for key, value in self._tags.items()]
         )
+        model_version.aliases.extend(self.aliases)
         return model_version
