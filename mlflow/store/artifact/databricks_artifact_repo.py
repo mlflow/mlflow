@@ -450,14 +450,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             return self._upload_part(resp.upload_credential_info, data)
 
-    def _upload_parts(self, local_file, run_id, path, upload_id, upload_infos):
+    def _upload_parts(self, local_file, create_mpu_resp):
         part_etags = []
         # TODO: Parallelize part uploads
         with open(local_file, "rb") as f:
-            for idx, upload_info in enumerate(upload_infos):
+            for idx, upload_info in enumerate(create_mpu_resp.upload_credential_infos):
                 part_number = idx + 1
                 data = f.read(_MULTIPART_UPLOAD_CHUNK_SIZE)
-                etag = self._upload_part_retry(upload_info, upload_id, part_number, data)
+                etag = self._upload_part_retry(
+                    upload_info, create_mpu_resp.upload_id, part_number, data
+                )
                 part_etags.append(PartEtag(part_number=part_number, etag=etag))
 
         return part_etags
@@ -488,13 +490,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         num_parts = math.ceil(os.path.getsize(local_file) / _MULTIPART_UPLOAD_CHUNK_SIZE)
         create_mpu_resp = self._create_multipart_upload(self.run_id, artifact_path, num_parts)
         try:
-            part_etags = self._upload_parts(
-                local_file,
-                self.run_id,
-                artifact_path,
-                create_mpu_resp.upload_id,
-                create_mpu_resp.upload_credential_infos,
-            )
+            part_etags = self._upload_parts(local_file, create_mpu_resp)
             self._complete_multipart_upload(
                 self.run_id,
                 artifact_path,
