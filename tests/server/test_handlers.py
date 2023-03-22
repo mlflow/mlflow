@@ -734,9 +734,25 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
     name = "model1"
     alias = "test_alias"
     mock_get_request_message.return_value = GetModelVersionByAlias(name=name, alias=alias)
-    _get_model_version_by_alias()
+    mvd = ModelVersion(
+        name="model1",
+        version="5",
+        creation_timestamp=1,
+        last_updated_timestamp=12,
+        description="v 5",
+        user_id="u1",
+        current_stage="Production",
+        source="A/B",
+        run_id=uuid.uuid4().hex,
+        status="READY",
+        status_message=None,
+        aliases=["test_alias"],
+    )
+    mock_model_registry_store.get_model_version.return_value = mvd
+    resp = _get_model_version_by_alias()
     _, args = mock_model_registry_store.get_model_version_by_alias.call_args
     assert args == {"name": name, "alias": alias}
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")

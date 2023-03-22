@@ -1618,7 +1618,7 @@ def _delete_registered_model_alias():
             "alias": [_assert_string, _assert_required],
         },
     )
-    _get_model_registry_store().set_registered_model_alias(
+    _get_model_registry_store().delete_registered_model_alias(
         name=request_message.name, alias=request_message.alias
     )
     return _wrap_response(DeleteRegisteredModelAlias.Response())
