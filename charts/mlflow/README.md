@@ -1,11 +1,11 @@
 # mlflow Helm Chart
 
-MLflow is an open source platform for managing the end-to-end machine 
+MLflow is an open source platform for managing the end-to-end machine
 learning lifecycle.
 
 ## TL;DR
 
-```console
+```bash
 helm install mlflow /path/to/chart \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
@@ -36,7 +36,7 @@ The helm chart supports the following storage providers:
 
 To install the chart with the release name `mlflow`:
 
-```console
+```bash
 helm install mlflow \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
@@ -52,7 +52,7 @@ helm install mlflow \
 
 To uninstall/delete the `mlflow` deployment:
 
-```console
+```bash
 helm delete mlflow
 ```
 
@@ -64,7 +64,7 @@ See `values.yaml` for all the helm chart parameters and descriptions
 
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
-```console
+```bash
 helm install mlflow \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
@@ -74,6 +74,6 @@ helm install mlflow \
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
-```console
+```bash
 helm install mlflow -f values.yaml mlflow/mlflow
 ```
