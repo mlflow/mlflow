@@ -748,7 +748,7 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
         status_message=None,
         aliases=["test_alias"],
     )
-    mock_model_registry_store.get_model_version.return_value = mvd
+    mock_model_registry_store.get_model_version_by_alias.return_value = mvd
     resp = _get_model_version_by_alias()
     _, args = mock_model_registry_store.get_model_version_by_alias.call_args
     assert args == {"name": name, "alias": alias}
