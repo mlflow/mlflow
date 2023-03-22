@@ -321,7 +321,7 @@ def cloud_storage_http_request(
 
     :return requests.Response object.
     """
-    if method.lower() not in ("put", "get", "patch"):
+    if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
     try:
         with _get_http_response_with_retries(
