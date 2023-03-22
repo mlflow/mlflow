@@ -103,7 +103,7 @@ def main(prev_version, release_version, remote):
     release_tag = f"v{prev_version}"
     ver = Version(release_version)
     branch = "master" if ver.micro == 0 else f"branch-{ver.major}.{ver.minor}"
-    subprocess.check_call(["git", "fetch", remote, release_tag])
+    subprocess.check_call(["git", "fetch", remote, "tag", release_tag])
     subprocess.check_call(["git", "fetch", remote, branch])
     git_log_output = subprocess.check_output(
         [
