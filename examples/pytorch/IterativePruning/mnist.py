@@ -8,22 +8,16 @@
 # pylint: disable=arguments-differ
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
-import pytorch_lightning as pl
+import lightning as L
 import torch
-import mlflow.pytorch
-from argparse import ArgumentParser
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
+from torchmetrics.functional import accuracy
 from torchvision import datasets, transforms
 
-try:
-    from torchmetrics.functional import accuracy
-except ImportError:
-    from pytorch_lightning.metrics.functional import accuracy
 
-
-class MNISTDataModule(pl.LightningDataModule):
-    def __init__(self, **kwargs):
+class MNISTDataModule(L.LightningDataModule):
+    def __init__(self, batch_size=64, num_workers=4):
         """
         Initialization of inherited lightning data module
         """
@@ -34,7 +28,8 @@ class MNISTDataModule(pl.LightningDataModule):
         self.train_data_loader = None
         self.val_data_loader = None
         self.test_data_loader = None
-        self.args = kwargs
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
         # transforms for images
         self.transform = transforms.Compose(
@@ -64,9 +59,7 @@ class MNISTDataModule(pl.LightningDataModule):
 
         :return: Returns the constructed dataloader
         """
-        return DataLoader(
-            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
-        )
+        return DataLoader(df, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def train_dataloader(self):
         """
@@ -87,8 +80,8 @@ class MNISTDataModule(pl.LightningDataModule):
         return self.create_data_loader(self.df_test)
 
 
-class LightningMNISTClassifier(pl.LightningModule):
-    def __init__(self, **kwargs):
+class LightningMNISTClassifier(L.LightningModule):
+    def __init__(self, learning_rate=0.01):
         """
         Initializes the network
         """
@@ -100,33 +93,9 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
-        self.args = kwargs
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument(
-            "--batch_size",
-            type=int,
-            default=64,
-            metavar="N",
-            help="input batch size for training (default: 64)",
-        )
-        parser.add_argument(
-            "--num_workers",
-            type=int,
-            default=3,
-            metavar="N",
-            help="number of workers (default: 3)",
-        )
-        parser.add_argument(
-            "--lr",
-            type=float,
-            default=0.001,
-            metavar="LR",
-            help="learning rate (default: 0.001)",
-        )
-        return parser
+        self.learning_rate = learning_rate
+        self.val_outputs = []
+        self.test_outputs = []
 
     def forward(self, x):
         """
@@ -189,18 +158,16 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = val_batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
+        self.val_outputs.append(loss)
         return {"val_loss": loss}
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         """
-        Computes average validation accuracy
-
-        :param outputs: outputs after every epoch end
-
-        :return: output - average valid loss
+        Computes average validation loss
         """
-        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
+        avg_loss = torch.stack(self.val_outputs).mean()
         self.log("val_loss", avg_loss, sync_dist=True)
+        self.val_outputs.clear()
 
     def test_step(self, test_batch, batch_idx):
         """
@@ -215,18 +182,16 @@ class LightningMNISTClassifier(pl.LightningModule):
         output = self.forward(x)
         _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy(y_hat.cpu(), y.cpu(), task="multiclass", num_classes=10)
+        self.test_outputs.append(test_acc)
         return {"test_acc": test_acc}
 
-    def test_epoch_end(self, outputs):
+    def on_test_epoch_end(self):
         """
         Computes average test accuracy score
-
-        :param outputs: outputs after every epoch end
-
-        :return: output - average test loss
         """
-        avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
-        self.log("avg_test_acc", avg_test_acc)
+        avg_test_acc = torch.stack(self.test_outputs).mean()
+        self.log("avg_test_acc", avg_test_acc, sync_dist=True)
+        self.test_outputs.clear()
 
     def configure_optimizers(self):
         """
@@ -234,7 +199,7 @@ class LightningMNISTClassifier(pl.LightningModule):
 
         :return: output - Initialized optimizer and scheduler
         """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
@@ -247,27 +212,3 @@ class LightningMNISTClassifier(pl.LightningModule):
             "monitor": "val_loss",
         }
         return [self.optimizer], [self.scheduler]
-
-
-if __name__ == "__main__":
-    parser = ArgumentParser(description="PyTorch autolog Mnist Example")
-
-    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
-    parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
-
-    mlflow.pytorch.autolog(log_every_n_epoch=2)
-
-    args = parser.parse_args()
-    dict_args = vars(args)
-
-    if "accelerator" in dict_args:
-        if dict_args["accelerator"] == "None":
-            dict_args["accelerator"] = None
-
-    dm = MNISTDataModule(**dict_args)
-    dm.setup(stage="fit")
-
-    model = LightningMNISTClassifier(**dict_args)
-    trainer = pl.Trainer.from_argparse_args(args)
-    trainer.fit(model, dm)
-    trainer.test(datamodule=dm)
