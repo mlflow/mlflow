@@ -126,13 +126,13 @@ class BertDataModule(L.LightningDataModule):
         self.RANDOM_SEED = 42
         self.news_group_df = None
 
-    def prepare_data(self):
+    def setup(self, stage=None):
         """
-        Downloads the ag_news or 20newsgroup dataset and initializes bert tokenizer
-        """
-        np.random.seed(self.RANDOM_SEED)
-        torch.manual_seed(self.RANDOM_SEED)
+        Split the data into train, test, validation data
 
+        :param stage: Stage - training or testing
+        """
+        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
         if self.dataset == "20newsgroups":
             num_samples = self.num_samples
             self.news_group_df = (
@@ -145,14 +145,6 @@ class BertDataModule(L.LightningDataModule):
             self.train_dataset = to_map_style_dataset(train_iter)
             self.test_dataset = to_map_style_dataset(test_iter)
 
-        self.tokenizer = BertTokenizer.from_pretrained(self.PRE_TRAINED_MODEL_NAME)
-
-    def setup(self, stage=None):
-        """
-        Split the data into train, test, validation data
-
-        :param stage: Stage - training or testing
-        """
         if stage == "fit":
             if self.dataset == "20newsgroups":
                 self.train_dataset, self.test_dataset = train_test_split(
