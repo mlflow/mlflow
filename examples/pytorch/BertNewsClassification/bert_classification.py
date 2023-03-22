@@ -358,13 +358,12 @@ class BertNewsClassifier(L.LightningModule):
         return [self.optimizer], [self.scheduler]
 
 
-class MNISTLightningCLI(LightningCLI):
+class BertLightningCLI(LightningCLI):
     def add_arguments_to_parser(self, parser):
         parser.link_arguments("data.dataset", "model.dataset")
 
 
 def cli_main():
-    mlflow.pytorch.autolog()
     early_stopping = EarlyStopping(
         monitor="val_loss",
     )
@@ -373,13 +372,15 @@ def cli_main():
         dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min"
     )
     lr_logger = LearningRateMonitor()
-    cli = MNISTLightningCLI(
+    cli = BertLightningCLI(
         BertNewsClassifier,
         BertDataModule,
         run=False,
         save_config_callback=None,
         trainer_defaults={"callbacks": [early_stopping, checkpoint_callback, lr_logger]},
     )
+    if cli.trainer.global_rank == 0:
+        mlflow.pytorch.autolog()
     # cli.model=torch.compile(cli.model)
     cli.trainer.fit(cli.model, datamodule=cli.datamodule)
     cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)

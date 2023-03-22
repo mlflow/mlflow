@@ -221,7 +221,6 @@ class LightningMNISTClassifier(L.LightningModule):
 
 
 def cli_main():
-    mlflow.pytorch.autolog()
     early_stopping = EarlyStopping(
         monitor="val_loss",
     )
@@ -237,6 +236,8 @@ def cli_main():
         save_config_callback=None,
         trainer_defaults={"callbacks": [early_stopping, checkpoint_callback, lr_logger]},
     )
+    if cli.trainer.global_rank == 0:
+        mlflow.pytorch.autolog()
     cli.trainer.fit(cli.model, datamodule=cli.datamodule)
     cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
