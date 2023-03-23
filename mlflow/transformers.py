@@ -415,10 +415,7 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
 
                         .. code-block:: python
 
-                          {
-                            "model": BertForSequenceClassification,
-                            "tokenizer": BertTokenizerFast
-                          }
+                          {"model": BertForSequenceClassification, "tokenizer": BertTokenizerFast}
 
                         Vision models will return an ``ImageProcessor`` instance of the appropriate
                         type, while multi-modal models will return both a ``FeatureExtractor`` and

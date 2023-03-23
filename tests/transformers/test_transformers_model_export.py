@@ -356,7 +356,7 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
 
 
 def test_component_saving_multi_modal(component_multi_modal, model_path):
-    processor, model, tokenizer = component_multi_modal
+    processor, model, _ = component_multi_modal
     mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
     expected = {"tokenizer", "processor", "image_processor", "feature_extractor"}
     components_dir = model_path.joinpath("components")
@@ -414,7 +414,7 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
 
 
 def test_multi_modal_component_save_and_load(component_multi_modal, model_path, image_for_test):
-    processor, model, tokenizer = component_multi_modal
+    processor, model, _ = component_multi_modal
     mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
     # Ensure that the appropriate Processor object was detected and loaded with the pipeline.
     loaded_components = mlflow.transformers.load_model(
@@ -436,7 +436,7 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
 
 
 def test_processor_type_model_loaded_as_pipeline_raises(component_multi_modal, model_path):
-    processor, model, tokenizer = component_multi_modal
+    processor, model, _ = component_multi_modal
     mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
     with pytest.raises(
         MlflowException,
