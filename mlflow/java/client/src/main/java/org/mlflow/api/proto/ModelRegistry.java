@@ -367,6 +367,50 @@ public final class ModelRegistry {
      */
     org.mlflow.api.proto.ModelRegistry.RegisteredModelTagOrBuilder getTagsOrBuilder(
         int index);
+
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> 
+        getAliasesList();
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getAliases(int index);
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    int getAliasesCount();
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder> 
+        getAliasesOrBuilderList();
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder getAliasesOrBuilder(
+        int index);
   }
   /**
    * Protobuf type {@code mlflow.RegisteredModel}
@@ -386,6 +430,7 @@ public final class ModelRegistry {
       description_ = "";
       latestVersions_ = java.util.Collections.emptyList();
       tags_ = java.util.Collections.emptyList();
+      aliases_ = java.util.Collections.emptyList();
     }
 
     @java.lang.Override
@@ -465,6 +510,15 @@ public final class ModelRegistry {
                   input.readMessage(org.mlflow.api.proto.ModelRegistry.RegisteredModelTag.PARSER, extensionRegistry));
               break;
             }
+            case 66: {
+              if (!((mutable_bitField0_ & 0x00000080) != 0)) {
+                aliases_ = new java.util.ArrayList<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias>();
+                mutable_bitField0_ |= 0x00000080;
+              }
+              aliases_.add(
+                  input.readMessage(org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.PARSER, extensionRegistry));
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -485,6 +539,9 @@ public final class ModelRegistry {
         }
         if (((mutable_bitField0_ & 0x00000040) != 0)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
+        }
+        if (((mutable_bitField0_ & 0x00000080) != 0)) {
+          aliases_ = java.util.Collections.unmodifiableList(aliases_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -866,6 +923,66 @@ public final class ModelRegistry {
       return tags_.get(index);
     }
 
+    public static final int ALIASES_FIELD_NUMBER = 8;
+    private java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> aliases_;
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    @java.lang.Override
+    public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> getAliasesList() {
+      return aliases_;
+    }
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    @java.lang.Override
+    public java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder> 
+        getAliasesOrBuilderList() {
+      return aliases_;
+    }
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    @java.lang.Override
+    public int getAliasesCount() {
+      return aliases_.size();
+    }
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getAliases(int index) {
+      return aliases_.get(index);
+    }
+    /**
+     * <pre>
+     * Aliases pointing to model versions associated with this ``registered_model``.
+     * </pre>
+     *
+     * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+     */
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder getAliasesOrBuilder(
+        int index) {
+      return aliases_.get(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -901,6 +1018,9 @@ public final class ModelRegistry {
       for (int i = 0; i < tags_.size(); i++) {
         output.writeMessage(7, tags_.get(i));
       }
+      for (int i = 0; i < aliases_.size(); i++) {
+        output.writeMessage(8, aliases_.get(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -934,6 +1054,10 @@ public final class ModelRegistry {
       for (int i = 0; i < tags_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(7, tags_.get(i));
+      }
+      for (int i = 0; i < aliases_.size(); i++) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(8, aliases_.get(i));
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -979,6 +1103,8 @@ public final class ModelRegistry {
           .equals(other.getLatestVersionsList())) return false;
       if (!getTagsList()
           .equals(other.getTagsList())) return false;
+      if (!getAliasesList()
+          .equals(other.getAliasesList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1019,6 +1145,10 @@ public final class ModelRegistry {
       if (getTagsCount() > 0) {
         hash = (37 * hash) + TAGS_FIELD_NUMBER;
         hash = (53 * hash) + getTagsList().hashCode();
+      }
+      if (getAliasesCount() > 0) {
+        hash = (37 * hash) + ALIASES_FIELD_NUMBER;
+        hash = (53 * hash) + getAliasesList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1150,6 +1280,7 @@ public final class ModelRegistry {
                 .alwaysUseFieldBuilders) {
           getLatestVersionsFieldBuilder();
           getTagsFieldBuilder();
+          getAliasesFieldBuilder();
         }
       }
       @java.lang.Override
@@ -1176,6 +1307,12 @@ public final class ModelRegistry {
           bitField0_ = (bitField0_ & ~0x00000040);
         } else {
           tagsBuilder_.clear();
+        }
+        if (aliasesBuilder_ == null) {
+          aliases_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000080);
+        } else {
+          aliasesBuilder_.clear();
         }
         return this;
       }
@@ -1242,6 +1379,15 @@ public final class ModelRegistry {
           result.tags_ = tags_;
         } else {
           result.tags_ = tagsBuilder_.build();
+        }
+        if (aliasesBuilder_ == null) {
+          if (((bitField0_ & 0x00000080) != 0)) {
+            aliases_ = java.util.Collections.unmodifiableList(aliases_);
+            bitField0_ = (bitField0_ & ~0x00000080);
+          }
+          result.aliases_ = aliases_;
+        } else {
+          result.aliases_ = aliasesBuilder_.build();
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -1362,6 +1508,32 @@ public final class ModelRegistry {
                    getTagsFieldBuilder() : null;
             } else {
               tagsBuilder_.addAllMessages(other.tags_);
+            }
+          }
+        }
+        if (aliasesBuilder_ == null) {
+          if (!other.aliases_.isEmpty()) {
+            if (aliases_.isEmpty()) {
+              aliases_ = other.aliases_;
+              bitField0_ = (bitField0_ & ~0x00000080);
+            } else {
+              ensureAliasesIsMutable();
+              aliases_.addAll(other.aliases_);
+            }
+            onChanged();
+          }
+        } else {
+          if (!other.aliases_.isEmpty()) {
+            if (aliasesBuilder_.isEmpty()) {
+              aliasesBuilder_.dispose();
+              aliasesBuilder_ = null;
+              aliases_ = other.aliases_;
+              bitField0_ = (bitField0_ & ~0x00000080);
+              aliasesBuilder_ = 
+                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
+                   getAliasesFieldBuilder() : null;
+            } else {
+              aliasesBuilder_.addAllMessages(other.aliases_);
             }
           }
         }
@@ -2476,6 +2648,318 @@ public final class ModelRegistry {
         }
         return tagsBuilder_;
       }
+
+      private java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> aliases_ =
+        java.util.Collections.emptyList();
+      private void ensureAliasesIsMutable() {
+        if (!((bitField0_ & 0x00000080) != 0)) {
+          aliases_ = new java.util.ArrayList<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias>(aliases_);
+          bitField0_ |= 0x00000080;
+         }
+      }
+
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder> aliasesBuilder_;
+
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> getAliasesList() {
+        if (aliasesBuilder_ == null) {
+          return java.util.Collections.unmodifiableList(aliases_);
+        } else {
+          return aliasesBuilder_.getMessageList();
+        }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public int getAliasesCount() {
+        if (aliasesBuilder_ == null) {
+          return aliases_.size();
+        } else {
+          return aliasesBuilder_.getCount();
+        }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getAliases(int index) {
+        if (aliasesBuilder_ == null) {
+          return aliases_.get(index);
+        } else {
+          return aliasesBuilder_.getMessage(index);
+        }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder setAliases(
+          int index, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias value) {
+        if (aliasesBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureAliasesIsMutable();
+          aliases_.set(index, value);
+          onChanged();
+        } else {
+          aliasesBuilder_.setMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder setAliases(
+          int index, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder builderForValue) {
+        if (aliasesBuilder_ == null) {
+          ensureAliasesIsMutable();
+          aliases_.set(index, builderForValue.build());
+          onChanged();
+        } else {
+          aliasesBuilder_.setMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder addAliases(org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias value) {
+        if (aliasesBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureAliasesIsMutable();
+          aliases_.add(value);
+          onChanged();
+        } else {
+          aliasesBuilder_.addMessage(value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder addAliases(
+          int index, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias value) {
+        if (aliasesBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          ensureAliasesIsMutable();
+          aliases_.add(index, value);
+          onChanged();
+        } else {
+          aliasesBuilder_.addMessage(index, value);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder addAliases(
+          org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder builderForValue) {
+        if (aliasesBuilder_ == null) {
+          ensureAliasesIsMutable();
+          aliases_.add(builderForValue.build());
+          onChanged();
+        } else {
+          aliasesBuilder_.addMessage(builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder addAliases(
+          int index, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder builderForValue) {
+        if (aliasesBuilder_ == null) {
+          ensureAliasesIsMutable();
+          aliases_.add(index, builderForValue.build());
+          onChanged();
+        } else {
+          aliasesBuilder_.addMessage(index, builderForValue.build());
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder addAllAliases(
+          java.lang.Iterable<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias> values) {
+        if (aliasesBuilder_ == null) {
+          ensureAliasesIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, aliases_);
+          onChanged();
+        } else {
+          aliasesBuilder_.addAllMessages(values);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder clearAliases() {
+        if (aliasesBuilder_ == null) {
+          aliases_ = java.util.Collections.emptyList();
+          bitField0_ = (bitField0_ & ~0x00000080);
+          onChanged();
+        } else {
+          aliasesBuilder_.clear();
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public Builder removeAliases(int index) {
+        if (aliasesBuilder_ == null) {
+          ensureAliasesIsMutable();
+          aliases_.remove(index);
+          onChanged();
+        } else {
+          aliasesBuilder_.remove(index);
+        }
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder getAliasesBuilder(
+          int index) {
+        return getAliasesFieldBuilder().getBuilder(index);
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder getAliasesOrBuilder(
+          int index) {
+        if (aliasesBuilder_ == null) {
+          return aliases_.get(index);  } else {
+          return aliasesBuilder_.getMessageOrBuilder(index);
+        }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public java.util.List<? extends org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder> 
+           getAliasesOrBuilderList() {
+        if (aliasesBuilder_ != null) {
+          return aliasesBuilder_.getMessageOrBuilderList();
+        } else {
+          return java.util.Collections.unmodifiableList(aliases_);
+        }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder addAliasesBuilder() {
+        return getAliasesFieldBuilder().addBuilder(
+            org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder addAliasesBuilder(
+          int index) {
+        return getAliasesFieldBuilder().addBuilder(
+            index, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.getDefaultInstance());
+      }
+      /**
+       * <pre>
+       * Aliases pointing to model versions associated with this ``registered_model``.
+       * </pre>
+       *
+       * <code>repeated .mlflow.RegisteredModelAlias aliases = 8;</code>
+       */
+      public java.util.List<org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder> 
+           getAliasesBuilderList() {
+        return getAliasesFieldBuilder().getBuilderList();
+      }
+      private com.google.protobuf.RepeatedFieldBuilderV3<
+          org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder> 
+          getAliasesFieldBuilder() {
+        if (aliasesBuilder_ == null) {
+          aliasesBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
+              org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias, org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.Builder, org.mlflow.api.proto.ModelRegistry.RegisteredModelAliasOrBuilder>(
+                  aliases_,
+                  ((bitField0_ & 0x00000080) != 0),
+                  getParentForChildren(),
+                  isClean());
+          aliases_ = null;
+        }
+        return aliasesBuilder_;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -2900,6 +3384,47 @@ public final class ModelRegistry {
      */
     com.google.protobuf.ByteString
         getRunLinkBytes();
+
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @return A list containing the aliases.
+     */
+    java.util.List<java.lang.String>
+        getAliasesList();
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @return The count of aliases.
+     */
+    int getAliasesCount();
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @param index The index of the element to return.
+     * @return The aliases at the given index.
+     */
+    java.lang.String getAliases(int index);
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the aliases at the given index.
+     */
+    com.google.protobuf.ByteString
+        getAliasesBytes(int index);
   }
   /**
    * Protobuf type {@code mlflow.ModelVersion}
@@ -2925,6 +3450,7 @@ public final class ModelRegistry {
       statusMessage_ = "";
       tags_ = java.util.Collections.emptyList();
       runLink_ = "";
+      aliases_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -3043,6 +3569,15 @@ public final class ModelRegistry {
               runLink_ = bs;
               break;
             }
+            case 114: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00002000) != 0)) {
+                aliases_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00002000;
+              }
+              aliases_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -3060,6 +3595,9 @@ public final class ModelRegistry {
       } finally {
         if (((mutable_bitField0_ & 0x00000800) != 0)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
+        }
+        if (((mutable_bitField0_ & 0x00002000) != 0)) {
+          aliases_ = aliases_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -3766,6 +4304,57 @@ public final class ModelRegistry {
       }
     }
 
+    public static final int ALIASES_FIELD_NUMBER = 14;
+    private com.google.protobuf.LazyStringList aliases_;
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @return A list containing the aliases.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getAliasesList() {
+      return aliases_;
+    }
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @return The count of aliases.
+     */
+    public int getAliasesCount() {
+      return aliases_.size();
+    }
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @param index The index of the element to return.
+     * @return The aliases at the given index.
+     */
+    public java.lang.String getAliases(int index) {
+      return aliases_.get(index);
+    }
+    /**
+     * <pre>
+     * Aliases pointing to this ``model_version``.
+     * </pre>
+     *
+     * <code>repeated string aliases = 14;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the aliases at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getAliasesBytes(int index) {
+      return aliases_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -3819,6 +4408,9 @@ public final class ModelRegistry {
       if (((bitField0_ & 0x00000800) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 13, runLink_);
       }
+      for (int i = 0; i < aliases_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 14, aliases_.getRaw(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -3870,6 +4462,14 @@ public final class ModelRegistry {
       }
       if (((bitField0_ & 0x00000800) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, runLink_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < aliases_.size(); i++) {
+          dataSize += computeStringSizeNoTag(aliases_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getAliasesList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -3947,6 +4547,8 @@ public final class ModelRegistry {
         if (!getRunLink()
             .equals(other.getRunLink())) return false;
       }
+      if (!getAliasesList()
+          .equals(other.getAliasesList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -4011,6 +4613,10 @@ public final class ModelRegistry {
       if (hasRunLink()) {
         hash = (37 * hash) + RUN_LINK_FIELD_NUMBER;
         hash = (53 * hash) + getRunLink().hashCode();
+      }
+      if (getAliasesCount() > 0) {
+        hash = (37 * hash) + ALIASES_FIELD_NUMBER;
+        hash = (53 * hash) + getAliasesList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -4176,6 +4782,8 @@ public final class ModelRegistry {
         }
         runLink_ = "";
         bitField0_ = (bitField0_ & ~0x00001000);
+        aliases_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00002000);
         return this;
       }
 
@@ -4261,6 +4869,11 @@ public final class ModelRegistry {
           to_bitField0_ |= 0x00000800;
         }
         result.runLink_ = runLink_;
+        if (((bitField0_ & 0x00002000) != 0)) {
+          aliases_ = aliases_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00002000);
+        }
+        result.aliases_ = aliases_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4388,6 +5001,16 @@ public final class ModelRegistry {
         if (other.hasRunLink()) {
           bitField0_ |= 0x00001000;
           runLink_ = other.runLink_;
+          onChanged();
+        }
+        if (!other.aliases_.isEmpty()) {
+          if (aliases_.isEmpty()) {
+            aliases_ = other.aliases_;
+            bitField0_ = (bitField0_ & ~0x00002000);
+          } else {
+            ensureAliasesIsMutable();
+            aliases_.addAll(other.aliases_);
+          }
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -5881,6 +6504,151 @@ public final class ModelRegistry {
   }
   bitField0_ |= 0x00001000;
         runLink_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList aliases_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureAliasesIsMutable() {
+        if (!((bitField0_ & 0x00002000) != 0)) {
+          aliases_ = new com.google.protobuf.LazyStringArrayList(aliases_);
+          bitField0_ |= 0x00002000;
+         }
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @return A list containing the aliases.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getAliasesList() {
+        return aliases_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @return The count of aliases.
+       */
+      public int getAliasesCount() {
+        return aliases_.size();
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param index The index of the element to return.
+       * @return The aliases at the given index.
+       */
+      public java.lang.String getAliases(int index) {
+        return aliases_.get(index);
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the aliases at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getAliasesBytes(int index) {
+        return aliases_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param index The index to set the value at.
+       * @param value The aliases to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAliases(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureAliasesIsMutable();
+        aliases_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param value The aliases to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAliases(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureAliasesIsMutable();
+        aliases_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param values The aliases to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllAliases(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureAliasesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, aliases_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAliases() {
+        aliases_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00002000);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Aliases pointing to this ``model_version``.
+       * </pre>
+       *
+       * <code>repeated string aliases = 14;</code>
+       * @param value The bytes of the aliases to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAliasesBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureAliasesIsMutable();
+        aliases_.add(value);
         onChanged();
         return this;
       }
@@ -39093,39 +39861,10 @@ public final class ModelRegistry {
 
     /**
      * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return Whether the name field is set.
-     */
-    boolean hasName();
-    /**
-     * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return The name.
-     */
-    java.lang.String getName();
-    /**
-     * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return The bytes for name.
-     */
-    com.google.protobuf.ByteString
-        getNameBytes();
-
-    /**
-     * <pre>
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return Whether the alias field is set.
      */
     boolean hasAlias();
@@ -39134,7 +39873,7 @@ public final class ModelRegistry {
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return The alias.
      */
     java.lang.String getAlias();
@@ -39143,7 +39882,7 @@ public final class ModelRegistry {
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return The bytes for alias.
      */
     com.google.protobuf.ByteString
@@ -39154,7 +39893,7 @@ public final class ModelRegistry {
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return Whether the version field is set.
      */
     boolean hasVersion();
@@ -39163,7 +39902,7 @@ public final class ModelRegistry {
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return The version.
      */
     java.lang.String getVersion();
@@ -39172,7 +39911,7 @@ public final class ModelRegistry {
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return The bytes for version.
      */
     com.google.protobuf.ByteString
@@ -39195,7 +39934,6 @@ public final class ModelRegistry {
       super(builder);
     }
     private RegisteredModelAlias() {
-      name_ = "";
       alias_ = "";
       version_ = "";
     }
@@ -39234,18 +39972,12 @@ public final class ModelRegistry {
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              name_ = bs;
+              alias_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              alias_ = bs;
-              break;
-            }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
               version_ = bs;
               break;
             }
@@ -39282,86 +40014,26 @@ public final class ModelRegistry {
     }
 
     private int bitField0_;
-    public static final int NAME_FIELD_NUMBER = 1;
-    private volatile java.lang.Object name_;
-    /**
-     * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return Whether the name field is set.
-     */
-    @java.lang.Override
-    public boolean hasName() {
-      return ((bitField0_ & 0x00000001) != 0);
-    }
-    /**
-     * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return The name.
-     */
-    @java.lang.Override
-    public java.lang.String getName() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          name_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * The name of the registered model associated with the alias.
-     * </pre>
-     *
-     * <code>optional string name = 1;</code>
-     * @return The bytes for name.
-     */
-    @java.lang.Override
-    public com.google.protobuf.ByteString
-        getNameBytes() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        name_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ALIAS_FIELD_NUMBER = 2;
+    public static final int ALIAS_FIELD_NUMBER = 1;
     private volatile java.lang.Object alias_;
     /**
      * <pre>
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return Whether the alias field is set.
      */
     @java.lang.Override
     public boolean hasAlias() {
-      return ((bitField0_ & 0x00000002) != 0);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return The alias.
      */
     @java.lang.Override
@@ -39384,7 +40056,7 @@ public final class ModelRegistry {
      * The name of the alias.
      * </pre>
      *
-     * <code>optional string alias = 2;</code>
+     * <code>optional string alias = 1;</code>
      * @return The bytes for alias.
      */
     @java.lang.Override
@@ -39402,26 +40074,26 @@ public final class ModelRegistry {
       }
     }
 
-    public static final int VERSION_FIELD_NUMBER = 3;
+    public static final int VERSION_FIELD_NUMBER = 2;
     private volatile java.lang.Object version_;
     /**
      * <pre>
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return Whether the version field is set.
      */
     @java.lang.Override
     public boolean hasVersion() {
-      return ((bitField0_ & 0x00000004) != 0);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return The version.
      */
     @java.lang.Override
@@ -39444,7 +40116,7 @@ public final class ModelRegistry {
      * The model version number that the alias points to.
      * </pre>
      *
-     * <code>optional string version = 3;</code>
+     * <code>optional string version = 2;</code>
      * @return The bytes for version.
      */
     @java.lang.Override
@@ -39477,13 +40149,10 @@ public final class ModelRegistry {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, alias_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, alias_);
-      }
-      if (((bitField0_ & 0x00000004) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, version_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, version_);
       }
       unknownFields.writeTo(output);
     }
@@ -39495,13 +40164,10 @@ public final class ModelRegistry {
 
       size = 0;
       if (((bitField0_ & 0x00000001) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, alias_);
       }
       if (((bitField0_ & 0x00000002) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, alias_);
-      }
-      if (((bitField0_ & 0x00000004) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, version_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, version_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -39518,11 +40184,6 @@ public final class ModelRegistry {
       }
       org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias other = (org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias) obj;
 
-      if (hasName() != other.hasName()) return false;
-      if (hasName()) {
-        if (!getName()
-            .equals(other.getName())) return false;
-      }
       if (hasAlias() != other.hasAlias()) return false;
       if (hasAlias()) {
         if (!getAlias()
@@ -39544,10 +40205,6 @@ public final class ModelRegistry {
       }
       int hash = 41;
       hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasName()) {
-        hash = (37 * hash) + NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getName().hashCode();
-      }
       if (hasAlias()) {
         hash = (37 * hash) + ALIAS_FIELD_NUMBER;
         hash = (53 * hash) + getAlias().hashCode();
@@ -39693,12 +40350,10 @@ public final class ModelRegistry {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000001);
         alias_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
+        bitField0_ = (bitField0_ & ~0x00000001);
         version_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -39725,6 +40380,1433 @@ public final class ModelRegistry {
       @java.lang.Override
       public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias buildPartial() {
         org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias result = new org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.alias_ = alias_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.version_ = version_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.getDefaultInstance()) return this;
+        if (other.hasAlias()) {
+          bitField0_ |= 0x00000001;
+          alias_ = other.alias_;
+          onChanged();
+        }
+        if (other.hasVersion()) {
+          bitField0_ |= 0x00000002;
+          version_ = other.version_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object alias_ = "";
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @return Whether the alias field is set.
+       */
+      public boolean hasAlias() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @return The alias.
+       */
+      public java.lang.String getAlias() {
+        java.lang.Object ref = alias_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            alias_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @return The bytes for alias.
+       */
+      public com.google.protobuf.ByteString
+          getAliasBytes() {
+        java.lang.Object ref = alias_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          alias_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @param value The alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAlias(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAlias() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        alias_ = getDefaultInstance().getAlias();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The name of the alias.
+       * </pre>
+       *
+       * <code>optional string alias = 1;</code>
+       * @param value The bytes for alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAliasBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object version_ = "";
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @return Whether the version field is set.
+       */
+      public boolean hasVersion() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @return The version.
+       */
+      public java.lang.String getVersion() {
+        java.lang.Object ref = version_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            version_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @return The bytes for version.
+       */
+      public com.google.protobuf.ByteString
+          getVersionBytes() {
+        java.lang.Object ref = version_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          version_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @param value The version to set.
+       * @return This builder for chaining.
+       */
+      public Builder setVersion(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        version_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearVersion() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        version_ = getDefaultInstance().getVersion();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The model version number that the alias points to.
+       * </pre>
+       *
+       * <code>optional string version = 2;</code>
+       * @param value The bytes for version to set.
+       * @return This builder for chaining.
+       */
+      public Builder setVersionBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        version_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.RegisteredModelAlias)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.RegisteredModelAlias)
+    private static final org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<RegisteredModelAlias>
+        PARSER = new com.google.protobuf.AbstractParser<RegisteredModelAlias>() {
+      @java.lang.Override
+      public RegisteredModelAlias parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new RegisteredModelAlias(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<RegisteredModelAlias> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<RegisteredModelAlias> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface SetRegisteredModelAliasOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.SetRegisteredModelAlias)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    boolean hasName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    java.lang.String getName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    com.google.protobuf.ByteString
+        getNameBytes();
+
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    boolean hasAlias();
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    java.lang.String getAlias();
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    com.google.protobuf.ByteString
+        getAliasBytes();
+
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the version field is set.
+     */
+    boolean hasVersion();
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The version.
+     */
+    java.lang.String getVersion();
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for version.
+     */
+    com.google.protobuf.ByteString
+        getVersionBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.SetRegisteredModelAlias}
+   */
+  public static final class SetRegisteredModelAlias extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.SetRegisteredModelAlias)
+      SetRegisteredModelAliasOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use SetRegisteredModelAlias.newBuilder() to construct.
+    private SetRegisteredModelAlias(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private SetRegisteredModelAlias() {
+      name_ = "";
+      alias_ = "";
+      version_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new SetRegisteredModelAlias();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private SetRegisteredModelAlias(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              name_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              alias_ = bs;
+              break;
+            }
+            case 26: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000004;
+              version_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.class, org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SetRegisteredModelAlias.Response)
+        com.google.protobuf.MessageOrBuilder {
+    }
+    /**
+     * Protobuf type {@code mlflow.SetRegisteredModelAlias.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SetRegisteredModelAlias.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.class, org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.Builder.class);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response other = (org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response) obj;
+
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.SetRegisteredModelAlias.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SetRegisteredModelAlias.Response)
+          org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.class, org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response build() {
+          org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response buildPartial() {
+          org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response result = new org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response(this);
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response) {
+            return mergeFrom((org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response other) {
+          if (other == org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response.getDefaultInstance()) return this;
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SetRegisteredModelAlias.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SetRegisteredModelAlias.Response)
+      private static final org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response();
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int NAME_FIELD_NUMBER = 1;
+    private volatile java.lang.Object name_;
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    @java.lang.Override
+    public boolean hasName() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    @java.lang.Override
+    public java.lang.String getName() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          name_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getNameBytes() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        name_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int ALIAS_FIELD_NUMBER = 2;
+    private volatile java.lang.Object alias_;
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    @java.lang.Override
+    public boolean hasAlias() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    @java.lang.Override
+    public java.lang.String getAlias() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          alias_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the alias. Maximum size depends on storage backend.
+     * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+     * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getAliasBytes() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        alias_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int VERSION_FIELD_NUMBER = 3;
+    private volatile java.lang.Object version_;
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the version field is set.
+     */
+    @java.lang.Override
+    public boolean hasVersion() {
+      return ((bitField0_ & 0x00000004) != 0);
+    }
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The version.
+     */
+    @java.lang.Override
+    public java.lang.String getVersion() {
+      java.lang.Object ref = version_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          version_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Model version number.
+     * </pre>
+     *
+     * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for version.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getVersionBytes() {
+      java.lang.Object ref = version_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        version_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, alias_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, version_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, alias_);
+      }
+      if (((bitField0_ & 0x00000004) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, version_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias other = (org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias) obj;
+
+      if (hasName() != other.hasName()) return false;
+      if (hasName()) {
+        if (!getName()
+            .equals(other.getName())) return false;
+      }
+      if (hasAlias() != other.hasAlias()) return false;
+      if (hasAlias()) {
+        if (!getAlias()
+            .equals(other.getAlias())) return false;
+      }
+      if (hasVersion() != other.hasVersion()) return false;
+      if (hasVersion()) {
+        if (!getVersion()
+            .equals(other.getVersion())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasName()) {
+        hash = (37 * hash) + NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getName().hashCode();
+      }
+      if (hasAlias()) {
+        hash = (37 * hash) + ALIAS_FIELD_NUMBER;
+        hash = (53 * hash) + getAlias().hashCode();
+      }
+      if (hasVersion()) {
+        hash = (37 * hash) + VERSION_FIELD_NUMBER;
+        hash = (53 * hash) + getVersion().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.SetRegisteredModelAlias}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.SetRegisteredModelAlias)
+        org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAliasOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.class, org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        name_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        alias_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        version_ = "";
+        bitField0_ = (bitField0_ & ~0x00000004);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_SetRegisteredModelAlias_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias build() {
+        org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias result = new org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((from_bitField0_ & 0x00000001) != 0)) {
@@ -39778,16 +41860,16 @@ public final class ModelRegistry {
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias) {
-          return mergeFrom((org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias)other);
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias)other);
         } else {
           super.mergeFrom(other);
           return this;
         }
       }
 
-      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias other) {
-        if (other == org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias.getDefaultInstance()) return this;
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias.getDefaultInstance()) return this;
         if (other.hasName()) {
           bitField0_ |= 0x00000001;
           name_ = other.name_;
@@ -39818,11 +41900,11 @@ public final class ModelRegistry {
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws java.io.IOException {
-        org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias parsedMessage = null;
+        org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias parsedMessage = null;
         try {
           parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
         } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias) e.getUnfinishedMessage();
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias) e.getUnfinishedMessage();
           throw e.unwrapIOException();
         } finally {
           if (parsedMessage != null) {
@@ -39836,10 +41918,10 @@ public final class ModelRegistry {
       private java.lang.Object name_ = "";
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @return Whether the name field is set.
        */
       public boolean hasName() {
@@ -39847,10 +41929,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @return The name.
        */
       public java.lang.String getName() {
@@ -39869,10 +41951,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for name.
        */
       public com.google.protobuf.ByteString
@@ -39890,10 +41972,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @param value The name to set.
        * @return This builder for chaining.
        */
@@ -39909,10 +41991,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearName() {
@@ -39923,10 +42005,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the registered model associated with the alias.
+       * Name of the registered model.
        * </pre>
        *
-       * <code>optional string name = 1;</code>
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for name to set.
        * @return This builder for chaining.
        */
@@ -39944,10 +42026,12 @@ public final class ModelRegistry {
       private java.lang.Object alias_ = "";
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @return Whether the alias field is set.
        */
       public boolean hasAlias() {
@@ -39955,10 +42039,12 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @return The alias.
        */
       public java.lang.String getAlias() {
@@ -39977,10 +42063,12 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for alias.
        */
       public com.google.protobuf.ByteString
@@ -39998,10 +42086,12 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The alias to set.
        * @return This builder for chaining.
        */
@@ -40017,10 +42107,12 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearAlias() {
@@ -40031,10 +42123,12 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The name of the alias.
+       * Name of the alias. Maximum size depends on storage backend.
+       * If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+       * All storage backends are guaranteed to support alias name values up to 256 bytes in size.
        * </pre>
        *
-       * <code>optional string alias = 2;</code>
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for alias to set.
        * @return This builder for chaining.
        */
@@ -40052,10 +42146,10 @@ public final class ModelRegistry {
       private java.lang.Object version_ = "";
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @return Whether the version field is set.
        */
       public boolean hasVersion() {
@@ -40063,10 +42157,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @return The version.
        */
       public java.lang.String getVersion() {
@@ -40085,10 +42179,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @return The bytes for version.
        */
       public com.google.protobuf.ByteString
@@ -40106,10 +42200,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @param value The version to set.
        * @return This builder for chaining.
        */
@@ -40125,10 +42219,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @return This builder for chaining.
        */
       public Builder clearVersion() {
@@ -40139,10 +42233,10 @@ public final class ModelRegistry {
       }
       /**
        * <pre>
-       * The model version number that the alias points to.
+       * Model version number.
        * </pre>
        *
-       * <code>optional string version = 3;</code>
+       * <code>optional string version = 3 [(.mlflow.validate_required) = true];</code>
        * @param value The bytes for version to set.
        * @return This builder for chaining.
        */
@@ -40169,41 +42263,2859 @@ public final class ModelRegistry {
       }
 
 
-      // @@protoc_insertion_point(builder_scope:mlflow.RegisteredModelAlias)
+      // @@protoc_insertion_point(builder_scope:mlflow.SetRegisteredModelAlias)
     }
 
-    // @@protoc_insertion_point(class_scope:mlflow.RegisteredModelAlias)
-    private static final org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias DEFAULT_INSTANCE;
+    // @@protoc_insertion_point(class_scope:mlflow.SetRegisteredModelAlias)
+    private static final org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias DEFAULT_INSTANCE;
     static {
-      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias();
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias();
     }
 
-    public static org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getDefaultInstance() {
+    public static org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias getDefaultInstance() {
       return DEFAULT_INSTANCE;
     }
 
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<RegisteredModelAlias>
-        PARSER = new com.google.protobuf.AbstractParser<RegisteredModelAlias>() {
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<SetRegisteredModelAlias>
+        PARSER = new com.google.protobuf.AbstractParser<SetRegisteredModelAlias>() {
       @java.lang.Override
-      public RegisteredModelAlias parsePartialFrom(
+      public SetRegisteredModelAlias parsePartialFrom(
           com.google.protobuf.CodedInputStream input,
           com.google.protobuf.ExtensionRegistryLite extensionRegistry)
           throws com.google.protobuf.InvalidProtocolBufferException {
-        return new RegisteredModelAlias(input, extensionRegistry);
+        return new SetRegisteredModelAlias(input, extensionRegistry);
       }
     };
 
-    public static com.google.protobuf.Parser<RegisteredModelAlias> parser() {
+    public static com.google.protobuf.Parser<SetRegisteredModelAlias> parser() {
       return PARSER;
     }
 
     @java.lang.Override
-    public com.google.protobuf.Parser<RegisteredModelAlias> getParserForType() {
+    public com.google.protobuf.Parser<SetRegisteredModelAlias> getParserForType() {
       return PARSER;
     }
 
     @java.lang.Override
-    public org.mlflow.api.proto.ModelRegistry.RegisteredModelAlias getDefaultInstanceForType() {
+    public org.mlflow.api.proto.ModelRegistry.SetRegisteredModelAlias getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface DeleteRegisteredModelAliasOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.DeleteRegisteredModelAlias)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    boolean hasName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    java.lang.String getName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    com.google.protobuf.ByteString
+        getNameBytes();
+
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    boolean hasAlias();
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    java.lang.String getAlias();
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    com.google.protobuf.ByteString
+        getAliasBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.DeleteRegisteredModelAlias}
+   */
+  public static final class DeleteRegisteredModelAlias extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.DeleteRegisteredModelAlias)
+      DeleteRegisteredModelAliasOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DeleteRegisteredModelAlias.newBuilder() to construct.
+    private DeleteRegisteredModelAlias(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DeleteRegisteredModelAlias() {
+      name_ = "";
+      alias_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DeleteRegisteredModelAlias();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DeleteRegisteredModelAlias(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              name_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              alias_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.class, org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.DeleteRegisteredModelAlias.Response)
+        com.google.protobuf.MessageOrBuilder {
+    }
+    /**
+     * Protobuf type {@code mlflow.DeleteRegisteredModelAlias.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.DeleteRegisteredModelAlias.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.class, org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.Builder.class);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response other = (org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response) obj;
+
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.DeleteRegisteredModelAlias.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.DeleteRegisteredModelAlias.Response)
+          org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.class, org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response build() {
+          org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response buildPartial() {
+          org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response result = new org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response(this);
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response) {
+            return mergeFrom((org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response other) {
+          if (other == org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response.getDefaultInstance()) return this;
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.DeleteRegisteredModelAlias.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.DeleteRegisteredModelAlias.Response)
+      private static final org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response();
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int NAME_FIELD_NUMBER = 1;
+    private volatile java.lang.Object name_;
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    @java.lang.Override
+    public boolean hasName() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    @java.lang.Override
+    public java.lang.String getName() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          name_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getNameBytes() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        name_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int ALIAS_FIELD_NUMBER = 2;
+    private volatile java.lang.Object alias_;
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    @java.lang.Override
+    public boolean hasAlias() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    @java.lang.Override
+    public java.lang.String getAlias() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          alias_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getAliasBytes() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        alias_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, alias_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, alias_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias other = (org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias) obj;
+
+      if (hasName() != other.hasName()) return false;
+      if (hasName()) {
+        if (!getName()
+            .equals(other.getName())) return false;
+      }
+      if (hasAlias() != other.hasAlias()) return false;
+      if (hasAlias()) {
+        if (!getAlias()
+            .equals(other.getAlias())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasName()) {
+        hash = (37 * hash) + NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getName().hashCode();
+      }
+      if (hasAlias()) {
+        hash = (37 * hash) + ALIAS_FIELD_NUMBER;
+        hash = (53 * hash) + getAlias().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.DeleteRegisteredModelAlias}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.DeleteRegisteredModelAlias)
+        org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAliasOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.class, org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        name_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        alias_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_DeleteRegisteredModelAlias_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias build() {
+        org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias result = new org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.name_ = name_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.alias_ = alias_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias.getDefaultInstance()) return this;
+        if (other.hasName()) {
+          bitField0_ |= 0x00000001;
+          name_ = other.name_;
+          onChanged();
+        }
+        if (other.hasAlias()) {
+          bitField0_ |= 0x00000002;
+          alias_ = other.alias_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object name_ = "";
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the name field is set.
+       */
+      public boolean hasName() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The name.
+       */
+      public java.lang.String getName() {
+        java.lang.Object ref = name_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            name_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for name.
+       */
+      public com.google.protobuf.ByteString
+          getNameBytes() {
+        java.lang.Object ref = name_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          name_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearName() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        name_ = getDefaultInstance().getName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object alias_ = "";
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the alias field is set.
+       */
+      public boolean hasAlias() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The alias.
+       */
+      public java.lang.String getAlias() {
+        java.lang.Object ref = alias_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            alias_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for alias.
+       */
+      public com.google.protobuf.ByteString
+          getAliasBytes() {
+        java.lang.Object ref = alias_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          alias_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAlias(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAlias() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        alias_ = getDefaultInstance().getAlias();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAliasBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.DeleteRegisteredModelAlias)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.DeleteRegisteredModelAlias)
+    private static final org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DeleteRegisteredModelAlias>
+        PARSER = new com.google.protobuf.AbstractParser<DeleteRegisteredModelAlias>() {
+      @java.lang.Override
+      public DeleteRegisteredModelAlias parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DeleteRegisteredModelAlias(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DeleteRegisteredModelAlias> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DeleteRegisteredModelAlias> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.DeleteRegisteredModelAlias getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
+  public interface GetModelVersionByAliasOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.GetModelVersionByAlias)
+      com.google.protobuf.MessageOrBuilder {
+
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    boolean hasName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    java.lang.String getName();
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    com.google.protobuf.ByteString
+        getNameBytes();
+
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    boolean hasAlias();
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    java.lang.String getAlias();
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    com.google.protobuf.ByteString
+        getAliasBytes();
+  }
+  /**
+   * Protobuf type {@code mlflow.GetModelVersionByAlias}
+   */
+  public static final class GetModelVersionByAlias extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.GetModelVersionByAlias)
+      GetModelVersionByAliasOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use GetModelVersionByAlias.newBuilder() to construct.
+    private GetModelVersionByAlias(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private GetModelVersionByAlias() {
+      name_ = "";
+      alias_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new GetModelVersionByAlias();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private GetModelVersionByAlias(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      int mutable_bitField0_ = 0;
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000001;
+              name_ = bs;
+              break;
+            }
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              bitField0_ |= 0x00000002;
+              alias_ = bs;
+              break;
+            }
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.class, org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Builder.class);
+    }
+
+    public interface ResponseOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.GetModelVersionByAlias.Response)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       * @return Whether the modelVersion field is set.
+       */
+      boolean hasModelVersion();
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       * @return The modelVersion.
+       */
+      org.mlflow.api.proto.ModelRegistry.ModelVersion getModelVersion();
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       */
+      org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder getModelVersionOrBuilder();
+    }
+    /**
+     * Protobuf type {@code mlflow.GetModelVersionByAlias.Response}
+     */
+    public static final class Response extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.GetModelVersionByAlias.Response)
+        ResponseOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use Response.newBuilder() to construct.
+      private Response(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private Response() {
+      }
+
+      @java.lang.Override
+      @SuppressWarnings({"unused"})
+      protected java.lang.Object newInstance(
+          UnusedPrivateParameter unused) {
+        return new Response();
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private Response(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder subBuilder = null;
+                if (((bitField0_ & 0x00000001) != 0)) {
+                  subBuilder = modelVersion_.toBuilder();
+                }
+                modelVersion_ = input.readMessage(org.mlflow.api.proto.ModelRegistry.ModelVersion.PARSER, extensionRegistry);
+                if (subBuilder != null) {
+                  subBuilder.mergeFrom(modelVersion_);
+                  modelVersion_ = subBuilder.buildPartial();
+                }
+                bitField0_ |= 0x00000001;
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_Response_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_Response_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.class, org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.Builder.class);
+      }
+
+      private int bitField0_;
+      public static final int MODEL_VERSION_FIELD_NUMBER = 1;
+      private org.mlflow.api.proto.ModelRegistry.ModelVersion modelVersion_;
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       * @return Whether the modelVersion field is set.
+       */
+      @java.lang.Override
+      public boolean hasModelVersion() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       * @return The modelVersion.
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersion getModelVersion() {
+        return modelVersion_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersion.getDefaultInstance() : modelVersion_;
+      }
+      /**
+       * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+       */
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder getModelVersionOrBuilder() {
+        return modelVersion_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersion.getDefaultInstance() : modelVersion_;
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        if (((bitField0_ & 0x00000001) != 0)) {
+          output.writeMessage(1, getModelVersion());
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        if (((bitField0_ & 0x00000001) != 0)) {
+          size += com.google.protobuf.CodedOutputStream
+            .computeMessageSize(1, getModelVersion());
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response other = (org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response) obj;
+
+        if (hasModelVersion() != other.hasModelVersion()) return false;
+        if (hasModelVersion()) {
+          if (!getModelVersion()
+              .equals(other.getModelVersion())) return false;
+        }
+        if (!unknownFields.equals(other.unknownFields)) return false;
+        return true;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (hasModelVersion()) {
+          hash = (37 * hash) + MODEL_VERSION_FIELD_NUMBER;
+          hash = (53 * hash) + getModelVersion().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * Protobuf type {@code mlflow.GetModelVersionByAlias.Response}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.GetModelVersionByAlias.Response)
+          org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.ResponseOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_Response_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.class, org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+            getModelVersionFieldBuilder();
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          if (modelVersionBuilder_ == null) {
+            modelVersion_ = null;
+          } else {
+            modelVersionBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_Response_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response getDefaultInstanceForType() {
+          return org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response build() {
+          org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response buildPartial() {
+          org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response result = new org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response(this);
+          int from_bitField0_ = bitField0_;
+          int to_bitField0_ = 0;
+          if (((from_bitField0_ & 0x00000001) != 0)) {
+            if (modelVersionBuilder_ == null) {
+              result.modelVersion_ = modelVersion_;
+            } else {
+              result.modelVersion_ = modelVersionBuilder_.build();
+            }
+            to_bitField0_ |= 0x00000001;
+          }
+          result.bitField0_ = to_bitField0_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response) {
+            return mergeFrom((org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response other) {
+          if (other == org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response.getDefaultInstance()) return this;
+          if (other.hasModelVersion()) {
+            mergeModelVersion(other.getModelVersion());
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private org.mlflow.api.proto.ModelRegistry.ModelVersion modelVersion_;
+        private com.google.protobuf.SingleFieldBuilderV3<
+            org.mlflow.api.proto.ModelRegistry.ModelVersion, org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder> modelVersionBuilder_;
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         * @return Whether the modelVersion field is set.
+         */
+        public boolean hasModelVersion() {
+          return ((bitField0_ & 0x00000001) != 0);
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         * @return The modelVersion.
+         */
+        public org.mlflow.api.proto.ModelRegistry.ModelVersion getModelVersion() {
+          if (modelVersionBuilder_ == null) {
+            return modelVersion_ == null ? org.mlflow.api.proto.ModelRegistry.ModelVersion.getDefaultInstance() : modelVersion_;
+          } else {
+            return modelVersionBuilder_.getMessage();
+          }
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public Builder setModelVersion(org.mlflow.api.proto.ModelRegistry.ModelVersion value) {
+          if (modelVersionBuilder_ == null) {
+            if (value == null) {
+              throw new NullPointerException();
+            }
+            modelVersion_ = value;
+            onChanged();
+          } else {
+            modelVersionBuilder_.setMessage(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public Builder setModelVersion(
+            org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder builderForValue) {
+          if (modelVersionBuilder_ == null) {
+            modelVersion_ = builderForValue.build();
+            onChanged();
+          } else {
+            modelVersionBuilder_.setMessage(builderForValue.build());
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public Builder mergeModelVersion(org.mlflow.api.proto.ModelRegistry.ModelVersion value) {
+          if (modelVersionBuilder_ == null) {
+            if (((bitField0_ & 0x00000001) != 0) &&
+                modelVersion_ != null &&
+                modelVersion_ != org.mlflow.api.proto.ModelRegistry.ModelVersion.getDefaultInstance()) {
+              modelVersion_ =
+                org.mlflow.api.proto.ModelRegistry.ModelVersion.newBuilder(modelVersion_).mergeFrom(value).buildPartial();
+            } else {
+              modelVersion_ = value;
+            }
+            onChanged();
+          } else {
+            modelVersionBuilder_.mergeFrom(value);
+          }
+          bitField0_ |= 0x00000001;
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public Builder clearModelVersion() {
+          if (modelVersionBuilder_ == null) {
+            modelVersion_ = null;
+            onChanged();
+          } else {
+            modelVersionBuilder_.clear();
+          }
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder getModelVersionBuilder() {
+          bitField0_ |= 0x00000001;
+          onChanged();
+          return getModelVersionFieldBuilder().getBuilder();
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        public org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder getModelVersionOrBuilder() {
+          if (modelVersionBuilder_ != null) {
+            return modelVersionBuilder_.getMessageOrBuilder();
+          } else {
+            return modelVersion_ == null ?
+                org.mlflow.api.proto.ModelRegistry.ModelVersion.getDefaultInstance() : modelVersion_;
+          }
+        }
+        /**
+         * <code>optional .mlflow.ModelVersion model_version = 1;</code>
+         */
+        private com.google.protobuf.SingleFieldBuilderV3<
+            org.mlflow.api.proto.ModelRegistry.ModelVersion, org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder> 
+            getModelVersionFieldBuilder() {
+          if (modelVersionBuilder_ == null) {
+            modelVersionBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+                org.mlflow.api.proto.ModelRegistry.ModelVersion, org.mlflow.api.proto.ModelRegistry.ModelVersion.Builder, org.mlflow.api.proto.ModelRegistry.ModelVersionOrBuilder>(
+                    getModelVersion(),
+                    getParentForChildren(),
+                    isClean());
+            modelVersion_ = null;
+          }
+          return modelVersionBuilder_;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.GetModelVersionByAlias.Response)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.GetModelVersionByAlias.Response)
+      private static final org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response();
+      }
+
+      public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<Response>
+          PARSER = new com.google.protobuf.AbstractParser<Response>() {
+        @java.lang.Override
+        public Response parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new Response(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<Response> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<Response> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Response getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
+    private int bitField0_;
+    public static final int NAME_FIELD_NUMBER = 1;
+    private volatile java.lang.Object name_;
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the name field is set.
+     */
+    @java.lang.Override
+    public boolean hasName() {
+      return ((bitField0_ & 0x00000001) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The name.
+     */
+    @java.lang.Override
+    public java.lang.String getName() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          name_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the registered model.
+     * </pre>
+     *
+     * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for name.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getNameBytes() {
+      java.lang.Object ref = name_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        name_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    public static final int ALIAS_FIELD_NUMBER = 2;
+    private volatile java.lang.Object alias_;
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return Whether the alias field is set.
+     */
+    @java.lang.Override
+    public boolean hasAlias() {
+      return ((bitField0_ & 0x00000002) != 0);
+    }
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The alias.
+     */
+    @java.lang.Override
+    public java.lang.String getAlias() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          alias_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Name of the alias. Maximum size is 256 bytes.
+     * </pre>
+     *
+     * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+     * @return The bytes for alias.
+     */
+    @java.lang.Override
+    public com.google.protobuf.ByteString
+        getAliasBytes() {
+      java.lang.Object ref = alias_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        alias_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      if (((bitField0_ & 0x00000001) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, alias_);
+      }
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      if (((bitField0_ & 0x00000001) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, name_);
+      }
+      if (((bitField0_ & 0x00000002) != 0)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, alias_);
+      }
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias)) {
+        return super.equals(obj);
+      }
+      org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias other = (org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias) obj;
+
+      if (hasName() != other.hasName()) return false;
+      if (hasName()) {
+        if (!getName()
+            .equals(other.getName())) return false;
+      }
+      if (hasAlias() != other.hasAlias()) return false;
+      if (hasAlias()) {
+        if (!getAlias()
+            .equals(other.getAlias())) return false;
+      }
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      if (hasName()) {
+        hash = (37 * hash) + NAME_FIELD_NUMBER;
+        hash = (53 * hash) + getName().hashCode();
+      }
+      if (hasAlias()) {
+        hash = (37 * hash) + ALIAS_FIELD_NUMBER;
+        hash = (53 * hash) + getAlias().hashCode();
+      }
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * Protobuf type {@code mlflow.GetModelVersionByAlias}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.GetModelVersionByAlias)
+        org.mlflow.api.proto.ModelRegistry.GetModelVersionByAliasOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.class, org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.Builder.class);
+      }
+
+      // Construct using org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        name_ = "";
+        bitField0_ = (bitField0_ & ~0x00000001);
+        alias_ = "";
+        bitField0_ = (bitField0_ & ~0x00000002);
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return org.mlflow.api.proto.ModelRegistry.internal_static_mlflow_GetModelVersionByAlias_descriptor;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias getDefaultInstanceForType() {
+        return org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias build() {
+        org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias buildPartial() {
+        org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias result = new org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias(this);
+        int from_bitField0_ = bitField0_;
+        int to_bitField0_ = 0;
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          to_bitField0_ |= 0x00000001;
+        }
+        result.name_ = name_;
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          to_bitField0_ |= 0x00000002;
+        }
+        result.alias_ = alias_;
+        result.bitField0_ = to_bitField0_;
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias) {
+          return mergeFrom((org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias other) {
+        if (other == org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias.getDefaultInstance()) return this;
+        if (other.hasName()) {
+          bitField0_ |= 0x00000001;
+          name_ = other.name_;
+          onChanged();
+        }
+        if (other.hasAlias()) {
+          bitField0_ |= 0x00000002;
+          alias_ = other.alias_;
+          onChanged();
+        }
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      private int bitField0_;
+
+      private java.lang.Object name_ = "";
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the name field is set.
+       */
+      public boolean hasName() {
+        return ((bitField0_ & 0x00000001) != 0);
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The name.
+       */
+      public java.lang.String getName() {
+        java.lang.Object ref = name_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            name_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for name.
+       */
+      public com.google.protobuf.ByteString
+          getNameBytes() {
+        java.lang.Object ref = name_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          name_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setName(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearName() {
+        bitField0_ = (bitField0_ & ~0x00000001);
+        name_ = getDefaultInstance().getName();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the registered model.
+       * </pre>
+       *
+       * <code>optional string name = 1 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for name to set.
+       * @return This builder for chaining.
+       */
+      public Builder setNameBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        name_ = value;
+        onChanged();
+        return this;
+      }
+
+      private java.lang.Object alias_ = "";
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return Whether the alias field is set.
+       */
+      public boolean hasAlias() {
+        return ((bitField0_ & 0x00000002) != 0);
+      }
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The alias.
+       */
+      public java.lang.String getAlias() {
+        java.lang.Object ref = alias_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            alias_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return The bytes for alias.
+       */
+      public com.google.protobuf.ByteString
+          getAliasBytes() {
+        java.lang.Object ref = alias_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          alias_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAlias(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearAlias() {
+        bitField0_ = (bitField0_ & ~0x00000002);
+        alias_ = getDefaultInstance().getAlias();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Name of the alias. Maximum size is 256 bytes.
+       * </pre>
+       *
+       * <code>optional string alias = 2 [(.mlflow.validate_required) = true];</code>
+       * @param value The bytes for alias to set.
+       * @return This builder for chaining.
+       */
+      public Builder setAliasBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        alias_ = value;
+        onChanged();
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.GetModelVersionByAlias)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.GetModelVersionByAlias)
+    private static final org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias();
+    }
+
+    public static org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<GetModelVersionByAlias>
+        PARSER = new com.google.protobuf.AbstractParser<GetModelVersionByAlias>() {
+      @java.lang.Override
+      public GetModelVersionByAlias parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new GetModelVersionByAlias(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<GetModelVersionByAlias> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<GetModelVersionByAlias> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public org.mlflow.api.proto.ModelRegistry.GetModelVersionByAlias getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -40414,6 +45326,36 @@ public final class ModelRegistry {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_RegisteredModelAlias_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SetRegisteredModelAlias_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SetRegisteredModelAlias_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SetRegisteredModelAlias_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DeleteRegisteredModelAlias_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DeleteRegisteredModelAlias_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DeleteRegisteredModelAlias_Response_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetModelVersionByAlias_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetModelVersionByAlias_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_GetModelVersionByAlias_Response_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_GetModelVersionByAlias_Response_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -40424,189 +45366,215 @@ public final class ModelRegistry {
   static {
     java.lang.String[] descriptorData = {
       "\n\024model_registry.proto\022\006mlflow\032\025scalapb/" +
-      "scalapb.proto\032\020databricks.proto\"\332\001\n\017Regi" +
+      "scalapb.proto\032\020databricks.proto\"\211\002\n\017Regi" +
       "steredModel\022\014\n\004name\030\001 \001(\t\022\032\n\022creation_ti" +
       "mestamp\030\002 \001(\003\022\036\n\026last_updated_timestamp\030" +
       "\003 \001(\003\022\017\n\007user_id\030\004 \001(\t\022\023\n\013description\030\005 " +
       "\001(\t\022-\n\017latest_versions\030\006 \003(\0132\024.mlflow.Mo" +
       "delVersion\022(\n\004tags\030\007 \003(\0132\032.mlflow.Regist" +
-      "eredModelTag\"\303\002\n\014ModelVersion\022\014\n\004name\030\001 " +
-      "\001(\t\022\017\n\007version\030\002 \001(\t\022\032\n\022creation_timesta" +
-      "mp\030\003 \001(\003\022\036\n\026last_updated_timestamp\030\004 \001(\003" +
-      "\022\017\n\007user_id\030\005 \001(\t\022\025\n\rcurrent_stage\030\006 \001(\t" +
-      "\022\023\n\013description\030\007 \001(\t\022\016\n\006source\030\010 \001(\t\022\016\n" +
-      "\006run_id\030\t \001(\t\022*\n\006status\030\n \001(\0162\032.mlflow.M" +
-      "odelVersionStatus\022\026\n\016status_message\030\013 \001(" +
-      "\t\022%\n\004tags\030\014 \003(\0132\027.mlflow.ModelVersionTag" +
-      "\022\020\n\010run_link\030\r \001(\t\"\326\001\n\025CreateRegisteredM" +
-      "odel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022(\n\004tags\030\002 \003(\0132\032" +
-      ".mlflow.RegisteredModelTag\022\023\n\013descriptio" +
-      "n\030\003 \001(\t\032=\n\010Response\0221\n\020registered_model\030" +
-      "\001 \001(\0132\027.mlflow.RegisteredModel:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\251\001\n\025" +
-      "RenameRegisteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031" +
-      "\001\022\020\n\010new_name\030\002 \001(\t\032=\n\010Response\0221\n\020regis" +
-      "tered_model\030\001 \001(\0132\027.mlflow.RegisteredMod" +
-      "el:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\254\001\n\025UpdateRegisteredModel\022\022\n\004nam" +
-      "e\030\001 \001(\tB\004\370\206\031\001\022\023\n\013description\030\002 \001(\t\032=\n\010Re" +
-      "sponse\0221\n\020registered_model\030\001 \001(\0132\027.mlflo" +
-      "w.RegisteredModel:+\342?(\n&com.databricks.r" +
-      "pc.RPC[$this.Response]\"d\n\025DeleteRegister" +
-      "edModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"\224\001\n\022GetRegisteredModel\022\022\n\004name\030\001 \001(" +
-      "\tB\004\370\206\031\001\032=\n\010Response\0221\n\020registered_model\030" +
-      "\001 \001(\0132\027.mlflow.RegisteredModel:+\342?(\n&com" +
-      ".databricks.rpc.RPC[$this.Response]\"\356\001\n\026" +
-      "SearchRegisteredModels\022\016\n\006filter\030\001 \001(\t\022\030" +
-      "\n\013max_results\030\002 \001(\003:\003100\022\020\n\010order_by\030\003 \003" +
-      "(\t\022\022\n\npage_token\030\004 \001(\t\032W\n\010Response\0222\n\021re" +
-      "gistered_models\030\001 \003(\0132\027.mlflow.Registere" +
-      "dModel\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\236\001\n" +
-      "\021GetLatestVersions\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016" +
-      "\n\006stages\030\002 \003(\t\0328\n\010Response\022,\n\016model_vers" +
-      "ions\030\001 \003(\0132\024.mlflow.ModelVersion:+\342?(\n&c" +
-      "om.databricks.rpc.RPC[$this.Response]\"\202\002" +
-      "\n\022CreateModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001" +
-      "\022\024\n\006source\030\002 \001(\tB\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\022%" +
-      "\n\004tags\030\004 \003(\0132\027.mlflow.ModelVersionTag\022\020\n" +
-      "\010run_link\030\005 \001(\t\022\023\n\013description\030\006 \001(\t\0327\n\010" +
-      "Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow" +
-      ".ModelVersion:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]\"\272\001\n\022UpdateModelVersio" +
-      "n\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004" +
-      "\370\206\031\001\022\023\n\013description\030\003 \001(\t\0327\n\010Response\022+\n" +
-      "\rmodel_version\030\001 \001(\0132\024.mlflow.ModelVersi" +
-      "on:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\354\001\n\033TransitionModelVersionStage\022" +
-      "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206" +
-      "\031\001\022\023\n\005stage\030\003 \001(\tB\004\370\206\031\001\022\'\n\031archive_exist" +
-      "ing_versions\030\004 \001(\010B\004\370\206\031\001\0327\n\010Response\022+\n\r" +
-      "model_version\030\001 \001(\0132\024.mlflow.ModelVersio" +
-      "n:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"x\n\022DeleteModelVersion\022\022\n\004name\030\001 \001" +
-      "(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
-      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\242\001\n\017GetModelVersion\022\022\n\004name\030\001 \001" +
-      "(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\0327\n\010Respo" +
-      "nse\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow.Mode" +
-      "lVersion:+\342?(\n&com.databricks.rpc.RPC[$t" +
-      "his.Response]\"\350\001\n\023SearchModelVersions\022\016\n" +
-      "\006filter\030\001 \001(\t\022\033\n\013max_results\030\002 \001(\003:\0062000" +
-      "00\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t" +
-      "\032Q\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024.m" +
-      "lflow.ModelVersion\022\027\n\017next_page_token\030\002 " +
-      "\001(\t:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\226\001\n\032GetModelVersionDownloadUri\022" +
-      "\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206" +
-      "\031\001\032 \n\010Response\022\024\n\014artifact_uri\030\001 \001(\t:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"-\n\017ModelVersionTag\022\013\n\003key\030\001 \001(\t\022\r\n\005val" +
-      "ue\030\002 \001(\t\"0\n\022RegisteredModelTag\022\013\n\003key\030\001 " +
-      "\001(\t\022\r\n\005value\030\002 \001(\t\"\214\001\n\025SetRegisteredMode" +
-      "lTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370" +
-      "\206\031\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?" +
-      "(\n&com.databricks.rpc.RPC[$this.Response" +
-      "]\"\240\001\n\022SetModelVersionTag\022\022\n\004name\030\001 \001(\tB\004" +
-      "\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\t" +
-      "B\004\370\206\031\001\022\023\n\005value\030\004 \001(\tB\004\370\206\031\001\032\n\n\010Response:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\"z\n\030DeleteRegisteredModelTag\022\022\n\004name" +
-      "\030\001 \001(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Respo" +
-      "nse:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\"\216\001\n\025DeleteModelVersionTag\022\022\n\004na" +
-      "me\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n" +
-      "\003key\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"D\n\024Reg" +
-      "isteredModelAlias\022\014\n\004name\030\001 \001(\t\022\r\n\005alias" +
-      "\030\002 \001(\t\022\017\n\007version\030\003 \001(\t*R\n\022ModelVersionS" +
-      "tatus\022\030\n\024PENDING_REGISTRATION\020\001\022\027\n\023FAILE" +
-      "D_REGISTRATION\020\002\022\t\n\005READY\020\0032\304\031\n\024ModelReg" +
-      "istryService\022\256\001\n\025createRegisteredModel\022\035" +
-      ".mlflow.CreateRegisteredModel\032&.mlflow.C" +
-      "reateRegisteredModel.Response\"N\362\206\031J\n.\n\004P" +
-      "OST\022 /mlflow/registered-models/create\032\004\010" +
-      "\002\020\000\020\001*\026Create RegisteredModel\022\256\001\n\025rename" +
-      "RegisteredModel\022\035.mlflow.RenameRegistere" +
-      "dModel\032&.mlflow.RenameRegisteredModel.Re" +
+      "eredModelTag\022-\n\007aliases\030\010 \003(\0132\034.mlflow.R" +
+      "egisteredModelAlias\"\324\002\n\014ModelVersion\022\014\n\004" +
+      "name\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\022\032\n\022creation_" +
+      "timestamp\030\003 \001(\003\022\036\n\026last_updated_timestam" +
+      "p\030\004 \001(\003\022\017\n\007user_id\030\005 \001(\t\022\025\n\rcurrent_stag" +
+      "e\030\006 \001(\t\022\023\n\013description\030\007 \001(\t\022\016\n\006source\030\010" +
+      " \001(\t\022\016\n\006run_id\030\t \001(\t\022*\n\006status\030\n \001(\0162\032.m" +
+      "lflow.ModelVersionStatus\022\026\n\016status_messa" +
+      "ge\030\013 \001(\t\022%\n\004tags\030\014 \003(\0132\027.mlflow.ModelVer" +
+      "sionTag\022\020\n\010run_link\030\r \001(\t\022\017\n\007aliases\030\016 \003" +
+      "(\t\"\326\001\n\025CreateRegisteredModel\022\022\n\004name\030\001 \001" +
+      "(\tB\004\370\206\031\001\022(\n\004tags\030\002 \003(\0132\032.mlflow.Register" +
+      "edModelTag\022\023\n\013description\030\003 \001(\t\032=\n\010Respo" +
+      "nse\0221\n\020registered_model\030\001 \001(\0132\027.mlflow.R" +
+      "egisteredModel:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\251\001\n\025RenameRegistered" +
+      "Model\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 " +
+      "\001(\t\032=\n\010Response\0221\n\020registered_model\030\001 \001(" +
+      "\0132\027.mlflow.RegisteredModel:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\254\001\n\025Upda" +
+      "teRegisteredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n" +
+      "\013description\030\002 \001(\t\032=\n\010Response\0221\n\020regist" +
+      "ered_model\030\001 \001(\0132\027.mlflow.RegisteredMode" +
+      "l:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"d\n\025DeleteRegisteredModel\022\022\n\004name\030" +
+      "\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\224\001\n\022GetRegi" +
+      "steredModel\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032=\n\010Respo" +
+      "nse\0221\n\020registered_model\030\001 \001(\0132\027.mlflow.R" +
+      "egisteredModel:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]\"\356\001\n\026SearchRegistered" +
+      "Models\022\016\n\006filter\030\001 \001(\t\022\030\n\013max_results\030\002 " +
+      "\001(\003:\003100\022\020\n\010order_by\030\003 \003(\t\022\022\n\npage_token" +
+      "\030\004 \001(\t\032W\n\010Response\0222\n\021registered_models\030" +
+      "\001 \003(\0132\027.mlflow.RegisteredModel\022\027\n\017next_p" +
+      "age_token\030\002 \001(\t:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\236\001\n\021GetLatestVersio" +
+      "ns\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\016\n\006stages\030\002 \003(\t\0328" +
+      "\n\010Response\022,\n\016model_versions\030\001 \003(\0132\024.mlf" +
+      "low.ModelVersion:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"\202\002\n\022CreateModelVer" +
+      "sion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\024\n\006source\030\002 \001(\t" +
+      "B\004\370\206\031\001\022\016\n\006run_id\030\003 \001(\t\022%\n\004tags\030\004 \003(\0132\027.m" +
+      "lflow.ModelVersionTag\022\020\n\010run_link\030\005 \001(\t\022" +
+      "\023\n\013description\030\006 \001(\t\0327\n\010Response\022+\n\rmode" +
+      "l_version\030\001 \001(\0132\024.mlflow.ModelVersion:+\342" +
+      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
+      "e]\"\272\001\n\022UpdateModelVersion\022\022\n\004name\030\001 \001(\tB" +
+      "\004\370\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\023\n\013descript" +
+      "ion\030\003 \001(\t\0327\n\010Response\022+\n\rmodel_version\030\001" +
+      " \001(\0132\024.mlflow.ModelVersion:+\342?(\n&com.dat" +
+      "abricks.rpc.RPC[$this.Response]\"\354\001\n\033Tran" +
+      "sitionModelVersionStage\022\022\n\004name\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\022\023\n\005stage\030\003 \001(" +
+      "\tB\004\370\206\031\001\022\'\n\031archive_existing_versions\030\004 \001" +
+      "(\010B\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_version\030\001 " +
+      "\001(\0132\024.mlflow.ModelVersion:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"x\n\022Delete" +
+      "ModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007vers" +
+      "ion\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\242\001\n\017Get" +
+      "ModelVersion\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007vers" +
+      "ion\030\002 \001(\tB\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_ver" +
+      "sion\030\001 \001(\0132\024.mlflow.ModelVersion:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\350\001" +
+      "\n\023SearchModelVersions\022\016\n\006filter\030\001 \001(\t\022\033\n" +
+      "\013max_results\030\002 \001(\003:\006200000\022\020\n\010order_by\030\003" +
+      " \003(\t\022\022\n\npage_token\030\004 \001(\t\032Q\n\010Response\022,\n\016" +
+      "model_versions\030\001 \003(\0132\024.mlflow.ModelVersi" +
+      "on\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\226\001\n\032Get" +
+      "ModelVersionDownloadUri\022\022\n\004name\030\001 \001(\tB\004\370" +
+      "\206\031\001\022\025\n\007version\030\002 \001(\tB\004\370\206\031\001\032 \n\010Response\022\024" +
+      "\n\014artifact_uri\030\001 \001(\t:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"-\n\017ModelVersio" +
+      "nTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"0\n\022Regi" +
+      "steredModelTag\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001" +
+      "(\t\"\214\001\n\025SetRegisteredModelTag\022\022\n\004name\030\001 \001" +
+      "(\tB\004\370\206\031\001\022\021\n\003key\030\002 \001(\tB\004\370\206\031\001\022\023\n\005value\030\003 \001" +
+      "(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databrick" +
+      "s.rpc.RPC[$this.Response]\"\240\001\n\022SetModelVe" +
+      "rsionTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025\n\007version\030" +
+      "\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\tB\004\370\206\031\001\022\023\n\005value\030" +
+      "\004 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"z\n\030DeleteRe" +
+      "gisteredModelTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\021\n\003" +
+      "key\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]\"\216\001\n\025Del" +
+      "eteModelVersionTag\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\025" +
+      "\n\007version\030\002 \001(\tB\004\370\206\031\001\022\021\n\003key\030\003 \001(\tB\004\370\206\031\001" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"6\n\024RegisteredModelAlia" +
+      "s\022\r\n\005alias\030\001 \001(\t\022\017\n\007version\030\002 \001(\t\"\222\001\n\027Se" +
+      "tRegisteredModelAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031" +
+      "\001\022\023\n\005alias\030\002 \001(\tB\004\370\206\031\001\022\025\n\007version\030\003 \001(\tB" +
+      "\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks.r" +
+      "pc.RPC[$this.Response]\"~\n\032DeleteRegister" +
+      "edModelAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alia" +
+      "s\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"\247\001\n\026GetMo" +
+      "delVersionByAlias\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n" +
+      "\005alias\030\002 \001(\tB\004\370\206\031\001\0327\n\010Response\022+\n\rmodel_" +
+      "version\030\001 \001(\0132\024.mlflow.ModelVersion:+\342?(" +
+      "\n&com.databricks.rpc.RPC[$this.Response]" +
+      "*R\n\022ModelVersionStatus\022\030\n\024PENDING_REGIST" +
+      "RATION\020\001\022\027\n\023FAILED_REGISTRATION\020\002\022\t\n\005REA" +
+      "DY\020\0032\374\035\n\024ModelRegistryService\022\256\001\n\025create" +
+      "RegisteredModel\022\035.mlflow.CreateRegistere" +
+      "dModel\032&.mlflow.CreateRegisteredModel.Re" +
       "sponse\"N\362\206\031J\n.\n\004POST\022 /mlflow/registered" +
-      "-models/rename\032\004\010\002\020\000\020\001*\026Rename Registere" +
-      "dModel\022\257\001\n\025updateRegisteredModel\022\035.mlflo" +
-      "w.UpdateRegisteredModel\032&.mlflow.UpdateR" +
-      "egisteredModel.Response\"O\362\206\031K\n/\n\005PATCH\022 " +
-      "/mlflow/registered-models/update\032\004\010\002\020\000\020\001" +
-      "*\026Update RegisteredModel\022\260\001\n\025deleteRegis" +
-      "teredModel\022\035.mlflow.DeleteRegisteredMode" +
-      "l\032&.mlflow.DeleteRegisteredModel.Respons" +
-      "e\"P\362\206\031L\n0\n\006DELETE\022 /mlflow/registered-mo" +
-      "dels/delete\032\004\010\002\020\000\020\001*\026Delete RegisteredMo" +
-      "del\022\236\001\n\022getRegisteredModel\022\032.mlflow.GetR" +
-      "egisteredModel\032#.mlflow.GetRegisteredMod" +
-      "el.Response\"G\362\206\031C\n*\n\003GET\022\035/mlflow/regist" +
-      "ered-models/get\032\004\010\002\020\000\020\001*\023Get RegisteredM" +
-      "odel\022\261\001\n\026searchRegisteredModels\022\036.mlflow" +
-      ".SearchRegisteredModels\032\'.mlflow.SearchR" +
-      "egisteredModels.Response\"N\362\206\031J\n-\n\003GET\022 /" +
-      "mlflow/registered-models/search\032\004\010\002\020\000\020\001*" +
-      "\027Search RegisteredModels\022\357\001\n\021getLatestVe" +
-      "rsions\022\031.mlflow.GetLatestVersions\032\".mlfl" +
-      "ow.GetLatestVersions.Response\"\232\001\362\206\031\225\001\n;\n" +
-      "\004POST\022-/mlflow/registered-models/get-lat" +
-      "est-versions\032\004\010\002\020\000\n:\n\003GET\022-/mlflow/regis" +
-      "tered-models/get-latest-versions\032\004\010\002\020\000\020\001" +
-      "*\030Get Latest ModelVersions\022\237\001\n\022createMod" +
-      "elVersion\022\032.mlflow.CreateModelVersion\032#." +
-      "mlflow.CreateModelVersion.Response\"H\362\206\031D" +
-      "\n+\n\004POST\022\035/mlflow/model-versions/create\032" +
-      "\004\010\002\020\000\020\001*\023Create ModelVersion\022\240\001\n\022updateM" +
-      "odelVersion\022\032.mlflow.UpdateModelVersion\032" +
-      "#.mlflow.UpdateModelVersion.Response\"I\362\206" +
-      "\031E\n,\n\005PATCH\022\035/mlflow/model-versions/upda" +
-      "te\032\004\010\002\020\000\020\001*\023Update ModelVersion\022\316\001\n\033tran" +
-      "sitionModelVersionStage\022#.mlflow.Transit" +
-      "ionModelVersionStage\032,.mlflow.Transition" +
-      "ModelVersionStage.Response\"\\\362\206\031X\n5\n\004POST" +
-      "\022\'/mlflow/model-versions/transition-stag" +
-      "e\032\004\010\002\020\000\020\001*\035Transition ModelVersion Stage" +
-      "\022\241\001\n\022deleteModelVersion\022\032.mlflow.DeleteM" +
-      "odelVersion\032#.mlflow.DeleteModelVersion." +
-      "Response\"J\362\206\031F\n-\n\006DELETE\022\035/mlflow/model-" +
-      "versions/delete\032\004\010\002\020\000\020\001*\023Delete ModelVer" +
-      "sion\022\217\001\n\017getModelVersion\022\027.mlflow.GetMod" +
-      "elVersion\032 .mlflow.GetModelVersion.Respo" +
-      "nse\"A\362\206\031=\n\'\n\003GET\022\032/mlflow/model-versions" +
-      "/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\242\001\n\023searc" +
-      "hModelVersions\022\033.mlflow.SearchModelVersi" +
-      "ons\032$.mlflow.SearchModelVersions.Respons" +
-      "e\"H\362\206\031D\n*\n\003GET\022\035/mlflow/model-versions/s" +
-      "earch\032\004\010\002\020\000\020\001*\024Search ModelVersions\022\330\001\n\032" +
-      "getModelVersionDownloadUri\022\".mlflow.GetM" +
-      "odelVersionDownloadUri\032+.mlflow.GetModel" +
-      "VersionDownloadUri.Response\"i\362\206\031e\n4\n\003GET" +
-      "\022\'/mlflow/model-versions/get-download-ur" +
-      "i\032\004\010\002\020\000\020\001*+Get Download URI For ModelVer" +
-      "sion Artifacts\022\261\001\n\025setRegisteredModelTag" +
-      "\022\035.mlflow.SetRegisteredModelTag\032&.mlflow" +
-      ".SetRegisteredModelTag.Response\"Q\362\206\031M\n/\n" +
-      "\004POST\022!/mlflow/registered-models/set-tag" +
-      "\032\004\010\002\020\000\020\001*\030Set Registered Model Tag\022\242\001\n\022s" +
-      "etModelVersionTag\022\032.mlflow.SetModelVersi" +
-      "onTag\032#.mlflow.SetModelVersionTag.Respon" +
-      "se\"K\362\206\031G\n,\n\004POST\022\036/mlflow/model-versions" +
-      "/set-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag\022" +
-      "\302\001\n\030deleteRegisteredModelTag\022 .mlflow.De" +
-      "leteRegisteredModelTag\032).mlflow.DeleteRe" +
-      "gisteredModelTag.Response\"Y\362\206\031U\n4\n\006DELET" +
-      "E\022$/mlflow/registered-models/delete-tag\032" +
-      "\004\010\002\020\000\020\001*\033Delete Registered Model Tag\022\263\001\n" +
-      "\025deleteModelVersionTag\022\035.mlflow.DeleteMo" +
-      "delVersionTag\032&.mlflow.DeleteModelVersio" +
-      "nTag.Response\"S\362\206\031O\n1\n\006DELETE\022!/mlflow/m" +
-      "odel-versions/delete-tag\032\004\010\002\020\000\020\001*\030Delete" +
-      " Model Version TagB!\n\024org.mlflow.api.pro" +
-      "to\220\001\001\240\001\001\342?\002\020\001"
+      "-models/create\032\004\010\002\020\000\020\001*\026Create Registere" +
+      "dModel\022\256\001\n\025renameRegisteredModel\022\035.mlflo" +
+      "w.RenameRegisteredModel\032&.mlflow.RenameR" +
+      "egisteredModel.Response\"N\362\206\031J\n.\n\004POST\022 /" +
+      "mlflow/registered-models/rename\032\004\010\002\020\000\020\001*" +
+      "\026Rename RegisteredModel\022\257\001\n\025updateRegist" +
+      "eredModel\022\035.mlflow.UpdateRegisteredModel" +
+      "\032&.mlflow.UpdateRegisteredModel.Response" +
+      "\"O\362\206\031K\n/\n\005PATCH\022 /mlflow/registered-mode" +
+      "ls/update\032\004\010\002\020\000\020\001*\026Update RegisteredMode" +
+      "l\022\260\001\n\025deleteRegisteredModel\022\035.mlflow.Del" +
+      "eteRegisteredModel\032&.mlflow.DeleteRegist" +
+      "eredModel.Response\"P\362\206\031L\n0\n\006DELETE\022 /mlf" +
+      "low/registered-models/delete\032\004\010\002\020\000\020\001*\026De" +
+      "lete RegisteredModel\022\236\001\n\022getRegisteredMo" +
+      "del\022\032.mlflow.GetRegisteredModel\032#.mlflow" +
+      ".GetRegisteredModel.Response\"G\362\206\031C\n*\n\003GE" +
+      "T\022\035/mlflow/registered-models/get\032\004\010\002\020\000\020\001" +
+      "*\023Get RegisteredModel\022\261\001\n\026searchRegister" +
+      "edModels\022\036.mlflow.SearchRegisteredModels" +
+      "\032\'.mlflow.SearchRegisteredModels.Respons" +
+      "e\"N\362\206\031J\n-\n\003GET\022 /mlflow/registered-model" +
+      "s/search\032\004\010\002\020\000\020\001*\027Search RegisteredModel" +
+      "s\022\357\001\n\021getLatestVersions\022\031.mlflow.GetLate" +
+      "stVersions\032\".mlflow.GetLatestVersions.Re" +
+      "sponse\"\232\001\362\206\031\225\001\n;\n\004POST\022-/mlflow/register" +
+      "ed-models/get-latest-versions\032\004\010\002\020\000\n:\n\003G" +
+      "ET\022-/mlflow/registered-models/get-latest" +
+      "-versions\032\004\010\002\020\000\020\001*\030Get Latest ModelVersi" +
+      "ons\022\237\001\n\022createModelVersion\022\032.mlflow.Crea" +
+      "teModelVersion\032#.mlflow.CreateModelVersi" +
+      "on.Response\"H\362\206\031D\n+\n\004POST\022\035/mlflow/model" +
+      "-versions/create\032\004\010\002\020\000\020\001*\023Create ModelVe" +
+      "rsion\022\240\001\n\022updateModelVersion\022\032.mlflow.Up" +
+      "dateModelVersion\032#.mlflow.UpdateModelVer" +
+      "sion.Response\"I\362\206\031E\n,\n\005PATCH\022\035/mlflow/mo" +
+      "del-versions/update\032\004\010\002\020\000\020\001*\023Update Mode" +
+      "lVersion\022\316\001\n\033transitionModelVersionStage" +
+      "\022#.mlflow.TransitionModelVersionStage\032,." +
+      "mlflow.TransitionModelVersionStage.Respo" +
+      "nse\"\\\362\206\031X\n5\n\004POST\022\'/mlflow/model-version" +
+      "s/transition-stage\032\004\010\002\020\000\020\001*\035Transition M" +
+      "odelVersion Stage\022\241\001\n\022deleteModelVersion" +
+      "\022\032.mlflow.DeleteModelVersion\032#.mlflow.De" +
+      "leteModelVersion.Response\"J\362\206\031F\n-\n\006DELET" +
+      "E\022\035/mlflow/model-versions/delete\032\004\010\002\020\000\020\001" +
+      "*\023Delete ModelVersion\022\217\001\n\017getModelVersio" +
+      "n\022\027.mlflow.GetModelVersion\032 .mlflow.GetM" +
+      "odelVersion.Response\"A\362\206\031=\n\'\n\003GET\022\032/mlfl" +
+      "ow/model-versions/get\032\004\010\002\020\000\020\001*\020Get Model" +
+      "Version\022\242\001\n\023searchModelVersions\022\033.mlflow" +
+      ".SearchModelVersions\032$.mlflow.SearchMode" +
+      "lVersions.Response\"H\362\206\031D\n*\n\003GET\022\035/mlflow" +
+      "/model-versions/search\032\004\010\002\020\000\020\001*\024Search M" +
+      "odelVersions\022\330\001\n\032getModelVersionDownload" +
+      "Uri\022\".mlflow.GetModelVersionDownloadUri\032" +
+      "+.mlflow.GetModelVersionDownloadUri.Resp" +
+      "onse\"i\362\206\031e\n4\n\003GET\022\'/mlflow/model-version" +
+      "s/get-download-uri\032\004\010\002\020\000\020\001*+Get Download" +
+      " URI For ModelVersion Artifacts\022\261\001\n\025setR" +
+      "egisteredModelTag\022\035.mlflow.SetRegistered" +
+      "ModelTag\032&.mlflow.SetRegisteredModelTag." +
+      "Response\"Q\362\206\031M\n/\n\004POST\022!/mlflow/register" +
+      "ed-models/set-tag\032\004\010\002\020\000\020\001*\030Set Registere" +
+      "d Model Tag\022\242\001\n\022setModelVersionTag\022\032.mlf" +
+      "low.SetModelVersionTag\032#.mlflow.SetModel" +
+      "VersionTag.Response\"K\362\206\031G\n,\n\004POST\022\036/mlfl" +
+      "ow/model-versions/set-tag\032\004\010\002\020\000\020\001*\025Set M" +
+      "odel Version Tag\022\302\001\n\030deleteRegisteredMod" +
+      "elTag\022 .mlflow.DeleteRegisteredModelTag\032" +
+      ").mlflow.DeleteRegisteredModelTag.Respon" +
+      "se\"Y\362\206\031U\n4\n\006DELETE\022$/mlflow/registered-m" +
+      "odels/delete-tag\032\004\010\002\020\000\020\001*\033Delete Registe" +
+      "red Model Tag\022\263\001\n\025deleteModelVersionTag\022" +
+      "\035.mlflow.DeleteModelVersionTag\032&.mlflow." +
+      "DeleteModelVersionTag.Response\"S\362\206\031O\n1\n\006" +
+      "DELETE\022!/mlflow/model-versions/delete-ta" +
+      "g\032\004\010\002\020\000\020\001*\030Delete Model Version Tag\022\267\001\n\027" +
+      "setRegisteredModelAlias\022\037.mlflow.SetRegi" +
+      "steredModelAlias\032(.mlflow.SetRegisteredM" +
+      "odelAlias.Response\"Q\362\206\031M\n-\n\004POST\022\037/mlflo" +
+      "w/registered-models/alias\032\004\010\002\020\000\020\001*\032Set R" +
+      "egistered Model Alias\022\305\001\n\032deleteRegister" +
+      "edModelAlias\022\".mlflow.DeleteRegisteredMo" +
+      "delAlias\032+.mlflow.DeleteRegisteredModelA" +
+      "lias.Response\"V\362\206\031R\n/\n\006DELETE\022\037/mlflow/r" +
+      "egistered-models/alias\032\004\010\002\020\000\020\001*\035Delete R" +
+      "egistered Model Alias\022\263\001\n\026getModelVersio" +
+      "nByAlias\022\036.mlflow.GetModelVersionByAlias" +
+      "\032\'.mlflow.GetModelVersionByAlias.Respons" +
+      "e\"P\362\206\031L\n,\n\003GET\022\037/mlflow/registered-model" +
+      "s/alias\032\004\010\002\020\000\020\001*\032Get Model Version by Al" +
+      "iasB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -40619,13 +45587,13 @@ public final class ModelRegistry {
     internal_static_mlflow_RegisteredModel_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RegisteredModel_descriptor,
-        new java.lang.String[] { "Name", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "Description", "LatestVersions", "Tags", });
+        new java.lang.String[] { "Name", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "Description", "LatestVersions", "Tags", "Aliases", });
     internal_static_mlflow_ModelVersion_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_ModelVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ModelVersion_descriptor,
-        new java.lang.String[] { "Name", "Version", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "CurrentStage", "Description", "Source", "RunId", "Status", "StatusMessage", "Tags", "RunLink", });
+        new java.lang.String[] { "Name", "Version", "CreationTimestamp", "LastUpdatedTimestamp", "UserId", "CurrentStage", "Description", "Source", "RunId", "Status", "StatusMessage", "Tags", "RunLink", "Aliases", });
     internal_static_mlflow_CreateRegisteredModel_descriptor =
       getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_CreateRegisteredModel_fieldAccessorTable = new
@@ -40859,7 +45827,43 @@ public final class ModelRegistry {
     internal_static_mlflow_RegisteredModelAlias_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RegisteredModelAlias_descriptor,
+        new java.lang.String[] { "Alias", "Version", });
+    internal_static_mlflow_SetRegisteredModelAlias_descriptor =
+      getDescriptor().getMessageTypes().get(23);
+    internal_static_mlflow_SetRegisteredModelAlias_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SetRegisteredModelAlias_descriptor,
         new java.lang.String[] { "Name", "Alias", "Version", });
+    internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor =
+      internal_static_mlflow_SetRegisteredModelAlias_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_SetRegisteredModelAlias_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SetRegisteredModelAlias_Response_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_DeleteRegisteredModelAlias_descriptor =
+      getDescriptor().getMessageTypes().get(24);
+    internal_static_mlflow_DeleteRegisteredModelAlias_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DeleteRegisteredModelAlias_descriptor,
+        new java.lang.String[] { "Name", "Alias", });
+    internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor =
+      internal_static_mlflow_DeleteRegisteredModelAlias_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_DeleteRegisteredModelAlias_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DeleteRegisteredModelAlias_Response_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_GetModelVersionByAlias_descriptor =
+      getDescriptor().getMessageTypes().get(25);
+    internal_static_mlflow_GetModelVersionByAlias_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetModelVersionByAlias_descriptor,
+        new java.lang.String[] { "Name", "Alias", });
+    internal_static_mlflow_GetModelVersionByAlias_Response_descriptor =
+      internal_static_mlflow_GetModelVersionByAlias_descriptor.getNestedTypes().get(0);
+    internal_static_mlflow_GetModelVersionByAlias_Response_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_GetModelVersionByAlias_Response_descriptor,
+        new java.lang.String[] { "ModelVersion", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);

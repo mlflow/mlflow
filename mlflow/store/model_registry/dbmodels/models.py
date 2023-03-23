@@ -14,6 +14,7 @@ from mlflow.entities.model_registry import (
     ModelVersion,
     RegisteredModelTag,
     ModelVersionTag,
+    RegisteredModelAlias,
 )
 from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -55,6 +56,7 @@ class SqlRegisteredModel(Base):
             self.description,
             [mvd.to_mlflow_entity() for mvd in latest_versions.values()],
             [tag.to_mlflow_entity() for tag in self.registered_model_tags],
+            [alias.to_mlflow_entity() for alias in self.registered_model_aliases],
         )
 
 
@@ -108,6 +110,7 @@ class SqlModelVersion(Base):
             self.status_message,
             [tag.to_mlflow_entity() for tag in self.model_version_tags],
             self.run_link,
+            [],
         )
 
 
@@ -174,23 +177,28 @@ class SqlModelVersionTag(Base):
 
 class SqlRegisteredModelAlias(Base):
     __tablename__ = "registered_model_aliases"
-    name = Column(String(256), nullable=False)
+    name = Column(
+        String(256),
+        ForeignKey(
+            "registered_models.name",
+            onupdate="cascade",
+            ondelete="cascade",
+            name="registered_model_alias_name_fkey",
+        ),
+    )
     alias = Column(String(256), nullable=False)
     version = Column(Integer, nullable=False)
 
     # linked entities
-    model_version = relationship(
-        "SqlModelVersion",
-        foreign_keys=[name, version],
-        backref=backref("registered_model_aliases", cascade="all"),
+    registered_model = relationship(
+        "SqlRegisteredModel", backref=backref("registered_model_aliases", cascade="all")
     )
 
-    __table_args__ = (
-        PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),
-        ForeignKeyConstraint(
-            ("name", "version"),
-            ("model_versions.name", "model_versions.version"),
-            onupdate="cascade",
-            name="registered_model_alias_name_version_fkey",
-        ),
-    )
+    __table_args__ = (PrimaryKeyConstraint("name", "alias", name="registered_model_alias_pk"),)
+
+    def __repr__(self):
+        return "<SqlRegisteredModelAlias ({}, {}, {})>".format(self.name, self.alias, self.version)
+
+    # entity mappers
+    def to_mlflow_entity(self):
+        return RegisteredModelAlias(self.alias, self.version)

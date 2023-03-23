@@ -233,6 +233,42 @@ service ModelRegistryService {
       rpc_doc_title: "Delete Model Version Tag",
     };
   }
+
+  rpc setRegisteredModelAlias (SetRegisteredModelAlias) returns (SetRegisteredModelAlias.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/registered-models/alias"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Registered Model Alias",
+    };
+  }
+
+  rpc deleteRegisteredModelAlias (DeleteRegisteredModelAlias) returns (DeleteRegisteredModelAlias.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/registered-models/alias"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Registered Model Alias",
+    };
+  }
+
+  rpc getModelVersionByAlias (GetModelVersionByAlias) returns (GetModelVersionByAlias.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/registered-models/alias"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Model Version by Alias",
+    };
+  }
 }
 
 message RegisteredModel {
@@ -258,6 +294,9 @@ message RegisteredModel {
 
   // Tags: Additional metadata key-value pairs for this ``registered_model``.
   repeated RegisteredModelTag tags = 7;
+
+  // Aliases pointing to model versions associated with this ``registered_model``.
+  repeated RegisteredModelAlias aliases = 8;
 }
 
 enum ModelVersionStatus {
@@ -312,6 +351,9 @@ message ModelVersion {
   // Run Link: Direct link to the run that generated this version. This field is set at model version creation time
   // only for model versions whose source run is from a tracking server that is different from the registry server.
   optional string run_link = 13;
+
+  // Aliases pointing to this ``model_version``.
+  repeated string aliases = 14;
 }
 
 message CreateRegisteredModel {
@@ -654,10 +696,53 @@ message DeleteModelVersionTag {
 
 // Alias for a registered model
 message RegisteredModelAlias {
-  // The name of the registered model associated with the alias.
-  optional string name = 1;
   // The name of the alias.
-  optional string alias = 2;
+  optional string alias = 1;
   // The model version number that the alias points to.
-  optional string version = 3;
+  optional string version = 2;
+}
+
+message SetRegisteredModelAlias {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the alias. Maximum size depends on storage backend.
+  // If an alias with this name already exists, its preexisting value will be replaced by the specified `version`.
+  // All storage backends are guaranteed to support alias name values up to 256 bytes in size.
+  optional string alias = 2 [(validate_required) = true];
+
+  // Model version number.
+  optional string version = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message DeleteRegisteredModelAlias {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the alias. The name must be an exact match; wild-card deletion is not supported. Maximum size is 256 bytes.
+  optional string alias = 2 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message GetModelVersionByAlias {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the registered model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the alias. Maximum size is 256 bytes.
+  optional string alias = 2 [(validate_required) = true];
+
+  message Response {
+    optional ModelVersion model_version = 1;
+  }
 }
