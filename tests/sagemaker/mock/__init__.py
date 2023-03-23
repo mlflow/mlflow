@@ -34,11 +34,13 @@ class SageMakerResponse(BaseResponse):
         config_name = self.request_params["EndpointConfigName"]
         production_variants = self.request_params.get("ProductionVariants")
         tags = self.request_params.get("Tags", [])
+        async_inference_config = self.request_params.get("AsyncInferenceConfig")
         new_config = self.sagemaker_backend.create_endpoint_config(
             config_name=config_name,
             production_variants=production_variants,
             tags=tags,
             region_name=self.region,
+            async_inference_config=async_inference_config,
         )
         return json.dumps({"EndpointConfigArn": new_config.arn})
 
@@ -322,7 +324,9 @@ class SageMakerBackend(BaseBackend):
             region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
         )
 
-    def create_endpoint_config(self, config_name, production_variants, tags, region_name):
+    def create_endpoint_config(
+        self, config_name, production_variants, tags, region_name, async_inference_config
+    ):
         """
         Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API
         documented here:
@@ -344,7 +348,10 @@ class SageMakerBackend(BaseBackend):
                 )
 
         new_config = EndpointConfig(
-            config_name=config_name, production_variants=production_variants, tags=tags
+            config_name=config_name,
+            production_variants=production_variants,
+            tags=tags,
+            async_inference_config=async_inference_config,
         )
         new_config_arn = self._get_base_arn(region_name=region_name) + new_config.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_config, arn=new_config_arn)
@@ -929,11 +936,12 @@ class EndpointConfig(TimestampedResource):
     and manage EndpointConfigs.
     """
 
-    def __init__(self, config_name, production_variants, tags):
+    def __init__(self, config_name, production_variants, tags, async_inference_config=None):
         super().__init__()
         self.config_name = config_name
         self.production_variants = production_variants
         self.tags = tags
+        self.async_inference_config = async_inference_config
 
     @property
     def arn_descriptor(self):
@@ -979,6 +987,7 @@ class EndpointConfigDescription:
             "EndpointConfigArn": self.arn,
             "ProductionVariants": self.config.production_variants,
             "CreationTime": self.config.creation_time,
+            "AsyncInferenceConfig": self.config.async_inference_config,
         }
         return response
 
