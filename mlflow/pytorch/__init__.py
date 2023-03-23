@@ -1083,13 +1083,20 @@ def autolog(
     """
     import atexit
 
+    # For lightning>=2.0.0 flavor
     try:
         import lightning as L
     except ImportError:
-        import pytorch_lightning as pl
-        from mlflow.pytorch._lightning_autolog import patched_fit
+        # for pytorch-lightning <= 1.9.4 flavor
+        try:
+            import pytorch_lightning as pl
+        except ImportError:
+            # For PyTorch flavor
+            pass
+        else:
+            from mlflow.pytorch._lightning_autolog import patched_fit
 
-        safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+            safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
     else:
         from mlflow.pytorch._lightning_autolog import patched_fit
 
