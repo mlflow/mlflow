@@ -463,6 +463,7 @@ transformers:
   models:
     minimum: "4.27.2"
     maximum: "4.27.2"
-    requirements: ["datasets", "huggingface_hub"]
+    requirements:
+      ">= 0.0.0": ["datasets", "huggingface_hub"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py --large
