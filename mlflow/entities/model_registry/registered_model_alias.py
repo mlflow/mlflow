@@ -5,8 +5,7 @@ from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegist
 class RegisteredModelAlias(_ModelRegistryEntity):
     """Alias object associated with a registered model."""
 
-    def __init__(self, name, alias, version):
-        self._name = name
+    def __init__(self, alias, version):
         self._alias = alias
         self._version = version
 
@@ -14,11 +13,6 @@ class RegisteredModelAlias(_ModelRegistryEntity):
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
-
-    @property
-    def name(self):
-        """String name of the registered model associated with the alias."""
-        return self._name
 
     @property
     def alias(self):
@@ -32,11 +26,10 @@ class RegisteredModelAlias(_ModelRegistryEntity):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.name, proto.alias, proto.version)
+        return cls(proto.alias, proto.version)
 
     def to_proto(self):
-        alias = ProtoRegisteredModelAlias()
-        alias.name = self.name
-        alias.alias = self.alias
-        alias.version = self.version
-        return alias
+        alias_proto = ProtoRegisteredModelAlias()
+        alias_proto.alias = self.alias
+        alias_proto.version = self.version
+        return alias_proto
