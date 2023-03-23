@@ -145,7 +145,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
-        _require_arg_unspecified("tags", tags, default_value={})
+        _require_arg_unspecified("tags", tags, default_value=[])
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -365,7 +365,7 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         # _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_value={})
+        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_value=[])
         source_workspace_id = self._get_workspace_id(run_id)
         req_body = message_to_json(
             CreateModelVersionRequest(
