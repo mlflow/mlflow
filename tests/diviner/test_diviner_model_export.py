@@ -278,7 +278,7 @@ def test_diviner_log_model_calls_register_model(grouped_pmdarima, tmp_path):
         )
 
 
-def test_pmdarima_log_model_no_registered_model_name(grouped_prophet, tmp_path):
+def test_diviner_log_model_no_registered_model_name(grouped_prophet, tmp_path):
     artifact_path = "diviner"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:

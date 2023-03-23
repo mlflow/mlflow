@@ -37,7 +37,7 @@ pytorch:
   models:
     minimum: "1.6.0"
     maximum: "1.13.1"
-    requirements::
+    requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
@@ -454,3 +454,15 @@ paddle:
     maximum: "2.4.1"
     run: |
       pytest tests/paddle/test_paddle_autolog.py
+
+transformers:
+  package_info:
+    pip_release: "transformers"
+    install_dev: |
+      pip install git+https://github.com/huggingface/transformers
+  models:
+    minimum: "4.27.2"
+    maximum: "4.27.2"
+    requirements: ["datasets", "huggingface_hub"]
+    run: |
+      pytest tests/transformers/test_transformers_model_export.py --large

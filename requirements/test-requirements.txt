@@ -20,3 +20,6 @@ ipython
 # Required by automl tests
 # 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
 flaml!=1.1.0
+# Required by transformers tests
+huggingface_hub
+datasets
