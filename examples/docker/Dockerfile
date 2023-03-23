@@ -1,4 +1,7 @@
-FROM python:3.8
+FROM python:3.8-slim
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_NO_CACHE_DIR=1
 
 RUN pip install mlflow>=1.0 \
     && pip install azure-storage-blob==12.3.0 \
