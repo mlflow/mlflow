@@ -13,6 +13,6 @@ dependencies:
       - torch>=2.0.0
       - torchdata>=0.6.0
       - torchtext==0.15.1
-      - lightning>=2.0.0
+      - lightning==2.0.0
       - jsonargparse[signatures]>=4.17.0
       - protobuf<4.0.0
