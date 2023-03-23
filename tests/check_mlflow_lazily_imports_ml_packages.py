@@ -29,6 +29,7 @@ def main():
         "xgboost",
         "pmdarima",
         "diviner",
+        "transformers",
     }
     imported = ml_packages.intersection(set(sys.modules))
     assert imported == set(), f"mlflow imports {imported} when it's imported but it should not"
