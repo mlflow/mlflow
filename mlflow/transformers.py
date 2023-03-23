@@ -68,9 +68,9 @@ def _model_engine_type(model) -> List[str]:
     PyTorch version of the same architecture omits the "TF" ("MobileBertForSequenceClassification").
 
     :param model: The model instance to be saved in order to provide the required underlying
-    deep learning execution framework dependency requirements.
+                  deep learning execution framework dependency requirements.
     :return: A string representing the engine type of the model being used (one of 'tf', 'flax', or
-        'torch').
+             'torch').
     """
     engine = _get_engine_type(model)
     if engine == "torch":
@@ -82,11 +82,11 @@ def _model_engine_type(model) -> List[str]:
 def get_default_pip_requirements(model) -> List[str]:
     """
     :param model: The model instance to be saved in order to provide the required underlying
-    deep learning execution framework dependency requirements. Note that this must be the actual
-    model instance and not a Pipeline.
+                  deep learning execution framework dependency requirements. Note that this must
+                  be the actual model instance and not a Pipeline.
     :return: A list of default pip requirements for MLflow Models that have been produced with the
-    ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()` produce
-    a pip environment that contain these requirements at a minimum.
+             ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
+             produce a pip environment that contain these requirements at a minimum.
     """
     from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
 
@@ -105,7 +105,7 @@ def get_default_conda_env(
 ) -> Union[None, Dict[str, Union[str, List[Union[str, Dict[str, List[str]]]]]]]:
     """
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
-    flavor, based on the model instance framework type of the model to be logged.
+             flavor, based on the model instance framework type of the model to be logged.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
@@ -414,10 +414,11 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
                         return representation as shown below with a text-classification example:
 
                         .. code-block:: python
-                        {
-                         "model": BertForSequenceClassification,
-                         "tokenizer": BertTokenizerFast
-                         }
+
+                          {
+                            "model": BertForSequenceClassification,
+                            "tokenizer": BertTokenizerFast
+                          }
 
                         Vision models will return an ``ImageProcessor`` instance of the appropriate
                         type, while multi-modal models will return both a ``FeatureExtractor`` and
@@ -429,12 +430,10 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
                         objects will be returned within a ``Pipeline`` object of the appropriate
                         type defined by the ``task`` set by the model instance type. To override
                         this behavior, supply a valid ``task`` argument during model logging or
-                        saving.
-                        Default: "pipeline".
+                        saving. Default is "pipeline".
     :param kwargs: Optional configuration options for loading of a ``transformers`` object.
                    For information on parameters and their usage, see
                    `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
-
     :return: A ``transformers`` model instance or a dictionary of components
     """
 
