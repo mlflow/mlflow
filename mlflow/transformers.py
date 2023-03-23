@@ -521,7 +521,7 @@ def _build_pipeline_from_model_input(model, task: str):
     """
     Utility for generating a pipeline from component parts.
     """
-    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel
+    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, pipeline
 
     if not isinstance(model, (PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel)):
         raise MlflowException(
@@ -530,19 +530,10 @@ def _build_pipeline_from_model_input(model, task: str):
             f"FlaxPreTrainedModel"
         )
 
-    from transformers import AutoTokenizer, pipeline
-
     model_architecture_name = model.name_or_path
 
     pipeline_config = {"task": task, "model": model}
 
-    try:
-        pipeline_config["tokenizer"] = AutoTokenizer.from_pretrained(model_architecture_name)
-    except (KeyError, OSError):
-        # A KeyError (or OSError if reading from cache) indicates that the model does not
-        # support a tokenizer and instead requires either a ``FeatureExtractor`` or an
-        # ``ImageProcessor``
-        pass
     pipeline_config.update(**_configure_extractors(model_architecture_name))
 
     return pipeline(**pipeline_config)
@@ -558,6 +549,7 @@ def _configure_extractors(architecture):
     import transformers
 
     extractor_types = {
+        "tokenizer": "AutoTokenizer",
         "image_processor": "AutoImageProcessor",
         "feature_extractor": "AutoFeatureExtractor",
     }
