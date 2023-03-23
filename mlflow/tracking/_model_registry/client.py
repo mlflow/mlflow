@@ -202,7 +202,7 @@ class ModelRegistryClient:
             )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
-            while mv.status == pending_status:
+            while mv.status == pending_status or mv.status == "MODEL_VERSION_STATUS_PENDING_REGISTRATION":
                 if datetime.utcnow() > max_datetime:
                     raise MlflowException(
                         "Exceeded max wait time for model name: {} version: {} to become READY. \
@@ -212,7 +212,7 @@ class ModelRegistryClient:
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
-            if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
+            if mv.status not in {ModelVersionStatus.to_string(ModelVersionStatus.READY), "MODEL_VERSION_STATUS_READY"}:
                 raise MlflowException(
                     "Model version creation failed for model name: {} version: {} with status: {} \
                     and message: {}".format(
