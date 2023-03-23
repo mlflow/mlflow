@@ -23,6 +23,7 @@ from mlflow.entities import (
     Run,
     ViewType,
     ExperimentTag,
+    Dataset,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.db.base_sql_model import Base
@@ -463,3 +464,55 @@ class SqlParam(Base):
         :return: :py:class:`mlflow.entities.Param`.
         """
         return Param(key=self.key, value=self.value)
+    
+class SqlDataset(Base):
+    __tablename__ = "datasets"
+    __table_args__ = (
+        PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
+        Index(f"index_{__tablename__}_dataset_uuid", "dataset_uuid"),
+        Index(f"index_{__tablename__}_experiment_id_dataset_source_type", "experiment_id", "dataset_source_type"),
+    )
+
+    dataset_uuid = Column(String(32), nullable=False)
+    """
+    Dataset UUID: `String` (limit 32 characters). Defined as *Non-null* in schema. Part of *Primary Key* for ``datasets`` table.
+    """
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))
+    """
+    Experiment ID to which this dataset belongs: *Foreign Key* into ``experiments`` table.
+    """
+    name = Column(String(500), nullable=False)
+    """
+    Param name: `String` (limit 500 characters). Defined as *Non-null* in schema. Part of *Primary Key* for ``datasets`` table.
+    """
+    digest = Column(String(36), nullable=False)
+    """
+    Param digest: `String` (limit 500 characters). Defined as *Non-null* in schema. Part of *Primary Key* for ``datasets`` table.
+    """
+    dataset_source_type = Column(String(36), nullable=False)
+    """
+    Param dataset_source_type: `String` (limit 36 characters). Defined as *Non-null* in schema.
+    """
+    dataset_source = Column(String(5000), nullable=False)
+    """
+    Param dataset_source: `String` (limit 5000 characters). Defined as *Non-null* in schema.
+    """
+    dataset_schema = Column(String(5000), nullable=True)
+    """
+    Param dataset_schema: `String` (limit 5000 characters).
+    """
+    dataset_profile = Column(String(5000), nullable=True)
+    """
+    Param dataset_schema: `String` (limit 5000 characters).
+    """
+
+    def __repr__(self):
+        return "<SqlDataset ({}, {}, {})>".format(self.experiment_id, self.name, self.digest)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.Param`.
+        """
+        return Dataset(experiment_id = self.experiment_id, name=self.name, digest=self.digest)
