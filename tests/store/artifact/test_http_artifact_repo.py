@@ -63,9 +63,17 @@ def http_artifact_repo():
     return HttpArtifactRepository(artifact_uri)
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected_mime_type"),
+    [
+        ("c.txt", "text/plain"),
+        ("c.pkl", "application/octet-stream"),
+        ("MLmodel", "text/plain"),
+    ],
+)
 @pytest.mark.parametrize("artifact_path", [None, "dir"])
-def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
-    tmp_path = tmpdir.join("a.txt")
+def test_log_artifact(http_artifact_repo, tmpdir, artifact_path, filename, expected_mime_type):
+    tmp_path = tmpdir.join(filename)
     tmp_path.write("0")
     with mock.patch(
         "mlflow.store.artifact.http_artifact_repo.http_request",
@@ -78,6 +86,7 @@ def test_log_artifact(http_artifact_repo, tmpdir, artifact_path):
             posixpath.join("/", *paths),
             "PUT",
             data=FileObjectMatcher(tmp_path, "rb"),
+            extra_headers={"Content-Type": expected_mime_type},
         )
 
     with mock.patch(
