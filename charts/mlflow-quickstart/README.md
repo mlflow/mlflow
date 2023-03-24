@@ -4,16 +4,15 @@ MLflow is an open source platform for managing the end-to-end machine learning l
 
 ## Introduction
 
-This chart quickly deploys a mlflow tracking server instance along
-with MinIO (artifact storage) and PostgreSQL (database persistance)
-using sub charts. If you would like to use another database or
-artifact storage provider use the mlflow chart.
+This chart quickly deploys a mlflow tracking server instance, MinIO (artifact storage) 
+and PostgreSQL (database persistance). If you would like to use another database or
+artifact storage provider, consider using the mlflow chart.
 
 This chart has three dependencies:
 
-- The mlflow chart (this repository)
-- A MinIO chart (MinIO repository)
-- A PostgreSQL chart (bitnami).
+- mlflow chart (this repository)
+- MinIO chart (MinIO repository)
+- PostgreSQL chart (bitnami repository).
 
 ## Prerequisites
 
@@ -26,7 +25,7 @@ This chart has three dependencies:
 To install the chart with the release name `mlflow`:
 
 ```bash
-helm install mlflow /path/to/chart
+helm install mlflow .
 ```
 
 > Depending on your cluster, you will likely want to set the following values:
@@ -43,7 +42,7 @@ cluster in the default configuration.
 
 ## Uninstalling the Chart
 
-To uninstall/delete the `mlflow` deployment:
+To uninstall/delete the `mlflow` release:
 
 ```bash
 helm delete mlflow
@@ -58,13 +57,12 @@ See `values.yaml` for all the helm chart parameters and descriptions
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```bash
-helm install mlflow \
-  --set backendStore.existingSecret=mlflow-backend-credentials \
-  mlflow-quickstart/mlflow
+helm install mlflow . \
+  --set backendStore.existingSecret=mlflow-backend-credentials
 ```
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```bash
-helm install mlflow -f values.yaml mlflow/mlflow
+helm install mlflow . --values values.yaml
 ```

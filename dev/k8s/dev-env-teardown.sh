@@ -1,4 +1,5 @@
-#! /bin/bash
+#!/bin/bash
+set -ex
 
 k3d registry delete mlflow-registry.localhost
 

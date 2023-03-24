@@ -30,6 +30,8 @@ dependencies:
   - name: minio
     repository: https://charts.min.io/
     version: 5.0.7
+    condition: minio.enabled
   - name: postgresql
     repository: https://charts.bitnami.com/bitnami
     version: 12.2.1
+    condition: posegresql.enabled

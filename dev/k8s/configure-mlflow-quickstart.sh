@@ -1,4 +1,5 @@
-#! /bin/bash
+#!/bin/bash
+set -ex
 
 helm repo add minio https://charts.min.io/
 helm repo add bitnami https://charts.bitnami.com/bitnami

@@ -4,7 +4,7 @@ fullnameOverride: ""
 
 image:
   ## mlflow image repository
-  repository: mlflow/mlflow
+  repository: ghcr.io/mlflow/mlflow
   ## mlflow image tag (default is the chart <appVersion>-<artifact storage type>.)
   tag: ""
   ## image pull policy
