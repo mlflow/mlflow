@@ -289,11 +289,13 @@ class UcModelRegistryStore(BaseRestStore):
         :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
                  containing temporary model version credentials
         """
-        req_body = json.dumps({
-            "name": name,
-            "version": version,
-            "operation": MODEL_VERSION_READ_WRITE,
-        })
+        req_body = json.dumps(
+            {
+                "name": name,
+                "version": version,
+                "operation": MODEL_VERSION_READ_WRITE,
+            }
+        )
         return self._call_endpoint(
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
