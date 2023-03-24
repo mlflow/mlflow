@@ -340,8 +340,8 @@ class __SequenceMultiInput(tf.keras.utils.Sequence):
         return 10
 
     def __getitem__(self, idx):
-        return (np.array([idx] * self.batch_size), np.array([idx + 1] * self.batch_size)), np.array(
-            [-idx] * self.batch_size
+        return (np.random.rand(self.batch_size), np.random.rand(self.batch_size)), np.random.rand(
+            self.batch_size
         )
 
 
@@ -378,12 +378,8 @@ class __GeneratorClassMultiInput:
     [
         __tf_dataset_multi_input,
         __SequenceMultiInput,
-        functools.partial(
-            __generator_multi_input, np.random.rand(2, 10), np.random.rand(1, 10)
-        ),
-        functools.partial(
-            __GeneratorClassMultiInput, np.random.rand(10, 2), np.random.rand(10, 1)
-        ),
+        functools.partial(__generator_multi_input, np.random.rand(2, 10), np.random.rand(10)),
+        functools.partial(__GeneratorClassMultiInput, np.random.rand(10, 2), np.random.rand(10, 1)),
     ],
 )
 @pytest.mark.parametrize("batch_size", [5, 10])
