@@ -324,6 +324,85 @@ def test_tf_keras_autolog_implicit_batch_size_works(generate_data, batch_size):
     assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
+def __tf_dataset_multi_input(batch_size):
+    a = tf.data.Dataset.range(1)
+    b = tf.data.Dataset.range(1)
+    c = tf.data.Dataset.range(1)
+    ds = tf.data.Dataset.zip(((a, b), c))
+    return ds.batch(batch_size)
+
+
+class __SequenceMultiInput(tf.keras.utils.Sequence):
+    def __init__(self, batch_size):
+        self.batch_size = batch_size
+
+    def __len__(self):
+        return 10
+
+    def __getitem__(self, idx):
+        return (np.random.rand(self.batch_size), np.random.rand(self.batch_size)), np.random.rand(
+            self.batch_size
+        )
+
+
+def __generator_multi_input(data, target, batch_size):
+    data_batches = np.split(data, data.shape[1] // batch_size, axis=1)
+    target_batches = np.split(target, target.shape[0] // batch_size)
+    for inputs, output in zip(data_batches, target_batches):
+        yield tuple(inputs), output
+
+
+class __GeneratorClassMultiInput:
+    def __init__(self, data, target, batch_size):
+        self.data = data
+        self.target = target
+        self.batch_size = batch_size
+        self.ptr = 0
+
+    def __next__(self):
+        if self.ptr >= len(self.data):
+            raise StopIteration
+        idx = self.ptr % len(self.data)
+        self.ptr += 1
+        return (
+            self.data[idx : idx + self.batch_size, 0],
+            self.data[idx : idx + self.batch_size, 1],
+        ), self.target[idx : idx + self.batch_size]
+
+    def __iter__(self):
+        return self
+
+
+@pytest.mark.parametrize(
+    "generate_data",
+    [
+        __tf_dataset_multi_input,
+        __SequenceMultiInput,
+        functools.partial(__generator_multi_input, np.random.rand(2, 10), np.random.rand(10)),
+        functools.partial(__GeneratorClassMultiInput, np.random.rand(10, 2), np.random.rand(10, 1)),
+    ],
+)
+@pytest.mark.parametrize("batch_size", [5, 10])
+def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, batch_size):
+    mlflow.tensorflow.autolog()
+
+    input1 = tf.keras.Input(shape=(1,))
+    input2 = tf.keras.Input(shape=(1,))
+    concat = tf.keras.layers.Concatenate()([input1, input2])
+    output = tf.keras.layers.Dense(1, activation="sigmoid")(concat)
+
+    model = tf.keras.models.Model(inputs=[input1, input2], outputs=output)
+    model.compile(loss="mse")
+
+    # 'x' passed as arg
+    model.fit(generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+    # 'x' passed as kwarg
+    model.fit(x=generate_data(batch_size), verbose=0)
+    assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
+
+
 @pytest.mark.skipif(
     Version(tf.__version__) < Version("2.1.4"),
     reason="Does not support passing of generator classes as `x` in `fit`",
