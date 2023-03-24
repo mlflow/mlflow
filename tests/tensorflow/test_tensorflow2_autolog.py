@@ -324,7 +324,7 @@ def test_tf_keras_autolog_implicit_batch_size_works(generate_data, batch_size):
     assert mlflow.last_active_run().data.params["batch_size"] == str(batch_size)
 
 
-def __example_tf_dataset_multi_input(batch_size):
+def __tf_dataset_multi_input(batch_size):
     a = tf.data.Dataset.range(1)
     b = tf.data.Dataset.range(1)
     c = tf.data.Dataset.range(1)
@@ -332,7 +332,7 @@ def __example_tf_dataset_multi_input(batch_size):
     return ds.batch(batch_size)
 
 
-class __ExampleSequenceMultiInput(tf.keras.utils.Sequence):
+class __SequenceMultiInput(tf.keras.utils.Sequence):
     def __init__(self, batch_size):
         self.batch_size = batch_size
 
@@ -376,8 +376,8 @@ class __GeneratorClassMultiInput:
 @pytest.mark.parametrize(
     "generate_data",
     [
-        __example_tf_dataset_multi_input,
-        __ExampleSequenceMultiInput,
+        __tf_dataset_multi_input,
+        __SequenceMultiInput,
         functools.partial(
             __generator_multi_input, np.array([[1] * 10, [2] * 10]), np.array([[1]] * 10)
         ),
