@@ -93,7 +93,7 @@ def _args(endpoint, method, json_body, host_creds):
 def _verify_requests(
     http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS
 ):
-    json_body = message_to_json(proto_message)
+    json_body = message_to_json(proto_message, True)
     http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds)))
 
 

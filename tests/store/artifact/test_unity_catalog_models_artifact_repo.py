@@ -75,18 +75,17 @@ def test_uc_models_artifact_repo_init_not_using_databricks_registry_raises(
         UnityCatalogModelsArtifactRepository(model_uri, non_databricks_uri)
 
 
-# TODO: Reenable this test once the UC model registry store is supported
-# @mock.patch("databricks_cli.configure.provider.get_config")
-# def test_uc_models_artifact_repo_with_stage_uri_raises(
-#     get_config, mock_get_databricks_unity_catalog_store
-# ):
-#     model_uri = "models:/MyModel/Staging"
-#     with pytest.raises(
-#         MlflowException, match="staged-based model URIs are unsupported for models in UC"
-#     ):
-#         UnityCatalogModelsArtifactRepository(
-#             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
-#         )
+@mock.patch("databricks_cli.configure.provider.get_config")
+def test_uc_models_artifact_repo_with_stage_uri_raises(
+    get_config, mock_get_databricks_unity_catalog_store
+):
+    model_uri = "models:/MyModel/Staging"
+    with pytest.raises(
+        MlflowException, match="staged-based model URIs are unsupported for models in UC"
+    ):
+        UnityCatalogModelsArtifactRepository(
+            artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
+        )
 
 
 def test_uc_models_artifact_uri_with_scope_and_prefix_throws(
@@ -145,7 +144,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
         mock_s3_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )
@@ -183,7 +182,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
         mock_adls_repo.download_artifacts.assert_called_once_with("artifact_path", "dst_path")
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )
@@ -225,7 +224,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
         assert credentials.token == fake_oauth_token
         request_mock.assert_called_with(
             host_creds=ANY,
-            endpoint="/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
+            endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_READ},
         )

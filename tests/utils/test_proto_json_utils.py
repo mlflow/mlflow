@@ -14,6 +14,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
+from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    GenerateTemporaryModelVersionCredentialsRequest,
+    MODEL_VERSION_READ_WRITE,
+)
 from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.utils.proto_json_utils import (
     message_to_json,
@@ -195,6 +199,17 @@ def test_message_to_json():
     new_test_message = TestMessage()
     parse_dict(json_dict, new_test_message)
     assert new_test_message == test_message
+
+
+def test_message_to_json_enum_as_integer():
+    json_out = message_to_json(
+        GenerateTemporaryModelVersionCredentialsRequest(
+            name="main.default.model_name", version="1", operation=MODEL_VERSION_READ_WRITE
+        ),
+        use_integer_for_enums=True,
+    )
+    json_dict = json.loads(json_out)
+    assert json_dict == {"name": "main.default.model_name", "version": "1", "operation": 2}
 
 
 def test_parse_dict():

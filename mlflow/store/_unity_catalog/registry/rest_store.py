@@ -1,7 +1,6 @@
 import functools
 import logging
 import tempfile
-import json
 
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -289,12 +288,11 @@ class UcModelRegistryStore(BaseRestStore):
         :return: mlflow.protos.databricks_uc_registry_messages_pb2.TemporaryCredentials
                  containing temporary model version credentials
         """
-        req_body = json.dumps(
-            {
-                "name": name,
-                "version": version,
-                "operation": MODEL_VERSION_READ_WRITE,
-            }
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+            ),
+            use_integer_for_enums=True,
         )
         return self._call_endpoint(
             GenerateTemporaryModelVersionCredentialsRequest, req_body
