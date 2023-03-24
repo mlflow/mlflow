@@ -65,8 +65,9 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 _logger = logging.getLogger(__name__)
 
 
-def _require_arg_unspecified(arg_name, arg_value, default_value=None, message=None):
-    if arg_value != default_value:
+def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
+    default_values = [None] if default_values is None else default_values
+    if arg_value not in default_values:
         _raise_unsupported_arg(arg_name, message)
 
 
@@ -145,7 +146,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
-        _require_arg_unspecified("tags", tags)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -365,7 +366,7 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         source_workspace_id = self._get_workspace_id(run_id)
         req_body = message_to_json(
             CreateModelVersionRequest(
