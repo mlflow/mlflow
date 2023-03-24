@@ -279,6 +279,10 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
+@pytest.mark.skipif(
+    Version(tf.__version__) == Version("2.11.1"),
+    reason="TensorFlow 2.11.1 has a bug with layers specifying output dimensions",
+)
 def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
     class DifferentCustomLayer:
         def __init__(self):
