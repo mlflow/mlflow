@@ -6,11 +6,10 @@ learning lifecycle.
 ## TL;DR
 
 ```bash
-helm install mlflow /path/to/chart \
+helm install mlflow . \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
-  --set artifacts.s3.existingSecret=mlflow-artifact-credentials \
-  mlflow/mlflow
+  --set artifacts.s3.existingSecret=mlflow-artifact-credentials
 ```
 
 ## Introduction
@@ -37,20 +36,19 @@ The helm chart supports the following storage providers:
 To install the chart with the release name `mlflow`:
 
 ```bash
-helm install mlflow \
+helm install mlflow  . \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
-  --set artifacts.s3.existingSecret=mlflow-artifact-credentials \
-  mlflow/mlflow
+  --set artifacts.s3.existingSecret=mlflow-artifact-credentials
 ```
 
-> You will likely want to expose mlflow for acces through
+> You will likely want to expose mlflow to enable access through
 > a browser or from your data science environment. This can be configured
 > using an ingress or node port. See the `values.yaml` file for more details.
 
 ## Uninstalling the Chart
 
-To uninstall/delete the `mlflow` deployment:
+To uninstall/delete the `mlflow` release:
 
 ```bash
 helm delete mlflow
@@ -65,15 +63,14 @@ See `values.yaml` for all the helm chart parameters and descriptions
 Specify each parameter using the `--set key=value[,key=value]` argument to `helm install`. For example,
 
 ```bash
-helm install mlflow \
+helm install mlflow . \
   --set backendStore.existingSecret=mlflow-backend-credentials \
   --set artifacts.s3.defaultArtifactRoot=s3://mlflow \
-  --set artifacts.s3.existingSecret=mlflow-artifact-credentials \
-    mlflow/mlflow
+  --set artifacts.s3.existingSecret=mlflow-artifact-credentials
 ```
 
 Alternatively, a YAML file that specifies the values for the above parameters can be provided while installing the chart. For example,
 
 ```bash
-helm install mlflow -f values.yaml mlflow/mlflow
+helm install mlflow . --values values.yaml
 ```

@@ -117,4 +117,4 @@ a.md
 gunicorn.conf.py
 
 # helm
-charts/*/templates/charts/*.tgz
+charts/*/charts/*.tgz

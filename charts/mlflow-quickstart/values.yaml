@@ -2,6 +2,16 @@
 postgresql:
   ## enable deployment of postgres
   enabled: true
+
+  # PostgreSQL image config
+  # image:
+  #   registry: docker.io
+  #   repository: bitnami/postgresql
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+  #   pullSecrets: []
+  #   # - name: <secret-name>
+
   ## Authentication parameters
   auth:
     ## @param auth.username: Name for a custom user to create
@@ -22,6 +32,14 @@ postgresql:
 ## MinIO parameters
 minio:
   enabled: true
+
+  # MinIO image config
+  # image:
+  #   repository: quay.io/minio/minio
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+
+  # imagePullSecrets: []
 
   ## MinIO mode, i.e. standalone or distributed
   mode: standalone
@@ -102,6 +120,14 @@ minio:
 
 ## mlflow Parameters
 mlflow:
+  # mlflow tracking server image config
+  # image:
+  #   repository: ghcr.io/mlflow/mlflow
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+  #   pullSecrets: []
+  #   # - name: <secret-name>
+  
   backendStore:
     existingSecret: mlflow-quickstart-backend-store-credentials
 

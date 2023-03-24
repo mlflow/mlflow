@@ -1,4 +1,5 @@
-#! /bin/bash
+#!/bin/bash
+set -ex
 
 VERSION=2.2.1
 
