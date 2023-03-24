@@ -6,7 +6,7 @@ from iris_data_module import IrisDataModule
 import pytorch_lightning as pl
 
 
-def train_evaluate(params, max_epochs=100):
+def train_evaluate(params, max_epochs):
     model = IrisClassification(**params)
     dm = IrisDataModule()
     dm.setup(stage="fit")
@@ -56,7 +56,12 @@ def model_training_hyperparameter_tuning(max_epochs, total_trials, params):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
+
+    parser.add_argument(
+        "--max_epochs",
+        default=50,
+        help="number of epochs",
+    )
 
     parser.add_argument(
         "--total_trials",
@@ -66,13 +71,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    if "max_epochs" in args:
-        max_epochs = args.max_epochs
-    else:
-        max_epochs = 100
-
     params = {"lr": 0.1, "momentum": 0.9, "weight_decay": 0}
 
     model_training_hyperparameter_tuning(
-        max_epochs=int(max_epochs), total_trials=int(args.total_trials), params=params
+        max_epochs=int(args.max_epochs), total_trials=int(args.total_trials), params=params
     )

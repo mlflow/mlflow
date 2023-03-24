@@ -1093,6 +1093,15 @@ def autolog(
         safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
 
     try:
+        import lightning as L
+    except ImportError:
+        pass
+    else:
+        from mlflow.pytorch._lightning_autolog import patched_fit
+
+        safe_patch(FLAVOR_NAME, L.Trainer, "fit", patched_fit, manage_run=True)
+
+    try:
         import torch.utils.tensorboard.writer
     except ImportError:
         pass
