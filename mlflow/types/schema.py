@@ -69,7 +69,9 @@ class ColSpec:
     """
 
     def __init__(
-        self, type: DataType, name: Optional[str] = None  # pylint: disable=redefined-builtin
+        self,
+        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        name: Optional[str] = None,
     ):
         self._name = name
         try:
