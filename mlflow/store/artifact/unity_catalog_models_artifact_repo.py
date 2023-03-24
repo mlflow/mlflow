@@ -22,7 +22,7 @@ from mlflow.store.artifact.utils.models import (
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 
 REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = (
-    "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
+    "/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
 )
 
 
