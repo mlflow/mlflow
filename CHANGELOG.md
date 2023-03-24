@@ -13,6 +13,8 @@ MLflow 2.2.2 is a patch release containing the following bug fixes:
 MLflow 2.2.1 is a patch release containing the following bug fixes:
 
 - [Model Registry] Fix a bug that caused too many results to be requested by default when calling ``MlflowClient.search_model_versions()`` (#7935, @dbczumar)
+- [Model Registry] Patch for GHSA-xg73-94fp-g449 (#7908, @harupy)
+- [Model Registry] Patch for GHSA-wp72-7hj9-5265 (#7965, @harupy)
 
 ## 2.2.0 (2023-02-28)
 
