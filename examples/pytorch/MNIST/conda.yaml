@@ -5,7 +5,8 @@ dependencies:
   - pip
   - pip:
       - mlflow
-      - torchvision>=0.9.1
-      - torch>=1.9.0
-      - pytorch-lightning==1.7.6
+      - torchvision>=0.15.1
+      - torch>=2.0
+      - lightning==2.0.0
+      - jsonargparse[signatures]>=4.17.0
       - protobuf<4.0.0
