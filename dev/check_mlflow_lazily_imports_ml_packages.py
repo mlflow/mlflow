@@ -45,8 +45,8 @@ def main():
     failed_to_import = []
     for package in sorted(ml_packages):
         try:
-            importlib.__import__(package)
-        except ModuleNotFoundError:
+            importlib.import_module(package)
+        except ImportError:
             logger.exception(f"Failed to import {package}")
             failed_to_import.append(package)
 
