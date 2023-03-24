@@ -35,6 +35,8 @@ def newTrackingServiceClient():
         ),
         ("s3:/path", "databricks://profile", "s3:/path"),
         ("ftp://user:pass@host/path", "databricks://profile", "ftp://user:pass@host/path"),
+        ("mlflow-artifacts:/run-id", "file:///tmp/", "file:///tmp/"),
+        ("file:///tmp/artifact", "file:///tmp/", "file:///tmp/artifact"),
     ],
 )
 def test_get_artifact_repo(artifact_uri, databricks_uri, uri_for_repo):

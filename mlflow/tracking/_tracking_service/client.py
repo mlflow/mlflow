@@ -22,7 +22,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.utils import chunk_list
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri
+from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_local_uri
 from mlflow.utils.validation import (
     MAX_METRICS_PER_BATCH,
     MAX_PARAMS_TAGS_PER_BATCH,
@@ -410,9 +410,12 @@ class TrackingServiceClient:
             return cached_repo
         else:
             run = self.get_run(run_id)
-            artifact_uri = add_databricks_profile_info_to_artifact_uri(
-                run.info.artifact_uri, self.tracking_uri
-            )
+            if is_local_uri(self.tracking_uri) and not is_local_uri(run.info.artifact_uri):
+                artifact_uri = self.tracking_uri
+            else:
+                artifact_uri = add_databricks_profile_info_to_artifact_uri(
+                    run.info.artifact_uri, self.tracking_uri
+                )
             artifact_repo = get_artifact_repository(artifact_uri)
             # Cache the artifact repo to avoid a future network call, removing the oldest
             # entry in the cache if there are too many elements
