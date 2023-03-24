@@ -1,3 +1,4 @@
+import importlib
 import logging
 import pathlib
 
@@ -13,6 +14,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -58,7 +60,7 @@ _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _logger = logging.getLogger(__name__)
 
 
-def _model_engine_type(model) -> List[str]:
+def _model_packages(model) -> List[str]:
     """
     Determines which pip libraries should be included based on the base model engine
     type.
@@ -96,13 +98,11 @@ def get_default_pip_requirements(model) -> List[str]:
             "TFPreTrainedModel, or FlaxPreTrainedModel"
         )
     base_reqs = ["transformers"]
-    base_reqs.extend(_model_engine_type(model))
+    base_reqs.extend(_model_packages(model))
     return [_get_pinned_requirement(module) for module in base_reqs]
 
 
-def get_default_conda_env(
-    model,
-) -> Union[None, Dict[str, Union[str, List[Union[str, Dict[str, List[str]]]]]]]:
+def get_default_conda_env(model):
     """
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
              flavor, based on the model instance framework type of the model to be logged.
@@ -110,6 +110,7 @@ def get_default_conda_env(
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     transformers_model,
@@ -117,9 +118,7 @@ def save_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
-    conda_env: Optional[
-        Union[str, Dict[str, Union[str, List[Union[str, Dict[str, List[str]]]]]]]
-    ] = None,
+    conda_env=None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -292,6 +291,7 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
@@ -394,6 +394,7 @@ def log_model(
     )
 
 
+@experimental
 def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **kwargs):
     """
     Load a ``transformers`` object from a local file or a run.
@@ -498,6 +499,19 @@ def _load_model(path: str, flavor_config):
     return conf
 
 
+def _hub_access():
+    """
+    Wrapper around importing huggingface_hub for ModelCard retrieval, providing access to the
+    module if the library is installed, else noop.
+    """
+    import importlib
+
+    try:
+        return importlib.import_module("huggingface_hub")
+    except ImportError:
+        pass
+
+
 def _fetch_model_card(model_or_pipeline):
     """
     Attempts to retrieve the model card for the specified model architecture iff the
@@ -506,17 +520,12 @@ def _fetch_model_card(model_or_pipeline):
     """
     from transformers import Pipeline
 
-    # Attempt to import the huggingface-hub library in order to fetch the model card.
-    try:
-        from huggingface_hub import ModelCard
-    except ImportError:
-        return None
-
     model = (
         model_or_pipeline.model if isinstance(model_or_pipeline, Pipeline) else model_or_pipeline
     )
-
-    return ModelCard.load(model.name_or_path)
+    card_loader = _hub_access()
+    if card_loader:
+        return card_loader.ModelCard.load(model.name_or_path)
 
 
 def _build_pipeline_from_model_input(model, task: str):
@@ -534,9 +543,11 @@ def _build_pipeline_from_model_input(model, task: str):
 
     model_architecture_name = model.name_or_path
 
-    pipeline_config = {"task": task, "model": model}
-
-    pipeline_config.update(**_configure_extractors(model_architecture_name))
+    pipeline_config = {
+        "task": task,
+        "model": model,
+        **_configure_extractors(model_architecture_name),
+    }
 
     return pipeline(**pipeline_config)
 
@@ -745,19 +756,15 @@ def _get_instance_type(model, base: bool):
         from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, Pipeline
 
         def _get_model_base_class(model):
-            pipeline_abc = Pipeline
-            tf_abc = TFPreTrainedModel
-            torch_abc = PreTrainedModel
-            flax_abc = FlaxPreTrainedModel
             for cls in model.__class__.__mro__:
-                if issubclass(cls, tf_abc):
-                    return tf_abc.__name__
-                elif issubclass(cls, torch_abc):
-                    return torch_abc.__name__
-                elif issubclass(cls, flax_abc):
-                    return flax_abc.__name__
-                elif issubclass(cls, pipeline_abc):
-                    return pipeline_abc.__name__
+                if issubclass(cls, TFPreTrainedModel):
+                    return TFPreTrainedModel.__name__
+                elif issubclass(cls, PreTrainedModel):
+                    return PreTrainedModel.__name__
+                elif issubclass(cls, FlaxPreTrainedModel):
+                    return FlaxPreTrainedModel.__name__
+                elif issubclass(cls, Pipeline):
+                    return Pipeline.__name__
 
         return _get_model_base_class(model)
     else:

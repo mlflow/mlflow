@@ -677,3 +677,23 @@ def test_log_model_with_code_paths(small_qa_pipeline):
         _compare_logged_code_paths(__file__, model_uri, mlflow.transformers.FLAVOR_NAME)
         mlflow.transformers.load_model(model_uri)
         add_mock.assert_called()
+
+
+def test_non_existent_model_card_entry(small_seq2seq_pipeline, model_path):
+    with mock.patch("mlflow.transformers._fetch_model_card", return_value=None):
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
+
+        contents = {item.name for item in model_path.iterdir()}
+        assert not contents.intersection({"model_card_text.txt", "model_card_data.yaml"})
+
+
+def _test_access_huggingface_hub_mock_not_installed():
+    with mock.patch("importlib.import_module", side_effect=ImportError("mock ImportError")):
+        assert not mlflow.transformers._hub_access()
+
+
+def test_attempt_to_retrieve_model_card_without_huggingfacehub(small_seq2seq_pipeline):
+    with mock.patch("mlflow.transformers._hub_access", return_value=None):
+        card = _fetch_model_card(small_seq2seq_pipeline)
+
+        assert card is None
