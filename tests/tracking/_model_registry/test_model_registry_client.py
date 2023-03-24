@@ -403,7 +403,7 @@ def test_delete_registered_model_alias(mock_store):
     mock_store.delete_registered_model_alias.assert_called_once()
 
 
-def test_set_registered_model_alias(mock_store):
+def test_get_model_version_by_alias(mock_store):
     mock_store.get_model_version_by_alias.return_value = _model_version(
         "Model 1", "12", "Production", aliases=["test_alias"]
     )
