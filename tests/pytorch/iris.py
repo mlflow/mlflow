@@ -2,6 +2,7 @@
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
 
+import tempfile
 import pytorch_lightning as pl
 import torch
 import torch.utils.tensorboard
@@ -9,7 +10,8 @@ from torch import nn
 import torch.nn.functional as F
 from packaging.version import Version
 
-SUMMARY_WRITER = torch.utils.tensorboard.SummaryWriter()
+tmpdir = tempfile.mkdtemp()
+SUMMARY_WRITER = torch.utils.tensorboard.SummaryWriter(log_dir=tmpdir)
 
 
 def create_multiclass_accuracy():
