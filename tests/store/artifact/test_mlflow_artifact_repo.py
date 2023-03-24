@@ -123,6 +123,7 @@ def test_log_artifact(mlflow_artifact_repo, tmpdir, artifact_path):
             mlflow_artifact_repo._host_creds,
             posixpath.join("/", *paths),
             "PUT",
+            extra_headers={"Content-Type": "text/plain"},
             data=FileObjectMatcher(tmp_path, "rb"),
         )
 
@@ -148,6 +149,7 @@ def test_log_artifact_with_host_and_port(mlflow_artifact_repo_with_host, tmpdir,
             mlflow_artifact_repo_with_host._host_creds,
             posixpath.join("/", *paths),
             "PUT",
+            extra_headers={"Content-Type": "text/plain"},
             data=FileObjectMatcher(tmp_path, "rb"),
         )
 

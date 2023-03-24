@@ -104,6 +104,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     **kwargs,
@@ -122,6 +123,7 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
@@ -143,6 +145,9 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
+
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
 
     if auth_str:
         headers["Authorization"] = auth_str
