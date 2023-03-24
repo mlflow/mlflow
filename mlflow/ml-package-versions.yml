@@ -466,4 +466,4 @@ transformers:
     requirements:
       ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow"]
     run: |
-      pytest tests/transformers/test_transformers_model_export.py
+      pytest tests/transformers_/test_transformers_model_export.py
