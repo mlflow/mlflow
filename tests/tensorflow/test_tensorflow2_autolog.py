@@ -388,7 +388,7 @@ class __GeneratorClassMultiInput:
 )
 @pytest.mark.parametrize("batch_size", [5, 10])
 def test_tf_keras_autolog_implicit_batch_size_works_multi_input(generate_data, batch_size):
-    mlflow.autolog()
+    mlflow.tensorflow.autolog()
 
     input1 = tf.keras.Input(shape=(1,))
     input2 = tf.keras.Input(shape=(1,))
