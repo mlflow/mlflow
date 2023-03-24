@@ -379,7 +379,7 @@ class __GeneratorClassMultiInput:
         __tf_dataset_multi_input,
         __SequenceMultiInput,
         functools.partial(
-            __generator_multi_input, np.array([[1] * 10, [2] * 10]), np.array([[1]] * 10)
+            __generator_multi_input, np.random.rand(2, 10), np.random.rand(1, 10)
         ),
         functools.partial(
             __GeneratorClassMultiInput, np.array([[1, 2]] * 10), np.array([[1]] * 10)
