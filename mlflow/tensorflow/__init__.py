@@ -1174,6 +1174,7 @@ def autolog(
 
             batch_size = None
             try:
+                single_input_model = isinstance(inst.input_shape, tuple)
                 training_data = kwargs["x"] if "x" in kwargs else args[0]
                 if isinstance(training_data, tensorflow.data.Dataset) and hasattr(
                     training_data, "_batch_size"
@@ -1181,10 +1182,16 @@ def autolog(
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tensorflow.keras.utils.Sequence):
                     first_batch_inputs, _ = training_data[0]
-                    batch_size = len(first_batch_inputs)
+                    if single_input_model:
+                        batch_size = len(first_batch_inputs)
+                    else:
+                        batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     peek = next(training_data)
-                    batch_size = len(peek[0])
+                    if single_input_model:
+                        batch_size = len(peek[0])
+                    else:
+                        batch_size = len(peek[0][0])
 
                     def __restore_generator(prev_generator):
                         yield peek
