@@ -33,6 +33,7 @@ from mlflow.transformers import (
     _get_base_model_architecture,
     _get_or_infer_task_type,
     _record_pipeline_components,
+    _should_add_pyfunc_to_model,
 )
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -156,6 +157,28 @@ def test_instance_extraction(small_qa_pipeline):
     assert _get_instance_type(small_qa_pipeline, False) == "QuestionAnsweringPipeline"
     assert _get_instance_type(small_qa_pipeline.model, True) == "PreTrainedModel"
     assert _get_instance_type(small_qa_pipeline.model, False) == "MobileBertForQuestionAnswering"
+
+
+@pytest.mark.parametrize(
+    ["model", "result"],
+    [
+        ("small_qa_pipeline", True),
+        ("small_seq2seq_pipeline", True),
+        ("small_multi_modal_pipeline", False),
+        ("small_vision_model", False),
+    ],
+)
+def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
+    pipeline = request.getfixturevalue(model)
+    assert _should_add_pyfunc_to_model(pipeline) == result
+
+
+def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
+    # Explicitly do not reference the processor and only use the model instance
+    _, model, _ = component_multi_modal
+    task = _infer_transformers_task_type(model)
+    pipeline = _build_pipeline_from_model_input(model, task=task)
+    assert not _should_add_pyfunc_to_model(pipeline)
 
 
 def test_model_architecture_extraction(small_seq2seq_pipeline):
@@ -521,6 +544,11 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
             conda_env=str(conda_env),
         )
         mlflow.register_model.assert_not_called()
+        model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
+        model_path = pathlib.Path(_download_artifact_from_uri(artifact_uri=model_uri))
+        model_config = Model.load(str(model_path.joinpath("MLmodel")))
+        # Vision models can't be loaded as pyfunc currently.
+        assert pyfunc.FLAVOR_NAME not in model_config.flavors
 
 
 def test_transformers_save_persists_requirements_in_mlflow_directory(

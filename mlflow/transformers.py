@@ -243,14 +243,19 @@ def save_model(
             yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
 
     model_bin_kwargs = {_PIPELINE_BINARY_KEY: _PIPELINE_BINARY_FILE_NAME}
-    pyfunc.add_to_model(
-        mlflow_model,
-        loader_module="mlflow.transformers",
-        conda_env=_CONDA_ENV_FILE_NAME,
-        python_env=_PYTHON_ENV_FILE_NAME,
-        code=code_dir_subpath,
-        **model_bin_kwargs,
-    )
+
+    # Only allow a subset of task types to have a pyfunc definition.
+    # Currently supported types are NLP-based language tasks which have a pipeline definition
+    # consisting exclusively of a Model and a Tokenizer.
+    if _should_add_pyfunc_to_model(built_pipeline):
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="mlflow.transformers",
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
+            code=code_dir_subpath,
+            **model_bin_kwargs,
+        )
     flavor_conf.update(**model_bin_kwargs)
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -757,3 +762,32 @@ def _get_instance_type(model, base: bool):
         return _get_model_base_class(model)
     else:
         return model.__class__.__name__
+
+
+def _should_add_pyfunc_to_model(pipeline) -> bool:
+    """
+    Discriminator for determining whether a particular task type and model instance from within
+    a ``Pipeline`` is currently supported for the pyfunc flavor.
+    Currently, the only tasks that are supported are NLP-based tasks wherein a Pipeline consists
+    solely of a ``Tokenizer`` and a pre-trained model.
+    Audio, Image, and Video pipelines can still be logged and used, but are not available for
+    loading as pyfunc.
+    Similarly, esoteric model types (Graph Models, Timeseries Models, and Reinforcement Learning
+    Models) are not permitted for loading as pyfunc.
+    """
+    import transformers
+
+    impermissible_attrs = {"feature_extractor", "image_processor"}
+    impermissible_model_types = (
+        transformers.GraphormerPreTrainedModel,
+        transformers.InformerPreTrainedModel,
+        transformers.TimeSeriesTransformerPreTrainedModel,
+        transformers.DecisionTransformerPreTrainedModel,
+    )
+
+    for attr in impermissible_attrs:
+        if getattr(pipeline, attr) is not None:
+            return False
+    if isinstance(pipeline.model, impermissible_model_types):
+        return False
+    return True
