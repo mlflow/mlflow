@@ -326,7 +326,7 @@ def get_request_mock(
                     GenerateTemporaryModelVersionCredentialsRequest(
                         name=name, version=version, operation=MODEL_VERSION_READ_WRITE
                     ),
-                    use_integer_for_enums=True
+                    use_integer_for_enums=True,
                 ),
             ): model_version_temp_credentials_response,
             (
