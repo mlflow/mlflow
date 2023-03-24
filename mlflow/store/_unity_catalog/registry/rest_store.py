@@ -65,7 +65,8 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 _logger = logging.getLogger(__name__)
 
 
-def _require_arg_unspecified(arg_name, arg_value, default_values=[None], message=None):
+def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
+    default_values=[None] if default_values is None else default_values
     if arg_value not in default_values:
         _raise_unsupported_arg(arg_name, message)
 
