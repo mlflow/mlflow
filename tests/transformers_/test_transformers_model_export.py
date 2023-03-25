@@ -141,7 +141,7 @@ def test_dependencies_tensorflow(small_seq2seq_pipeline):
 def test_task_inference(small_seq2seq_pipeline):
     expected_task = "text-classification"
     assert _infer_transformers_task_type(small_seq2seq_pipeline) == expected_task
-    assert _infer_transformers_task_type(small_seq2seq_pipeline.model) == expected_task
+    assert _infer_transformers_task_type({"model": small_seq2seq_pipeline.model}) == expected_task
     with pytest.raises(MlflowException, match="The provided model type"):
         _infer_transformers_task_type(small_seq2seq_pipeline.tokenizer)
 
@@ -175,15 +175,19 @@ def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
 
 def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
     # Explicitly do not reference the processor and only use the model instance
-    _, model, _ = component_multi_modal
-    task = _infer_transformers_task_type(model)
-    pipeline = _build_pipeline_from_model_input(model, task=task)
+    processor, model, tokenizer = component_multi_modal
+    transformers_model = {"model": model, "tokenizer": tokenizer, "image_processor": processor}
+    task = _infer_transformers_task_type(transformers_model)
+    pipeline = _build_pipeline_from_model_input(transformers_model, task=task)
     assert not _should_add_pyfunc_to_model(pipeline)
 
 
 def test_model_architecture_extraction(small_seq2seq_pipeline):
     assert _get_base_model_architecture(small_seq2seq_pipeline) == "lordtt13/emo-mobilebert"
-    assert _get_base_model_architecture((small_seq2seq_pipeline.model)) == "lordtt13/emo-mobilebert"
+    assert (
+        _get_base_model_architecture({"model": small_seq2seq_pipeline.model})
+        == "lordtt13/emo-mobilebert"
+    )
 
 
 def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_pipeline):
@@ -194,24 +198,11 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _PIPELINE_MODEL_TYPE_KEY: "TFMobileBertForSequenceClassification",
         _MODEL_PATH_OR_NAME_KEY: "lordtt13/emo-mobilebert",
     }
-    expected_seq_model_conf = {
-        _TASK_KEY: "text-classification",
-        _LOGGED_TYPE_KEY: "TFPreTrainedModel",
-        _INSTANCE_TYPE_KEY: "TFMobileBertForSequenceClassification",
-        _MODEL_PATH_OR_NAME_KEY: "lordtt13/emo-mobilebert",
-    }
-
     expected_qa_pipeline_conf = {
         _TASK_KEY: "question-answering",
         _LOGGED_TYPE_KEY: "Pipeline",
         _INSTANCE_TYPE_KEY: "QuestionAnsweringPipeline",
         _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
-        _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
-    }
-    expected_qa_model_conf = {
-        _TASK_KEY: "question-answering",
-        _LOGGED_TYPE_KEY: "PreTrainedModel",
-        _INSTANCE_TYPE_KEY: "MobileBertForQuestionAnswering",
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
@@ -222,10 +213,6 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         small_seq2seq_pipeline, "text-classification"
     )
     assert seq_conf_specify_task == expected_seq_pipeline_conf
-    seq_conf_infer_model = _generate_base_flavor_configuration(
-        small_seq2seq_pipeline.model, _get_or_infer_task_type(small_seq2seq_pipeline.model)
-    )
-    assert seq_conf_infer_model == expected_seq_model_conf
     qa_conf_infer_task = _generate_base_flavor_configuration(
         small_qa_pipeline, _get_or_infer_task_type(small_qa_pipeline)
     )
@@ -234,33 +221,53 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         small_qa_pipeline, "question-answering"
     )
     assert qa_conf_specify_task == expected_qa_pipeline_conf
-    qa_conf_infer_model = _generate_base_flavor_configuration(
-        small_qa_pipeline.model, _get_or_infer_task_type(small_qa_pipeline.model)
-    )
-    assert qa_conf_infer_model == expected_qa_model_conf
     with pytest.raises(MlflowException, match="The task provided is invalid. 'magic' is not"):
         _generate_base_flavor_configuration(small_qa_pipeline, "magic")
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
-    generated = _build_pipeline_from_model_input(small_qa_pipeline.model, "question-answering")
+    generated = _build_pipeline_from_model_input(
+        {"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer},
+        "question-answering",
+    )
     assert isinstance(generated, type(small_qa_pipeline))
     assert isinstance(generated.tokenizer, type(small_qa_pipeline.tokenizer))
 
 
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
-    generated = _build_pipeline_from_model_input(small_vision_model.model, "image-classification")
+    generated = _build_pipeline_from_model_input(
+        {
+            "model": small_vision_model.model,
+            "image_processor": small_vision_model.image_processor,
+            "tokenizer": small_vision_model.tokenizer,
+        },
+        "image-classification",
+    )
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
-    # The type is equivalent below, having the exact same properties and behavior between
-    # the (higher level API) ImageProcessor vs. the lower-level FeatureExtractor
-    assert isinstance(generated.feature_extractor, transformers.MobileNetV2ImageProcessor)
+    assert isinstance(generated.image_processor, transformers.MobileNetV2ImageProcessor)
 
 
 def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
-    with pytest.raises(MlflowException, match="The provided model is not the correct type. The"):
+    with pytest.raises(
+        MlflowException, match="The provided model configuration cannot be created as a"
+    ):
         _build_pipeline_from_model_input(
-            small_vision_model.feature_extractor, "image_classification"
+            {"model": small_vision_model.feature_extractor}, "image-classification"
+        )
+
+
+def test_saving_with_invalid_dict_as_model(model_path):
+    with pytest.raises(
+        MlflowException, match="Invalid dictionary submitted for 'transformers_model'. The "
+    ):
+        mlflow.transformers.save_model(transformers_model={"invalid": "key"}, path=model_path)
+
+    with pytest.raises(
+        MlflowException, match="The 'transformers_model' dictionary must have an entry"
+    ):
+        mlflow.transformers.save_model(
+            transformers_model={"tokenizer": "some_tokenizer"}, path=model_path
         )
 
 
@@ -304,7 +311,10 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
 
 def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
-        transformers_model=small_seq2seq_pipeline.model,
+        transformers_model={
+            "model": small_seq2seq_pipeline.model,
+            "tokenizer": small_seq2seq_pipeline.tokenizer,
+        },
         path=model_path,
     )
     # validate inferred pip requirements
@@ -369,7 +379,10 @@ def test_qa_model_save_and_override_card(small_qa_pipeline, model_path):
 
 def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
-        transformers_model=small_seq2seq_pipeline.model,
+        transformers_model={
+            "model": small_seq2seq_pipeline.model,
+            "tokenizer": small_seq2seq_pipeline.tokenizer,
+        },
         path=model_path,
     )
     loaded = mlflow.transformers.load_model(model_path)
@@ -379,9 +392,13 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
 
 
 def test_component_saving_multi_modal(component_multi_modal, model_path):
-    processor, model, _ = component_multi_modal
-    mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
-    expected = {"tokenizer", "processor", "image_processor", "feature_extractor"}
+    processor, model, tokenizer = component_multi_modal
+    mlflow.transformers.save_model(
+        transformers_model={"model": model, "tokenizer": tokenizer, "image_processor": processor},
+        path=model_path,
+        processor=processor,
+    )
+    expected = {"tokenizer", "processor", "image_processor"}
     components_dir = model_path.joinpath("components")
     contents = {item.name for item in components_dir.iterdir()}
     assert contents.intersection(expected) == expected
@@ -408,7 +425,11 @@ def test_extract_multi_modal_components(small_multi_modal_pipeline):
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
     mlflow.transformers.save_model(
-        transformers_model=small_vision_model.model,
+        transformers_model={
+            "model": small_vision_model.model,
+            "tokenizer": small_vision_model.tokenizer,
+            "image_processor": small_vision_model.image_processor,
+        },
         path=model_path,
     )
     loaded = mlflow.transformers.load_model(model_path)
@@ -437,15 +458,23 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
 
 
 def test_multi_modal_component_save_and_load(component_multi_modal, model_path, image_for_test):
-    processor, model, _ = component_multi_modal
-    mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
+    processor, model, tokenizer = component_multi_modal
+    mlflow.transformers.save_model(
+        transformers_model={"model": model, "tokenizer": tokenizer, "image_processor": processor},
+        path=model_path,
+        processor=processor,
+    )
     # Ensure that the appropriate Processor object was detected and loaded with the pipeline.
     loaded_components = mlflow.transformers.load_model(
         model_uri=model_path, return_type="components"
     )
     assert isinstance(loaded_components["model"], transformers.ViltForQuestionAnswering)
     assert isinstance(loaded_components["tokenizer"], transformers.BertTokenizerFast)
+    # This is to simulate a post-processing processor that would be used externally to a Pipeline
+    # This isn't being tested on an actual use case of such a model type due to the size of
+    # these types of models that have this interface being ill-suited for CI testing.
     assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
+    assert isinstance(loaded_components["image_processor"], transformers.ViltProcessor)
     # Make sure that the component usage works correctly when extracted from inference loading
     model = loaded_components["model"]
     processor = loaded_components["processor"]
@@ -459,8 +488,12 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
 
 
 def test_processor_type_model_loaded_as_pipeline_raises(component_multi_modal, model_path):
-    processor, model, _ = component_multi_modal
-    mlflow.transformers.save_model(transformers_model=model, path=model_path, processor=processor)
+    processor, model, tokenizer = component_multi_modal
+    mlflow.transformers.save_model(
+        transformers_model={"model": model, "tokenizer": tokenizer, "image_processor": processor},
+        path=model_path,
+        processor=processor,
+    )
     with pytest.raises(
         MlflowException,
         match="This model has been saved with a processor. Processor objects are not compatible "
@@ -539,7 +572,11 @@ def test_transformers_log_model_with_no_registered_model_name(small_vision_model
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "transformers"])
         mlflow.transformers.log_model(
-            transformers_model=small_vision_model.model,
+            transformers_model={
+                "model": small_vision_model.model,
+                "tokenizer": small_vision_model.tokenizer,
+                "image_processor": small_vision_model.image_processor,
+            },
             artifact_path=artifact_path,
             conda_env=str(conda_env),
         )

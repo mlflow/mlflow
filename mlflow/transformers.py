@@ -1,3 +1,5 @@
+import contextlib
+import importlib
 import logging
 import pathlib
 
@@ -40,6 +42,7 @@ FLAVOR_NAME = "transformers"
 _PIPELINE_BINARY_KEY = "pipeline"
 _PIPELINE_BINARY_FILE_NAME = "pipeline.tr"
 _COMPONENTS_BINARY_KEY = "components"
+_MODEL_KEY = "model"
 _TOKENIZER_KEY = "tokenizer"
 _FEATURE_EXTRACTOR_KEY = "feature_extractor"
 _IMAGE_PROCESSOR_KEY = "image_processor"
@@ -55,7 +58,7 @@ _LOGGED_TYPE_KEY = "logged_type"
 _INSTANCE_TYPE_KEY = "instance_type"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
-
+_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
 _logger = logging.getLogger(__name__)
 
 
@@ -101,6 +104,25 @@ def get_default_pip_requirements(model) -> List[str]:
     return [_get_pinned_requirement(module) for module in base_reqs]
 
 
+def _validate_transformers_model_dict(transformers_model):
+    """
+    Validator for a submitted save dictionary for the transformers model. If any additional keys
+    are provided, raise to indicate which invalid keys were submitted.
+    """
+    if isinstance(transformers_model, dict):
+        invalid_keys = [key for key in transformers_model.keys() if key not in _SUPPORTED_SAVE_KEYS]
+        if invalid_keys:
+            raise MlflowException(
+                "Invalid dictionary submitted for 'transformers_model'. The "
+                f"key(s) {invalid_keys} are not permitted. Must be one of: "
+                f"{_SUPPORTED_SAVE_KEYS}"
+            )
+        if _MODEL_KEY not in transformers_model:
+            raise MlflowException(
+                "The 'transformers_model' dictionary must have an entry for " f"{_MODEL_KEY}"
+            )
+
+
 def get_default_conda_env(model):
     """
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
@@ -130,9 +152,14 @@ def save_model(
     """
     Save a trained transformers model to a path on the local file system.
 
-    :param transformers_model: A trained transformers `Pipeline`, `PreTrainedModel`,
-                               `TFPreTrainedModel`, or `FlaxPreTrainedModel` that can be loaded
-                               using the `from_pretrained` method of the respective class.
+    :param transformers_model: A trained transformers `Pipeline` or a dictionary that maps
+                               required components of a pipeline to the named keys of
+                               ["model", "image_processor", "tokenizer", "feature_extractor"].
+                               The `model` key in the dictionary must map to a value that
+                               inherits from `PreTrainedModel`, `TFPreTrainedModel`, or
+                               `FlaxPreTrainedModel`. All other components entries in the
+                               dictionary must support the defined task type that is associated
+                               with the base model type configuration.
     :param path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                       particularly multi-modal types, utilize Processors to combine text
@@ -179,6 +206,8 @@ def save_model(
     :return: None
     """
     import transformers
+
+    _validate_transformers_model_dict(transformers_model)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -268,7 +297,7 @@ def save_model(
             if isinstance(transformers_model, transformers.Pipeline):
                 default_reqs = get_default_pip_requirements(transformers_model.model)
             else:
-                default_reqs = get_default_pip_requirements(transformers_model)
+                default_reqs = get_default_pip_requirements(transformers_model[_MODEL_KEY])
             inferred_reqs = infer_pip_requirements(str(path), FLAVOR_NAME, fallback=default_reqs)
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -314,9 +343,14 @@ def log_model(
     """
     Log a ``transformers`` object as an MLflow artifact for the current run.
 
-    :param transformers_model: A trained ``transformers`` ``Pipeline``, ``PreTrainedModel``,
-                               ``TFPreTrainedModel``, or ``FlaxPreTrainedModel`` that can be loaded
-                               using the `from_pretrained` method of the respective class.
+    :param transformers_model: A trained transformers `Pipeline` or a dictionary that maps
+                               required components of a pipeline to the named keys of
+                               ["model", "image_processor", "tokenizer", "feature_extractor"].
+                               The `model` key in the dictionary must map to a value that
+                               inherits from `PreTrainedModel`, `TFPreTrainedModel`, or
+                               `FlaxPreTrainedModel`. All other components entries in the
+                               dictionary must support the defined task type that is associated
+                               with the base model type configuration.
     :param path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                   particularly multi-modal types, utilize Processors to combine text
@@ -503,12 +537,8 @@ def _hub_access():
     Wrapper around importing huggingface_hub for ModelCard retrieval, providing access to the
     module if the library is installed, else noop.
     """
-    import importlib
-
-    try:
+    with contextlib.suppress(ImportError):
         return importlib.import_module("huggingface_hub")
-    except ImportError:
-        pass
 
 
 def _fetch_model_card(model_or_pipeline):
@@ -520,7 +550,9 @@ def _fetch_model_card(model_or_pipeline):
     from transformers import Pipeline
 
     model = (
-        model_or_pipeline.model if isinstance(model_or_pipeline, Pipeline) else model_or_pipeline
+        model_or_pipeline.model
+        if isinstance(model_or_pipeline, Pipeline)
+        else model_or_pipeline[_MODEL_KEY]
     )
     card_loader = _hub_access()
     if card_loader:
@@ -529,50 +561,24 @@ def _fetch_model_card(model_or_pipeline):
 
 def _build_pipeline_from_model_input(model, task: str):
     """
-    Utility for generating a pipeline from component parts.
+    Utility for generating a pipeline from component parts. If required components are not
+    specified, use the transformers library pipeline component validation to force raising an
+    exception. The underlying Exception thrown in transformers is verbose enough for diagnosis.
     """
-    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, pipeline
-
-    if not isinstance(model, (PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel)):
-        raise MlflowException(
-            f"The provided model is not the correct type. The type provided is: {type(model)}. "
-            f"The model must inherit from one of: PreTrainedModel, TFPreTrainedModel, "
-            f"FlaxPreTrainedModel"
-        )
-
-    model_architecture_name = model.name_or_path
+    from transformers import pipeline
 
     pipeline_config = {
         "task": task,
-        "model": model,
-        **_configure_extractors(model_architecture_name),
+        **model,
     }
-
-    return pipeline(**pipeline_config)
-
-
-def _configure_extractors(architecture):
-    """
-    Performs a hierarchy-based acquisition of an appropriate processor or
-    feature extractor based on a named and registered model type within the HuggingFace repo.
-    In order to support as many use cases as possible, all available processors and extractors
-    are loaded.
-    """
-    import transformers
-
-    extractor_types = {
-        "tokenizer": "AutoTokenizer",
-        "image_processor": "AutoImageProcessor",
-        "feature_extractor": "AutoFeatureExtractor",
-    }
-    extractors = {}
-    for extractor_type, loader in extractor_types.items():
-        try:
-            instance = getattr(transformers, loader)
-            extractors[extractor_type] = instance.from_pretrained(architecture)
-        except (KeyError, OSError):
-            pass
-    return extractors
+    try:
+        return pipeline(**pipeline_config)
+    except Exception as e:
+        raise MlflowException(
+            "The provided model configuration cannot be created as a Pipeline. "
+            "Please verify that all required and compatible components are "
+            "specified with the correct keys."
+        ) from e
 
 
 def _record_pipeline_components(pipeline) -> Optional[Dict[str, Any]]:
@@ -647,7 +653,6 @@ def _generate_base_flavor_configuration(
     This function extracts key information from the submitted model object so that the precise
     instance types can be loaded correctly.
     """
-    from transformers import Pipeline
 
     _validate_transformers_task_type(task)
 
@@ -656,13 +661,9 @@ def _generate_base_flavor_configuration(
         _LOGGED_TYPE_KEY: _get_instance_type(model, True),
         _INSTANCE_TYPE_KEY: _get_instance_type(model, False),
         _MODEL_PATH_OR_NAME_KEY: _get_base_model_architecture(model),
+        _PIPELINE_MODEL_TYPE_KEY: _get_instance_type(model.model, False),
     }
 
-    # If the object to be saved is a Pipeline, record the model type within the pipeline
-    if isinstance(model, Pipeline):
-        flavor_configuration.update(
-            {_PIPELINE_MODEL_TYPE_KEY: _get_instance_type(model.model, False)}
-        )
     return flavor_configuration
 
 
@@ -688,14 +689,14 @@ def _infer_transformers_task_type(model) -> str:
                   inferred from
     :return: The task type string
     """
-    from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, Pipeline
+    from transformers import Pipeline
     from transformers.pipelines import get_task
 
     if isinstance(model, Pipeline):
         return model.task
-    elif isinstance(model, (PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel)):
+    elif isinstance(model, dict):
         # transformers provides guard conditions for potentially invalid entries
-        return get_task(model.name_or_path)
+        return get_task(model[_MODEL_KEY].name_or_path)
     else:
         raise MlflowException(
             f"The provided model type: {type(model)} is not supported. "
@@ -743,7 +744,7 @@ def _get_base_model_architecture(model_or_pipeline):
     if isinstance(model_or_pipeline, Pipeline):
         return model_or_pipeline.model.name_or_path
     else:
-        return model_or_pipeline.name_or_path
+        return model_or_pipeline[_MODEL_KEY].name_or_path
 
 
 def _get_instance_type(model, base: bool):
