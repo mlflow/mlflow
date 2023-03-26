@@ -90,10 +90,12 @@ Docker container environment
   `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to capture
   non-Python dependencies such as Java libraries.
 
-  When you run an MLflow project that specifies a Docker image, MLflow adds a new Docker layer
-  that copies the project's contents into the ``/mlflow/projects/code`` directory. This step produces
-  a new image. MLflow then runs the new image and invokes the project entrypoint in the resulting
-  container.
+  When you run an MLflow project that specifies a Docker image, MLflow runs your image as is with the parameters 
+  specified in your MLproject file. In this case you'll need to pre build your images with both environment 
+  and code to run it. In the oldest Mlflow versions, when specifying a docker environment mlflow, a new Docker layer
+  was added copying the project's contents into the ``/mlflow/projects/code`` directory producing a new image. 
+  Using ``mlflow run --build-image /path/to/directory`` makes MLflow then runs the new image and invokes the
+  project entrypoint in the resulting container.
 
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container
   during project execution. Additionally, :ref:`runs <concepts>` and
