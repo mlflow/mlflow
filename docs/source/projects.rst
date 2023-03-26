@@ -94,7 +94,7 @@ Docker container environment
   specified in your MLproject file. In this case you'll need to pre build your images with both environment 
   and code to run it. In the oldest Mlflow versions, when specifying a docker environment mlflow, a new Docker layer
   was added copying the project's contents into the ``/mlflow/projects/code`` directory producing a new image. 
-  Using ``mlflow run --build-image /path/to/directory`` makes MLflow then runs the new image and invokes the
+  Using ``mlflow run --build-image /path/to/directory`` makes MLflow then run the new image and invoke the
   project entrypoint in the resulting container.
 
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container
