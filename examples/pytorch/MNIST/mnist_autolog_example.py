@@ -8,27 +8,22 @@
 # pylint: disable=arguments-differ
 # pylint: disable=unused-argument
 # pylint: disable=abstract-method
-import pytorch_lightning as pl
-import mlflow.pytorch
-import logging
 import os
+
+import lightning as L
 import torch
-from argparse import ArgumentParser
-from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.callbacks import LearningRateMonitor
+from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.cli import LightningCLI
 from torch.nn import functional as F
 from torch.utils.data import DataLoader, random_split
+from torchmetrics.functional import accuracy
 from torchvision import datasets, transforms
 
-try:
-    from torchmetrics.functional import accuracy
-except ImportError:
-    from pytorch_lightning.metrics.functional import accuracy
+import mlflow.pytorch
 
 
-class MNISTDataModule(pl.LightningDataModule):
-    def __init__(self, **kwargs):
+class MNISTDataModule(L.LightningDataModule):
+    def __init__(self, batch_size=64, num_workers=3):
         """
         Initialization of inherited lightning data module
         """
@@ -39,7 +34,8 @@ class MNISTDataModule(pl.LightningDataModule):
         self.train_data_loader = None
         self.val_data_loader = None
         self.test_data_loader = None
-        self.args = kwargs
+        self.batch_size = batch_size
+        self.num_workers = num_workers
 
         # transforms for images
         self.transform = transforms.Compose(
@@ -69,9 +65,7 @@ class MNISTDataModule(pl.LightningDataModule):
 
         :return: Returns the constructed dataloader
         """
-        return DataLoader(
-            df, batch_size=self.args["batch_size"], num_workers=self.args["num_workers"]
-        )
+        return DataLoader(df, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def train_dataloader(self):
         """
@@ -92,8 +86,8 @@ class MNISTDataModule(pl.LightningDataModule):
         return self.create_data_loader(self.df_test)
 
 
-class LightningMNISTClassifier(pl.LightningModule):
-    def __init__(self, **kwargs):
+class LightningMNISTClassifier(L.LightningModule):
+    def __init__(self, learning_rate=0.01):
         """
         Initializes the network
         """
@@ -105,33 +99,9 @@ class LightningMNISTClassifier(pl.LightningModule):
         self.layer_1 = torch.nn.Linear(28 * 28, 128)
         self.layer_2 = torch.nn.Linear(128, 256)
         self.layer_3 = torch.nn.Linear(256, 10)
-        self.args = kwargs
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument(
-            "--batch_size",
-            type=int,
-            default=64,
-            metavar="N",
-            help="input batch size for training (default: 64)",
-        )
-        parser.add_argument(
-            "--num_workers",
-            type=int,
-            default=3,
-            metavar="N",
-            help="number of workers (default: 3)",
-        )
-        parser.add_argument(
-            "--lr",
-            type=float,
-            default=0.001,
-            metavar="LR",
-            help="learning rate (default: 0.001)",
-        )
-        return parser
+        self.learning_rate = learning_rate
+        self.val_outputs = []
+        self.test_outputs = []
 
     def forward(self, x):
         """
@@ -194,18 +164,16 @@ class LightningMNISTClassifier(pl.LightningModule):
         x, y = val_batch
         logits = self.forward(x)
         loss = self.cross_entropy_loss(logits, y)
+        self.val_outputs.append(loss)
         return {"val_step_loss": loss}
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self):
         """
-        Computes average validation accuracy
-
-        :param outputs: outputs after every epoch end
-
-        :return: output - average valid loss
+        Computes average validation loss
         """
-        avg_loss = torch.stack([x["val_step_loss"] for x in outputs]).mean()
+        avg_loss = torch.stack(self.val_outputs).mean()
         self.log("val_loss", avg_loss, sync_dist=True)
+        self.val_outputs.clear()
 
     def test_step(self, test_batch, batch_idx):
         """
@@ -220,18 +188,16 @@ class LightningMNISTClassifier(pl.LightningModule):
         output = self.forward(x)
         _, y_hat = torch.max(output, dim=1)
         test_acc = accuracy(y_hat.cpu(), y.cpu(), task="multiclass", num_classes=10)
+        self.test_outputs.append(test_acc)
         return {"test_acc": test_acc}
 
-    def test_epoch_end(self, outputs):
+    def on_test_epoch_end(self):
         """
         Computes average test accuracy score
-
-        :param outputs: outputs after every epoch end
-
-        :return: output - average test loss
         """
-        avg_test_acc = torch.stack([x["test_acc"] for x in outputs]).mean()
+        avg_test_acc = torch.stack(self.test_outputs).mean()
         self.log("avg_test_acc", avg_test_acc, sync_dist=True)
+        self.test_outputs.clear()
 
     def configure_optimizers(self):
         """
@@ -239,7 +205,7 @@ class LightningMNISTClassifier(pl.LightningModule):
 
         :return: output - Initialized optimizer and scheduler
         """
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.args["lr"])
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,
@@ -254,76 +220,27 @@ class LightningMNISTClassifier(pl.LightningModule):
         return [self.optimizer], [self.scheduler]
 
 
-if __name__ == "__main__":
-    parser = ArgumentParser(description="PyTorch Autolog Mnist Example")
-
-    # Early stopping parameters
-    parser.add_argument(
-        "--es_monitor", type=str, default="val_loss", help="Early stopping monitor parameter"
-    )
-
-    parser.add_argument("--es_mode", type=str, default="min", help="Early stopping mode parameter")
-
-    parser.add_argument(
-        "--es_verbose", type=bool, default=True, help="Early stopping verbose parameter"
-    )
-
-    parser.add_argument(
-        "--es_patience", type=int, default=3, help="Early stopping patience parameter"
-    )
-
-    parser = pl.Trainer.add_argparse_args(parent_parser=parser)
-    parser = LightningMNISTClassifier.add_model_specific_args(parent_parser=parser)
-
-    args = parser.parse_args()
-    dict_args = vars(args)
-
-    if "strategy" in dict_args:
-        if dict_args["strategy"] == "None":
-            dict_args["strategy"] = None
-
-    if "devices" in dict_args:
-        if dict_args["devices"] == "None":
-            dict_args["devices"] = None
-
-    model = LightningMNISTClassifier(**dict_args)
-
-    dm = MNISTDataModule(**dict_args)
-    dm.setup(stage="fit")
-
+def cli_main():
     early_stopping = EarlyStopping(
-        monitor=dict_args["es_monitor"],
-        mode=dict_args["es_mode"],
-        verbose=dict_args["es_verbose"],
-        patience=dict_args["es_patience"],
+        monitor="val_loss",
     )
 
     checkpoint_callback = ModelCheckpoint(
         dirpath=os.getcwd(), save_top_k=1, verbose=True, monitor="val_loss", mode="min"
     )
     lr_logger = LearningRateMonitor()
-
-    trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=[lr_logger, early_stopping, checkpoint_callback]
+    cli = LightningCLI(
+        LightningMNISTClassifier,
+        MNISTDataModule,
+        run=False,
+        save_config_callback=None,
+        trainer_defaults={"callbacks": [early_stopping, checkpoint_callback, lr_logger]},
     )
-
-    # It is safe to use `mlflow.pytorch.autolog` in DDP training, as below condition invokes
-    # autolog with only rank 0 gpu.
-
-    # For CPU Training
-    if dict_args["devices"] is None or int(dict_args["devices"]) == 0:
+    if cli.trainer.global_rank == 0:
         mlflow.pytorch.autolog()
-    elif int(dict_args["devices"]) >= 1 and trainer.global_rank == 0:
-        # In case of multi gpu training, the training script is invoked multiple times,
-        # The following condition is needed to avoid multiple copies of mlflow runs.
-        # When one or more gpus are used for training, it is enough to save
-        # the model and its parameters using rank 0 gpu.
-        mlflow.pytorch.autolog()
-    else:
-        # This condition is met only for multi-gpu training when the global rank is non zero.
-        # Since the parameters are already logged using global rank 0 gpu, it is safe to ignore
-        # this condition.
-        logging.info("Active run exists.. ")
+    cli.trainer.fit(cli.model, datamodule=cli.datamodule)
+    cli.trainer.test(ckpt_path="best", datamodule=cli.datamodule)
 
-    trainer.fit(model, dm)
-    trainer.test(datamodule=dm, ckpt_path="best")
+
+if __name__ == "__main__":
+    cli_main()

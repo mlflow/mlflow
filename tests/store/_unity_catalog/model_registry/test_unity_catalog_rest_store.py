@@ -629,3 +629,11 @@ def test_delete_model_version_tag_unsupported(store):
         match=_expected_unsupported_method_error_message("delete_model_version_tag"),
     ):
         store.delete_model_version_tag(name=name, version="1", key="key")
+
+
+@mock_http_200
+@pytest.mark.parametrize("tags", [None, []])
+def test_default_values_for_tags(store, tags):
+    # No unsupported arg exceptions should be thrown
+    store.create_registered_model(name="model_1", description="description", tags=tags)
+    store.create_model_version(name="mymodel", source="source")
