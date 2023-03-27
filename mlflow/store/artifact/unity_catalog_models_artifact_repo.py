@@ -2,7 +2,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
-    MODEL_VERSION_READ,
+    MODEL_VERSION_OPERATION_READ,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
@@ -81,7 +81,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=self.model_name, version=self.model_version, operation=MODEL_VERSION_READ
+                name=self.model_name, version=self.model_version, operation=MODEL_VERSION_OPERATION_READ
             )
         )
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
