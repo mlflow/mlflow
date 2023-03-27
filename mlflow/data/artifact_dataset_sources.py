@@ -107,13 +107,19 @@ def _create_dataset_source_for_artifact_repo(
         def _get_source_type() -> str:
             return source_type
 
-        def download(self) -> str:
+        def load(self, dst_path=None) -> str:
             """
-            Downloads the dataset to the local filesystem.
+            Downloads the dataset source to the local filesystem.
 
-            :return: The path to the downloaded dataset on the local filesystem.
+            :param dst_path: Path of the local filesystem destination directory to which to download
+                             the dataset source. If the directory does not exist, it is created. If
+                             unspecified, the dataset source is downloaded to a new uniquely-named
+                             directory on the local filesystem, unless the dataset source already
+                             exists on the local filesystem, in which case its local path is
+                             returned directly.
+            :return: The path to the downloaded dataset source on the local filesystem.
             """
-            return download_artifacts(self.uri)
+            return download_artifacts(artifact_uri=self.uri, dst_path=dst_path)
 
         @staticmethod
         def _can_resolve(raw_source: Any):
