@@ -291,8 +291,7 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
                 name=name, version=version, operation=MODEL_VERSION_READ_WRITE
-            ),
-            use_integer_for_enums=True,
+            )
         )
         return self._call_endpoint(
             GenerateTemporaryModelVersionCredentialsRequest, req_body
