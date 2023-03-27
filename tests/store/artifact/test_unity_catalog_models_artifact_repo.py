@@ -122,18 +122,20 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
             "session_token": fake_session_token,
         }
     }
+    fake_local_path = "/tmp/fake_path"
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository"
     ) as s3_artifact_repo_class_mock:
         mock_s3_repo = mock.MagicMock(autospec=S3ArtifactRepository)
+        mock_s3_repo.download_artifacts.return_value = fake_local_path
         s3_artifact_repo_class_mock.return_value = mock_s3_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
             artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
-        models_repo.download_artifacts("artifact_path", "dst_path")
+        assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         s3_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=artifact_location,
             access_key_id=fake_key_id,
@@ -160,18 +162,20 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
             "sas_token": fake_sas_token,
         },
     }
+    fake_local_path = "/tmp/fake_path"
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
     ) as adls_artifact_repo_class_mock:
         mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
+        mock_adls_repo.download_artifacts.return_value = fake_local_path
         adls_artifact_repo_class_mock.return_value = mock_adls_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
             artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
-        models_repo.download_artifacts("artifact_path", "dst_path")
+        assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         adls_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=artifact_location, credential=ANY
         )
@@ -198,6 +202,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
             "oauth_token": fake_oauth_token,
         },
     }
+    fake_local_path = "/tmp/fake_path"
     with mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
@@ -208,12 +213,13 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
         mock_gcs_client = mock.MagicMock(autospec=Client)
         gcs_client_class_mock.return_value = mock_gcs_client
         mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
+        mock_gcs_repo.download_artifacts.return_value = fake_local_path
         gcs_artifact_repo_class_mock.return_value = mock_gcs_repo
         request_mock.return_value = _mock_temporary_creds_response(temporary_creds)
         models_repo = UnityCatalogModelsArtifactRepository(
             artifact_uri="models:/MyModel/12", registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME
         )
-        models_repo.download_artifacts("artifact_path", "dst_path")
+        assert models_repo.download_artifacts("artifact_path", "dst_path") == fake_local_path
         gcs_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=artifact_location, client=ANY
         )
