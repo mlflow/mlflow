@@ -8,7 +8,6 @@ from requests import Response
 
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_uc_registry_messages_pb2 import MODEL_VERSION_OPERATION_READ
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
