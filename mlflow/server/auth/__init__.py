@@ -15,18 +15,18 @@ from mlflow.server import app
 _logger = logging.getLogger(__name__)
 
 
-def before_request():
+def _before_request():
     # TODO: Implement authentication
     # TODO: Implement authorization
     pass
 
 
-def after_request(resp):
+def _after_request(resp):
     # TODO: Implement post-request logic
     return resp
 
 
-def enable_auth(app):
+def _enable_auth(app):
     """
     Enables authentication and authorization for the MLflow server.
 
@@ -35,8 +35,8 @@ def enable_auth(app):
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
-    app.before_request(before_request)
-    app.after_request(after_request)
+    app.before_request(_before_request)
+    app.after_request(_after_request)
 
 
-enable_auth(app)
+_enable_auth(app)
