@@ -32,7 +32,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
     ModelVersion as ProtoModelVersion,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_OPERATION_READ_WRITE,
     TemporaryCredentials,
     AwsCredentials,
     AzureUserDelegationSAS,
@@ -324,7 +324,7 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     GenerateTemporaryModelVersionCredentialsRequest(
-                        name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                        name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
                     )
                 ),
             ): model_version_temp_credentials_response,
@@ -382,7 +382,7 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/generate-temporary-credentials",
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             ),
         ),
         (
