@@ -27,6 +27,11 @@ def after_request(resp):
 
 
 def enable_auth(app):
+    """
+    Enables authentication and authorization for the MLflow server.
+
+    :param app: The Flask app to enable authentication and authorization for.
+    """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
