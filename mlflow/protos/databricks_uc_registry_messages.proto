@@ -85,9 +85,9 @@ message ModelVersion {
 }
 
 enum ModelVersionOperation {
-  MODEL_VERSION_OPERATION_UNKNOWN = 0;
-  MODEL_VERSION_READ = 1;
-  MODEL_VERSION_READ_WRITE = 2;
+  MODEL_VERSION_OPERATION_UNSPECIFIED = 0;
+  MODEL_VERSION_OPERATION_READ = 1;
+  MODEL_VERSION_OPERATION_READ_WRITE = 2;
 }
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary

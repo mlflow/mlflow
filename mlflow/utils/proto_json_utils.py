@@ -102,15 +102,13 @@ def _merge_json_dicts(from_dict, to_dict):
     return to_dict
 
 
-def message_to_json(message, use_integer_for_enums=False):
+def message_to_json(message):
     """Converts a message to JSON, using snake_case for field names."""
 
     # Google's MessageToJson API converts int64 proto fields to JSON strings.
     # For more info, see https://github.com/protocolbuffers/protobuf/issues/2954
     json_dict_with_int64_as_str = json.loads(
-        MessageToJson(
-            message, preserving_proto_field_name=True, use_integers_for_enums=use_integer_for_enums
-        )
+        MessageToJson(message, preserving_proto_field_name=True)
     )
     # We convert this proto message into a JSON dict where only int64 proto fields
     # are preserved, and they are treated as JSON numbers, not strings.

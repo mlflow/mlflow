@@ -82,8 +82,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
                 name=self.model_name, version=self.model_version, operation=MODEL_VERSION_READ
-            ),
-            use_integer_for_enums=True,
+            )
         )
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
         return call_endpoint(
