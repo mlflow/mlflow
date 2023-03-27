@@ -121,6 +121,10 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      - name: Run tests for pyspark 3.4.0
+        run: |
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
+          pytest tests/pyfunc/test_spark.py::test_spark_udf_array_of_structs
 
   database:
     runs-on: ubuntu-latest
