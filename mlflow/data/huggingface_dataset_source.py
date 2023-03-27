@@ -24,7 +24,9 @@ class HuggingFaceDatasetSource(DatasetSource):
         path: str,
         name: Optional[str] = None,
         data_dir: Optional[str] = None,
-        data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+        data_files: Optional[
+            Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
+        ] = None,
         split: Optional[Union[str, datasets.Split]] = None,
         features: Optional[datasets.Features] = None,
         revision: Optional[Union[str, datasets.Version]] = None,
