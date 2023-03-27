@@ -104,7 +104,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         repo = get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path, scoped_token=scoped_token
         )
-        repo.download_artifacts(artifact_path, dst_path)
+        repo.download_artifacts('', dst_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")
