@@ -33,7 +33,7 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def load(self, /, dst_path=None) -> str:
+    def load(self, dst_path=None) -> str:
         """
         Downloads the dataset source to the local filesystem.
 
