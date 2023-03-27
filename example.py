@@ -37,3 +37,41 @@ df.select(array_map("name")).show()
 # pyarrow.lib.ArrowTypeError: Could not convert {'Bar': 0} with type dict: was not a sequence or recognized null for conversion to list type
 #
 # Related to https://github.com/apache/arrow/issues/33928?
+
+
+@pandas_udf(
+    ArrayType(
+        StructType(
+            [
+                StructField("a", StringType(), nullable=False),
+            ]
+        )
+    )
+)
+def array_map(s: pd.Series) -> pd.Series:
+    return pd.Series(
+        [[{"a": idx}] for idx, x in enumerate(s)],
+    )
+
+
+# Traceback (most recent call last):
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/udf.py", line 141, in returnType
+#     to_arrow_type(self._returnType_placeholder)
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/pandas/types.py", line 90, in to_arrow_type
+#     raise TypeError("Unsupported type in conversion to Arrow: " + str(dt))
+# TypeError: Unsupported type in conversion to Arrow: ArrayType(StructType([StructField('a', StringType(), False)]), True)
+
+# During handling of the above exception, another exception occurred:
+
+# Traceback (most recent call last):
+#   File "example.py", line 20, in <module>
+#     def array_map(s: pd.Series) -> pd.Series:
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/pandas/functions.py", line 450, in _create_pandas_udf
+#     return _create_udf(f, returnType, evalType)
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/udf.py", line 74, in _create_udf
+#     return udf_obj._wrapped()
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/udf.py", line 286, in _wrapped
+#     wrapper.returnType = self.returnType  # type: ignore[attr-defined]
+#   File "/home/haru/miniconda3/envs/mlflow-dev-env/lib/python3.8/site-packages/pyspark/sql/udf.py", line 143, in returnType
+#     raise NotImplementedError(
+# NotImplementedError: Invalid return type with scalar Pandas UDFs: ArrayType(StructType([StructField('a', StringType(), False)]), True) is not supported
