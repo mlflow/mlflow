@@ -439,10 +439,15 @@ def save_model(
         pyfunc_options = {
             "data": data_subpath,
         }
+        if Version(tensorflow.__version__) >= Version("2.6.0"):
+            import keras
+            keras_version = keras.__version__
+        else:
+            keras_version = keras_module.__version__
         flavor_options = {
             **pyfunc_options,
             "model_type": _MODEL_TYPE_KERAS,
-            "keras_version": keras_module.__version__,
+            "keras_version": keras_version,
             "save_format": save_format,
         }
     elif isinstance(model, tensorflow.Module):
