@@ -22,20 +22,28 @@ class HuggingFaceDatasetSource(DatasetSource):
     def __init__(
         self,
         path: str,
-        split: Union[str, datasets.splits.Split, None] = None,
-        revision: Union[str, datasets.utils.version.Version, None] = None,
-        data_files: Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]], None] = None,
+        name: Optional[str] = None,
+        data_dir: Optional[str] = None,
+        data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
+        split: Optional[Union[str, datasets.Split]] = None,
+        features: Optional[datasets.Features] = None,
+        revision: Optional[Union[str, datasets.Version]] = None,
+        task: Optional[Union[str, datasets.TaskTemplate]] = None,
     ):
         self.path = path
-        self.split = split
-        self.revision = revision
+        self.name = name
+        self.data_dir = data_dir
         self.data_files = data_files
+        self.split = split
+        self.features = features
+        self.revision = revision
+        self.task = task
 
     @staticmethod
     def _get_source_type() -> str:
         return "huggingface"
 
-    def download(self) -> str:
+    def load(self, **kwargs) -> Union[datasets.Dataset, datasets.DatasetDict]:
         return datasets.load_dataset(self.repository, self.split, self.revision)
 
     @staticmethod
