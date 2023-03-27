@@ -250,7 +250,7 @@ def save_model(
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor, False)})
 
     # Save the pipeline object
-    built_pipeline.save_pretrained(save_directory=str(path.joinpath(_PIPELINE_BINARY_FILE_NAME)))
+    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
 
     # Save the components explicitly to the components directory
     _save_components(
@@ -532,31 +532,22 @@ def _load_model(path: str, flavor_config):
     return conf
 
 
-def _hub_access():
-    """
-    Wrapper around importing huggingface_hub for ModelCard retrieval, providing access to the
-    module if the library is installed, else noop.
-    """
-    with contextlib.suppress(ImportError):
-        return importlib.import_module("huggingface_hub")
-
-
 def _fetch_model_card(model_or_pipeline):
     """
     Attempts to retrieve the model card for the specified model architecture iff the
     `huggingface_hub` library is installed. If a card cannot be found in the registry or
     the library is not installed, returns None.
     """
-    from transformers import Pipeline
+    with contextlib.suppress(ImportError):
+        from transformers import Pipeline
 
-    model = (
-        model_or_pipeline.model
-        if isinstance(model_or_pipeline, Pipeline)
-        else model_or_pipeline[_MODEL_KEY]
-    )
-    card_loader = _hub_access()
-    if card_loader:
-        return card_loader.ModelCard.load(model.name_or_path)
+        hub = importlib.import_module("huggingface_hub")
+        model = (
+            model_or_pipeline.model
+            if isinstance(model_or_pipeline, Pipeline)
+            else model_or_pipeline[_MODEL_KEY]
+        )
+        return hub.ModelCard.load(model.name_or_path)
 
 
 def _build_pipeline_from_model_input(model, task: str):
@@ -622,11 +613,9 @@ def _save_components(
     component_types = component_config["components"]
     for component_name in component_types:
         component = getattr(pipeline, component_name)
-        save_path = str(root_path.joinpath(component_name))
-        component.save_pretrained(save_path)
+        component.save_pretrained(root_path.joinpath(component_name))
     if processor:
-        processor_path = str(root_path.joinpath(_PROCESSOR_KEY))
-        processor.save_pretrained(processor_path)
+        processor.save_pretrained(root_path.joinpath(_PROCESSOR_KEY))
 
 
 def _load_component(root_path: pathlib.Path, component_key: str, component_type):

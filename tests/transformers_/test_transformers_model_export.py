@@ -724,13 +724,13 @@ def test_non_existent_model_card_entry(small_seq2seq_pipeline, model_path):
         assert not contents.intersection({"model_card_text.txt", "model_card_data.yaml"})
 
 
-def _test_access_huggingface_hub_mock_not_installed():
-    with mock.patch("importlib.import_module", side_effect=ImportError("mock ImportError")):
-        assert not mlflow.transformers._hub_access()
+def test_huggingface_hub_not_installed(small_seq2seq_pipeline, model_path):
+    with mock.patch.dict("sys.modules", {"huggingface_hub": None}):
+        result = mlflow.transformers._fetch_model_card(small_seq2seq_pipeline)
 
+        assert result is None
 
-def test_attempt_to_retrieve_model_card_without_huggingfacehub(small_seq2seq_pipeline):
-    with mock.patch("mlflow.transformers._hub_access", return_value=None):
-        card = _fetch_model_card(small_seq2seq_pipeline)
+        mlflow.transformers.save_model(transformers_model=small_seq2seq_pipeline, path=model_path)
 
-        assert card is None
+        contents = {item.name for item in model_path.iterdir()}
+        assert not contents.intersection({"model_card_text.txt", "model_card_data.yaml"})
