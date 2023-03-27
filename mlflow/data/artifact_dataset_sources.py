@@ -107,7 +107,7 @@ def _create_dataset_source_for_artifact_repo(
         def _get_source_type() -> str:
             return source_type
 
-        def load(self, /, dst_path=None) -> str:
+        def load(self, dst_path=None) -> str:
             """
             Downloads the dataset source to the local filesystem.
 
