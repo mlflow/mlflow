@@ -146,7 +146,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_aws(
             host_creds=ANY,
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_OPERATION_READ},
+            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
 
 
@@ -184,7 +184,7 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_azure(
             host_creds=ANY,
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_OPERATION_READ},
+            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
 
 
@@ -226,5 +226,5 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
             host_creds=ANY,
             endpoint="/api/2.0/mlflow/unity-catalog/model-versions/generate-temporary-credentials",
             method="POST",
-            json={"name": "MyModel", "version": "12", "operation": MODEL_VERSION_OPERATION_READ},
+            json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
