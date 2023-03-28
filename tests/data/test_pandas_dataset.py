@@ -42,3 +42,15 @@ def test_digest_property_has_expected_value():
     )
     assert dataset.digest == dataset._compute_digest()
     assert dataset.digest == "31ccce44"
+
+
+def test_df_property():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
+    dataset = PandasDataset(
+        df=df,
+        source=source,
+        name="testname",
+    )
+    assert dataset.df.equals(df)

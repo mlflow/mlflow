@@ -72,6 +72,10 @@ class PandasDataset(Dataset):
         return self._source
 
     @property
+    def df(self) -> pd.DataFrame:
+        return self._df
+
+    @property
     def profile(self) -> Optional[Any]:
         """
         TODO: Pandas docs
@@ -84,9 +88,8 @@ class PandasDataset(Dataset):
     @property
     def schema(self) -> Schema:
         """
-        TODO: Pandas docs
+        An MLflow ColSpec schema representing the columnar dataset
         """
-        # TODO: Error handling
         return _infer_schema(self._df)
 
 
@@ -94,7 +97,16 @@ def from_pandas(
     df: pd.DataFrame, source: str, name: Optional[str] = None, digest: Optional[str] = None
 ) -> PandasDataset:
     """
-    TODO: Pandas docs
+    :param df: A Pandas DataFrame
+    :param source: The source from which the DataFrame was derived. E.g. a Spark table
+                    name, a delta table name with version, a distributed filesystem path or
+                    URI, etc.
+    :param targets: An optional target column name or list of target column names for
+                    supervised training. The columns must be present in the dataframe
+                    (`df`).
+    :param name: The name of the dataset. If unspecified, a name is generated.
+    :param digest: A dataset digest (hash). If unspecified, a digest is computed
+                    automatically.
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 

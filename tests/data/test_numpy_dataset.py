@@ -11,7 +11,7 @@ import numpy as np
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = NumpyDataset(data=np.array([1, 2, 3]), source=source, name="testname")
+    dataset = NumpyDataset(features=np.array([1, 2, 3]), source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -29,6 +29,14 @@ def test_conversion_to_json():
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = NumpyDataset(data=np.array([1, 2, 3]), source=source, name="testname")
+    dataset = NumpyDataset(features=np.array([1, 2, 3]), source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
     assert dataset.digest == "fdf1765f"
+
+
+def test_features_property():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    features = np.array([1, 2, 3])
+    dataset = NumpyDataset(features=features, source=source, name="testname")
+    assert np.array_equal(dataset.features, features)

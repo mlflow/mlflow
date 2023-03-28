@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Optional, Any, Dict
+from typing import List, Optional, Any, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -14,15 +14,17 @@ from mlflow.types.utils import _infer_schema
 class NumpyDataset(Dataset):
     def __init__(
         self,
-        data: np.ndarray,
+        features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
         source: FileSystemDatasetSource,
+        targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
         TODO: Numpy docs
         """
-        self._data = data
+        self._features = features
+        self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -32,7 +34,7 @@ class NumpyDataset(Dataset):
         """
         MAX_ROWS = 10000
 
-        flattened_data = self._data.flatten()
+        flattened_data = self._features.flatten()
         trimmed_data = flattened_data[0:MAX_ROWS]
 
         # hash trimmed array contents
@@ -41,7 +43,7 @@ class NumpyDataset(Dataset):
         except TypeError:
             md5 = hashlib.md5(np.int64(trimmed_data.size))
         # hash full array dimensions
-        for x in self._data.shape:
+        for x in self._features.shape:
             md5.update(np.int64(x))
         # TODO: Make this a normalize_hash function (truncation)
         return md5.hexdigest()[:8]
@@ -71,32 +73,54 @@ class NumpyDataset(Dataset):
         return self._source
 
     @property
+    def features(self) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+        return self._features
+
+    @property
+    def targets(self) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+        return self._targets
+
+    @property
     def profile(self) -> Optional[Any]:
         """
         TODO: Numpy docs
         """
         return {
-            "shape": self._data.shape,
+            "shape": self._features.shape,
         }
 
     @property
     def schema(self) -> Schema:
         """
-        TODO: Numpy docs
+        An MLflow TensorSpec schema representing the tensor dataset
         """
         # TODO: Error handling
-        return _infer_schema(self._data)
+        return _infer_schema(self._features)
 
 
 def from_numpy(
-    data: np.ndarray, source: str, name: Optional[str] = None, digest: Optional[str] = None
+    features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
+    source: str,
+    targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
+    name: Optional[str] = None,
+    digest: Optional[str] = None,
 ) -> NumpyDataset:
     """
-    TODO: Numpy docs
+    :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
+                    or dictionary of named np.ndarrays.
+    :param source: The source from which the NumPy data was derived, e.g. a filesystem
+                    path, an S3 URI, an HTTPS URL etc.
+    :param targets: Optional NumPy targets, represented as an np.ndarray, list of
+                    np.ndarrays or dictionary of named np.ndarrays.
+    :param name: The name of the dataset. If unspecified, a name is generated.
+    :param digest: A dataset digest (hash). If unspecified, a digest is computed
+                    automatically.
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
     resolved_source: FileSystemDatasetSource = resolve_dataset_source(
         source, candidate_sources=[FileSystemDatasetSource]
     )
-    return NumpyDataset(data=data, source=resolved_source, name=name, digest=digest)
+    return NumpyDataset(
+        features=features, source=resolved_source, targets=targets, name=name, digest=digest
+    )
