@@ -31,7 +31,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
     TemporaryCredentials,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_OPERATION_READ_WRITE,
 )
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -291,7 +291,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             )
         )
         return self._call_endpoint(
