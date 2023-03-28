@@ -14,6 +14,7 @@ from mlflow.models import ModelInputExample, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -83,6 +84,7 @@ def _model_packages(model) -> List[str]:
         return [engine]
 
 
+@experimental
 def get_default_pip_requirements(model) -> List[str]:
     """
     :param model: The model instance to be saved in order to provide the required underlying
@@ -97,7 +99,8 @@ def get_default_pip_requirements(model) -> List[str]:
     if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
         raise MlflowException(
             "The supplied model type is unsupported. The model must be one of: PreTrainedModel, "
-            "TFPreTrainedModel, or FlaxPreTrainedModel"
+            "TFPreTrainedModel, or FlaxPreTrainedModel",
+            error_code=INVALID_PARAMETER_VALUE,
         )
     base_reqs = ["transformers"]
     base_reqs.extend(_model_packages(model))
@@ -115,14 +118,17 @@ def _validate_transformers_model_dict(transformers_model):
             raise MlflowException(
                 "Invalid dictionary submitted for 'transformers_model'. The "
                 f"key(s) {invalid_keys} are not permitted. Must be one of: "
-                f"{_SUPPORTED_SAVE_KEYS}"
+                f"{_SUPPORTED_SAVE_KEYS}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
         if _MODEL_KEY not in transformers_model:
             raise MlflowException(
-                "The 'transformers_model' dictionary must have an entry for " f"{_MODEL_KEY}"
+                f"The 'transformers_model' dictionary must have an entry for {_MODEL_KEY}",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
 
+@experimental
 def get_default_conda_env(model):
     """
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
@@ -139,13 +145,13 @@ def save_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
-    conda_env=None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
     input_example: Optional[ModelInputExample] = None,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    conda_env=None,
     metadata: Dict[str, Any] = None,
     **kwargs,
 ) -> None:
@@ -160,14 +166,42 @@ def save_model(
                                `FlaxPreTrainedModel`. All other components entries in the
                                dictionary must support the defined task type that is associated
                                with the base model type configuration.
+
+                               An example of supplying component-level parts of a transformers
+                               model is shown below:
+
+                               .. code-block:: python
+
+                                 from transformers import (
+                                   MobileBertForQuestionAnswering,
+                                   AutoTokenizer
+                                 )
+
+                                 architecture = "csarron/mobilebert-uncased-squad-v2"
+                                 tokenizer = AutoTokenizer.from_pretrained(architecture)
+                                 model = MobileBertForQuestionAnswering.from_pretrained(
+                                   architecture
+                                 )
+
+                                 with mlflow.start_run():
+                                   components = {
+                                     "model": model,
+                                     "tokenizer": tokenizer,
+                                   }
+                                   mlflow.transformers.save_model(
+                                     transformers_model=components,
+                                     path="path/to/save/model"
+                                   )
+
+
     :param path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                       particularly multi-modal types, utilize Processors to combine text
                       encoding and image or audio encoding in a single entrypoint.
 
                       .. Note:: If a processor is supplied with the saving a model, the
-                                model will be unavailable for loading as a ``Pipeline`` or used
-                                for pyfunc inference.
+                                model will be unavailable for loading as a ``Pipeline`` or for
+                                usage with pyfunc inference.
 
     :param task: The transformers-specific task type of the model. These strings are utilized so
                  that a pipeline can be created with the appropriate internal call architecture
@@ -180,9 +214,6 @@ def save_model(
                        `transformers_model`. If not provided, an attempt will be made to fetch
                        the card from the base pretrained model that is provided (or the one that is
                        included within a provided `Pipeline`).
-    :param conda_env: A dictionary specifying a conda environment to be created for running the
-                      model. The environment can be specified as a YAML file, a string in YAML or
-                      JSON format, or a dictionary.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -197,6 +228,7 @@ def save_model(
                           `Pandas` split-oriented format. Bytes are base64-encoded.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param conda_env: {{ conda_env }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -228,7 +260,6 @@ def save_model(
 
     resolved_task = _get_or_infer_task_type(transformers_model, task)
 
-    # build the pipeline object if a model is passed
     if not isinstance(transformers_model, transformers.Pipeline):
         built_pipeline = _build_pipeline_from_model_input(transformers_model, resolved_task)
     else:
@@ -327,9 +358,6 @@ def log_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
-    conda_env: Optional[
-        Union[str, Dict[str, Union[str, List[Union[str, Dict[str, List[str]]]]]]]
-    ] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: str = None,
     signature: Optional[ModelSignature] = None,
@@ -337,6 +365,7 @@ def log_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     pip_requirements: Optional[Union[List[str], str]] = None,
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    conda_env=None,
     metadata: Dict[str, Any] = None,
     **kwargs,
 ):
@@ -351,14 +380,42 @@ def log_model(
                                `FlaxPreTrainedModel`. All other components entries in the
                                dictionary must support the defined task type that is associated
                                with the base model type configuration.
-    :param path: Local path destination for the serialized model to be saved.
+
+                               An example of supplying component-level parts of a transformers
+                               model is shown below:
+
+                               .. code-block:: python
+
+                                 from transformers import (
+                                   MobileBertForQuestionAnswering,
+                                   AutoTokenizer
+                                 )
+
+                                 architecture = "csarron/mobilebert-uncased-squad-v2"
+                                 tokenizer = AutoTokenizer.from_pretrained(architecture)
+                                 model = MobileBertForQuestionAnswering.from_pretrained(
+                                   architecture
+                                 )
+
+                                 with mlflow.start_run():
+                                   components = {
+                                     "model": model,
+                                     "tokenizer": tokenizer,
+                                   }
+                                   mlflow.transformers.log_model(
+                                     transformers_model=components,
+                                     artifact_path="model",
+                                     task="question-answering"
+                                   )
+
+    :param artifact_path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                   particularly multi-modal types, utilize Processors to combine text
                   encoding and image or audio encoding in a single entrypoint.
 
                   .. Note:: If a processor is supplied with the saving a model, the
-                            model will be unavailable for loading as a ``Pipeline`` or used
-                            for pyfunc inference.
+                            model will be unavailable for loading as a ``Pipeline`` or for usage
+                            with pyfunc inference.
 
     :param task: The transformers-specific task type of the model. These strings are utilized so
                  that a pipeline can be created with the appropriate internal call architecture
@@ -371,7 +428,6 @@ def log_model(
                        `transformers_model`. If not provided, an attempt will be made to fetch
                        the card from the base pretrained model that is provided (or the one that is
                        included within a provided `Pipeline`).
-    :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -401,6 +457,7 @@ def log_model(
                                    Specify 0 or None to skip waiting.
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
+    :param conda_env: {{ conda_env }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -485,7 +542,8 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
         raise MlflowException(
             "This model has been saved with a processor. Processor objects are "
             "not compatible with Pipelines. Please load this model by specifying "
-            "the 'return_type'='components'."
+            "the 'return_type'='components'.",
+            error_code=BAD_REQUEST,
         )
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
@@ -499,7 +557,8 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
     else:
         raise MlflowException(
             f"The specified return_type mode '{return_type}' is unsupported. "
-            "Please select one of: 'pipeline' or 'components'."
+            "Please select one of: 'pipeline' or 'components'.",
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
 
@@ -568,7 +627,8 @@ def _build_pipeline_from_model_input(model, task: str):
         raise MlflowException(
             "The provided model configuration cannot be created as a Pipeline. "
             "Please verify that all required and compatible components are "
-            "specified with the correct keys."
+            "specified with the correct keys.",
+            error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
 
@@ -689,7 +749,8 @@ def _infer_transformers_task_type(model) -> str:
     else:
         raise MlflowException(
             f"The provided model type: {type(model)} is not supported. "
-            "Supported model types are: PreTrainedModel or Pipeline."
+            "Supported model types are: PreTrainedModel or Pipeline.",
+            error_code=BAD_REQUEST,
         )
 
 
@@ -704,7 +765,8 @@ def _validate_transformers_task_type(task: str) -> None:
     if task not in valid_tasks:
         raise MlflowException(
             f"The task provided is invalid. '{task}' is not a supported task. "
-            f"Must be one of: {valid_tasks}"
+            f"Must be one of: {valid_tasks}",
+            error_code=BAD_REQUEST,
         )
 
 

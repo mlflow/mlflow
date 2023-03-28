@@ -487,6 +487,64 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
     assert answer == "sleeping"
 
 
+def test_model_with_processor_does_not_function(component_multi_modal, model_path, image_for_test):
+    processor, model, tokenizer = component_multi_modal
+    mlflow.transformers.save_model(
+        transformers_model={"model": model, "tokenizer": tokenizer, "image_processor": processor},
+        path=model_path,
+        processor=processor,
+    )
+    with pytest.raises(
+        MlflowException, match="This model has been saved with a processor. " "Processor objects"
+    ):
+        mlflow.transformers.load_model(model_uri=model_path, return_type="pipeline")
+
+    # Ensure that the appropriate Processor object was detected and loaded with the pipeline.
+    loaded_components = mlflow.transformers.load_model(
+        model_uri=model_path, return_type="components"
+    )
+    assert isinstance(loaded_components["model"], transformers.ViltForQuestionAnswering)
+    assert isinstance(loaded_components["tokenizer"], transformers.BertTokenizerFast)
+    # This is to simulate a post-processing processor that would be used externally to a Pipeline
+    # This isn't being tested on an actual use case of such a model type due to the size of
+    # these types of models that have this interface being ill-suited for CI testing.
+    assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
+    assert isinstance(loaded_components["image_processor"], transformers.ViltProcessor)
+    # Make sure that the component usage works correctly when extracted from inference loading
+    model = loaded_components["model"]
+    processor = loaded_components["processor"]
+    question = "What are the cats doing?"
+    inputs = processor(image_for_test, question, return_tensors="pt")
+    outputs = model(**inputs)
+    logits = outputs.logits
+    idx = logits.argmax(-1).item()
+    answer = model.config.id2label[idx]
+    assert answer == "sleeping"
+
+    # Assert that manually constructing a Pipeline from these components does not work.
+    broken_pipeline = transformers.pipeline(
+        task="visual-question-answering",
+        tokenizer=loaded_components["tokenizer"],
+        image_processor=loaded_components["image_processor"],
+        model=loaded_components["model"],
+    )
+    with pytest.raises(ValueError, match="You need to specify either `text` or `text_target`"):
+        broken_pipeline({"question": "What is on the couch?", "image": image_for_test})
+    with pytest.raises(KeyError, match="'question'"):
+        broken_pipeline({"text": "What is on the couch?", "image": image_for_test})
+
+    # Assert that including the processor as a kwarg is not utilized by the resolved pipeline
+    invalid_pipeline = transformers.pipeline(
+        task="visual-question-answering",
+        tokenizer=loaded_components["tokenizer"],
+        image_processor=loaded_components["image_processor"],
+        model=loaded_components["model"],
+        processor=loaded_components["processor"],
+    )
+    with pytest.raises(ValueError, match="You need to specify either `text` or `text_target`"):
+        invalid_pipeline({"question": "What is on the couch?", "image": image_for_test})
+
+
 def test_processor_type_model_loaded_as_pipeline_raises(component_multi_modal, model_path):
     processor, model, tokenizer = component_multi_modal
     mlflow.transformers.save_model(
