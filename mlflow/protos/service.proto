@@ -403,20 +403,20 @@ service MlflowService {
       rpc_doc_title: "Log Model",
     };
   }
-}
 
-// .. note::
-//     Experimental: This API may change or be removed in a future release without warning.
-rpc logInputs (LogInputs) returns (LogInputs.Response) {
-  option (rpc) = {
-    endpoints: [{
-      method: "POST",
-      path: "/mlflow/runs/log-inputs"
-      since { major: 2, minor: 0 },
-    }],
-    visibility: PUBLIC,
-    rpc_doc_title: "Log Inputs",
-  };
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logInputs (LogInputs) returns (LogInputs.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-inputs"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Inputs",
+    };
+  }
 }
 
 // View type for ListExperiments query.
