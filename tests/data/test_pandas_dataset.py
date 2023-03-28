@@ -14,7 +14,7 @@ def test_conversion_to_json():
     source = TestDatasetSource._resolve(source_uri)
 
     dataset = PandasDataset(
-        df=pd.DataFrame(np.random.randint(0, 10, size=(10, 4)), columns=list("ABCD")),
+        df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
         source=source,
         name="testname",
     )
@@ -36,8 +36,9 @@ def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
     dataset = PandasDataset(
-        df=pd.DataFrame(np.random.randint(0, 10, size=(10, 4)), columns=list("ABCD")),
+        df=pd.DataFrame([1, 2, 3], columns=["Numbers"]),
         source=source,
         name="testname",
     )
     assert dataset.digest == dataset._compute_digest()
+    assert dataset.digest == "31ccce44"

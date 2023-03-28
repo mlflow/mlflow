@@ -31,3 +31,4 @@ def test_digest_property_has_expected_value():
     source = TestDatasetSource._resolve(source_uri)
     dataset = NumpyDataset(data=np.array([1, 2, 3]), source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
+    assert dataset.digest == "fdf1765f"

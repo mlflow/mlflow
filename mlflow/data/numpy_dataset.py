@@ -3,6 +3,7 @@ import json
 from typing import Optional, Any, Dict
 
 import numpy as np
+import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
@@ -38,7 +39,7 @@ class NumpyDataset(Dataset):
         try:
             md5 = hashlib.md5(pd.util.hash_array(trimmed_data))
         except TypeError:
-            md5 = hashlib.md5(np.int64(obj.size))
+            md5 = hashlib.md5(np.int64(trimmed_data.size))
         # hash full array dimensions
         for x in self._data.shape:
             md5.update(np.int64(x))
