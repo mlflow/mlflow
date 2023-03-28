@@ -729,7 +729,7 @@ def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
 
 
 @pytest.mark.skipif(
-   Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
+    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
 )
 def test_spark_udf_array_of_structs(spark):
     class TestModel(PythonModel):
