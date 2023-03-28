@@ -1,18 +1,12 @@
-class Permission:
-    def __init__(
-        self,
-        *,
-        name: str,
-        can_read: bool,
-        can_update: bool,
-        can_delete: bool,
-        can_manage: bool,
-    ):
-        self.name = name
-        self.can_read = can_read
-        self.can_update = can_update
-        self.can_delete = can_delete
-        self.can_manage = can_manage
+from typing import NamedTuple
+
+
+class Permission(NamedTuple):
+    name: str
+    can_read: bool
+    can_update: bool
+    can_delete: bool
+    can_manage: bool
 
 
 READ = Permission(
