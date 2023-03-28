@@ -265,13 +265,13 @@ _NO_MODEL_SIGNATURE_WARNING = (
 )
 
 
-def _get_keras_version():
+def _get_keras_version(keras_module):
     import tensorflow
     if Version(tensorflow.__version__) >= Version("2.6.0"):
         import keras
         return keras.__version__
     else:
-        return tensorflow.__version__
+        return keras_module.__version__
 
 
 def save_model(
@@ -452,7 +452,7 @@ def save_model(
         flavor_options = {
             **pyfunc_options,
             "model_type": _MODEL_TYPE_KERAS,
-            "keras_version": _get_keras_version(),
+            "keras_version": _get_keras_version(keras_module),
             "save_format": save_format,
         }
     elif isinstance(model, tensorflow.Module):
@@ -540,7 +540,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
 
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
-    unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version())
+    unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
     if save_format == "h5" and Version(unsuffixed_version) >= Version("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
