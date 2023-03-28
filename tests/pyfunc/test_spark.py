@@ -728,9 +728,9 @@ def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
         np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))
 
 
-@pytest.mark.skipif(
-    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
-)
+# @pytest.mark.skipif(
+#    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
+# )
 def test_spark_udf_array_of_structs(spark):
     class TestModel(PythonModel):
         def predict(self, context, model_input):
