@@ -3,13 +3,15 @@ from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
 
 class Dataset(_MLflowObject):
-    """Tag object associated with an experiment."""
+    """Dataset object associated with an experiment."""
 
-    def __init__(self, dataset_uuid, experiment_id, name, digest):
-        self._dataset_uuid = dataset_uuid,
-        self._experiment_id = experiment_id,
-        self._name = name,
+    def __init__(self, name, digest, source_type, source, schema=None, profile=None):
+        self._name = (name,)
         self._digest = digest
+        self._source_type = source_type
+        self._source = source
+        self._schema = schema
+        self._profile = profile
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -17,21 +19,47 @@ class Dataset(_MLflowObject):
         return False
 
     @property
-    def key(self):
-        """String name of the tag."""
-        return self._key
+    def name(self):
+        """String name of the dataset."""
+        return self._name
 
     @property
-    def value(self):
-        """String value of the tag."""
-        return self._value
+    def digest(self):
+        """String digest of the dataset."""
+        return self._digest
+
+    @property
+    def source_type(self):
+        """String source_type of the dataset."""
+        return self._source_type
+
+    @property
+    def source(self):
+        """String source of the dataset."""
+        return self._source
+
+    @property
+    def schema(self):
+        """String schema of the dataset."""
+        return self._schema
+
+    @property
+    def profile(self):
+        """String profile of the dataset."""
+        return self._profile
 
     def to_proto(self):
         dataset = ProtoDataset()
-        param.key = self.key
-        param.value = self.value
-        return param
+        dataset.name = self.name
+        dataset.digest = self.digest
+        dataset.source_type = self.source_type
+        dataset.source = self.source
+        dataset.schema = self.schema
+        dataset.profile = self.profile
+        return dataset
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.key, proto.value)
+        return cls(
+            proto.name, proto.digest, proto.source_type, proto.source, proto.schema, proto.profile
+        )
