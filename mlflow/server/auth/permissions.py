@@ -1,7 +1,8 @@
-from typing import NamedTuple
+from dataclasses import dataclass
 
 
-class Permission(NamedTuple):
+@dataclass
+class Permission:
     name: str
     can_read: bool
     can_update: bool
