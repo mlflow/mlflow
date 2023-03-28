@@ -355,7 +355,7 @@ such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` a
     client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
-:py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
+:py:func:`mlflow.last_active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding
 the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
