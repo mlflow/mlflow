@@ -12,16 +12,18 @@ from mlflow.types.utils import _infer_schema
 
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 
+MAX_ROWS = 10000
 
-class NumpyDataset(Dataset):
+
+class PandasDataset(Dataset):
     def __init__(
         self,
-        data_list: List[int],
+        data: pd.DataFrame,
         source: FileSystemDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
-        self._data_list = data_list
+        self._data = data
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -29,9 +31,18 @@ class NumpyDataset(Dataset):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        hash_md5 = hashlib.md5()
-        for hash_part in pd.util.hash_array(np.array(self._data_list)):
-            hash_md5.update(hash_part)
+        # drop object columns
+        obj = self._data.select_dtypes(exclude=["object"])
+        trimmed_df = obj.head(MAX_ROWS)
+        # hash trimmed dataframe contents
+        hash_md5 = hashlib.md5(pd.util.hash_pandas_object(trimmed_df).values)
+        # hash dataframe dimensions
+        n_rows = len(obj)
+        hash_md5.update(np.int64(n_rows))
+        # hash column names
+        columns = obj.columns
+        for x in columns:
+            hash_md5.update(x.encode())
         return base64.b64encode(hash_md5.digest()).decode("ascii")
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
@@ -45,15 +56,15 @@ class NumpyDataset(Dataset):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_tensorspec": self.schema.to_dict()}),
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
                 "profile": json.dumps(self.profile),
             }
         )
         return base_dict
 
     @property
-    def data_list(self) -> List[int]:
-        return self._data_list
+    def data(self) -> pd.DataFrame:
+        return self._data
 
     @property
     def source(self) -> FileSystemDatasetSource:
@@ -62,9 +73,9 @@ class NumpyDataset(Dataset):
     @property
     def profile(self) -> Optional[Any]:
         return {
-            "length": len(self._data_list),
+            "length": len(self._data),
         }
 
     @property
     def schema(self) -> Schema:
-        return _infer_schema(np.array(self._data_list))
+        return _infer_schema(self._data)
