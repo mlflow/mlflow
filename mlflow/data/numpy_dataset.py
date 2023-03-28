@@ -34,18 +34,32 @@ class NumpyDataset(Dataset):
         """
         MAX_ROWS = 10000
 
-        flattened_data = self._features.flatten()
-        trimmed_data = flattened_data[0:MAX_ROWS]
+        flattened_features = self._features.flatten()
+        trimmed_features = flattened_features[0:MAX_ROWS]
 
-        # hash trimmed array contents
+        md5 = hashlib.md5()
+
+        # hash trimmed feature contents
         try:
-            md5 = hashlib.md5(pd.util.hash_array(trimmed_data))
+            md5.update(pd.util.hash_array(trimmed_features))
         except TypeError:
-            md5 = hashlib.md5(np.int64(trimmed_data.size))
-        # hash full array dimensions
+            md5.update(np.int64(trimmed_features.size))
+        # hash full feature dimensions
         for x in self._features.shape:
             md5.update(np.int64(x))
-        # TODO: Make this a normalize_hash function (truncation)
+
+        # hash trimmed targets contents
+        if self._targets:
+            flattened_targets = self._targets.flatten()
+            trimmed_targets = flattened_targets[0:MAX_ROWS]
+            try:
+                md5.update(pd.util.hash_array(trimmed_targets))
+            except TypeError:
+                md5.update(np.int64(trimmed_targets.size))
+            # hash full feature dimensions
+            for x in self._targets.shape:
+                md5.update(np.int64(x))
+
         return md5.hexdigest()[:8]
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
