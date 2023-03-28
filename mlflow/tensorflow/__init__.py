@@ -267,8 +267,10 @@ _NO_MODEL_SIGNATURE_WARNING = (
 
 def _get_keras_version(keras_module):
     import tensorflow
+
     if Version(tensorflow.__version__) >= Version("2.6.0"):
         import keras
+
         return keras.__version__
     else:
         return keras_module.__version__

@@ -622,11 +622,14 @@ def test_load_without_save_format(tf_keras_model, model_path):
 # TODO: Remove skipif condition `not Version(tf.__version__).is_devrelease` once
 #  https://github.com/huggingface/transformers/issues/22421 is resolved.
 @pytest.mark.skipif(
-    not (_is_importable("transformers") and Version(tf.__version__) >= Version("2.6.0")
-         and not Version(tf.__version__).is_devrelease),
+    not (
+        _is_importable("transformers")
+        and Version(tf.__version__) >= Version("2.6.0")
+        and not Version(tf.__version__).is_devrelease
+    ),
     reason="This test requires transformers, which is no longer compatible with Keras < 2.6.0, "
-           "and transformers is not compatible with Tensorflow dev version, see "
-           "https://github.com/huggingface/transformers/issues/22421",
+    "and transformers is not compatible with Tensorflow dev version, see "
+    "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertConfig, TFBertModel  # pylint: disable=import-error
