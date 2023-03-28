@@ -3,13 +3,11 @@ from mlflow.protos.service_pb2 import InputTag as ProtoInputTag
 
 
 class InputTag(_MLflowObject):
-    """Tag object associated with an experiment."""
+    """Input tag object associated with a dataset."""
 
-    def __init__(self, dataset_uuid, experiment_id, name, digest):
-        self._dataset_uuid = dataset_uuid,
-        self._experiment_id = experiment_id,
-        self._name = name,
-        self._digest = digest
+    def __init__(self, key, value):
+        self._key = (key,)
+        self._value = value
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -18,19 +16,19 @@ class InputTag(_MLflowObject):
 
     @property
     def key(self):
-        """String name of the tag."""
+        """String name of the input tag."""
         return self._key
 
     @property
     def value(self):
-        """String value of the tag."""
+        """String value of the input tag."""
         return self._value
 
     def to_proto(self):
-        dataset = ProtoDataset()
-        param.key = self.key
-        param.value = self.value
-        return param
+        tag = ProtoInputTag()
+        tag.key = self.key
+        tag.value = self.value
+        return tag
 
     @classmethod
     def from_proto(cls, proto):
