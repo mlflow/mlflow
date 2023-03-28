@@ -5,11 +5,13 @@ from mlflow.types.schema import Schema
 from tests.resources.data.dataset_source import TestDatasetSource
 from mlflow.data.numpy_dataset import NumpyDataset
 
+import numpy as np
+
 
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = NumpyDataset(data_list=[1, 2, 3], source=source, name="testname")
+    dataset = NumpyDataset(data=np.array([1, 2, 3]), source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -27,5 +29,5 @@ def test_conversion_to_json():
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = NumpyDataset(data_list=[1, 2, 3], source=source, name="testname")
+    dataset = NumpyDataset(data=np.array([1, 2, 3]), source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()

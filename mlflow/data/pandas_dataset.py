@@ -1,29 +1,28 @@
 import hashlib
-import base64
 import json
-from typing import Any, Dict, Optional, List
+from typing import Optional, Any, Dict
 
 import numpy as np
 import pandas as pd
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
-
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-
-MAX_ROWS = 10000
 
 
 class PandasDataset(Dataset):
     def __init__(
         self,
-        data: pd.DataFrame,
+        df: pd.DataFrame,
         source: FileSystemDatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
-        self._data = data
+        """
+        TODO: Pandas docs
+        """
+        self._df = df
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -31,19 +30,22 @@ class PandasDataset(Dataset):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
+        MAX_ROWS = 10000
+
         # drop object columns
-        obj = self._data.select_dtypes(exclude=["object"])
-        trimmed_df = obj.head(MAX_ROWS)
+        df = self._df.select_dtypes(exclude=["object"])
+        trimmed_df = df.head(MAX_ROWS)
         # hash trimmed dataframe contents
-        hash_md5 = hashlib.md5(pd.util.hash_pandas_object(trimmed_df).values)
+        md5 = hashlib.md5(pd.util.hash_pandas_object(trimmed_df).values)
         # hash dataframe dimensions
-        n_rows = len(obj)
-        hash_md5.update(np.int64(n_rows))
+        n_rows = len(df)
+        md5.update(np.int64(n_rows))
         # hash column names
-        columns = obj.columns
+        columns = df.columns
         for x in columns:
-            hash_md5.update(x.encode())
-        return base64.b64encode(hash_md5.digest()).decode("ascii")
+            md5.update(x.encode())
+        # TODO: Make this a normalize_hash function (truncation)
+        return md5.hexdigest()[:8]
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
@@ -63,19 +65,40 @@ class PandasDataset(Dataset):
         return base_dict
 
     @property
-    def data(self) -> pd.DataFrame:
-        return self._data
-
-    @property
     def source(self) -> FileSystemDatasetSource:
+        """
+        TODO: Pandas docs
+        """
         return self._source
 
     @property
     def profile(self) -> Optional[Any]:
+        """
+        TODO: Pandas docs
+        """
         return {
-            "length": len(self._data),
+            "num_rows": len(self._df),
+            "num_elements": int(self._df.size),
         }
 
     @property
     def schema(self) -> Schema:
-        return _infer_schema(self._data)
+        """
+        TODO: Pandas docs
+        """
+        # TODO: Error handling
+        return _infer_schema(self._df)
+
+
+def from_pandas(
+    df: pd.DataFrame, source: str, name: Optional[str] = None, digest: Optional[str] = None
+) -> PandasDataset:
+    """
+    TODO: Pandas docs
+    """
+    from mlflow.data.dataset_source_registry import resolve_dataset_source
+
+    resolved_source: FileSystemDatasetSource = resolve_dataset_source(
+        source, candidate_sources=[FileSystemDatasetSource]
+    )
+    return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)
