@@ -121,6 +121,7 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      # TODO: Remove this step once pyspark 3.4 is released
       - name: Run tests for pyspark 3.4.0
         run: |
           pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz

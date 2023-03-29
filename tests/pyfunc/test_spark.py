@@ -728,6 +728,7 @@ def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
         np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))
 
 
+# TODO: Remove `skipif` once pyspark 3.4 is released
 @pytest.mark.skipif(
     Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
 )
