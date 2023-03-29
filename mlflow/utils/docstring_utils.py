@@ -1,12 +1,11 @@
 from functools import wraps
-import pathlib
 from packaging.version import Version
 from pkg_resources import get_distribution
 import re
 import textwrap
 import warnings
-import yaml
 
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
 )
@@ -198,10 +197,10 @@ def docstring_version_compatibility_warning(integration_name):
     """
 
     def get_version_ranges(module_key):
-
-        ver_path = pathlib.Path(__file__).parent.parent.joinpath("ml-package-versions.yml")
-        ranges = yaml.safe_load(ver_path.read_bytes())[module_key]["models"]
-        return ranges["minimum"], ranges["maximum"]
+        versions = _ML_PACKAGE_VERSIONS[module_key]["models"]
+        min_version = versions["minimum"]
+        max_version = versions["maximum"]
+        return min_version, max_version
 
     def annotated_func(func):
         _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]

@@ -1,3 +1,4 @@
+from collections import namedtuple
 import importlib
 import logging
 import pathlib
@@ -91,16 +92,17 @@ def get_default_pip_requirements(model) -> List[str]:
              ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
              produce a pip environment that contain these requirements at a minimum.
     """
-    try:
-        from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
 
-        if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
-            raise MlflowException(
-                "The supplied model type is unsupported. The model must be one of: "
-                "PreTrainedModel, TFPreTrainedModel, or FlaxPreTrainedModel",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        base_reqs = ["transformers"]
+    from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
+
+    if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
+        raise MlflowException(
+            "The supplied model type is unsupported. The model must be one of: "
+            "PreTrainedModel, TFPreTrainedModel, or FlaxPreTrainedModel",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    base_reqs = ["transformers"]
+    try:
         base_reqs.extend(_model_packages(model))
         return [_get_pinned_requirement(module) for module in base_reqs]
     except RuntimeError:
@@ -114,6 +116,25 @@ def get_default_pip_requirements(model) -> List[str]:
             f"dependency chain: {dependencies}"
         )
         return dependencies
+
+
+def _isinstance_named_tuple(obj):
+    obj_type = type(obj)
+    bases = obj_type.__bases__
+    if len(bases) != 1 or bases[0] != tuple:
+        return False
+    fields = getattr(obj_type, "_fields", None)
+    if not isinstance(fields, tuple):
+        return False
+    return all(type(name) == str for name in fields)
+
+
+def _convert_component_dict_model(model: dict):
+    """
+    Convert a submitted component-based model in a dictionary to a namedtuple
+    """
+    ComponentModel = namedtuple("ComponentModel", model, rename=True)
+    return ComponentModel(**model)
 
 
 def _validate_transformers_model_dict(transformers_model):
@@ -275,6 +296,9 @@ def save_model(
 
     _validate_transformers_model_dict(transformers_model)
 
+    if isinstance(transformers_model, dict):
+        transformers_model = _convert_component_dict_model(transformers_model)
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = pathlib.Path(path).absolute()
@@ -364,10 +388,7 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            if isinstance(transformers_model, transformers.Pipeline):
-                default_reqs = get_default_pip_requirements(transformers_model.model)
-            else:
-                default_reqs = get_default_pip_requirements(transformers_model[_MODEL_KEY])
+            default_reqs = get_default_pip_requirements(transformers_model.model)
             inferred_reqs = infer_pip_requirements(str(path), FLAVOR_NAME, fallback=default_reqs)
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
@@ -652,14 +673,9 @@ def _fetch_model_card(model_or_pipeline):
     the library is not installed, returns None.
     """
     try:
-        from transformers import Pipeline
-
         hub = importlib.import_module("huggingface_hub")
-        model = (
-            model_or_pipeline.model
-            if isinstance(model_or_pipeline, Pipeline)
-            else model_or_pipeline[_MODEL_KEY]
-        )
+        model = model_or_pipeline.model
+
         if hasattr(hub, "ModelCard"):
             return hub.ModelCard.load(model.name_or_path)
         else:
@@ -684,11 +700,8 @@ def _build_pipeline_from_model_input(model, task: str):
     """
     from transformers import pipeline
 
-    # Externalizing this configuration in case model has a task key.
-    pipeline_config = {
-        "task": task,
-        **model,
-    }
+    pipeline_config = {field: getattr(model, field) for field in model._fields}
+    pipeline_config.update({"task": task})
     try:
         return pipeline(**pipeline_config)
     except Exception as e:
@@ -707,18 +720,15 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
     """
     components_conf = {}
     components = []
-    if getattr(pipeline, "feature_extractor", None) is not None:
-        feature_extractor = pipeline.feature_extractor
-        components_conf.update({_FEATURE_EXTRACTOR_TYPE_KEY: _get_instance_type(feature_extractor)})
-        components.append(_FEATURE_EXTRACTOR_KEY)
-    if getattr(pipeline, "tokenizer", None) is not None:
-        tokenizer = pipeline.tokenizer
-        components_conf.update({_TOKENIZER_TYPE_KEY: _get_instance_type(tokenizer)})
-        components.append(_TOKENIZER_KEY)
-    if getattr(pipeline, "image_processor", None) is not None:
-        image_processor = pipeline.image_processor
-        components_conf.update({_IMAGE_PROCESSOR_TYPE_KEY: _get_instance_type(image_processor)})
-        components.append(_IMAGE_PROCESSOR_KEY)
+    for attr, key in [
+        ("feature_extractor", _FEATURE_EXTRACTOR_TYPE_KEY),
+        ("tokenizer", _TOKENIZER_TYPE_KEY),
+        ("image_processor", _IMAGE_PROCESSOR_TYPE_KEY),
+    ]:
+        component = getattr(pipeline, attr, None)
+        if component is not None:
+            components_conf.update({key: _get_instance_type(component)})
+            components.append(attr)
     if components:
         components_conf.update({_COMPONENTS_BINARY_KEY: components})
     return components_conf
@@ -734,7 +744,7 @@ def _save_components(
     compatibility with the expected pipeline configuration argument assignments in later versions
     of the ``Pipeline`` class.
     """
-    component_types = component_config["components"]
+    component_types = component_config.get(_COMPONENTS_BINARY_KEY, [])
     for component_name in component_types:
         component = getattr(pipeline, component_name)
         component.save_pretrained(root_path.joinpath(component_name))
@@ -806,9 +816,9 @@ def _infer_transformers_task_type(model) -> str:
 
     if isinstance(model, Pipeline):
         return model.task
-    elif isinstance(model, dict):
+    elif _isinstance_named_tuple(model):
         try:
-            return get_task(model[_MODEL_KEY].name_or_path)
+            return get_task(model.model.name_or_path)
         except RuntimeError as e:
             raise MlflowException(
                 "The task type cannot be inferred from the submitted Pipeline or dictionary of "

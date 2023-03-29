@@ -1,3 +1,4 @@
+from collections import namedtuple
 import os
 from packaging.version import Version
 import pathlib
@@ -153,7 +154,8 @@ def test_dependencies_tensorflow(small_seq2seq_pipeline):
 def test_task_inference(small_seq2seq_pipeline):
     expected_task = "text-classification"
     assert _infer_transformers_task_type(small_seq2seq_pipeline) == expected_task
-    assert _infer_transformers_task_type({"model": small_seq2seq_pipeline.model}) == expected_task
+    Model = namedtuple("Model", "model")
+    assert _infer_transformers_task_type(Model(small_seq2seq_pipeline.model)) == expected_task
     with pytest.raises(MlflowException, match="The provided model type"):
         _infer_transformers_task_type(small_seq2seq_pipeline.tokenizer)
 
@@ -184,8 +186,10 @@ def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
 
 
 def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
-    task = _infer_transformers_task_type(component_multi_modal)
-    pipeline = _build_pipeline_from_model_input(component_multi_modal, task=task)
+    components = mlflow.transformers._convert_component_dict_model(component_multi_modal)
+    task = _infer_transformers_task_type(components)
+
+    pipeline = _build_pipeline_from_model_input(components, task=task)
     assert not _should_add_pyfunc_to_model(pipeline)
 
 
@@ -231,8 +235,9 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
 
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
+    Components = namedtuple("Components", "model, tokenizer")
     generated = _build_pipeline_from_model_input(
-        {"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer},
+        Components(small_qa_pipeline.model, small_qa_pipeline.tokenizer),
         "question-answering",
     )
     assert isinstance(generated, type(small_qa_pipeline))
@@ -241,18 +246,19 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     if Version(transformers.__version__) >= Version("4.26.0"):
-        model = {
-            "model": small_vision_model.model,
-            "image_processor": small_vision_model.image_processor,
-            "tokenizer": small_vision_model.tokenizer,
-        }
+        Components = namedtuple("Components", "model image_processor tokenizer")
+        model = Components(
+            small_vision_model.model,
+            small_vision_model.image_processor,
+            small_vision_model.tokenizer,
+        )
     else:
-        model = {
-            "model": small_vision_model.model,
-            "feature_extractor": small_vision_model.feature_extractor,
-            "tokenizer": small_vision_model.tokenizer,
-        }
-
+        Components = namedtuple("Components", "model feature_extractor tokenizer")
+        model = Components(
+            small_vision_model.model,
+            small_vision_model.feature_extractor,
+            small_vision_model.tokenizer,
+        )
     generated = _build_pipeline_from_model_input(
         model,
         "image-classification",
@@ -270,8 +276,9 @@ def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
     with pytest.raises(
         MlflowException, match="The provided model configuration cannot be created as a"
     ):
+        Components = namedtuple("Components", "model")
         _build_pipeline_from_model_input(
-            {"model": small_vision_model.feature_extractor}, "image-classification"
+            Components(small_vision_model.feature_extractor), "image-classification"
         )
 
 
@@ -325,6 +332,8 @@ def test_vision_model_save_pipeline_with_defaults(small_vision_model, model_path
 
 
 def test_qa_model_save_model_for_task_and_card_inference(small_seq2seq_pipeline, model_path):
+    Components = namedtuple("Components", "model tokenizer")
+
     mlflow.transformers.save_model(
         transformers_model={
             "model": small_seq2seq_pipeline.model,
