@@ -132,7 +132,7 @@ def from_numpy(
     :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
                     or dictionary of named np.ndarrays.
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
-                    path, an S3 URI, an HTTPS URL etc.
+                    path, an S3 URI, an HTTPS URL etc. Attempting to use other source types will throw.
     :param targets: Optional NumPy targets, represented as an np.ndarray, list of
                     np.ndarrays or dictionary of named np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.

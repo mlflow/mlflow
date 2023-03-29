@@ -1,12 +1,15 @@
 import hashlib
 import json
-from typing import Optional, Any, Dict
+from typing import Optional, Any, Dict, Union
 
 import numpy as np
 import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.data.spark_dataset_source import SparkDatasetSource
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
+
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -16,7 +19,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __init__(
         self,
         df: pd.DataFrame,
-        source: FileSystemDatasetSource,
+        source: Union[FileSystemDatasetSource, SparkDatasetSource, DeltaDatasetSource],
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -107,9 +110,9 @@ def from_pandas(
 ) -> PandasDataset:
     """
     :param df: A Pandas DataFrame
-    :param source: The source from which the DataFrame was derived. E.g. a Spark table
-                    name, a delta table name with version, a distributed filesystem path or
-                    URI, etc.
+    :param source: The source from which the DataFrame was derived, e.g. a filesystem
+                    path, an S3 URI, an HTTPS URL, a delta table name with version, or
+                    spark table etc. Attempting to use other source types will throw.
     :param targets: An optional target column name or list of target column names for
                     supervised training. The columns must be present in the dataframe
                     (`df`).
@@ -119,7 +122,7 @@ def from_pandas(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source: FileSystemDatasetSource = resolve_dataset_source(
-        source, candidate_sources=[FileSystemDatasetSource]
+    resolved_source = resolve_dataset_source(
+        source, candidate_sources=[FileSystemDatasetSource, DeltaDatasetSource, SparkDatasetSource]
     )
     return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)
