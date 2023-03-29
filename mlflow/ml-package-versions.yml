@@ -9,7 +9,7 @@ sklearn:
 
   models:
     minimum: "0.22.1"
-    maximum: "1.2.2"
+    maximum: "1.2.1"
     requirements:
       "< 1.0": ["scipy==1.7.3"]
     run: |
@@ -17,7 +17,7 @@ sklearn:
 
   autologging:
     minimum: "0.22.1"
-    maximum: "1.2.2"
+    maximum: "1.2.1"
     requirements:
       ">= 0.0.0": ["matplotlib"]
       "< 1.0": ["scipy==1.7.3"]
@@ -36,7 +36,7 @@ pytorch:
 
   models:
     minimum: "1.6.0"
-    maximum: "2.0.0"
+    maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
@@ -44,7 +44,7 @@ pytorch:
 
   autologging:
     minimum: "1.6.0"
-    maximum: "2.0.0"
+    maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -59,7 +59,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "2.0.0"
+    maximum: "1.9.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -102,7 +102,7 @@ tensorflow:
 
   autologging:
     minimum: "2.3.0"
-    maximum: "2.12.0"
+    maximum: "2.11.0"
     requirements:
       "== dev": ["scikit-learn"]
       "< 2.6.0": ["protobuf<4.0.0"]
@@ -264,7 +264,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.5.1"
+    maximum: "3.5.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
@@ -401,7 +401,7 @@ pmdarima:
 
   models:
     minimum: "1.8.0"
-    maximum: "2.0.3"
+    maximum: "2.0.2"
     requirements:
       ">= 0.0.0": ["prophet"]
     run: |
@@ -428,7 +428,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.40.0.2"
+    maximum: "3.40.0.1"
     run: |
       pytest tests/h2o
 

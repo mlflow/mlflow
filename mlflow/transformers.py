@@ -684,6 +684,7 @@ def _build_pipeline_from_model_input(model, task: str):
     """
     from transformers import pipeline
 
+    # Externalizing this configuration in case model has a task key.
     pipeline_config = {
         "task": task,
         **model,
