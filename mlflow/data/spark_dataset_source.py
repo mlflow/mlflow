@@ -10,9 +10,13 @@ SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSo
 class SparkDatasetSource(DatasetSource):
     def __init__(
         self,
-        path: str,
+        path: Optional[str] = None,
+        table_name: Optional[str] = None,
+        sql: Optional[str] = None,
     ):
         self._path = path
+        self._table_name = table_name
+        self._sql = sql
 
     @staticmethod
     def _get_source_type() -> str:
@@ -33,6 +37,7 @@ class SparkDatasetSource(DatasetSource):
         """
         spark = SparkSession.builder.getOrCreate()
 
+        # TODO: read from self.table_name and sql
         return spark.read.parquet(self._path)
 
     @staticmethod

@@ -10,9 +10,9 @@ DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSo
 class DeltaDatasetSource(DatasetSource):
     def __init__(
         self,
-        path: str = None,
-        delta_table_name: str = None,
-        delta_table_version: str = None,
+        path: Optional[str] = None,
+        delta_table_name: Optional[str] = None,
+        delta_table_version: Optional[str] = None,
     ):
         self._path = path
         self._delta_table_name = delta_table_name
