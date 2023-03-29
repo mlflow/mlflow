@@ -3,14 +3,13 @@ import json
 from mlflow.types.schema import Schema
 
 import pandas as pd
-import numpy as np
 
 from tests.resources.data.dataset_source import TestDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
+# from mlflow.data.delta_dataset_source import DeltaDatasetSource
 
 import mlflow.data
 from mlflow.types.utils import _infer_schema

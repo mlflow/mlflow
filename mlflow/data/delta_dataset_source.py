@@ -1,4 +1,4 @@
-from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
+from typing import TypeVar, Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from pyspark.sql import SparkSession, DataFrame
