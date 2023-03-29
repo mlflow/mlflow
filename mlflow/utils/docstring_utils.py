@@ -198,9 +198,8 @@ def docstring_version_compatibility_warning(integration_name):
     """
 
     def get_version_ranges(module_key):
-        import mlflow
 
-        ver_path = pathlib.Path(mlflow.__file__).parent.joinpath("ml-package-versions.yml")
+        ver_path = pathlib.Path(__file__).parent.parent.joinpath("ml-package-versions.yml")
         ranges = yaml.safe_load(ver_path.read_bytes())[module_key]["models"]
         return ranges["minimum"], ranges["maximum"]
 
