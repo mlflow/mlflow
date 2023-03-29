@@ -56,11 +56,11 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, Any]:
         """
-        Obtains a string dictionary representation of the DatasetSource.
+        Obtains a JSON-compatible dictionary representation of the DatasetSource.
 
-        :return: A string dictionary representation of the DatasetSource.
+        :return: A JSON-compatible dictionary representation of the DatasetSource.
         """
 
     def to_json(self) -> str:
@@ -73,11 +73,11 @@ class DatasetSource:
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[str, str]) -> DatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSourceType:
         """
-        Constructs an instance of the DatasetSource from a string dictionary representation.
+        Constructs an instance of the DatasetSource from a dictionary representation.
 
-        :param source_dict: A string dictionary representation of the DatasetSource.
+        :param source_dict: A dictionary representation of the DatasetSource.
         :return: A DatasetSource instance.
         """
 

@@ -85,30 +85,6 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_task():
     assert "labels" not in reloaded_ds_no_text_class.features
 
 
-def test_from_huggingface_dataset_constructs_expected_dataset_with_revision():
-    ds = datasets.load_dataset("rotten_tomatoes", split="train")
-    mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
-
-    assert isinstance(mlflow_ds, HuggingFaceDataset)
-    assert mlflow_ds.ds == ds
-    assert mlflow_ds.schema == _infer_schema(ds.to_pandas())
-    assert mlflow_ds.profile == {
-        "num_rows": ds.num_rows,
-        "dataset_size": ds.dataset_size,
-        "size_in_bytes": ds.size_in_bytes,
-    }
-
-    assert isinstance(mlflow_ds.source, HuggingFaceDatasetSource)
-    reloaded_ds = mlflow_ds.source.load()
-    assert reloaded_ds.builder_name == ds.builder_name
-    assert reloaded_ds.config_name == ds.config_name
-    assert reloaded_ds.split == ds.split == "train"
-    assert reloaded_ds.num_rows == ds.num_rows
-
-    reloaded_mlflow_ds = mlflow.data.from_huggingface(reloaded_ds, path="rotten_tomatoes")
-    assert reloaded_mlflow_ds.digest == mlflow_ds.digest
-
-
 def test_from_huggingface_dataset_constructs_expected_dataset_with_data_files():
     data_files = {"validation": "en/c4-validation.00001-of-00008.json.gz"}
     ds = datasets.load_dataset("allenai/c4", data_files=data_files, split="validation")
@@ -167,7 +143,9 @@ def test_from_huggingface_dataset_constructs_expected_dataset_with_data_dir(tmp_
 
 def test_from_huggingface_dataset_respects_user_specified_name_and_digest():
     ds = datasets.load_dataset("rotten_tomatoes", split="train")
-    mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", name="myname", digest="mydigest")
+    mlflow_ds = mlflow.data.from_huggingface(
+        ds, path="rotten_tomatoes", name="myname", digest="mydigest"
+    )
     assert mlflow_ds.name == "myname"
     assert mlflow_ds.digest == "mydigest"
 
@@ -179,7 +157,7 @@ def test_from_huggingface_dataset_throws_for_dataset_dict():
     with pytest.raises(
         MlflowException, match="must be an instance of `datasets.Dataset`.*DatasetDict"
     ):
-        mlflow_ds = mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
+        mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
 
 
 def test_dataset_conversion_to_json():

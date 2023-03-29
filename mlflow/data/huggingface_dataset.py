@@ -11,7 +11,7 @@ import pandas as pd
 from mlflow.data.dataset import Dataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -21,6 +21,10 @@ _MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE = 10000
 
 
 class HuggingFaceDataset(Dataset):
+    """
+    Represents a HuggingFace dataset.
+    """
+
     def __init__(
         self,
         ds: datasets.Dataset,
@@ -38,14 +42,17 @@ class HuggingFaceDataset(Dataset):
         """
 
         try:
-            df = next(self._ds.to_pandas(batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True))
+            df = next(
+                self._ds.to_pandas(
+                    batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
+                )
+            )
         except Exception:
             if hasattr(self._ds, "_fingerprint") and self._ds._fingerprint is not None:
                 return self._ds._fingerprint[:8]
             else:
                 return hashlib.md5(np.int64(id(self._ds))).hexdigest()[:8]
 
-        
         # drop object columns
         df = df.select_dtypes(exclude=["object"])
         # hash trimmed dataframe contents
@@ -96,7 +103,11 @@ class HuggingFaceDataset(Dataset):
     @cached_property
     def schema(self) -> Schema:
         try:
-            df = next(self._ds.to_pandas(batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True))
+            df = next(
+                self._ds.to_pandas(
+                    batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
+                )
+            )
             return _infer_schema(df)
         except Exception as e:
             _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
@@ -107,9 +118,7 @@ def from_huggingface(
     ds: datasets.Dataset,
     path: str,
     data_dir: Optional[str] = None,
-    data_files: Optional[
-        Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
-    ] = None,
+    data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
     task: Optional[Union[str, datasets.TaskTemplate]] = None,
     revision: Optional[Union[str, datasets.Version]] = None,
     name: Optional[str] = None,

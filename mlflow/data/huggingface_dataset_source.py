@@ -1,13 +1,6 @@
-import warnings
-
 import datasets
 
 from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
-
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.artifact_repository_registry import _artifact_repository_registry
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -66,7 +59,6 @@ class HuggingFaceDatasetSource(DatasetSource):
             "revision": self._revision,
             "task": self._task,
         }
-        print("LOAD KWARGS", load_kwargs)
         load_kwargs.update(kwargs)
 
         return datasets.load_dataset(**load_kwargs)
@@ -82,7 +74,7 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> HuggingFaceDatasetSourceType:
         raise NotImplementedError
 
-    def _to_dict(self) -> Dict[str, Any]:
+    def _to_dict(self) -> Dict[Any, Any]:
         return {
             "path": self._path,
             "config_name": self._config_name,
@@ -94,7 +86,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[str, Any]) -> HuggingFaceDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> HuggingFaceDatasetSourceType:
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),
