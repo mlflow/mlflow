@@ -8,6 +8,7 @@ import threading
 from collections import namedtuple
 from unittest import mock
 import pytest
+from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ from pyspark.sql.types import (
     FloatType,
     IntegerType,
     BooleanType,
+    StructType,
+    StructField,
 )
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
@@ -723,3 +726,40 @@ def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
         df = spark.createDataFrame(X)
         result = df.select(udf(*X.columns)).toPandas()
         np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))
+
+
+# TODO: Remove `skipif` once pyspark 3.4 is released
+@pytest.mark.skipif(
+    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
+)
+def test_spark_udf_array_of_structs(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [[("str", 0, 1, 0.0, 0.1, True)]] * len(model_input)
+
+    signature = ModelSignature(inputs=Schema([ColSpec("long", "a")]))
+    good_data = spark.createDataFrame(pd.DataFrame({"a": [1, 2, 3]}))
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(
+                StructType(
+                    [
+                        StructField("str", StringType()),
+                        StructField("int", IntegerType()),
+                        StructField("long", LongType()),
+                        StructField("float", FloatType()),
+                        StructField("double", DoubleType()),
+                        StructField("bool", BooleanType()),
+                    ]
+                )
+            ),
+        )
+        res = good_data.withColumn("res", udf("a")).select("res").toPandas()
+        assert res["res"][0] == [("str", 0, 1, 0.0, 0.1, True)]
