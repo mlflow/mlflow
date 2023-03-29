@@ -67,3 +67,19 @@ def test_to_pyfunc():
         name="testname",
     )
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
+
+
+def test_to_pyfunc_with_outputs():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    dataset = PandasDataset(
+        df=df,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    input_outputs = dataset.to_pyfunc()
+    assert isinstance(input_outputs, PyFuncInputsOutputs)
+    assert input_outputs.inputs.equals(pd.DataFrame([[1, 2], [1, 2]], columns=["a", "b"]))
+    assert input_outputs.outputs.equals(pd.Series([3, 3], name="c"))

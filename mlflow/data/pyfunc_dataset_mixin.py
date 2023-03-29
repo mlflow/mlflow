@@ -7,7 +7,7 @@ from dataclasses import dataclass
 @dataclass
 class PyFuncInputsOutputs:
     inputs: List[PyFuncInput]
-    outputs: List[PyFuncOutput]
+    outputs: List[PyFuncOutput] = None
 
 
 class PyFuncConvertibleDatasetMixin:

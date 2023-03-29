@@ -20,6 +20,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: pd.DataFrame,
         source: Union[FileSystemDatasetSource, SparkDatasetSource, DeltaDatasetSource],
+        targets: str = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
@@ -27,6 +28,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         TODO: Pandas docs
         """
         self._df = df
+        self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -102,7 +104,12 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         evaluation. Required for use with mlflow.evaluate().
         May not be implemented by all datasets.
         """
-        return PyFuncInputsOutputs(self._df, None)
+        if self._targets:
+            inputs = self._df.drop(columns=[self._targets])
+            outputs = self._df[self._targets]
+            return PyFuncInputsOutputs(inputs, outputs)
+        else:
+            return PyFuncInputsOutputs(self._df)
 
 
 def from_pandas(

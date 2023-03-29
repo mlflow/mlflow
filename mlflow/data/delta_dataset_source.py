@@ -1,7 +1,7 @@
 from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession, DataFrame
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -10,13 +10,17 @@ DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSo
 class DeltaDatasetSource(DatasetSource):
     def __init__(
         self,
-        path: str,
+        path: str = None,
+        delta_table_name: str = None,
+        delta_table_version: str = None,
     ):
         self._path = path
+        self._delta_table_name = delta_table_name
+        self._delta_table_version = delta_table_version
 
     @staticmethod
     def _get_source_type() -> str:
-        return "huggingface"
+        return "delta_table"
 
     def load(self, **kwargs) -> DataFrame:
         """
@@ -31,8 +35,17 @@ class DeltaDatasetSource(DatasetSource):
                  from which to load the data.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
+        spark = SparkSession.builder.getOrCreate()
 
-        return spark.read.parquet(self._path)
+        spark_read_op = spark.read.format("delta")
+        if self._delta_table_version is not None:
+            spark_read_op = spark_read_op.option("versionAsOf", self._delta_table_version)
+
+        # Read the Delta table using spark.read.format and table method
+        if self._path:
+            return spark_read_op.load(self._path)
+        else:
+            return spark_read_op.table(self._delta_table_name)
 
     @staticmethod
     def _can_resolve(raw_source: Any):

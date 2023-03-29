@@ -1,7 +1,7 @@
 from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
 
 from mlflow.data.dataset_source import DatasetSource
-from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession, DataFrame
 
 
 SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSource")
@@ -16,7 +16,7 @@ class SparkDatasetSource(DatasetSource):
 
     @staticmethod
     def _get_source_type() -> str:
-        return "huggingface"
+        return "spark"
 
     def load(self, **kwargs) -> DataFrame:
         """
@@ -31,6 +31,7 @@ class SparkDatasetSource(DatasetSource):
                  from which to load the data.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
+        spark = SparkSession.builder.getOrCreate()
 
         return spark.read.parquet(self._path)
 
