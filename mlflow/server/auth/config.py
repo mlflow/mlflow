@@ -1,5 +1,5 @@
 import configparser
-import pathlib
+from pathlib import Path
 from typing import NamedTuple
 
 
@@ -10,7 +10,7 @@ class AppConfig(NamedTuple):
 
 def read_app_config() -> AppConfig:
     # TODO: need to pass in config path from user?
-    creds_path = pathlib.Path("basic_auth.ini").resolve()
+    creds_path = (Path(__file__).parent / "basic_auth.ini").resolve()
     config = configparser.ConfigParser()
     config.read(str(creds_path))
     return AppConfig(

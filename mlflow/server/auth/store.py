@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from flask_sqlalchemy import SQLAlchemy
 from flask_sqlalchemy.pagination import Pagination
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -48,7 +48,10 @@ def init_db(app):
 
 
 def authenticate_user(username: str, password: str) -> bool:
-    pwhash = get_user(username).password
+    user = get_user(username)
+    if user is None:
+        return False
+    pwhash = user.password
     return check_password_hash(pwhash, password)
 
 
@@ -59,21 +62,25 @@ def create_user(username: str, password: str, is_admin: bool = False):
     db.session.commit()
 
 
-def get_user(username: str) -> User:
-    return db.get_or_404(User, username)
+def has_user(username: str) -> bool:
+    return get_user(username) is not None
+
+
+def get_user(username: str) -> Optional[User]:
+    row = db.session.execute(db.select(User).filter_by(username=username)).one_or_none()
+    return row.User if row else None
 
 
 def list_users() -> List[User]:
-    return db.session.execute(db.select(User)).all()
+    rows = db.session.execute(db.select(User)).all()
+    return [row.User for row in rows]
 
 
 def get_experiment_permission(experiment_id: str, user_id: int) -> ExperimentPermission:
-    return db.session.execute(db.select(ExperimentPermission).filter_by(
-        experiment_id=experiment_id, user_id=user_id
-    )).first()
+    return db.session.execute(
+        db.select(ExperimentPermission).filter_by(experiment_id=experiment_id, user_id=user_id)
+    ).first()
 
 
 def get_readable_experiments(user_id: int) -> List[ExperimentPermission]:
-    return db.session.execute(db.select(ExperimentPermission).filter_by(
-        user_id=user_id
-    )).all()
+    return db.session.execute(db.select(ExperimentPermission).filter_by(user_id=user_id)).all()
