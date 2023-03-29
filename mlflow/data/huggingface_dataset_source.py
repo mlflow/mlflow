@@ -11,6 +11,10 @@ HuggingFaceDatasetSourceType = TypeVar(
 
 
 class HuggingFaceDatasetSource(DatasetSource):
+    """
+    Represents the source of a Hugging Face dataset used in MLflow Tracking.
+    """
+
     def __init__(
         self,
         path: str,
@@ -23,6 +27,15 @@ class HuggingFaceDatasetSource(DatasetSource):
         revision: Optional[Union[str, datasets.Version]] = None,
         task: Optional[Union[str, datasets.TaskTemplate]] = None,
     ):
+        """
+        :param path: The path of the Hugging Face dataset.
+        :param config_name: The name of of the Hugging Face dataset configuration.
+        :param data_dir: The `data_dir` of the Hugging Face dataset configuration.
+        :param data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
+        :param revision: Version of the dataset script to load.
+        :param task: The task to prepare the Hugging Face dataset for during training and
+                     evaluation.
+        """
         self._path = path
         self._config_name = config_name
         self._data_dir = data_dir
@@ -35,10 +48,9 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "huggingface"
 
-    def load(self, **kwargs) -> Union[datasets.Dataset, datasets.DatasetDict]:
+    def load(self, **kwargs) -> datasets.Dataset:
         """
-        Loads the dataset source as a Hugging Face Dataset or DatasetDict, depending on whether
-        multiple splits are defined by the source or not.
+        Loads the dataset source as a Hugging Face Dataset.
 
         :param kwargs: Additional keyword arguments used for loading the dataset with
                        the Hugging Face `datasets.load_dataset()` method. The following keyword
@@ -47,8 +59,7 @@ class HuggingFaceDatasetSource(DatasetSource):
                        revision, task.
         :throws: MlflowException if the Hugging Face dataset source does not define a path
                  from which to load the data.
-        :return: An instance of `datasets.Dataset` or `datasets.DatasetDict`, depending on whether
-                 multiple splits are defined by the source or not.
+        :return: An instance of `datasets.Dataset`.
         """
         load_kwargs = {
             "path": self._path,
