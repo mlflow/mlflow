@@ -462,7 +462,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.27.3"
+    maximum: "4.27.4"
     requirements:
       ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow"]
     run: |

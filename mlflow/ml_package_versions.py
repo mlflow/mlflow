@@ -224,7 +224,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.27.3"
+            "maximum": "4.27.4"
         }
     }
 }

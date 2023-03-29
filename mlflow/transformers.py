@@ -214,11 +214,11 @@ def save_model(
 
           from transformers import pipeline
 
-          pipeline = "csarron/mobilebert-uncased-squad-v2"
+          qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
 
           with mlflow.start_run():
               mlflow.transformers.save_model(
-                  transformers_model=pipeline,
+                  transformers_model=qa_pipe,
                   path="path/to/save/model",
               )
 
@@ -354,7 +354,10 @@ def save_model(
                 "the model is not a language-based model and requires a complex input type "
                 "that is currently not supported."
             )
-        _logger.warning(f"This model is unable to be used for pyfunc prediction due to {reason}")
+        _logger.warning(
+            f"This model is unable to be used for pyfunc prediction due to {reason} "
+            f"The pyfunc flavor will not be added to the Model."
+        )
     flavor_conf.update(**model_bin_kwargs)
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -445,11 +448,11 @@ def log_model(
 
           from transformers import pipeline
 
-          pipeline = "csarron/mobilebert-uncased-squad-v2"
+          qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
 
           with mlflow.start_run():
               mlflow.transformers.log_model(
-                  transformers_model=pipeline,
+                  transformers_model=qa_pipe,
                   artifact_path="my_pipeline",
               )
 
@@ -535,6 +538,7 @@ def log_model(
 
 
 @experimental
+@docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **kwargs):
     """
     Load a ``transformers`` object from a local file or a run.

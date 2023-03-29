@@ -221,8 +221,8 @@ def docstring_version_compatibility_warning(integration_name):
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
-            f"The '{integration_name}' package is known to be compatible with the following "
-            f"package version ranges: {required_pkg_versions}. "
+            f"The '{integration_name}' MLflow Models integration is known to be compatible with "
+            f"the following package version ranges: {required_pkg_versions}. "
             f"MLflow Models integrations with {integration_name} may not succeed when used with "
             "package versions outside of this range."
         )
