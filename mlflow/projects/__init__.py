@@ -169,14 +169,20 @@ def _run(
             build_image=build_image,
             docker_auth=docker_auth,
         )
-        image_digest = kb.push_image_to_registry(image.tags[0])
+        if build_image:
+            kb.push_image_to_registry(image.tags[0], docker_auth)
+            image_tag = image.tags[0]
+        else:
+            image_tag = next(filter(lambda t: project.docker_env.get("image") in t, image.tags))
+        image_digest = kb.get_image_digest(image_tag, docker_auth)
+
         tracking.MlflowClient().set_tag(
             active_run.info.run_id, MLFLOW_DOCKER_IMAGE_ID, image_digest
         )
         submitted_run = kb.run_kubernetes_job(
             project.name,
             active_run,
-            image.tags[0],
+            image_tag,
             image_digest,
             get_entry_point_command(project, entry_point, parameters, storage_dir),
             get_run_env_vars(
