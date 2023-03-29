@@ -34,7 +34,7 @@ from mlflow.transformers import (
     _get_or_infer_task_type,
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
-    TransformersModel,
+    _TransformersModel,
 )
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -157,7 +157,7 @@ def test_task_inference(small_seq2seq_pipeline):
 
     assert (
         _infer_transformers_task_type(
-            TransformersModel.from_dict(**{"model": small_seq2seq_pipeline.model})
+            _TransformersModel.from_dict(**{"model": small_seq2seq_pipeline.model})
         )
         == expected_task
     )
@@ -191,7 +191,7 @@ def test_pipeline_eligibility_for_pyfunc_registration(model, result, request):
 
 
 def test_component_multi_modal_model_ineligible_for_pyfunc(component_multi_modal):
-    components = TransformersModel.from_dict(**component_multi_modal)
+    components = _TransformersModel.from_dict(**component_multi_modal)
     task = _infer_transformers_task_type(components)
 
     pipeline = _build_pipeline_from_model_input(components, task=task)
@@ -241,7 +241,7 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
 
 def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
     generated = _build_pipeline_from_model_input(
-        TransformersModel.from_dict(
+        _TransformersModel.from_dict(
             **{"model": small_qa_pipeline.model, "tokenizer": small_qa_pipeline.tokenizer}
         ),
         "question-answering",
@@ -257,7 +257,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
     generated = _build_pipeline_from_model_input(
-        TransformersModel.from_dict(**model),
+        _TransformersModel.from_dict(**model),
         "image-classification",
     )
     assert isinstance(generated, type(small_vision_model))
@@ -275,7 +275,7 @@ def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
         match="The model type submitted is not compatible with the transformers flavor: "
         "'MobileNetV2ImageProcessor'",
     ):
-        TransformersModel.from_dict(**{"model": small_vision_model.feature_extractor})
+        _TransformersModel.from_dict(**{"model": small_vision_model.feature_extractor})
 
 
 def test_saving_with_invalid_dict_as_model(model_path):

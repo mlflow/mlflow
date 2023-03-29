@@ -275,7 +275,7 @@ def save_model(
     _validate_transformers_model_dict(transformers_model)
 
     if isinstance(transformers_model, dict):
-        transformers_model = TransformersModel.from_dict(**transformers_model)
+        transformers_model = _TransformersModel.from_dict(**transformers_model)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -794,7 +794,7 @@ def _infer_transformers_task_type(model) -> str:
 
     if isinstance(model, Pipeline):
         return model.task
-    elif isinstance(model, TransformersModel):
+    elif isinstance(model, _TransformersModel):
         try:
             return get_task(model.model.name_or_path)
         except RuntimeError as e:
@@ -897,7 +897,7 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
     return True
 
 
-class TransformersModel(NamedTuple):
+class _TransformersModel(NamedTuple):
     """
     Type validator class for models that are submitted as a dictionary for saving and logging.
     Usage of this class should always leverage the type-checking from the class method
@@ -987,4 +987,4 @@ class TransformersModel(NamedTuple):
             model, tokenizer, feature_extractor, image_processor, processor
         )
 
-        return TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
+        return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
