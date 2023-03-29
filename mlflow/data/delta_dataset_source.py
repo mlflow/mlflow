@@ -55,10 +55,24 @@ class DeltaDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> DeltaDatasetSourceType:
         raise NotImplementedError
 
+    def _get_table_info_if_uc(self, table_name):
+        if table_name:
+            action = f"/api/2.0/unity-catalog/tables/{table_name}"
+            response = self.api_client.perform_request(action)
+            return response.json()
+
     def _to_dict(self) -> Dict[Any, Any]:
-        return {
-            "path": self._path,
-        }
+        table_info = self._get_table_info(self._delta_table_name)
+        if table_info:
+            return {
+                "path": self._path,
+                "metastore_id": table_info.metastore_id,
+                "table_id": table_info.table_id,
+            }
+        else:
+            return {
+                "path": self._path,
+            }
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> DeltaDatasetSourceType:
