@@ -7,11 +7,12 @@ import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
 
-class PandasDataset(Dataset):
+class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __init__(
         self,
         df: pd.DataFrame,
@@ -91,6 +92,14 @@ class PandasDataset(Dataset):
         An MLflow ColSpec schema representing the columnar dataset
         """
         return _infer_schema(self._df)
+
+    def to_pyfunc(self) -> PyFuncInputsOutputs:
+        """
+        Converts the dataset to a collection of pyfunc inputs and outputs for model
+        evaluation. Required for use with mlflow.evaluate().
+        May not be implemented by all datasets.
+        """
+        return PyFuncInputsOutputs(self._df, None)
 
 
 def from_pandas(

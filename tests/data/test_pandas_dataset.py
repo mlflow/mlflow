@@ -7,6 +7,7 @@ import numpy as np
 
 from tests.resources.data.dataset_source import TestDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 
 
 def test_conversion_to_json():
@@ -54,3 +55,15 @@ def test_df_property():
         name="testname",
     )
     assert dataset.df.equals(df)
+
+
+def test_to_pyfunc():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([1, 2, 3], columns=["Numbers"])
+    dataset = PandasDataset(
+        df=df,
+        source=source,
+        name="testname",
+    )
+    assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)

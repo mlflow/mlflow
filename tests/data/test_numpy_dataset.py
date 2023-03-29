@@ -4,6 +4,7 @@ from mlflow.types.schema import Schema
 
 from tests.resources.data.dataset_source import TestDatasetSource
 from mlflow.data.numpy_dataset import NumpyDataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 
 import numpy as np
 
@@ -40,3 +41,11 @@ def test_features_property():
     features = np.array([1, 2, 3])
     dataset = NumpyDataset(features=features, source=source, name="testname")
     assert np.array_equal(dataset.features, features)
+
+
+def test_to_pyfunc():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    features = np.array([1, 2, 3])
+    dataset = NumpyDataset(features=features, source=source, name="testname")
+    assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)

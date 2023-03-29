@@ -7,11 +7,12 @@ import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
 
-class NumpyDataset(Dataset):
+class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def __init__(
         self,
         features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
@@ -110,6 +111,14 @@ class NumpyDataset(Dataset):
         """
         # TODO: Error handling
         return _infer_schema(self._features)
+
+    def to_pyfunc(self) -> PyFuncInputsOutputs:
+        """
+        Converts the dataset to a collection of pyfunc inputs and outputs for model
+        evaluation. Required for use with mlflow.evaluate().
+        May not be implemented by all datasets.
+        """
+        return PyFuncInputsOutputs(self._features, self._targets)
 
 
 def from_numpy(
