@@ -46,7 +46,7 @@ class HuggingFaceDatasetSource(DatasetSource):
 
     @staticmethod
     def _get_source_type() -> str:
-        return "huggingface"
+        return "hugging_face"
 
     def load(self, **kwargs) -> datasets.Dataset:
         """
