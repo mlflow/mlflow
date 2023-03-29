@@ -104,7 +104,7 @@ def get_default_pip_requirements(model) -> List[str]:
     try:
         base_reqs.extend(_model_packages(model))
         return [_get_pinned_requirement(module) for module in base_reqs]
-    except RuntimeError:
+    except Exception as e:
         dependencies = [
             _get_pinned_requirement(module)
             for module in ["transformers", "torch", "torchvision", "tensorflow"]
@@ -112,7 +112,7 @@ def get_default_pip_requirements(model) -> List[str]:
         _logger.warning(
             "Could not infer model execution engine type due to huggingface_hub not "
             "being installed or unable to connect in online mode. Adding full "
-            f"dependency chain: {dependencies}"
+            f"dependency chain: {dependencies}. \nFailure cause: {str(e)}"
         )
         return dependencies
 
@@ -797,7 +797,7 @@ def _infer_transformers_task_type(model) -> str:
     elif isinstance(model, _TransformersModel):
         try:
             return get_task(model.model.name_or_path)
-        except RuntimeError as e:
+        except Exception as e:
             raise MlflowException(
                 "The task type cannot be inferred from the submitted Pipeline or dictionary of "
                 "model components. Please provide the task type explicitly when saving or logging "

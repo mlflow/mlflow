@@ -187,6 +187,22 @@ section of the model's conda environment (``conda.yaml``) file.
 )
 
 
+def get_module_min_and_max_supported_ranges(module_name):
+    """
+    Extracts the minimum and maximum supported package versions from the provided module name.
+    The version information is provided via the yaml-to-python-script generation script in
+    dev/update_ml_package_versions.py which writes a python file to the importable namespace of
+    mlflow.ml_package_versions
+
+    :param module_name: The string name of the module as it is registered in ml_package_versions.py
+    :return: tuple of minimum supported version, maximum supported version as strings.
+    """
+    versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
+    min_version = versions["minimum"]
+    max_version = versions["maximum"]
+    return min_version, max_version
+
+
 def docstring_version_compatibility_warning(integration_name):
     """
     Generates a docstring that can be applied as a note stating a version compatibility range for
@@ -196,15 +212,12 @@ def docstring_version_compatibility_warning(integration_name):
     :return: The wrapped function with the additional docstring header applied
     """
 
-    def get_version_ranges(module_key):
-        versions = _ML_PACKAGE_VERSIONS[module_key]["models"]
-        min_version = versions["minimum"]
-        max_version = versions["maximum"]
-        return min_version, max_version
-
     def annotated_func(func):
+        # NB: if using this decorator, ensure the package name to module name reference is
+        # updated with the flavor's `save` and `load` functions being used within the dictionary
+        # mlflow.utils.autologging_utils.versioning.FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
         _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
-        min_ver, max_ver = get_version_ranges(module_key)
+        min_ver, max_ver = get_module_min_and_max_supported_ranges(module_key)
         required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
 
         notice = (
