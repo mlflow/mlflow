@@ -67,10 +67,7 @@ def pytest_ignore_collect(path, config):
             "tests/prophet",
             "tests/pmdarima",
             "tests/diviner",
-            # this test suite has an underscore suffix due to pytorch lightning having an optional
-            # transformers dependency within a utility module that creates an import error within
-            # the python suite `check_mlflow_lazily_imports_ml_packages.py`
-            "tests/transformers_",
+            "tests/transformers",
             "tests/test_mlflow_lazily_imports_ml_packages.py",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc

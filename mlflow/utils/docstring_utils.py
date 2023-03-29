@@ -1,5 +1,15 @@
-import textwrap
+from functools import wraps
+import pathlib
+from packaging.version import Version
+from pkg_resources import get_distribution
 import re
+from ruamel import yaml
+import textwrap
+import warnings
+
+from mlflow.utils.autologging_utils.versioning import (
+    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
+)
 
 
 def _create_placeholder(key):
@@ -176,3 +186,47 @@ section of the model's conda environment (``conda.yaml``) file.
 """,
     }
 )
+
+
+def docstring_version_compatibility_warning(integration_name):
+    """
+    Generates a docstring that can be applied as a note stating a version compatibility range for
+    a given flavor.
+
+    :param integration_name: The name of the module as stored within ml-package-versions.yml
+    :return: The wrapped function with the additional docstring header applied
+    """
+
+    def get_version_ranges(module_key):
+        import mlflow
+
+        ver_path = pathlib.Path(mlflow.__file__).parent.joinpath("ml-package-versions.yml")
+        ranges = yaml.safe_load(ver_path.read_bytes())[module_key]["models"]
+        return ranges["minimum"], ranges["maximum"]
+
+    def annotated_func(func):
+        _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
+        min_ver, max_ver = get_version_ranges(module_key)
+        required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
+
+        notice = (
+            f"The '{integration_name}' package is known to be compatible with the following "
+            f"package version ranges: {required_pkg_versions}. "
+            f"MLflow Models integrations with {integration_name} may not succeed when used with "
+            "package versions outside of this range."
+        )
+
+        @wraps(func)
+        def version_func(*args, **kwargs):
+            installed_version = Version(get_distribution(module_key).version)
+            if installed_version < Version(min_ver) or installed_version > Version(max_ver):
+                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        version_func.__doc__ = (
+            "    .. Note:: " + notice + "\n" * 2 + func.__doc__ if func.__doc__ else notice
+        )
+
+        return version_func
+
+    return annotated_func

@@ -1,11 +1,9 @@
-import contextlib
 import importlib
 import logging
 import pathlib
 
 from typing import Union, List, Optional, Dict, Any
 import yaml
-import warnings
 
 import mlflow
 from mlflow import pyfunc
@@ -17,7 +15,11 @@ from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.utils.docstring_utils import (
+    format_docstring,
+    LOG_MODEL_PARAM_DOCS,
+    docstring_version_compatibility_warning,
+)
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -41,7 +43,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "transformers"
 _PIPELINE_BINARY_KEY = "pipeline"
-_PIPELINE_BINARY_FILE_NAME = "pipeline.tr"
+_PIPELINE_BINARY_FILE_NAME = "pipeline"
 _COMPONENTS_BINARY_KEY = "components"
 _MODEL_KEY = "model"
 _TOKENIZER_KEY = "tokenizer"
@@ -52,14 +54,14 @@ _TOKENIZER_TYPE_KEY = "tokenizer_type"
 _FEATURE_EXTRACTOR_TYPE_KEY = "feature_extractor_type"
 _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _PROCESSOR_TYPE_KEY = "processor_type"
-_CARD_TEXT_FILE_NAME = "model_card_text.txt"
+_CARD_TEXT_FILE_NAME = "model_card.md"
 _CARD_DATA_FILE_NAME = "model_card_data.yaml"
 _TASK_KEY = "task"
-_LOGGED_TYPE_KEY = "logged_type"
 _INSTANCE_TYPE_KEY = "instance_type"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+_SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
 _logger = logging.getLogger(__name__)
 
 
@@ -67,15 +69,10 @@ def _model_packages(model) -> List[str]:
     """
     Determines which pip libraries should be included based on the base model engine
     type.
-    In the ``transformers`` library, all TensorFlow versions of specific model implementations have
-    their class names begin with "TF" (for instance, "TFMobileBertForSequenceClassification" is the
-    TensorFlow version of the MobileBertForSequenceClassification model) while the
-    PyTorch version of the same architecture omits the "TF" ("MobileBertForSequenceClassification").
 
     :param model: The model instance to be saved in order to provide the required underlying
                   deep learning execution framework dependency requirements.
-    :return: A string representing the engine type of the model being used (one of 'tf', 'flax', or
-             'torch').
+    :return: A list of strings representing the underlying engine-specific dependencies
     """
     engine = _get_engine_type(model)
     if engine == "torch":
@@ -94,17 +91,29 @@ def get_default_pip_requirements(model) -> List[str]:
              ``transformers`` flavor. Calls to :py:func:`save_model()` and :py:func:`log_model()`
              produce a pip environment that contain these requirements at a minimum.
     """
-    from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
+    try:
+        from transformers import TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel
 
-    if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
-        raise MlflowException(
-            "The supplied model type is unsupported. The model must be one of: PreTrainedModel, "
-            "TFPreTrainedModel, or FlaxPreTrainedModel",
-            error_code=INVALID_PARAMETER_VALUE,
+        if not isinstance(model, (TFPreTrainedModel, FlaxPreTrainedModel, PreTrainedModel)):
+            raise MlflowException(
+                "The supplied model type is unsupported. The model must be one of: "
+                "PreTrainedModel, TFPreTrainedModel, or FlaxPreTrainedModel",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        base_reqs = ["transformers"]
+        base_reqs.extend(_model_packages(model))
+        return [_get_pinned_requirement(module) for module in base_reqs]
+    except RuntimeError:
+        dependencies = [
+            _get_pinned_requirement(module)
+            for module in ["transformers", "torch", "torchvision", "tensorflow"]
+        ]
+        _logger.warning(
+            "Could not infer model execution engine type due to huggingface_hub not "
+            "being installed or unable to connect in online mode. Adding full "
+            f"dependency chain: {dependencies}"
         )
-    base_reqs = ["transformers"]
-    base_reqs.extend(_model_packages(model))
-    return [_get_pinned_requirement(module) for module in base_reqs]
+        return dependencies
 
 
 def _validate_transformers_model_dict(transformers_model):
@@ -126,6 +135,17 @@ def _validate_transformers_model_dict(transformers_model):
                 f"The 'transformers_model' dictionary must have an entry for {_MODEL_KEY}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        model = transformers_model[_MODEL_KEY]
+    else:
+        model = transformers_model.model
+    if not hasattr(model, "name_or_path"):
+        raise MlflowException(
+            f"The submitted model type {type(model).__name__} does not inherit "
+            "from a transformers pre-trained model. It is missing the attribute "
+            "'name_or_path'. Please verify that the model is a supported "
+            "transformers model.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 @experimental
@@ -138,6 +158,7 @@ def get_default_conda_env(model):
 
 
 @experimental
+@docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     transformers_model,
@@ -158,48 +179,56 @@ def save_model(
     """
     Save a trained transformers model to a path on the local file system.
 
-    :param transformers_model: A trained transformers `Pipeline` or a dictionary that maps
-                               required components of a pipeline to the named keys of
-                               ["model", "image_processor", "tokenizer", "feature_extractor"].
-                               The `model` key in the dictionary must map to a value that
-                               inherits from `PreTrainedModel`, `TFPreTrainedModel`, or
-                               `FlaxPreTrainedModel`. All other components entries in the
-                               dictionary must support the defined task type that is associated
-                               with the base model type configuration.
+    :param transformers_model:
+        A trained transformers `Pipeline` or a dictionary that maps required components of a
+        pipeline to the named keys of ["model", "image_processor", "tokenizer",
+        "feature_extractor"]. The `model` key in the dictionary must map to a value that inherits
+        from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+        All other component entries in the dictionary must support the defined task type that is
+        associated with the base model type configuration.
 
-                               An example of supplying component-level parts of a transformers
-                               model is shown below:
+        An example of supplying component-level parts of a transformers model is shown below:
 
-                               .. code-block:: python
+        .. code-block:: python
 
-                                 from transformers import (
-                                   MobileBertForQuestionAnswering,
-                                   AutoTokenizer
-                                 )
+          from transformers import MobileBertForQuestionAnswering, AutoTokenizer
 
-                                 architecture = "csarron/mobilebert-uncased-squad-v2"
-                                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                                 model = MobileBertForQuestionAnswering.from_pretrained(
-                                   architecture
-                                 )
+          architecture = "csarron/mobilebert-uncased-squad-v2"
+          tokenizer = AutoTokenizer.from_pretrained(architecture)
+          model = MobileBertForQuestionAnswering.from_pretrained(
+            architecture
+          )
 
-                                 with mlflow.start_run():
-                                   components = {
-                                     "model": model,
-                                     "tokenizer": tokenizer,
-                                   }
-                                   mlflow.transformers.save_model(
-                                     transformers_model=components,
-                                     path="path/to/save/model"
-                                   )
+          with mlflow.start_run():
+            components = {
+              "model": model,
+              "tokenizer": tokenizer,
+            }
+            mlflow.transformers.save_model(
+              transformers_model=components,
+              path="path/to/save/model",
+            )
 
+        An example of submitting a `Pipeline` from a default pipeline instantiation:
+
+        .. code-block:: python
+
+          from transformers import pipeline
+
+          pipeline = ("csarron/mobilebert-uncased-squad-v2")
+
+          with mlflow.start_run():
+            mlflow.transformers.save_model(
+              transformers_model=pipeline,
+              path="path/to/save/model",
+            )
 
     :param path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                       particularly multi-modal types, utilize Processors to combine text
                       encoding and image or audio encoding in a single entrypoint.
 
-                      .. Note:: If a processor is supplied with the saving a model, the
+                      .. Note:: If a processor is supplied when saving a model, the
                                 model will be unavailable for loading as a ``Pipeline`` or for
                                 usage with pyfunc inference.
 
@@ -214,6 +243,11 @@ def save_model(
                        `transformers_model`. If not provided, an attempt will be made to fetch
                        the card from the base pretrained model that is provided (or the one that is
                        included within a provided `Pipeline`).
+
+                       .. Note:: In order for a ModelCard to be fetched (if not provided),
+                                 the huggingface_hub package must be installed and the version
+                                 must be >=0.10.0
+
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -273,30 +307,26 @@ def save_model(
         flavor_conf.update(**components)
 
     if processor:
-        warnings.warn(
-            "The model being saved contains a Processor component. Processors are not "
-            "compatible or available to be used if loading as pyfunc or used in a "
-            "spark_udf."
-        )
-        flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor, False)})
+        flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
     # Save the pipeline object
     built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
 
     # Save the components explicitly to the components directory
-    _save_components(
-        root_path=path.joinpath(_COMPONENTS_BINARY_KEY),
-        component_config=components,
-        pipeline=built_pipeline,
-        processor=processor,
-    )
+    if components:
+        _save_components(
+            root_path=path.joinpath(_COMPONENTS_BINARY_KEY),
+            component_config=components,
+            pipeline=built_pipeline,
+            processor=processor,
+        )
 
     # Get the model card from either the argument or the HuggingFace marketplace
     card_data = model_card if model_card is not None else _fetch_model_card(transformers_model)
 
     # If the card data can be acquired, save the text and the data separately
     if card_data:
-        write_to(str(path.joinpath(_CARD_TEXT_FILE_NAME)), card_data.text)
+        path.joinpath(_CARD_TEXT_FILE_NAME).write_text(card_data.text)
         with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
             yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
 
@@ -314,6 +344,15 @@ def save_model(
             code=code_dir_subpath,
             **model_bin_kwargs,
         )
+    else:
+        if processor:
+            reason = "the model being saved with a 'processor' argument supplied."
+        else:
+            reason = (
+                "the model is not a language-based model and requires a complex input type "
+                "that is currently not supported."
+            )
+        _logger.warning(f"This model is unable to be used for pyfunc prediction due to {reason}")
     flavor_conf.update(**model_bin_kwargs)
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -351,6 +390,7 @@ def save_model(
 
 
 @experimental
+@docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     transformers_model,
@@ -372,48 +412,56 @@ def log_model(
     """
     Log a ``transformers`` object as an MLflow artifact for the current run.
 
-    :param transformers_model: A trained transformers `Pipeline` or a dictionary that maps
-                               required components of a pipeline to the named keys of
-                               ["model", "image_processor", "tokenizer", "feature_extractor"].
-                               The `model` key in the dictionary must map to a value that
-                               inherits from `PreTrainedModel`, `TFPreTrainedModel`, or
-                               `FlaxPreTrainedModel`. All other components entries in the
-                               dictionary must support the defined task type that is associated
-                               with the base model type configuration.
+    :param transformers_model:
+        A trained transformers `Pipeline` or a dictionary that maps required components of a
+        pipeline to the named keys of ["model", "image_processor", "tokenizer",
+        "feature_extractor"]. The `model` key in the dictionary must map to a value that inherits
+        from `PreTrainedModel`, `TFPreTrainedModel`, or `FlaxPreTrainedModel`.
+        All other component entries in the dictionary must support the defined task type that is
+        associated with the base model type configuration.
 
-                               An example of supplying component-level parts of a transformers
-                               model is shown below:
+        An example of supplying component-level parts of a transformers model is shown below:
 
-                               .. code-block:: python
+        .. code-block:: python
 
-                                 from transformers import (
-                                   MobileBertForQuestionAnswering,
-                                   AutoTokenizer
-                                 )
+          from transformers import MobileBertForQuestionAnswering, AutoTokenizer
 
-                                 architecture = "csarron/mobilebert-uncased-squad-v2"
-                                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                                 model = MobileBertForQuestionAnswering.from_pretrained(
-                                   architecture
-                                 )
+          architecture = "csarron/mobilebert-uncased-squad-v2"
+          tokenizer = AutoTokenizer.from_pretrained(architecture)
+          model = MobileBertForQuestionAnswering.from_pretrained(
+            architecture
+          )
 
-                                 with mlflow.start_run():
-                                   components = {
-                                     "model": model,
-                                     "tokenizer": tokenizer,
-                                   }
-                                   mlflow.transformers.log_model(
-                                     transformers_model=components,
-                                     artifact_path="model",
-                                     task="question-answering"
-                                   )
+          with mlflow.start_run():
+            components = {
+              "model": model,
+              "tokenizer": tokenizer,
+            }
+            mlflow.transformers.log_model(
+              transformers_model=components,
+              artifact_path="my_model",
+            )
+
+        An example of submitting a `Pipeline` from a default pipeline instantiation:
+
+        .. code-block:: python
+
+          from transformers import pipeline
+
+          pipeline = ("csarron/mobilebert-uncased-squad-v2")
+
+          with mlflow.start_run():
+            mlflow.transformers.log_model(
+              transformers_model=pipeline,
+              artifact_path="my_pipeline",
+            )
 
     :param artifact_path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
                   particularly multi-modal types, utilize Processors to combine text
                   encoding and image or audio encoding in a single entrypoint.
 
-                  .. Note:: If a processor is supplied with the saving a model, the
+                  .. Note:: If a processor is supplied when logging a model, the
                             model will be unavailable for loading as a ``Pipeline`` or for usage
                             with pyfunc inference.
 
@@ -428,6 +476,11 @@ def log_model(
                        `transformers_model`. If not provided, an attempt will be made to fetch
                        the card from the base pretrained model that is provided (or the one that is
                        included within a provided `Pipeline`).
+
+                       .. Note:: In order for a ModelCard to be fetched (if not provided),
+                                 the huggingface_hub package must be installed and the version
+                                 must be >=0.10.0
+
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -532,13 +585,20 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
 
     import transformers
 
+    if return_type not in _SUPPORTED_RETURN_TYPES:
+        raise MlflowException(
+            f"The specified return_type mode '{return_type}' is unsupported. "
+            "Please select one of: 'pipeline' or 'components'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     model_uri = str(model_uri)
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
     flavor_config = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
 
-    if return_type == "pipeline" and flavor_config.get(_PROCESSOR_TYPE_KEY, None):
+    if return_type == "pipeline" and _PROCESSOR_TYPE_KEY in flavor_config:
         raise MlflowException(
             "This model has been saved with a processor. Processor objects are "
             "not compatible with Pipelines. Please load this model by specifying "
@@ -554,12 +614,6 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
         return transformers.pipeline(**components)
     elif return_type == "components":
         return components
-    else:
-        raise MlflowException(
-            f"The specified return_type mode '{return_type}' is unsupported. "
-            "Please select one of: 'pipeline' or 'components'.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
 
 
 def _load_model(path: str, flavor_config):
@@ -579,7 +633,7 @@ def _load_model(path: str, flavor_config):
         "model": model_instance.from_pretrained(pipeline_path),
     }
 
-    if flavor_config.get(_PROCESSOR_TYPE_KEY, None):
+    if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
             local_path, _PROCESSOR_KEY, flavor_config[_PROCESSOR_TYPE_KEY]
         )
@@ -597,7 +651,7 @@ def _fetch_model_card(model_or_pipeline):
     `huggingface_hub` library is installed. If a card cannot be found in the registry or
     the library is not installed, returns None.
     """
-    with contextlib.suppress(ImportError):
+    try:
         from transformers import Pipeline
 
         hub = importlib.import_module("huggingface_hub")
@@ -606,7 +660,20 @@ def _fetch_model_card(model_or_pipeline):
             if isinstance(model_or_pipeline, Pipeline)
             else model_or_pipeline[_MODEL_KEY]
         )
-        return hub.ModelCard.load(model.name_or_path)
+        if hasattr(hub, "ModelCard"):
+            return hub.ModelCard.load(model.name_or_path)
+        else:
+            _logger.warning(
+                f"The version of huggingface_hub that is installed does not provide "
+                f"ModelCard functionality. You have version {hub.__version__} installed. "
+                f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
+            )
+    except ImportError:
+        _logger.warning(
+            "Unable to store ModelCard data with the saved artifact. In order to "
+            "preserve this information, please install the huggingface_hub package "
+            "by running 'pip install huggingingface_hub>0.10.0'"
+        )
 
 
 def _build_pipeline_from_model_input(model, task: str):
@@ -632,28 +699,24 @@ def _build_pipeline_from_model_input(model, task: str):
         ) from e
 
 
-def _record_pipeline_components(pipeline) -> Optional[Dict[str, Any]]:
+def _record_pipeline_components(pipeline) -> Dict[str, Any]:
     """
     Utility for recording which components are present in either the generated pipeline iff the
     supplied save object is not a pipeline or the components of the supplied pipeline object.
     """
     components_conf = {}
     components = []
-    if pipeline.feature_extractor:
+    if getattr(pipeline, "feature_extractor", None) is not None:
         feature_extractor = pipeline.feature_extractor
-        components_conf.update(
-            {_FEATURE_EXTRACTOR_TYPE_KEY: _get_instance_type(feature_extractor, False)}
-        )
+        components_conf.update({_FEATURE_EXTRACTOR_TYPE_KEY: _get_instance_type(feature_extractor)})
         components.append(_FEATURE_EXTRACTOR_KEY)
-    if pipeline.tokenizer:
+    if getattr(pipeline, "tokenizer", None) is not None:
         tokenizer = pipeline.tokenizer
-        components_conf.update({_TOKENIZER_TYPE_KEY: _get_instance_type(tokenizer, False)})
+        components_conf.update({_TOKENIZER_TYPE_KEY: _get_instance_type(tokenizer)})
         components.append(_TOKENIZER_KEY)
-    if pipeline.image_processor:
+    if getattr(pipeline, "image_processor", None) is not None:
         image_processor = pipeline.image_processor
-        components_conf.update(
-            {_IMAGE_PROCESSOR_TYPE_KEY: _get_instance_type(image_processor, False)}
-        )
+        components_conf.update({_IMAGE_PROCESSOR_TYPE_KEY: _get_instance_type(image_processor)})
         components.append(_IMAGE_PROCESSOR_KEY)
     if components:
         components_conf.update({_COMPONENTS_BINARY_KEY: components})
@@ -707,10 +770,9 @@ def _generate_base_flavor_configuration(
 
     flavor_configuration = {
         _TASK_KEY: task,
-        _LOGGED_TYPE_KEY: _get_instance_type(model, True),
-        _INSTANCE_TYPE_KEY: _get_instance_type(model, False),
+        _INSTANCE_TYPE_KEY: _get_instance_type(model),
         _MODEL_PATH_OR_NAME_KEY: _get_base_model_architecture(model),
-        _PIPELINE_MODEL_TYPE_KEY: _get_instance_type(model.model, False),
+        _PIPELINE_MODEL_TYPE_KEY: _get_instance_type(model.model),
     }
 
     return flavor_configuration
@@ -744,19 +806,28 @@ def _infer_transformers_task_type(model) -> str:
     if isinstance(model, Pipeline):
         return model.task
     elif isinstance(model, dict):
-        # transformers provides guard conditions for potentially invalid entries
-        return get_task(model[_MODEL_KEY].name_or_path)
+        try:
+            return get_task(model[_MODEL_KEY].name_or_path)
+        except RuntimeError as e:
+            raise MlflowException(
+                "The task type cannot be inferred from the submitted Pipeline or dictionary of "
+                "model components. Please provide the task type explicitly when saving or logging "
+                "this submitted Pipeline or dictionary of components.",
+                error_code=BAD_REQUEST,
+            ) from e
     else:
         raise MlflowException(
             f"The provided model type: {type(model)} is not supported. "
-            "Supported model types are: PreTrainedModel or Pipeline.",
+            "Supported model types are: Pipeline or a dictionary with specific named keys. "
+            "Run `help(mlflow.transformers.save_model)` to see details of supported types.",
             error_code=BAD_REQUEST,
         )
 
 
 def _validate_transformers_task_type(task: str) -> None:
     """
-    Validates that a given ``task`` type is supported by the ``transformers`` library.
+    Validates that a given ``task`` type is supported by the ``transformers`` library and has been
+    registered in the hub.
     """
     from transformers.pipelines import get_supported_tasks
 
@@ -765,7 +836,7 @@ def _validate_transformers_task_type(task: str) -> None:
     if task not in valid_tasks:
         raise MlflowException(
             f"The task provided is invalid. '{task}' is not a supported task. "
-            f"Must be one of: {valid_tasks}",
+            f"Must be one of the registered tasks: {valid_tasks}",
             error_code=BAD_REQUEST,
         )
 
@@ -798,28 +869,12 @@ def _get_base_model_architecture(model_or_pipeline):
         return model_or_pipeline[_MODEL_KEY].name_or_path
 
 
-def _get_instance_type(model, base: bool):
+def _get_instance_type(obj):
     """
     Utility for extracting the saved object type or, if the `base` argument is set to `True`,
     the base ABC type of the model.
     """
-    if base:
-        from transformers import PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel, Pipeline
-
-        def _get_model_base_class(model):
-            for cls in model.__class__.__mro__:
-                if issubclass(cls, TFPreTrainedModel):
-                    return TFPreTrainedModel.__name__
-                elif issubclass(cls, PreTrainedModel):
-                    return PreTrainedModel.__name__
-                elif issubclass(cls, FlaxPreTrainedModel):
-                    return FlaxPreTrainedModel.__name__
-                elif issubclass(cls, Pipeline):
-                    return Pipeline.__name__
-
-        return _get_model_base_class(model)
-    else:
-        return model.__class__.__name__
+    return obj.__class__.__name__
 
 
 def _should_add_pyfunc_to_model(pipeline) -> bool:
@@ -835,17 +890,19 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
     """
     import transformers
 
+    exclusion_model_types = {
+        "GraphormerPreTrainedModel",
+        "InformerPreTrainedModel",
+        "TimeSeriesTransformerPreTrainedModel",
+        "DecisionTransformerPreTrainedModel",
+    }
     impermissible_attrs = {"feature_extractor", "image_processor"}
-    impermissible_model_types = (
-        transformers.GraphormerPreTrainedModel,
-        transformers.InformerPreTrainedModel,
-        transformers.TimeSeriesTransformerPreTrainedModel,
-        transformers.DecisionTransformerPreTrainedModel,
-    )
 
     for attr in impermissible_attrs:
-        if getattr(pipeline, attr) is not None:
+        if getattr(pipeline, attr, None) is not None:
             return False
-    if isinstance(pipeline.model, impermissible_model_types):
-        return False
+    for model_type in exclusion_model_types:
+        if hasattr(transformers, model_type):
+            if isinstance(pipeline.model, getattr(transformers, model_type)):
+                return False
     return True
