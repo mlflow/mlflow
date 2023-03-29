@@ -47,6 +47,10 @@ from tests.helper_functions import (
 
 pytestmark = pytest.mark.large
 
+transformers_version = Version(transformers.__version__)
+_FEATURE_EXTRACTION_API_CHANGE_VERSION = "4.27.0"
+_IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
+
 
 @pytest.fixture
 def model_path(tmp_path):
@@ -99,10 +103,11 @@ def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture)
     processor = transformers.ViltProcessor.from_pretrained(architecture)
+    image_processor = transformers.ViltImageProcessor.from_pretrained(architecture)
     model = transformers.ViltForQuestionAnswering.from_pretrained(architecture)
     transformers_model = {"model": model, "tokenizer": tokenizer}
-    if Version(transformers.__version__) >= Version("4.26.0"):
-        transformers_model["image_processor"] = processor
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+        transformers_model["image_processor"] = image_processor
     else:
         transformers_model["feature_extractor"] = processor
     return transformers_model
@@ -252,7 +257,7 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     model = {"model": small_vision_model.model, "tokenizer": small_vision_model.tokenizer}
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         model.update({"image_processor": small_vision_model.feature_extractor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
@@ -262,7 +267,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
     )
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         compare_type = generated.image_processor
     else:
         compare_type = generated.feature_extractor
@@ -272,8 +277,7 @@ def test_pipeline_construction_from_base_vision_model(small_vision_model):
 def test_pipeline_construction_fails_with_invalid_type(small_vision_model):
     with pytest.raises(
         MlflowException,
-        match="The model type submitted is not compatible with the transformers flavor: "
-        "'MobileNetV2ImageProcessor'",
+        match="The model type submitted is not compatible with the transformers flavor: ",
     ):
         _TransformersModel.from_dict(**{"model": small_vision_model.feature_extractor})
 
@@ -408,7 +412,7 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
 
 
 def test_component_saving_multi_modal(component_multi_modal, model_path):
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         processor = component_multi_modal["image_processor"]
         expected = {"tokenizer", "processor", "image_processor"}
     else:
@@ -431,13 +435,11 @@ def test_component_saving_multi_modal(component_multi_modal, model_path):
 
 def test_extract_pipeline_components(small_vision_model, small_qa_pipeline):
     components_vision = _record_pipeline_components(small_vision_model)
-    if Version(transformers.__version__) >= Version("4.26.0"):
-        extractor_type = "MobileNetV2FeatureExtractor"
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         component_list = ["feature_extractor", "image_processor"]
     else:
-        extractor_type = "MobileNetV2ImageProcessor"
         component_list = ["feature_extractor"]
-    assert components_vision["feature_extractor_type"] == extractor_type
+
     assert components_vision["components"] == component_list
     components_qa = _record_pipeline_components(small_qa_pipeline)
     assert components_qa["tokenizer_type"] == "MobileBertTokenizerFast"
@@ -446,16 +448,19 @@ def test_extract_pipeline_components(small_vision_model, small_qa_pipeline):
 
 def test_extract_multi_modal_components(small_multi_modal_pipeline):
     components_multi = _record_pipeline_components(small_multi_modal_pipeline)
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         assert components_multi["image_processor_type"] == "ViltImageProcessor"
         assert components_multi["components"] == ["tokenizer", "image_processor"]
+    elif transformers_version >= Version(_IMAGE_PROCESSOR_API_CHANGE_VERSION):
+        assert components_multi["feature_extractor_type"] == "ViltFeatureExtractor"
+        assert components_multi["components"] == ["feature_extractor", "tokenizer"]
     else:
         assert components_multi["feature_extractor_type"] == "ViltImageProcessor"
         assert components_multi["components"] == ["feature_extractor", "tokenizer"]
 
 
 def test_basic_save_model_and_load_vision_pipeline(small_vision_model, model_path, image_for_test):
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         model = {
             "model": small_vision_model.model,
             "image_processor": small_vision_model.image_processor,
@@ -482,7 +487,7 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
     question = "How many cats are in the picture?"
     # Load components
     components = mlflow.transformers.load_model(model_path, return_type="components")
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         expected_components = {"model", "task", "tokenizer", "image_processor"}
     else:
         expected_components = {"model", "task", "tokenizer", "feature_extractor"}
@@ -500,7 +505,7 @@ def test_multi_modal_pipeline_save_and_load(small_multi_modal_pipeline, model_pa
 
 
 def test_multi_modal_component_save_and_load(component_multi_modal, model_path, image_for_test):
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -518,22 +523,28 @@ def test_multi_modal_component_save_and_load(component_multi_modal, model_path, 
     # This is to simulate a post-processing processor that would be used externally to a Pipeline
     # This isn't being tested on an actual use case of such a model type due to the size of
     # these types of models that have this interface being ill-suited for CI testing.
-    assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
-    if Version(transformers.__version__) >= Version("4.26.0"):
+
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         processor_key = "image_processor"
+        assert isinstance(loaded_components[processor_key], transformers.ViltImageProcessor)
     else:
         processor_key = "feature_extractor"
-    assert isinstance(loaded_components[processor_key], transformers.ViltProcessor)
-    # Make sure that the component usage works correctly when extracted from inference loading
-    model = loaded_components["model"]
-    processor = loaded_components["processor"]
-    question = "What are the cats doing?"
-    inputs = processor(image_for_test, question, return_tensors="pt")
-    outputs = model(**inputs)
-    logits = outputs.logits
-    idx = logits.argmax(-1).item()
-    answer = model.config.id2label[idx]
-    assert answer == "sleeping"
+        assert isinstance(loaded_components[processor_key], transformers.ViltProcessor)
+        assert isinstance(loaded_components["processor"], transformers.ViltProcessor)
+    if transformers_version < Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
+        # NB: This simulated behavior is no longer valid in versions 4.27.4 and above.
+        # With the port of functionality away from feature extractor types, the new architecture
+        # for multi-modal models is entirely pipeline based.
+        # Make sure that the component usage works correctly when extracted from inference loading
+        model = loaded_components["model"]
+        processor = loaded_components["processor"]
+        question = "What are the cats doing?"
+        inputs = processor(image_for_test, question, return_tensors="pt")
+        outputs = model(**inputs)
+        logits = outputs.logits
+        idx = logits.argmax(-1).item()
+        answer = model.config.id2label[idx]
+        assert answer == "sleeping"
 
 
 def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
@@ -542,7 +553,7 @@ def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
     invalid_pipeline = transformers.pipeline(
         task="visual-question-answering", **component_multi_modal
     )
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -560,7 +571,7 @@ def test_pipeline_saved_model_with_processor_cannot_be_loaded_as_pipeline(
 def test_component_saved_model_with_processor_cannot_be_loaded_as_pipeline(
     component_multi_modal, model_path
 ):
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         processor = component_multi_modal["image_processor"]
     else:
         processor = component_multi_modal["feature_extractor"]
@@ -641,7 +652,7 @@ def test_transformers_log_model_calls_register_model(small_qa_pipeline, tmp_path
 
 
 def test_transformers_log_model_with_no_registered_model_name(small_vision_model, tmp_path):
-    if Version(transformers.__version__) >= Version("4.26.0"):
+    if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         model = {
             "model": small_vision_model.model,
             "image_processor": small_vision_model.image_processor,
