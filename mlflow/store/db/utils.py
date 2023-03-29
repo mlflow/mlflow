@@ -37,6 +37,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlRegisteredModelTag,
     SqlModelVersionTag,
+    SqlRegisteredModelAlias,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
@@ -60,7 +61,8 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    expected_tables = {
+    return set(sqlalchemy.inspect(engine).get_table_names()) == {
+        "alembic_version",
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -72,8 +74,8 @@ def _all_tables_exist(engine):
         SqlModelVersion.__tablename__,
         SqlRegisteredModelTag.__tablename__,
         SqlModelVersionTag.__tablename__,
+        SqlRegisteredModelAlias.__tablename__,
     }
-    return set(sqlalchemy.inspect(engine).get_table_names()) == expected_tables
 
 
 def _initialize_tables(engine):
