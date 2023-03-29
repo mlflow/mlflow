@@ -1716,25 +1716,25 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-def get_endpoints():
+def get_service_endpoints(service, get_handler):
+    ret = []
+    for service_method in service.DESCRIPTOR.methods:
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        for endpoint in endpoints:
+            for http_path in _get_paths(endpoint.path):
+                handler = get_handler(service().GetRequestClass(service_method))
+                ret.append((http_path, handler, [endpoint.method]))
+    return ret
+
+
+def get_endpoints(get_handler=get_handler):
     """
     :return: List of tuples (path, handler, methods)
     """
-
-    def get_service_endpoints(service):
-        ret = []
-        for service_method in service.DESCRIPTOR.methods:
-            endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
-            for endpoint in endpoints:
-                for http_path in _get_paths(endpoint.path):
-                    handler = get_handler(service().GetRequestClass(service_method))
-                    ret.append((http_path, handler, [endpoint.method]))
-        return ret
-
     return (
-        get_service_endpoints(MlflowService)
-        + get_service_endpoints(ModelRegistryService)
-        + get_service_endpoints(MlflowArtifactsService)
+        get_service_endpoints(MlflowService, get_handler)
+        + get_service_endpoints(ModelRegistryService, get_handler)
+        + get_service_endpoints(MlflowArtifactsService, get_handler)
     )
 
 

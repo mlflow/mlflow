@@ -63,5 +63,17 @@ def get_user(username: str) -> User:
     return db.get_or_404(User, username)
 
 
-def list_users() -> Pagination:
-    return db.paginate(db.select(User))
+def list_users() -> List[User]:
+    return db.session.execute(db.select(User)).all()
+
+
+def get_experiment_permission(experiment_id: str, user_id: int) -> ExperimentPermission:
+    return db.session.execute(db.select(ExperimentPermission).filter_by(
+        experiment_id=experiment_id, user_id=user_id
+    )).first()
+
+
+def get_readable_experiments(user_id: int) -> List[ExperimentPermission]:
+    return db.session.execute(db.select(ExperimentPermission).filter_by(
+        user_id=user_id
+    )).all()
