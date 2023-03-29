@@ -1,9 +1,8 @@
-from collections import namedtuple
 import importlib
 import logging
 import pathlib
 
-from typing import Union, List, Optional, Dict, Any
+from typing import Union, List, Optional, Dict, Any, NamedTuple
 import yaml
 
 import mlflow
@@ -118,23 +117,23 @@ def get_default_pip_requirements(model) -> List[str]:
         return dependencies
 
 
-def _isinstance_named_tuple(obj):
-    obj_type = type(obj)
-    bases = obj_type.__bases__
-    if len(bases) != 1 or bases[0] != tuple:
-        return False
-    fields = getattr(obj_type, "_fields", None)
-    if not isinstance(fields, tuple):
-        return False
-    return all(type(name) == str for name in fields)
-
-
-def _convert_component_dict_model(model: dict):
-    """
-    Convert a submitted component-based model in a dictionary to a namedtuple
-    """
-    ComponentModel = namedtuple("ComponentModel", model, rename=True)
-    return ComponentModel(**model)
+# def _isinstance_named_tuple(obj):
+#     obj_type = type(obj)
+#     bases = obj_type.__bases__
+#     if len(bases) != 1 or bases[0] != tuple:
+#         return False
+#     fields = getattr(obj_type, "_fields", None)
+#     if not isinstance(fields, tuple):
+#         return False
+#     return all(type(name) == str for name in fields)
+#
+#
+# def _convert_component_dict_model(model: dict):
+#     """
+#     Convert a submitted component-based model in a dictionary to a namedtuple
+#     """
+#     ComponentModel = namedtuple("ComponentModel", model, rename=True)
+#     return ComponentModel(**model)
 
 
 def _validate_transformers_model_dict(transformers_model):
@@ -216,19 +215,17 @@ def save_model(
 
           architecture = "csarron/mobilebert-uncased-squad-v2"
           tokenizer = AutoTokenizer.from_pretrained(architecture)
-          model = MobileBertForQuestionAnswering.from_pretrained(
-            architecture
-          )
+          model = MobileBertForQuestionAnswering.from_pretrained(architecture)
 
           with mlflow.start_run():
-            components = {
-              "model": model,
-              "tokenizer": tokenizer,
-            }
-            mlflow.transformers.save_model(
-              transformers_model=components,
-              path="path/to/save/model",
-            )
+              components = {
+                  "model": model,
+                  "tokenizer": tokenizer,
+              }
+              mlflow.transformers.save_model(
+                  transformers_model=components,
+                  path="path/to/save/model",
+              )
 
         An example of submitting a `Pipeline` from a default pipeline instantiation:
 
@@ -236,13 +233,13 @@ def save_model(
 
           from transformers import pipeline
 
-          pipeline = ("csarron/mobilebert-uncased-squad-v2")
+          pipeline = "csarron/mobilebert-uncased-squad-v2"
 
           with mlflow.start_run():
-            mlflow.transformers.save_model(
-              transformers_model=pipeline,
-              path="path/to/save/model",
-            )
+              mlflow.transformers.save_model(
+                  transformers_model=pipeline,
+                  path="path/to/save/model",
+              )
 
     :param path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
@@ -297,7 +294,7 @@ def save_model(
     _validate_transformers_model_dict(transformers_model)
 
     if isinstance(transformers_model, dict):
-        transformers_model = _convert_component_dict_model(transformers_model)
+        transformers_model = TransformersModel.from_dict(**transformers_model)
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -449,19 +446,17 @@ def log_model(
 
           architecture = "csarron/mobilebert-uncased-squad-v2"
           tokenizer = AutoTokenizer.from_pretrained(architecture)
-          model = MobileBertForQuestionAnswering.from_pretrained(
-            architecture
-          )
+          model = MobileBertForQuestionAnswering.from_pretrained(architecture)
 
           with mlflow.start_run():
-            components = {
-              "model": model,
-              "tokenizer": tokenizer,
-            }
-            mlflow.transformers.log_model(
-              transformers_model=components,
-              artifact_path="my_model",
-            )
+              components = {
+                  "model": model,
+                  "tokenizer": tokenizer,
+              }
+              mlflow.transformers.log_model(
+                  transformers_model=components,
+                  artifact_path="my_model",
+              )
 
         An example of submitting a `Pipeline` from a default pipeline instantiation:
 
@@ -469,13 +464,13 @@ def log_model(
 
           from transformers import pipeline
 
-          pipeline = ("csarron/mobilebert-uncased-squad-v2")
+          pipeline = "csarron/mobilebert-uncased-squad-v2"
 
           with mlflow.start_run():
-            mlflow.transformers.log_model(
-              transformers_model=pipeline,
-              artifact_path="my_pipeline",
-            )
+              mlflow.transformers.log_model(
+                  transformers_model=pipeline,
+                  artifact_path="my_pipeline",
+              )
 
     :param artifact_path: Local path destination for the serialized model to be saved.
     :param processor: An optional ``Processor`` subclass object. Some model architectures,
@@ -674,21 +669,23 @@ def _fetch_model_card(model_or_pipeline):
     """
     try:
         hub = importlib.import_module("huggingface_hub")
-        model = model_or_pipeline.model
-
-        if hasattr(hub, "ModelCard"):
-            return hub.ModelCard.load(model.name_or_path)
-        else:
-            _logger.warning(
-                f"The version of huggingface_hub that is installed does not provide "
-                f"ModelCard functionality. You have version {hub.__version__} installed. "
-                f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
-            )
     except ImportError:
         _logger.warning(
             "Unable to store ModelCard data with the saved artifact. In order to "
             "preserve this information, please install the huggingface_hub package "
             "by running 'pip install huggingingface_hub>0.10.0'"
+        )
+        return
+
+    model = model_or_pipeline.model
+
+    if hasattr(hub, "ModelCard"):
+        return hub.ModelCard.load(model.name_or_path)
+    else:
+        _logger.warning(
+            f"The version of huggingface_hub that is installed does not provide "
+            f"ModelCard functionality. You have version {hub.__version__} installed. "
+            f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
         )
 
 
@@ -700,7 +697,7 @@ def _build_pipeline_from_model_input(model, task: str):
     """
     from transformers import pipeline
 
-    pipeline_config = {field: getattr(model, field) for field in model._fields}
+    pipeline_config = model.to_dict()
     pipeline_config.update({"task": task})
     try:
         return pipeline(**pipeline_config)
@@ -816,7 +813,7 @@ def _infer_transformers_task_type(model) -> str:
 
     if isinstance(model, Pipeline):
         return model.task
-    elif _isinstance_named_tuple(model):
+    elif isinstance(model, TransformersModel):
         try:
             return get_task(model.model.name_or_path)
         except RuntimeError as e:
@@ -917,3 +914,96 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
             if isinstance(pipeline.model, getattr(transformers, model_type)):
                 return False
     return True
+
+
+class TransformersModel(NamedTuple):
+    """
+    Type validator class for models that are submitted as a dictionary for saving and logging.
+    Usage of this class should always leverage the type-checking from the class method
+    'from_dict()' instead of the instance-based configuration that is utilized with instantiating
+    a NamedTuple instance (it uses '__new__()' instead of an '__init__()'  dunder method, making
+    type validation on instantiation overly complex if we were to support that approach).
+    """
+
+    # NB: Assigning Any type here to eliminate local imports. Type validation is performed when
+    # calling the `from_dict` class method.
+    model: Any
+    tokenizer: Any = None
+    feature_extractor: Any = None
+    image_processor: Any = None
+    processor: Any = None
+
+    def to_dict(self):
+        dict_repr = self._asdict()
+        # NB: due to breaking changes in APIs, newer pipeline-supported argument keys are not
+        # backwards compatible. If there isn't an instance present, do not return an empty
+        # key to value mapping.
+        return {name: obj for name, obj in dict_repr.items() if obj}
+
+    @staticmethod
+    def _build_exception_msg(obj, obj_name, valid_types):
+        type_msg = (
+            "one of: " + ", ".join([valid_type.__name__ for valid_type in valid_types])
+            if isinstance(valid_types, tuple)
+            else valid_types.__name__
+        )
+        return (
+            f"The {obj_name} type submitted is not compatible with the transformers flavor: "
+            f"'{type(obj).__name__}'. "
+            f"The allowed types must inherit from {type_msg}."
+        )
+
+    @classmethod
+    def _validate_submitted_types(
+        cls, model, tokenizer, feature_extractor, image_processor, processor
+    ):
+        from transformers import (
+            PreTrainedModel,
+            TFPreTrainedModel,
+            FlaxPreTrainedModel,
+            PreTrainedTokenizerBase,
+            FeatureExtractionMixin,
+            ImageFeatureExtractionMixin,
+            ImageProcessingMixin,
+            ProcessorMixin,
+        )
+
+        validation = [
+            (model, "model", (PreTrainedModel, TFPreTrainedModel, FlaxPreTrainedModel)),
+            (tokenizer, "tokenizer", PreTrainedTokenizerBase),
+            (
+                feature_extractor,
+                "feature_extractor",
+                (
+                    FeatureExtractionMixin,
+                    ImageFeatureExtractionMixin,
+                    ProcessorMixin,
+                    ImageProcessingMixin,
+                ),
+            ),
+            (image_processor, "image_processor", ImageProcessingMixin),
+            (processor, "processor", ProcessorMixin),
+        ]
+        invalid_types = []
+
+        for arg, name, types in validation:
+            if arg and not isinstance(arg, types):
+                invalid_types.append(cls._build_exception_msg(arg, name, types))
+        if invalid_types:
+            raise MlflowException("\n".join(invalid_types))
+
+    @classmethod
+    def from_dict(
+        cls,
+        model,
+        tokenizer=None,
+        feature_extractor=None,
+        image_processor=None,
+        processor=None,
+        **kwargs,
+    ):
+        cls._validate_submitted_types(
+            model, tokenizer, feature_extractor, image_processor, processor
+        )
+
+        return TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
