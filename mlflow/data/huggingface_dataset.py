@@ -9,9 +9,10 @@ import numpy as np
 import pandas as pd
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -20,19 +21,36 @@ _logger = logging.getLogger(__name__)
 _MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE = 10000
 
 
-class HuggingFaceDataset(Dataset):
+class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
-    Represents a HuggingFace dataset.
+    Represents a HuggingFace dataset for use with MLflow Tracking.
     """
 
     def __init__(
         self,
         ds: datasets.Dataset,
         source: HuggingFaceDatasetSource,
+        targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
+        """
+        :param ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
+                   Other types, such as `datasets.DatasetDict`, are not supported.
+        :param source: The source of the Hugging Face dataset.
+        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                     automatically generated.
+        :param digest: The digest (hash, fingerprint) of the dataset.
+        """
+        if targets is not None and targets not in ds.column_names:
+            raise MlflowException(
+                f"The specified Hugging Face dataset does not contain the specified targets column"
+                f" '{targets}'.",
+                INVALID_PARAMETER_VALUE,
+            )
+
         self._ds = ds
+        self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -86,14 +104,37 @@ class HuggingFaceDataset(Dataset):
 
     @property
     def ds(self) -> datasets.Dataset:
+        """
+        The Hugging Face `datasets.Dataset` instance.
+
+        :return: The Hugging Face `datasets.Dataset` instance.
+        """
         return self._ds
 
     @property
+    def targets(self) -> Optional[str]:
+        """
+        The name of the Hugging Face dataset column containing targets.
+
+        :return: The Hugging Face `datasets.Dataset` instance.
+        """
+        return self._targets
+
+    @property
     def source(self) -> HuggingFaceDatasetSource:
+        """
+        Hugging Face dataset source information.
+
+        :return: A HuggingFaceDatasetSource instance.
+        """
         return self._source
 
     @property
     def profile(self) -> Optional[Any]:
+        """
+        Summary statistics for the Hugging Face dataset, including the number of rows,
+        size, and size in bytes.
+        """
         return {
             "num_rows": self._ds.num_rows,
             "dataset_size": self._ds.dataset_size,
@@ -102,6 +143,9 @@ class HuggingFaceDataset(Dataset):
 
     @cached_property
     def schema(self) -> Schema:
+        """
+        The MLflow ColSpec schema of the Hugging Face dataset.
+        """
         try:
             df = next(
                 self._ds.to_pandas(
@@ -113,10 +157,29 @@ class HuggingFaceDataset(Dataset):
             _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
             return None
 
+    def to_pyfunc(self) -> PyFuncInputsOutputs:
+        df = self._ds.to_pandas()
+        if self._targets is not None:
+            if self._targets not in df.columns:
+                raise MlflowException(
+                    f"Failed to convert Hugging Face dataset to pyfunc inputs and outputs because"
+                    f" the pandas representation of the Hugging Face dataset does not contain the"
+                    f" specified targets column '{self._targets}'.",
+                    # This is an internal error because we should have validated the presence of
+                    # the target column in the Hugging Face dataset at construction time
+                    INTERNAL_ERROR,
+                )
+            inputs = df.drop(columns=self._targets)
+            outputs = df[self._targets]
+            return PyFuncInputsOutputs(inputs=inputs, outputs=outputs)
+        else:
+            return PyFuncInputsOutputs(inputs=df, outputs=None)
+
 
 def from_huggingface(
     ds: datasets.Dataset,
     path: str,
+    targets: Optional[str] = None,
     data_dir: Optional[str] = None,
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
     task: Optional[Union[str, datasets.TaskTemplate]] = None,
@@ -140,4 +203,4 @@ def from_huggingface(
         revision=revision,
         task=task,
     )
-    return HuggingFaceDataset(ds=ds, source=source, name=name, digest=digest)
+    return HuggingFaceDataset(ds=ds, targets=targets, source=source, name=name, digest=digest)
