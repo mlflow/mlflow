@@ -96,5 +96,4 @@ def load_delta(
     table_name: Optional[str] = None,
     table_version: Optional[str] = None,
 ) -> SparkDataset:
-
     pass

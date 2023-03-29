@@ -11,6 +11,7 @@ class PyFuncInputsOutputs:
 
 
 class PyFuncConvertibleDatasetMixin:
+
     @abstractmethod
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
