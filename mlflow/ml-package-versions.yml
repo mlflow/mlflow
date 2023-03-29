@@ -79,7 +79,7 @@ tensorflow:
 
   models:
     minimum: "2.3.0"
-    maximum: "2.12.0"
+    maximum: "2.11.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers"]
