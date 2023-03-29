@@ -117,25 +117,6 @@ def get_default_pip_requirements(model) -> List[str]:
         return dependencies
 
 
-# def _isinstance_named_tuple(obj):
-#     obj_type = type(obj)
-#     bases = obj_type.__bases__
-#     if len(bases) != 1 or bases[0] != tuple:
-#         return False
-#     fields = getattr(obj_type, "_fields", None)
-#     if not isinstance(fields, tuple):
-#         return False
-#     return all(type(name) == str for name in fields)
-#
-#
-# def _convert_component_dict_model(model: dict):
-#     """
-#     Convert a submitted component-based model in a dictionary to a namedtuple
-#     """
-#     ComponentModel = namedtuple("ComponentModel", model, rename=True)
-#     return ComponentModel(**model)
-
-
 def _validate_transformers_model_dict(transformers_model):
     """
     Validator for a submitted save dictionary for the transformers model. If any additional keys
