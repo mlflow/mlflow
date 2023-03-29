@@ -67,7 +67,6 @@ def _all_tables_exist(engine):
         # Filter out alembic tables
         if not t.startswith("alembic_")
     ) == {
-        "alembic_version",
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
