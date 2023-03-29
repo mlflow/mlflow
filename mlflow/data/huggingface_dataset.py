@@ -1,0 +1,106 @@
+import hashlib
+import json
+import logging
+from functools import cached_property
+from typing import Any, Union, Optional, Mapping, Sequence, Dict
+
+import datasets
+import numpy as np
+
+from mlflow.data.dataset import Dataset
+from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource 
+from mlflow.types import Schema
+from mlflow.types.utils import _infer_schema
+
+_logger = logging.getLogger(__name__)
+
+
+class HuggingFaceDataset(Dataset):
+    def __init__(
+        self,
+        ds: datasets.Dataset,
+        source: HuggingFaceDatasetSource,
+        name: Optional[str] = None,
+        digest: Optional[str] = None,
+    ):
+        self._ds = ds
+        super().__init__(source=source, name=name, digest=digest)
+
+    def _compute_digest(self) -> str:
+        """
+        Computes a digest for the dataset. Called if the user doesn't supply
+        a digest when constructing the dataset.
+        """
+        if hasattr(self._ds, "_fingerprint") and self._ds._fingerprint is not None:
+            return self._ds._fingerprint[:8]
+        else:
+            _logger.warning(
+                "The specified Hugging Face dataset does not have a _fingerprint attribute value."
+                " Falling back to Python object ID for the dataset digest, which may not be"
+                " consistent across different environments."
+            )
+            return hashlib.md5(np.int64(id(self._ds))).hexdigest()[:8]
+            
+    def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
+        """
+        :param base_dict: A string dictionary of base information about the
+                          dataset, including: name, digest, source, and source
+                          type.
+        :return: A string dictionary containing the following fields: name,
+                 digest, source, source type, schema (optional), profile
+                 (optional).
+        """
+        base_dict.update(
+            {
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "profile": json.dumps(self.profile),
+            }
+        )
+        return base_dict
+
+    @property
+    def ds(self) -> datasets.Dataset:
+        return self._ds
+
+    @property
+    def source(self) -> HuggingFaceDatasetSource:
+        return self._source
+
+    @property
+    def profile(self) -> Optional[Any]:
+        return {
+            "num_rows": self._ds.num_rows,
+            "dataset_size": self._ds.dataset_size,
+            "size_in_bytes": self._ds.size_in_bytes,
+        }
+
+    @cached_property
+    def schema(self) -> Schema:
+        try:
+            return _infer_schema(self._ds.to_pandas())
+        except Exception as e:
+            _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
+            return None
+
+
+def from_huggingface_dataset(
+    ds: datasets.Dataset,
+    data_dir: Optional[str] = None,
+    data_files: Optional[
+        Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
+    ] = None,
+    task: Optional[Union[str, datasets.TaskTemplate]] = None,
+    name: Optional[str] = None,
+    digest: Optional[str] = None,
+) -> HuggingFaceDataset:
+    source = HuggingFaceDatasetSource(
+        builder_name=ds.builder_name,
+        config_name=ds.config_name,
+        data_dir=data_dir,
+        data_files=data_files,
+        split=ds.split,
+        features=ds.features,
+        revision=ds.version,
+        task=task,
+    )
+    return HuggingFaceDataset(ds=ds, source=source, name=name, digest=digest)
