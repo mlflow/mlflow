@@ -61,7 +61,12 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    return set(sqlalchemy.inspect(engine).get_table_names()) == {
+    return set(
+        t
+        for t in sqlalchemy.inspect(engine).get_table_names()
+        # Filter out alembic tables
+        if not t.startswith("alembic_")
+    ) == {
         "alembic_version",
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
