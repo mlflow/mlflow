@@ -7,6 +7,10 @@ from pyspark.sql import DataFrame
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.dataset_source_registry import resolve_dataset_source
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.spark_dataset_source import SparkDatasetSource
+from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -95,5 +99,53 @@ def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     table_version: Optional[str] = None,
+    targets: Optional[str] = None,
+    name: Optional[str] = None,
+    digest: Optional[str] = None,
 ) -> SparkDataset:
-    pass
+    source = DeltaDatasetSource(
+        path=path,
+        delta_table_name=table_name,
+        delta_table_version=table_version
+    )
+    df: DataFrame = source.load()
+    return SparkDataset(
+        df=df,
+        source=source,
+        targets=targets,
+        name=name,
+        digest=digest,
+    )
+
+
+def from_spark(
+    df: DataFrame, source: Any = None,
+    path: Optional[str] = None,
+    table_name: Optional[str] = None,
+    table_version: Optional[str] = None,
+    targets: Optional[str] = None,
+    name: Optional[str] = None,
+    digest: Optional[str] = None,
+):
+   # Verify that either path or table_name with optional table version are specified, but not both
+
+    if path is not None:
+        source = resolve_dataset_source(path, candidate_sources=[DeltaDatasetSource, SparkDatasetSource, FileSystemDatasetSource])
+    elif table_name is not None:
+        if table_version is not None:
+            source = DeltaDatasetSource(
+                delta_table_name=table_name,
+                delta_table_version=table_version,
+            )
+        else:
+            source = resolve_dataset_source(path, candidate_sources=[DeltaDatasetSource, SparkDatasetSource])
+
+    return SparkDataset(
+        df=df,
+        source=source,
+        targets=targets,
+        name=name,
+        digest=digest,
+    )
+
+
