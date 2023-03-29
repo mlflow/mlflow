@@ -9,7 +9,7 @@ Usage
 
 import logging
 
-from flask import Flask, request, make_response, Response
+from flask import Flask, request, make_response, Response, redirect, flash
 
 from mlflow import get_run
 from mlflow.server import app
@@ -53,20 +53,20 @@ _logger = logging.getLogger(__name__)
 
 class ROUTES:
     CREATE_EXPERIMENT_PERMISSION = "/mlflow/experiments/permissions/create"
-    READ_EXPERIMENT_PERMISSION = "/mlflow/experiments/permissions/read"
+    GET_EXPERIMENT_PERMISSION = "/mlflow/experiments/permissions/get"
     UPDATE_EXPERIMENT_PERMISSION = "/mlflow/experiments/permissions/update"
     DELETE_EXPERIMENT_PERMISSION = "/mlflow/experiments/permissions/delete"
     USERS = "/users"
     SIGNUP = "/signup"
 
 
-PROTECTED_ROUTES = []
+UNPROTECTED_ROUTES = [ROUTES.SIGNUP, ROUTES.USERS]
 
 
-def is_protected_route(path: str) -> bool:
+def is_unprotected_route(path: str) -> bool:
     if path.startswith("/static-files"):
         return True
-    return path in PROTECTED_ROUTES
+    return path in UNPROTECTED_ROUTES
 
 
 def make_forbidden_response() -> Response:
@@ -190,11 +190,13 @@ def get_before_request_handler(request_class):
 
 BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
-    for http_path, handler, method in get_endpoints(get_before_request_handler)
+    for http_path, handler, methods in get_endpoints(get_before_request_handler)
+    for method in methods
 }
+
 BEFORE_REQUEST_VALIDATORS.update(
     {
-        (ROUTES.READ_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
+        (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
         (ROUTES.CREATE_EXPERIMENT_PERMISSION, "PUT"): validate_can_manage_experiment,
         (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
@@ -203,11 +205,9 @@ BEFORE_REQUEST_VALIDATORS.update(
 
 
 def _before_request():
-    # TODO: Implement authentication
-    # TODO: Implement authorization
     # TODO: remove
     _logger.info("before_request: %s %s %s", request.method, request.path, request.authorization)
-    if not is_protected_route(request.path):
+    if is_unprotected_route(request.path):
         return
 
     if request.authorization is None:
@@ -216,7 +216,11 @@ def _before_request():
     username = request.authorization.username
     password = request.authorization.password
     if not store.authenticate_user(username, password):
-        return make_invalid_login_response()
+        # FIXME: let user attempt login again?
+        flash("Invalid username or password")
+        return make_basic_auth_response()
+        # or, return 403 (and user can't attempt login again?
+        # return make_invalid_login_response()
 
     # authorization
     validator = BEFORE_REQUEST_VALIDATORS.get((request.path, request.method))
@@ -250,6 +254,23 @@ def signup():
 """
 
 
+def create_user():
+    if request.headers.get("Content-Type") == "application/x-www-form-urlencoded":
+        username = request.form["username"]
+        password = request.form["password"]
+    elif request.headers.get("Content-Type") == "application/json":
+        username = request.json["username"]
+        password = request.json["password"]
+    else:
+        return make_response("Invalid content type", 400)
+
+    if store.has_user(username):
+        return flash("Username has already been taken")
+
+    store.create_user(username, password)
+    return redirect("/")
+
+
 def _enable_auth(app: Flask):
     """
     Enables authentication and authorization for the MLflow server.
@@ -262,6 +283,29 @@ def _enable_auth(app: Flask):
     # TODO: remove
     _logger.info("Database URI: %s", app_config.database_uri)
     app.config["SQLALCHEMY_DATABASE_URI"] = app_config.database_uri
+    # FIXME: secret key required for flashing
+    if not app.secret_key:
+        app.secret_key = b'_5#y2L"F4Q8z\n\xec]/'
+    store.init_db(app)
+
+    app.add_url_rule(
+        ROUTES.SIGNUP,
+        signup.__name__,
+        signup,
+        methods=["GET"],
+    )
+    # app.add_url_rule(
+    #     ROUTES.USERS,
+    #     list_users.__name__,
+    #     list_users,
+    #     methods=["GET"],
+    # )
+    app.add_url_rule(
+        ROUTES.USERS,
+        create_user.__name__,
+        create_user,
+        methods=["POST"],
+    )
 
     app.before_request(_before_request)
     app.after_request(_after_request)
