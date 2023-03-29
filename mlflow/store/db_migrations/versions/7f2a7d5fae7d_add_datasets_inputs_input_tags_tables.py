@@ -63,7 +63,13 @@ def upgrade():
     )
     op.create_table(
         SqlInputTag.__tablename__,
-        sa.Column("input_uuid", sa.String(length=36), primary_key=True, nullable=False),
+        sa.Column(
+            "input_uuid",
+            sa.String(length=36),
+            sa.ForeignKey("inputs.input_uuid"),
+            primary_key=True,
+            nullable=False,
+        ),
         sa.Column("name", sa.String(length=255), primary_key=True, nullable=False),
         sa.Column("value", sa.String(length=500), nullable=False),
         sa.PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),
