@@ -16,24 +16,40 @@ class SparkDataset(Dataset):
         self,
         df: DataFrame,
         source: DatasetSource,
+        targets: Optional[str] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         self._df = df
         super().__init__(source=source, name=name, digest=digest)
 
+    @staticmethod
+    def _parse_logical_plan(df):
+        d = json.loads(df._jdf.queryExecution().logical().toJSON())
+
+        def purge_key(input_dict, key):
+            if isinstance(input_dict, dict):
+                return {k: purge_key(v, key) for k, v in input_dict.items() if k != key}
+
+            elif isinstance(input_dict, list):
+                return [purge_key(element, key) for element in input_dict]
+
+            else:
+                return input_dict
+
+        d = purge_key(d, "exprId")
+        d = purge_key(d, "resultId")
+
+        return d
+
     def _compute_digest(self) -> str:
         """
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        semantic_hash = self._df.semanticHash()
-        print("SEM HASH", semantic_hash)
-        md5_hash = hashlib.md5()
-        md5_hash.update(np.int64(semantic_hash))
-        for column in self._df.columns:
-            md5_hash.update(column.encode())
-        return md5_hash.hexdigest()[:8]
+        parsed_plan = SparkDataset.parse_logical_plan(self._df)
+        plan_str = json.dumps(parsed_plan)
+        return hashlib.md5(plan_str.encode("utf-8")).hexdigest()[:8]
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
@@ -53,8 +69,12 @@ class SparkDataset(Dataset):
         return base_dict
 
     @property
-    def data_list(self) -> List[int]:
-        return self._data_list
+    def df(self) -> DataFrame:
+        return self._df
+
+    @property
+    def targets(self) -> Optional[str]:
+        return self._targets
 
     @property
     def source(self) -> DatasetSource:
@@ -62,10 +82,19 @@ class SparkDataset(Dataset):
 
     @property
     def profile(self) -> Optional[Any]:
-        return {
-            "length": len(self._data_list),
-        }
+        # TODO: Include an approximate count of records from the table source. We don't
+        # want to compute the full count, which could be quite slow
+        return {}
 
     @property
     def schema(self) -> Schema:
-        return _infer_schema(self._data_list)
+        return _infer_schema(self._df)
+
+
+def load_delta(
+    path: Optional[str] = None,
+    table_name: Optional[str] = None,
+    table_version: Optional[str] = None,
+) -> SparkDataset:
+
+    pass
