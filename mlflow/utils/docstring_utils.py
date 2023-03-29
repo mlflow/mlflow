@@ -3,9 +3,9 @@ import pathlib
 from packaging.version import Version
 from pkg_resources import get_distribution
 import re
-from ruamel import yaml
 import textwrap
 import warnings
+import yaml
 
 from mlflow.utils.autologging_utils.versioning import (
     FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
