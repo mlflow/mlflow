@@ -5,8 +5,13 @@ from mlflow.types.schema import Schema
 from tests.resources.data.dataset_source import TestDatasetSource
 from mlflow.data.numpy_dataset import NumpyDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
-
+import mlflow.data
 import numpy as np
+import pandas as pd
+
+from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+
+from mlflow.types.utils import _infer_schema
 
 
 def test_conversion_to_json():
@@ -49,3 +54,17 @@ def test_to_pyfunc():
     features = np.array([1, 2, 3])
     dataset = NumpyDataset(features=features, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
+
+
+def test_from_numpy_file_system_datasource(tmp_path):
+    features = np.array([1, 2, 3])
+    path = tmp_path / "temp.csv"
+    pd.DataFrame(features).to_csv(path)
+    mlflow_features = mlflow.data.from_numpy(features, source=path)
+
+    assert isinstance(mlflow_features, NumpyDataset)
+    assert np.array_equal(mlflow_features.features, features)
+    assert mlflow_features.schema == _infer_schema(features)
+    assert mlflow_features.profile == {"shape": features.shape}
+
+    assert isinstance(mlflow_features.source, FileSystemDatasetSource)
