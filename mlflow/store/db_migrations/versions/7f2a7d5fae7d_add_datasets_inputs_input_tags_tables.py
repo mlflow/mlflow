@@ -10,8 +10,8 @@ import sqlalchemy as sa
 from mlflow.store.tracking.dbmodels.models import SqlDataset
 
 # revision identifiers, used by Alembic.
-revision = '7f2a7d5fae7d'
-down_revision = '3500859a5d39'
+revision = "7f2a7d5fae7d"
+down_revision = "3500859a5d39"
 branch_labels = None
 depends_on = None
 
@@ -33,10 +33,14 @@ def upgrade():
         sa.Column("dataset_source", sa.String(length=5000), nullable=False),
         sa.Column("dataset_schema", sa.String(length=5000), nullable=True),
         sa.Column("dataset_profile", sa.String(length=5000), nullable=True),
-
         sa.PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
         sa.Index(f"index_{SqlDataset.__tablename__}_dataset_uuid", "dataset_uuid", unique=False),
-        sa.Index(f"index_{SqlDataset.__tablename__}_dataset_uuid_dataset_source_type", "experiment_id", "dataset_source_type", unique=False)
+        sa.Index(
+            f"index_{SqlDataset.__tablename__}_dataset_uuid_dataset_source_type",
+            "experiment_id",
+            "dataset_source_type",
+            unique=False,
+        ),
     )
 
 

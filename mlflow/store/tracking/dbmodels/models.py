@@ -464,13 +464,18 @@ class SqlParam(Base):
         :return: :py:class:`mlflow.entities.Param`.
         """
         return Param(key=self.key, value=self.value)
-    
+
+
 class SqlDataset(Base):
     __tablename__ = "datasets"
     __table_args__ = (
         PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
         Index(f"index_{__tablename__}_dataset_uuid", "dataset_uuid"),
-        Index(f"index_{__tablename__}_experiment_id_dataset_source_type", "experiment_id", "dataset_source_type"),
+        Index(
+            f"index_{__tablename__}_experiment_id_dataset_source_type",
+            "experiment_id",
+            "dataset_source_type",
+        ),
     )
 
     dataset_uuid = Column(String(32), nullable=False)
@@ -515,4 +520,11 @@ class SqlDataset(Base):
 
         :return: :py:class:`mlflow.entities.Param`.
         """
-        return Dataset(experiment_id = self.experiment_id, name=self.name, digest=self.digest)
+        return Dataset(
+            name=self.name,
+            digest=self.digest,
+            source_type=self.source_type,
+            source=self.source,
+            schema=self.schema,
+            profile=self.profile,
+        )
