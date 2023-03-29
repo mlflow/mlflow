@@ -7,7 +7,7 @@ Create Date: 2023-03-23 09:48:27.775166
 """
 from alembic import op
 import sqlalchemy as sa
-from mlflow.store.tracking.dbmodels.models import SqlDataset
+from mlflow.store.tracking.dbmodels.models import SqlDataset, SqlInputTag, SqlInputs
 
 # revision identifiers, used by Alembic.
 revision = "7f2a7d5fae7d"
@@ -41,6 +41,32 @@ def upgrade():
             "dataset_source_type",
             unique=False,
         ),
+    )
+    op.create_table(
+        SqlInputs.__tablename__,
+        sa.Column("input_uuid", sa.String(length=36), nullable=False),
+        sa.Column("source_type", sa.String(length=36), primary_key=True, nullable=False),
+        sa.Column("source_id", sa.String(length=36), primary_key=True, nullable=False),
+        sa.Column("destination_type", sa.String(length=36), primary_key=True, nullable=False),
+        sa.Column("destination_id", sa.String(length=36), primary_key=True, nullable=False),
+        sa.PrimaryKeyConstraint(
+            "source_type", "source_id", "destination_type", "destination_id", name="inputs_pk"
+        ),
+        sa.Index(f"index_{SqlInputs.__tablename__}_input_uuid", "input_uuid", unique=False),
+        sa.Index(
+            f"index_{SqlInputs.__tablename__}_destination_type_destination_id_source_type",
+            "destination_type",
+            "destination_id",
+            "source_type",
+            unique=False,
+        ),
+    )
+    op.create_table(
+        SqlInputTag.__tablename__,
+        sa.Column("input_uuid", sa.String(length=36), primary_key=True, nullable=False),
+        sa.Column("name", sa.String(length=255), primary_key=True, nullable=False),
+        sa.Column("value", sa.String(length=500), nullable=False),
+        sa.PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),
     )
 
 
