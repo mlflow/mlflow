@@ -1,6 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_input import RunInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
@@ -10,11 +11,12 @@ class Run(_MLflowObject):
     Run object.
     """
 
-    def __init__(self, run_info, run_data):
+    def __init__(self, run_info, run_data, run_input):
         if run_info is None:
             raise MlflowException("run_info cannot be None")
         self._info = run_info
         self._data = run_data
+        self._input = run_input
 
     @property
     def info(self):
@@ -34,16 +36,31 @@ class Run(_MLflowObject):
         """
         return self._data
 
+    @property
+    def input(self):
+        """
+        The run inputs, including dataset inputs
+
+        :rtype: :py:class:`mlflow.entities.RunData`
+        """
+        return self._input
+
     def to_proto(self):
         run = ProtoRun()
         run.info.MergeFrom(self.info.to_proto())
         if self.data:
             run.data.MergeFrom(self.data.to_proto())
+        if self.input:
+            run.inputs.MergeFrom(self.input.to_proto())
         return run
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
+        return cls(
+            RunInfo.from_proto(proto.info),
+            RunData.from_proto(proto.data),
+            RunInput.from_proto(proto.inputs),
+        )
 
     def to_dictionary(self):
         run_dict = {
@@ -51,4 +68,6 @@ class Run(_MLflowObject):
         }
         if self.data:
             run_dict["data"] = self.data.to_dictionary()
+        if self.input:
+            run_dict["input"] = self.input.to_dictionary()
         return run_dict

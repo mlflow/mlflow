@@ -6,7 +6,7 @@ class Dataset(_MLflowObject):
     """Dataset object associated with an experiment."""
 
     def __init__(self, name, digest, source_type, source, schema=None, profile=None):
-        self._name = (name,)
+        self._name = name
         self._digest = digest
         self._source_type = source_type
         self._source = source
@@ -54,8 +54,10 @@ class Dataset(_MLflowObject):
         dataset.digest = self.digest
         dataset.source_type = self.source_type
         dataset.source = self.source
-        dataset.schema = self.schema
-        dataset.profile = self.profile
+        if self.schema:
+            dataset.schema = self.schema
+        if self.profile:
+            dataset.profile = self.profile
         return dataset
 
     @classmethod

@@ -6,7 +6,7 @@ class InputTag(_MLflowObject):
     """Input tag object associated with a dataset."""
 
     def __init__(self, key, value):
-        self._key = (key,)
+        self._key = key
         self._value = value
 
     def __eq__(self, other):
