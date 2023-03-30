@@ -172,6 +172,7 @@ CREATE TABLE inputs (
 	CONSTRAINT inputs_pk (source_type, source_id, destination_type, destination_id) USING BTREE,
 	KEY index_inputs_input_uuid (input_uuid),
 	KEY index_datasets_destination_type_destination_id_source_type (destination_type, destination_id, source_type),
+	UNIQUE (input_uuid)
 )
 
 CREATE TABLE input_tags (
