@@ -147,7 +147,7 @@ def test_create_index_on_run_uuid(tmpdir, db_url):
 
 
 def test_index_for_dataset_tables(tmpdir, db_url):
-    # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
+    # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py # pylint: disable=line-too-long
     SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
