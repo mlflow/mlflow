@@ -1,7 +1,7 @@
-import mlflow
 import json
-import pandas as pd
 
+import flavor
+import pandas as pd
 from sktime.datasets import load_longley
 from sktime.forecasting.model_selection import temporal_train_test_split
 from sktime.forecasting.naive import NaiveForecaster
@@ -10,7 +10,7 @@ from sktime.performance_metrics.forecasting import (
     mean_absolute_percentage_error,
 )
 
-import flavor
+import mlflow
 
 ARTIFACT_PATH = "model"
 
@@ -22,14 +22,13 @@ with mlflow.start_run() as run:
     forecaster.fit(
         y_train,
         X=X_train,
-        fh=[1, 2, 3, 4],
     )
 
     # Extract parameters
     parameters = forecaster.get_params()
 
     # Evaluate model
-    y_pred = forecaster.predict(X=X_test)
+    y_pred = forecaster.predict(fh=[1, 2, 3, 4], X=X_test)
     metrics = {
         "mae": mean_absolute_error(y_test, y_pred),
         "mape": mean_absolute_percentage_error(y_test, y_pred),
@@ -63,12 +62,12 @@ loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_uri)
 X_test_array = X_test.to_numpy()
 
 # Create configuration DataFrame for interval forecast with nominal coverage
-# value [0.9,0.95], future forecast horizon of 3 periods, and exogenous regressor.
+# value [0.9,0.95], future forecast horizon of 4 periods, and exogenous regressor.
 # Read more in the flavor.py module docstrings about the possible configurations.
 predict_conf = pd.DataFrame(
     [
         {
-            "fh": [1, 2, 3],
+            "fh": [1, 2, 3, 4],
             "predict_method": "predict_interval",
             "coverage": [0.9, 0.95],
             "X": X_test_array,
@@ -83,5 +82,5 @@ print(
 print(f"\nPyfunc 'predict_interval':\n${loaded_pyfunc.predict(predict_conf)}")
 
 # Print the run id wich is used for serving the model to a local REST API endpoint
-# in the request_prediction.py module
+# in the score_model.py module
 print(f"\nMLflow run id:\n{run.info.run_id}")
