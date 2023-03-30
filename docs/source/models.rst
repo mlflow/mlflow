@@ -2621,8 +2621,8 @@ the specified model directory and uses the configuration attributes to load and 
 
 The ``_load_pyfunc()`` function will be called by the :py:func:`mlflow.pyfunc.load_model()` method
 to load the custom model flavor as a ``pyfunc`` type. The MLmodel flavor configuration is used to
-pass any flavor-specific attributes to the ``_load_model()`` function, i.e. the path to the
-``python_function`` flavor in the model directory and the model serialization format.
+pass any flavor-specific attributes to the ``_load_model()`` function (i.e., the path to the
+``python_function`` flavor in the model directory and the model serialization format).
 
 .. code-block:: python
 
