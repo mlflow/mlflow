@@ -1137,6 +1137,7 @@ def test_file_uri_can_be_used_as_model_version_source_when_env_var_is_set(tmp_pa
     client.create_registered_model(name)
     exp_id = client.create_experiment("test")
     run = client.create_run(experiment_id=exp_id)
+    assert run.info.artifact_uri.startswith("file://")
     response = requests.post(
         f"{url}/api/2.0/mlflow/model-versions/create",
         json={
