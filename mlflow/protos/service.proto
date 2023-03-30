@@ -467,14 +467,6 @@ enum RunStatus {
   KILLED = 5;
 }
 
-// Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can
-// have an input relationship.
-enum InputVertexType {
-  RUN = 1;
-
-  DATASET = 2;
-}
-
 // Metric associated with a run, represented as a key-value pair.
 message Metric {
   // Key identifying this metric.
