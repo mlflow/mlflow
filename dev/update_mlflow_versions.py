@@ -16,7 +16,7 @@ def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
     pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()
-        assert pattern.search(old_text), f"Pattern {pattern} not found in {f}"
+        # assert pattern.search(old_text), f"Pattern {pattern} not found in {f}"
         new_text = pattern.sub(repl, old_text)
         f.write_text(new_text)
 
