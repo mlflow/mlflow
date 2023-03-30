@@ -21,7 +21,6 @@ def test_creation_and_hydration():
     dataset_input = DatasetInput(dataset=dataset, tags=tags)
     _check(dataset_input, tags, dataset)
 
-    actual = dict(dataset_input)
     as_dict = {"dataset": dataset, "tags": tags}
     assert dict(dataset_input) == as_dict
 

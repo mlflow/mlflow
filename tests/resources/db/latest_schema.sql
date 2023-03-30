@@ -154,10 +154,10 @@ CREATE TABLE datasets (
 	experiment_id varchar(36) NOT NULL,
 	name varchar(500) NOT NULL,
 	digest varchar(36) NOT NULL,
-	datasetSourceType varchar(36) NOT NULL,
-	datasetSource VARCHAR(5000) NOT NULL,
-	datasetSchema VARCHAR(5000),
-	profile VARCHAR(5000),
+	dataset_source_type varchar(36) NOT NULL,
+	dataset_source text NOT NULL,
+	dataset_schema text,
+	dataset_profile text,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
 	KEY index_datasets_dataset_uuid (dataset_uuid),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
@@ -178,6 +178,6 @@ CREATE TABLE inputs (
 CREATE TABLE input_tags (
 	input_uuid varchar(36) NOT NULL,
 	name varchar(255) NOT NULL,
-	value varchar(255) NOT NULL,
+	value varchar(500) NOT NULL,
 	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name),
 )
