@@ -4,7 +4,7 @@ import {
   Button,
   Form,
   Modal,
-  Table,
+  LegacyTable,
   PencilIcon,
   Spinner,
   TrashIcon,
@@ -193,7 +193,7 @@ export class EditableTable extends React.Component {
     const { data } = this.props;
     return (
       <EditableContext.Provider value={{ formRef: this.form }}>
-        <Table
+        <LegacyTable
           className='editable-table'
           data-testid='editable-table'
           dataSource={data}

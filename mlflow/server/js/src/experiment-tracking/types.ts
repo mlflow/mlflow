@@ -21,7 +21,25 @@ export interface KeyValueEntity {
 }
 
 /**
- * An entity defining a single model entity
+ * An entity defining a single model
+ */
+export interface ModelEntity {
+  creation_timestamp: number;
+  current_stage: string;
+  version: string;
+  description: string;
+  id: string;
+  name: string;
+  source: string;
+  status: string;
+  tags: KeyValueEntity[];
+  permission_level: string;
+  email_subscription_status: string;
+  latest_versions: ModelInfoEntity[];
+}
+
+/**
+ * An entity defining a single model version
  */
 export interface ModelInfoEntity {
   name: string;
@@ -69,6 +87,7 @@ export interface MetricEntity {
 }
 
 export type MetricEntitiesByName = Record<string, MetricEntity>;
+export type MetricHistoryByName = Record<string, MetricEntity[]>;
 
 export interface ExperimentEntity {
   allowed_actions: string[];
@@ -103,9 +122,9 @@ export interface ExperimentStoreEntities {
 
   /**
    * Dictionary with run UUID as key and metric sub-dictionary as a value.
-   * Represents all metrics.
+   * Represents all metrics with history.
    */
-  metricsByRunUuid: Record<string, MetricEntitiesByName>;
+  metricsByRunUuid: Record<string, MetricHistoryByName>;
 
   /**
    * Dictionary with run UUID as key and metric sub-dictionary as a value
@@ -192,6 +211,7 @@ export type UpdateExperimentSearchFacetsFn = (
   updateOptions?: {
     forceRefresh?: boolean;
     preservePristine?: boolean;
+    replaceHistory?: boolean;
   },
 ) => void;
 
@@ -202,13 +222,3 @@ export type UpdateExperimentSearchFacetsFn = (
 export type UpdateExperimentViewStateFn = (
   newPartialViewState: Partial<SearchExperimentRunsViewState>,
 ) => void;
-
-/**
- * A type describing a single chart configured in the compare runs view.
- * TODO: finalize it with the actual field and enums
- */
-export interface CompareRunsChartSetup {
-  type: string; // TODO: change to an enum
-  metricKey: string; // TODO: expand it to multiple axes
-  uuid: string;
-}

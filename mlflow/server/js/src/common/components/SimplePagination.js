@@ -33,7 +33,12 @@ export class SimplePagination extends React.Component {
         <Pagination
           currentPageIndex={currentPage}
           numTotal={total}
-          onChange={(nextPage) => (nextPage > currentPage ? onClickNext() : onClickPrev())}
+          onChange={(nextPage) => {
+            // Fire callbacks only if new page differs from the previous one
+            if (nextPage !== currentPage) {
+              nextPage > currentPage ? onClickNext() : onClickPrev();
+            }
+          }}
           dangerouslySetAntdProps={{
             showQuickJumper: false,
             showSizeChanger: true,

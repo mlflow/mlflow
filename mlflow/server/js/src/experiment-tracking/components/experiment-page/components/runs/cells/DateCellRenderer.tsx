@@ -1,15 +1,15 @@
-import { CheckCircleBorderIcon, ClockIcon, XCircleBorderIcon } from '@databricks/design-system';
+import { CheckCircleIcon, ClockIcon, XCircleIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React from 'react';
 import Utils from '../../../../../../common/utils/Utils';
 import { RunRowDateAndNestInfo } from '../../../utils/experimentPage.row-types';
 
 const ErrorIcon = () => (
-  <XCircleBorderIcon css={(theme) => ({ color: theme.colors.textValidationDanger })} />
+  <XCircleIcon css={(theme) => ({ color: theme.colors.textValidationDanger })} />
 );
 
 const FinishedIcon = () => (
-  <CheckCircleBorderIcon css={(theme) => ({ color: theme.colors.textValidationSuccess })} />
+  <CheckCircleIcon css={(theme) => ({ color: theme.colors.textValidationSuccess })} />
 );
 
 const getRunStatusIcon = (status: string) => {

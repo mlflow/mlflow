@@ -1,11 +1,11 @@
 import { Skeleton } from '@databricks/design-system';
+
 import { useEffect } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
 import { ExperimentViewDescriptions } from './components/ExperimentViewDescriptions';
 import { ExperimentViewNotes } from './components/ExperimentViewNotes';
-import { ExperimentViewOnboarding } from './components/ExperimentViewOnboarding';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
@@ -40,21 +40,24 @@ export const ExperimentView = () => {
   }
 
   return (
-    <>
+    <div css={styles.experimentViewWrapper}>
       {isComparingExperiments ? (
         <ExperimentViewHeaderCompare experiments={experiments} />
       ) : (
         <>
           <ExperimentViewHeader experiment={firstExperiment} />
-          <ExperimentViewOnboarding />
           <ExperimentViewDescriptions experiment={firstExperiment} />
           <ExperimentViewNotes experiment={firstExperiment} />
         </>
       )}
 
       <ExperimentViewRuns experiments={experiments} />
-    </>
+    </div>
   );
+};
+
+const styles = {
+  experimentViewWrapper: { height: '100%', display: 'flex', flexDirection: 'column' as const },
 };
 
 export default ExperimentView;

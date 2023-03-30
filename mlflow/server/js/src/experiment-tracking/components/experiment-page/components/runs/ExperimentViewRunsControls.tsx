@@ -9,6 +9,7 @@ import { downloadRunsCsv } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
+import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 
 type ExperimentViewRunsControlsProps = {
   viewState: SearchExperimentRunsViewState;
@@ -19,7 +20,7 @@ type ExperimentViewRunsControlsProps = {
 
   runsData: ExperimentRunsSelectorResult;
 
-  visibleRowsCount: number;
+  requestError: ErrorWrapper | null;
 };
 
 /**
@@ -33,7 +34,7 @@ export const ExperimentViewRunsControls = React.memo(
     updateViewState,
     updateSearchFacets,
     searchFacetsState,
-    visibleRowsCount,
+    requestError,
   }: ExperimentViewRunsControlsProps) => {
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
@@ -58,13 +59,13 @@ export const ExperimentViewRunsControls = React.memo(
           updateViewState={updateViewState}
           sortOptions={sortOptions}
           runsData={runsData}
+          requestError={requestError}
         />
         <ExperimentViewRunsControlsActions
           runsData={runsData}
           updateSearchFacets={updateSearchFacets}
           searchFacetsState={searchFacetsState}
           viewState={viewState}
-          visibleRowsCount={visibleRowsCount}
         />
       </div>
     );

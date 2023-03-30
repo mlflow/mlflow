@@ -44,7 +44,7 @@ def metric_threshold_class_test_spec(request):
         "threshold": 1,
         "min_absolute_change": 1,
         "min_relative_change": 0.1,
-        "higher_is_better": True,
+        "greater_is_better": True,
     }
 
     if request.param == "threshold_is_not_number":
@@ -64,12 +64,12 @@ def metric_threshold_class_test_spec(request):
     elif request.param == "min_relative_change_is_not_between_0_and_1":
         class_params["min_relative_change"] = -0.1
         expected_failure_message = "`min_relative_change` parameter must be between 0 and 1."
-    elif request.param == "higher_is_better_is_not_defined":
-        class_params["higher_is_better"] = None
-        expected_failure_message = "`higher_is_better` parameter must be defined."
-    elif request.param == "higher_is_better_is_not_bool":
-        class_params["higher_is_better"] = 1
-        expected_failure_message = "`higher_is_better` parameter must be a boolean."
+    elif request.param == "greater_is_better_is_not_defined":
+        class_params["greater_is_better"] = None
+        expected_failure_message = "`greater_is_better` parameter must be defined."
+    elif request.param == "greater_is_better_is_not_bool":
+        class_params["greater_is_better"] = 1
+        expected_failure_message = "`greater_is_better` parameter must be a boolean."
     elif request.param == "no_threshold":
         class_params["threshold"] = None
         class_params["min_absolute_change"] = None
@@ -87,8 +87,8 @@ def metric_threshold_class_test_spec(request):
         ("min_absolute_change_is_not_positive"),
         ("min_relative_change_is_not_float"),
         ("min_relative_change_is_not_between_0_and_1"),
-        ("higher_is_better_is_not_defined"),
-        ("higher_is_better_is_not_bool"),
+        ("greater_is_better_is_not_defined"),
+        ("greater_is_better_is_not_bool"),
         ("no_threshold"),
     ],
     indirect=["metric_threshold_class_test_spec"],
@@ -103,7 +103,7 @@ def test_metric_threshold_class_should_fail(metric_threshold_class_test_spec):
             threshold=class_params["threshold"],
             min_absolute_change=class_params["min_absolute_change"],
             min_relative_change=class_params["min_relative_change"],
-            higher_is_better=class_params["higher_is_better"],
+            greater_is_better=class_params["greater_is_better"],
         )
 
 
@@ -113,20 +113,20 @@ def faulty_baseline_model_param_test_spec(request):
     Test specification for faulty `baseline_model` parameter tests:
     :return: (
                 validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                    to MetricThreshold(threshold=0.2, greater_is_better=True),
                 baseline_model: value for the `baseline_model` param passed into mlflow.evaluate()
                 expected_failure_message: expected failure message
              )
     """
     if request.param == "min_relative_change_present":
         return (
-            {"accuracy": MetricThreshold(min_absolute_change=0.1, higher_is_better=True)},
+            {"accuracy": MetricThreshold(min_absolute_change=0.1, greater_is_better=True)},
             None,
             "The baseline model must be specified",
         )
     if request.param == "min_absolute_change_present":
         return (
-            {"accuracy": MetricThreshold(min_relative_change=0.1, higher_is_better=True)},
+            {"accuracy": MetricThreshold(min_relative_change=0.1, greater_is_better=True)},
             None,
             "The baseline model must be specified",
         )
@@ -134,7 +134,7 @@ def faulty_baseline_model_param_test_spec(request):
         return (
             {
                 "accuracy": MetricThreshold(
-                    min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
+                    min_absolute_change=0.05, min_relative_change=0.1, greater_is_better=True
                 )
             },
             None,
@@ -144,7 +144,7 @@ def faulty_baseline_model_param_test_spec(request):
         return (
             {
                 "accuracy": MetricThreshold(
-                    min_absolute_change=0.05, min_relative_change=0.1, higher_is_better=True
+                    min_absolute_change=0.05, min_relative_change=0.1, greater_is_better=True
                 )
             },
             1.0,
@@ -195,7 +195,7 @@ def test_validation_faulty_baseline_model(
     [
         pytest.param(1, id="param_not_dict"),
         pytest.param(
-            {1: MetricThreshold(min_absolute_change=0.1, higher_is_better=True)}, id="key_not_str"
+            {1: MetricThreshold(min_absolute_change=0.1, greater_is_better=True)}, id="key_not_str"
         ),
         pytest.param({"accuracy": 1}, id="value_not_metric_threshold"),
     ],
@@ -228,23 +228,23 @@ def value_threshold_test_spec(request):
     :return: (
                 metrics: A dictionary mapping scalar metric names to scalar metric values,
                 validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                    to MetricThreshold(threshold=0.2, greater_is_better=True),
                 expected_validation_results: A dictonary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
-    acc_threshold = MetricThreshold(threshold=0.9, higher_is_better=True)
+    acc_threshold = MetricThreshold(threshold=0.9, greater_is_better=True)
     acc_validation_result = _MetricValidationResult("accuracy", 0.8, acc_threshold, None)
     acc_validation_result.threshold_failed = True
 
-    f1score_threshold = MetricThreshold(threshold=0.8, higher_is_better=True)
+    f1score_threshold = MetricThreshold(threshold=0.8, greater_is_better=True)
     f1score_validation_result = _MetricValidationResult("f1_score", 0.7, f1score_threshold, None)
     f1score_validation_result.threshold_failed = True
 
-    log_loss_threshold = MetricThreshold(threshold=0.5, higher_is_better=False)
+    log_loss_threshold = MetricThreshold(threshold=0.5, greater_is_better=False)
     log_loss_validation_result = _MetricValidationResult("log_loss", 0.3, log_loss_threshold, None)
 
-    l1_loss_threshold = MetricThreshold(threshold=0.3, higher_is_better=False)
+    l1_loss_threshold = MetricThreshold(threshold=0.3, greater_is_better=False)
     l1_loss_validation_result = _MetricValidationResult(
         "custom_l1_loss", 0.5, l1_loss_threshold, None
     )
@@ -414,15 +414,15 @@ def min_absolute_change_threshold_test_spec(request):
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
                 validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                    to MetricThreshold(threshold=0.2, greater_is_better=True),
                 expected_validation_results: A dictonary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
-    acc_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=True)
-    f1score_threshold = MetricThreshold(min_absolute_change=0.15, higher_is_better=True)
-    log_loss_threshold = MetricThreshold(min_absolute_change=0.1, higher_is_better=False)
-    l1_loss_threshold = MetricThreshold(min_absolute_change=0.15, higher_is_better=False)
+    acc_threshold = MetricThreshold(min_absolute_change=0.1, greater_is_better=True)
+    f1score_threshold = MetricThreshold(min_absolute_change=0.15, greater_is_better=True)
+    log_loss_threshold = MetricThreshold(min_absolute_change=0.1, greater_is_better=False)
+    l1_loss_threshold = MetricThreshold(min_absolute_change=0.15, greater_is_better=False)
 
     if request.param == "single_metric_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.79, acc_threshold, 0.7)
@@ -628,15 +628,15 @@ def min_relative_change_threshold_test_spec(request):
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
                 validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                    to MetricThreshold(threshold=0.2, greater_is_better=True),
                 expected_validation_results: A dictonary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
-    acc_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
-    f1score_threshold = MetricThreshold(min_relative_change=0.15, higher_is_better=True)
-    log_loss_threshold = MetricThreshold(min_relative_change=0.15, higher_is_better=False)
-    l1_loss_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=False)
+    acc_threshold = MetricThreshold(min_relative_change=0.1, greater_is_better=True)
+    f1score_threshold = MetricThreshold(min_relative_change=0.15, greater_is_better=True)
+    log_loss_threshold = MetricThreshold(min_relative_change=0.15, greater_is_better=False)
+    l1_loss_threshold = MetricThreshold(min_relative_change=0.1, greater_is_better=False)
 
     if request.param == "single_metric_not_satisfied_higher_better":
         acc_validation_result = _MetricValidationResult("accuracy", 0.75, acc_threshold, 0.7)
@@ -734,7 +734,7 @@ def min_relative_change_threshold_test_spec(request):
         )
 
     if request.param == "baseline_metric_value_equals_0_succeeds":
-        threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+        threshold = MetricThreshold(min_relative_change=0.1, greater_is_better=True)
         return (
             {"metric_1": 1e-10},
             {"metric_1": 0},
@@ -743,7 +743,7 @@ def min_relative_change_threshold_test_spec(request):
         )
 
     if request.param == "baseline_metric_value_equals_0_fails":
-        metric_1_threshold = MetricThreshold(min_relative_change=0.1, higher_is_better=True)
+        metric_1_threshold = MetricThreshold(min_relative_change=0.1, greater_is_better=True)
         metric_1_result = _MetricValidationResult("metric_1", 0, metric_1_threshold, 0)
         metric_1_result.min_relative_change_failed = True
         return (
@@ -864,13 +864,13 @@ def multi_thresholds_test_spec(request):
                 baseline_model_metrics: A dictionary mapping scalar metric names
                     to scalar metric values of baseline_model,
                 validation_thresholds: A dictonary mapping scalar metric names
-                    to MetricThreshold(threshold=0.2, higher_is_better=True),
+                    to MetricThreshold(threshold=0.2, greater_is_better=True),
                 expected_validation_results: A dictonary mapping scalar metric names
                     to _MetricValidationResult
              )
     """
     acc_threshold = MetricThreshold(
-        threshold=0.8, min_absolute_change=0.1, min_relative_change=0.1, higher_is_better=True
+        threshold=0.8, min_absolute_change=0.1, min_relative_change=0.1, greater_is_better=True
     )
 
     if request.param == "single_metric_all_thresholds_failed":

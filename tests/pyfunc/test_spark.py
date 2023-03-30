@@ -8,6 +8,7 @@ import threading
 from collections import namedtuple
 from unittest import mock
 import pytest
+from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ from pyspark.sql.types import (
     FloatType,
     IntegerType,
     BooleanType,
+    StructType,
+    StructField,
 )
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
@@ -94,7 +97,6 @@ def get_spark_session(conf):
     # If running in local mode on certain OS configurations (M1 Mac ARM CPUs)
     # adding `.config("spark.driver.bindAddress", "127.0.0.1")` to the SparkSession
     # builder configuration will enable a SparkSession to start.
-
     # For local testing, uncomment the following line:
     # spark_master = os.environ.get("SPARK_MASTER", "local[1]")
     # If doing local testing, comment-out the following line.
@@ -103,7 +105,8 @@ def get_spark_session(conf):
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
         .master(spark_master)
-        # .config("spark.driver.bindAddress", "127.0.0.1") # Uncomment for testing on M1 locally
+        # Uncomment the following line for testing on Apple silicon locally
+        # .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.task.maxFailures", "1")  # avoid retry failed spark tasks
         .getOrCreate()
     )
@@ -346,7 +349,14 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(
             AnalysisException,
-            match=r"cannot resolve 'a' given input columns|Column 'a' does not exist",
+            match=(
+                # PySpark < 3.3
+                r"cannot resolve 'a' given input columns|"
+                # PySpark 3.3
+                r"Column 'a' does not exist|"
+                # PySpark 3.4
+                r"A column or function parameter with name `a` cannot be resolved"
+            ),
         ):
             bad_data.withColumn("res", udf())
 
@@ -716,3 +726,40 @@ def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
         df = spark.createDataFrame(X)
         result = df.select(udf(*X.columns)).toPandas()
         np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))
+
+
+# TODO: Remove `skipif` once pyspark 3.4 is released
+@pytest.mark.skipif(
+    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
+)
+def test_spark_udf_array_of_structs(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [[("str", 0, 1, 0.0, 0.1, True)]] * len(model_input)
+
+    signature = ModelSignature(inputs=Schema([ColSpec("long", "a")]))
+    good_data = spark.createDataFrame(pd.DataFrame({"a": [1, 2, 3]}))
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(
+                StructType(
+                    [
+                        StructField("str", StringType()),
+                        StructField("int", IntegerType()),
+                        StructField("long", LongType()),
+                        StructField("float", FloatType()),
+                        StructField("double", DoubleType()),
+                        StructField("bool", BooleanType()),
+                    ]
+                )
+            ),
+        )
+        res = good_data.withColumn("res", udf("a")).select("res").toPandas()
+        assert res["res"][0] == [("str", 0, 1, 0.0, 0.1, True)]

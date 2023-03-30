@@ -263,6 +263,26 @@ def test_http_request_server_cert_path(request):
 
 
 @mock.patch("requests.Session.request")
+def test_http_request_with_content_type_header(request):
+    host_only = MlflowHostCreds("http://my-host", token="my-token")
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    extra_headers = {"Content-Type": "text/plain"}
+    http_request(host_only, "/my/endpoint", "GET", extra_headers=extra_headers)
+    headers = DefaultRequestHeaderProvider().request_headers()
+    headers["Authorization"] = "Bearer my-token"
+    headers["Content-Type"] = "text/plain"
+    request.assert_called_with(
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
+    )
+
+
+@mock.patch("requests.Session.request")
 def test_http_request_request_headers(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 

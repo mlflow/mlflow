@@ -11,6 +11,34 @@ import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
+// Make the autosizer render items.
+// https://github.com/bvaughn/react-virtualized/blob/v9.22.3/source/AutoSizer/AutoSizer.jest.js#L68
+function mockOffsetSize(width, height) {
+  Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+    configurable: true,
+    value: height,
+  });
+  Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+    configurable: true,
+    value: width,
+  });
+}
+
+beforeAll(() => {
+  mockOffsetSize(200, 1000);
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
+// Need to mock this since the hoc doesn't pick up theme
+const designSystemThemeApi = {
+  theme: {
+    colors: { primary: 'solid', actionDefaultBackgroundPress: `solid` },
+  },
+};
+
 const mountComponent = (props) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   return mountWithIntl(
@@ -22,7 +50,7 @@ const mountComponent = (props) => {
       })}
     >
       <BrowserRouter>
-        <ExperimentListView {...props} history={{}} />,
+        <ExperimentListView {...props} history={[]} designSystemThemeApi={designSystemThemeApi} />,
       </BrowserRouter>
       ,
     </Provider>,
@@ -88,4 +116,18 @@ test('should render when both experiments and activeExperimentIds are empty', ()
     activeExperimentIds: [],
   });
   expect(wrapper.length).toBe(1);
+});
+
+test('virtual list should not render everything when there are many experiments', () => {
+  const keys = Array.from(Array(1000).keys()).map((k) => k.toString());
+  const localExperiments = keys.map((k) =>
+    Fixtures.createExperiment({ experiment_id: k, name: k }),
+  );
+
+  const wrapper = mountComponent({
+    experiments: localExperiments,
+    activeExperimentIds: keys,
+  });
+  const selected = wrapper.find('[data-test-id="active-experiment-list-item"]');
+  expect(selected.length).toBeLessThan(keys.length);
 });

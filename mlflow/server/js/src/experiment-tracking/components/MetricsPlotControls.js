@@ -6,7 +6,7 @@ import {
   Switch,
   Tooltip,
   Radio,
-  QuestionMarkBorderIcon,
+  QuestionMarkIcon,
 } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
 import PropTypes from 'prop-types';
@@ -103,7 +103,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                   description='Label for the progress bar to show the number of completed runs'
                 />{' '}
                 <Tooltip title={completedRunsTooltipText}>
-                  <QuestionMarkBorderIcon />
+                  <QuestionMarkIcon />
                 </Tooltip>
                 <Progress
                   percent={Math.round((100 * numCompletedRuns) / numRuns)}
@@ -133,7 +133,7 @@ export class MetricsPlotControlsImpl extends React.Component {
                     description='Label for the smoothness slider for the graph plot for metrics'
                   />{' '}
                   <Tooltip title={lineSmoothnessTooltipText}>
-                    <QuestionMarkBorderIcon />
+                    <QuestionMarkIcon />
                   </Tooltip>
                 </div>
                 <LineSmoothSlider

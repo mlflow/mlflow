@@ -7,6 +7,7 @@ from unittest import mock
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
@@ -18,6 +19,12 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 # and https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-python-tests
 # for more information.
 pytestmark = pytest.mark.notrackingurimock
+
+
+@pytest.fixture()
+def reset_registry_uri():
+    yield
+    set_registry_uri(None)
 
 
 def test_set_get_registry_uri():
@@ -121,6 +128,11 @@ def test_get_store_caches_on_store_uri(tmpdir):
     assert store3 is store4
 
     assert store1 is not store3
+
+
+@pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
+def test_get_store_uc_registry_uri(store_uri, reset_registry_uri):
+    assert isinstance(_get_store(store_uri), UcModelRegistryStore)
 
 
 def test_store_object_can_be_serialized_by_pickle():

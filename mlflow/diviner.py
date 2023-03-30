@@ -16,12 +16,15 @@ Diviner format
     https://databricks-diviner.readthedocs.io/en/latest/index.html
 """
 import logging
+import os
+import shutil
 import pathlib
 import yaml
 import pandas as pd
 from typing import Tuple, List
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -41,13 +44,15 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils.file_utils import write_to
+from mlflow.utils.file_utils import write_to, shutil_copytree_without_file_permissions
 from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
-    _get_flavor_configuration,
+    _get_flavor_configuration_from_uri,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
+    _get_flavor_configuration,
 )
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path, generate_tmp_dfs_path
 from mlflow.models.utils import _save_example
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
@@ -57,6 +62,7 @@ _MODEL_BINARY_KEY = "data"
 _MODEL_BINARY_FILE_NAME = "model.div"
 _MODEL_TYPE_KEY = "model_type"
 _FLAVOR_KEY = "flavors"
+_SPARK_MODEL_INDICATOR = "fit_with_spark"
 
 _logger = logging.getLogger(__name__)
 
@@ -90,6 +96,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    **kwargs,
 ):
     """
     Save a ``Diviner`` model object to a path on the local file system.
@@ -128,6 +135,19 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+
+    :param kwargs: Optional configurations for Spark DataFrame storage iff the model has
+                   been fit in Spark.
+
+                   Current supported options:
+
+                   - `partition_by` for setting a (or several) partition columns as a list of \
+                   column names. Must be a list of strings of grouping key column(s).
+                   - `partition_count` for setting the number of part files to write from a \
+                   repartition per `partition_by` group. The default part file count is 200.
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
+                   be stored while copying from a local file system to a Spark-supported "dbfs:/" \
+                   scheme.
     """
     import diviner
 
@@ -149,7 +169,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    diviner_model.save(str(path.joinpath(_MODEL_BINARY_FILE_NAME)))
+    fit_with_spark = _save_diviner_model(diviner_model, path, **kwargs)
+    flavor_conf = {_SPARK_MODEL_INDICATOR: fit_with_spark}
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
     pyfunc.add_to_model(
@@ -160,10 +181,11 @@ def save_model(
         code=code_dir_subpath,
         **model_bin_kwargs,
     )
-    flavor_conf = {_MODEL_TYPE_KEY: diviner_model.__class__.__name__, **model_bin_kwargs}
+    flavor_conf.update({_MODEL_TYPE_KEY: diviner_model.__class__.__name__}, **model_bin_kwargs)
     mlflow_model.add_flavor(
         FLAVOR_NAME, diviner_version=diviner.__version__, code=code_dir_subpath, **flavor_conf
     )
+
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
 
     if conda_env is None:
@@ -192,7 +214,68 @@ def save_model(
     _PythonEnv.current().to_yaml(str(path.joinpath(_PYTHON_ENV_FILE_NAME)))
 
 
-def load_model(model_uri, dst_path=None):
+def _save_diviner_model(diviner_model, path, **kwargs) -> bool:
+    """
+    Saves a Diviner model to the specified path. If the model was fit by using a Pandas DataFrame
+    for the training data submitted to `fit`, directly save the Diviner model object.
+    If the Diviner model was fit by using a Spark DataFrame, save the model components separately.
+    The metadata and ancillary files to write (JSON and Pandas DataFrames) are written directly
+    to a fuse mount location, which the Spark DataFrame that contains the individual serialized
+    Diviner model objects is written by using the 'dbfs:' scheme path that Spark recognizes.
+    """
+    save_path = str(path.joinpath(_MODEL_BINARY_FILE_NAME))
+
+    if getattr(diviner_model, "_fit_with_spark", False):
+        # Validate that the path is a relative path early in order to fail fast prior to attempting
+        # to write the (large) DataFrame to a tmp DFS path first and raise a path validation
+        # Exception within MLflow when attempting to copy the temporary write files from DFS to
+        # the file system path provided.
+        if not os.path.isabs(path):
+            raise MlflowException(
+                "The save path provided must be a relative path. "
+                f"The path submitted, '{path}' is an absolute path."
+            )
+
+        # Create a temporary DFS location to write the Spark DataFrame containing the models to.
+        tmp_path = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
+
+        # Save the model Spark DataFrame to the temporary DFS location
+        diviner_model._save_model_df_to_path(tmp_path, **kwargs)
+
+        diviner_data_path = os.path.abspath(save_path)
+
+        tmp_fuse_path = dbfs_hdfs_uri_to_fuse_path(tmp_path)
+        shutil.move(src=tmp_fuse_path, dst=diviner_data_path)
+
+        # Save the model metadata to the path location
+        diviner_model._save_model_metadata_components_to_path(path=diviner_data_path)
+        return True
+    diviner_model.save(save_path)
+    return False
+
+
+def _load_model_fit_in_spark(local_model_path: str, flavor_conf, **kwargs):
+    """
+    Loads a Diviner model that has been fit (and saved) in the Spark variant.
+    """
+    # NB: To load the model DataFrame (which is a Spark DataFrame), Spark requires that the file
+    # partitions are in DFS. In order to facilitate this, the model DataFrame (saved as parquet)
+    # will be copied to a temporary DFS location. The remaining files can be read directly from
+    # the local file system path, which is handled within the Diviner APIs.
+    import diviner
+
+    dfs_temp_directory = generate_tmp_dfs_path(kwargs.get("dfs_tmpdir", MLFLOW_DFS_TMP.get()))
+    dfs_fuse_directory = dbfs_hdfs_uri_to_fuse_path(dfs_temp_directory)
+    os.makedirs(dfs_fuse_directory)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=dfs_fuse_directory)
+
+    diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
+    load_directory = os.path.join(dfs_fuse_directory, flavor_conf[_MODEL_BINARY_KEY])
+
+    return diviner_instance.load(load_directory)
+
+
+def load_model(model_uri, dst_path=None, **kwargs):
     """
     Load a ``Diviner`` object from a local file or a run.
 
@@ -208,47 +291,61 @@ def load_model(model_uri, dst_path=None):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
     :param dst_path: The local filesystem path to which to download the model artifact.
-                     This directory must already exist. If unspecified, a local output
+                     This directory must already exist if provided. If unspecified, a local output
                      path will be created.
+    :param kwargs: Optional configuration options for loading of a Diviner model. For models
+                   that have been fit and saved using Spark, if a specific DFS temporary directory
+                   is desired for loading of Diviner models, use the keyword argument
+                   `"dfs_tmpdir"` to define the loading temporary path for the model during loading.
 
     :return: A ``Diviner`` model instance
     """
+    model_uri = str(model_uri)
+
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
 
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
-    return _load_model(local_model_path)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+
+    if flavor_conf.get(_SPARK_MODEL_INDICATOR, False):
+        return _load_model_fit_in_spark(local_model_path, flavor_conf, **kwargs)
+
+    return _load_model(local_model_path, flavor_conf)
 
 
-def _get_diviner_instance_type(path) -> str:
-    local_path = pathlib.Path(path)
-    diviner_model_info_path = local_path.joinpath(MLMODEL_FILE_NAME)
-    diviner_model_info = yaml.safe_load(diviner_model_info_path.read_text())
-    return diviner_model_info.get(_FLAVOR_KEY).get(FLAVOR_NAME).get(_MODEL_TYPE_KEY)
-
-
-def _load_model(path):
+def _load_model(path, flavor_conf):
+    """
+    Loads a Diviner model instance that was not fit using Spark from a file system location.
+    """
     import diviner
 
     local_path = pathlib.Path(path)
-
-    flavor_conf = _get_flavor_configuration(model_path=str(local_path), flavor_name=FLAVOR_NAME)
-
-    _add_code_from_conf_to_system_path(str(local_path), flavor_conf)
 
     diviner_model_path = local_path.joinpath(
         flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
     )
 
-    diviner_instance = getattr(diviner, _get_diviner_instance_type(path))
+    diviner_instance = getattr(diviner, flavor_conf[_MODEL_TYPE_KEY])
     return diviner_instance.load(str(diviner_model_path))
 
 
 def _load_pyfunc(path):
     local_path = pathlib.Path(path)
+
     # NB: reverting the dir walk that happens with pyfunc's loading implementation
     if local_path.is_file():
         local_path = local_path.parent
-    return _DivinerModelWrapper(_load_model(local_path))
+
+    flavor_conf = _get_flavor_configuration(local_path, FLAVOR_NAME)
+
+    if flavor_conf.get(_SPARK_MODEL_INDICATOR):
+        raise MlflowException(
+            "The model being loaded was fit in Spark. Diviner models fit in "
+            "Spark do not support loading as pyfunc."
+        )
+
+    return _DivinerModelWrapper(_load_model(local_path, flavor_conf))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
@@ -318,6 +415,17 @@ def log_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
+                   Additionally, for models that have been fit in Spark, the following supported
+                   configuration options are available to set.
+                   Current supported options:
+
+                   - `partition_by` for setting a (or several) partition columns as a list of \
+                   column names. Must be a list of strings of grouping key column(s).
+                   - `partition_count` for setting the number of part files to write from a \
+                   repartition per `partition_by` group. The default part file count is 200.
+                   - `dfs_tmpdir` for specifying the DFS temporary location where the model will \
+                   be stored while copying from a local file system to a Spark-supported "dbfs:/" \
+                   scheme.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """

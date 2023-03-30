@@ -3,7 +3,7 @@ import { mountWithIntl } from '../../../common/utils/TestUtils';
 import ShowArtifactPage from './ShowArtifactPage';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
-import ShowArtifactMapView from './ShowArtifactMapView';
+import { LazyShowArtifactMapView } from './LazyShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
@@ -133,7 +133,7 @@ describe('ShowArtifactPage', () => {
   test('should render map view for common map extensions', () => {
     MAP_EXTENSIONS.forEach((ext) => {
       wrapper.setProps({ path: `image.${ext}`, runUuid: 'runId' });
-      expect(wrapper.find(ShowArtifactMapView).length).toBe(1);
+      expect(wrapper.find(LazyShowArtifactMapView).length).toBe(1);
     });
   });
 

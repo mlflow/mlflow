@@ -16,21 +16,29 @@ jest.mock('../../utils/experimentPage.column-utils', () => ({
 /**
  * Mock all external components for performant mount() usage
  */
-jest.mock('../../../../../common/components/ExperimentRunsTableEmptyOverlay', () => ({
-  ExperimentRunsTableEmptyOverlay: () => <div />,
+jest.mock('./ExperimentViewRunsEmptyTable', () => ({
+  ExperimentViewRunsEmptyTable: () => <div />,
 }));
 
+/**
+ * Mock all external components for performant mount() usage
+ */
+jest.mock('./ExperimentViewRunsTableStatusBar', () => ({
+  ExperimentViewRunsTableStatusBar: () => <div />,
+}));
+
+const mockGridApi = {
+  showLoadingOverlay: jest.fn(),
+  hideOverlay: jest.fn(),
+  setRowData: jest.fn(),
+};
+
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
-  const apiMock = {
-    showLoadingOverlay: jest.fn(),
-    hideOverlay: jest.fn(),
-    setRowData: jest.fn(),
-  };
   const columnApiMock = {};
   return {
     MLFlowAgGridLoader: ({ onGridReady }: any) => {
       onGridReady({
-        api: apiMock,
+        api: mockGridApi,
         columnApi: columnApiMock,
       });
       return <div />;
@@ -63,6 +71,7 @@ describe('ExperimentViewRunsTable', () => {
 
   const defaultProps: ExperimentViewRunsTableProps = {
     experiments: [EXPERIMENT_RUNS_MOCK_STORE.entities.experimentsById['123456789']],
+    moreRunsAvailable: false,
     isLoading: false,
     onAddColumnClicked() {},
     runsData: {
@@ -72,6 +81,7 @@ describe('ExperimentViewRunsTable', () => {
       runInfos: [EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1']],
       paramsList: [[{ key: 'p1', value: 'pv1' }]],
       metricsList: [[{ key: 'm1', value: 'mv1' }]],
+      runUuidsMatchingFilter: ['experiment123456789_run1'],
     } as any,
     rowsData: [{ runUuid: 'experiment123456789_run1' } as any],
     searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
@@ -80,6 +90,7 @@ describe('ExperimentViewRunsTable', () => {
     viewState: new SearchExperimentRunsViewState(),
     updateSearchFacets() {},
     updateViewState() {},
+    loadMoreRunsFunc: jest.fn(),
   };
   const createWrapper = (additionalProps: Partial<ExperimentViewRunsTableProps> = {}) =>
     mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />);
@@ -123,20 +134,82 @@ describe('ExperimentViewRunsTable', () => {
     );
   });
 
-  test('should display no data overlay when necessary', () => {
+  test('should display no data overlay with proper configuration and only when necessary', () => {
     // Prepare a runs grid data with an empty set
     const emptyExperimentsWrapper = createWrapper({ rowsData: [] });
 
-    // Assert empty overlay being displayed
-    expect(emptyExperimentsWrapper.find('ExperimentRunsTableEmptyOverlay').length).toBe(1);
+    // Assert empty overlay being displayed and indicating that runs are *not* filtered
+    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').length).toBe(1);
+    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(
+      false,
+    );
+
+    // Set up some filter
+    emptyExperimentsWrapper.setProps({
+      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+        searchFilter: 'something',
+      }),
+    });
+
+    // Assert empty overlay being displayed and indicating that runs *are* filtered
+    expect(emptyExperimentsWrapper.find('ExperimentViewRunsEmptyTable').prop('isFiltered')).toBe(
+      true,
+    );
   });
 
   test('should hide no data overlay when necessary', () => {
     // Prepare a runs grid data with a non-empty set
-    const containingExperimentsWrapper = createWrapper({ rowsData: [{} as any] });
+    const containingExperimentsWrapper = createWrapper();
 
     // Assert empty overlay being not displayed
-    expect(containingExperimentsWrapper.find('ExperimentRunsTableEmptyOverlay').length).toBe(0);
+    expect(containingExperimentsWrapper.find('ExperimentViewRunsEmptyTable').length).toBe(0);
+  });
+
+  test('should properly show "load more" button when necessary', () => {
+    mockGridApi.setRowData.mockClear();
+
+    // Prepare a runs grid data with a non-empty set
+    const containingExperimentsWrapper = createWrapper({ moreRunsAvailable: false });
+
+    // Assert "load more" row not being sent to agGrid
+    expect(mockGridApi.setRowData).not.toBeCalledWith(
+      expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
+    );
+
+    // Change the more runs flag to true
+    containingExperimentsWrapper.setProps({
+      moreRunsAvailable: true,
+    });
+
+    // Assert "load more" row being added to payload
+    expect(mockGridApi.setRowData).toBeCalledWith(
+      expect.arrayContaining([expect.objectContaining({ isLoadMoreRow: true })]),
+    );
+  });
+
+  test('should display proper status bar with runs length', () => {
+    const wrapper = createWrapper();
+
+    // Find status bar and expect it to display 1 run
+    expect(wrapper.find('ExperimentViewRunsTableStatusBar').prop('allRunsCount')).toEqual(1);
+
+    // Change the filtered run set so it mimics the scenario where used has unpinned the row
+    wrapper.setProps({
+      runsData: { ...defaultProps.runsData, runUuidsMatchingFilter: [] },
+      searchFacetsState: Object.assign(new SearchExperimentRunsFacetsState(), {
+        runsPinned: [],
+      }),
+    });
+
+    // Find status bar and expect it to display 0 runs
+    expect(wrapper.find('ExperimentViewRunsTableStatusBar').prop('allRunsCount')).toEqual(0);
+    expect(wrapper.find('ExperimentViewRunsTableStatusBar').prop('isLoading')).toEqual(false);
+
+    // Set loading flag to true
+    wrapper.setProps({ isLoading: true });
+
+    // Expect status bar to display spinner as well
+    expect(wrapper.find('ExperimentViewRunsTableStatusBar').prop('isLoading')).toEqual(true);
   });
 
   test('should hide column CTA when all columns have been selected', () => {

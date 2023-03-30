@@ -575,7 +575,8 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = f"{artifact_name}.png"
+        prefix = self.evaluator_config.get("metric_prefix", "")
+        artifact_file_name = f"{prefix}{artifact_name}.png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
@@ -768,7 +769,7 @@ class DefaultEvaluator(ModelEvaluator):
             #   then fallback to shap explainer saver, and shap explainer will call `model.save`
             #   for sklearn model, there is no `.save` method, so error will happen.
             _logger.warning(
-                f"Logging explainer failed. Reason: {repr(e)}."
+                f"Logging explainer failed. Reason: {repr(e)}. "
                 "Set logging level to DEBUG to see the full traceback."
             )
             _logger.debug("", exc_info=True)

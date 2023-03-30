@@ -18,9 +18,9 @@ export type ExperimentViewRunsControlsActionsProps = {
   searchFacetsState: SearchExperimentRunsFacetsState;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   runsData: ExperimentRunsSelectorResult;
-
-  visibleRowsCount: number;
 };
+
+const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
 
 export const ExperimentViewRunsControlsActions = React.memo(
   ({
@@ -28,7 +28,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
     runsData,
     searchFacetsState,
     updateSearchFacets,
-    visibleRowsCount,
   }: ExperimentViewRunsControlsActionsProps) => {
     const { runsSelected } = viewState;
     const { runInfos } = runsData;
@@ -120,9 +119,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
               }}
               data-test-id='start-time-select-dropdown'
               // Temporarily we're disabling virtualized list to maintain
-              // backwards compatiblity. Functional unit tests rely heavily
+              // backwards compatibility. Functional unit tests rely heavily
               // on non-virtualized values.
-              dangerouslySetAntdProps={{ virtual: false } as any}
+              virtual={false}
             >
               {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
                 <Option
@@ -161,17 +160,6 @@ export const ExperimentViewRunsControlsActions = React.memo(
         {showActionButtons && (
           <>
             <Button
-              data-testid='runs-compare-button'
-              disabled={!canCompareRuns}
-              onClick={compareButtonClicked}
-            >
-              <FormattedMessage
-                defaultMessage='Compare'
-                // eslint-disable-next-line max-len
-                description='String for the compare button to compare experiment runs to find an ideal model'
-              />
-            </Button>
-            <Button
               data-testid='run-rename-button'
               onClick={renameButtonClicked}
               disabled={!canRenameRuns}
@@ -208,18 +196,22 @@ export const ExperimentViewRunsControlsActions = React.memo(
                 />
               </Button>
             ) : null}
+            <div css={styles.buttonSeparator} />
+            <CompareRunsButtonWrapper>
+              <Button
+                data-testid='runs-compare-button'
+                disabled={!canCompareRuns}
+                onClick={compareButtonClicked}
+              >
+                <FormattedMessage
+                  defaultMessage='Compare'
+                  // eslint-disable-next-line max-len
+                  description='String for the compare button to compare experiment runs to find an ideal model'
+                />
+              </Button>
+            </CompareRunsButtonWrapper>
           </>
         )}
-        <div css={styles.groupSeparator} />
-        <div>
-          <FormattedMessage
-            // eslint-disable-next-line max-len
-            defaultMessage='Showing {length} matching {length, plural, =0 {runs} =1 {run} other {runs}}'
-            // eslint-disable-next-line max-len
-            description='Message for displaying how many runs match search criteria on experiment page'
-            values={{ length: visibleRowsCount }}
-          />
-        </div>
       </div>
     );
   },
@@ -227,6 +219,12 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
 const styles = {
   groupSeparator: () => ({ flex: 1 }),
+  buttonSeparator: (theme: Theme) => ({
+    borderLeft: `1px solid ${theme.colors.border}`,
+    marginLeft: theme.spacing.xs,
+    marginRight: theme.spacing.xs,
+    height: '100%',
+  }),
   controlBar: (theme: Theme) => ({
     display: 'flex',
     gap: theme.spacing.sm,

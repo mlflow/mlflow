@@ -962,7 +962,7 @@ class FileStore(AbstractStore):
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException(
-                "The experiment {} must be in the 'active'"
+                "The experiment {} must be in the 'active' "
                 "lifecycle_stage to set tags".format(experiment.experiment_id),
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )

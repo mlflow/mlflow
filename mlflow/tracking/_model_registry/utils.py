@@ -5,6 +5,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
@@ -18,6 +19,7 @@ from mlflow.tracking._tracking_service.utils import (
 )
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 
 _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
 
@@ -166,6 +168,9 @@ def _get_store_registry():
 
     _model_registry_store_registry = ModelRegistryStoreRegistry()
     _model_registry_store_registry.register("databricks", _get_databricks_rest_store)
+    # Register a placeholder function that raises if users pass a registry URI with scheme
+    # "databricks-uc"
+    _model_registry_store_registry.register(_DATABRICKS_UNITY_CATALOG_SCHEME, UcModelRegistryStore)
 
     for scheme in ["http", "https"]:
         _model_registry_store_registry.register(scheme, _get_rest_store)
@@ -180,5 +185,5 @@ def _get_store_registry():
     return _model_registry_store_registry
 
 
-def _get_store(store_uri=None):
-    return _get_store_registry().get_store(store_uri)
+def _get_store(store_uri=None, tracking_uri=None):
+    return _get_store_registry().get_store(store_uri, tracking_uri)

@@ -461,6 +461,26 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         )
 
 
+def test_creation_default_values_in_unity_catalog(mock_registry_store):
+    client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id="runid",
+    )
+    client.create_model_version("name", "source", "runid")
+    # verify that registry store was called with tags=[] and run_link=None
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "name", "source", "runid", [], None, None
+    )
+    client.create_registered_model(name="name", description="description")
+    # verify that registry store was called with tags=[]
+    mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description")
+
+
 def test_create_model_version_non_ready_model(mock_registry_store):
     run_id = "runid"
     client = MlflowClient(tracking_uri="http://10.123.1231.11")

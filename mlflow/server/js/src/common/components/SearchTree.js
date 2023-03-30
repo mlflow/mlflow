@@ -3,7 +3,7 @@
  * highlight tree nodes while user type in a search prefix.
  */
 import React from 'react';
-import { Input, Tree, Search1Icon } from '@databricks/design-system';
+import { Input, Tree, SearchIcon } from '@databricks/design-system';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { injectIntl } from 'react-intl';
@@ -146,7 +146,7 @@ export class SearchTreeImpl extends React.Component {
           value={searchValue}
           onChange={this.handleSearch}
           onKeyUp={this.handleSearchInputKeyUp}
-          prefix={<Search1Icon />}
+          prefix={<SearchIcon />}
         />
         <Tree
           checkable

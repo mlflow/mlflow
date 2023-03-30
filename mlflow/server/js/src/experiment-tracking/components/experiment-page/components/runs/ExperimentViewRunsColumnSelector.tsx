@@ -4,7 +4,7 @@ import {
   Dropdown,
   Input,
   ListIcon,
-  Search1Icon,
+  SearchIcon,
   Tree,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
@@ -272,7 +272,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         <div css={(theme) => ({ padding: theme.spacing.md })}>
           <Input
             value={filter}
-            prefix={<Search1Icon />}
+            prefix={<SearchIcon />}
             placeholder='Search columns'
             allowClear
             ref={searchInputRef}

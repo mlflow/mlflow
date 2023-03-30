@@ -9,6 +9,7 @@ const FALLBACK_LOCALES = {
   kr: 'kr-KR',
   it: 'it-IT',
   de: 'de-DE',
+  zh: 'zh-CN',
 };
 
 const loadedMessages = {};

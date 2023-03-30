@@ -104,6 +104,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     **kwargs,
@@ -122,6 +123,7 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
@@ -144,13 +146,11 @@ def http_request(
 
     headers = dict(**resolve_request_headers())
 
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
+
     if auth_str:
         headers["Authorization"] = auth_str
-
-    if host_creds.server_cert_path is None:
-        verify = not host_creds.ignore_tls_verification
-    else:
-        verify = host_creds.server_cert_path
 
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
@@ -171,7 +171,7 @@ def http_request(
             backoff_factor,
             retry_codes,
             headers=headers,
-            verify=verify,
+            verify=host_creds.verify,
             timeout=timeout,
             **kwargs,
         )
@@ -398,3 +398,10 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    @property
+    def verify(self):
+        if self.server_cert_path is None:
+            return not self.ignore_tls_verification
+        else:
+            return self.server_cert_path

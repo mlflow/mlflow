@@ -11,6 +11,7 @@ import os
 import yaml
 import numpy as np
 from pathlib import Path
+from packaging.version import Version
 
 import pandas as pd
 
@@ -157,7 +158,10 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save onnx-model
-    onnx.save_model(onnx_model, model_data_path)
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        onnx.save_model(onnx_model, model_data_path, save_as_external_data=True)
+    else:
+        onnx.save_model(onnx_model, model_data_path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -213,9 +217,9 @@ def save_model(
 def _load_model(model_file):
     import onnx
 
+    onnx.checker.check_model(model_file)
     onnx_model = onnx.load(model_file)
     # Check Formation
-    onnx.checker.check_model(onnx_model)
     return onnx_model
 
 

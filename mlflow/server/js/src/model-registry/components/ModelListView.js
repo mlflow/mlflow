@@ -31,14 +31,18 @@ import { FlexBar } from '../../shared/building_blocks/FlexBar';
 import { Spacer } from '../../shared/building_blocks/Spacer';
 import { SearchBox } from '../../shared/building_blocks/SearchBox';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { PageContainer } from '../../common/components/PageContainer';
 import {
   Alert,
   Button,
+  InfoIcon,
   Popover,
   QuestionMarkFillIcon,
   Spacer as DuBoisSpacer,
 } from '@databricks/design-system';
+import { ModelListFilters } from './model-list/ModelListFilters';
+import { ModelListTable } from './model-list/ModelListTable';
+import { shouldUseUnifiedListPattern } from '../../common/utils/FeatureUtils';
+import { PageContainer } from '../../common/components/PageContainer';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
@@ -228,7 +232,7 @@ export class ModelListViewImpl extends React.Component {
   };
 
   handleSearch = (event, searchInput) => {
-    event.preventDefault();
+    event?.preventDefault();
     this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
     this.props.onSearch(this.setLoadingFalse, this.setLoadingFalse, searchInput);
   };
@@ -244,6 +248,20 @@ export class ModelListViewImpl extends React.Component {
     }
   };
 
+  unifiedTableSortChange = ({ orderByKey, orderByAsc }) => {
+    // Different column keys are used for sorting and data accessing,
+    // mapping to proper keys happens below
+    const fieldMappedToSortKey =
+      {
+        timestamp: 'last_updated_timestamp',
+      }[orderByKey] || orderByKey;
+
+    this.handleTableChange(undefined, undefined, {
+      field: fieldMappedToSortKey,
+      order: orderByAsc ? 'undefined' : 'descend',
+    });
+  };
+
   handleTableChange = (pagination, filters, sorter) => {
     this.setState({ loading: true, lastNavigationActionWasClickPrev: false });
     this.props.onClickSortableColumn(
@@ -254,11 +272,11 @@ export class ModelListViewImpl extends React.Component {
     );
   };
 
-  renderOnboardingContent() {
+  renderOnboardingContent(isUnifiedListPattern = false) {
     const learnMoreLinkUrl = ModelListViewImpl.getLearnMoreLinkUrl();
     const learnMoreDisplayString = ModelListViewImpl.getLearnMoreDisplayString();
     const content = (
-      <div>
+      <>
         {learnMoreDisplayString}{' '}
         <FormattedMessage
           defaultMessage='<link>Learn more</link>'
@@ -276,8 +294,16 @@ export class ModelListViewImpl extends React.Component {
             ),
           }}
         />
-      </div>
+      </>
     );
+
+    if (isUnifiedListPattern) {
+      return (
+        <Popover content={content}>
+          <InfoIcon css={{ cursor: 'pointer' }} />
+        </Popover>
+      );
+    }
 
     return this.state.showOnboardingHelper ? (
       <div>
@@ -348,30 +374,65 @@ export class ModelListViewImpl extends React.Component {
       <div className='search-input-tooltip-content'>
         <FormattedMessage
           // eslint-disable-next-line max-len
-          defaultMessage='To search by tags or by names and tags, please use <link>MLflow Search Syntax</link>.{newline}Examples:{examples}'
+          defaultMessage='To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.'
           description='Tooltip string to explain how to search models from the model registry table'
+          values={{ newline: <br />, whereBold: <b>WHERE</b> }}
+        />{' '}
+        <FormattedMessage
+          defaultMessage='<link>Learn more</link>'
+          description='Learn more tooltip link to learn more on how to search models'
           values={{
-            newline: <br />,
             link: (chunks) => (
-              <a href={ExperimentSearchSyntaxDocUrl} target='_blank' rel='noopener noreferrer'>
+              <a
+                href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                target='_blank'
+                rel='noopener noreferrer'
+              >
                 {chunks}
               </a>
             ),
-            examples: (
-              <ul>
-                <li>tags.key = "value"</li>
-                <li>name ilike "%my_model_name%" and tags.key = "value"</li>
-              </ul>
-            ),
           }}
         />
+        <br />
+        <FormattedMessage
+          defaultMessage='Examples:'
+          description='Text header for examples of mlflow search syntax'
+        />
+        <br />
+        {'• tags.my_key = "my_value"'}
+        <br />
+        {'• name ilike "%my_model_name%" and tags.my_key = "my_value"'}
       </div>
     );
   };
 
   render() {
-    const { models, currentPage, nextPageToken } = this.props;
+    // prettier-ignore
+    const {
+      models,
+      currentPage,
+      nextPageToken,
+      searchInput,
+    } = this.props;
     const { loading } = this.state;
+    const isUnifiedListPattern = shouldUseUnifiedListPattern();
+
+    const paginationComponent = (
+      <SimplePagination
+        currentPage={currentPage}
+        isLastPage={nextPageToken === null}
+        onClickNext={this.handleClickNext}
+        onClickPrev={this.handleClickPrev}
+        handleSetMaxResult={this.handleSetMaxResult}
+        maxResultOptions={[String(REGISTERED_MODELS_PER_PAGE), '25', '50', '100']}
+        getSelectedPerPageSelection={this.props.getMaxResultValue}
+      />
+    );
+
+    // Determine if we use any filters at the moment
+    const isFiltered =
+      // prettier-ignore
+      Boolean(searchInput);
 
     const title = (
       <FormattedMessage
@@ -380,84 +441,118 @@ export class ModelListViewImpl extends React.Component {
       />
     );
     return (
-      <PageContainer data-test-id='ModelListView-container'>
-        <PageHeader title={title}>
-          <></>
-        </PageHeader>
-        {this.renderOnboardingContent()}
-        <div css={styles.searchFlexBar}>
-          <FlexBar
-            left={
-              <Spacer size='small' direction='horizontal'>
-                <CreateModelButton />
-              </Spacer>
-            }
-            right={
-              <Spacer direction='horizontal' size='small'>
-                <Spacer direction='horizontal' size='large'>
-                  <Popover
-                    overlayClassName='search-input-tooltip'
-                    content={this.searchInputHelpTooltipContent}
-                    placement='bottom'
-                  >
-                    <QuestionMarkFillIcon />
-                  </Popover>
-                </Spacer>
-
-                <Spacer direction='horizontal' size='large'>
-                  <div css={styles.nameSearchBox}>
-                    <SearchBox
-                      onChange={this.handleSearchInput}
-                      value={this.props.searchInput}
-                      onSearch={this.handleSearch}
-                      placeholder={this.props.intl.formatMessage({
-                        defaultMessage: 'Search by model names or tags',
-                        description: 'Placeholder text inside model search bar',
-                      })}
-                    />
-                  </div>
-                  <Button
-                    data-test-id='clear-button'
-                    onClick={this.handleClear}
-                    disabled={this.props.searchInput === ''}
-                  >
-                    <FormattedMessage
-                      defaultMessage='Clear'
-                      // eslint-disable-next-line max-len
-                      description='String for the clear button to clear the text for searching models'
-                    />
-                  </Button>
-                </Spacer>
-              </Spacer>
-            }
-          />
-        </div>
-        <Table
-          size='middle'
-          rowKey={this.getRowKey}
-          className='model-version-table'
-          dataSource={models}
-          columns={this.getColumns()}
-          locale={{ emptyText: this.getEmptyTextComponent() }}
-          pagination={{
-            hideOnSinglePage: true,
-            pageSize: this.props.getMaxResultValue(),
-          }}
-          loading={loading && { indicator: <Spinner /> }}
-          onChange={this.handleTableChange}
-          showSorterTooltip={false}
-        />
+      <PageContainer data-test-id='ModelListView-container' usesFullHeight={isUnifiedListPattern}>
         <div>
-          <SimplePagination
-            currentPage={currentPage}
-            isLastPage={nextPageToken === null}
-            onClickNext={this.handleClickNext}
-            onClickPrev={this.handleClickPrev}
-            handleSetMaxResult={this.handleSetMaxResult}
-            maxResultOptions={[String(REGISTERED_MODELS_PER_PAGE), '25', '50', '100']}
-            getSelectedPerPageSelection={this.props.getMaxResultValue}
-          />
+          <PageHeader
+            title={
+              <>
+                {title} {isUnifiedListPattern && this.renderOnboardingContent(true)}
+              </>
+            }
+          >
+            <></>
+            {isUnifiedListPattern && <CreateModelButton />}
+          </PageHeader>
+          {!isUnifiedListPattern && this.renderOnboardingContent(false)}
+          {/* If unified list pattern is supported, display new version of filters */}
+          {isUnifiedListPattern ? (
+            <ModelListFilters
+              searchFilter={this.props.searchInput}
+              onSearchFilterChange={(value) => this.handleSearch(null, value)}
+              isFiltered={isFiltered}
+            />
+          ) : (
+            <div css={styles.searchFlexBar}>
+              <FlexBar
+                left={
+                  <Spacer size='small' direction='horizontal'>
+                    <CreateModelButton />
+                  </Spacer>
+                }
+                right={
+                  <Spacer direction='horizontal' size='small'>
+                    <Spacer direction='horizontal' size='large'>
+                      <Popover
+                        overlayClassName='search-input-tooltip'
+                        content={this.searchInputHelpTooltipContent()}
+                        placement='bottom'
+                      >
+                        <QuestionMarkFillIcon css={{ cursor: 'pointer' }} />
+                      </Popover>
+                    </Spacer>
+
+                    <Spacer direction='horizontal' size='large'>
+                      <div css={styles.nameSearchBox}>
+                        <SearchBox
+                          onChange={this.handleSearchInput}
+                          value={this.props.searchInput}
+                          onSearch={this.handleSearch}
+                          placeholder={this.props.intl.formatMessage({
+                            defaultMessage: 'Search by model names or tags',
+                            description: 'Placeholder text inside model search bar',
+                          })}
+                        />
+                      </div>
+                      <Button
+                        data-test-id='clear-button'
+                        onClick={this.handleClear}
+                        disabled={this.props.searchInput === ''}
+                      >
+                        <FormattedMessage
+                          defaultMessage='Clear'
+                          // eslint-disable-next-line max-len
+                          description='String for the clear button to clear the text for searching models'
+                        />
+                      </Button>
+                    </Spacer>
+                  </Spacer>
+                }
+              />
+            </div>
+          )}
         </div>
+        {/* If unified list pattern is supported, display new table version */}
+        {isUnifiedListPattern ? (
+          <ModelListTable
+            modelsData={models}
+            onSortChange={this.unifiedTableSortChange}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            isLoading={loading}
+            pagination={paginationComponent}
+            isFiltered={isFiltered}
+          />
+        ) : (
+          <>
+            <Table
+              size='middle'
+              rowKey={this.getRowKey}
+              className='model-version-table'
+              dataSource={models}
+              columns={this.getColumns()}
+              locale={{ emptyText: this.getEmptyTextComponent() }}
+              pagination={{
+                hideOnSinglePage: true,
+                pageSize: this.props.getMaxResultValue(),
+              }}
+              loading={loading && { indicator: <Spinner /> }}
+              onChange={this.handleTableChange}
+              showSorterTooltip={false}
+            />
+            <div>
+              <DuBoisSpacer />
+              <SimplePagination
+                currentPage={currentPage}
+                isLastPage={nextPageToken === null}
+                onClickNext={this.handleClickNext}
+                onClickPrev={this.handleClickPrev}
+                handleSetMaxResult={this.handleSetMaxResult}
+                maxResultOptions={[String(REGISTERED_MODELS_PER_PAGE), '25', '50', '100']}
+                getSelectedPerPageSelection={this.props.getMaxResultValue}
+              />
+            </div>
+          </>
+        )}
       </PageContainer>
     );
   }

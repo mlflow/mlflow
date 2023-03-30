@@ -3,6 +3,8 @@ import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
 import { isArray } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
+import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
+import { stringify as queryStringStringify } from 'qs';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
@@ -152,6 +154,11 @@ export const fetchMissingParents = (searchRunsResponse) =>
           MlflowService.getRun({ run_id: runId })
             .then((value) => {
               searchRunsResponse.runs.push(value.run);
+              // Additional parent runs should be always visible
+              // marked as those matching filter
+              if (searchRunsResponse.runsMatchingFilter) {
+                searchRunsResponse.runsMatchingFilter.push(value.run);
+              }
             })
             .catch((error) => {
               if (error.getErrorCode() !== ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
@@ -277,14 +284,59 @@ export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
 
 // TODO: run_uuid is deprecated, use run_id instead
 export const GET_METRIC_HISTORY_API = 'GET_METRIC_HISTORY_API';
-export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
+export const getMetricHistoryApi = (runUuid, metricKey, maxResults, pageToken, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: MlflowService.getMetricHistory({
       run_uuid: runUuid,
       metric_key: decodeURIComponent(metricKey),
+      max_results: maxResults,
+      page_token: pageToken,
     }),
-    meta: { id: id, runUuid: runUuid, key: metricKey },
+    meta: {
+      id: id,
+      runUuid: runUuid,
+      key: metricKey,
+      maxResults,
+      pageToken,
+    },
+  };
+};
+
+export const GET_METRIC_HISTORY_API_BULK = 'GET_METRIC_HISTORY_API_BULK';
+export const getMetricHistoryApiBulk = (
+  runUuids,
+  metricKey,
+  maxResults = 25000,
+  pageToken,
+  id = getUUID(),
+) => {
+  // We are not using MlflowService because this endpoint requires
+  // special query string preparation
+  const queryParams = queryStringStringify(
+    {
+      run_id: runUuids,
+      metric_key: decodeURIComponent(metricKey),
+      max_results: maxResults,
+      page_token: pageToken,
+    },
+    // This configures qs to stringify arrays as ?run_id=123&run_id=234
+    { arrayFormat: 'repeat' },
+  );
+  const request = fetchEndpoint({
+    relativeUrl: `ajax-api/2.0/mlflow/metrics/get-history-bulk?${queryParams}`,
+    success: jsonBigIntResponseParser,
+  });
+  return {
+    type: GET_METRIC_HISTORY_API_BULK,
+    payload: request,
+    meta: {
+      id: id,
+      runUuids: runUuids,
+      key: metricKey,
+      maxResults,
+      pageToken,
+    },
   };
 };
 

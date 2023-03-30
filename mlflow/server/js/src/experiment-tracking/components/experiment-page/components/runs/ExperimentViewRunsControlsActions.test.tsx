@@ -50,7 +50,6 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
     };
 
     const props: ExperimentViewRunsControlsActionsProps = {
-      visibleRowsCount: 100,
       runsData: MOCK_RUNS_DATA,
       updateSearchFacets,
       searchFacetsState,

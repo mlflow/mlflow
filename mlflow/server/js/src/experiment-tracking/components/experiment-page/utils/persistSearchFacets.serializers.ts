@@ -20,9 +20,14 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
     },
     deserializeQueryString(input: string): SearchExperimentRunsFacetsState['compareRunCharts'] {
       try {
-        return JSON.parse(atob(input));
+        // Process the URL defensively against intended and unintended malformation
+        const parsedResult = JSON.parse(atob(input));
+        if (!Array.isArray(parsedResult)) {
+          return undefined;
+        }
+        return parsedResult;
       } catch {
-        return [];
+        return undefined;
       }
     },
   },

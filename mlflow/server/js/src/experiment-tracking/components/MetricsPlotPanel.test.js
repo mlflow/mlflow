@@ -41,7 +41,7 @@ describe('unit tests', () => {
         location.search = '?' + url.split('?')[1];
       },
     };
-    getMetricHistoryApi = jest.fn(() => Promise.resolve());
+    getMetricHistoryApi = jest.fn(() => Promise.resolve({ value: {} }));
     getRunApi = jest.fn(() => Promise.resolve());
     const now = new Date().getTime();
     minimalPropsForLineChart = {

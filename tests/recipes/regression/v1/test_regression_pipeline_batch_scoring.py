@@ -2,6 +2,7 @@ import pandas as pd
 import pathlib
 import pytest
 import shutil
+import time
 
 import mlflow
 from mlflow.recipes.utils.execution import get_or_create_base_execution_directory
@@ -53,6 +54,15 @@ def test_recipe_batch_dag_execution_directories(enter_recipe_example_directory):
 # This test should run last as it cleans the batch scoring steps
 @pytest.mark.parametrize("step", _STEP_NAMES)
 def test_recipe_batch_dag_clean_step_works(step, run_batch_scoring, enter_recipe_example_directory):
+    # This test sometimes fails on Windows with an error that looks like the following:
+    # ----------------------------------------------------------------------------------------------
+    # PermissionError: [WinError 32] The process cannot access the file because it is being used by
+    # another process: 'C:\\path\\to\\custom\\steps\\predict\\outputs\\scored.parquet\\part-00000-5
+    # 4161f55-351d-4e90-bb18-7f754bfbd467-c000.snappy.parquet'
+    # ----------------------------------------------------------------------------------------------
+    # To avoid this error, we sleep for 1 second to ensure all the handles to the parquet files are
+    # released before we try to delete them.
+    time.sleep(1)
     r = run_batch_scoring
     r.clean(step)
     expected_execution_directory_location = pathlib.Path(

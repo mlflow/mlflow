@@ -3,6 +3,7 @@ import { Button, MinusBoxIcon, PlusSquareIcon } from '@databricks/design-system'
 import { Theme } from '@emotion/react';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { shouldUseNextRunsComparisonUI } from '../../../../../../common/utils/FeatureUtils';
 import Routes from '../../../../../routes';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 
@@ -14,11 +15,12 @@ export interface RunNameCellRendererProps extends ICellRendererParams {
 export const RunNameCellRenderer = React.memo(
   ({
     onExpand,
-    data: { runName, experimentId, runUuid, runDateAndNestInfo },
+    data: { runName, experimentId, runUuid, runDateAndNestInfo, color },
   }: RunNameCellRendererProps) => {
     const { hasExpander, expanderOpen, childrenIds, level } = runDateAndNestInfo || {};
 
     const renderingAsParent = !isNaN(level) && hasExpander;
+    const shouldDisplayRunColors = shouldUseNextRunsComparisonUI();
 
     return (
       <div css={styles.cellWrapper}>
@@ -38,7 +40,16 @@ export const RunNameCellRenderer = React.memo(
             )}
           </div>
         </div>
-        <Link to={Routes.getRunPageRoute(experimentId, runUuid)}>{runName}</Link>
+        <Link to={Routes.getRunPageRoute(experimentId, runUuid)} css={styles.runLink}>
+          {shouldDisplayRunColors && (
+            <div
+              css={styles.colorPill}
+              data-testid='experiment-view-table-run-color'
+              style={{ backgroundColor: color }}
+            />
+          )}
+          <span css={styles.runName}>{runName}</span>
+        </Link>
       </div>
     );
   },
@@ -59,17 +70,36 @@ const styles = {
       height: 12,
     },
   },
+  runLink: {
+    overflow: 'hidden',
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+  },
+  runName: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  },
   expanderWrapper: {
     display: 'none',
     '.ag-grid-expanders-visible &': {
       display: 'block',
     },
   },
-
+  colorPill: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    flexShrink: 0,
+    // Straighten it up on retina-like screens
+    '@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi)': {
+      marginBottom: 1,
+    },
+  },
   nestLevel: (level: number) => (theme: Theme) => ({
     display: 'flex',
     justifyContent: 'flex-end',
     width: (level + 1) * theme.spacing.lg,
-    height: theme.general.heightSm,
+    height: theme.spacing.lg,
   }),
 };

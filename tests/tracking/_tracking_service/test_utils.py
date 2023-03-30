@@ -378,3 +378,14 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
     with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
         set_tracking_uri(path)
         assert get_tracking_uri() == path.absolute().resolve().as_uri()
+
+
+@pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
+def test_get_store_raises_on_uc_uri(store_uri):
+    set_tracking_uri(store_uri)
+    with pytest.raises(
+        MlflowException,
+        match="Setting the tracking URI to a Unity Catalog backend is not "
+        "supported in the current version of the MLflow client",
+    ):
+        mlflow.tracking.MlflowClient()

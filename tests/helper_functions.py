@@ -52,8 +52,8 @@ def random_int(lo=1, hi=1e10):
 
 def random_str(size=10):
     msg = (
-        "UUID4 generated strings have a high potential for collision at small sizes."
-        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "UUID4 generated strings have a high potential for collision at small sizes. "
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic "
         "test failures."
     )
     assert size >= 10, msg
@@ -555,6 +555,18 @@ def mock_http_request_200():
         return_value=mock.MagicMock(status_code=200, text="{}"),
     ) as m:
         yield m
+
+
+def mock_http_200(f):
+    @functools.wraps(f)
+    @mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text="{}"),
+    )
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
 
 
 @contextmanager

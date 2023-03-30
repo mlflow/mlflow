@@ -5,6 +5,7 @@ import re
 import tempfile
 import posixpath
 import urllib
+import pathlib
 
 import logging
 from functools import wraps
@@ -17,8 +18,6 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, File
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
@@ -65,6 +64,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     MlflowArtifactsService,
@@ -78,9 +80,12 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import is_local_uri
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
@@ -441,15 +446,25 @@ def _get_request_message(request_message, flask_request=request, schema=None):
     return request_message
 
 
+def _response_with_file_attachment_headers(file_path, response):
+    mime_type = _guess_mime_type(file_path)
+    filename = pathlib.Path(file_path).name
+    response.mimetype = mime_type
+    content_disposition_header_name = "Content-Disposition"
+    if content_disposition_header_name not in response.headers:
+        response.headers[content_disposition_header_name] = f"attachment; filename={filename}"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Content-Type"] = mime_type
+    return response
+
+
 def _send_artifact(artifact_repository, path):
-    filename = os.path.abspath(artifact_repository.download_artifacts(path))
-    extension = os.path.splitext(filename)[-1].replace(".", "")
+    file_path = os.path.abspath(artifact_repository.download_artifacts(path))
     # Always send artifacts as attachments to prevent the browser from displaying them on our web
     # server's domain, which might enable XSS.
-    if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype="text/plain", as_attachment=True)
-    else:
-        return send_file(filename, as_attachment=True)
+    mime_type = _guess_mime_type(file_path)
+    file_sender_response = send_file(file_path, mimetype=mime_type, as_attachment=True)
+    return _response_with_file_attachment_headers(file_path, file_sender_response)
 
 
 def catch_mlflow_exception(func):
@@ -464,35 +479,6 @@ def catch_mlflow_exception(func):
             return response
 
     return wrapper
-
-
-_TEXT_EXTENSIONS = [
-    "txt",
-    "log",
-    "err",
-    "cfg",
-    "conf",
-    "cnf",
-    "cf",
-    "ini",
-    "properties",
-    "prop",
-    "hocon",
-    "toml",
-    "yaml",
-    "yml",
-    "xml",
-    "json",
-    "js",
-    "py",
-    "py3",
-    "csv",
-    "tsv",
-    "md",
-    "rst",
-    MLMODEL_FILE_NAME,
-    MLPROJECT_FILE_NAME,
-]
 
 
 def _disable_unless_serve_artifacts(func):
@@ -531,22 +517,18 @@ def _disable_if_artifacts_only(func):
     return wrapper
 
 
-_os_alt_seps = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
+_OS_ALT_SEPS = [sep for sep in [os.sep, os.path.altsep] if sep is not None and sep != "/"]
 
 
 def validate_path_is_safe(path):
     """
     Validates that the specified path is safe to join with a trusted prefix. This is a security
-    measure to prevent path traversal attacks. The implementation is based on
-    `werkzeug.security.safe_join` (https://github.com/pallets/werkzeug/blob/a3005e6acda7246fe0a684c71921bf4882b4ba1c/src/werkzeug/security.py#L110).
+    measure to prevent path traversal attacks.
     """
-    if path != "":
-        path = posixpath.normpath(path)
     if (
-        any(sep in path for sep in _os_alt_seps)
-        or os.path.isabs(path)
-        or path == ".."
-        or path.startswith("../")
+        any((s in path) for s in _OS_ALT_SEPS)
+        or ".." in path.split(posixpath.sep)
+        or posixpath.isabs(path)
     ):
         raise MlflowException(f"Invalid path: {path}", error_code=INVALID_PARAMETER_VALUE)
 
@@ -1339,6 +1321,26 @@ def _delete_registered_model_tag():
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
+def _validate_source(source: str, run_id: str) -> None:
+    if not is_local_uri(source):
+        return
+
+    if run_id:
+        store = _get_tracking_store()
+        run = store.get_run(run_id)
+        source = pathlib.Path(local_file_uri_to_path(source)).resolve()
+        run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
+        if run_artifact_dir in [source, *source.parents]:
+            return
+
+    raise MlflowException(
+        f"Invalid source: '{source}'. To use a local path as source, the run_id request parameter "
+        "has to be specified and the local path has to be contained within the artifact directory "
+        "of the run specified by the run_id.",
+        INVALID_PARAMETER_VALUE,
+    )
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_model_version():
@@ -1353,6 +1355,9 @@ def _create_model_version():
             "description": [_assert_string],
         },
     )
+
+    _validate_source(request_message.source, request_message.run_id)
+
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
         source=request_message.source,
@@ -1481,10 +1486,26 @@ def _get_model_version_download_uri():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _search_model_versions():
-    request_message = _get_request_message(SearchModelVersions())
-    model_versions = _get_model_registry_store().search_model_versions(request_message.filter)
+    request_message = _get_request_message(
+        SearchModelVersions(),
+        schema={
+            "filter": [_assert_string],
+            "max_results": [_assert_intlike, lambda x: _assert_less_than_or_equal(x, 200_000)],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    store = _get_model_registry_store()
+    model_versions = store.search_model_versions(
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
     response_message = SearchModelVersions.Response()
     response_message.model_versions.extend([e.to_proto() for e in model_versions])
+    if model_versions.token:
+        response_message.next_page_token = model_versions.token
     return _wrap_response(response_message)
 
 
@@ -1524,6 +1545,57 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_registered_model_alias():
+    request_message = _get_request_message(
+        SetRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().set_registered_model_alias(
+        name=request_message.name, alias=request_message.alias, version=request_message.version
+    )
+    return _wrap_response(SetRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_registered_model_alias():
+    request_message = _get_request_message(
+        DeleteRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().delete_registered_model_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    return _wrap_response(DeleteRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_model_version_by_alias():
+    request_message = _get_request_message(
+        GetModelVersionByAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    model_version = _get_model_registry_store().get_model_version_by_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    response_proto = model_version.to_proto()
+    response_message = GetModelVersionByAlias.Response(model_version=response_proto)
+    return _wrap_response(response_message)
+
+
 # MLflow Artifacts APIs
 
 
@@ -1534,7 +1606,7 @@ def _download_artifact(artifact_path):
     A request handler for `GET /mlflow-artifacts/artifacts/<artifact_path>` to download an artifact
     from `artifact_path` (a relative path from the root artifact directory).
     """
-    basename = posixpath.basename(artifact_path)
+    validate_path_is_safe(artifact_path)
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -1547,10 +1619,9 @@ def _download_artifact(artifact_path):
         file_handle.close()
         tmp_dir.cleanup()
 
-    return current_app.response_class(
-        stream_and_remove_file(),
-        headers={"Content-Disposition": "attachment", "filename": basename},
-    )
+    file_sender_response = current_app.response_class(stream_and_remove_file())
+
+    return _response_with_file_attachment_headers(artifact_path, file_sender_response)
 
 
 @catch_mlflow_exception
@@ -1560,6 +1631,7 @@ def _upload_artifact(artifact_path):
     A request handler for `PUT /mlflow-artifacts/artifacts/<artifact_path>` to upload an artifact
     to `artifact_path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     head, tail = posixpath.split(artifact_path)
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = os.path.join(tmp_dir, tail)
@@ -1585,7 +1657,11 @@ def _list_artifacts_mlflow_artifacts():
     (a relative path from the root artifact directory).
     """
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
-    path = request_message.path if request_message.HasField("path") else None
+    if request_message.HasField("path"):
+        validate_path_is_safe(request_message.path)
+        path = request_message.path
+    else:
+        path = None
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
@@ -1601,11 +1677,12 @@ def _list_artifacts_mlflow_artifacts():
 
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
-def _delete_artifact_mflflow_artifacts(artifact_path):
+def _delete_artifact_mlflow_artifacts(artifact_path):
     """
     A request handler for `DELETE /mlflow-artifacts/artifacts?path=<value>` to delete artifacts in
     `path` (a relative path from the root artifact directory).
     """
+    validate_path_is_safe(artifact_path)
     _get_request_message(DeleteArtifact())
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     artifact_repo.delete_artifacts(artifact_path)
@@ -1704,9 +1781,12 @@ HANDLERS = {
     DeleteRegisteredModelTag: _delete_registered_model_tag,
     SetModelVersionTag: _set_model_version_tag,
     DeleteModelVersionTag: _delete_model_version_tag,
+    SetRegisteredModelAlias: _set_registered_model_alias,
+    DeleteRegisteredModelAlias: _delete_registered_model_alias,
+    GetModelVersionByAlias: _get_model_version_by_alias,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
     ListArtifactsMlflowArtifacts: _list_artifacts_mlflow_artifacts,
-    DeleteArtifact: _delete_artifact_mflflow_artifacts,
+    DeleteArtifact: _delete_artifact_mlflow_artifacts,
 }

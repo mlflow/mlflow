@@ -352,7 +352,7 @@ class _PmdarimaModelWrapper:
 
         if not n_periods:
             raise MlflowException(
-                f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not"
+                f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not "
                 "contain the required column `n_periods` for specifying future prediction periods "
                 "to generate.",
                 error_code=INVALID_PARAMETER_VALUE,

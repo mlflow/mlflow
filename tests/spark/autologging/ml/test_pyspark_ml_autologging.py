@@ -219,6 +219,8 @@ def test_models_in_allowlist_exist(spark_session):  # pylint: disable=unused-arg
             module = importlib.import_module(module_name)
             return not hasattr(module, class_name)
         except ModuleNotFoundError:
+            if module_name.startswith("synapse.ml"):
+                return False
             return True
 
     non_existent_classes = list(

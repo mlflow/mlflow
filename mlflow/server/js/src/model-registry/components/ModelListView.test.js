@@ -5,7 +5,6 @@ import { Alert } from '@databricks/design-system';
 import { ModelVersionStatus, Stages } from '../constants';
 import { BrowserRouter } from 'react-router-dom';
 import Utils from '../../common/utils/Utils';
-import { ModelRegistryDocUrl } from '../../common/constants';
 import { Table } from 'antd';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -65,22 +64,12 @@ describe('ModelListView', () => {
     expect(wrapper.length).toBe(1);
   });
 
-  test('should display onBoarding helper', () => {
-    wrapper = setupModelListViewWithIntl();
-    expect(wrapper.find(Alert).length).toBe(1);
-  });
-
   test('should not display onBoarding helper if disabled', () => {
     wrapper = setupModelListViewWithIntl();
     wrapper.find(ModelListViewImpl).setState({
       showOnboardingHelper: false,
     });
     expect(wrapper.find(Alert).length).toBe(0);
-  });
-
-  test('should show correct link in onboarding helper', () => {
-    wrapper = setupModelListViewWithIntl();
-    expect(wrapper.find(`a[href="${ModelRegistryDocUrl}"]`)).toHaveLength(1);
   });
 
   test('should render correct information if table is empty', () => {

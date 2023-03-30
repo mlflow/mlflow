@@ -6,6 +6,7 @@ jobs:
   main:
     if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v3
       - name: Install dependencies

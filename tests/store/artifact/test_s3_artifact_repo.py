@@ -16,6 +16,7 @@ from mlflow.store.artifact.s3_artifact_repo import (
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 
 from unittest import mock
+from unittest.mock import ANY
 
 
 @pytest.fixture
@@ -106,13 +107,39 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
     ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
 )
 def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
-    from unittest.mock import ANY
-
     with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
         with mock.patch("boto3.client") as mock_get_s3_client:
             repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
             repo._get_s3_client()
-            mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify)
+            mock_get_s3_client.assert_called_with(
+                "s3",
+                config=ANY,
+                endpoint_url=ANY,
+                verify=verify,
+                aws_access_key_id=None,
+                aws_secret_access_key=None,
+                aws_session_token=None,
+            )
+
+
+def test_s3_creds_passed_to_client(s3_artifact_root):
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        repo = S3ArtifactRepository(
+            s3_artifact_root,
+            access_key_id="my-id",
+            secret_access_key="my-key",
+            session_token="my-session-token",
+        )
+        repo._get_s3_client()
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id="my-id",
+            aws_secret_access_key="my-key",
+            aws_session_token="my-session-token",
+        )
 
 
 def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmpdir):

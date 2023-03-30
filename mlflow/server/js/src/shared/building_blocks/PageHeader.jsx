@@ -31,6 +31,7 @@ export function OverflowMenu({ menu }) {
     </Dropdown>
   ) : null;
 }
+
 OverflowMenu.propTypes = {
   menu: PropTypes.arrayOf(
     PropTypes.shape({
@@ -43,46 +44,48 @@ OverflowMenu.propTypes = {
 };
 
 /**
- * A page header that includes a title, optional breadcrumb content, and a divider.
- * @param props title: Title text.
- * @param props breadcrumbs: Array of React nodes rendered as antd breadcrumbs.
+ * A page header that includes:
+ *   - title,
+ *   - optional breadcrumb content,
+ *   - optional preview mark,
+ *   - optional feedback link, and
+ *   - optional info popover, safe to have link inside.
  */
-export class PageHeader extends React.Component {
-  static propTypes = {
-    title: PropTypes.node.isRequired,
-    breadcrumbs: PropTypes.arrayOf(PropTypes.node),
-    preview: PropTypes.bool,
-    feedbackForm: PropTypes.string,
-    children: PropTypes.node,
-  };
-
-  render() {
-    const { title, breadcrumbs = [], preview, children } = this.props;
-    // eslint-disable-next-line prefer-const
-    let feedbackLink = null;
-    return (
-      <>
-        <Header
-          breadcrumbs={
-            breadcrumbs.length > 0 && (
-              <Breadcrumb includeTrailingCaret>
-                {breadcrumbs.map((b, i) => (
-                  <Breadcrumb.Item key={i}>{b}</Breadcrumb.Item>
-                ))}
-              </Breadcrumb>
-            )
-          }
-          buttons={children}
-          title={title}
-          titleAddOns={
-            <>
-              {preview && <PreviewIcon />}
-              {feedbackLink}
-            </>
-          }
-        />
-        <Spacer />
-      </>
-    );
-  }
+export function PageHeader({
+  title, // required
+  breadcrumbs = [],
+  preview,
+  children,
+}) {
+  return (
+    <>
+      <Header
+        breadcrumbs={
+          breadcrumbs.length > 0 && (
+            <Breadcrumb includeTrailingCaret>
+              {breadcrumbs.map((b, i) => (
+                <Breadcrumb.Item key={i}>{b}</Breadcrumb.Item>
+              ))}
+            </Breadcrumb>
+          )
+        }
+        buttons={children}
+        title={title}
+        // prettier-ignore
+        titleAddOns={
+          <>
+            {preview && <PreviewIcon />}
+          </>
+        }
+      />
+      <Spacer />
+    </>
+  );
 }
+
+PageHeader.propTypes = {
+  title: PropTypes.node.isRequired,
+  breadcrumbs: PropTypes.arrayOf(PropTypes.node),
+  preview: PropTypes.bool,
+  children: PropTypes.node,
+};

@@ -129,7 +129,7 @@ def save_tf_iris_model(tmpdir):
 
 
 def save_tf_categorical_model(tmpdir):
-    path = os.path.join(args.mlflow_repo_path, "tests/data/uci-autos-imports-85.data")
+    path = os.path.join(args.mlflow_repo_path, "tests/datasets/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
         [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0])]
@@ -220,6 +220,7 @@ with TempDir() as tmp:
                 tf_meta_graph_tags=saved_model.meta_graph_tags,
                 tf_signature_def_key=saved_model.signature_def_key,
                 artifact_path="model",
+                extra_pip_requirements=["protobuf<4.0.0"],
             )
             run_id = run.info.run_id
     elif args.task_type == "save_model":
@@ -229,6 +230,7 @@ with TempDir() as tmp:
             tf_meta_graph_tags=saved_model.meta_graph_tags,
             tf_signature_def_key=saved_model.signature_def_key,
             path=args.save_path,
+            extra_pip_requirements=["protobuf<4.0.0"],
         )
         run_id = None
     else:

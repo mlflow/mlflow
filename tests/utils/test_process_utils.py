@@ -35,7 +35,7 @@ def test_cache_return_value_per_process():
 
     with pytest.raises(
         ValueError,
-        match="The function decorated by `cache_return_value_per_process` is not allowed to be"
+        match="The function decorated by `cache_return_value_per_process` is not allowed to be "
         "called with key-word style arguments.",
     ):
         _gen_random_str1(v=True)

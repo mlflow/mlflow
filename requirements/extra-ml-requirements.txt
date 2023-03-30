@@ -1,8 +1,6 @@
 ## This file describes extra ML library dependencies that you, as an end user,
 ## must install in order to use various MLflow Python modules.
 ##
-# Required by mlflow.sklearn
-scikit-learn
 # Required by mlflow.gluon
 # TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
 mxnet!=1.8.0
@@ -32,8 +30,6 @@ onnxruntime
 tf2onnx
 # Required by mlflow.spark
 pyspark
-# Required by mlflow.shap
-shap
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet

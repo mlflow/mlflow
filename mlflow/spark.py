@@ -23,7 +23,6 @@ import logging
 import posixpath
 import re
 import shutil
-import uuid
 import yaml
 
 import mlflow
@@ -53,9 +52,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to
+from mlflow.utils.file_utils import TempDir, write_to, shutil_copytree_without_file_permissions
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -63,6 +60,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     is_databricks_acled_artifacts_uri,
     get_databricks_profile_uri_from_artifact_uri,
+    generate_tmp_dfs_path,
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import (
@@ -290,10 +288,6 @@ def log_model(
                 await_registration_for,
             )
         return mlflow_model.get_model_info()
-
-
-def _tmp_path(dfs_tmp):
-    return posixpath.join(dfs_tmp, str(uuid.uuid4()))
 
 
 def _mlflowdbfs_path(run_id, artifact_path):
@@ -692,7 +686,7 @@ def save_model(
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
         dfs_tmpdir = MLFLOW_DFS_TMP.get()
-    tmp_path = _tmp_path(dfs_tmpdir)
+    tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
     # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
@@ -721,26 +715,6 @@ def save_model(
     )
 
 
-def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
-    """
-    Copies the directory src_dir into dst_dir, without preserving filesystem permissions
-    """
-    for dirpath, dirnames, filenames in os.walk(src_dir):
-        for dirname in dirnames:
-            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
-            # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
-            # directory under the destination directory
-            abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
-        for filename in filenames:
-            # For each file with name <filename> immediately under <dirpath>, copy that file to
-            # the appropriate location in the destination directory
-            file_path = os.path.join(dirpath, filename)
-            relative_file_path = os.path.relpath(file_path, src_dir)
-            abs_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, abs_file_path)
-
-
 def _load_model_databricks(dfs_tmpdir, local_model_path):
     from pyspark.ml.pipeline import PipelineModel
 
@@ -751,14 +725,14 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
     return PipelineModel.load(dfs_tmpdir)
 
 
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
+    dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
@@ -805,19 +779,11 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         # Make predictions on test documents
         prediction = model.transform(test)
     """
-    if RunsArtifactRepository.is_runs_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
-    elif ModelsArtifactRepository.is_models_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     # This MUST be called prior to appending the model flavor to `model_uri` in order
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
     )

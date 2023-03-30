@@ -23,6 +23,9 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteRegisteredModelTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -322,13 +325,34 @@ def test_get_model_version_download_uri(store, creds):
 
 def test_search_model_versions(store, creds):
     with mock_http_request_200() as mock_http:
-        store.search_model_versions(filter_string="name='model_12'")
+        store.search_model_versions()
+    _verify_requests(mock_http, creds, "model-versions/search", "GET", SearchModelVersions())
+
+
+@pytest.mark.parametrize("filter_string", [None, "name = 'model_12'"])
+@pytest.mark.parametrize("max_results", [None, 400])
+@pytest.mark.parametrize("page_token", [None, "blah"])
+@pytest.mark.parametrize("order_by", ["version DESC", "creation_time DESC"])
+def test_search_model_versions_params(
+    store, creds, filter_string, max_results, page_token, order_by
+):
+    params = {
+        "filter_string": filter_string,
+        "max_results": max_results,
+        "page_token": page_token,
+        "order_by": order_by,
+    }
+    params = {k: v for k, v in params.items() if v is not None}
+    with mock_http_request_200() as mock_http:
+        store.search_model_versions(**params)
+    if "filter_string" in params:
+        params["filter"] = params.pop("filter_string")
     _verify_requests(
         mock_http,
         creds,
         "model-versions/search",
         "GET",
-        SearchModelVersions(filter="name='model_12'"),
+        SearchModelVersions(**params),
     )
 
 
@@ -356,4 +380,43 @@ def test_delete_model_version_tag(store, creds):
         "model-versions/delete-tag",
         "DELETE",
         DeleteModelVersionTag(name=name, version="1", key="key"),
+    )
+
+
+def test_set_registered_model_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.set_registered_model_alias(name=name, alias="test_alias", version="1")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "POST",
+        SetRegisteredModelAlias(name=name, alias="test_alias", version="1"),
+    )
+
+
+def test_delete_registered_model_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.delete_registered_model_alias(name=name, alias="test_alias")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "DELETE",
+        DeleteRegisteredModelAlias(name=name, alias="test_alias"),
+    )
+
+
+def test_get_model_version_by_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.get_model_version_by_alias(name=name, alias="test_alias")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "GET",
+        GetModelVersionByAlias(name=name, alias="test_alias"),
     )

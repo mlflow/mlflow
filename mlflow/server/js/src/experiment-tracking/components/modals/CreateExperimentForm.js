@@ -33,6 +33,8 @@ class CreateExperimentFormComponent extends Component {
                 defaultMessage: 'Please input a new name for the new experiment.',
                 description: 'Error message for name requirement in create experiment for MLflow',
               }),
+            },
+            {
               validator: this.props.validator,
             },
           ]}

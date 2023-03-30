@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   CircleIcon as DuboisCircleIcon,
-  CheckCircleBorderIcon,
+  CheckCircleIcon,
   useDesignSystemTheme,
   WarningFillIcon,
 } from '@databricks/design-system';
@@ -18,7 +18,7 @@ export const getProtoField = (fieldName) => `${fieldName}`;
 
 export function ReadyIcon() {
   const { theme } = useDesignSystemTheme();
-  return <CheckCircleBorderIcon css={{ color: theme.colors.textValidationSuccess }} />;
+  return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />;
 }
 
 export function FailedIcon() {

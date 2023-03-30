@@ -270,8 +270,6 @@ export class RunViewImpl extends Component {
     const runCommand = this.getRunCommand();
     const noteContent = noteInfo && noteInfo.content;
     const breadcrumbs = [this.getExperimentPageLink()];
-    /* eslint-disable prefer-const */
-    let feedbackForm;
     const plotTitle = this.props.intl.formatMessage({
       defaultMessage: 'Plot chart',
       description: 'Link to the view the plot chart for the experiment run',
@@ -282,7 +280,6 @@ export class RunViewImpl extends Component {
         <PageHeader
           title={<span data-test-id='runs-header'>{this.props.runDisplayName}</span>}
           breadcrumbs={breadcrumbs}
-          feedbackForm={feedbackForm}
         >
           <OverflowMenu
             menu={[

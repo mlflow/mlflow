@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { Table } from '@databricks/design-system';
+import { LegacyTable } from '@databricks/design-system';
 import './HtmlTableView.css';
 
 export class HtmlTableView extends Component {
@@ -16,7 +16,7 @@ export class HtmlTableView extends Component {
     const styles = this.props.styles || {};
 
     return (
-      <Table
+      <LegacyTable
         className='html-table-view'
         data-test-id={this.props.testId}
         dataSource={this.props.values}

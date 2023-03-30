@@ -5,6 +5,7 @@ import sys
 import logging
 
 import click
+import importlib.metadata
 from click import UsageError
 from datetime import timedelta
 
@@ -347,6 +348,16 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     "doesn't exist, it will be created. "
     "Activate prometheus exporter to expose metrics on /metrics endpoint.",
 )
+@click.option(
+    "--app-name",
+    default=None,
+    type=click.Choice([e.name for e in importlib.metadata.entry_points().get("mlflow.app", [])]),
+    show_default=True,
+    help=(
+        "Application name to be used for the tracking server. "
+        "If not specified, 'mlflow.server:app' will be used."
+    ),
+)
 def server(
     backend_store_uri,
     registry_store_uri,
@@ -361,6 +372,7 @@ def server(
     gunicorn_opts,
     waitress_opts,
     expose_prometheus,
+    app_name,
 ):
     """
     Run the MLflow tracking server.
@@ -410,6 +422,7 @@ def server(
             gunicorn_opts,
             waitress_opts,
             expose_prometheus,
+            app_name,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -421,7 +434,7 @@ def server(
     "--older-than",
     default=None,
     help="Optional. Remove run(s) older than the specified time limit. "
-    "Specify a string in #d#h#m#s format. Float values are also supported."
+    "Specify a string in #d#h#m#s format. Float values are also supported. "
     "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
 )
 @click.option(

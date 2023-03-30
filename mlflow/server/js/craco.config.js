@@ -1,9 +1,9 @@
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
-const webpack = require('webpack');
 const { ModuleFederationPlugin } = require('webpack').container;
 const { execSync } = require('child_process');
+const webpack = require('webpack');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
 const useProxyServer = !!proxyTarget && !process.env.MLFLOW_DEV_PROXY_MODE;
@@ -275,12 +275,6 @@ module.exports = function ({ env }) {
       },
     },
     webpack: {
-      resolve: {
-        fallback: {
-          buffer: require.resolve('buffer'), // Needed by js-yaml
-          defineProperty: require.resolve('define-property'), // Needed by babel
-        },
-      },
       configure: (webpackConfig, { env, paths }) => {
         webpackConfig.output.publicPath = 'static-files/';
         webpackConfig = i18nOverrides(webpackConfig);

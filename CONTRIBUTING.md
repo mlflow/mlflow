@@ -615,10 +615,10 @@ below.
 ##### Building Protobuf Files
 
 To build protobuf files, simply run `generate-protos.sh`. The required
-`protoc` version is `3.6.0`. You can find the URL of a
+`protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
-<https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0>, e.g.
-<https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip>
+<https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
+<https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-osx-x86_64.zip>
 if you're on 64-bit Mac OSX.
 
 Then, run the following to install `protoc`:

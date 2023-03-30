@@ -204,6 +204,49 @@ const createKeyValueDataForRunRow = (
 };
 
 /**
+ * Temporary function that assigns randomized, yet stable color
+ * from the static palette basing on an input string. Used for coloring runs.
+ *
+ * TODO: make a decision on the final color hashing per run
+ */
+const getStableColorByStringHash = (data: string) => {
+  // Taken from Figma design
+  const colors = [
+    '#077A9D',
+    '#8BCAE7',
+    '#FFAB00',
+    '#FFDB96',
+    '#00A972',
+    '#99DDB4',
+    '#BA7B23',
+    '#FF3621',
+    '#FCA4A1',
+    '#919191',
+    '#00875C',
+    '#1B5162',
+    '#914B9F',
+    '#D01F0B',
+    '#BD89C7',
+    '#AB4057',
+    '#5F5F5F',
+    '#BF7080',
+    '#C2C2C2',
+    '#7F1035',
+  ];
+  let a = 0,
+    b = 0;
+
+  // Let's use super simple hashing method
+  for (let i = 0; i < data.length; i++) {
+    a = (a + data.charCodeAt(i)) % 255;
+    b = (b + a) % 255;
+  }
+
+  // eslint-disable-next-line no-bitwise
+  return colors[(a | (b << 8)) % colors.length];
+};
+
+/**
  * Creates ag-grid compatible row dataset for all given runs basing on
  * the data retrieved from the API and from the refux store.
  * Please refer to PrepareRunsGridDataParams type for type reference.
@@ -218,6 +261,7 @@ export const prepareRunsGridData = ({
   metricKeyList,
   tagKeyList,
   runsPinned,
+  runsHidden,
   runData,
   runUuidsMatchingFilter,
 }: PrepareRunsGridDataParams) => {
@@ -298,7 +342,8 @@ export const prepareRunsGridData = ({
       type: Utils.getSourceType(tags),
     };
 
-    const isCurrentRowPinned = runsPinned.includes(runUuid);
+    const isCurrentRowHidden = runsHidden.includes(runUuid);
+    const isCurrentRowPinned = isPinnable && runsPinned.includes(runUuid);
     const isParentPinned = childrenToPin.includes(runUuid);
 
     // If this or a parent row is pinned, pin children as well
@@ -320,6 +365,8 @@ export const prepareRunsGridData = ({
       models,
       version,
       pinnable: isPinnable,
+      color: getStableColorByStringHash(runUuid),
+      hidden: isCurrentRowHidden,
       pinned: isCurrentRowPinned || isParentPinned,
       ...createKeyValueDataForRunRow(params, paramKeyList, EXPERIMENT_FIELD_PREFIX_PARAM),
       ...createKeyValueDataForRunRow(
@@ -356,7 +403,7 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned'> & {
+  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> & {
     /**
      * List of experiments containing the runs
      */

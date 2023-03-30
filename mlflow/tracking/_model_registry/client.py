@@ -9,7 +9,10 @@ from time import sleep
 import logging
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+)
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.tracking._model_registry import utils, DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -26,11 +29,13 @@ class ModelRegistryClient:
     models and model versions.
     """
 
-    def __init__(self, registry_uri):
+    def __init__(self, registry_uri, tracking_uri):
         """
         :param registry_uri: Address of local or remote model registry server.
+        :param tracking_uri: Address of local or remote tracking server.
         """
         self.registry_uri = registry_uri
+        self.tracking_uri = tracking_uri
         # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
@@ -38,7 +43,7 @@ class ModelRegistryClient:
 
     @property
     def store(self):
-        return utils._get_store(self.registry_uri)
+        return utils._get_store(self.registry_uri, self.tracking_uri)
 
     # Registered Model Methods
 
@@ -275,16 +280,29 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_download_uri(name, version)
 
-    def search_model_versions(self, filter_string):
+    def search_model_versions(
+        self,
+        filter_string=None,
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        order_by=None,
+        page_token=None,
+    ):
         """
         Search for model versions in backend that satisfy the filter criteria.
 
         :param filter_string: A filter string expression. Currently supports a single filter
                               condition either name of model like ``name = 'model_name'`` or
                               ``run_id = '...'``.
-        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        :param max_results: Maximum number of model versions desired.
+        :param order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                         matching search results.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+                            a ``search_model_versions`` call.
+        :return: A PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion`
+                 objects that satisfy the search expressions. The pagination token for the next
+                 page can be obtained via the ``token`` attribute of the object.
         """
-        return self.store.search_model_versions(filter_string)
+        return self.store.search_model_versions(filter_string, max_results, order_by, page_token)
 
     def get_model_version_stages(self, name, version):
         """

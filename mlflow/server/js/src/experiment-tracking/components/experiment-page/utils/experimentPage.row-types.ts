@@ -11,8 +11,10 @@ export interface RunRowType {
   duration: string | null;
   user: string;
   pinned: boolean;
+  hidden: boolean;
   pinnable: boolean;
   runName: string;
+  color?: string;
   tags: Record<string, { key: string; value: string }>;
   runDateAndNestInfo: RunRowDateAndNestInfo;
   models: RunRowModelsInfo;

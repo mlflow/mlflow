@@ -189,9 +189,16 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
-        if type(names) is list:
-            return [self.store.create_experiment(name=name) for name in names]
+        if isinstance(names, (list, tuple)):
+            ids = []
+            for name in names:
+                # Sleep to ensure each experiment has a unique creation_time for
+                # deterministic experiment search results
+                time.sleep(0.001)
+                ids.append(self.store.create_experiment(name=name))
+            return ids
 
+        time.sleep(0.001)
         return self.store.create_experiment(name=names)
 
     def test_default_experiment(self):
@@ -391,6 +398,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         experiments = self.store.search_experiments(filter_string=f"creation_time >= {now}")
         assert experiments == []
 
+        time.sleep(0.001)
         time_before_rename = get_current_time_millis()
         self.store.rename_experiment(exp_id1, "new_name")
         experiments = self.store.search_experiments(

@@ -2,11 +2,14 @@ name: Push-Images
 
 on:
   release:
-    types: [published]
+    types:
+      - published
+      - edited
 
 jobs:
   push-images:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
 
@@ -68,7 +71,10 @@ jobs:
 
       - name: Push Model Server Image
         run: |
-          for tag in ${{ steps.modelmeta.outputs.tags }}; do
+          set -x
+
+          tags=$(echo -n "${{ steps.modelmeta.outputs.tags }}" | tr '\n' ' ')
+          for tag in $tags; do
             docker tag model-server:latest $tag
             docker push $tag
           done

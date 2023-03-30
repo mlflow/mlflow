@@ -18,6 +18,7 @@ import { modelListPageRoute } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { injectIntl } from 'react-intl';
+import { ErrorWrapper } from './../../common/utils/ErrorWrapper';
 
 export class ModelPageImpl extends React.Component {
   static propTypes = {
@@ -79,7 +80,7 @@ export class ModelPageImpl extends React.Component {
     const { modelName, history } = this.props;
     if (!this.hasUnfilledRequests && Utils.isBrowserTabVisible()) {
       return this.loadData().catch((e) => {
-        if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
+        if (e instanceof ErrorWrapper && e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
           this.props.deleteRegisteredModelApi(modelName, undefined, true);
           history.push(modelListPageRoute);

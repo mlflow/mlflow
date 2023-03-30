@@ -33,6 +33,18 @@ describe('persistSearchFacets serializers and deserializers', () => {
     );
   });
 
+  it('tests deserializeToQueryString with erronoeus data', () => {
+    const deserializedObject = deserializeFieldsFromQueryString({
+      compareRunCharts: 'something-not-deserializable',
+    });
+
+    expect(deserializedObject).toEqual(
+      expect.objectContaining({
+        compareRunCharts: undefined,
+      }),
+    );
+  });
+
   it('tests serializeLocalStorage', () => {
     const serializedObject = serializeFieldsToLocalStorage({
       orderByKey: 'column_name',

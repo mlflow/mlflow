@@ -13,9 +13,9 @@ import { getLoggedModelPathsFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
-import ShowArtifactMapView from './ShowArtifactMapView';
+import { LazyShowArtifactMapView } from './LazyShowArtifactMapView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
-import ShowArtifactPdfView from './ShowArtifactPdfView';
+import { LazyShowArtifactPdfView } from './LazyShowArtifactPdfView';
 import { LazyShowArtifactTableView } from './LazyShowArtifactTableView';
 import ShowArtifactLoggedModelView from './ShowArtifactLoggedModelView';
 import previewIcon from '../../../common/static/preview-icon.png';
@@ -80,11 +80,11 @@ class ShowArtifactPage extends Component {
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactHtmlView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (PDF_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
+          return <LazyShowArtifactPdfView runUuid={this.props.runUuid} path={this.props.path} />;
         }
       }
     }

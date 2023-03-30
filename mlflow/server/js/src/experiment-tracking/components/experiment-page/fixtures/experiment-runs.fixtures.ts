@@ -345,6 +345,10 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           key: 'testtag3',
           value: 'value3',
         }),
+        'tag with a space': hydrateImmutableRecord(RunTag)({
+          key: 'tag with a space',
+          value: 'value3',
+        }),
       },
       experiment654321_run1: {
         testtag1: hydrateImmutableRecord(RunTag)({

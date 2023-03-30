@@ -1,8 +1,8 @@
 import json
-import os
 import re
+from pathlib import Path
 from unittest import mock
-import tempfile
+import pytest
 
 from dev import update_ml_package_versions
 
@@ -25,21 +25,28 @@ class MockResponse:
         return cls({"releases": {v: [v + ".whl"] for v in versions}})
 
 
+@pytest.fixture(autouse=True)
+def change_working_directory(tmp_path, monkeypatch):
+    """
+    Changes the current working directory to a temporary directory to avoid modifying files in the
+    repository.
+    """
+    monkeypatch.chdir(tmp_path)
+
+
 def run_test(src, src_expected, mock_responses):
     def patch_urlopen(url):
         package_name = re.search(r"https://pypi.python.org/pypi/(.+)/json", url).group(1)
         return mock_responses[package_name]
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmp_path = os.path.join(tmpdir, "versions.yml")
-        with open(tmp_path, "w") as f:
-            f.write(src)
+    versions_yaml = Path("mlflow/ml-package-versions.yml")
+    versions_yaml.parent.mkdir()
+    versions_yaml.write_text(src)
 
-        with mock.patch("urllib.request.urlopen", new=patch_urlopen):
-            update_ml_package_versions.main(["--path", tmp_path])
+    with mock.patch("urllib.request.urlopen", new=patch_urlopen):
+        update_ml_package_versions.main()
 
-        with open(tmp_path) as f:
-            assert f.read() == src_expected
+    assert versions_yaml.read_text() == src_expected
 
 
 def test_multiple_flavors_are_correctly_updated():

@@ -41,6 +41,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
         with:
@@ -79,6 +80,7 @@ jobs:
   # while also verifying certain dependencies are omitted.
   python-skinny:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
@@ -95,17 +97,13 @@ jobs:
 
   python:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          # Increase available disk space by removing unnecessary tool chains:
-          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-          rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -123,9 +121,15 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      # TODO: Remove this step once pyspark 3.4 is released
+      - name: Run tests for pyspark 3.4.0
+        run: |
+          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
+          pytest tests/pyfunc/test_spark.py::test_spark_udf_array_of_structs
 
   database:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
         with:
@@ -195,6 +199,7 @@ jobs:
 
   java:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v3
         with:
@@ -212,19 +217,14 @@ jobs:
           mvn clean package -q
 
   flavors:
-    # TODO: Change this to 'ubuntu-latest' once https://github.com/mlflow/mlflow/issues/7222 is fixed
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          # Increase available disk space by removing unnecessary tool chains:
-          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-          rm -rf "$AGENT_TOOLSDIRECTORY"
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
@@ -240,6 +240,7 @@ jobs:
   # run these tests in a separate job.
   models:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -260,6 +261,7 @@ jobs:
 
   pyfunc:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -280,6 +282,7 @@ jobs:
 
   sagemaker:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -297,6 +300,7 @@ jobs:
 
   windows:
     runs-on: windows-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:

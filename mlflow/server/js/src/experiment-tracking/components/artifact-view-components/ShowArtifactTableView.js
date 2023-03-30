@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
-import { Table } from '@databricks/design-system';
+import { LegacyTable } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import Papa from 'papaparse';
 
@@ -93,7 +93,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact }) => {
             values={{ numRows }}
           />
         </span>
-        <Table
+        <LegacyTable
           columns={columns}
           dataSource={data}
           pagination={false}

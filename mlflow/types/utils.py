@@ -38,7 +38,7 @@ def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
             variable_input_data_shape[variable_dimension] = -1
         except IndexError:
             raise MlflowException(
-                "The specified variable_dimension {} is out of bounds with"
+                "The specified variable_dimension {} is out of bounds with "
                 "respect to the number of dimensions {} in the input dataset".format(
                     variable_dimension, data.ndim
                 )
@@ -241,7 +241,7 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
             return DataType.string
         else:
             raise MlflowException(
-                "Unable to map 'object' type to MLflow DataType. object can"
+                "Unable to map 'object' type to MLflow DataType. object can "
                 "be mapped iff all values have identical data type which is one "
                 "of (string, (bytes or byterray),  int, float)."
             )
