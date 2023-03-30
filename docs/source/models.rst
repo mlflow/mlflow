@@ -2545,7 +2545,7 @@ only inferred for built-in flavors.
             additional_pip_deps=get_default_pip_requirements(include_cloudpickle)
         )
 
-Next we add the ``log_model()`` function which is just a wrapper around the
+Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
 :py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
 curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
 ``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
