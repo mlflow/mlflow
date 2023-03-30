@@ -122,6 +122,7 @@ def from_spark(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     table_version: Optional[str] = None,
+    sql: Optional[str] = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
@@ -132,6 +133,10 @@ def from_spark(
         source = resolve_dataset_source(
             path,
             candidate_sources=[DeltaDatasetSource, SparkDatasetSource, FileSystemDatasetSource],
+        )
+    elif sql is not None:
+        source = SparkDatasetSource(
+
         )
     elif table_name is not None:
         if table_version is not None:
