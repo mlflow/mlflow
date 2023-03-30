@@ -77,10 +77,12 @@ get_databricks_config_from_env <- function() {
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
-  } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
+  } else if (require("SparkR") &&
+      !is.null(SparkR:::getLocalProperty("spark.databricks.token")) &&
+      !is.null(SparkR:::getLocalProperty("spark.databricks.api.url"))) {
     config_vars <- list(
-      host = get("spark.databricks.api.url", envir = .GlobalEnv),
-      token = get("spark.databricks.token", envir = .GlobalEnv),
+      host = SparkR:::getLocalProperty("spark.databricks.api.url"),
+      token = SparkR:::getLocalProperty("spark.databricks.token"),
       insecure = Sys.getenv(config_variable_map$insecure, "False")
     )
     new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
