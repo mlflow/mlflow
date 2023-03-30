@@ -42,6 +42,10 @@ def is_local_uri(uri):
     return False
 
 
+def is_file_uri(uri):
+    return urllib.parse.urlparse(uri).scheme == "file"
+
+
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == "http" or scheme == "https"

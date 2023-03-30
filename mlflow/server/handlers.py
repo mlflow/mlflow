@@ -84,9 +84,10 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_local_uri
+from mlflow.utils.uri import is_local_uri, is_file_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -1322,6 +1323,13 @@ def _delete_registered_model_tag():
 
 
 def _validate_source(source: str, run_id: str) -> None:
+    if not MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.get() and is_file_uri(source):
+        raise MlflowException(
+            f"Invalid source: '{source}'. To use a file URI as source, set the "
+            f"{MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.name} environment variable to True.",
+            INVALID_PARAMETER_VALUE,
+        )
+
     if not is_local_uri(source):
         return
 
