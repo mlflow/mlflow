@@ -575,7 +575,7 @@ class SqlInputTag(Base):
         return InputTag(key=self.name, value=self.value)
 
 
-class SqlInput(Base):
+class SqlInputs(Base):
     __tablename__ = "inputs"
     __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
 
