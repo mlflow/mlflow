@@ -1,7 +1,7 @@
 from mlflow.entities import RunInputs
 
 
-def _check_input(run_datasets, datasets):
+def _check_inputs(run_datasets, datasets):
     for d1, d2 in zip(run_datasets, datasets):
         assert d1.dataset.digest == d2.dataset.digest
         assert d1.dataset.name == d2.dataset.name
@@ -14,7 +14,7 @@ def _check_input(run_datasets, datasets):
 
 def _check(inputs, datasets):
     assert isinstance(inputs, RunInputs)
-    _check_input(inputs.dataset_inputs, datasets)
+    _check_inputs(inputs.dataset_inputs, datasets)
 
 
 def test_creation_and_hydration(run_inputs):
