@@ -180,5 +180,4 @@ CREATE TABLE input_tags (
 	name varchar(255) NOT NULL,
 	value varchar(255) NOT NULL,
 	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name),
-	FOREIGN KEY(input_uuid) REFERENCES inputs (input_uuid)
 )
