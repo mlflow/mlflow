@@ -2525,7 +2525,7 @@ The ``save_model()`` function also writes the model dependencies to a ``requirem
 ``conda.yaml`` file in the model output directory. For this purpose the set of ``pip`` dependecies
 produced by this flavor need to be added to the ``get_default_pip_requirements()`` function. In this
 example only the minimum required dependencies are provided but additional requirements needed for
-preprocessing or post-processing steps could be included. Note that for any custom flavor the
+preprocessing or post-processing steps could be included. Note that for any custom flavor, the
 :py:func:`mlflow.models.infer_pip_requirements()` method in the ``save_model()`` function will
 return the default requirements defined in ``get_default_pip_requirements()`` as package imports are
 only inferred for built-in flavors.
