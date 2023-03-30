@@ -2413,7 +2413,35 @@ model is saved to a specified output directory. Additionally, ``save_model()`` l
 produce the ``MLmodel`` configuration containing the ``sktime`` and the ``python_function`` flavor.
 The resulting configuration has several flavor-specific attributes, such as the flavor name and
 ``sktime_version``, which denotes the version of the ``sktime`` library that was used to train the
-model.
+model. An example of the output directoy for the custom ``sktime`` model is shown below:
+
+::
+
+    # Directory written by flavor.save_model(model, "my_model")
+    my_model/
+    ├── MLmodel
+    ├── conda.yaml
+    ├── model.pkl
+    ├── python_env.yaml
+    └── requirements.txt
+
+And its YAML-formatted ``MLmodel`` file describes the two flavors:
+
+.. code-block:: yaml
+
+    flavors:
+      python_function:
+        env:
+          conda: conda.yaml
+          virtualenv: python_env.yaml
+        loader_module: flavor
+        model_path: model.pkl
+        python_version: 3.8.15
+      sktime:
+        code: null
+        pickled_model: model.pkl
+        serialization_format: pickle
+        sktime_version: 0.16.0
 
 The ``save_model()`` function also provides flexibility to add additional paramters which can be
 added as flavor-specific attributes to the model configuration. In this example there is only one
