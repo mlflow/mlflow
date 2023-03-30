@@ -82,6 +82,9 @@ class TestRun:
         run3 = Run(run_info, None, None)
         assert run3.to_dictionary() == {"info": expected_info_dict}
 
+        run4 = Run(run_info, None)
+        assert run4.to_dictionary() == {"info": expected_info_dict}
+
     def test_string_repr(self):
         run_info = RunInfo(
             run_uuid="hi",

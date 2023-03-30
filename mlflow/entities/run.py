@@ -5,7 +5,7 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class Run(_MLflowObject):
@@ -13,7 +13,9 @@ class Run(_MLflowObject):
     Run object.
     """
 
-    def __init__(self, run_info: RunInfo, run_data: RunData, run_inputs: RunInputs) -> None:
+    def __init__(
+        self, run_info: RunInfo, run_data: RunData, run_inputs: Optional[RunInputs] = None
+    ) -> None:
         if run_info is None:
             raise MlflowException("run_info cannot be None")
         self._info = run_info
