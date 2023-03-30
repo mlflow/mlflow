@@ -21,7 +21,7 @@ X_test_list = X_test.to_numpy().tolist()
 predict_conf = pd.DataFrame(
     [
         {
-            "fh": [1, 2, 3],
+            "fh": [1, 2, 3, 4],
             "predict_method": "predict_interval",
             "coverage": [0.9, 0.95],
             "X": X_test_list,
