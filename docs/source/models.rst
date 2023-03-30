@@ -2406,7 +2406,7 @@ pickle (cloudpickle).
         SERIALIZATION_FORMAT_CLOUDPICKLE,
     ]
 
-Just like the MLflow built-in flavors a custom flavor logs the model in MLflow format via the
+Similar to the MLflow built-in flavors, a custom flavor logs the model in MLflow format via the
 ``save_model()`` and ``log_model()`` functions. In the ``save_model()`` function, the ``sktime``
 model is saved to a specified output directory. Additionally, ``save_model()`` leverages the
 :py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` methods to
