@@ -100,9 +100,8 @@ def get_default_pip_requirements(model) -> List[str]:
             "PreTrainedModel, TFPreTrainedModel, or FlaxPreTrainedModel",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    base_reqs = ["transformers"]
     try:
-        base_reqs.extend(_model_packages(model))
+        base_reqs = ["transformers", *_model_packages(model)]
         return [_get_pinned_requirement(module) for module in base_reqs]
     except Exception as e:
         dependencies = [
@@ -348,14 +347,14 @@ def save_model(
         )
     else:
         if processor:
-            reason = "the model being saved with a 'processor' argument supplied."
+            reason = "the model has been saved with a 'processor' argument supplied."
         else:
             reason = (
                 "the model is not a language-based model and requires a complex input type "
                 "that is currently not supported."
             )
         _logger.warning(
-            f"This model is unable to be used for pyfunc prediction due to {reason} "
+            f"This model is unable to be used for pyfunc prediction because {reason} "
             f"The pyfunc flavor will not be added to the Model."
         )
     flavor_conf.update(**model_bin_kwargs)
@@ -653,7 +652,7 @@ def _fetch_model_card(model_or_pipeline):
     the library is not installed, returns None.
     """
     try:
-        hub = importlib.import_module("huggingface_hub")
+        import huggingface_hub as hub
     except ImportError:
         _logger.warning(
             "Unable to store ModelCard data with the saved artifact. In order to "
