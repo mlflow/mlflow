@@ -91,6 +91,7 @@ def test_is_local_uri():
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
     assert is_local_uri("file:foo/mlruns")
+    assert is_local_uri("file://./mlruns")
 
     assert not is_local_uri("file://myhostname/path/to/file")
     assert not is_local_uri("https://whatever")
