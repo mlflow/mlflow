@@ -1124,6 +1124,25 @@ def test_create_model_version_with_local_source(mlflow_client):
     assert "Invalid source" in resp["message"]
 
 
+def test_file_uri_cannot_be_used_as_model_version_source_by_default(mlflow_client):
+    name = "test"
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    assert run.info.artifact_uri.startswith("file://")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "Invalid source" in response.text
+    assert "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE" in response.text
+
+
 def test_file_uri_can_be_used_as_model_version_source_when_env_var_is_set(tmp_path):
     backend_uri = tmp_path.joinpath("file").as_uri()
     url, process = _init_server(
@@ -1131,15 +1150,15 @@ def test_file_uri_can_be_used_as_model_version_source_when_env_var_is_set(tmp_pa
         root_artifact_uri=tmp_path.as_uri(),
         extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
     )
-    client = MlflowClient(url)
+    mlflow_client = MlflowClient(url)
 
     name = "test"
-    client.create_registered_model(name)
-    exp_id = client.create_experiment("test")
-    run = client.create_run(experiment_id=exp_id)
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
     assert run.info.artifact_uri.startswith("file://")
     response = requests.post(
-        f"{url}/api/2.0/mlflow/model-versions/create",
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
             "source": run.info.artifact_uri,
