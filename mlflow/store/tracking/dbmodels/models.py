@@ -543,41 +543,20 @@ class SqlDataset(Base):
         )
 
 
-class SqlInputTag(Base):
-    __tablename__ = "input_tags"
-    __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
-
-    input_uuid = Column(String(36), ForeignKey("experiments.experiment_id"), nullable=False)
-    """
-    Input UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
-    *Foreign Key* into ``inputs`` table. Part of *Primary Key* for ``input_tags`` table.
-    """
-    name = Column(String(255), nullable=False)
-    """
-    Param name: `String` (limit 255 characters). Defined as *Non-null* in schema.
-    Part of *Primary Key* for ``input_tags`` table.
-    """
-    value = Column(String(500), nullable=False)
-    """
-    Param value: `String` (limit 500 characters). Defined as *Non-null* in schema.
-    Part of *Primary Key* for ``input_tags`` table.
-    """
-
-    def __repr__(self):
-        return "<SqlInputTag ({}, {}, {})>".format(self.input_uuid, self.name, self.value)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.InputTag`.
-        """
-        return InputTag(key=self.name, value=self.value)
-
-
 class SqlInputs(Base):
     __tablename__ = "inputs"
-    __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_type", "source_id", "destination_type", "destination_id", name="inputs_pk"
+        ),
+        Index(f"index_{__tablename__}_input_uuid", "input_uuid"),
+        Index(
+            f"index_{__tablename__}_destination_type_destination_id_source_type",
+            "destination_type",
+            "destination_id",
+            "source_type",
+        ),
+    )
 
     input_uuid = Column(String(36), nullable=False)
     """
@@ -612,3 +591,35 @@ class SqlInputs(Base):
             self.destination_type,
             self.destination_id,
         )
+
+
+class SqlInputTag(Base):
+    __tablename__ = "input_tags"
+    __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
+
+    input_uuid = Column(String(36), ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Input UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
+    *Foreign Key* into ``inputs`` table. Part of *Primary Key* for ``input_tags`` table.
+    """
+    name = Column(String(255), nullable=False)
+    """
+    Param name: `String` (limit 255 characters). Defined as *Non-null* in schema.
+    Part of *Primary Key* for ``input_tags`` table.
+    """
+    value = Column(String(500), nullable=False)
+    """
+    Param value: `String` (limit 500 characters). Defined as *Non-null* in schema.
+    Part of *Primary Key* for ``input_tags`` table.
+    """
+
+    def __repr__(self):
+        return "<SqlInputTag ({}, {}, {})>".format(self.input_uuid, self.name, self.value)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.InputTag`.
+        """
+        return InputTag(key=self.name, value=self.value)
