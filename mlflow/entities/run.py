@@ -5,13 +5,15 @@ from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
+from typing import Any, Dict
+
 
 class Run(_MLflowObject):
     """
     Run object.
     """
 
-    def __init__(self, run_info, run_data, run_inputs):
+    def __init__(self, run_info: RunInfo, run_data: RunData, run_inputs: RunInputs) -> None:
         if run_info is None:
             raise MlflowException("run_info cannot be None")
         self._info = run_info
@@ -19,7 +21,7 @@ class Run(_MLflowObject):
         self._inputs = run_inputs
 
     @property
-    def info(self):
+    def info(self) -> RunInfo:
         """
         The run metadata, such as the run id, start time, and status.
 
@@ -28,7 +30,7 @@ class Run(_MLflowObject):
         return self._info
 
     @property
-    def data(self):
+    def data(self) -> RunData:
         """
         The run data, including metrics, parameters, and tags.
 
@@ -37,7 +39,7 @@ class Run(_MLflowObject):
         return self._data
 
     @property
-    def inputs(self):
+    def inputs(self) -> RunInputs:
         """
         The run inputs, including dataset inputs
 
@@ -62,7 +64,7 @@ class Run(_MLflowObject):
             RunInputs.from_proto(proto.inputs),
         )
 
-    def to_dictionary(self):
+    def to_dictionary(self) -> Dict[Any, Any]:
         run_dict = {
             "info": dict(self.info),
         }

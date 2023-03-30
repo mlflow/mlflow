@@ -1,11 +1,21 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import Dataset as ProtoDataset
 
+from typing import Optional
+
 
 class Dataset(_MLflowObject):
     """Dataset object associated with an experiment."""
 
-    def __init__(self, name, digest, source_type, source, schema=None, profile=None):
+    def __init__(
+        self,
+        name: str,
+        digest: str,
+        source_type: str,
+        source: str,
+        schema: Optional[str] = None,
+        profile: Optional[str] = None,
+    ) -> None:
         self._name = name
         self._digest = digest
         self._source_type = source_type
@@ -13,38 +23,38 @@ class Dataset(_MLflowObject):
         self._schema = schema
         self._profile = profile
 
-    def __eq__(self, other):
+    def __eq__(self, other: _MLflowObject) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
 
     @property
-    def name(self):
+    def name(self) -> str:
         """String name of the dataset."""
         return self._name
 
     @property
-    def digest(self):
+    def digest(self) -> str:
         """String digest of the dataset."""
         return self._digest
 
     @property
-    def source_type(self):
+    def source_type(self) -> str:
         """String source_type of the dataset."""
         return self._source_type
 
     @property
-    def source(self):
+    def source(self) -> str:
         """String source of the dataset."""
         return self._source
 
     @property
-    def schema(self):
+    def schema(self) -> str:
         """String schema of the dataset."""
         return self._schema
 
     @property
-    def profile(self):
+    def profile(self) -> str:
         """String profile of the dataset."""
         return self._profile
 

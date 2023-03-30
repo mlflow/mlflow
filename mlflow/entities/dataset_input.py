@@ -3,29 +3,31 @@ from mlflow.protos.service_pb2 import DatasetInput as ProtoDatasetInput
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.input_tag import InputTag
 
+from typing import Optional, List
+
 
 class DatasetInput(_MLflowObject):
     """DatasetInput object associated with an experiment."""
 
-    def __init__(self, dataset, tags=None):
+    def __init__(self, dataset: Dataset, tags: Optional[List[InputTag]] = None) -> None:
         self._dataset = dataset
         self._tags = tags or []
 
-    def __eq__(self, other):
+    def __eq__(self, other: _MLflowObject) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False
 
-    def _add_tag(self, tag):
+    def _add_tag(self, tag: InputTag) -> None:
         self._tags.append(tag)
 
     @property
-    def tags(self):
+    def tags(self) -> List[InputTag]:
         """Array of input tags."""
         return self._tags
 
     @property
-    def dataset(self):
+    def dataset(self) -> Dataset:
         """Dataset."""
         return self._dataset
 
