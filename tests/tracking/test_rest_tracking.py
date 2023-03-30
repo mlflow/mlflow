@@ -1166,6 +1166,20 @@ def test_file_uri_can_be_used_as_model_version_source_when_env_var_is_set(tmp_pa
         },
     )
     assert response.status_code == 200
+
+    # A file URI is allowed, but one that looks like a local path that's not in the run's artifact
+    # directory is not allowed.
+    assert run.info.artifact_uri.startswith("file://")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///tmp",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+
     _terminate_server(process)
 
 
