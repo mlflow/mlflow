@@ -1,0 +1,12 @@
+dependencies:
+- name: mlflow
+  repository: file://../mlflow
+  version: 0.1.0
+- name: minio
+  repository: https://charts.min.io/
+  version: 5.0.7
+- name: postgresql
+  repository: https://charts.bitnami.com/bitnami
+  version: 12.2.1
+digest: sha256:02cd04d4f811d8e41600aa035975eb311073a2d3f003e9182b270b1dac3037c6
+generated: "2023-03-24T17:12:20.497708021+11:00"

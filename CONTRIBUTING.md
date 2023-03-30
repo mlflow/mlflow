@@ -35,6 +35,10 @@ We welcome community contributions to MLflow. This page provides useful informat
   - [Developing inside a Docker container (experimental)](#developing-inside-a-docker-container-experimental)
     - [Prerequisites](#prerequisites)
     - [Setup](#setup)
+  - [Kubernetes](#Kubernetes)
+    - [Prerequisites](#kubernetes-prerequisites)
+    - [Setup](#kubernetes-setup)
+    - [Clean up](#kubernetes-cleanup)
   - [Writing MLflow Examples](#writing-mlflow-examples)
   - [Building a Distributable Artifact](#building-a-distributable-artifact)
   - [Writing Docs](#writing-docs)
@@ -723,6 +727,88 @@ Now you can attach to the running container with your code editor.
 After typing `exit` in the terminal window that executed
 `dev/run-test-container.sh`, the container will be shut down and
 removed.
+
+### Kubernetes
+
+To test changes to the helm charts a Kubernetes cluster is needed. Scripts are provided
+to assist with setting up a local cluster for testing.
+
+#### Kubernetes prerequisites
+
+The following tools are needed to set up a local Kuberentes cluster:
+
+- Docker runtime installed on a local machine
+  (<https://docs.docker.com/get-docker/>)
+- k3d installed on a local machine
+  (<https://k3d.io/>)
+- helm installed on a local machine
+  (<https://helm.sh/>)
+- helm-unittests plugin
+  (https://github.com/helm-unittest/helm-unittest)
+- kubectl installed on a local machine
+  (<https://kubernetes.io/docs/tasks/tools/>)
+
+#### Kubernetes setup
+
+The following instructions explain how to configure a local Kubernetes cluster. The cluster will be
+configured with the following:
+
+- A local container registry
+- Ports 32000-32002 reserved on localhost for use as NodePorts
+- `local-path` storage class for persistent volumes
+
+To configure the container registry and cluster, run:
+
+```bash
+bash dev/k8s/dev-env-setup.sh
+```
+
+To enable kubectl and helm to access the cluster, run:
+
+> Warning: this will overwrite access to an existing cluster
+
+```bash
+mkdir -p ~/.kube
+k3d kubeconfig get mlflow > $HOME/.kube/config
+```
+
+To build and push the tracking server image to the k3d container registry, run:
+
+```bash
+bash dev/k8s/build-image.sh
+```
+
+To deploy the quickstart chart on the cluster, run:
+
+```bash
+bash dev/k8s/configure-mlflow-quickstart.sh
+```
+
+#### Testing
+
+The mlflow helm chart contains unit tests. These tests can be run with:
+
+```bash
+helm unittest /charts/mlflow
+```
+
+A simple test script is also available for testing basic mlflow functionality against the
+quickstart deployment. The test is simple and only checks that a model can be logged
+to and loaded from the deployed mlflow instance.
+
+The test can be run with:
+
+```bash
+pytest /dev/k8s/test/test_log_load_model.py
+```
+
+#### Kubernetes cleanup
+
+When the cluster is no longer needed, it can be removed.
+
+```bash
+bash dev/k8s/dev-env-teardown.sh
+```
 
 ### Writing MLflow Examples
 

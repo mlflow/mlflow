@@ -1,0 +1,45 @@
+{{- if or .Values.artifacts.s3.existingSecret .Values.artifacts.s3.createSecret.accessKeyID -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "mlflow.fullname" . }}
+  labels:
+    {{- include "mlflow.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "mlflow.selectorLabels" . | nindent 6 }}
+  template:
+    {{- include "mlflow.deploymentTemplateMetadataValues" . | nindent 4 }}
+    spec:
+      {{- include "mlflow.deploymentCommonTemplateSpecValues" . | nindent 6 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          {{- include "mlflow.trackingServerContainerCommonValues" . | nindent 10 }}
+          env:
+            {{- include "mlflow.defaultArtifactRoot" . | nindent 12 }}
+            {{- include "mlflow.backendStoreUri" . | nindent 12 }}
+            {{- if or .Values.artifacts.s3.caBundleExistingSecret .Values.artifacts.s3.createCaSecret.caBundle }}
+            - name: AWS_CA_BUNDLE
+              value: "/ca-bundle.crt"
+            {{- end }}
+          envFrom:
+            - secretRef:
+                name: {{ or .Values.artifacts.s3.existingSecret (include "mlflow.artifactCredentialName" .) }}
+          {{- if or .Values.artifacts.s3.caBundleExistingSecret .Values.artifacts.s3.createCaSecret.caBundle }}
+          volumeMounts:
+          - name: s3-ca-bundle
+            mountPath: "/ca-bundle.pem"
+            readOnly: true
+          {{- end }}
+      {{- if or .Values.artifacts.s3.caBundleExistingSecret .Values.artifacts.s3.createCaSecret.caBundle }}
+      volumes:
+      - name: s3-ca-bundle
+        secret:
+          secretName: {{ or .Values.artifacts.s3.caBundleExistingSecret "mlflow-artifacts-aws-ca-bundle" }}
+          optional: false
+      {{- end }}
+{{- end -}}

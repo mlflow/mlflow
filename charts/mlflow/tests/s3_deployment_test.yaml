@@ -1,0 +1,49 @@
+suite: Test S3 deployment configuration
+tests:
+
+  - it: Test created artifacts credentials secret mount
+    values:
+      - values/s3/create-secrets.yaml
+    template: templates/deployments/deployment-s3.yaml
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom[?(@.secretRef.name == "mlflow-artifacts-credentials")].secretRef.name
+
+  - it: Test created S3 CA bundle secret mount
+    values:
+      - values/s3/create-secrets.yaml
+    template: templates/deployments/deployment-s3.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[?(@.name == "s3-ca-bundle")].secret.secretName
+          value: mlflow-artifacts-aws-ca-bundle
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts[?(@.name == "s3-ca-bundle")]
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "AWS_CA_BUNDLE")].value
+          value: /ca-bundle.crt
+
+  - it: Test existing artifacts credentials secret mount
+    values:
+      - values/s3/use-existing-secrets.yaml
+    template: templates/deployments/deployment-s3.yaml
+    asserts:
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].envFrom[?(@.secretRef.name == "test-s3-secret")].secretRef.name
+      - equal:
+          path: spec.template.spec.volumes[?(@.name == "s3-ca-bundle")].secret.secretName
+          value: test-s3-ca-secret
+      - isNotEmpty:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].volumeMounts[?(@.name == "s3-ca-bundle")]
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "AWS_CA_BUNDLE")].value
+          value: /ca-bundle.crt
+
+  - it: Test default artifact root store environment variable
+    values:
+      - values/s3/use-existing-secrets.yaml
+    template: templates/deployments/deployment-s3.yaml
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].env[?(@.name == "DEFAULT_ARTIFACT_ROOT")].value
+          value: s3://mlflow

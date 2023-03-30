@@ -3,7 +3,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!CHANGELOG.md|mlflow/pypi_package_index.json|docs/|mlflow/server/js/|charts/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
   - repo: local
     hooks:

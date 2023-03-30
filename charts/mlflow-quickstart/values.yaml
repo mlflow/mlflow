@@ -1,0 +1,156 @@
+## PostgreSQL parameters
+postgresql:
+  ## enable deployment of postgres
+  enabled: true
+
+  # PostgreSQL image config
+  # image:
+  #   registry: docker.io
+  #   repository: bitnami/postgresql
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+  #   pullSecrets: []
+  #   # - name: <secret-name>
+
+  ## Authentication parameters
+  auth:
+    ## @param auth.username: Name for a custom user to create
+    username: mlflow
+    ## @param auth.password Password for the custom user to create.
+    password: mlflow123
+    ## @param auth.database: Name for a custom database to create
+    database: mlflow
+
+  ## PostgreSQL Primary parameters
+  primary:
+    ## PostgreSQL Primary persistence configuration
+    persistence:
+      ## @param primary.persistence.storageClass: PVC Storage Class for PostgreSQL Primary data volume
+      storageClass: ""
+
+
+## MinIO parameters
+minio:
+  enabled: true
+
+  # MinIO image config
+  # image:
+  #   repository: quay.io/minio/minio
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+
+  # imagePullSecrets: []
+
+  ## MinIO mode, i.e. standalone or distributed
+  mode: standalone
+
+  ## Set default root user
+  rootUser: minio
+  ## Set default root password
+  rootPassword: minio123
+
+  # Number of drives attached to a node
+  drivesPerNode: 1
+  # Number of MinIO containers running
+  replicas: 1
+
+  persistence:
+    ## Enable persistence using Persistent Volume Claims
+    enabled: true
+    ## Storage class of PV to bind. By default it looks for standard storage class.
+    storageClass: ""
+    ## Volume of the PV
+    size: 50Gi
+
+  ## MinIO backend service
+  service:
+    type: ClusterIP
+    nodePort: 32000
+
+  ## MinIO backend ingress
+  ingress:
+    enabled: false
+    # ingressClassName: ""
+    labels: {}
+    annotations: {}
+
+    path: /
+    hosts:
+      - minio-example.local
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  ## MinIO console service
+  consoleService:
+    type: ClusterIP
+    nodePort: 32001
+
+  ## MinIO console ingress
+  consoleIngress:
+    enabled: false
+    # ingressClassName: ""
+    labels: {}
+    annotations: {}
+
+    path: /
+    hosts:
+      - console.minio-example.local
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local
+
+  ## Resources for the MinIO pod
+  resources:
+    requests:
+      memory: 512Mi
+
+  ## List of users to be created after MinIO install
+  users:
+    - accessKey: mlflow
+      secretKey: mlflow123
+      policy: consoleAdmin
+
+  ## List of buckets to be created after MinIO install
+  buckets:
+    - name: mlflow
+
+
+## mlflow Parameters
+mlflow:
+  # mlflow tracking server image config
+  # image:
+  #   repository: ghcr.io/mlflow/mlflow
+  #   tag: ""
+  #   pullPolicy: IfNotPresent
+  #   pullSecrets: []
+  #   # - name: <secret-name>
+  
+  backendStore:
+    existingSecret: mlflow-quickstart-backend-store-credentials
+
+  artifacts:
+    s3:
+      defaultArtifactRoot: s3://mlflow
+      existingSecret: mlflow-quickstart-artifact-credentials
+
+  service:
+    type: ClusterIP
+    nodePort: 32002
+
+  ingress:
+    enabled: false
+    className: ""
+    annotations: {}
+
+    hosts:
+      - host: chart-example.local
+        paths:
+          - path: /
+            pathType: ImplementationSpecific
+    tls: []
+    #  - secretName: chart-example-tls
+    #    hosts:
+    #      - chart-example.local

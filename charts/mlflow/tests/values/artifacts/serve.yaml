@@ -1,0 +1,15 @@
+artifacts: 
+
+  serve: true
+  
+  gcp:
+    ## the default GCP Storage artifact root. e.g. gs://mlflow
+    defaultArtifactRoot: "gs://mlflow"
+
+    ## create a secret for connecting to GCP for artifact storage
+    createSecret:
+      keyFile: "{\"type\": \"service_account\", \"private_key_id\": \"KEY_ID\"}"
+
+backendStore:
+  ## secret name containing sqlalchemy connection uri
+  existingSecret: "test-backend-secret"

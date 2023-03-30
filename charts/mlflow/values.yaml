@@ -1,0 +1,168 @@
+nameOverride: ""
+fullnameOverride: ""
+
+
+image:
+  ## mlflow image repository
+  repository: ghcr.io/mlflow/mlflow
+  ## mlflow image tag (default is the chart <appVersion>-<artifact storage type>.)
+  tag: ""
+  ## image pull policy
+  pullPolicy: IfNotPresent
+  ## private registry image pull secrets
+  pullSecrets: []
+  # - name: <secret-name>
+
+
+trackingServer:
+  ## enable experiment tracking feature. If set to false mlflow server is started with --artifacts-only
+  enabled: true
+  ## override the default port to expose the tracking server on
+  port: 5000
+  ## override the default number of workers (4)
+  workers: ""
+  ## enable prometheus metrics at /metrics
+  metrics: false
+
+
+backendStore:
+  ## secret name containing sqlalchemy connection uri
+  ## This secret must contain the key `BACKEND_STORE_URI`
+  existingSecret: ""
+
+  createSecret:
+    uri: ""
+
+
+artifacts:
+  ## enables serving of artifact uploads, downloads, and list requests by routing these requests to the artifact storage service
+  serve: false
+
+  s3:
+    ## the default S3 artifact root. e.g. s3://mlflow
+    defaultArtifactRoot: ""
+    ## secret name containing credentials to access artifact storage on AWS S3 or MINIO
+    ## This secret must contain the keys `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+    ## This secret can optionally contain the keys `MLFLOW_S3_UPLOAD_EXTRA_ARGS`, `MLFLOW_S3_ENDPOINT_URL`, `AWS_DEFAULT_REGION`, `MLFLOW_S3_UPLOAD_EXTRA_ARGS`
+    ## The optional key `MLFLOW_S3_IGNORE_TLS` can be specified if the caBundleExistingSecret isn't used
+    existingSecret: ""
+    ## secret name containing a certificate for TLS connection
+    ## This secret must contain the key ca-bundle.crt
+    caBundleExistingSecret: ""
+
+    ## create a secret for connecting to S3 / Minio for artifact storage
+    createSecret:
+      accessKeyID: ""
+      secretAccessKey: ""
+      endpointUrl: ""
+      defaultRegion: ""
+      ignoreTls: ""
+
+    # create secret for the CA bundle
+    createCaSecret:
+      # content of ca bundle
+      caBundle: ""
+
+
+  gcp:
+    ## the default GCP Storage artifact root. e.g. gs://mlflow
+    defaultArtifactRoot: ""
+    ## secret name containing credentials to access artifact storage on GCP
+    ## This secret must contain the key `keyfile.json`
+    existingSecret: ""
+
+    ## create a secret for connecting to GCP for artifact storage
+    createSecret:
+      keyFile: ""
+
+
+  azure:
+    # the default Azure Storage artifact root. e.g. wasbs://<container>@<storage-account>.blob.core.windows.net/<path>
+    defaultArtifactRoot: ""
+    ## secret name containing credentials to access artifact storage on AZURE
+    ## This secret must contain one of: `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_ACCESS_KEY`
+    existingSecret: ""
+
+    ## create a secret for connecting to Azure for artifact storage
+    createSecret:
+      azureStorageConnectionString: ""
+      azureStorageAccessKey: ""
+
+
+## number of mlflow server replicas to deploy
+replicaCount: 1
+
+
+serviceAccount:
+  ## Specifies whether a service account should be created
+  create: true
+  ## Annotations to add to the service account
+  annotations: {}
+  ## The name of the service account to use. If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+
+service:
+  type: ClusterIP
+  port: 80
+  nodePort: 32005
+
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: ImplementationSpecific
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+
+nodeSelector: {}
+
+
+tolerations: []
+
+
+affinity: {}

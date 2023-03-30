@@ -1,0 +1,99 @@
+suite: Test tracking server command arguments
+tests:
+
+  - it: Test disable tracking server (--artifacts-only)
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.enabled: false
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --artifacts-only
+
+  - it: Test enable tracking server
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.enabled: true
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --artifacts-only
+
+  - it: Test tracking serve port override
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.port: 8080
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --port=8080
+      - equal:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].ports[0].containerPort
+          value: 8080
+
+  - it: Test tracking server number of workers override
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.workers: 8
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --workers=8
+
+  - it: Test tracking server prometheus metrics enabled
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.metrics: true
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --expose-prometheus=/metrics
+
+  - it: Test tracking server prometheus metrics disabled
+    values:
+      - values/gcp/use-existing-secrets.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    set:
+      trackingServer.metrics: false
+    asserts:
+      - notContains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --expose-prometheus=/metrics
+
+  # TODO: bugfix in helm-unittests awaiting release to enable using values and set in the same test
+  - it: Test tracking server artifacts proxy enabled (--serve-artifacts)
+    values:
+      - values/artifacts/serve.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --serve-artifacts
+
+  # TODO: bugfix in helm-unittests awaiting release to enable using values and set in the same test
+  - it: Test tracking server artifacts proxy disabled (--no-serve-artifacts)
+    values:
+      - values/artifacts/no-serve.yaml
+    template: templates/deployments/deployment-gcp.yaml
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[?(@.name == "mlflow")].command
+          content:
+            --no-serve-artifacts

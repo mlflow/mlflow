@@ -106,3 +106,6 @@ a.py
 
 # Log file created by pre-commit hook for black
 .black.log
+
+# helm
+charts/*/charts/*.tgz
