@@ -347,3 +347,17 @@ class AbstractStore:
         :return: None.
         """
         pass
+
+    @abstractmethod
+    def log_inputs(self, run_id, datasets):
+        """
+        Record a list of dataset inputs to for a particular run id.
+
+        :param run_id: String id for the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+
+        The default implementation is a no-op.
+
+        :return: None.
+        """
+        pass

@@ -34,6 +34,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     SearchExperiments,
     LogModel,
+    LogInputs,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.rest_store import RestStore
