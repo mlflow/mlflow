@@ -2376,7 +2376,7 @@ We continue by defining a set of important variables used throughout the code th
 The flavor name needs to be provided for every custom flavor and should reflect the name of the
 library to be supported. It is saved as part of the flavor-specific attributes to the ``MLmodel``
 configuration file. This example also defines some ``sktime`` specific variables. For illustration
-purposes only a subset of the available predict methods to be exposed via the
+purposes, only a subset of the available predict methods to be exposed via the
 ``_SktimeModelWrapper`` class is included when loading the model in its ``python_function`` flavor
 (additional methods could be added in a similar fashion). Additionaly, the model serialization
 formats, namely ``pickle`` (default) and ``cloudpickle``, are defined. Note that both serialization
