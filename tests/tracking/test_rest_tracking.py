@@ -1124,6 +1124,31 @@ def test_create_model_version_with_local_source(mlflow_client):
     assert "Invalid source" in resp["message"]
 
 
+def test_file_uri_can_be_used_as_model_version_source_when_env_var_is_set(tmp_path):
+    backend_uri = tmp_path.joinpath("file").as_uri()
+    url, process = _init_server(
+        backend_uri,
+        root_artifact_uri=tmp_path.as_uri(),
+        extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
+    )
+    client = MlflowClient(url)
+
+    name = "test"
+    client.create_registered_model(name)
+    exp_id = client.create_experiment("test")
+    run = client.create_run(experiment_id=exp_id)
+    response = requests.post(
+        f"{url}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+    _terminate_server(process)
+
+
 def test_logging_model_with_local_artifact_uri(mlflow_client):
     from sklearn.linear_model import LogisticRegression
 

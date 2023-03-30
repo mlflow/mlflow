@@ -203,7 +203,6 @@ MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
 )
 
-
 #: Specifies whether or not to allow file:// URIs as model version source URIs.
 #: (default: ``False``)
 MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
