@@ -38,7 +38,10 @@ class SparkDatasetSource(DatasetSource):
         spark = SparkSession.builder.getOrCreate()
 
         # TODO: read from self.table_name and sql
-        return spark.read.parquet(self._path)
+        if self._path:
+            return spark.read.parquet(self._path)
+        if self._table_name:
+            return spark.read.table(self._table_name)
 
     @staticmethod
     def _can_resolve(raw_source: Any):

@@ -1,7 +1,10 @@
+import json
 from typing import TypeVar, Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from pyspark.sql import SparkSession, DataFrame
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.rest_utils import http_request_safe
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -12,7 +15,7 @@ class DeltaDatasetSource(DatasetSource):
         self,
         path: Optional[str] = None,
         delta_table_name: Optional[str] = None,
-        delta_table_version: Optional[str] = None,
+        delta_table_version: Optional[int] = None,
     ):
         self._path = path
         self._delta_table_name = delta_table_name
@@ -55,11 +58,19 @@ class DeltaDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> DeltaDatasetSourceType:
         raise NotImplementedError
 
+    def _databricks_api_request(self, endpoint, method, **kwargs):
+        host_creds = get_databricks_host_creds(self.databricks_profile_uri)
+        return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
+
+    def _uc_table_get(self, table_name):
+        response = self._databricks_api_request(
+            endpoint="/api/2.0/unity-catalog/tables/{table_name}", method="GET"
+        )
+        return json.loads(response.text)
+
     def _get_table_info_if_uc(self, table_name):
         if table_name:
-            action = f"/api/2.0/unity-catalog/tables/{table_name}"
-            response = self.api_client.perform_request(action)
-            return response.json()
+            self._uc_table_get(table_name)
 
     def _to_dict(self) -> Dict[Any, Any]:
         table_info = self._get_table_info(self._delta_table_name)
