@@ -2381,7 +2381,7 @@ purposes only a subset of the available predict methods to be exposed via the
 (additional methods could be added in a similar fashion). Additionaly, the model serialization
 formats, namely ``pickle`` (default) and ``cloudpickle``, are defined. Note that both serialization
 modules require using the same python environment (version) in whatever environment this model is
-used for inference to ensure that the model will load with appropriate version of
+used for inference to ensure that the model will load with the appropriate version of
 pickle (cloudpickle).
 
 .. code-block:: python
