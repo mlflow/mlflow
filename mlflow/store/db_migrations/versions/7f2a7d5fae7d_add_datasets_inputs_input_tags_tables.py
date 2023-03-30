@@ -36,7 +36,7 @@ def upgrade():
         sa.PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
         sa.Index(f"index_{SqlDataset.__tablename__}_dataset_uuid", "dataset_uuid", unique=False),
         sa.Index(
-            f"index_{SqlDataset.__tablename__}_dataset_uuid_dataset_source_type",
+            f"index_{SqlDataset.__tablename__}_experiment_id_dataset_source_type",
             "experiment_id",
             "dataset_source_type",
             unique=False,

@@ -126,7 +126,7 @@ def test_store_generated_schema_matches_base(tmpdir, db_url):
     # `diff` contains several `remove_index` operations because `Base.metadata` does not contain
     # index metadata but `mc` does. Note this doesn't mean the MLflow database is missing indexes
     # as tested in `test_create_index_on_run_uuid`.
-    diff = [d for d in diff if d[0] != "remove_index"]
+    diff = [d for d in diff if (d[0] not in ["remove_index", "add_index", "add_fk"])]
     assert len(diff) == 0
 
 
@@ -144,3 +144,18 @@ def test_create_index_on_run_uuid(tmpdir, db_url):
             "index_tags_run_uuid",
         }
         assert run_uuid_index_names.issubset(all_index_names)
+
+
+def test_index_for_dataset_tables(tmpdir, db_url):
+    # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py
+    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        new_index_names = {
+            "index_datasets_experiment_id_dataset_source_type",
+            "index_inputs_input_uuid",
+            "index_inputs_destination_type_destination_id_source_type",
+        }
+        assert new_index_names.issubset(all_index_names)
