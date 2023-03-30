@@ -157,7 +157,7 @@ CREATE TABLE datasets (
 	dataset_source_type varchar(36) NOT NULL,
 	dataset_source text NOT NULL,
 	dataset_schema text,
-	dataset_profile mediumtext,
+	dataset_profile text,
 	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
 	KEY index_datasets_dataset_uuid (dataset_uuid),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)

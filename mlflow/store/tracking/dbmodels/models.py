@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from sqlalchemy import (
     Column,
     String,
-    UnicodeText,
+    Text,
     ForeignKey,
     Integer,
     CheckConstraint,
@@ -503,17 +503,17 @@ class SqlDataset(Base):
     """
     Param dataset_source_type: `String` (limit 36 characters). Defined as *Non-null* in schema.
     """
-    dataset_source = Column(UnicodeText, nullable=False)
+    dataset_source = Column(Text, nullable=False)
     """
-    Param dataset_source: `UnicodeText`. Defined as *Non-null* in schema.
+    Param dataset_source: `Text`. Defined as *Non-null* in schema.
     """
-    dataset_schema = Column(UnicodeText, nullable=True)
+    dataset_schema = Column(Text, nullable=True)
     """
-    Param dataset_schema: `UnicodeText`.
+    Param dataset_schema: `Text`.
     """
-    dataset_profile = Column(UnicodeText, nullable=True)
+    dataset_profile = Column(Text, nullable=True)
     """
-    Param dataset_schema: `UnicodeText`.
+    Param dataset_schema: `Text`.
     """
 
     def __repr__(self):
