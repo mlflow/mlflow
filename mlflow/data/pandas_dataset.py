@@ -9,6 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.data.dataset_source import DatasetSource
 
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
@@ -113,7 +114,10 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_pandas(
-    df: pd.DataFrame, source: str, name: Optional[str] = None, digest: Optional[str] = None
+    df: pd.DataFrame,
+    source: Union[str, DatasetSource],
+    name: Optional[str] = None,
+    digest: Optional[str] = None,
 ) -> PandasDataset:
     """
     :param df: A Pandas DataFrame
@@ -129,7 +133,11 @@ def from_pandas(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source = resolve_dataset_source(
-        source, candidate_sources=[FileSystemDatasetSource, DeltaDatasetSource, SparkDatasetSource]
-    )
+    if isinstance(source, DatasetSource):
+        resolved_source = source
+    else:
+        resolved_source = resolve_dataset_source(
+            source,
+            candidate_sources=[FileSystemDatasetSource, DeltaDatasetSource, SparkDatasetSource],
+        )
     return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)
