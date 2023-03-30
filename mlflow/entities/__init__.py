@@ -18,6 +18,8 @@ from mlflow.entities.source_type import SourceType
 from mlflow.entities.view_type import ViewType
 from mlflow.entities.dataset import Dataset
 from mlflow.entities.input_tag import InputTag
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.run_input import RunInput
 
 __all__ = [
     "Experiment",
@@ -35,4 +37,6 @@ __all__ = [
     "LifecycleStage",
     "Dataset",
     "InputTag",
+    "DatasetInput",
+    "RunInput",
 ]
