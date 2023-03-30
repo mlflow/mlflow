@@ -26,7 +26,7 @@ mlflow.pyfunc
         elements represent one value per hour, in order to forecast 3 hours of future data, set
         the column ``fh`` to ``[1,2,3]``. If the paramter is not provided it must be passed
         during fit(). (Default: ``None``)
-    * ``X`` (optional) - exogenous regressor values as a 2D numpy ndarray of values for future
+    * ``X`` (optional) - exogenous regressor values as a 2D numpy ndarray or list of values for future
         time period events. For more information, read the underlying library explanation
         https://www.sktime.net/en/latest/examples/AA_datatypes_and_datasets.html#Section-1:-in-memory-data-containers.
         (Default: ``None``)
@@ -53,29 +53,27 @@ Index  predict_method    coverage     fh
 import logging
 import os
 import pickle
-import flavor
 
+import flavor
+import mlflow
 import numpy as np
 import pandas as pd
-import yaml
-
 import sktime
-from sktime.utils.multiindex import flatten_multiindex
-
-import mlflow
+import yaml
 from mlflow import pyfunc
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
     _process_conda_env,
     _process_pip_requirements,
     _PythonEnv,
@@ -83,15 +81,13 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
-    _validate_and_copy_code_paths,
-    _validate_and_prepare_target_save_path,
     _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
+    _validate_and_copy_code_paths,
+    _validate_and_prepare_target_save_path,
 )
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.utils.requirements_utils import _get_pinned_requirement
+from sktime.utils.multiindex import flatten_multiindex
 
 FLAVOR_NAME = "sktime"
 
