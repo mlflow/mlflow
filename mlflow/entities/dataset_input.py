@@ -7,9 +7,9 @@ from mlflow.entities.input_tag import InputTag
 class DatasetInput(_MLflowObject):
     """DatasetInput object associated with an experiment."""
 
-    def __init__(self, dataset, tags=[]):
+    def __init__(self, dataset, tags=None):
         self._dataset = dataset
-        self._tags = tags
+        self._tags = tags or []
 
     def __eq__(self, other):
         if type(other) is type(self):

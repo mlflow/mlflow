@@ -543,7 +543,7 @@ class SqlDataset(Base):
         )
 
 
-class SqlInputs(Base):
+class SqlInput(Base):
     __tablename__ = "inputs"
     __table_args__ = (
         PrimaryKeyConstraint(

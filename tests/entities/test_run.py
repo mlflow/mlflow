@@ -8,13 +8,13 @@ from mlflow.entities import (
     RunData,
     RunStatus,
     RunInfo,
-    RunInput,
+    RunInputs,
     LifecycleStage,
 )
 from mlflow.exceptions import MlflowException
 from tests.entities.test_run_data import _check as run_data_check
 from tests.entities.test_run_info import _check as run_info_check
-from tests.entities.test_run_input import _check as run_input_check
+from tests.entities.test_run_inputs import _check as run_input_check
 
 
 class TestRun:
@@ -31,9 +31,9 @@ class TestRun:
             ri.artifact_uri,
         )
         run_data_check(run.data, rd_metrics, rd_params, rd_tags)
-        run_input_check(run.input, datasets)
+        run_inputs_check(run.inputs, datasets)
 
-    def test_creation_and_hydration(self, run_data, run_info, run_input):
+    def test_creation_and_hydration(self, run_data, run_info, run_inputs):
         run_data, metrics, params, tags = run_data
         (
             run_info,
@@ -47,9 +47,9 @@ class TestRun:
             lifecycle_stage,
             artifact_uri,
         ) = run_info
-        run_input, datasets = run_input
+        run_inputs, datasets = run_inputs
 
-        run1 = Run(run_info, run_data, run_input)
+        run1 = Run(run_info, run_data, run_inputs)
 
         self._check_run(run1, run_info, metrics, params, tags, datasets)
 
@@ -72,7 +72,7 @@ class TestRun:
                 "params": {p.key: p.value for p in params},
                 "tags": {t.key: t.value for t in tags},
             },
-            "input": {"dataset_inputs": datasets},
+            "inputs": {"dataset_inputs": datasets},
         }
 
         proto = run1.to_proto()
@@ -102,8 +102,8 @@ class TestRun:
             ),
             tags=[],
         )
-        run_input = RunInput(dataset_inputs=dataset_inputs)
-        run1 = Run(run_info, run_data, run_input)
+        run_inputs = RunInputs(dataset_inputs=dataset_inputs)
+        run1 = Run(run_info, run_data, run_inputs)
         expected = (
             "<Run: data=<RunData: metrics={'key-0': 0, 'key-1': 1, 'key-2': 2}, "
             "params={}, tags={}>, info=<RunInfo: artifact_uri=None, end_time=1, "
@@ -115,8 +115,8 @@ class TestRun:
         )
         assert str(run1) == expected
 
-    def test_creating_run_with_absent_info_throws_exception(self, run_data, run_input):
+    def test_creating_run_with_absent_info_throws_exception(self, run_data, run_inputs):
         run_data = run_data[0]
         with pytest.raises(MlflowException, match="run_info cannot be None") as no_info_exc:
-            Run(None, run_data, run_input)
+            Run(None, run_data, run_inputs)
         assert "run_info cannot be None" in str(no_info_exc)

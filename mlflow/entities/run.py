@@ -1,7 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
-from mlflow.entities.run_input import RunInput
+from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
@@ -11,12 +11,12 @@ class Run(_MLflowObject):
     Run object.
     """
 
-    def __init__(self, run_info, run_data, run_input):
+    def __init__(self, run_info, run_data, run_inputs):
         if run_info is None:
             raise MlflowException("run_info cannot be None")
         self._info = run_info
         self._data = run_data
-        self._input = run_input
+        self._inputs = run_inputs
 
     @property
     def info(self):
@@ -37,21 +37,21 @@ class Run(_MLflowObject):
         return self._data
 
     @property
-    def input(self):
+    def inputs(self):
         """
         The run inputs, including dataset inputs
 
         :rtype: :py:class:`mlflow.entities.RunData`
         """
-        return self._input
+        return self._inputs
 
     def to_proto(self):
         run = ProtoRun()
         run.info.MergeFrom(self.info.to_proto())
         if self.data:
             run.data.MergeFrom(self.data.to_proto())
-        if self.input:
-            run.inputs.MergeFrom(self.input.to_proto())
+        if self.inputs:
+            run.inputs.MergeFrom(self.inputs.to_proto())
         return run
 
     @classmethod
@@ -59,7 +59,7 @@ class Run(_MLflowObject):
         return cls(
             RunInfo.from_proto(proto.info),
             RunData.from_proto(proto.data),
-            RunInput.from_proto(proto.inputs),
+            RunInputs.from_proto(proto.inputs),
         )
 
     def to_dictionary(self):
@@ -68,6 +68,6 @@ class Run(_MLflowObject):
         }
         if self.data:
             run_dict["data"] = self.data.to_dictionary()
-        if self.input:
-            run_dict["input"] = self.input.to_dictionary()
+        if self.inputs:
+            run_dict["inputs"] = self.inputs.to_dictionary()
         return run_dict

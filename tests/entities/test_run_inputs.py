@@ -1,4 +1,4 @@
-from mlflow.entities import RunInput
+from mlflow.entities import RunInputs
 
 
 def _check_input(run_datasets, datasets):
@@ -12,18 +12,18 @@ def _check_input(run_datasets, datasets):
             assert t1.value == t2.value
 
 
-def _check(input, datasets):
-    assert isinstance(input, RunInput)
-    _check_input(input.dataset_inputs, datasets)
+def _check(inputs, datasets):
+    assert isinstance(inputs, RunInputs)
+    _check_input(inputs.dataset_inputs, datasets)
 
 
-def test_creation_and_hydration(run_input):
-    run_input, datasets = run_input
-    _check(run_input, datasets)
+def test_creation_and_hydration(run_inputs):
+    run_inputs, datasets = run_inputs
+    _check(run_inputs, datasets)
     as_dict = {
         "dataset_inputs": datasets,
     }
-    assert dict(run_input) == as_dict
-    proto = run_input.to_proto()
-    run_input2 = RunInput.from_proto(proto)
-    _check(run_input2, datasets)
+    assert dict(run_inputs) == as_dict
+    proto = run_inputs.to_proto()
+    run_inputs2 = RunInputs.from_proto(proto)
+    _check(run_inputs2, datasets)

@@ -1,11 +1,9 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.protos.service_pb2 import RunInputs as ProtoRunInputs
 
-# from mlflow.protos.service_pb2 import DatasetInput as ProtoDatasetInput
 
-
-class RunInput(_MLflowObject):
-    """RunInput object."""
+class RunInputs(_MLflowObject):
+    """RunInputs object."""
 
     def __init__(self, dataset_inputs):
         self._dataset_inputs = dataset_inputs
