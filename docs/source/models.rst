@@ -2652,7 +2652,7 @@ pass any flavor-specific attributes to the ``_load_model()`` function (i.e., the
 
 The final step is to create the model wrapper class defining the ``python_function`` flavor. The
 design of the wrapper class determines how the flavor's inference API is exposed when making
-predictions using the ``python_function`` flavor. Just like the built-in flavors the ``predict()``
+predictions using the ``python_function`` flavor. Just like the built-in flavors, the ``predict()``
 method of the ``sktime`` wrapper class accepts a *single-row* ``Pandas DataFrame`` configuration
 argument. For an example of how to construct this configuration DataFrame refer to the usage example
 in the next section. A detailed description of the supported paramaters and input formats is
