@@ -2420,8 +2420,8 @@ added as flavor-specific attributes to the model configuration. In this example 
 flavor-specific parameter for specifying the model serialization format. All other paramters are
 non-flavor specific (for a detailed description of these parameters take a look at
 `mlflow.sklearn.save_model <https://mlflow.org/docs/latest/python_api/mlflow.sklearn.html#mlflow.sklearn.save_model>`_).
-When creating your own custom flavor make sure to rename the ``sktime_model`` parameter in the
-``save_model()`` function to reflect the flavor name to be supported.
+Note: When creating your own custom flavor, be sure rename the ``sktime_model`` parameter in both the
+``save_model()`` and ``log_model()`` functions to reflect the name of your custom model flavor.
 
 .. code-block:: python
 
