@@ -30,9 +30,9 @@ def upgrade():
         sa.Column("name", sa.String(length=500), primary_key=True, nullable=False),
         sa.Column("digest", sa.String(length=36), primary_key=True, nullable=False),
         sa.Column("dataset_source_type", sa.String(length=36), nullable=False),
-        sa.Column("dataset_source", sa.Text(), nullable=False),
-        sa.Column("dataset_schema", sa.Text(), nullable=True),
-        sa.Column("dataset_profile", sa.Text(), nullable=True),
+        sa.Column("dataset_source", sa.UnicodeText(), nullable=False),
+        sa.Column("dataset_schema", sa.UnicodeText(), nullable=True),
+        sa.Column("dataset_profile", sa.UnicodeText(), nullable=True),
         sa.PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
         sa.Index(f"index_{SqlDataset.__tablename__}_dataset_uuid", "dataset_uuid", unique=False),
         sa.Index(

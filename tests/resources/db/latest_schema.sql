@@ -18,6 +18,24 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE input_tags (
+	input_uuid VARCHAR(36) NOT NULL,
+	name VARCHAR(255) NOT NULL,
+	value VARCHAR(500) NOT NULL,
+	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name)
+)
+
+
+CREATE TABLE inputs (
+	input_uuid VARCHAR(36) NOT NULL,
+	source_type VARCHAR(36) NOT NULL,
+	source_id VARCHAR(36) NOT NULL,
+	destination_type VARCHAR(36) NOT NULL,
+	destination_id VARCHAR(36) NOT NULL,
+	CONSTRAINT inputs_pk PRIMARY KEY (source_type, source_id, destination_type, destination_id)
+)
+
+
 CREATE TABLE registered_models (
 	name VARCHAR(256) NOT NULL,
 	creation_time BIGINT,
@@ -25,6 +43,20 @@ CREATE TABLE registered_models (
 	description VARCHAR(5000),
 	CONSTRAINT registered_model_pk PRIMARY KEY (name),
 	UNIQUE (name)
+)
+
+
+CREATE TABLE datasets (
+	dataset_uuid VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(500) NOT NULL,
+	digest VARCHAR(36) NOT NULL,
+	dataset_source_type VARCHAR(36) NOT NULL,
+	dataset_source TEXT NOT NULL,
+	dataset_schema TEXT,
+	dataset_profile TEXT,
+	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
+	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
 
 
@@ -81,8 +113,8 @@ CREATE TABLE runs (
 	deleted_time BIGINT,
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid),
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id),
-	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')),
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted')),
 	CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING', 'KILLED'))
 )
 
@@ -149,35 +181,3 @@ CREATE TABLE tags (
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
-CREATE TABLE datasets (
-	dataset_uuid varchar(36) NOT NULL,
-	experiment_id varchar(36) NOT NULL,
-	name varchar(500) NOT NULL,
-	digest varchar(36) NOT NULL,
-	dataset_source_type varchar(36) NOT NULL,
-	dataset_source text NOT NULL,
-	dataset_schema text,
-	dataset_profile text,
-	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
-	KEY index_datasets_dataset_uuid (dataset_uuid),
-	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
-)
-
-CREATE TABLE inputs (
-	input_uuid varchar(36) NOT NULL,
-	source_type varchar(36) NOT NULL,
-	source_id varchar(36) NOT NULL,
-	destination_type varchar(36) NOT NULL,
-	destination_id varchar(36) NOT NULL,
-	CONSTRAINT inputs_pk (source_type, source_id, destination_type, destination_id) USING BTREE,
-	KEY index_inputs_input_uuid (input_uuid),
-	KEY index_datasets_destination_type_destination_id_source_type (destination_type, destination_id, source_type),
-	UNIQUE (input_uuid)
-)
-
-CREATE TABLE input_tags (
-	input_uuid varchar(36) NOT NULL,
-	name varchar(255) NOT NULL,
-	value varchar(500) NOT NULL,
-	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name),
-)
