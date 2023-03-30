@@ -2524,7 +2524,7 @@ Note: When creating your own custom flavor, be sure rename the ``sktime_model`` 
 The ``save_model()`` function also writes the model dependencies to a ``requirements.txt`` and
 ``conda.yaml`` file in the model output directory. For this purpose the set of ``pip`` dependecies
 produced by this flavor need to be added to the ``get_default_pip_requirements()`` function. In this
-example only the minimum required dependencies are provided but additional requirements needed for
+example only the minimum required dependencies are provided. In practice, additional requirements needed for
 preprocessing or post-processing steps could be included. Note that for any custom flavor, the
 :py:func:`mlflow.models.infer_pip_requirements()` method in the ``save_model()`` function will
 return the default requirements defined in ``get_default_pip_requirements()`` as package imports are
