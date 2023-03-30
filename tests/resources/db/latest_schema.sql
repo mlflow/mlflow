@@ -149,3 +149,35 @@ CREATE TABLE tags (
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
+CREATE TABLE datasets (
+	dataset_uuid varchar(36) NOT NULL,
+	experiment_id varchar(36) NOT NULL,
+	name varchar(500) NOT NULL,
+	digest varchar(36) NOT NULL,
+	datasetSourceType varchar(36) NOT NULL,
+	datasetSource VARCHAR(5000) NOT NULL,
+	datasetSchema VARCHAR(5000),
+	profile VARCHAR(5000),
+	CONSTRAINT dataset_pk PRIMARY KEY (experiment_id, name, digest),
+	KEY index_datasets_dataset_uuid (dataset_uuid),
+	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+CREATE TABLE inputs (
+	input_uuid varchar(36) NOT NULL,
+	source_type varchar(36) NOT NULL,
+	source_id varchar(36) NOT NULL,
+	destination_type varchar(36) NOT NULL,
+	destination_id varchar(36) NOT NULL,
+	CONSTRAINT inputs_pk (source_type, source_id, destination_type, destination_id) USING BTREE,
+	KEY index_inputs_input_uuid (input_uuid),
+	KEY index_datasets_destination_type_destination_id_source_type (destination_type, destination_id, source_type),
+)
+
+CREATE TABLE input_tags (
+	input_uuid varchar(36) NOT NULL,
+	name varchar(255) NOT NULL,
+	value varchar(255) NOT NULL,
+	CONSTRAINT input_tags_pk PRIMARY KEY (input_uuid, name),
+	FOREIGN KEY(input_uuid) REFERENCES inputs (input_uuid)
+)

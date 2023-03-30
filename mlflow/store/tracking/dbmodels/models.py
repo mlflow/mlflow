@@ -479,9 +479,9 @@ class SqlDataset(Base):
         ),
     )
 
-    dataset_uuid = Column(String(32), nullable=False)
+    dataset_uuid = Column(String(36), nullable=False)
     """
-    Dataset UUID: `String` (limit 32 characters). Defined as *Non-null* in schema.
+    Dataset UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``datasets`` table.
     """
     experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"))

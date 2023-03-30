@@ -19,7 +19,7 @@ depends_on = None
 def upgrade():
     op.create_table(
         SqlDataset.__tablename__,
-        sa.Column("dataset_uuid", sa.String(length=32), nullable=False),
+        sa.Column("dataset_uuid", sa.String(length=36), nullable=False),
         sa.Column(
             "experiment_id",
             sa.Integer(),
