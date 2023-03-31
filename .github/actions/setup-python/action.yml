@@ -27,7 +27,7 @@ runs:
           if [ ${{ runner.os }} == "Windows" ]; then
             python_version="3.7.9"
           else
-            python_version="3.7.13"
+            python_version="3.7.12"
           fi
         elif [[ "$python_version" == "3.8" ]]; then
           python_version="3.8.12"
