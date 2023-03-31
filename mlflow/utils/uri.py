@@ -29,7 +29,9 @@ def is_local_uri(uri):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.hostname:
+    if parsed_uri.hostname and not (
+        parsed_uri.hostname == "." or parsed_uri.hostname.startswith("localhost")
+    ):
         return False
 
     scheme = parsed_uri.scheme
