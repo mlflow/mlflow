@@ -1,6 +1,7 @@
 import os
 import time
 import shutil
+import json
 
 import pytest
 import posixpath
@@ -15,6 +16,9 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     GetCredentialsForRead,
     ArtifactCredentialType,
     ArtifactCredentialInfo,
+    CreateMultipartUpload,
+    CompleteMultipartUpload,
+    GetPresignedUploadPartUrl,
 )
 from mlflow.protos.service_pb2 import ListArtifacts, FileInfo
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -1186,3 +1190,239 @@ class TestDatabricksArtifactRepository:
             assert "MOCK ERROR 1" in err_msg
             assert "file_2.txt" in err_msg
             assert "MOCK ERROR 2" in err_msg
+
+
+@pytest.fixture
+def mock_chunk_size():
+    # Use a smaller chunk size for faster comparison
+    chunk_size = 10
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE", chunk_size
+    ):
+        yield chunk_size
+
+
+@pytest.fixture
+def large_file(tmp_path, mock_chunk_size):
+    path = tmp_path.joinpath("large_file")
+    with path.open("a") as f:
+        f.write("a" * mock_chunk_size)
+        f.write("b" * mock_chunk_size)
+    yield path
+
+
+def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size):
+    mock_upload_part_responses = []
+    for index in range(2):
+        resp = Response()
+        resp.status_code = 200
+        resp.headers = {"ETag": f"etag-{index+1}"}
+        resp.close = lambda: None
+        mock_upload_part_responses.append(resp)
+
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    mock_upload_id = "upload_id"
+    create_mpu_response = CreateMultipartUpload.Response(
+        upload_id=mock_upload_id,
+        upload_credential_infos=[
+            ArtifactCredentialInfo(
+                signed_uri=f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+                headers=[ArtifactCredentialInfo.HttpHeader(name="header", value=f"part-{i + 1}")],
+            )
+            for i in range(2)
+        ],
+        abort_credential_info=ArtifactCredentialInfo(
+            signed_uri=f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            headers=[ArtifactCredentialInfo.HttpHeader(name="header", value="abort")],
+        ),
+    )
+    complete_mpu_response = CompleteMultipartUpload.Response()
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        side_effect=[create_mpu_response, complete_mpu_response],
+    ) as call_endpoint_mock, mock.patch(
+        "mlflow.utils.rest_utils.cloud_storage_http_request",
+        side_effect=mock_upload_part_responses,
+    ) as http_request_mock:
+        databricks_artifact_repo.log_artifact(large_file)
+        with large_file.open("rb") as f:
+            expected_calls = [
+                mock.call(
+                    "put",
+                    f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    data=f.read(mock_chunk_size),
+                    headers={"header": f"part-{i + 1}"},
+                )
+                for i in range(2)
+            ]
+        assert http_request_mock.call_args_list == expected_calls
+        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        assert complete_request_body["upload_id"] == mock_upload_id
+        assert complete_request_body["part_etags"] == [
+            {"part_number": 1, "etag": "etag-1"},
+            {"part_number": 2, "etag": "etag-2"},
+        ]
+
+
+def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file, mock_chunk_size):
+    mock_upload_part_responses = []
+    for index in range(2):
+        if index == 0:
+            resp = Response()
+            resp.status_code = 200
+            resp.headers = {"ETag": f"etag-{index + 1}"}
+            resp.close = lambda: None
+            mock_upload_part_responses.append(resp)
+        else:
+            # The second part upload fails
+            failed_resp = Response()
+            failed_resp.status_code = 403
+            failed_resp.headers = {"ETag": f"etag-{index + 1}"}
+            failed_resp.close = lambda: None
+            mock_upload_part_responses.append(failed_resp)
+
+            # The second part re-upload succeeds
+            successful_resp = Response()
+            successful_resp.status_code = 200
+            successful_resp.headers = {"ETag": f"etag-{index + 1}"}
+            successful_resp.close = lambda: None
+            mock_upload_part_responses.append(successful_resp)
+
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    mock_upload_id = "upload_id"
+    create_mpu_response = CreateMultipartUpload.Response(
+        upload_id=mock_upload_id,
+        upload_credential_infos=[
+            ArtifactCredentialInfo(
+                signed_uri=f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+                headers=[ArtifactCredentialInfo.HttpHeader(name="header", value=f"part-{i + 1}")],
+            )
+            for i in range(2)
+        ],
+        abort_credential_info=ArtifactCredentialInfo(
+            signed_uri=f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            headers=[ArtifactCredentialInfo.HttpHeader(name="header", value="abort")],
+        ),
+    )
+    part_upload_url_response = GetPresignedUploadPartUrl.Response(
+        upload_credential_info=ArtifactCredentialInfo(
+            signed_uri=f"{MOCK_AWS_SIGNED_URI}partNumber=2",
+            type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            headers=[ArtifactCredentialInfo.HttpHeader(name="header", value="part-2")],
+        ),
+    )
+    complete_mpu_response = CompleteMultipartUpload.Response()
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        side_effect=[create_mpu_response, part_upload_url_response, complete_mpu_response],
+    ) as call_endpoint_mock, mock.patch(
+        "mlflow.utils.rest_utils.cloud_storage_http_request",
+        side_effect=mock_upload_part_responses,
+    ) as http_request_mock:
+        databricks_artifact_repo.log_artifact(large_file)
+
+        with large_file.open("rb") as f:
+            expected_calls = [
+                mock.call(
+                    "put",
+                    f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    data=f.read(mock_chunk_size),
+                    headers={"header": f"part-{i + 1}"},
+                )
+                for i in range(2)
+            ]
+        expected_calls += expected_calls[-1:]  # the second part re-upload
+        assert http_request_mock.call_args_list == expected_calls
+        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        assert complete_request_body["upload_id"] == mock_upload_id
+        assert complete_request_body["part_etags"] == [
+            {"part_number": 1, "etag": "etag-1"},
+            {"part_number": 2, "etag": "etag-2"},
+        ]
+
+
+def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk_size):
+    mock_responses = []
+    for index in range(2):
+        resp = Response()
+        resp.status_code = 200
+        resp.headers = {"ETag": f"etag-{index+1}"}
+        resp.close = lambda: None
+        mock_responses.append(resp)
+
+    abort_mpu_response = Response()
+    abort_mpu_response.status_code = 200
+    abort_mpu_response.headers = {"ETag": f"etag-{index+1}"}
+    abort_mpu_response.close = lambda: None
+    mock_responses.append(resp)
+
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI,
+        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+    )
+    mock_upload_id = "upload_id"
+    create_mpu_response = CreateMultipartUpload.Response(
+        upload_id=mock_upload_id,
+        upload_credential_infos=[
+            ArtifactCredentialInfo(
+                signed_uri=f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+                headers=[ArtifactCredentialInfo.HttpHeader(name="header", value=f"part-{i + 1}")],
+            )
+            for i in range(2)
+        ],
+        abort_credential_info=ArtifactCredentialInfo(
+            signed_uri=f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            headers=[ArtifactCredentialInfo.HttpHeader(name="header", value="abort")],
+        ),
+    )
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
+        side_effect=[create_mpu_response, Exception("Failed to complete multipart upload")],
+    ) as call_endpoint_mock, mock.patch(
+        "mlflow.utils.rest_utils.cloud_storage_http_request",
+        side_effect=mock_responses,
+    ) as http_request_mock:
+        with pytest.raises(Exception, match="Failed to complete multipart upload"):
+            databricks_artifact_repo.log_artifact(large_file)
+
+        (*part_upload_calls, abort_call) = http_request_mock.call_args_list
+        with large_file.open("rb") as f:
+            expected_calls = [
+                mock.call(
+                    "put",
+                    f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
+                    data=f.read(mock_chunk_size),
+                    headers={"header": f"part-{i + 1}"},
+                )
+                for i in range(2)
+            ]
+        assert part_upload_calls == expected_calls
+        complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
+        assert complete_request_body["upload_id"] == mock_upload_id
+        assert complete_request_body["part_etags"] == [
+            {"part_number": 1, "etag": "etag-1"},
+            {"part_number": 2, "etag": "etag-2"},
+        ]
+        assert abort_call == mock.call(
+            "delete", f"{MOCK_AWS_SIGNED_URI}uploadId=abort", headers={"header": "abort"}
+        )
