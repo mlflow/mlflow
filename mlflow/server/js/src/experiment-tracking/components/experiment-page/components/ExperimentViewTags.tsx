@@ -59,8 +59,7 @@ export const ExperimentViewTags = React.memo(({ experiment }: ExperimentViewTags
           />{' '}
         </span>
       }
-      forceOpen={false}
-      defaultCollapsed={storedTags.length === 0}
+      defaultCollapsed
       data-test-id='experiment-tags-section'
     >
       <EditableTagsTableView
