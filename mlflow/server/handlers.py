@@ -1323,30 +1323,33 @@ def _delete_registered_model_tag():
 
 
 def _validate_source(source: str, run_id: str) -> None:
-    if not MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.get() and is_file_uri(source):
+    if is_local_uri(source):
+        if run_id:
+            store = _get_tracking_store()
+            run = store.get_run(run_id)
+            source = pathlib.Path(local_file_uri_to_path(source)).resolve()
+            run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
+            if run_artifact_dir in [source, *source.parents]:
+                return
+
         raise MlflowException(
-            f"Invalid source: '{source}'. To use a file URI as source, set the "
-            f"{MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.name} environment variable to True.",
+            f"Invalid model version source: '{source}'. To use a local path as a model version "
+            "source, the run_id request parameter has to be specified and the local path has to be "
+            "contained within the artifact directory of the run specified by the run_id.",
             INVALID_PARAMETER_VALUE,
         )
 
-    if not is_local_uri(source):
-        return
-
-    if run_id:
-        store = _get_tracking_store()
-        run = store.get_run(run_id)
-        source = pathlib.Path(local_file_uri_to_path(source)).resolve()
-        run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
-        if run_artifact_dir in [source, *source.parents]:
-            return
-
-    raise MlflowException(
-        f"Invalid source: '{source}'. To use a local path as source, the run_id request parameter "
-        "has to be specified and the local path has to be contained within the artifact directory "
-        "of the run specified by the run_id.",
-        INVALID_PARAMETER_VALUE,
-    )
+    # There might be file URIs that are local but can bypass the above check. To prevent this, we
+    # disallow using file URIs as model version sources by default unless it's explicitly allowed
+    # by setting the MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE environment variable to True.
+    if not MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.get() and is_file_uri(source):
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. MLflow tracking server doesn't allow using "
+            "a file URI as a model version source for security reasons. To disable this check, set "
+            f"the {MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.name} environment variable to "
+            "True.",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 @catch_mlflow_exception
