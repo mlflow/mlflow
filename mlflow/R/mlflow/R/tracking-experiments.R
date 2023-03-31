@@ -102,6 +102,29 @@ mlflow_set_experiment_tag <- function(key, value, experiment_id = NULL, client =
   invisible(NULL)
 }
 
+#' Delete Experiment Tag
+#'
+#' Deletes a tag on an experiment with the specified ID. Tags are experiment metadata that can be updated.
+#'
+#' @param key Name of the tag. All storage backends are guaranteed to support
+#'   key values up to 250 bytes in size. This field is required.
+#' @param experiment_id ID of the experiment.
+#' @template roxlate-client
+#' @export
+mlflow_delete_experiment_tag <- function(key, value, experiment_id = NULL, client = NULL) {
+  key <- cast_string(key)
+  client <- resolve_client(client)
+
+  experiment_id <- resolve_experiment_id(experiment_id)
+  experiment_id <- cast_string(experiment_id)
+  response <- mlflow_rest("experiments", "delete-experiment-tag", client = client, verb = "POST", data = list(
+      experiment_id = experiment_id,
+      key = key
+  ))
+
+  invisible(NULL)
+}
+
 #' Get Experiment
 #'
 #' Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
