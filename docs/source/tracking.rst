@@ -61,7 +61,7 @@ API.
 Where Runs Are Recorded
 =======================
 
-MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
+MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely
 to a tracking server. By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs.
 
@@ -80,7 +80,7 @@ There are different kinds of remote tracking URIs:
 
 How Runs and Artifacts are Recorded
 ===================================
-As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
+As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
 and a variety of remote file storage solutions. For storing runs and artifacts, MLflow uses two components for `storage <https://mlflow.org/docs/latest/tracking.html#storage>`_: backend store and artifact store. While the backend store persists
 MLflow entities (runs, parameters, metrics, tags, notes, metadata, etc), the artifact store persists artifacts
 (files, models, images, in-memory objects, or model summary, etc).
