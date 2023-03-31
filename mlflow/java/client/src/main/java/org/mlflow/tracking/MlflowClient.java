@@ -32,7 +32,10 @@ public class MlflowClient implements Serializable, Closeable {
   private final MlflowHttpCaller httpCaller;
   private final MlflowHostCredsProvider hostCredsProvider;
 
-  /** Return a default client based on the MLFLOW_TRACKING_URI environment variable. */
+  /**
+   * Return a default client based on the MLFLOW_TRACKING_URI environment
+   * variable.
+   */
   public MlflowClient() {
     this(getDefaultTrackingUri());
   }
@@ -53,33 +56,34 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Get metadata, params, tags, and metrics for a run. A single value is returned for each metric
+   * Get metadata, params, tags, and metrics for a run. A single value is returned
+   * for each metric
    * key: the most recently logged metric value at the largest step.
    *
    * @return Run associated with the ID.
    */
   public Run getRun(String runId) {
     URIBuilder builder = newURIBuilder("runs/get")
-      .setParameter("run_uuid", runId)
-      .setParameter("run_id", runId);
+        .setParameter("run_uuid", runId)
+        .setParameter("run_id", runId);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
   public List<Metric> getMetricHistory(String runId, String key) {
     URIBuilder builder = newURIBuilder("metrics/get-history")
-      .setParameter("run_uuid", runId)
-      .setParameter("run_id", runId)
-      .setParameter("metric_key", key)
-      .setParameter("max_results", "25000");
+        .setParameter("run_uuid", runId)
+        .setParameter("run_id", runId)
+        .setParameter("metric_key", key)
+        .setParameter("max_results", "25000");
 
     GetMetricHistory.Response response = mapper
-            .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
+        .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
     List<Metric> metrics = response.getMetricsList();
     String token = response.getNextPageToken();
     while (!token.isEmpty()) {
       URIBuilder bld = builder.setParameter("page_token", token);
       GetMetricHistory.Response resp = mapper
-              .toGetMetricHistoryResponse(httpCaller.get(bld.toString()));
+          .toGetMetricHistoryResponse(httpCaller.get(bld.toString()));
       metrics.addAll(resp.getMetricsList());
       token = resp.getNextPageToken();
     }
@@ -88,6 +92,7 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Create a new run under the default experiment with no application name.
+   * 
    * @return RunInfo created by the server.
    */
   public RunInfo createRun() {
@@ -96,6 +101,7 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Create a new run under the given experiment.
+   * 
    * @return RunInfo created by the server.
    */
   public RunInfo createRun(String experimentId) {
@@ -112,16 +118,17 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Create a new run. This method allows providing all possible fields of CreateRun, and can be
+   * Create a new run. This method allows providing all possible fields of
+   * CreateRun, and can be
    * invoked as follows:
    *
-   *   <pre>
+   * <pre>
    *   import org.mlflow.api.proto.Service.CreateRun;
    *   CreateRun.Builder request = CreateRun.newBuilder();
    *   request.setExperimentId(experimentId);
    *   request.setSourceVersion("my-version");
    *   createRun(request.build());
-   *   </pre>
+   * </pre>
    *
    * @return RunInfo created by the server.
    */
@@ -141,87 +148,112 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Return RunInfos from provided list of experiments that satisfy the search query.
-   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
-   *                    similar that returns a page of Run results.
+   * Return RunInfos from provided list of experiments that satisfy the search
+   * query.
+   * 
+   * @deprecated As of 1.1.0 - please use
+   *             {@link #searchRuns(List, String, ViewType, int)} or
+   *             similar that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
-   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param searchFilter  SQL compatible search query string. Format of this query
+   *                      string is
+   *                      similar to that specified on MLflow UI.
+   *                      Example : "params.model = 'LogisticRegression' and
+   *                      metrics.acc = 0.9"
+   *                      If null, the result will be equivalent to having an
+   *                      empty search filter.
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, 1000).getItems().stream()
-      .map(Run::getInfo).collect(Collectors.toList());
+        .map(Run::getInfo).collect(Collectors.toList());
   }
 
   /**
-   * Return RunInfos from provided list of experiments that satisfy the search query.
-   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
-   *                    similar that returns a page of Run results.
+   * Return RunInfos from provided list of experiments that satisfy the search
+   * query.
+   * 
+   * @deprecated As of 1.1.0 - please use
+   *             {@link #searchRuns(List, String, ViewType, int)} or
+   *             similar that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param searchFilter  SQL compatible search query string. Format of this query
+   *                      string is
+   *                      similar to that specified on MLflow UI.
+   *                      Example : "params.model = 'LogisticRegression' and
+   *                      metrics.acc != 0.9"
+   *                      If null, the result will be equivalent to having an
+   *                      empty search filter.
+   * @param runViewType   ViewType for expected runs. One of (ACTIVE_ONLY,
+   *                      DELETED_ONLY, ALL)
+   *                      If null, only runs with viewtype ACTIVE_ONLY will be
+   *                      searched.
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<String> experimentIds,
-                              String searchFilter,
-                              ViewType runViewType) {
+      String searchFilter,
+      ViewType runViewType) {
     return searchRuns(experimentIds, searchFilter, runViewType, 1000).getItems().stream()
-      .map(Run::getInfo).collect(Collectors.toList());
+        .map(Run::getInfo).collect(Collectors.toList());
   }
 
   /**
    * Return runs from provided list of experiments that satisfy the search query.
    *
    * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page.
+   * @param searchFilter  SQL compatible search query string. Format of this query
+   *                      string is
+   *                      similar to that specified on MLflow UI.
+   *                      Example : "params.model = 'LogisticRegression' and
+   *                      metrics.acc != 0.9"
+   *                      If null, the result will be equivalent to having an
+   *                      empty search filter.
+   * @param runViewType   ViewType for expected runs. One of (ACTIVE_ONLY,
+   *                      DELETED_ONLY, ALL)
+   *                      If null, only runs with viewtype ACTIVE_ONLY will be
+   *                      searched.
+   * @param maxResults    Maximum number of runs desired in one page.
    *
    * @return A list of all Runs that satisfy search filter.
    */
   public RunsPage searchRuns(List<String> experimentIds,
-                              String searchFilter,
-                              ViewType runViewType,
-                              int maxResults) {
+      String searchFilter,
+      ViewType runViewType,
+      int maxResults) {
     return searchRuns(experimentIds, searchFilter, runViewType, maxResults, new ArrayList<>(),
-                      null);
+        null);
   }
 
   /**
    * Return runs from provided list of experiments that satisfy the search query.
    *
    * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param searchFilter  SQL compatible search query string. Format of this query
+   *                      string is
+   *                      similar to that specified on MLflow UI.
+   *                      Example : "params.model = 'LogisticRegression' and
+   *                      metrics.acc != 0.9"
+   *                      If null, the result will be equivalent to having an
+   *                      empty search filter.
+   * @param runViewType   ViewType for expected runs. One of (ACTIVE_ONLY,
+   *                      DELETED_ONLY, ALL)
+   *                      If null, only runs with viewtype ACTIVE_ONLY will be
+   *                      searched.
+   * @param maxResults    Maximum number of runs desired in one page.
+   * @param orderBy       List of properties to order by. Example: "metrics.acc
+   *                      DESC".
    *
    * @return A list of all Runs that satisfy search filter.
    */
   public RunsPage searchRuns(List<String> experimentIds,
-                              String searchFilter,
-                              ViewType runViewType,
-                              int maxResults,
-                              List<String> orderBy) {
+      String searchFilter,
+      ViewType runViewType,
+      int maxResults,
+      List<String> orderBy) {
     return searchRuns(experimentIds, searchFilter, runViewType, maxResults, orderBy, null);
   }
 
@@ -229,29 +261,36 @@ public class MlflowClient implements Serializable, Closeable {
    * Return runs from provided list of experiments that satisfy the search query.
    *
    * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
-   * @param pageToken String token specifying the next page of results. It should be obtained from
-   *             a call to {@link #searchRuns(List, String)}.
+   * @param searchFilter  SQL compatible search query string. Format of this query
+   *                      string is
+   *                      similar to that specified on MLflow UI.
+   *                      Example : "params.model = 'LogisticRegression' and
+   *                      metrics.acc != 0.9"
+   *                      If null, the result will be equivalent to having an
+   *                      empty search filter.
+   * @param runViewType   ViewType for expected runs. One of (ACTIVE_ONLY,
+   *                      DELETED_ONLY, ALL)
+   *                      If null, only runs with viewtype ACTIVE_ONLY will be
+   *                      searched.
+   * @param maxResults    Maximum number of runs desired in one page.
+   * @param orderBy       List of properties to order by. Example: "metrics.acc
+   *                      DESC".
+   * @param pageToken     String token specifying the next page of results. It
+   *                      should be obtained from
+   *                      a call to {@link #searchRuns(List, String)}.
    *
    * @return A page of Runs that satisfy the search filter.
    */
   public RunsPage searchRuns(List<String> experimentIds,
-                              String searchFilter,
-                              ViewType runViewType,
-                              int maxResults,
-                              List<String> orderBy,
-                              String pageToken) {
+      String searchFilter,
+      ViewType runViewType,
+      int maxResults,
+      List<String> orderBy,
+      String pageToken) {
     SearchRuns.Builder builder = SearchRuns.newBuilder()
-            .addAllExperimentIds(experimentIds)
-            .addAllOrderBy(orderBy)
-            .setMaxResults(maxResults);
+        .addAllExperimentIds(experimentIds)
+        .addAllOrderBy(orderBy)
+        .setMaxResults(maxResults);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
@@ -267,29 +306,32 @@ public class MlflowClient implements Serializable, Closeable {
     String ojson = sendPost("runs/search", ijson);
     SearchRuns.Response response = mapper.toSearchRunsResponse(ojson);
     return new RunsPage(response.getRunsList(), response.getNextPageToken(), experimentIds,
-      searchFilter, runViewType, maxResults, orderBy, this);
+        searchFilter, runViewType, maxResults, orderBy, this);
   }
 
   /**
    * Return experiments that satisfy the search query.
    *
-   * @param searchFilter SQL compatible search query string.
-   *                     Examples:
-   *                         - "attribute.name = 'MyExperiment'"
-   *                         - "tags.problem_type = 'iris_regression'"
-   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param searchFilter       SQL compatible search query string.
+   *                           Examples:
+   *                           - "attribute.name = 'MyExperiment'"
+   *                           - "tags.problem_type = 'iris_regression'"
+   *                           If null, the result will be equivalent to having an
+   *                           empty search filter.
    * @param experimentViewType ViewType for expected experiments. One of
-   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only
+   *                           experiments with
    *                           viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of experiments desired in one page.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param maxResults         Maximum number of experiments desired in one page.
+   * @param orderBy            List of properties to order by. Example:
+   *                           "metrics.acc DESC".
    *
    * @return A page of experiments that satisfy the search filter.
    */
   public ExperimentsPage searchExperiments(String searchFilter,
-                                           ViewType experimentViewType,
-                                           int maxResults,
-                                           List<String> orderBy) {
+      ViewType experimentViewType,
+      int maxResults,
+      List<String> orderBy) {
     return searchExperiments(searchFilter, experimentViewType, maxResults, orderBy, null);
   }
 
@@ -307,11 +349,13 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @param searchFilter SQL compatible search query string.
    *                     Examples:
-   *                         - "attribute.name = 'MyExperiment'"
-   *                         - "tags.problem_type = 'iris_regression'"
-   *                     If null, the result will be equivalent to having an empty search filter.
+   *                     - "attribute.name = 'MyExperiment'"
+   *                     - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty
+   *                     search filter.
    *
-   * @return A page of up to active 1000 experiments that satisfy the search filter.
+   * @return A page of up to active 1000 experiments that satisfy the search
+   *         filter.
    */
   public ExperimentsPage searchExperiments(String searchFilter) {
     return searchExperiments(searchFilter, null, 1000, new ArrayList<>(), null);
@@ -320,29 +364,33 @@ public class MlflowClient implements Serializable, Closeable {
   /**
    * Return experiments that satisfy the search query.
    *
-   * @param searchFilter SQL compatible search query string.
-   *                     Examples:
-   *                         - "attribute.name = 'MyExperiment'"
-   *                         - "tags.problem_type = 'iris_regression'"
-   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param searchFilter       SQL compatible search query string.
+   *                           Examples:
+   *                           - "attribute.name = 'MyExperiment'"
+   *                           - "tags.problem_type = 'iris_regression'"
+   *                           If null, the result will be equivalent to having an
+   *                           empty search filter.
    * @param experimentViewType ViewType for expected experiments. One of
-   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only
+   *                           experiments with
    *                           viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of experiments desired in one page.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
-   * @param pageToken String token specifying the next page of results. It should be obtained from
-   *             a call to {@link #searchExperiments(String)}.
+   * @param maxResults         Maximum number of experiments desired in one page.
+   * @param orderBy            List of properties to order by. Example:
+   *                           "metrics.acc DESC".
+   * @param pageToken          String token specifying the next page of results.
+   *                           It should be obtained from
+   *                           a call to {@link #searchExperiments(String)}.
    *
    * @return A page of experiments that satisfy the search filter.
    */
   public ExperimentsPage searchExperiments(String searchFilter,
-                                           ViewType experimentViewType,
-                                           int maxResults,
-                                           List<String> orderBy,
-                                           String pageToken) {
+      ViewType experimentViewType,
+      int maxResults,
+      List<String> orderBy,
+      String pageToken) {
     SearchExperiments.Builder builder = SearchExperiments.newBuilder()
-            .addAllOrderBy(orderBy)
-            .setMaxResults(maxResults);
+        .addAllOrderBy(orderBy)
+        .setMaxResults(maxResults);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
@@ -360,24 +408,26 @@ public class MlflowClient implements Serializable, Closeable {
     String ojson = sendPost("experiments/search", ijson);
     SearchExperiments.Response response = mapper.toSearchExperimentsResponse(ojson);
     return new ExperimentsPage(response.getExperimentsList(), response.getNextPageToken(),
-      searchFilter, experimentViewType, maxResults, orderBy, this);
+        searchFilter, experimentViewType, maxResults, orderBy, this);
   }
 
-  /** @return  An experiment with the given ID. */
+  /** @return An experiment with the given ID. */
   public Experiment getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
-      .setParameter("experiment_id", experimentId);
+        .setParameter("experiment_id", experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString())).getExperiment();
   }
 
-  /** @return  The experiment associated with the given name or Optional.empty if none exists. */
+  /**
+   * @return The experiment associated with the given name or Optional.empty if
+   *         none exists.
+   */
   public Optional<Experiment> getExperimentByName(String experimentName) {
     URIBuilder builder = newURIBuilder("experiments/get-by-name")
-      .setParameter("experiment_name", experimentName);
+        .setParameter("experiment_name", experimentName);
     try {
       return Optional.of(
-          mapper.toGetExperimentByNameResponse(httpCaller.get(builder.toString())).getExperiment()
-      );
+          mapper.toGetExperimentByNameResponse(httpCaller.get(builder.toString())).getExperiment());
     } catch (MlflowHttpException e) {
       if (e.getStatusCode() == 404) {
         return Optional.<Experiment>empty();
@@ -388,8 +438,11 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Create a new experiment using the default artifact location provided by the server.
-   * @param experimentName Name of the experiment. This must be unique across all experiments.
+   * Create a new experiment using the default artifact location provided by the
+   * server.
+   * 
+   * @param experimentName Name of the experiment. This must be unique across all
+   *                       experiments.
    * @return Experiment ID of the newly created experiment.
    */
   public String createExperiment(String experimentName) {
@@ -402,14 +455,14 @@ public class MlflowClient implements Serializable, Closeable {
    * Create a new experiment. This method allows providing all possible
    * fields of CreateExperiment, and can be invoked as follows:
    *
-   *   <pre>
+   * <pre>
    *   import org.mlflow.api.proto.Service.CreateExperiment;
    *   CreateExperiment.Builder request = CreateExperiment.newBuilder();
    *   request.setName(name);
    *   request.setArtifactLocation(artifactLocation);
    *   request.addTags(experimentTag);
    *   createExperiment(request.build());
-   *   </pre>
+   * </pre>
    *
    * @return ID of the experiment created by the server.
    */
@@ -419,7 +472,9 @@ public class MlflowClient implements Serializable, Closeable {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
-  /** Mark an experiment and associated runs, params, metrics, etc. for deletion. */
+  /**
+   * Mark an experiment and associated runs, params, metrics, etc. for deletion.
+   */
   public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
     httpCaller.post("experiments/delete", ijson);
@@ -462,12 +517,15 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Log a new metric against the given run, as a key-value pair. Metrics are recorded
-   * against two axes: timestamp and step. This method uses the number of milliseconds
+   * Log a new metric against the given run, as a key-value pair. Metrics are
+   * recorded
+   * against two axes: timestamp and step. This method uses the number of
+   * milliseconds
    * since the Unix epoch for the timestamp, and it uses the default step of zero.
    *
    * @param runId The ID of the run in which to record the metric.
-   * @param key The key identifying the metric for which to record the specified value.
+   * @param key   The key identifying the metric for which to record the specified
+   *              value.
    * @param value The value of the metric.
    */
   public void logMetric(String runId, String key, double value) {
@@ -475,14 +533,16 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Log a new metric against the given run, as a key-value pair. Metrics are recorded
+   * Log a new metric against the given run, as a key-value pair. Metrics are
+   * recorded
    * against two axes: timestamp and step.
    *
-   * @param runId The ID of the run in which to record the metric.
-   * @param key The key identifying the metric for which to record the specified value.
-   * @param value The value of the metric.
+   * @param runId     The ID of the run in which to record the metric.
+   * @param key       The key identifying the metric for which to record the
+   *                  specified value.
+   * @param value     The value of the metric.
    * @param timestamp The timestamp at which to record the metric value.
-   * @param step The step at which to record the metric value.
+   * @param step      The step at which to record the metric value.
    */
   public void logMetric(String runId, String key, double value, long timestamp, long step) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value, timestamp, step));
@@ -490,29 +550,32 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Log a new tag against the given experiment as a key-value pair.
+   * 
    * @param experimentId The ID of the experiment on which to set the tag
-   * @param key The key used to identify the tag.
-   * @param value The value of the tag.
+   * @param key          The key used to identify the tag.
+   * @param value        The value of the tag.
    */
   public void setExperimentTag(String experimentId, String key, String value) {
     sendPost("experiments/set-experiment-tag",
-            mapper.makeSetExperimentTag(experimentId, key, value));
+        mapper.makeSetExperimentTag(experimentId, key, value));
   }
 
   /**
    * Delete a tag against the given experiment.
+   * 
    * @param experimentId The ID of the experiment on which to delete the tag
-   * @param key The key used to identify the tag.
+   * @param key          The key used to identify the tag.
    */
-  public void setExperimentTag(String experimentId, String key) {
+  public void deleteExperimentTag(String experimentId, String key) {
     sendPost("experiments/delete-experiment-tag",
-            mapper.makeDeleteExperimentTag(experimentId, key));
+        mapper.makeDeleteExperimentTag(experimentId, key));
   }
 
   /**
    * Log a new tag against the given run, as a key-value pair.
+   * 
    * @param runId The ID of the run on which to set the tag
-   * @param key The key used to identify the tag.
+   * @param key   The key used to identify the tag.
    * @param value The value of the tag.
    */
   public void setTag(String runId, String key, String value) {
@@ -521,15 +584,17 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Delete a tag on the run ID with a specific key. This is irreversible.
+   * 
    * @param runId String ID of the run
-   * @param key Name of the tag
+   * @param key   Name of the tag
    */
   public void deleteTag(String runId, String key) {
     sendPost("runs/delete-tag", mapper.makeDeleteTag(runId, key));
   }
 
   /**
-   * Log multiple metrics, params, and/or tags against a given run (argument runId).
+   * Log multiple metrics, params, and/or tags against a given run (argument
+   * runId).
    * Argument metrics, params, and tag iterables can be nulls.
    */
   public void logBatch(String runId,
@@ -556,7 +621,9 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Send a GET to the following path, including query parameters.
-   * This is mostly an internal API, but allows making lower-level or unsupported requests.
+   * This is mostly an internal API, but allows making lower-level or unsupported
+   * requests.
+   * 
    * @return JSON response from the server.
    */
   public String sendGet(String path) {
@@ -565,7 +632,9 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Send a POST to the following path, with a String-encoded JSON body.
-   * This is mostly an internal API, but allows making lower-level or unsupported requests.
+   * This is mostly an internal API, but allows making lower-level or unsupported
+   * requests.
+   * 
    * @return JSON response from the server.
    */
   public String sendPost(String path, String json) {
@@ -593,21 +662,23 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * Return the tracking URI from MLFLOW_TRACKING_URI or throws if not available.
-   * This is used as the body of the no-argument constructor, as constructors must first call
+   * This is used as the body of the no-argument constructor, as constructors must
+   * first call
    * this().
    */
   private static String getDefaultTrackingUri() {
     String defaultTrackingUri = System.getenv("MLFLOW_TRACKING_URI");
     if (defaultTrackingUri == null) {
       throw new IllegalStateException("Default client requires MLFLOW_TRACKING_URI is set." +
-        " Use fromTrackingUri() instead.");
+          " Use fromTrackingUri() instead.");
     }
     return defaultTrackingUri;
   }
 
   /**
    * Return the MlflowHostCredsProvider associated with the given tracking URI.
-   * This is used as the body of the String-argument constructor, as constructors must first call
+   * This is used as the body of the String-argument constructor, as constructors
+   * must first call
    * this().
    */
   private static MlflowHostCredsProvider getHostCredsProviderFromTrackingUri(String trackingUri) {
@@ -618,8 +689,7 @@ public class MlflowClient implements Serializable, Closeable {
       provider = new BasicMlflowHostCreds(trackingUri);
     } else if (trackingUri.equals("databricks")) {
       MlflowHostCredsProvider profileProvider = new DatabricksConfigHostCredsProvider();
-      MlflowHostCredsProvider dynamicProvider =
-        DatabricksDynamicHostCredsProvider.createIfAvailable();
+      MlflowHostCredsProvider dynamicProvider = DatabricksDynamicHostCredsProvider.createIfAvailable();
       if (dynamicProvider != null) {
         provider = new HostCredsProviderChain(dynamicProvider, profileProvider);
       } else {
@@ -629,7 +699,7 @@ public class MlflowClient implements Serializable, Closeable {
       provider = new DatabricksConfigHostCredsProvider(uri.getHost());
     } else if (uri.getScheme() == null || "file".equals(uri.getScheme())) {
       throw new IllegalArgumentException("Java Client currently does not support" +
-        " local tracking URIs. Please point to a Tracking Server.");
+          " local tracking URIs. Please point to a Tracking Server.");
     } else {
       throw new IllegalArgumentException("Invalid tracking server uri: " + trackingUri);
     }
@@ -637,21 +707,21 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Upload the given local file or directory to the run's root artifact directory. For example,
+   * Upload the given local file or directory to the run's root artifact
+   * directory. For example,
    *
-   *   <pre>
+   * <pre>
    *   logArtifact(runId, "/my/localModel")
    *   listArtifacts(runId) // returns "localModel"
-   *   </pre>
+   * </pre>
    *
-   * @param runId Run ID of an existing MLflow run.
+   * @param runId     Run ID of an existing MLflow run.
    * @param localFile File or directory to upload. Must exist.
    */
   public void logArtifact(String runId, File localFile) {
     if (localFile.isDirectory()) {
       getArtifactRepository(runId).logArtifacts(localFile, localFile.getName());
-    }
-    else {
+    } else {
       getArtifactRepository(runId).logArtifact(localFile);
     }
   }
@@ -660,58 +730,64 @@ public class MlflowClient implements Serializable, Closeable {
    * Upload the given local file or directory to an artifactPath
    * within the run's root directory. For example,
    *
-   *   <pre>
+   * <pre>
    *   logArtifact(runId, "/my/localModel", "model")
    *   listArtifacts(runId, "model") // returns "model/localModel"
-   *   </pre>
+   * </pre>
    *
    * (i.e., the localModel file is now available in model/localModel).
    * If logging a directory, the directory is renamed to artifactPath.
    *
-   * @param runId Run ID of an existing MLflow run.
-   * @param localFile File or directory to upload. Must exist.
-   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   * @param runId        Run ID of an existing MLflow run.
+   * @param localFile    File or directory to upload. Must exist.
+   * @param artifactPath Artifact path relative to the run's root directory.
+   *                     Should NOT
    *                     start with a /.
    */
   public void logArtifact(String runId, File localFile, String artifactPath) {
     if (localFile.isDirectory()) {
       getArtifactRepository(runId).logArtifacts(localFile, artifactPath);
-    }
-    else {
+    } else {
       getArtifactRepository(runId).logArtifact(localFile, artifactPath);
     }
   }
 
   /**
-   * Upload all files within the given local directory the run's root artifact directory.
+   * Upload all files within the given local directory the run's root artifact
+   * directory.
    * For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
-   *   <pre>
+   * <pre>
    *   logArtifacts(runId, "/my/local/dir")
    *   listArtifacts(runId) // returns "file1" and "file2"
-   *   </pre>
+   * </pre>
    *
-   * @param runId Run ID of an existing MLflow run.
-   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
+   * @param runId    Run ID of an existing MLflow run.
+   * @param localDir Directory to upload. Must exist, and must be a directory (not
+   *                 a simple file).
    */
   public void logArtifacts(String runId, File localDir) {
     getArtifactRepository(runId).logArtifacts(localDir);
   }
 
   /**
-   * Upload all files within the given local director an artifactPath within the run's root
-   * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
+   * Upload all files within the given local director an artifactPath within the
+   * run's root
+   * artifact directory. For example, if /my/local/dir/ contains two files "file1"
+   * and "file2", then
    *
-   *   <pre>
+   * <pre>
    *   logArtifacts(runId, "/my/local/dir", "model")
    *   listArtifacts(runId, "model") // returns "model/file1" and "model/file2"
-   *   </pre>
+   * </pre>
    *
    * (i.e., the contents of the local directory are now available in model/).
    *
-   * @param runId Run ID of an existing MLflow run.
-   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
-   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   * @param runId        Run ID of an existing MLflow run.
+   * @param localDir     Directory to upload. Must exist, and must be a directory
+   *                     (not a simple file).
+   * @param artifactPath Artifact path relative to the run's root directory.
+   *                     Should NOT
    *                     start with a /.
    */
   public void logArtifacts(String runId, File localDir, String artifactPath) {
@@ -719,9 +795,12 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * List the artifacts immediately under the run's root artifact directory. This does not
-   * recursively list; instead, it will return FileInfos with isDir=true where further
+   * List the artifacts immediately under the run's root artifact directory. This
+   * does not
+   * recursively list; instead, it will return FileInfos with isDir=true where
+   * further
    * listing may be done.
+   * 
    * @param runId Run ID of an existing MLflow run.
    */
   public List<FileInfo> listArtifacts(String runId) {
@@ -729,11 +808,15 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * List the artifacts immediately under the given artifactPath within the run's root artifact
-   * directory. This does not recursively list; instead, it will return FileInfos with isDir=true
+   * List the artifacts immediately under the given artifactPath within the run's
+   * root artifact
+   * directory. This does not recursively list; instead, it will return FileInfos
+   * with isDir=true
    * where further listing may be done.
-   * @param runId Run ID of an existing MLflow run.
-   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   * 
+   * @param runId        Run ID of an existing MLflow run.
+   * @param artifactPath Artifact path relative to the run's root directory.
+   *                     Should NOT
    *                     start with a /.
    */
   public List<FileInfo> listArtifacts(String runId, String artifactPath) {
@@ -741,9 +824,12 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Return a local directory containing *all* artifacts within the run's artifact directory.
-   * Note that this will download the entire directory path, and so may be expensive if
+   * Return a local directory containing *all* artifacts within the run's artifact
+   * directory.
+   * Note that this will download the entire directory path, and so may be
+   * expensive if
    * the directory has a lot of data.
+   * 
    * @param runId Run ID of an existing MLflow run.
    */
   public File downloadArtifacts(String runId) {
@@ -751,20 +837,24 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Return a local file or directory containing all artifacts within the given artifactPath
-   * within the run's root artifactDirectory. For example, if "model/file1" and "model/file2"
+   * Return a local file or directory containing all artifacts within the given
+   * artifactPath
+   * within the run's root artifactDirectory. For example, if "model/file1" and
+   * "model/file2"
    * exist within the artifact directory, then
    *
-   *   <pre>
+   * <pre>
    *   downloadArtifacts(runId, "model") // returns a local directory containing "file1" and "file2"
    *   downloadArtifacts(runId, "model/file1") // returns a local *file* with the contents of file1.
-   *   </pre>
+   * </pre>
    *
-   * Note that this will download the entire subdirectory path, and so may be expensive if
+   * Note that this will download the entire subdirectory path, and so may be
+   * expensive if
    * the subdirectory has a lot of data.
    *
-   * @param runId Run ID of an existing MLflow run.
-   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
+   * @param runId        Run ID of an existing MLflow run.
+   * @param artifactPath Artifact path relative to the run's root directory.
+   *                     Should NOT
    *                     start with a /.
    */
   public File downloadArtifacts(String runId, String artifactPath) {
@@ -773,13 +863,13 @@ public class MlflowClient implements Serializable, Closeable {
 
   /**
    * @param runId Run ID of an existing MLflow run.
-   * @return ArtifactRepository, capable of uploading and downloading MLflow artifacts.
+   * @return ArtifactRepository, capable of uploading and downloading MLflow
+   *         artifacts.
    */
   private ArtifactRepository getArtifactRepository(String runId) {
     URI baseArtifactUri = URI.create(getRun(runId).getInfo().getArtifactUri());
     return artifactRepositoryFactory.getArtifactRepository(baseArtifactUri, runId);
   }
-
 
   // ********************
   // * Model Registry *
@@ -789,7 +879,7 @@ public class MlflowClient implements Serializable, Closeable {
    * Return the latest model version for each stage.
    * The current available stages are: [None, Staging, Production, Archived].
    *
-   *    <pre>
+   * <pre>
    *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
    *        List{@code <ModelVersion>} detailsList = getLatestVersions("model");
    *
@@ -803,17 +893,18 @@ public class MlflowClient implements Serializable, Closeable {
    *    </pre>
    *
    * @param modelName The name of the model
-   * @return A collection of {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   * @return A collection of
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
    */
   public List<ModelVersion> getLatestVersions(String modelName) {
-      return getLatestVersions(modelName, Collections.emptyList());
+    return getLatestVersions(modelName, Collections.emptyList());
   }
 
   /**
    * Return the latest model version for each stage requested.
    * The current available stages are: [None, Staging, Production, Archived].
    *
-   *    <pre>
+   * <pre>
    *        import org.mlflow.api.proto.ModelRegistry.ModelVersion;
    *        List{@code <ModelVersion>} detailsList =
    *          getLatestVersions("model", Lists.newArrayList{@code <String>}("Staging"));
@@ -828,27 +919,27 @@ public class MlflowClient implements Serializable, Closeable {
    *    </pre>
    *
    * @param modelName The name of the model
-   * @param stages A list of stages
+   * @param stages    A list of stages
    * @return The latest model version
    *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
    */
   public List<ModelVersion> getLatestVersions(String modelName, Iterable<String> stages) {
     String json = sendGet(mapper.makeGetLatestVersion(modelName, stages));
-    GetLatestVersions.Response response =  mapper.toGetLatestVersionsResponse(json);
+    GetLatestVersions.Response response = mapper.toGetLatestVersionsResponse(json);
     return response.getModelVersionsList();
   }
 
   /**
    *
-   *   <pre>
+   * <pre>
    *       import org.mlflow.api.proto.ModelRegistry.ModelVersion;
    *       ModelVersion modelVersion = getModelVersion("model", "version");
-   *   </pre>
+   * </pre>
    *
    * @param modelName Name of the containing registered model. *
-   * @param version Version number as a string of the model version.
+   * @param version   Version number as a string of the model version.
    * @return a single model version
-   *        {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   *         {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
    */
   public ModelVersion getModelVersion(String modelName, String version) {
     String json = sendGet(mapper.makeGetModelVersion(modelName, version));
@@ -857,14 +948,16 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   *  Returns a RegisteredModel from the model registry for the given model name.
-   *   <pre>
+   * Returns a RegisteredModel from the model registry for the given model name.
+   * 
+   * <pre>
    *       import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
    *       RegisteredModel registeredModel = getRegisteredModel("model");
-   *   </pre>
+   * </pre>
    *
    * @param modelName Name of the containing registered model. *
-   * @return a registered model {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
+   * @return a registered model
+   *         {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
    */
   public RegisteredModel getRegisteredModel(String modelName) {
     String json = sendGet(mapper.makeGetRegisteredModel(modelName));
@@ -873,15 +966,16 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Return the model URI containing for the given model version. The model URI can be used
+   * Return the model URI containing for the given model version. The model URI
+   * can be used
    * to download the model version artifacts.
    *
-   *    <pre>
-   *        String modelUri = getModelVersionDownloadUri("model", 0);
-   *    </pre>
+   * <pre>
+   * String modelUri = getModelVersionDownloadUri("model", 0);
+   * </pre>
    *
    * @param modelName The name of the model
-   * @param version The version number of the model
+   * @param version   The version number of the model
    * @return The specified model version's URI.
    */
   public String getModelVersionDownloadUri(String modelName, String version) {
@@ -890,53 +984,58 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
-   * Returns a directory containing all artifacts within the given registered model
-   * version. The method will download the model version artifacts to the local file system. Note
-   * that this method will not work if the `download_uri` refers to a single file (and not a
-   * directory) due to the way many ArtifactRepository's `download_artifacts` handle empty subpaths.
+   * Returns a directory containing all artifacts within the given registered
+   * model
+   * version. The method will download the model version artifacts to the local
+   * file system. Note
+   * that this method will not work if the `download_uri` refers to a single file
+   * (and not a
+   * directory) due to the way many ArtifactRepository's `download_artifacts`
+   * handle empty subpaths.
    *
-   *    <pre>
-   *        File modelVersionDir = downloadModelVersion("model", 0);
-   *    </pre>
+   * <pre>
+   * File modelVersionDir = downloadModelVersion("model", 0);
+   * </pre>
    *
    * @param modelName The name of the model
-   * @param version The version number of the model
+   * @param version   The version number of the model
    * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadModelVersion(String modelName, String version) {
     String path = modelName + "/" + version;
     URIBuilder downloadUriBuilder = new URIBuilder()
-            .setScheme(DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME).setPath(path);
+        .setScheme(DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME).setPath(path);
     CliBasedArtifactRepository repository = new CliBasedArtifactRepository(null, null,
-            hostCredsProvider);
+        hostCredsProvider);
     return repository.downloadArtifactFromUri(downloadUriBuilder.toString());
   }
 
   /**
    * Returns a directory containing all artifacts within the latest registered
-   * model version in the given stage. The method will download the model version artifacts
+   * model version in the given stage. The method will download the model version
+   * artifacts
    * to the local file system.
    *
-   *    <pre>
-   *        File modelVersionDir = downloadLatestModelVersion("model", "Staging");
-   *    </pre>
+   * <pre>
+   * File modelVersionDir = downloadLatestModelVersion("model", "Staging");
+   * </pre>
    *
    * (i.e., the contents of the local directory are now available).
    *
    * @param modelName The name of the model
-   * @param stage The name of the stage
+   * @param stage     The name of the stage
    * @return A directory ({@link java.io.File}) containing model artifacts
    */
   public File downloadLatestModelVersion(String modelName, String stage) {
-      List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
+    List<ModelVersion> versions = getLatestVersions(modelName, Lists.newArrayList(stage));
 
-      if (versions.size() < 1) {
-        throw new MlflowClientException("No model version found for " + modelName +
-                "and stage " + stage);
-      }
+    if (versions.size() < 1) {
+      throw new MlflowClientException("No model version found for " + modelName +
+          "and stage " + stage);
+    }
 
-      ModelVersion details = versions.get(0);
-      return downloadModelVersion(modelName, details.getVersion());
+    ModelVersion details = versions.get(0);
+    return downloadModelVersion(modelName, details.getVersion());
   }
 
   /**
@@ -944,17 +1043,18 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @param searchFilter SQL compatible search query string.
    *                     Examples:
-   *                         - "name = 'model_name'"
-   *                         - "run_id = '...'"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param maxResults Maximum number of model versions desired in one page.
-   * @param orderBy List of properties to order by. Example: "name DESC".
+   *                     - "name = 'model_name'"
+   *                     - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty
+   *                     search filter.
+   * @param maxResults   Maximum number of model versions desired in one page.
+   * @param orderBy      List of properties to order by. Example: "name DESC".
    *
    * @return A page of model versions that satisfy the search filter.
    */
   public ModelVersionsPage searchModelVersions(String searchFilter,
-                                               int maxResults,
-                                               List<String> orderBy) {
+      int maxResults,
+      List<String> orderBy) {
     return searchModelVersions(searchFilter, maxResults, orderBy, null);
   }
 
@@ -972,9 +1072,10 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @param searchFilter SQL compatible search query string.
    *                     Examples:
-   *                         - "name = 'model_name'"
-   *                         - "run_id = '...'"
-   *                     If null, the result will be equivalent to having an empty search filter.
+   *                     - "name = 'model_name'"
+   *                     - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty
+   *                     search filter.
    *
    * @return A page of model versions with up to 1000 items.
    */
@@ -987,26 +1088,27 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @param searchFilter SQL compatible search query string.
    *                     Examples:
-   *                         - "name = 'model_name'"
-   *                         - "run_id = '...'"
-   *                     If null, the result will be equivalent to having an empty search filter.
-   * @param maxResults Maximum number of model versions desired in one page.
-   * @param orderBy List of properties to order by. Example: "name DESC".
-   * @param pageToken String token specifying the next page of results. It should be obtained from
-   *             a call to {@link #searchModelVersions(String)}.
+   *                     - "name = 'model_name'"
+   *                     - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty
+   *                     search filter.
+   * @param maxResults   Maximum number of model versions desired in one page.
+   * @param orderBy      List of properties to order by. Example: "name DESC".
+   * @param pageToken    String token specifying the next page of results. It
+   *                     should be obtained from
+   *                     a call to {@link #searchModelVersions(String)}.
    *
    * @return A page of model versions that satisfy the search filter.
    */
   public ModelVersionsPage searchModelVersions(String searchFilter,
-                                               int maxResults,
-                                               List<String> orderBy,
-                                               String pageToken) {
+      int maxResults,
+      List<String> orderBy,
+      String pageToken) {
     String json = sendGet(mapper.makeSearchModelVersions(
-            searchFilter, maxResults, orderBy, pageToken
-    ));
+        searchFilter, maxResults, orderBy, pageToken));
     SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(json);
     return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
-            searchFilter, maxResults, orderBy, this);
+        searchFilter, maxResults, orderBy, this);
   }
 
   /**
