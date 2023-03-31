@@ -285,3 +285,11 @@ message DatabricksServiceExceptionProto {
   optional string message = 2;
   optional string stack_trace = 3;
 }
+
+// Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can
+// have an input relationship.
+enum InputVertexType {
+  RUN = 1;
+
+  DATASET = 2;
+}
