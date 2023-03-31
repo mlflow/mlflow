@@ -1406,6 +1406,49 @@ def test_set_experiment_tags(store):
         store.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
 
+def test_delete_experiment_tags(store):
+    experiments, _, _ = _create_root(store)
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value0"))
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag1", "value1"))
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert len(experiment.tags) == 2
+    assert experiment.tags["tag0"] == "value0"
+    assert experiment.tags["tag1"] == "value1"
+    # test that updating a tag works
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value00000"))
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert experiment.tags["tag0"] == "value00000"
+    assert experiment.tags["tag1"] == "value1"
+    # test that setting a tag on 1 experiment does not impact another experiment.
+    exp_id = None
+    for exp in experiments:
+        if exp != FileStore.DEFAULT_EXPERIMENT_ID:
+            exp_id = exp
+            break
+    experiment = store.get_experiment(exp_id)
+    assert len(experiment.tags) == 0
+    # setting a tag on different experiments maintains different values across experiments
+    store.set_experiment_tag(exp_id, ExperimentTag("tag1", "value11111"))
+    experiment = store.get_experiment(exp_id)
+    assert len(experiment.tags) == 1
+    assert experiment.tags["tag1"] == "value11111"
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert experiment.tags["tag0"] == "value00000"
+    assert experiment.tags["tag1"] == "value1"
+    # test can set multi-line tags
+    store.set_experiment_tag(exp_id, ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2"))
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
+    # test delete tags
+    store.delete_experiment_tag(exp_id, "tag1")
+    experiment = store.get_experiment(exp_id)
+    assert len(experiment.tags) == 1
+    # test cannot delete tags on deleted experiments
+    store.delete_experiment(exp_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' lifecycle_stage"):
+        store.delete_experiment_tag(exp_id, "tag0")
+
+
 def test_set_tags(store):
     _, exp_data, _ = _create_root(store)
     run_id = exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]

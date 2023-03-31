@@ -31,6 +31,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     DeleteTag,
     SetExperimentTag,
+    DeleteExperimentTag,
     GetExperimentByName,
     SearchExperiments,
     LogModel,
@@ -207,6 +208,13 @@ class TestRestStore:
                 SetExperimentTag(experiment_id="some_id", key="t1", value="abcd" * 1000)
             )
             self._verify_requests(mock_http, creds, "experiments/set-experiment-tag", "POST", body)
+
+        with mock_http_request() as mock_http:
+            store.delete_experiment_tag("some_id", "t1")
+            body = message_to_json(DeleteExperimentTag(experiment_id="some_id", key="t1"))
+            self._verify_requests(
+                mock_http, creds, "experiments/delete-experiment-tag", "POST", body
+            )
 
         with mock_http_request() as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd" * 1000))
