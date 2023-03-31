@@ -2300,20 +2300,615 @@ a YAML-formatted collection of flavor-specific attributes.
 
 To create a new flavor to support a custom model, you define the set of flavor-specific attributes
 to include in the ``MLmodel`` configuration file, as well as the code that can interpret the
-contents of the model directory and the flavor's attributes.
+contents of the model directory and the flavor's attributes. A detailed example of constructing a
+custom model flavor and its usage is shown below. New custom flavors not considered for official
+inclusion into MLflow should be introduced as separate GitHub repositories with documentation
+provided in the
+`Community Model Flavors <https://mlflow.org/docs/latest/models.html#community-model-flavors>`_
+section.
 
-As an example, let's examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's
-``pytorch`` flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved
-to a specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the
-:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` functions to
-produce an ``MLmodel`` configuration containing the ``pytorch`` flavor. The resulting configuration
-has several flavor-specific attributes, such as ``pytorch_version``, which denotes the version of the
-PyTorch library that was used to train the model. To interpret model directories produced by
-:py:func:`save_model() <mlflow.pytorch.save_model>`, the :py:mod:`mlflow.pytorch` module also
-defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
-:py:mod:`mlflow.pytorch.load_model()` reads the ``MLmodel`` configuration from a specified
-model directory and uses the configuration attributes of the ``pytorch`` flavor to load
-and return a PyTorch model from its serialized representation.
+Example: Creating a custom "sktime" flavor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example illustrates the creation of a custom flavor for
+`sktime <https://github.com/sktime/sktime>`_ time series library. The library provides a unified
+interface for multiple learning  tasks including time series forecasting. While the custom flavor in
+this example is specific in terms of the ``sktime`` inference API and model serialization format,
+its interface design is similar to many of the existing built-in flavors. Particularly, the
+interface for utilizing the custom model loaded as a ``python_function`` flavor for generating
+predictions uses a *single-row* ``Pandas DataFrame`` configuration argument to expose the paramters
+of the ``sktime`` inference API. The complete code for this example is included in the
+`flavor.py <https://github.com/mlflow/mlflow/tree/master/examples/sktime/flavor.py>`_ module of the
+``sktime`` example directory.
+
+Let's examine the custom flavor module in more detail. The first step is to import several modules
+inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
+is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
+import of the ``flavor`` module itself. This will be passed to the
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+run.
+
+.. code-block:: python
+
+    import logging
+    import os
+    import pickle
+
+    import flavor
+    import mlflow
+    import numpy as np
+    import pandas as pd
+    import sktime
+    import yaml
+    from mlflow import pyfunc
+    from mlflow.exceptions import MlflowException
+    from mlflow.models import Model
+    from mlflow.models.model import MLMODEL_FILE_NAME
+    from mlflow.models.utils import _save_example
+    from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+    from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+    from mlflow.utils.environment import (
+        _CONDA_ENV_FILE_NAME,
+        _CONSTRAINTS_FILE_NAME,
+        _PYTHON_ENV_FILE_NAME,
+        _REQUIREMENTS_FILE_NAME,
+        _mlflow_conda_env,
+        _process_conda_env,
+        _process_pip_requirements,
+        _PythonEnv,
+        _validate_env_arguments,
+    )
+    from mlflow.utils.file_utils import write_to
+    from mlflow.utils.model_utils import (
+        _add_code_from_conf_to_system_path,
+        _get_flavor_configuration,
+        _validate_and_copy_code_paths,
+        _validate_and_prepare_target_save_path,
+    )
+    from mlflow.utils.requirements_utils import _get_pinned_requirement
+    from sktime.utils.multiindex import flatten_multiindex
+
+    _logger = logging.getLogger(__name__)
+
+We continue by defining a set of important variables used throughout the code that follows.
+
+The flavor name needs to be provided for every custom flavor and should reflect the name of the
+library to be supported. It is saved as part of the flavor-specific attributes to the ``MLmodel``
+configuration file. This example also defines some ``sktime`` specific variables. For illustration
+purposes, only a subset of the available predict methods to be exposed via the
+``_SktimeModelWrapper`` class is included when loading the model in its ``python_function`` flavor
+(additional methods could be added in a similar fashion). Additionaly, the model serialization
+formats, namely ``pickle`` (default) and ``cloudpickle``, are defined. Note that both serialization
+modules require using the same python environment (version) in whatever environment this model is
+used for inference to ensure that the model will load with the appropriate version of
+pickle (cloudpickle).
+
+.. code-block:: python
+
+    FLAVOR_NAME = "sktime"
+
+    SKTIME_PREDICT = "predict"
+    SKTIME_PREDICT_INTERVAL = "predict_interval"
+    SKTIME_PREDICT_QUANTILES = "predict_quantiles"
+    SKTIME_PREDICT_VAR = "predict_var"
+    SUPPORTED_SKTIME_PREDICT_METHODS = [
+        SKTIME_PREDICT,
+        SKTIME_PREDICT_INTERVAL,
+        SKTIME_PREDICT_QUANTILES,
+        SKTIME_PREDICT_VAR,
+    ]
+
+    SERIALIZATION_FORMAT_PICKLE = "pickle"
+    SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
+    SUPPORTED_SERIALIZATION_FORMATS = [
+        SERIALIZATION_FORMAT_PICKLE,
+        SERIALIZATION_FORMAT_CLOUDPICKLE,
+    ]
+
+Similar to the MLflow built-in flavors, a custom flavor logs the model in MLflow format via the
+``save_model()`` and ``log_model()`` functions. In the ``save_model()`` function, the ``sktime``
+model is saved to a specified output directory. Additionally, ``save_model()`` leverages the
+:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` methods to
+produce the ``MLmodel`` configuration containing the ``sktime`` and the ``python_function`` flavor.
+The resulting configuration has several flavor-specific attributes, such as the flavor name and
+``sktime_version``, which denotes the version of the ``sktime`` library that was used to train the
+model. An example of the output directoy for the custom ``sktime`` model is shown below:
+
+::
+
+    # Directory written by flavor.save_model(model, "my_model")
+    my_model/
+    ├── MLmodel
+    ├── conda.yaml
+    ├── model.pkl
+    ├── python_env.yaml
+    └── requirements.txt
+
+And its YAML-formatted ``MLmodel`` file describes the two flavors:
+
+.. code-block:: yaml
+
+    flavors:
+      python_function:
+        env:
+          conda: conda.yaml
+          virtualenv: python_env.yaml
+        loader_module: flavor
+        model_path: model.pkl
+        python_version: 3.8.15
+      sktime:
+        code: null
+        pickled_model: model.pkl
+        serialization_format: pickle
+        sktime_version: 0.16.0
+
+The ``save_model()`` function also provides flexibility to add additional paramters which can be
+added as flavor-specific attributes to the model configuration. In this example there is only one
+flavor-specific parameter for specifying the model serialization format. All other paramters are
+non-flavor specific (for a detailed description of these parameters take a look at
+`mlflow.sklearn.save_model <https://mlflow.org/docs/latest/python_api/mlflow.sklearn.html#mlflow.sklearn.save_model>`_).
+Note: When creating your own custom flavor, be sure rename the ``sktime_model`` parameter in both the
+``save_model()`` and ``log_model()`` functions to reflect the name of your custom model flavor.
+
+.. code-block:: python
+
+    def save_model(
+        sktime_model,
+        path,
+        conda_env=None,
+        code_paths=None,
+        mlflow_model=None,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        serialization_format=SERIALIZATION_FORMAT_PICKLE,
+    ):
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+        if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
+            raise MlflowException(
+                message=(
+                    f"Unrecognized serialization format: {serialization_format}. "
+                    "Please specify one of the following supported formats: "
+                    "{SUPPORTED_SERIALIZATION_FORMATS}."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        _validate_and_prepare_target_save_path(path)
+        code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+        if mlflow_model is None:
+            mlflow_model = Model()
+        if signature is not None:
+            mlflow_model.signature = signature
+        if input_example is not None:
+            _save_example(mlflow_model, input_example, path)
+
+        model_data_subpath = "model.pkl"
+        model_data_path = os.path.join(path, model_data_subpath)
+        _save_model(
+            sktime_model, model_data_path, serialization_format=serialization_format
+        )
+
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="flavor",
+            model_path=model_data_subpath,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
+            code=code_dir_subpath,
+        )
+
+        mlflow_model.add_flavor(
+            FLAVOR_NAME,
+            pickled_model=model_data_subpath,
+            sktime_version=sktime.__version__,
+            serialization_format=serialization_format,
+            code=code_dir_subpath,
+        )
+        mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+        if conda_env is None:
+            if pip_requirements is None:
+                include_cloudpickle = (
+                    serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+                )
+                default_reqs = get_default_pip_requirements(include_cloudpickle)
+                inferred_reqs = mlflow.models.infer_pip_requirements(
+                    path, FLAVOR_NAME, fallback=default_reqs
+                )
+                default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            else:
+                default_reqs = None
+            conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+                default_reqs, pip_requirements, extra_pip_requirements
+            )
+        else:
+            conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+        with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+            yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+        if pip_constraints:
+            write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+
+    def _save_model(model, path, serialization_format):
+        with open(path, "wb") as out:
+            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+                pickle.dump(model, out)
+            else:
+                import cloudpickle
+
+                cloudpickle.dump(model, out)
+
+The ``save_model()`` function also writes the model dependencies to a ``requirements.txt`` and
+``conda.yaml`` file in the model output directory. For this purpose the set of ``pip`` dependecies
+produced by this flavor need to be added to the ``get_default_pip_requirements()`` function. In this
+example only the minimum required dependencies are provided. In practice, additional requirements needed for
+preprocessing or post-processing steps could be included. Note that for any custom flavor, the
+:py:func:`mlflow.models.infer_pip_requirements()` method in the ``save_model()`` function will
+return the default requirements defined in ``get_default_pip_requirements()`` as package imports are
+only inferred for built-in flavors.
+
+.. code-block:: python
+
+    def get_default_pip_requirements(include_cloudpickle=False):
+        pip_deps = [_get_pinned_requirement("sktime")]
+        if include_cloudpickle:
+            pip_deps += [_get_pinned_requirement("cloudpickle")]
+
+        return pip_deps
+
+
+    def get_default_conda_env(include_cloudpickle=False):
+        return _mlflow_conda_env(
+            additional_pip_deps=get_default_pip_requirements(include_cloudpickle)
+        )
+
+Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
+:py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
+curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
+``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
+pass the ``flavor`` module to the :py:func:`mlflow.models.Model.log()` method which internally calls
+the ``save_model()`` function from above to persist the model.
+
+.. code-block:: python
+
+    def log_model(
+        sktime_model,
+        artifact_path,
+        conda_env=None,
+        code_paths=None,
+        registered_model_name=None,
+        signature=None,
+        input_example=None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        serialization_format=SERIALIZATION_FORMAT_PICKLE,
+        **kwargs,
+    ):
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=flavor,
+            registered_model_name=registered_model_name,
+            sktime_model=sktime_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            serialization_format=serialization_format,
+            **kwargs,
+        )
+
+To interpret model directories produced by ``save_model()``, the custom flavor must also define a
+``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from 
+the specified model directory and uses the configuration attributes to load and return the
+``sktime`` model from its serialized representation.
+
+.. code-block:: python
+
+    def load_model(model_uri, dst_path=None):
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=model_uri, output_path=dst_path
+        )
+        flavor_conf = _get_flavor_configuration(
+            model_path=local_model_path, flavor_name=FLAVOR_NAME
+        )
+        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+        sktime_model_file_path = os.path.join(
+            local_model_path, flavor_conf["pickled_model"]
+        )
+        serialization_format = flavor_conf.get(
+            "serialization_format", SERIALIZATION_FORMAT_PICKLE
+        )
+        return _load_model(
+            path=sktime_model_file_path, serialization_format=serialization_format
+        )
+
+
+    def _load_model(path, serialization_format):
+        with open(path, "rb") as pickled_model:
+            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+                return pickle.load(pickled_model)
+            elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+                import cloudpickle
+
+                return cloudpickle.load(pickled_model)
+
+The ``_load_pyfunc()`` function will be called by the :py:func:`mlflow.pyfunc.load_model()` method
+to load the custom model flavor as a ``pyfunc`` type. The MLmodel flavor configuration is used to
+pass any flavor-specific attributes to the ``_load_model()`` function (i.e., the path to the
+``python_function`` flavor in the model directory and the model serialization format).
+
+.. code-block:: python
+
+    def _load_pyfunc(path):
+        try:
+            sktime_flavor_conf = _get_flavor_configuration(
+                model_path=path, flavor_name=FLAVOR_NAME
+            )
+            serialization_format = sktime_flavor_conf.get(
+                "serialization_format", SERIALIZATION_FORMAT_PICKLE
+            )
+        except MlflowException:
+            _logger.warning(
+                "Could not find sktime flavor configuration during model "
+                "loading process. Assuming 'pickle' serialization format."
+            )
+            serialization_format = SERIALIZATION_FORMAT_PICKLE
+
+        pyfunc_flavor_conf = _get_flavor_configuration(
+            model_path=path, flavor_name=pyfunc.FLAVOR_NAME
+        )
+        path = os.path.join(path, pyfunc_flavor_conf["model_path"])
+
+        return _SktimeModelWrapper(
+            _load_model(path, serialization_format=serialization_format)
+        )
+
+The final step is to create the model wrapper class defining the ``python_function`` flavor. The
+design of the wrapper class determines how the flavor's inference API is exposed when making
+predictions using the ``python_function`` flavor. Just like the built-in flavors, the ``predict()``
+method of the ``sktime`` wrapper class accepts a *single-row* ``Pandas DataFrame`` configuration
+argument. For an example of how to construct this configuration DataFrame refer to the usage example
+in the next section. A detailed description of the supported paramaters and input formats is
+provided in the
+`flavor.py <https://github.com/mlflow/mlflow/tree/master/examples/sktime/flavor.py>`_ module
+docstrings.
+
+.. code-block:: python
+
+    class _SktimeModelWrapper:
+        def __init__(self, sktime_model):
+            self.sktime_model = sktime_model
+
+        def predict(self, dataframe) -> pd.DataFrame:
+            df_schema = dataframe.columns.values.tolist()
+
+            if len(dataframe) > 1:
+                raise MlflowException(
+                    f"The provided prediction pd.DataFrame contains {len(dataframe)} rows. "
+                    "Only 1 row should be supplied.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Convert the configuration dataframe into a dictionary to simplify the
+            # extraction of parameters passed to the sktime predcition methods.
+            attrs = dataframe.to_dict(orient="index").get(0)
+            predict_method = attrs.get("predict_method")
+
+            if not predict_method:
+                raise MlflowException(
+                    f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not "
+                    "contain the required column `predict_method` for specifying the prediction method.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if predict_method not in SUPPORTED_SKTIME_PREDICT_METHODS:
+                raise MlflowException(
+                    "Invalid `predict_method` value."
+                    f"The supported prediction methods are {SUPPORTED_SKTIME_PREDICT_METHODS}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # For inference parameters 'fh', 'X', 'coverage', 'alpha', and 'cov'
+            # the respective sktime default value is used if the value was not
+            # provided in the configuration dataframe.
+            fh = attrs.get("fh", None)
+
+            # Any model that is trained with exogenous regressor elements will need
+            # to provide `X` entries as a numpy ndarray to the predict method.
+            X = attrs.get("X", None)
+
+            # When the model is served via REST API the exogenous regressor must be
+            # provided as a list to the configuration DataFrame to be JSON serializable.
+            # Below we convert the list back to ndarray type as required by sktime
+            # predict methods.
+            if isinstance(X, list):
+                X = np.array(X)
+
+            # For illustration purposes only a subset of the available sktime prediction
+            # methods is exposed. Additional methods (e.g. predict_proba) could be added
+            # in a similar fashion.
+            if predict_method == SKTIME_PREDICT:
+                predictions = self.sktime_model.predict(fh=fh, X=X)
+
+            if predict_method == SKTIME_PREDICT_INTERVAL:
+                coverage = attrs.get("coverage", 0.9)
+                predictions = self.sktime_model.predict_interval(
+                    fh=fh, X=X, coverage=coverage
+                )
+
+            if predict_method == SKTIME_PREDICT_QUANTILES:
+                alpha = attrs.get("alpha", None)
+                predictions = self.sktime_model.predict_quantiles(fh=fh, X=X, alpha=alpha)
+
+            if predict_method == SKTIME_PREDICT_VAR:
+                cov = attrs.get("cov", False)
+                predictions = self.sktime_model.predict_var(fh=fh, X=X, cov=cov)
+
+            # Methods predict_interval() and predict_quantiles() return a pandas
+            # MultiIndex column structure. As MLflow signature inference does not
+            # support MultiIndex column structure the columns must be flattened.
+            if predict_method in [SKTIME_PREDICT_INTERVAL, SKTIME_PREDICT_QUANTILES]:
+                predictions.columns = flatten_multiindex(predictions)
+
+            return predictions
+
+Example: Using the custom "sktime" flavor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example trains a ``sktime`` NaiveForecaster model using the Longley dataset for forecasting
+with exogenous variables. It shows a custom model type implementation that logs the training
+hyper-parameters, evaluation metrics and the trained model as an artifact. The *single-row*
+configuration DataFrame for this example defines an interval forecast with nominal coverage values
+``[0.9,0.95]``, a future forecast horizon of four periods, and an exogenous regressor.
+
+.. code-block:: python
+
+    import json
+
+    import flavor
+    import pandas as pd
+    from sktime.datasets import load_longley
+    from sktime.forecasting.model_selection import temporal_train_test_split
+    from sktime.forecasting.naive import NaiveForecaster
+    from sktime.performance_metrics.forecasting import (
+        mean_absolute_error,
+        mean_absolute_percentage_error,
+    )
+
+    import mlflow
+
+    ARTIFACT_PATH = "model"
+
+    with mlflow.start_run() as run:
+        y, X = load_longley()
+        y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
+
+        forecaster = NaiveForecaster()
+        forecaster.fit(
+            y_train,
+            X=X_train,
+        )
+
+        # Extract parameters
+        parameters = forecaster.get_params()
+
+        # Evaluate model
+        y_pred = forecaster.predict(fh=[1, 2, 3, 4], X=X_test)
+        metrics = {
+            "mae": mean_absolute_error(y_test, y_pred),
+            "mape": mean_absolute_percentage_error(y_test, y_pred),
+        }
+
+        print(f"Parameters: \n{json.dumps(parameters, indent=2)}")
+        print(f"Metrics: \n{json.dumps(metrics, indent=2)}")
+
+        # Log parameters and metrics
+        mlflow.log_params(parameters)
+        mlflow.log_metrics(metrics)
+
+        # Log model using custom model flavor with pickle serialization (default).
+        flavor.log_model(
+            sktime_model=forecaster,
+            artifact_path=ARTIFACT_PATH,
+            serialization_format="pickle",
+        )
+        model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+
+    # Load model in native sktime flavor and pyfunc flavor
+    loaded_model = flavor.load_model(model_uri=model_uri)
+    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_uri)
+
+    # Convert test data to 2D numpy array so it can be passed to pyfunc predict using
+    # a single-row Pandas DataFrame configuration argument
+    X_test_array = X_test.to_numpy()
+
+    # Create configuration DataFrame
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": [1, 2, 3, 4],
+                "predict_method": "predict_interval",
+                "coverage": [0.9, 0.95],
+                "X": X_test_array,
+            }
+        ]
+    )
+
+    # Generate interval forecasts with native sktime flavor and pyfunc flavor
+    print(
+        f"\nNative sktime 'predict_interval':\n${loaded_model.predict_interval(fh=[1, 2, 3], X=X_test, coverage=[0.9, 0.95])}"
+    )
+    print(f"\nPyfunc 'predict_interval':\n${loaded_pyfunc.predict(predict_conf)}")
+
+    # Print the run id wich is used for serving the model to a local REST API endpoint
+    print(f"\nMLflow run id:\n{run.info.run_id}")
+
+When opening the MLflow runs detail page the serialized model artifact  will show up, such as:
+
+   .. figure:: _static/images/tracking_artifact_ui_custom_flavor.png
+
+To serve the model to a local REST API endpoint run the following MLflow CLI command substituting
+the run id printed during execution of the previous block (for more details refer to the
+`Deploy MLflow models <https://mlflow.org/docs/latest/models.html#deploy-mlflow-models>`_ section):
+
+.. code-block:: bash
+
+    mlflow models serve -m runs:/<run_id>/model --env-manager local --host 127.0.0.1
+
+An example of requesting a prediction from the served model is shown below. The exogenous regressor
+needs to be provided as a list to be JSON serializable. The wrapper instance will convert the list
+back to ``numpy ndarray`` type as required by ``sktime`` inference API.
+
+.. code-block:: python
+
+    import pandas as pd
+    import requests
+
+    from sktime.datasets import load_longley
+    from sktime.forecasting.model_selection import temporal_train_test_split
+
+    y, X = load_longley()
+    y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
+
+    # Define local host and endpoint url
+    host = "127.0.0.1"
+    url = f"http://{host}:5000/invocations"
+
+    # Create configuration DataFrame
+    X_test_list = X_test.to_numpy().tolist()
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": [1, 2, 3, 4],
+                "predict_method": "predict_interval",
+                "coverage": [0.9, 0.95],
+                "X": X_test_list,
+            }
+        ]
+    )
+
+    # Create dictionary with pandas DataFrame in the split orientation
+    json_data = {"dataframe_split": predict_conf.to_dict(orient="split")}
+
+    # Score model
+    response = requests.post(url, json=json_data)
+    print(f"\nPyfunc 'predict_interval':\n${response.json()}")
+
 
 .. _built-in-deployment:
 

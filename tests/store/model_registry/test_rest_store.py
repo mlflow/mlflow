@@ -23,6 +23,9 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteRegisteredModelTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
@@ -377,4 +380,43 @@ def test_delete_model_version_tag(store, creds):
         "model-versions/delete-tag",
         "DELETE",
         DeleteModelVersionTag(name=name, version="1", key="key"),
+    )
+
+
+def test_set_registered_model_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.set_registered_model_alias(name=name, alias="test_alias", version="1")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "POST",
+        SetRegisteredModelAlias(name=name, alias="test_alias", version="1"),
+    )
+
+
+def test_delete_registered_model_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.delete_registered_model_alias(name=name, alias="test_alias")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "DELETE",
+        DeleteRegisteredModelAlias(name=name, alias="test_alias"),
+    )
+
+
+def test_get_model_version_by_alias(store, creds):
+    name = "model_1"
+    with mock_http_request_200() as mock_http:
+        store.get_model_version_by_alias(name=name, alias="test_alias")
+    _verify_requests(
+        mock_http,
+        creds,
+        "registered-models/alias",
+        "GET",
+        GetModelVersionByAlias(name=name, alias="test_alias"),
     )

@@ -3,9 +3,9 @@
 import os
 import yaml
 
-from mlflow import data
 from mlflow.exceptions import ExecutionException
 from mlflow.tracking import artifact_utils
+from mlflow.utils import data_utils
 from mlflow.utils.file_utils import get_local_path_or_none
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME
@@ -254,7 +254,7 @@ class Parameter:
             self.default = yaml_obj.get("default")
 
     def _compute_uri_value(self, user_param_value):
-        if not data.is_uri(user_param_value):
+        if not data_utils.is_uri(user_param_value):
             raise ExecutionException(
                 "Expected URI for parameter {} but got {}".format(self.name, user_param_value)
             )

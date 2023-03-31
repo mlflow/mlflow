@@ -5,7 +5,6 @@ import re
 import tempfile
 import posixpath
 import urllib
-from mimetypes import guess_type
 import pathlib
 
 import logging
@@ -19,8 +18,6 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, File
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.projects._project_spec import MLPROJECT_FILE_NAME
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
@@ -68,6 +65,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.protos.mlflow_artifacts_pb2 import (
     MlflowArtifactsService,
@@ -81,12 +81,14 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_local_uri
+from mlflow.utils.uri import is_local_uri, is_file_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -479,50 +481,6 @@ def catch_mlflow_exception(func):
             return response
 
     return wrapper
-
-
-_TEXT_EXTENSIONS = [
-    "txt",
-    "log",
-    "err",
-    "cfg",
-    "conf",
-    "cnf",
-    "cf",
-    "ini",
-    "properties",
-    "prop",
-    "hocon",
-    "toml",
-    "yaml",
-    "yml",
-    "xml",
-    "json",
-    "js",
-    "py",
-    "py3",
-    "csv",
-    "tsv",
-    "md",
-    "rst",
-    MLMODEL_FILE_NAME,
-    MLPROJECT_FILE_NAME,
-]
-
-
-def _guess_mime_type(file_path):
-    filename = pathlib.Path(file_path).name
-    extension = os.path.splitext(filename)[-1].replace(".", "")
-    # for MLmodel/mlproject with no extensions
-    if extension == "":
-        extension = filename
-    if extension in _TEXT_EXTENSIONS:
-        return "text/plain"
-    mime_type, _ = guess_type(filename)
-    if not mime_type:
-        # As a fallback, if mime type is not detected, treat it as a binary file
-        return "application/octet-stream"
-    return mime_type
 
 
 def _disable_unless_serve_artifacts(func):
@@ -1383,23 +1341,33 @@ def _delete_registered_model_tag():
 
 
 def _validate_source(source: str, run_id: str) -> None:
-    if not is_local_uri(source):
-        return
+    if is_local_uri(source):
+        if run_id:
+            store = _get_tracking_store()
+            run = store.get_run(run_id)
+            source = pathlib.Path(local_file_uri_to_path(source)).resolve()
+            run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
+            if run_artifact_dir in [source, *source.parents]:
+                return
 
-    if run_id:
-        store = _get_tracking_store()
-        run = store.get_run(run_id)
-        source = pathlib.Path(local_file_uri_to_path(source)).resolve()
-        run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
-        if run_artifact_dir in [source, *source.parents]:
-            return
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. To use a local path as a model version "
+            "source, the run_id request parameter has to be specified and the local path has to be "
+            "contained within the artifact directory of the run specified by the run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
 
-    raise MlflowException(
-        f"Invalid source: '{source}'. To use a local path as source, the run_id request parameter "
-        "has to be specified and the local path has to be contained within the artifact directory "
-        "of the run specified by the run_id.",
-        INVALID_PARAMETER_VALUE,
-    )
+    # There might be file URIs that are local but can bypass the above check. To prevent this, we
+    # disallow using file URIs as model version sources by default unless it's explicitly allowed
+    # by setting the MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE environment variable to True.
+    if not MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.get() and is_file_uri(source):
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. MLflow tracking server doesn't allow using "
+            "a file URI as a model version source for security reasons. To disable this check, set "
+            f"the {MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE.name} environment variable to "
+            "True.",
+            INVALID_PARAMETER_VALUE,
+        )
 
 
 @catch_mlflow_exception
@@ -1606,6 +1574,57 @@ def _delete_model_version_tag():
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_registered_model_alias():
+    request_message = _get_request_message(
+        SetRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+            "version": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().set_registered_model_alias(
+        name=request_message.name, alias=request_message.alias, version=request_message.version
+    )
+    return _wrap_response(SetRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_registered_model_alias():
+    request_message = _get_request_message(
+        DeleteRegisteredModelAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    _get_model_registry_store().delete_registered_model_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    return _wrap_response(DeleteRegisteredModelAlias.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_model_version_by_alias():
+    request_message = _get_request_message(
+        GetModelVersionByAlias(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "alias": [_assert_string, _assert_required],
+        },
+    )
+    model_version = _get_model_registry_store().get_model_version_by_alias(
+        name=request_message.name, alias=request_message.alias
+    )
+    response_proto = model_version.to_proto()
+    response_message = GetModelVersionByAlias.Response(model_version=response_proto)
+    return _wrap_response(response_message)
+
+
 # MLflow Artifacts APIs
 
 
@@ -1792,6 +1811,9 @@ HANDLERS = {
     DeleteRegisteredModelTag: _delete_registered_model_tag,
     SetModelVersionTag: _set_model_version_tag,
     DeleteModelVersionTag: _delete_model_version_tag,
+    SetRegisteredModelAlias: _set_registered_model_alias,
+    DeleteRegisteredModelAlias: _delete_registered_model_alias,
+    GetModelVersionByAlias: _get_model_version_by_alias,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,

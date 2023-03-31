@@ -29,11 +29,13 @@ class ModelRegistryClient:
     models and model versions.
     """
 
-    def __init__(self, registry_uri):
+    def __init__(self, registry_uri, tracking_uri):
         """
         :param registry_uri: Address of local or remote model registry server.
+        :param tracking_uri: Address of local or remote tracking server.
         """
         self.registry_uri = registry_uri
+        self.tracking_uri = tracking_uri
         # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
@@ -41,7 +43,7 @@ class ModelRegistryClient:
 
     @property
     def store(self):
-        return utils._get_store(self.registry_uri)
+        return utils._get_store(self.registry_uri, self.tracking_uri)
 
     # Registered Model Methods
 

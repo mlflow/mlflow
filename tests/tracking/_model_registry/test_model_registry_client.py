@@ -29,7 +29,7 @@ def mock_store():
 
 
 def newModelRegistryClient():
-    return ModelRegistryClient("uri:/fake")
+    return ModelRegistryClient("uri:/fake", "uri:/fake")
 
 
 def _model_version(name, version, stage, source="some:/source", run_id="run13579", tags=None):

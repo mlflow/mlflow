@@ -31,11 +31,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
     TemporaryCredentials,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_OPERATION_READ_WRITE,
 )
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.models.model import Model
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.proto_json_utils import message_to_json
@@ -66,8 +65,9 @@ _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
 _logger = logging.getLogger(__name__)
 
 
-def _require_arg_unspecified(arg_name, arg_value, default_value=None, message=None):
-    if arg_value != default_value:
+def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
+    default_values = [None] if default_values is None else default_values
+    if arg_value not in default_values:
         _raise_unsupported_arg(arg_name, message)
 
 
@@ -96,14 +96,14 @@ class UcModelRegistryStore(BaseRestStore):
     """
     Client for a remote model registry server accessed via REST API calls
 
-    :param registry_uri: URI with scheme 'databricks-uc'
+    :param store_uri: URI with scheme 'databricks-uc'
     :param tracking_uri: URI of the Databricks MLflow tracking server from which to fetch
                          run info and download run artifacts, when creating new model
                          versions from source artifacts logged to an MLflow run.
     """
 
-    def __init__(self, registry_uri, tracking_uri):
-        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, registry_uri))
+    def __init__(self, store_uri, tracking_uri):
+        super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
 
@@ -146,7 +146,7 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
-        _require_arg_unspecified("tags", tags)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -291,7 +291,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         req_body = message_to_json(
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             )
         )
         return self._call_endpoint(
@@ -316,6 +316,11 @@ class UcModelRegistryStore(BaseRestStore):
         return response.headers[_DATABRICKS_ORG_ID_HEADER]
 
     def _validate_model_signature(self, local_model_dir):
+        # Import Model here instead of in the top level, to avoid circular import; the
+        # mlflow.models.model module imports from MLflow tracking, which triggers an import of
+        # this file during store registry initialization
+        from mlflow.models.model import Model
+
         try:
             model = Model.load(local_model_dir)
         except Exception as e:
@@ -361,7 +366,7 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags)
+        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         source_workspace_id = self._get_workspace_id(run_id)
         req_body = message_to_json(
             CreateModelVersionRequest(
@@ -499,3 +504,34 @@ class UcModelRegistryStore(BaseRestStore):
         :param key: Tag key.
         """
         _raise_unsupported_method(method="delete_model_version_tag")
+
+    def set_registered_model_alias(self, name, alias, version):
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+        """
+        _raise_unsupported_method(method="set_registered_model_alias")
+
+    def delete_registered_model_alias(self, name, alias):
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+        """
+        _raise_unsupported_method(method="delete_registered_model_alias")
+
+    def get_model_version_by_alias(self, name, alias):
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        _raise_unsupported_method(method="get_model_version_by_alias")

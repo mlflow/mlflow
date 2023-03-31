@@ -32,7 +32,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
     ModelVersion as ProtoModelVersion,
-    MODEL_VERSION_READ_WRITE,
+    MODEL_VERSION_OPERATION_READ_WRITE,
     TemporaryCredentials,
     AwsCredentials,
     AzureUserDelegationSAS,
@@ -74,7 +74,7 @@ def mock_databricks_host_creds():
 @pytest.fixture
 def store(mock_databricks_host_creds):
     with mock.patch("databricks_cli.configure.provider.get_config"):
-        yield UcModelRegistryStore(registry_uri="databricks-uc", tracking_uri="databricks")
+        yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
 
 
 def _args(endpoint, method, json_body, host_creds):
@@ -324,7 +324,7 @@ def get_request_mock(
                 "POST",
                 message_to_json(
                     GenerateTemporaryModelVersionCredentialsRequest(
-                        name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                        name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
                     )
                 ),
             ): model_version_temp_credentials_response,
@@ -382,7 +382,7 @@ def _assert_create_model_version_endpoints_called(
         (
             "model-versions/generate-temporary-credentials",
             GenerateTemporaryModelVersionCredentialsRequest(
-                name=name, version=version, operation=MODEL_VERSION_READ_WRITE
+                name=name, version=version, operation=MODEL_VERSION_OPERATION_READ_WRITE
             ),
         ),
         (
@@ -629,3 +629,11 @@ def test_delete_model_version_tag_unsupported(store):
         match=_expected_unsupported_method_error_message("delete_model_version_tag"),
     ):
         store.delete_model_version_tag(name=name, version="1", key="key")
+
+
+@mock_http_200
+@pytest.mark.parametrize("tags", [None, []])
+def test_default_values_for_tags(store, tags):
+    # No unsupported arg exceptions should be thrown
+    store.create_registered_model(name="model_1", description="description", tags=tags)
+    store.create_model_version(name="mymodel", source="source")

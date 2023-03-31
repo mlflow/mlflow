@@ -5,6 +5,7 @@ from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.file_utils import relative_path_to_artifact_path
+from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
 
 
@@ -19,10 +20,14 @@ class HttpArtifactRepository(ArtifactRepository):
         verify_artifact_path(artifact_path)
 
         file_name = os.path.basename(local_file)
+        mime_type = _guess_mime_type(file_name)
         paths = (artifact_path, file_name) if artifact_path else (file_name,)
         endpoint = posixpath.join("/", *paths)
+        extra_headers = {"Content-Type": mime_type}
         with open(local_file, "rb") as f:
-            resp = http_request(self._host_creds, endpoint, "PUT", data=f)
+            resp = http_request(
+                self._host_creds, endpoint, "PUT", data=f, extra_headers=extra_headers
+            )
             augmented_raise_for_status(resp)
 
     def log_artifacts(self, local_dir, artifact_path=None):

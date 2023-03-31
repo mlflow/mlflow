@@ -12,7 +12,7 @@ To run the example via MLflow, navigate to the `mlflow/examples/pytorch/MNIST` d
 mlflow run .
 ```
 
-This will run `mnist_autolog_example.py` with the default set of parameters such as `--max_epochs=5`. You can see the default value in the `MLproject` file.
+This will run `mnist_autolog_example.py` with the default set of parameters such as `max_epochs=5`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
@@ -47,36 +47,28 @@ The parameters can be overridden via the command line:
 1. max_epochs - Number of epochs to train model. Training can be interrupted early via Ctrl+C
 2. devices - Number of GPUs.
 3. strategy - [strategy](https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#trainer-class-api) (e.g. "ddp" for the Distributed Data Parallel backend) to use for training. By default, no strategy is used.
-4. accelerator - [accelerator](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.accelerators.Accelerator.html#pytorch_lightning.accelerators.Accelerator) (e.g. "gpu" - for running in GPU environment. Set to "cpu" by default)
+4. accelerator - [accelerator](https://lightning.ai/docs/pytorch/stable/extensions/accelerator.html) (e.g. "gpu" - for running in GPU environment. Set to "cpu" by default)
 5. batch_size - Input batch size for training
 6. num_workers - Number of worker threads to load training data
-7. lr - Learning rate
-8. patience -parameter of early stopping
-9. mode - parameter of early stopping
-10. monitor - parameter of early stopping
-    11.verbose - parameter of early stopping
+7. learning_rate - Learning rate
 
 For example:
 
 ```
-mlflow run . -P max_epochs=5 -P gpus=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P strategy="ddp" -P patience=5 -P mode="min" -P monitor="val_loss" -P verbose=True
+mlflow run . -P max_epochs=5 -P devices=1 -P batch_size=32 -P num_workers=2 -P learning_rate=0.01 -P strategy="ddp"
 ```
 
 Or to run the training script directly with custom parameters:
 
 ```
 python mnist_autolog_example.py \
-    --max_epochs 5 \
-    --devices 1 \
-    --strategy "ddp" \
-    --accelerator "gpu" \
-    --batch_size 64 \
-    --num_workers 3 \
-    --lr 0.001 \
-    --es_patience 5 \
-    --es_mode "min" \
-    --es_monitor "val_loss" \
-    --es_verbose True
+    --trainer.max_epochs 5 \
+    --trainer.devices 1 \
+    --trainer.strategy "ddp" \
+    --trainer.accelerator "gpu" \
+    --data.batch_size 64 \
+    --data.num_workers 3 \
+    --model.learning_rate 0.001
 ```
 
 ## Logging to a custom tracking server

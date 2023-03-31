@@ -147,12 +147,21 @@ setup(
             # as part of the MLflow server monitoring add-on
             "prometheus-flask-exporter",
         ],
+        "databricks": [
+            # Required to write model artifacts to unity catalog locations
+            "azure-storage-file-datalake>12",
+            "google-cloud-storage>=1.30.0",
+            "boto3>1",
+        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+
+        [mlflow.app]
+        basic-auth=mlflow.server.auth:app
     """,
     cmdclass={
         "dependencies": ListDependencies,
