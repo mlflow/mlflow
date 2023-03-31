@@ -30,7 +30,9 @@ def is_local_uri(uri):
 
     parsed_uri = urllib.parse.urlparse(uri)
     if parsed_uri.hostname and not (
-        parsed_uri.hostname == "." or parsed_uri.hostname.startswith("localhost")
+        parsed_uri.hostname == "."
+        or parsed_uri.hostname.startswith("localhost")
+        or parsed_uri.hostname.startswith("127.0.0.1")
     ):
         return False
 
