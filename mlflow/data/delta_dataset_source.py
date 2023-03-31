@@ -44,7 +44,6 @@ class DeltaDatasetSource(DatasetSource):
         spark_read_op = spark.read.format("delta")
         if self._delta_table_version is not None:
             spark_read_op = spark_read_op.option("versionAsOf", self._delta_table_version)
-
         # Read the Delta table using spark.read.format and table method
         if self._path:
             return spark_read_op.load(self._path)
