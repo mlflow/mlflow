@@ -197,7 +197,7 @@ def test_from_pandas_delta_table_datasource(spark_session):
     df2_spark = spark_session.createDataFrame(df2)
     df_spark.write.format("delta").mode("overwrite").saveAsTable("temp")
 
-    delta_datasource = DeltaDatasetSource(delta_table_name="temp", version=2)
+    delta_datasource = DeltaDatasetSource(delta_table_name="temp", delta_table_version=2)
     mlflow_df = mlflow.data.from_pandas(df2, source=delta_datasource)
 
     assert isinstance(mlflow_df, PandasDataset)

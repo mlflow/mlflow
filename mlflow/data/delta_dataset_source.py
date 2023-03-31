@@ -1,8 +1,9 @@
 import json
 from typing import TypeVar, Any, Optional, Dict
 
-from mlflow.data.dataset_source import DatasetSource
 from pyspark.sql import SparkSession, DataFrame
+
+from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import http_request_safe
 
