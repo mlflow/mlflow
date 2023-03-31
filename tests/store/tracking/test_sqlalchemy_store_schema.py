@@ -159,3 +159,43 @@ def test_index_for_dataset_tables(tmpdir, db_url):
             "index_inputs_destination_type_destination_id_source_type",
         }
         assert new_index_names.issubset(all_index_names)
+
+
+def test_insert_large_text_in_dataset_table(tmpdir, db_url):
+    # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py # pylint: disable=line-too-long
+    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
+        dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
+        cursor.execute(
+            f"""
+            INSERT INTO datasets 
+                (dataset_uuid, 
+                experiment_id, 
+                name, 
+                digest, 
+                dataset_source_type, 
+                dataset_source, 
+                dataset_schema, 
+                dataset_profile)
+            VALUES 
+                ('test_uuid', 
+                0, 
+                'test_name', 
+                'test_digest', 
+                'test_source_type', 
+                '{dataset_source}', '
+                test_schema', 
+                '{dataset_profile}')
+            """
+        )
+        cursor.execute("SELECT dataset_source, dataset_profile from datasets")
+        results = cursor.fetchall()[0]
+        dataset_source_from_db = results[0]
+        assert len(dataset_source_from_db) == len(dataset_source)
+        dataset_profile_from_db = results[1]
+        assert len(dataset_profile_from_db) == len(dataset_profile)
+
+        # delete contents of datasets table
+        cursor.execute("DELETE FROM datasets")
