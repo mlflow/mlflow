@@ -7543,7 +7543,7 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -7552,7 +7552,7 @@ public final class DatabricksArtifacts {
     boolean hasPath();
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -7561,7 +7561,7 @@ public final class DatabricksArtifacts {
     java.lang.String getPath();
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -7572,7 +7572,7 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
-     * Number of parts to upload in the initiated multipart upload
+     * Number of file parts (chunks of data) to upload in the initiated multipart upload
      * </pre>
      *
      * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -7581,7 +7581,7 @@ public final class DatabricksArtifacts {
     boolean hasNumParts();
     /**
      * <pre>
-     * Number of parts to upload in the initiated multipart upload
+     * Number of file parts (chunks of data) to upload in the initiated multipart upload
      * </pre>
      *
      * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -7721,7 +7721,7 @@ public final class DatabricksArtifacts {
 
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7730,7 +7730,7 @@ public final class DatabricksArtifacts {
           getUploadCredentialInfosList();
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7738,7 +7738,7 @@ public final class DatabricksArtifacts {
       com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo getUploadCredentialInfos(int index);
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7746,7 +7746,7 @@ public final class DatabricksArtifacts {
       int getUploadCredentialInfosCount();
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7755,7 +7755,7 @@ public final class DatabricksArtifacts {
           getUploadCredentialInfosOrBuilderList();
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7966,7 +7966,7 @@ public final class DatabricksArtifacts {
       private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.ArtifactCredentialInfo> uploadCredentialInfos_;
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7977,7 +7977,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -7989,7 +7989,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8000,7 +8000,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8011,7 +8011,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Credentials for uploading parts in the initiated multipart upload
+       * Credentials for uploading file parts in the initiated multipart upload
        * </pre>
        *
        * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8586,7 +8586,7 @@ public final class DatabricksArtifacts {
 
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8600,7 +8600,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8614,7 +8614,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8628,7 +8628,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8649,7 +8649,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8667,7 +8667,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8687,7 +8687,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8708,7 +8708,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8726,7 +8726,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8744,7 +8744,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8763,7 +8763,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8780,7 +8780,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8797,7 +8797,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8808,7 +8808,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8822,7 +8822,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8837,7 +8837,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8848,7 +8848,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -8860,7 +8860,7 @@ public final class DatabricksArtifacts {
         }
         /**
          * <pre>
-         * Credentials for uploading parts in the initiated multipart upload
+         * Credentials for uploading file parts in the initiated multipart upload
          * </pre>
          *
          * <code>repeated .mlflow.ArtifactCredentialInfo upload_credential_infos = 2;</code>
@@ -9157,7 +9157,7 @@ public final class DatabricksArtifacts {
     private volatile java.lang.Object path_;
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -9169,7 +9169,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -9192,7 +9192,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -9217,7 +9217,7 @@ public final class DatabricksArtifacts {
     private long numParts_;
     /**
      * <pre>
-     * Number of parts to upload in the initiated multipart upload
+     * Number of file parts (chunks of data) to upload in the initiated multipart upload
      * </pre>
      *
      * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -9229,7 +9229,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Number of parts to upload in the initiated multipart upload
+     * Number of file parts (chunks of data) to upload in the initiated multipart upload
      * </pre>
      *
      * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -9718,7 +9718,7 @@ public final class DatabricksArtifacts {
       private java.lang.Object path_ = "";
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9729,7 +9729,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9751,7 +9751,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9772,7 +9772,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9791,7 +9791,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9805,7 +9805,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -9826,7 +9826,7 @@ public final class DatabricksArtifacts {
       private long numParts_ ;
       /**
        * <pre>
-       * Number of parts to upload in the initiated multipart upload
+       * Number of file parts (chunks of data) to upload in the initiated multipart upload
        * </pre>
        *
        * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -9838,7 +9838,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Number of parts to upload in the initiated multipart upload
+       * Number of file parts (chunks of data) to upload in the initiated multipart upload
        * </pre>
        *
        * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -9850,7 +9850,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Number of parts to upload in the initiated multipart upload
+       * Number of file parts (chunks of data) to upload in the initiated multipart upload
        * </pre>
        *
        * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -9865,7 +9865,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Number of parts to upload in the initiated multipart upload
+       * Number of file parts (chunks of data) to upload in the initiated multipart upload
        * </pre>
        *
        * <code>optional int64 num_parts = 3 [(.mlflow.validate_required) = true];</code>
@@ -10671,7 +10671,7 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -10680,7 +10680,7 @@ public final class DatabricksArtifacts {
     boolean hasPath();
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -10689,7 +10689,7 @@ public final class DatabricksArtifacts {
     java.lang.String getPath();
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -10729,7 +10729,7 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -10738,7 +10738,7 @@ public final class DatabricksArtifacts {
         getPartEtagsList();
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -10746,7 +10746,7 @@ public final class DatabricksArtifacts {
     com.databricks.api.proto.mlflow.DatabricksArtifacts.PartEtag getPartEtags(int index);
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -10754,7 +10754,7 @@ public final class DatabricksArtifacts {
     int getPartEtagsCount();
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -10763,7 +10763,7 @@ public final class DatabricksArtifacts {
         getPartEtagsOrBuilderList();
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -11366,7 +11366,7 @@ public final class DatabricksArtifacts {
     private volatile java.lang.Object path_;
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -11378,7 +11378,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -11401,7 +11401,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Artifact path, relative to the Run's artifact root location
+     * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -11486,7 +11486,7 @@ public final class DatabricksArtifacts {
     private java.util.List<com.databricks.api.proto.mlflow.DatabricksArtifacts.PartEtag> partEtags_;
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -11497,7 +11497,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -11509,7 +11509,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -11520,7 +11520,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -11531,7 +11531,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * A list of parts uploaded in the multipart upload to complete
+     * A list of file parts uploaded in the multipart upload to complete
      * </pre>
      *
      * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12075,7 +12075,7 @@ public final class DatabricksArtifacts {
       private java.lang.Object path_ = "";
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12086,7 +12086,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12108,7 +12108,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12129,7 +12129,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12148,7 +12148,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12162,7 +12162,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Artifact path, relative to the Run's artifact root location
+       * Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -12302,7 +12302,7 @@ public final class DatabricksArtifacts {
 
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12316,7 +12316,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12330,7 +12330,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12344,7 +12344,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12365,7 +12365,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12383,7 +12383,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12403,7 +12403,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12424,7 +12424,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12442,7 +12442,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12460,7 +12460,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12479,7 +12479,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12496,7 +12496,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12513,7 +12513,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12524,7 +12524,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12538,7 +12538,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12553,7 +12553,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12564,7 +12564,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12576,7 +12576,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * A list of parts uploaded in the multipart upload to complete
+       * A list of file parts uploaded in the multipart upload to complete
        * </pre>
        *
        * <code>repeated .mlflow.PartEtag part_etags = 4;</code>
@@ -12687,7 +12687,7 @@ public final class DatabricksArtifacts {
 
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -12696,7 +12696,7 @@ public final class DatabricksArtifacts {
     boolean hasPath();
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -12705,7 +12705,7 @@ public final class DatabricksArtifacts {
     java.lang.String getPath();
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -13623,7 +13623,7 @@ public final class DatabricksArtifacts {
     private volatile java.lang.Object path_;
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -13635,7 +13635,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -13658,7 +13658,7 @@ public final class DatabricksArtifacts {
     }
     /**
      * <pre>
-     * Atifact path, relative to the Run's artifact root location
+     * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
      * </pre>
      *
      * <code>optional string path = 2;</code>
@@ -14270,7 +14270,7 @@ public final class DatabricksArtifacts {
       private java.lang.Object path_ = "";
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -14281,7 +14281,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -14303,7 +14303,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -14324,7 +14324,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -14343,7 +14343,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>
@@ -14357,7 +14357,7 @@ public final class DatabricksArtifacts {
       }
       /**
        * <pre>
-       * Atifact path, relative to the Run's artifact root location
+       * Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
        * </pre>
        *
        * <code>optional string path = 2;</code>

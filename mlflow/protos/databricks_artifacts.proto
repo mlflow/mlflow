@@ -200,17 +200,17 @@ message CreateMultipartUpload {
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
 
-  // Artifact path, relative to the Run's artifact root location
+  // Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
   optional string path = 2;
 
-  // Number of parts to upload in the initiated multipart upload
+  // Number of file parts (chunks of data) to upload in the initiated multipart upload
   optional int64 num_parts = 3  [(validate_required) = true];
 
   message Response {
     // ID identifying the initiated multipart upload
     optional string upload_id = 1;
 
-    // Credentials for uploading parts in the initiated multipart upload
+    // Credentials for uploading file parts in the initiated multipart upload
     repeated ArtifactCredentialInfo upload_credential_infos = 2;
 
     // Why doesn't the response contain a presigned URL for completing the multipart upload?
@@ -235,13 +235,13 @@ message CompleteMultipartUpload {
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
 
-  // Artifact path, relative to the Run's artifact root location
+  // Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
   optional string path = 2;
 
   // ID identifying the multipart upload to complete
   optional string upload_id = 3 [(validate_required) = true];
 
-  // A list of parts uploaded in the multipart upload to complete
+  // A list of file parts uploaded in the multipart upload to complete
   repeated PartEtag part_etags = 4;
 
   message Response {}
@@ -254,7 +254,7 @@ message GetPresignedUploadPartUrl {
   // Run ID
   optional string run_id = 1 [(validate_required) = true];
 
-  // Atifact path, relative to the Run's artifact root location
+  // Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
   optional string path = 2;
 
   // ID identifying the multipart upload in which the part is uploaded
