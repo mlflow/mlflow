@@ -601,6 +601,8 @@ public final class Databricks {
 
   /**
    * <pre>
+   * .. note::
+   *     Experimental: This API may change or be removed in a future release without warning.
    * Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can
    * have an input relationship.
    * </pre>
