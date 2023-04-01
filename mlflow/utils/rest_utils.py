@@ -5,7 +5,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 import urllib3
-from contextlib import contextmanager
 from functools import lru_cache
 from packaging.version import Version
 
@@ -295,7 +294,6 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto):
                 raise e
 
 
-@contextmanager
 def cloud_storage_http_request(
     method,
     url,
@@ -323,13 +321,9 @@ def cloud_storage_http_request(
     """
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
-    try:
-        with _get_http_response_with_retries(
-            method, url, max_retries, backoff_factor, retry_codes, timeout=timeout, **kwargs
-        ) as response:
-            yield response
-    except Exception as e:
-        raise MlflowException("API request failed with exception %s" % e)
+    return _get_http_response_with_retries(
+        method, url, max_retries, backoff_factor, retry_codes, timeout=timeout, **kwargs
+    )
 
 
 class MlflowHostCreds:
