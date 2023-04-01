@@ -1,14 +1,12 @@
-import hashlib
 import json
 import logging
 from functools import cached_property
 from typing import Any, Union, Optional, Mapping, Sequence, Dict
 
 import datasets
-import numpy as np
-import pandas as pd
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
@@ -59,32 +57,12 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-
-        try:
-            df = next(
-                self._ds.to_pandas(
-                    batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
-                )
+        df = next(
+            self._ds.to_pandas(
+                batch_size=_MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE, batched=True
             )
-        except Exception:
-            if hasattr(self._ds, "_fingerprint") and self._ds._fingerprint is not None:
-                return self._ds._fingerprint[:8]
-            else:
-                return hashlib.md5(np.int64(id(self._ds))).hexdigest()[:8]
-
-        # drop object columns
-        df = df.select_dtypes(exclude=["object"])
-        # hash trimmed dataframe contents
-        md5 = hashlib.md5(pd.util.hash_pandas_object(df).values)
-        # hash dataframe dimensions
-        n_rows = len(df)
-        md5.update(np.int64(n_rows))
-        # hash column names
-        columns = df.columns
-        for x in columns:
-            md5.update(x.encode())
-        # TODO: Make this a normalize_hash function (truncation)
-        return md5.hexdigest()[:8]
+        )
+        return compute_pandas_digest(df)
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
