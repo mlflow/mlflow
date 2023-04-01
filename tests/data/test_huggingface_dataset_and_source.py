@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 import mlflow.data
+import mlflow.data.huggingface_dataset
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
@@ -148,6 +149,27 @@ def test_from_huggingface_dataset_respects_user_specified_name_and_digest():
     )
     assert mlflow_ds.name == "myname"
     assert mlflow_ds.digest == "mydigest"
+
+
+def test_from_huggingface_dataset_digest_is_consistent_for_large_ordered_datasets(tmp_path):
+    assert (
+        mlflow.data.huggingface_dataset._MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE
+        < 200000
+    )
+
+    df = pd.DataFrame.from_dict(
+        {
+            "a": list(range(200000)),
+            "b": list(range(200000)),
+        }
+    )
+    data_dir = "data"
+    os.makedirs(tmp_path / data_dir)
+    df.to_csv(tmp_path / data_dir / "my_data.csv")
+
+    ds = datasets.load_dataset(str(tmp_path), data_dir=data_dir, name="csv", split="train")
+    mlflow_ds = mlflow.data.from_huggingface(ds, path=str(tmp_path), data_dir=data_dir)
+    assert mlflow_ds.digest == "1dda4ce8"
 
 
 def test_from_huggingface_dataset_throws_for_dataset_dict():
