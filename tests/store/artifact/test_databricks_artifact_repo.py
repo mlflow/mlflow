@@ -240,9 +240,7 @@ class TestDatabricksArtifactRepository:
         mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AZURE_SIGNED_URI,
                 type=ArtifactCredentialType.AZURE_SAS_URI,
@@ -262,6 +260,7 @@ class TestDatabricksArtifactRepository:
                 MOCK_AZURE_SIGNED_URI + "?comp=blocklist",
                 data=ANY,
                 headers=filtered_azure_headers,
+                timeout=None,
             )
 
     def test_log_artifact_azure_blob_client_sas_error(self, databricks_artifact_repo, test_file):
@@ -324,7 +323,7 @@ class TestDatabricksArtifactRepository:
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
+            "requests.Session.request"
         ) as request_mock, mock.patch(
             "mlflow.store.artifact.databricks_artifact_repo._AZURE_MAX_BLOCK_CHUNK_SIZE",
             5,
@@ -348,29 +347,34 @@ class TestDatabricksArtifactRepository:
                 "put",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
                 headers=filtered_azure_headers,
+                timeout=None,
             )
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0",
                 data=ANY,
                 headers=filtered_azure_headers,
+                timeout=None,
             )
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=5",
                 data=ANY,
                 headers=filtered_azure_headers,
+                timeout=None,
             )
             request_mock.assert_any_call(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=10",
                 data=ANY,
                 headers=filtered_azure_headers,
+                timeout=None,
             )
             request_mock.assert_called_with(
                 "patch",
                 MOCK_ADLS_GEN2_SIGNED_URI + "?action=flush&position=14",
                 headers=filtered_azure_headers,
+                timeout=None,
             )
 
     def test_log_artifact_adls_gen2_flush_error(self, databricks_artifact_repo, test_file):
@@ -386,8 +390,7 @@ class TestDatabricksArtifactRepository:
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos",
             return_value=[mock_credential_info],
         ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request",
-            side_effect=[mock_successful_response, mock_error_response],
+            "requests.Session.request", side_effect=[mock_successful_response, mock_error_response]
         ) as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_ADLS_GEN2_SIGNED_URI,
@@ -401,12 +404,14 @@ class TestDatabricksArtifactRepository:
                     "put",
                     MOCK_ADLS_GEN2_SIGNED_URI + "?resource=file",
                     headers={},
+                    timeout=None,
                 ),
                 mock.call(
                     "patch",
                     MOCK_ADLS_GEN2_SIGNED_URI + "?action=append&position=0&flush=true",
                     data=ANY,
                     headers={},
+                    timeout=None,
                 ),
             ]
 
@@ -419,9 +424,7 @@ class TestDatabricksArtifactRepository:
         mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
@@ -431,7 +434,9 @@ class TestDatabricksArtifactRepository:
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
-            request_mock.assert_called_with("put", MOCK_AWS_SIGNED_URI, data=ANY, headers={})
+            request_mock.assert_called_with(
+                "put", MOCK_AWS_SIGNED_URI, data=ANY, headers={}, timeout=None
+            )
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_aws_with_headers(
@@ -443,9 +448,7 @@ class TestDatabricksArtifactRepository:
         mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI,
                 type=ArtifactCredentialType.AWS_PRESIGNED_URL,
@@ -458,15 +461,13 @@ class TestDatabricksArtifactRepository:
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
             request_mock.assert_called_with(
-                "put", MOCK_AWS_SIGNED_URI, data=ANY, headers=expected_headers
+                "put", MOCK_AWS_SIGNED_URI, data=ANY, headers=expected_headers, timeout=None
             )
 
     def test_log_artifact_aws_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
             )
@@ -485,9 +486,7 @@ class TestDatabricksArtifactRepository:
         mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
             )
@@ -497,7 +496,9 @@ class TestDatabricksArtifactRepository:
             write_credential_infos_mock.assert_called_with(
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
-            request_mock.assert_called_with("put", MOCK_GCP_SIGNED_URL, data=ANY, headers={})
+            request_mock.assert_called_with(
+                "put", MOCK_GCP_SIGNED_URL, data=ANY, headers={}, timeout=None
+            )
 
     @pytest.mark.parametrize(("artifact_path", "expected_location"), [(None, "test.txt")])
     def test_log_artifact_gcp_with_headers(
@@ -509,9 +510,7 @@ class TestDatabricksArtifactRepository:
         mock_response.close = lambda: None
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL,
                 type=ArtifactCredentialType.GCP_SIGNED_URL,
@@ -524,15 +523,13 @@ class TestDatabricksArtifactRepository:
                 run_id=MOCK_RUN_ID, paths=[expected_location]
             )
             request_mock.assert_called_with(
-                "put", MOCK_GCP_SIGNED_URL, data=ANY, headers=expected_headers
+                "put", MOCK_GCP_SIGNED_URL, data=ANY, headers=expected_headers, timeout=None
             )
 
     def test_log_artifact_gcp_presigned_url_error(self, databricks_artifact_repo, test_file):
         with mock.patch(
             DATABRICKS_ARTIFACT_REPOSITORY + "._get_write_credential_infos"
-        ) as write_credential_infos_mock, mock.patch(
-            "mlflow.utils.rest_utils.cloud_storage_http_request"
-        ) as request_mock:
+        ) as write_credential_infos_mock, mock.patch("requests.Session.request") as request_mock:
             mock_credential_info = ArtifactCredentialInfo(
                 signed_uri=MOCK_GCP_SIGNED_URL, type=ArtifactCredentialType.GCP_SIGNED_URL
             )
@@ -1248,8 +1245,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, complete_mpu_response],
     ) as call_endpoint_mock, mock.patch(
-        "mlflow.utils.rest_utils.cloud_storage_http_request",
-        side_effect=mock_upload_part_responses,
+        "requests.Session.request", side_effect=mock_upload_part_responses
     ) as http_request_mock:
         databricks_artifact_repo.log_artifact(large_file)
         with large_file.open("rb") as f:
@@ -1259,6 +1255,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
+                    timeout=None,
                 )
                 for i in range(2)
             ]
@@ -1331,8 +1328,7 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, part_upload_url_response, complete_mpu_response],
     ) as call_endpoint_mock, mock.patch(
-        "mlflow.utils.rest_utils.cloud_storage_http_request",
-        side_effect=mock_upload_part_responses,
+        "requests.Session.request", side_effect=mock_upload_part_responses
     ) as http_request_mock:
         databricks_artifact_repo.log_artifact(large_file)
 
@@ -1343,6 +1339,7 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
+                    timeout=None,
                 )
                 for i in range(2)
             ]
@@ -1399,8 +1396,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, Exception("Failed to complete multipart upload")],
     ) as call_endpoint_mock, mock.patch(
-        "mlflow.utils.rest_utils.cloud_storage_http_request",
-        side_effect=mock_responses,
+        "requests.Session.request", side_effect=mock_responses
     ) as http_request_mock:
         with pytest.raises(Exception, match="Failed to complete multipart upload"):
             databricks_artifact_repo.log_artifact(large_file)
@@ -1413,6 +1409,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
                     f"{MOCK_AWS_SIGNED_URI}partNumber={i + 1}",
                     data=f.read(mock_chunk_size),
                     headers={"header": f"part-{i + 1}"},
+                    timeout=None,
                 )
                 for i in range(2)
             ]
@@ -1424,5 +1421,8 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             {"part_number": 2, "etag": "etag-2"},
         ]
         assert abort_call == mock.call(
-            "delete", f"{MOCK_AWS_SIGNED_URI}uploadId=abort", headers={"header": "abort"}
+            "delete",
+            f"{MOCK_AWS_SIGNED_URI}uploadId=abort",
+            headers={"header": "abort"},
+            timeout=None,
         )
