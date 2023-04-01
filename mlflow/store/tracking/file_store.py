@@ -1100,7 +1100,7 @@ class FileStore(AbstractStore):
             input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir, exist_ok=True)
-                fs_input = FileStore._get_file_store_input(
+                fs_input = FileStore._FileStoreInput(
                     source_type=FileStore.INPUT_VERTEX_TYPE_DATASET,
                     source_id=dataset_id,
                     destination_type=FileStore.INPUT_VERTEX_TYPE_RUN,
@@ -1127,29 +1127,6 @@ class FileStore(AbstractStore):
         destination_type: str
         destination_id: str
         tags: Dict[str, str]
-
-    @staticmethod
-    def _get_file_store_input(
-        source_type: str,
-        source_id: str,
-        destination_type: str,
-        destination_id: str,
-        tags: List[InputTag],
-    ) -> _FileStoreInput:
-        assert (
-            source_type == FileStore.INPUT_VERTEX_TYPE_DATASET
-        ), f"Invalid internal input source type: {source_type}"
-        assert (
-            destination_type == FileStore.INPUT_VERTEX_TYPE_RUN
-        ), f"Invalid internal input destination type: {destination_type}"
-
-        return FileStore._FileStoreInput(
-            source_type=source_type,
-            source_id=source_id,
-            destination_type=destination_type,
-            destination_id=destination_id,
-            tags=tags,
-        )
 
     def _get_all_inputs(self, run_info: RunInfo):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
