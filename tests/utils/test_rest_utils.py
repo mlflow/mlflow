@@ -512,6 +512,7 @@ def test_augmented_raise_for_status():
     response = requests.Response()
     response.status_code = 403
     response._content = b"Token expired"
+
     with mock.patch("requests.Session.request", return_value=response) as mock_request:
         response = requests.get("https://github.com/mlflow/mlflow.git")
         mock_request.assert_called_once()
