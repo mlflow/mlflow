@@ -301,6 +301,8 @@ def _derive_upstream_port(busy_port: int, default_port: int) -> int:
     """
     port_range = os.getenv(SAGEMAKER_SAFE_PORT_RANGE)
     if port_range is None:
+        if default_port == busy_port:
+            raise ValueError("Default upstream port is already busy.")
         return default_port
     else:
         lower_bound, upper_bound = _parse_sagemaker_safe_port_range(port_range)
