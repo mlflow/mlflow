@@ -1,3 +1,4 @@
+import hashlib
 import json
 import logging
 import time
@@ -6,6 +7,7 @@ import sys
 import shutil
 
 import uuid
+from typing import List, Dict, NamedTuple
 
 from mlflow.entities import (
     Experiment,
@@ -19,6 +21,10 @@ from mlflow.entities import (
     ViewType,
     SourceType,
     ExperimentTag,
+    Dataset,
+    DatasetInput,
+    InputTag,
+    RunInputs,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
@@ -140,7 +146,11 @@ class FileStore(AbstractStore):
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
-    RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME]
+    DATASETS_FOLDER_NAME = "datasets"
+    INPUTS_FOLDER_NAME = "inputs"
+    RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME, DATASETS_FOLDER_NAME]
+    INPUT_VERTEX_TYPE_DATASET = "dataset"
+    INPUT_VERTEX_TYPE_RUN = "run"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
 
@@ -642,11 +652,12 @@ class FileStore(AbstractStore):
         metrics = self._get_all_metrics(run_info)
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
+        inputs: RunInputs = self._get_all_inputs(run_info)
         if not run_info.run_name:
             run_name = _get_run_name_from_tags(tags)
             if run_name:
                 run_info._set_run_name(run_name)
-        return Run(run_info, RunData(metrics, params, tags))
+        return Run(run_info, RunData(metrics, params, tags), inputs)
 
     def _get_run_info(self, run_uuid):
         """
@@ -1058,6 +1069,141 @@ class FileStore(AbstractStore):
             self._set_run_tag(run_info, tag)
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def log_inputs(self, run_id: str, datasets: List[DatasetInput]):
+        """
+        Log inputs, such as datasets, to the specified run.
+
+        :param run_id: String id for the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                         as inputs to the run.
+
+        :return: None.
+        """
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
+        run_dir = self._get_run_dir(run_info.experiment_id, run_id)
+
+        for dataset_input in datasets:
+            dataset = dataset_input.dataset
+            dataset_id = FileStore._get_dataset_id(
+                dataset_name=dataset.name, dataset_digest=dataset.digest
+            )
+            dataset_dir = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME, dataset_id)
+            if not os.path.exists(dataset_dir):
+                os.makedirs(dataset_dir, exist_ok=True)
+                write_yaml(dataset_dir, FileStore.META_DATA_FILE_NAME, dict(dataset))
+
+            input_id = FileStore._get_input_id(dataset_id=dataset_id, run_id=run_id)
+            input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
+            if not os.path.exists(input_dir):
+                os.makedirs(input_dir, exist_ok=True)
+                fs_input = FileStore._get_file_store_input(
+                    source_type=FileStore.INPUT_VERTEX_TYPE_DATASET,
+                    source_id=dataset_id,
+                    destination_type=FileStore.INPUT_VERTEX_TYPE_RUN,
+                    destination_id=run_id,
+                    tags=dataset_input.tags,
+                )
+                write_yaml(input_dir, FileStore.META_DATA_FILE_NAME, fs_input._asdict())
+
+    @staticmethod
+    def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
+        md5 = hashlib.md5(dataset_name.encode("utf-8"))
+        md5.update(dataset_digest.encode("utf-8"))
+        return md5.hexdigest()
+
+    @staticmethod
+    def _get_input_id(dataset_id: str, run_id: str) -> str:
+        md5 = hashlib.md5(dataset_id.encode("utf-8"))
+        md5.update(run_id.encode("utf-8"))
+        return md5.hexdigest()
+
+    class _FileStoreInput(NamedTuple):
+        source_type: str
+        source_id: str
+        destination_type: str
+        destination_id: str
+        tags: Dict[str, str]
+
+    @staticmethod
+    def _get_file_store_input(
+        source_type: str,
+        source_id: str,
+        destination_type: str,
+        destination_id: str,
+        tags: List[InputTag],
+    ) -> _FileStoreInput:
+        assert (
+            source_type == FileStore.INPUT_VERTEX_TYPE_DATASET
+        ), f"Invalid internal input source type: {source_type}"
+        assert (
+            destination_type == FileStore.INPUT_VERTEX_TYPE_RUN
+        ), f"Invalid internal input destination type: {destination_type}"
+
+        return FileStore._FileStoreInput(
+            source_type=source_type,
+            source_id=source_id,
+            destination_type=destination_type,
+            destination_id=destination_id,
+            tags=tags,
+        )
+
+    def _get_all_inputs(self, run_info: RunInfo):
+        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+        inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
+
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
+        datasets_parent_path = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
+        dataset_dirs = os.listdir(datasets_parent_path)
+
+        dataset_inputs = []
+        for input_dir in os.listdir(inputs_parent_path):
+            fs_input = FileStore._get_input_from_dir(inputs_parent_path, input_dir)
+            if fs_input.source_type != FileStore.INPUT_VERTEX_TYPE_DATASET:
+                logging.warning(
+                    f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
+                )
+                pass
+
+            matching_dataset_dirs = [d for d in dataset_dirs if d == fs_input.source_id]
+            if not matching_dataset_dirs:
+                logging.warning(
+                    f"Failed to find dataset with ID '{fs_input.source_id}' referenced as an input"
+                    f" of the run with ID '{run_info.run_id}'. Skipping."
+                )
+                pass
+            elif len(matching_dataset_dirs) > 1:
+                logging.warning(
+                    f"Found multiple datasets with ID '{fs_input.source_id}'. Using the first one."
+                )
+
+            dataset_dir = matching_dataset_dirs[0]
+            dataset = FileStore._get_dataset_from_dir(datasets_parent_path, dataset_dir)
+            dataset_input = DatasetInput(
+                dataset=dataset,
+                tags=[InputTag(key=key, value=value) for key, value in fs_input.tags.items()],
+            )
+            dataset_inputs.append(dataset_input)
+
+        return RunInputs(dataset_inputs=dataset_inputs)
+
+    @staticmethod
+    def _get_input_from_dir(parent_path, input_dir) -> _FileStoreInput:
+        input_dict = FileStore._read_yaml(
+            os.path.join(parent_path, input_dir), FileStore.META_DATA_FILE_NAME
+        )
+        fs_input = FileStore._FileStoreInput(**input_dict)
+        return fs_input
+
+    @staticmethod
+    def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:
+        dataset_dict = FileStore._read_yaml(
+            os.path.join(parent_path, dataset_dir), FileStore.META_DATA_FILE_NAME
+        )
+        return Dataset.from_dictionary(dataset_dict)
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):
