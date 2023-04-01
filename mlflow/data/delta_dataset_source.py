@@ -1,7 +1,10 @@
+import os
 from typing import TypeVar, Any, Optional, Dict
 
-from mlflow.data.dataset_source import DatasetSource
 from pyspark.sql import SparkSession, DataFrame
+
+from mlflow.data.dataset_source import DatasetSource
+from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -11,12 +14,12 @@ class DeltaDatasetSource(DatasetSource):
     def __init__(
         self,
         path: Optional[str] = None,
-        delta_table_name: Optional[str] = None,
-        delta_table_version: Optional[str] = None,
+        table_name: Optional[str] = None,
+        version: Optional[str] = None,
     ):
         self._path = path
-        self._delta_table_name = delta_table_name
-        self._delta_table_version = delta_table_version
+        self._table_name = table_name
+        self._version = version
 
     @staticmethod
     def _get_source_type() -> str:
@@ -38,14 +41,14 @@ class DeltaDatasetSource(DatasetSource):
         spark = SparkSession.builder.getOrCreate()
 
         spark_read_op = spark.read.format("delta")
-        if self._delta_table_version is not None:
-            spark_read_op = spark_read_op.option("versionAsOf", self._delta_table_version)
+        if self._version is not None:
+            spark_read_op = spark_read_op.option("versionAsOf", self._version)
 
         # Read the Delta table using spark.read.format and table method
         if self._path:
             return spark_read_op.load(self._path)
         else:
-            return spark_read_op.table(self._delta_table_name)
+            return spark_read_op.table(self._table_name)
 
     @staticmethod
     def _can_resolve(raw_source: Any):

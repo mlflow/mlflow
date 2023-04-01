@@ -1,16 +1,15 @@
 import json
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-import numpy as np
-from pyspark.sql import DataFrame
+from pyspark.sql import SparkSession, DataFrame
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.data.dataset_source_registry import resolve_dataset_source
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -98,14 +97,12 @@ class SparkDataset(Dataset):
 def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
-    table_version: Optional[str] = None,
+    version: Optional[str] = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> SparkDataset:
-    source = DeltaDatasetSource(
-        path=path, delta_table_name=table_name, delta_table_version=table_version
-    )
+    source = DeltaDatasetSource(path=path, table_name=table_name, version=version)
     df: DataFrame = source.load()
     return SparkDataset(
         df=df,
@@ -118,36 +115,47 @@ def load_delta(
 
 def from_spark(
     df: DataFrame,
-    source: Any = None,
     path: Optional[str] = None,
     table_name: Optional[str] = None,
-    table_version: Optional[str] = None,
+    version: Optional[str] = None,
     sql: Optional[str] = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ):
-    # Verify that either path or table_name with optional table version are specified, but not both
-
-    if path is not None:
-        source = resolve_dataset_source(
-            path,
-            candidate_sources=[DeltaDatasetSource, SparkDatasetSource, FileSystemDatasetSource],
+    if (path, table_name, sql).count(None) != 2:
+        raise MlflowException(
+            "Must specify exactly one of `path`, `table_name`, or `sql`.",
+            INVALID_PARAMETER_VALUE,
         )
-    elif sql is not None:
-        source = SparkDatasetSource(
 
+    if (sql, version).count(None) == 0:
+        raise MlflowException(
+            "`version` may only be specified when `table_name` or `path` is specified.",
+            INVALID_PARAMETER_VALUE,
         )
+
+    if sql is not None:
+        source = SparkDatasetSource(sql=sql)
+    elif path is not None:
+        if _is_delta_table_path(path):
+            source = DeltaDatasetSource(path=path, version=version)
+        elif version is None:
+            source = SparkDatasetSource(path=path)
+        else:
+            raise MlflowException(
+                f"Version {version} was specified, but the path {path} does not refer"
+                f" to a Delta table.",
+                INVALID_PARAMETER_VALUE,
+            )
     elif table_name is not None:
-        if table_version is not None:
+        if version is not None or _is_delta_table(table_name):
             source = DeltaDatasetSource(
-                delta_table_name=table_name,
-                delta_table_version=table_version,
+                table_name=table_name,
+                version=version,
             )
         else:
-            source = resolve_dataset_source(
-                path, candidate_sources=[DeltaDatasetSource, SparkDatasetSource]
-            )
+            source = SparkDatasetSource(table_name=table_name)
 
     return SparkDataset(
         df=df,
@@ -156,3 +164,32 @@ def from_spark(
         name=name,
         digest=digest,
     )
+
+
+def _is_delta_table(table_name: str) -> bool:
+    try:
+        spark = SparkSession.builder.getOrCreate()
+        table = spark.catalog.getTable(table_name)
+        table_identifier = spark.sparkContext._jvm.org.apache.spark.sql.catalyst.TableIdentifier(
+            table.name,
+            spark.sparkContext._jvm.scala.Some(table.database),
+            spark.sparkContext._jvm.scala.Some(table.catalog),
+        )
+        table_metadata = (
+            spark._jsparkSession.sessionState().catalog().getTableMetadata(table_identifier)
+        )
+        table_provider = table_metadata.provider()
+        return table_provider.isDefined() and table_provider.get() == "delta"
+    except Exception:
+        return False
+
+
+def _is_delta_table_path(path: str) -> bool:
+    if os.path.exists(path) and "_delta_log" in os.listdir(path):
+        return True
+
+    try:
+        dbfs_path = dbfs_hdfs_uri_to_fuse_path(path)
+        return os.path.exists(dbfs_path) and "_delta_log" in os.listdir(dbfs_path)
+    except Exception:
+        return False
