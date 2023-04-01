@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import posixpath
@@ -7,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 import re
+from typing import List
 
 import pytest
 from unittest import mock
@@ -20,6 +22,9 @@ from mlflow.entities import (
     RunStatus,
     RunData,
     ExperimentTag,
+    Dataset,
+    DatasetInput,
+    InputTag,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -2061,3 +2066,301 @@ def test_create_experiment_appends_to_artifact_local_path_file_uri_correctly(
 )
 def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri):
     _assert_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
+
+
+def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
+    inputs1 = sorted(inputs1, key=lambda inp: inp.dataset.name)
+    inputs2 = sorted(inputs2, key=lambda inp: inp.dataset.name)
+    assert len(inputs1) == len(inputs2)
+    for idx, inp1 in enumerate(inputs1):
+        inp2 = inputs2[idx]
+        assert dict(inp1.dataset) == dict(inp2.dataset)
+        tags1 = sorted(inp1.tags, key=lambda tag: tag.key)
+        tags2 = sorted(inp2.tags, key=lambda tag: tag.key)
+        for idx, tag1 in enumerate(tags1):
+            tag2 = tags2[idx]
+            assert tag1.key == tag1.key
+            assert tag1.value == tag2.value
+
+
+def test_log_inputs_and_retrieve_runs_behaves_as_expected(store):
+    exp_id = store.create_experiment("12345dataset")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user1",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user2",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user3",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+
+    tags1 = [InputTag(key="key1", value="value1"), InputTag(key="key2", value="value2")]
+    tags2 = [InputTag(key="key3", value="value3"), InputTag(key="key4", value="value4")]
+    tags3 = [InputTag(key="key5", value="value5"), InputTag(key="key6", value="value6")]
+
+    inputs_run1 = [DatasetInput(dataset1, tags1), DatasetInput(dataset2, tags1)]
+    inputs_run2 = [DatasetInput(dataset1, tags2), DatasetInput(dataset3, tags3)]
+    inputs_run3 = [DatasetInput(dataset2, tags3)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+
+    run1 = store.get_run(run1.info.run_id)
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = store.get_run(run2.info.run_id)
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = store.get_run(run3.info.run_id)
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_1 = store.search_runs(
+        [exp_id], None, ViewType.ALL, max_results=4, order_by=["start_time ASC"]
+    )
+    run1 = search_results_1[0]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_1[2]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_1[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    search_results_2 = store.search_runs(
+        [exp_id], None, ViewType.ALL, max_results=4, order_by=["start_time DESC"]
+    )
+    run1 = search_results_2[2]
+    assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+    run2 = search_results_2[0]
+    assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+    run3 = search_results_2[1]
+    assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+
+def test_log_input_multiple_times_not_overwrite_tags_or_dataset(store):
+    exp_id = store.create_experiment("dataset_no_overwrite")
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    dataset = Dataset(
+        name="name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    tags = [InputTag(key="key1", value="value1"), InputTag(key="key2", value="value2")]
+    store.log_inputs(run.info.run_id, [DatasetInput(dataset, tags)])
+
+    for i in range(100):
+        # Since the dataset name and digest are the same as the previously logged dataset,
+        # no changes should be made
+        overwrite_dataset = Dataset(
+            name="name",
+            digest="digest",
+            source_type="st{i}",
+            source=f"source{i}",
+            schema=f"schema{i}",
+            profile=f"profile{i}",
+        )
+        # Since the dataset has already been logged as an input to the run, no changes should be
+        # made to the input tags
+        overwrite_tags = [
+            InputTag(key=f"key{i}", value=f"value{i}"),
+            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+        ]
+        store.log_inputs(run.info.run_id, [DatasetInput(overwrite_dataset, overwrite_tags)])
+
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(run.inputs.dataset_inputs, [DatasetInput(dataset, tags)])
+
+    # Logging a dataset with a different name or digest to the original run should result
+    # in the addition of another dataset input
+    other_name_dataset = Dataset(
+        name="other_name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_name_input_tags = [InputTag(key="k1", value="v1")]
+    store.log_inputs(run.info.run_id, [DatasetInput(other_name_dataset, other_name_input_tags)])
+
+    other_digest_dataset = Dataset(
+        name="name",
+        digest="other_digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    other_digest_input_tags = [InputTag(key="k2", value="v2")]
+    store.log_inputs(run.info.run_id, [DatasetInput(other_digest_dataset, other_digest_input_tags)])
+
+    run = store.get_run(run.info.run_id)
+    assert_dataset_inputs_equal(
+        run.inputs.dataset_inputs,
+        [
+            DatasetInput(dataset, tags),
+            DatasetInput(other_name_dataset, other_name_input_tags),
+            DatasetInput(other_digest_dataset, other_digest_input_tags),
+        ],
+    )
+
+    # Logging the same dataset with different tags to new runs should result in each run
+    # having its own new input tags and the same dataset input
+    for i in range(100):
+        new_run = store.create_run(
+            experiment_id=exp_id,
+            user_id="user",
+            start_time=0,
+            tags=[],
+            run_name=None,
+        )
+        new_tags = [
+            InputTag(key=f"key{i}", value=f"value{i}"),
+            InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+        ]
+        store.log_inputs(new_run.info.run_id, [DatasetInput(dataset, new_tags)])
+        new_run = store.get_run(new_run.info.run_id)
+        assert_dataset_inputs_equal(
+            new_run.inputs.dataset_inputs, [DatasetInput(dataset, new_tags)]
+        )
+
+
+def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
+    """
+    This test verifies that the FileStore uses expected IDs as folder names to represent datasets
+    and run inputs. This is very important because the IDs are used to deduplicate inputs and
+    datasets if the same dataset is logged to multiple runs or the same dataset is logged
+    multiple times as an input to the same run with different tags.
+
+    **If this test fails, be very careful before removing or changing asserts. Unintended changes
+    could result in user-visible duplication of datasets and run inputs.**
+    """
+    exp_id = store.create_experiment("dataset_expected_ids")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+
+    experiment_dir = store._get_experiment_path(exp_id, assert_exists=True)
+    datasets_dir = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
+
+    def assert_expected_dataset_storage_ids_present(storage_ids):
+        assert set(os.listdir(datasets_dir)) == set(storage_ids)
+
+    def assert_expected_input_storage_ids_present(run, dataset_storage_ids):
+        run_dir = store._get_run_dir(run.info.experiment_id, run.info.run_id)
+        inputs_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
+        expected_input_storage_ids = []
+        for dataset_storage_id in dataset_storage_ids:
+            md5 = hashlib.md5(dataset_storage_id.encode("utf-8"))
+            md5.update(run.info.run_id.encode("utf-8"))
+            expected_input_storage_ids.append(md5.hexdigest())
+        assert set(os.listdir(inputs_dir)) == set(expected_input_storage_ids)
+
+    tags = [InputTag(key="key", value="value")]
+
+    dataset1 = Dataset(
+        name="name",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    store.log_inputs(run1.info.run_id, [DatasetInput(dataset1, tags)])
+    expected_dataset1_storage_id = "efa4363cd8179759e8c7f113aebdd340"
+    assert_expected_dataset_storage_ids_present([expected_dataset1_storage_id])
+    assert_expected_input_storage_ids_present(run1, [expected_dataset1_storage_id])
+
+    dataset2 = Dataset(
+        name="name",
+        digest="digest_other",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    expected_dataset2_storage_id = "419804e8e153199481c3e509de1fef8f"
+    store.log_inputs(run2.info.run_id, [DatasetInput(dataset2)])
+    assert_expected_dataset_storage_ids_present(
+        [expected_dataset1_storage_id, expected_dataset2_storage_id]
+    )
+    assert_expected_input_storage_ids_present(run2, [expected_dataset2_storage_id])
+
+    dataset3 = Dataset(
+        name="name_other",
+        digest="digest",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+    expected_dataset3_storage_id = "bc5dd0841d8898512d988fe3f984313c"
+    store.log_inputs(
+        run2.info.run_id,
+        [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
+    )
+    assert_expected_dataset_storage_ids_present(
+        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id]
+    )
+    assert_expected_input_storage_ids_present(
+        run2,
+        [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id],
+    )

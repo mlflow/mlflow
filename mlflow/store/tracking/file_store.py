@@ -1105,7 +1105,7 @@ class FileStore(AbstractStore):
                     source_id=dataset_id,
                     destination_type=FileStore.INPUT_VERTEX_TYPE_RUN,
                     destination_id=run_id,
-                    tags=dataset_input.tags,
+                    tags={tag.key: tag.value for tag in dataset_input.tags},
                 )
                 write_yaml(input_dir, FileStore.META_DATA_FILE_NAME, fs_input._asdict())
 
@@ -1128,14 +1128,15 @@ class FileStore(AbstractStore):
         destination_id: str
         tags: Dict[str, str]
 
-    def _get_all_inputs(self, run_info: RunInfo):
+    def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
-
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         datasets_parent_path = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
-        dataset_dirs = os.listdir(datasets_parent_path)
+        if not os.path.exists(inputs_parent_path) or not os.path.exists(datasets_parent_path):
+            return RunInputs(dataset_inputs=[])
 
+        dataset_dirs = os.listdir(datasets_parent_path)
         dataset_inputs = []
         for input_dir in os.listdir(inputs_parent_path):
             fs_input = FileStore._get_input_from_dir(inputs_parent_path, input_dir)
