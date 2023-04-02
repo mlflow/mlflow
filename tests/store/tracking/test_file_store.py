@@ -2069,8 +2069,8 @@ def test_create_experiment_appends_to_artifact_uri_path_correctly(input_uri, exp
 
 
 def assert_dataset_inputs_equal(inputs1: List[DatasetInput], inputs2: List[DatasetInput]):
-    inputs1 = sorted(inputs1, key=lambda inp: inp.dataset.name)
-    inputs2 = sorted(inputs2, key=lambda inp: inp.dataset.name)
+    inputs1 = sorted(inputs1, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
+    inputs2 = sorted(inputs2, key=lambda inp: (inp.dataset.name, inp.dataset.digest))
     assert len(inputs1) == len(inputs2)
     for idx, inp1 in enumerate(inputs1):
         inp2 = inputs2[idx]
@@ -2173,7 +2173,7 @@ def test_log_inputs_and_retrieve_runs_behaves_as_expected(store):
     assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
 
 
-def test_log_input_multiple_times_not_overwrite_tags_or_dataset(store):
+def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
     exp_id = store.create_experiment("dataset_no_overwrite")
 
     run = store.create_run(
