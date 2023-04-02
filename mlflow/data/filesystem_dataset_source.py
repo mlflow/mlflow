@@ -63,14 +63,14 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[Any, Any]:
         """
-        :return: A string dictionary representation of the FileSystemDatasetSource.
+        :return: A JSON-compatible dictionary representation of the FileSystemDatasetSource.
         """
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[str, str]) -> FileSystemDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> FileSystemDatasetSourceType:
         """
-        :param source_dict: A string dictionary representation of the FileSystemDatasetSource.
+        :param source_dict: A dictionary representation of the FileSystemDatasetSource.
         """
