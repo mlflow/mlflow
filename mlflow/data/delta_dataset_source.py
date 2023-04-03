@@ -67,7 +67,7 @@ class DeltaDatasetSource(DatasetSource):
         raise NotImplementedError
 
     def _databricks_api_request(self, endpoint, method, **kwargs):
-        host_creds = get_databricks_host_creds(self.databricks_profile_uri)
+        host_creds = get_databricks_host_creds("databricks-uc")
         return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
 
     def _uc_table_get(self, table_name):
