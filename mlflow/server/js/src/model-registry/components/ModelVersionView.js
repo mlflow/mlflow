@@ -316,9 +316,15 @@ export class ModelVersionViewImpl extends React.Component {
         </a>
       );
     } else if (runInfo) {
-      let artifactPath = modelSource.substring(modelSource.indexOf('/artifacts/') + 11)
+      const artifactPath = modelSource.substring(modelSource.indexOf('/artifacts/') + 11);
       return (
-        <Link to={Routers.getRunPageRoute(runInfo.getExperimentId(), runInfo.getRunUuid(), artifactPath)}>
+        <Link
+          to={Routers.getRunPageRoute(
+            runInfo.getExperimentId(),
+            runInfo.getRunUuid(),
+            artifactPath,
+          )}
+        >
           {this.resolveRunName()}
         </Link>
       );
@@ -488,10 +494,10 @@ export class ModelVersionViewImpl extends React.Component {
 }
 
 const mapStateToProps = (state, ownProps) => {
-      const { modelName } = ownProps;
+  const { modelName } = ownProps;
   const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
-  return {tags, 'modelSource': ownProps.modelVersion.source};
+  return { tags, modelSource: ownProps.modelVersion.source };
 };
 const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
 
