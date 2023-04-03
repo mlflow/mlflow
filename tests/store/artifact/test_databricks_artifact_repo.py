@@ -335,7 +335,7 @@ def test_log_artifact_adls_gen2_with_headers(
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock, mock.patch(
-        "mlflow.store.artifact.databricks_artifact_repo._AZURE_MAX_BLOCK_CHUNK_SIZE",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
         5,
     ):
         databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
