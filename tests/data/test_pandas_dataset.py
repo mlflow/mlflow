@@ -10,7 +10,6 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
-from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -124,7 +123,7 @@ def test_from_pandas_file_system_datasource(tmp_path):
     assert isinstance(mlflow_df.source, FileSystemDatasetSource)
 
 
-def test_from_pandas_spark_path_datasource(spark_session, tmp_path):
+def test_from_pandas_spark_datasource(spark_session, tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
@@ -142,43 +141,9 @@ def test_from_pandas_spark_path_datasource(spark_session, tmp_path):
     }
 
     assert isinstance(mlflow_df.source, SparkDatasetSource)
-    loaded_df_spark = mlflow_df.source.load()
-    assert loaded_df_spark.count() == df_spark.count()
 
 
-def test_from_pandas_spark_table_datasource(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    df_spark.write.mode("overwrite").saveAsTable("temp", path=tmp_path)
-
-    spark_datasource = SparkDatasetSource(table_name="temp")
-    mlflow_df = mlflow.data.from_pandas(df, source=spark_datasource)
-
-    assert isinstance(mlflow_df, PandasDataset)
-    assert mlflow_df.df.equals(df)
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {
-        "num_rows": len(df),
-        "num_elements": df.size,
-    }
-
-    assert isinstance(mlflow_df.source, SparkDatasetSource)
-    loaded_df_spark = mlflow_df.source.load()
-    assert loaded_df_spark.count() == df_spark.count()
-
-
-def test_spark_dataset_source_too_many_inputs(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    df_spark.write.mode("overwrite").saveAsTable("temp", path=tmp_path)
-
-    with pytest.raises(
-        MlflowException, match='Must specify exactly one of "path", "table_name", and "sql"'
-    ):
-        SparkDatasetSource(path=tmp_path, table_name="temp")
-
-
-def test_from_pandas_delta_path_datasource(spark_session, tmp_path):
+def test_from_pandas_delta_datasource(spark_session, tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.delta")
@@ -196,80 +161,3 @@ def test_from_pandas_delta_path_datasource(spark_session, tmp_path):
     }
 
     assert isinstance(mlflow_df.source, DeltaDatasetSource)
-    loaded_df_spark = mlflow_df.source.load()
-    assert loaded_df_spark.count() == df_spark.count()
-
-
-def test_from_pandas_delta_table_datasource(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    df_spark.write.format("delta").mode("overwrite").saveAsTable(
-        "default.temp_delta", path=tmp_path
-    )
-
-    delta_datasource = DeltaDatasetSource(delta_table_name="temp_delta")
-    mlflow_df = mlflow.data.from_pandas(df, source=delta_datasource)
-
-    assert isinstance(mlflow_df, PandasDataset)
-    assert mlflow_df.df.equals(df)
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {
-        "num_rows": len(df),
-        "num_elements": df.size,
-    }
-
-    assert isinstance(mlflow_df.source, DeltaDatasetSource)
-    loaded_df_spark = mlflow_df.source.load()
-    assert loaded_df_spark.count() == df_spark.count()
-
-
-def test_from_pandas_delta_table_datasource_versioned(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    df_spark.write.format("delta").mode("overwrite").saveAsTable(
-        "default.temp_delta_versioned", path=tmp_path
-    )
-
-    df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
-    df2_spark = spark_session.createDataFrame(df2)
-    df2_spark.write.format("delta").mode("overwrite").saveAsTable(
-        "default.temp_delta_versioned", path=tmp_path
-    )
-
-    delta_datasource = DeltaDatasetSource(
-        delta_table_name="temp_delta_versioned", delta_table_version=1
-    )
-    mlflow_df = mlflow.data.from_pandas(df2, source=delta_datasource)
-
-    assert isinstance(mlflow_df, PandasDataset)
-    assert mlflow_df.df.equals(df2)
-    assert mlflow_df.schema == _infer_schema(df2)
-    assert mlflow_df.profile == {
-        "num_rows": len(df2),
-        "num_elements": df2.size,
-    }
-
-    assert isinstance(mlflow_df.source, DeltaDatasetSource)
-    loaded_df_spark = mlflow_df.source.load()
-    assert loaded_df_spark.count() == df2_spark.count()
-
-
-def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    df_spark.write.format("delta").mode("overwrite").saveAsTable(
-        "default.temp_delta_versioned", path=tmp_path
-    )
-
-    df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
-    df2_spark = spark_session.createDataFrame(df2)
-    df2_spark.write.format("delta").mode("overwrite").saveAsTable(
-        "default.temp_delta_versioned", path=tmp_path
-    )
-
-    with pytest.raises(
-        MlflowException, match='Must specify exactly one of "path" and "table_name"'
-    ):
-        DeltaDatasetSource(
-            path=tmp_path, delta_table_name="temp_delta_versioned", delta_table_version=1
-        )

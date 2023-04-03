@@ -73,13 +73,26 @@ class DeltaDatasetSource(DatasetSource):
     # check if table is in UC
     def _is_uc_table(self):
         if self._delta_table_name:
-            catalog_name, _, _ = self._delta_table_name.split(".")
-            return (
-                catalog_name not in LOCAL_METASTORE_NAMES and catalog_name != SAMPLES_CATALOG_NAME
-            )
+            try:
+                catalog_name, _, _ = self._delta_table_name.split(".")
+                return (
+                    catalog_name not in LOCAL_METASTORE_NAMES
+                    and catalog_name != SAMPLES_CATALOG_NAME
+                )
+            except ValueError:
+                return False
 
     def _to_dict(self) -> Dict[Any, Any]:
-        return {"path": self._path, "is_uc_table": self._is_uc_table()}
+        info = {}
+        if self._path:
+            info["path"] = self._path
+        if self._delta_table_name:
+            info["delta_table_name"] = self._delta_table_name
+        if self._delta_table_version:
+            info["delta_table_version"] = self._delta_table_version
+        if self._is_uc_table():
+            info["is_uc_table"] = True
+        return info
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> DeltaDatasetSourceType:
