@@ -6,6 +6,8 @@ from pyspark.sql import SparkSession, DataFrame
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import http_request_safe
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -18,6 +20,12 @@ class DeltaDatasetSource(DatasetSource):
         delta_table_name: Optional[str] = None,
         delta_table_version: Optional[int] = None,
     ):
+
+        if (path, delta_table_name).count(None) != 1:
+            raise MlflowException(
+                f'Must specify exactly one of "path" and "table_name"',
+                INVALID_PARAMETER_VALUE,
+            )
         self._path = path
         self._delta_table_name = delta_table_name
         self._delta_table_version = delta_table_version
@@ -70,7 +78,7 @@ class DeltaDatasetSource(DatasetSource):
 
     def _get_table_info_if_uc(self, table_name):
         if table_name:
-            self._uc_table_get(table_name)
+            return self._uc_table_get(table_name)
 
     def _to_dict(self) -> Dict[Any, Any]:
         table_info = self._get_table_info(self._delta_table_name)

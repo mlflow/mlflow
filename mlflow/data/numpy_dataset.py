@@ -4,8 +4,10 @@ from typing import List, Optional, Any, Dict, Union
 
 import numpy as np
 import pandas as pd
+from functools import cached_property
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
@@ -104,7 +106,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "shape": self._features.shape,
         }
 
-    @property
+    @cached_property
     def schema(self) -> Schema:
         """
         An MLflow TensorSpec schema representing the tensor dataset
@@ -123,7 +125,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_numpy(
     features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
-    source: str,
+    source: Union[str, DatasetSource],
     targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
@@ -142,9 +144,7 @@ def from_numpy(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source: FileSystemDatasetSource = resolve_dataset_source(
-        source, candidate_sources=[FileSystemDatasetSource]
-    )
+    resolved_source: FileSystemDatasetSource = resolve_dataset_source(source)
     return NumpyDataset(
         features=features, source=resolved_source, targets=targets, name=name, digest=digest
     )

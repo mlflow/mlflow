@@ -1,6 +1,8 @@
 from typing import TypeVar, Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from pyspark.sql import SparkSession, DataFrame
 
 
@@ -14,6 +16,11 @@ class SparkDatasetSource(DatasetSource):
         table_name: Optional[str] = None,
         sql: Optional[str] = None,
     ):
+        if (path, table_name, sql).count(None) != 2:
+            raise MlflowException(
+                f'Must specify exactly one of "path", "table_name", and "sql"',
+                INVALID_PARAMETER_VALUE,
+            )
         self._path = path
         self._table_name = table_name
         self._sql = sql

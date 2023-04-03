@@ -4,6 +4,7 @@ from typing import Optional, Any, Dict, Union
 
 import numpy as np
 import pandas as pd
+from functools import cached_property
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
@@ -92,7 +93,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "num_elements": int(self._df.size),
         }
 
-    @property
+    @cached_property
     def schema(self) -> Schema:
         """
         An MLflow ColSpec schema representing the columnar dataset
@@ -138,6 +139,5 @@ def from_pandas(
     else:
         resolved_source = resolve_dataset_source(
             source,
-            candidate_sources=[FileSystemDatasetSource, DeltaDatasetSource, SparkDatasetSource],
         )
     return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)

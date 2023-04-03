@@ -10,6 +10,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -166,6 +167,15 @@ def test_from_pandas_spark_table_datasource(spark_session, tmp_path):
     assert loaded_df_spark.count() == df_spark.count()
 
 
+def test_spark_dataset_source_too_many_inputs(spark_session, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    df_spark = spark_session.createDataFrame(df)
+    df_spark.write.mode("overwrite").saveAsTable("temp", path=tmp_path)
+
+    with pytest.raises(MlflowException):
+        spark_datasource = SparkDatasetSource(path=tmp_path, table_name="temp")
+
+
 def test_from_pandas_delta_path_datasource(spark_session, tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     df_spark = spark_session.createDataFrame(df)
@@ -240,3 +250,22 @@ def test_from_pandas_delta_table_datasource_versioned(spark_session, tmp_path):
     assert isinstance(mlflow_df.source, DeltaDatasetSource)
     loaded_df_spark = mlflow_df.source.load()
     assert loaded_df_spark.count() == df2_spark.count()
+
+
+def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    df_spark = spark_session.createDataFrame(df)
+    df_spark.write.format("delta").mode("overwrite").saveAsTable(
+        "default.temp_delta_versioned", path=tmp_path
+    )
+
+    df2 = pd.DataFrame([[1, 2, 3]], columns=["a", "b", "c"])
+    df2_spark = spark_session.createDataFrame(df2)
+    df2_spark.write.format("delta").mode("overwrite").saveAsTable(
+        "default.temp_delta_versioned", path=tmp_path
+    )
+
+    with pytest.raises(MlflowException):
+        delta_datasource = DeltaDatasetSource(
+            path=tmp_path, delta_table_name="temp_delta_versioned", delta_table_version=1
+        )
