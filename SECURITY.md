@@ -15,7 +15,7 @@ of MLflow, we may opt to backport patches to previous versions.
 When finding a security vulnerability in Mlflow, please perform the following actions:
 
 - [Open an issue](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=bug&template=bug_report_template.md&title=%5BBUG%5D%20Security%20Vulnerability) on the Mlflow repository. Ensure that you use `[BUG] Security Vulnerability` as the title and _do not_ mention any vulnerability details in the issue post.
-- Send a notification [email](mailto:mlflow-oss-maintainers@databricks.com) to `mlflow-oss-maintainers@databricks.com` that contains, at a minimum:
+- Send a notification [email](mailto:mlflow-oss-maintainers@googlegroups.com) to `mlflow-oss-maintainers@googlegroups.com` that contains, at a minimum:
   - The link to the filed issue stub.
   - Your GitHub handle.
   - Detailed information about the security vulnerability, evidence that supports the relevance of the finding and any reproducibility instructions for independent confirmation.

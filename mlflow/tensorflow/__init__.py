@@ -265,6 +265,17 @@ _NO_MODEL_SIGNATURE_WARNING = (
 )
 
 
+def _get_keras_version(keras_module):
+    import tensorflow
+
+    if Version(tensorflow.__version__) >= Version("2.6.0"):
+        import keras
+
+        return keras.__version__
+    else:
+        return keras_module.__version__
+
+
 def save_model(
     model,
     path,
@@ -439,10 +450,11 @@ def save_model(
         pyfunc_options = {
             "data": data_subpath,
         }
+
         flavor_options = {
             **pyfunc_options,
             "model_type": _MODEL_TYPE_KERAS,
-            "keras_version": keras_module.__version__,
+            "keras_version": _get_keras_version(keras_module),
             "save_format": save_format,
         }
     elif isinstance(model, tensorflow.Module):
@@ -530,7 +542,7 @@ def _load_keras_model(model_path, keras_module, save_format, **kwargs):
 
     # keras in tensorflow used to have a '-tf' suffix in the version:
     # https://github.com/tensorflow/tensorflow/blob/v2.2.1/tensorflow/python/keras/__init__.py#L36
-    unsuffixed_version = re.sub(r"-tf$", "", keras_module.__version__)
+    unsuffixed_version = re.sub(r"-tf$", "", _get_keras_version(keras_module))
     if save_format == "h5" and Version(unsuffixed_version) >= Version("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
@@ -982,7 +994,7 @@ def autolog(
     Enables autologging for ``tf.keras`` and ``keras``.
     Note that only ``tensorflow>=2.3`` are supported.
     As an example, try running the
-    `TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+    `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
     For each TensorFlow module, autologging captures the following information:
 
@@ -1174,6 +1186,7 @@ def autolog(
 
             batch_size = None
             try:
+                is_single_input_model = isinstance(inst.input_shape, tuple)
                 training_data = kwargs["x"] if "x" in kwargs else args[0]
                 if isinstance(training_data, tensorflow.data.Dataset) and hasattr(
                     training_data, "_batch_size"
@@ -1181,10 +1194,16 @@ def autolog(
                     batch_size = training_data._batch_size.numpy()
                 elif isinstance(training_data, tensorflow.keras.utils.Sequence):
                     first_batch_inputs, _ = training_data[0]
-                    batch_size = len(first_batch_inputs)
+                    if is_single_input_model:
+                        batch_size = len(first_batch_inputs)
+                    else:
+                        batch_size = len(first_batch_inputs[0])
                 elif is_iterator(training_data):
                     peek = next(training_data)
-                    batch_size = len(peek[0])
+                    if is_single_input_model:
+                        batch_size = len(peek[0])
+                    else:
+                        batch_size = len(peek[0][0])
 
                     def __restore_generator(prev_generator):
                         yield peek

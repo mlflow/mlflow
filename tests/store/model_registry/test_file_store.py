@@ -1412,6 +1412,42 @@ def test_delete_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def _setup_and_test_aliases(store, model_name):
+    store.create_registered_model(model_name)
+    run_id_1 = uuid.uuid4().hex
+    run_id_2 = uuid.uuid4().hex
+    store.create_model_version(model_name, "v1", run_id_1)
+    store.create_model_version(model_name, "v2", run_id_2)
+    store.set_registered_model_alias(model_name, "test_alias", "2")
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {"test_alias": "2"}
+    mv1 = store.get_model_version(model_name, 1)
+    mv2 = store.get_model_version(model_name, 2)
+    assert mv1.aliases == []
+    assert mv2.aliases == ["test_alias"]
+
+
+def test_set_registered_model_alias(store):
+    _setup_and_test_aliases(store, "SetRegisteredModelAlias_TestMod")
+
+
+def test_delete_registered_model_alias(store):
+    model_name = "DeleteRegisteredModelAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_registered_model_alias(model_name, "test_alias")
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {}
+    mv2 = store.get_model_version(model_name, 2)
+    assert mv2.aliases == []
+
+
+def test_get_model_version_by_alias(store):
+    model_name = "GetModelVersionByAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    mv = store.get_model_version_by_alias(model_name, "test_alias")
+    assert mv.aliases == ["test_alias"]
+
+
 def test_pyfunc_model_registry_with_file_store(store):
     import mlflow
     from mlflow.pyfunc import PythonModel

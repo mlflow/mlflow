@@ -10,10 +10,16 @@ class AbstractStore:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self):
+    def __init__(self, store_uri=None, tracking_uri=None):
         """
         Empty constructor. This is deliberately not marked as abstract, else every derived class
         would be forced to create one.
+
+        :param store_uri: The model registry store URI
+        :param tracking_uri: URI of the current MLflow tracking server, used to perform operations
+                             like fetching source run metadata or downloading source run artifacts
+                             to support subsequently uploading them to the model registry storage
+                             location
         """
         pass
 
@@ -256,5 +262,39 @@ class AbstractStore:
         :param version: Registered model version.
         :param key: Tag key.
         :return: None
+        """
+        pass
+
+    @abstractmethod
+    def set_registered_model_alias(self, name, alias, version):
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def delete_registered_model_alias(self, name, alias):
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+        """
+        pass
+
+    @abstractmethod
+    def get_model_version_by_alias(self, name, alias):
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
         pass
