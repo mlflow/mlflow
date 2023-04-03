@@ -2168,7 +2168,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config,
                 variant_name="prod-variant-1",
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                env={"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
                 tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
@@ -2200,7 +2200,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C data_capture_config='{"EnableCapture": True, \\
                     'InitalSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
                     'CaptureOptions': [{'CaptureMode': 'Output'}]}'
-                    -C env='{"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
+                    -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\
         """
         final_config = self._default_deployment_config()
@@ -2412,7 +2412,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 variant_name="prod-variant-1",
                 vpc_config=vpc_config,
                 data_capture_config=data_capture_config,
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                env={"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
                 tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
@@ -2445,7 +2445,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C data_capture_config='{"EnableCapture": True, \\
                     "InitalSamplingPercentage": 100, "DestinationS3Uri": "s3://my-bucket/path", \\
                     "CaptureOptions": [{"CaptureMode": "Output"}]}'
-                    -C env='{"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
+                    -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\
         """
         final_config = self._default_deployment_config(create_mode=False)
