@@ -142,3 +142,9 @@ try:
     _dataset_registry.register_constructor(from_numpy)
 except ImportError:
     pass
+try:
+    from mlflow.data.huggingface_dataset import from_huggingface
+
+    _dataset_registry.register_constructor(from_huggingface)
+except ImportError:
+    pass

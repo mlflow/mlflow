@@ -107,13 +107,19 @@ def _create_dataset_source_for_artifact_repo(
         def _get_source_type() -> str:
             return source_type
 
-        def download(self) -> str:
+        def load(self, dst_path=None) -> str:
             """
-            Downloads the dataset to the local filesystem.
+            Downloads the dataset source to the local filesystem.
 
-            :return: The path to the downloaded dataset on the local filesystem.
+            :param dst_path: Path of the local filesystem destination directory to which to download
+                             the dataset source. If the directory does not exist, it is created. If
+                             unspecified, the dataset source is downloaded to a new uniquely-named
+                             directory on the local filesystem, unless the dataset source already
+                             exists on the local filesystem, in which case its local path is
+                             returned directly.
+            :return: The path to the downloaded dataset source on the local filesystem.
             """
-            return download_artifacts(self.uri)
+            return download_artifacts(artifact_uri=self.uri, dst_path=dst_path)
 
         @staticmethod
         def _can_resolve(raw_source: Any):
@@ -137,16 +143,16 @@ def _create_dataset_source_for_artifact_repo(
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(str(raw_source))
 
-        def _to_dict(self) -> Dict[str, str]:
+        def _to_dict(self) -> Dict[Any, Any]:
             """
-            :return: A string dictionary representation of the {dataset_source_name}.
+            :return: A JSON-compatible dictionary representation of the {dataset_source_name}.
             """
             return {
                 "uri": self.uri,
             }
 
         @classmethod
-        def _from_dict(cls, source_dict: str) -> DatasetForArtifactRepoSourceType:
+        def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
             uri = source_dict.get("uri")
             if uri is None:
                 raise MlflowException(

@@ -23,9 +23,10 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def download(self) -> Any:
+    def load(self) -> Any:
         """
-        Downloads the files / objects referred to be this DatasetSource.
+        Loads files / objects referred to by this DatasetSource, e.g. downloads source CSV files
+        from S3 to the local filesystem or loads a Delta Table as a Spark DataFrame.
 
         :return: The downloaded source, e.g. a local filesystem path, a Spark DataFrame, etc.
         """
@@ -56,11 +57,11 @@ class DatasetSource:
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[str, Any]:
         """
-        Obtains a string dictionary representation of the DatasetSource.
+        Obtains a JSON-compatible dictionary representation of the DatasetSource.
 
-        :return: A string dictionary representation of the DatasetSource.
+        :return: A JSON-compatible dictionary representation of the DatasetSource.
         """
 
     def to_json(self) -> str:
@@ -73,11 +74,11 @@ class DatasetSource:
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[str, str]) -> DatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSourceType:
         """
-        Constructs an instance of the DatasetSource from a string dictionary representation.
+        Constructs an instance of the DatasetSource from a dictionary representation.
 
-        :param source_dict: A string dictionary representation of the DatasetSource.
+        :param source_dict: A dictionary representation of the DatasetSource.
         :return: A DatasetSource instance.
         """
 

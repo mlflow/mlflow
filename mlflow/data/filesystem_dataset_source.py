@@ -33,10 +33,16 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def download(self) -> str:
+    def load(self, dst_path=None) -> str:
         """
         Downloads the dataset source to the local filesystem.
 
+        :param dst_path: Path of the local filesystem destination directory to which to download the
+                         dataset source. If the directory does not exist, it is created. If
+                         unspecified, the dataset source is downloaded to a new uniquely-named
+                         directory on the local filesystem, unless the dataset source already
+                         exists on the local filesystem, in which case its local path is returned
+                         directly.
         :return: The path to the downloaded dataset source on the local filesystem.
         """
 
@@ -57,14 +63,14 @@ class FileSystemDatasetSource(DatasetSource):
         """
 
     @abstractmethod
-    def _to_dict(self) -> Dict[str, str]:
+    def _to_dict(self) -> Dict[Any, Any]:
         """
-        :return: A string dictionary representation of the FileSystemDatasetSource.
+        :return: A JSON-compatible dictionary representation of the FileSystemDatasetSource.
         """
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[str, str]) -> FileSystemDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> FileSystemDatasetSourceType:
         """
-        :param source_dict: A string dictionary representation of the FileSystemDatasetSource.
+        :param source_dict: A dictionary representation of the FileSystemDatasetSource.
         """
