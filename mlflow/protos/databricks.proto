@@ -191,7 +191,6 @@ enum ErrorCode {
   // It's assigned tag 0 to follow the best practice from
   // https://developers.google.com/protocol-buffers/docs/style#enums
   // 
-  // TODO(PLAT-55898): Add custom option to declare HTTP and gRPC mappings.
   // Maps to:
   // - google.rpc.Code: UNKNOWN = 2;
   // - HTTP code: 500 Internal Server Error
