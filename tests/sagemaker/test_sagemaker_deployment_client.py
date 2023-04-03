@@ -459,7 +459,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
         "GUNCORN_CMD_ARGS": '"--timeout 60"',
-        "DISABLE_NGINX": "1",
+        "DISABLE_NGINX": "true",
     }
 
     if proxies_enabled:
@@ -475,7 +475,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
                 name=name,
                 model_uri=pretrained_model.model_uri,
                 config=dict(
-                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
                 ),
             )
     else:
@@ -485,7 +485,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
                 name=name,
                 model_uri=pretrained_model.model_uri,
                 config=dict(
-                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
                 ),
             )
 
@@ -522,12 +522,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 ):
     region_name = sagemaker_client.meta.region_name
     environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
-    override_environment_variables = {"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'}
+    override_environment_variables = {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'}
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
         "GUNCORN_CMD_ARGS": '"--timeout 60"',
-        "DISABLE_NGINX": "1",
+        "DISABLE_NGINX": "true",
     }
 
     if proxies_enabled:
