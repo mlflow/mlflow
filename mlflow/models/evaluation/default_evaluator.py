@@ -248,11 +248,7 @@ def _get_multiclass_classifier_metrics(
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
-        (
-            y_bin,
-            y_pred_bin,
-            _,
-        ) = _get_binary_sum_up_label_pred_prob(
+        (y_bin, y_pred_bin, _,) = _get_binary_sum_up_label_pred_prob(
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
@@ -456,7 +452,13 @@ def _is_numeric(value):
     return isinstance(value, (int, float, np.number))
 
 
-def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
+def _evaluate_custom_metric(
+    custom_metric_tuple,
+    eval_df,
+    builtin_metrics,
+    additional_df: pd.DataFrame = None,
+    additional_array: np.array = None,
+):
     """
     This function calls the `custom_metric` function and performs validations on the returned
     result to ensure that they are in the expected format. It will raise a MlflowException if
@@ -466,6 +468,8 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
                                 ``custom_metrics`` parameter of ``mlflow.evaluate``
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
+    :param additional_df: A Pandas dataframe that contains additional information for the overall dataset
+    :param additional_array: A numpy array that contains additional information for the overall dataset.
     :return: A scalar metric value.
     """
     exception_header = (
@@ -473,7 +477,7 @@ def _evaluate_custom_metric(custom_metric_tuple, eval_df, builtin_metrics):
         " in the `custom_metrics` parameter"
     )
 
-    metric = custom_metric_tuple.function(eval_df, builtin_metrics)
+    metric = custom_metric_tuple.function(eval_df, builtin_metrics, additional_df, additional_array)
 
     if metric is None:
         raise MlflowException(f"{exception_header} returned None.")
@@ -1007,7 +1011,8 @@ class DefaultEvaluator(ModelEvaluator):
         if not self.custom_metrics and not self.custom_artifacts:
             return
         builtin_metrics = copy.deepcopy(self.metrics)
-        eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
+        # eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
+        eval_df = pd.DataFrame({"prediction": list(copy.deepcopy(self.y_pred)), "target": list(self.y)})
         for index, custom_metric in enumerate(self.custom_metrics or []):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
