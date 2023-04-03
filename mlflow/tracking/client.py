@@ -2960,7 +2960,7 @@ class MlflowClient:
 
             # Set registered model alias
             client.set_registered_model_alias(name, "test-alias", mv.version)
-            print("\n")
+            print()
             print_model_info(model)
             print_model_version_info(mv)
 
@@ -3037,13 +3037,13 @@ class MlflowClient:
 
             # Set registered model alias
             client.set_registered_model_alias(name, "test-alias", mv.version)
-            print("\n")
+            print()
             print_model_info(model)
             print_model_version_info(mv)
 
             # Delete registered model alias
             client.set_registered_model_alias(name, "test-alias")
-            print("\n")
+            print()
             print_model_info(model)
             print_model_version_info(mv)
 
@@ -3127,13 +3127,13 @@ class MlflowClient:
 
             # Set registered model alias
             client.set_registered_model_alias(name, "test-alias", mv.version)
-            print("\n")
+            print()
             print_model_info(model)
             print_model_version_info(mv)
 
             # Get model version by alias
             alias_mv = client.get_model_version_by_alias(name, "test-alias")
-            print("\n")
+            print()
             print_model_version_info(alias_mv)
 
         .. code-block:: text
