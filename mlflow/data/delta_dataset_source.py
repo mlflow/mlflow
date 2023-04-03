@@ -1,16 +1,20 @@
-import json
 from typing import TypeVar, Any, Optional, Dict
 
 from pyspark.sql import SparkSession, DataFrame
 
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import http_request_safe
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
+
+HIVE_METASTORE_NAME = "hive_metastore"
+# these two catalog names both points to the workspace local default HMS (hive metastore).
+LOCAL_METASTORE_NAMES = [HIVE_METASTORE_NAME, "spark_catalog"]
+# samples catalog is managed by databricks for hosting public dataset like NYC taxi dataset.
+# it is neither a UC nor local metastore catalog
+SAMPLES_CATALOG_NAME = "samples"
 
 
 class DeltaDatasetSource(DatasetSource):
@@ -66,32 +70,16 @@ class DeltaDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> DeltaDatasetSourceType:
         raise NotImplementedError
 
-    def _databricks_api_request(self, endpoint, method, **kwargs):
-        host_creds = get_databricks_host_creds("databricks-uc")
-        return http_request_safe(host_creds=host_creds, endpoint=endpoint, method=method, **kwargs)
-
-    def _uc_table_get(self, table_name):
-        response = self._databricks_api_request(
-            endpoint="/api/2.0/unity-catalog/tables/{table_name}", method="GET"
-        )
-        return json.loads(response.text)
-
-    def _get_table_info_if_uc(self, table_name):
-        if table_name:
-            return self._uc_table_get(table_name)
+    # check if table is in UC
+    def _is_uc_table(self):
+        if self._delta_table_name:
+            catalog_name, _, _ = self._delta_table_name.split(".")
+            return (
+                catalog_name not in LOCAL_METASTORE_NAMES and catalog_name != SAMPLES_CATALOG_NAME
+            )
 
     def _to_dict(self) -> Dict[Any, Any]:
-        table_info = self._get_table_info_if_uc(self._delta_table_name)
-        if table_info:
-            return {
-                "path": self._path,
-                "metastore_id": table_info.metastore_id,
-                "table_id": table_info.table_id,
-            }
-        else:
-            return {
-                "path": self._path,
-            }
+        return {"path": self._path, "is_uc_table": self._is_uc_table()}
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> DeltaDatasetSourceType:
