@@ -319,7 +319,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
-      "<= 3.3.0": ["pandas<2"]
+      "<= 3.3.2": ["pandas<2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -340,7 +340,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "<= 3.3.0": ["pandas<2"]
+      "<= 3.3.2": ["pandas<2"]
     run: |
       find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest
 
