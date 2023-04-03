@@ -81,7 +81,7 @@ class DeltaDatasetSource(DatasetSource):
             return self._uc_table_get(table_name)
 
     def _to_dict(self) -> Dict[Any, Any]:
-        table_info = self._get_table_info(self._delta_table_name)
+        table_info = self._get_table_info_if_uc(self._delta_table_name)
         if table_info:
             return {
                 "path": self._path,
