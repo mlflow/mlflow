@@ -1349,11 +1349,11 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     ("fn", "expectation"),
     [
         (
-            lambda eval_df, _: sum(eval_df["prediction"]),
+            lambda eval_df, _, __, ___: sum(eval_df["prediction"]),
             does_not_raise(),
         ),
         (
-            lambda _, __: None,
+            lambda _, __, ___, ____: None,
             pytest.raises(MlflowException, match="returned None"),
         ),
     ],
@@ -1369,7 +1369,7 @@ def test_evaluate_custom_metric_success():
     eval_df = pd.DataFrame({"prediction": [1.2, 1.9, 3.2], "target": [1, 2, 3]})
     metrics = _get_regressor_metrics(eval_df["target"], eval_df["prediction"], sample_weights=None)
 
-    def example_count_times_1_point_5(_, given_metrics):
+    def example_count_times_1_point_5(_, given_metrics, __, ___):
         return given_metrics["example_count"] * 1.5
 
     res_metric = _evaluate_custom_metric(
@@ -1443,10 +1443,10 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
 
 
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def true_count(_eval_df, given_metrics):
+    def true_count(_eval_df, given_metrics, additional_df, additional_array):
         return given_metrics["true_negatives"] + given_metrics["true_positives"]
 
-    def positive_count(eval_df, _given_metrics):
+    def positive_count(eval_df, _given_metrics, additional_df, additional_array):
         return np.sum(eval_df["prediction"])
 
     def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
@@ -1921,7 +1921,7 @@ def test_custom_metrics():
             evaluators="default",
             custom_metrics=[
                 make_metric(
-                    eval_fn=lambda _eval_df, _builtin_metrics: 1.0,
+                    eval_fn=lambda _eval_df, _builtin_metrics, _, __: 1.0,
                     name="cm",
                     greater_is_better=True,
                     long_name="custom_metric",
