@@ -185,12 +185,6 @@ message DocumentationMetadata {
 }
 
 enum ErrorCode {
-  // Linter rule annotations below shouldn't be copy-pasted blindly.
-  option (databricks.linter.enum_options) = {
-    disabled_rules: ENUM_ZERO_VALUE_STANDARD_NAME
-    disabled_rules: ENUM_VALUE_NAME_PREFIXED
-  };
-
   // Unknown error. This error generally should not be returned explicitly, but will be used
   // as a fallback if the error enum is missing from the message for some reason.
   //
