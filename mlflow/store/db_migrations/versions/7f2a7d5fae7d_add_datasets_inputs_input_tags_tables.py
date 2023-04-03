@@ -7,6 +7,7 @@ Create Date: 2023-03-23 09:48:27.775166
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from mlflow.store.tracking.dbmodels.models import SqlDataset, SqlInputTag, SqlInput
 
 # revision identifiers, used by Alembic.
@@ -30,9 +31,9 @@ def upgrade():
         sa.Column("name", sa.String(length=500), primary_key=True, nullable=False),
         sa.Column("digest", sa.String(length=36), primary_key=True, nullable=False),
         sa.Column("dataset_source_type", sa.String(length=36), nullable=False),
-        sa.Column("dataset_source", sa.String(length=65535), nullable=False),
-        sa.Column("dataset_schema", sa.String(length=65535), nullable=True),
-        sa.Column("dataset_profile", sa.String(length=16777215), nullable=True),
+        sa.Column("dataset_source", sa.Text(), nullable=False),
+        sa.Column("dataset_schema", sa.Text(), nullable=True),
+        sa.Column("dataset_profile", sa.Text().with_variant(MEDIUMTEXT, "mysql"), nullable=True),
         sa.PrimaryKeyConstraint("experiment_id", "name", "digest", name="dataset_pk"),
         sa.Index(f"index_{SqlDataset.__tablename__}_dataset_uuid", "dataset_uuid", unique=False),
         sa.Index(
