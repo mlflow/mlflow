@@ -2703,7 +2703,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             assert len(dataset_profile_from_db) == len(dataset_profile)
 
             # delete contents of datasets table
-            conn.execute("DELETE FROM datasets")
+            conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
