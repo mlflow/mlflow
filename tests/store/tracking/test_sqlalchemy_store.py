@@ -2665,6 +2665,46 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         metrics = self.store.get_metric_history(run_id, "test_metric")
         assert metrics == []
 
+    def test_insert_large_text_in_dataset_table(self):
+        with self.store.engine.begin() as conn:
+            # cursor = conn.cursor()
+            dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
+            dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
+            conn.execute(
+                sqlalchemy.sql.text(
+                    f"""
+                INSERT INTO datasets 
+                    (dataset_uuid, 
+                    experiment_id, 
+                    name, 
+                    digest, 
+                    dataset_source_type, 
+                    dataset_source, 
+                    dataset_schema, 
+                    dataset_profile)
+                VALUES 
+                    ('test_uuid', 
+                    0, 
+                    'test_name', 
+                    'test_digest', 
+                    'test_source_type', 
+                    '{dataset_source}', '
+                    test_schema', 
+                    '{dataset_profile}')
+                """
+                )
+            )
+            results = conn.execute(
+                sqlalchemy.sql.text("SELECT dataset_source, dataset_profile from datasets")
+            ).first()
+            dataset_source_from_db = results[0]
+            assert len(dataset_source_from_db) == len(dataset_source)
+            dataset_profile_from_db = results[1]
+            assert len(dataset_profile_from_db) == len(dataset_profile)
+
+            # delete contents of datasets table
+            conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
+
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SingletonThreadPool")

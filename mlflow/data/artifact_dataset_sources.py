@@ -143,16 +143,16 @@ def _create_dataset_source_for_artifact_repo(
         def _resolve(cls, raw_source: Any) -> DatasetForArtifactRepoSourceType:
             return cls(str(raw_source))
 
-        def _to_dict(self) -> Dict[str, str]:
+        def _to_dict(self) -> Dict[Any, Any]:
             """
-            :return: A string dictionary representation of the {dataset_source_name}.
+            :return: A JSON-compatible dictionary representation of the {dataset_source_name}.
             """
             return {
                 "uri": self.uri,
             }
 
         @classmethod
-        def _from_dict(cls, source_dict: str) -> DatasetForArtifactRepoSourceType:
+        def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetForArtifactRepoSourceType:
             uri = source_dict.get("uri")
             if uri is None:
                 raise MlflowException(

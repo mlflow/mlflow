@@ -152,3 +152,10 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
 _dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
 _dataset_source_registry.register_entrypoints()
+
+try:
+    from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
+
+    _dataset_source_registry.register(HuggingFaceDatasetSource)
+except ImportError:
+    pass
