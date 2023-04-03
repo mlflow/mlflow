@@ -18,7 +18,7 @@ class SparkDatasetSource(DatasetSource):
     ):
         if (path, table_name, sql).count(None) != 2:
             raise MlflowException(
-                f'Must specify exactly one of "path", "table_name", and "sql"',
+                'Must specify exactly one of "path", "table_name", and "sql"',
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path

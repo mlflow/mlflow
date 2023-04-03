@@ -23,7 +23,7 @@ class DeltaDatasetSource(DatasetSource):
 
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
-                f'Must specify exactly one of "path" and "table_name"',
+                'Must specify exactly one of "path" and "table_name"',
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path

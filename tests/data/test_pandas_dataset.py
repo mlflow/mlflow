@@ -172,8 +172,10 @@ def test_spark_dataset_source_too_many_inputs(spark_session, tmp_path):
     df_spark = spark_session.createDataFrame(df)
     df_spark.write.mode("overwrite").saveAsTable("temp", path=tmp_path)
 
-    with pytest.raises(MlflowException):
-        spark_datasource = SparkDatasetSource(path=tmp_path, table_name="temp")
+    with pytest.raises(
+        MlflowException, match='Must specify exactly one of "path", "table_name", and "sql"'
+    ):
+        SparkDatasetSource(path=tmp_path, table_name="temp")
 
 
 def test_from_pandas_delta_path_datasource(spark_session, tmp_path):
@@ -265,7 +267,9 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
         "default.temp_delta_versioned", path=tmp_path
     )
 
-    with pytest.raises(MlflowException):
-        delta_datasource = DeltaDatasetSource(
+    with pytest.raises(
+        MlflowException, match='Must specify exactly one of "path" and "table_name"'
+    ):
+        DeltaDatasetSource(
             path=tmp_path, delta_table_name="temp_delta_versioned", delta_table_version=1
         )
