@@ -2671,7 +2671,8 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             dataset_source = "a" * 65535  # 65535 is the max size for a TEXT column
             dataset_profile = "a" * 16777215  # 16777215 is the max size for a MEDIUMTEXT column
             conn.execute(
-                f"""
+                sqlalchemy.sql.text(
+                    f"""
                 INSERT INTO datasets 
                     (dataset_uuid, 
                     experiment_id, 
@@ -2691,8 +2692,11 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     test_schema', 
                     '{dataset_profile}')
                 """
+                )
             )
-            results = conn.execute("SELECT dataset_source, dataset_profile from datasets").first()
+            results = conn.execute(
+                sqlalchemy.sql.text("SELECT dataset_source, dataset_profile from datasets")
+            ).first()
             dataset_source_from_db = results[0]
             assert len(dataset_source_from_db) == len(dataset_source)
             dataset_profile_from_db = results[1]
