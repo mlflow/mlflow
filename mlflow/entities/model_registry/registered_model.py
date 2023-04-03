@@ -135,7 +135,7 @@ class RegisteredModel(_ModelRegistryEntity):
         )
         rmd.aliases.extend(
             [
-                ProtoRegisteredModelAlias(alias=alias, version=version)
+                ProtoRegisteredModelAlias(alias=alias, version=str(version))
                 for alias, version in self._aliases.items()
             ]
         )

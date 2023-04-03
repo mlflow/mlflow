@@ -637,3 +637,30 @@ def test_default_values_for_tags(store, tags):
     # No unsupported arg exceptions should be thrown
     store.create_registered_model(name="model_1", description="description", tags=tags)
     store.create_model_version(name="mymodel", source="source")
+
+
+def test_set_registered_model_alias_unsupported(store):
+    name = "model_1"
+    with pytest.raises(
+        MlflowException,
+        match=_expected_unsupported_method_error_message("set_registered_model_alias"),
+    ):
+        store.set_registered_model_alias(name=name, alias="test_alias", version="1")
+
+
+def test_delete_registered_model_alias_unsupported(store):
+    name = "model_1"
+    with pytest.raises(
+        MlflowException,
+        match=_expected_unsupported_method_error_message("delete_registered_model_alias"),
+    ):
+        store.delete_registered_model_alias(name=name, alias="test_alias")
+
+
+def test_get_model_version_by_alias_unsupported(store):
+    name = "model_1"
+    with pytest.raises(
+        MlflowException,
+        match=_expected_unsupported_method_error_message("get_model_version_by_alias"),
+    ):
+        store.get_model_version_by_alias(name=name, alias="test_alias")
