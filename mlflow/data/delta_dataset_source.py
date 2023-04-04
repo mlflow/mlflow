@@ -42,7 +42,15 @@ class DeltaDatasetSource(DatasetSource):
         Loads the dataset source as a Delta Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
-        spark = SparkSession.builder.getOrCreate()
+        spark = (
+            SparkSession.builder.master("local[*]")
+            .config("spark.jars.packages", "io.delta:delta-core_2.12:2.2.0")
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config(
+                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+            )
+            .getOrCreate()
+        )
 
         spark_read_op = spark.read.format("delta")
         if self._delta_table_version is not None:

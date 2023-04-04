@@ -5,7 +5,7 @@ from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="class", autouse=True)
 def spark_session():
     from pyspark.sql import SparkSession
 
