@@ -15,10 +15,9 @@ You may install MLflow from PyPi using pip:
 
     .. code-block:: shell
 
-        # Install MLflow
         pip install mlflow
 
-For more options, see :ref:`install_mlflow`.
+For more options, see tk.
 
 How do I add MLFlow tracking to my Python code?
 -----------------------------------------------
@@ -28,6 +27,7 @@ With the most popular ML libraries, you make a single function call: ``mlflow.{l
 .. code-section::
 
     .. code-block:: python
+
         import mlflow
 
         from sklearn.model_selection import train_test_split
@@ -48,7 +48,8 @@ With the most popular ML libraries, you make a single function call: ``mlflow.{l
 
 In addition, or if you are using a library for which ``autolog`` is not yet supported, you may use key-value pairs to track:
 
-.. list-table:: Tracked item
+.. list-table::
+   :widths: 10 10 80 
    :header-rows: 1
 
    * - Name
@@ -59,12 +60,12 @@ In addition, or if you are using a library for which ``autolog`` is not yet supp
      - ``mlflow.log_param``
    * - Metrics
      - Values updated during the run (for instance, accuracy)
-     - ``mflog.log_metric``
-    * - Artifacts
-    - Files produced by the run (for instance, model weights)
-    - ``mlflow.log_artifacts``
+     - ``mlflow.log_metric``
+   * - Artifacts
+     - Files produced by the run (for instance, model weights)
+     - ``mlflow.log_artifacts``
 
- This example demonstrates the use of these functions:
+This example demonstrates the use of these functions:
 
 .. code-section::
     .. code-block:: python
@@ -163,7 +164,7 @@ tk
 
 
 How do I run a model artifact from a specific MLFlow run?
---------------------------------------------------------
+---------------------------------------------------------
 
 tk
 
