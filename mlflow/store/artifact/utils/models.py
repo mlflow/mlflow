@@ -16,7 +16,10 @@ def _improper_model_uri_msg(uri):
     return (
         "Not a proper models:/ URI: %s. " % uri
         + "Models URIs must be of the form 'models:/<model_name>/suffix' "
-        + "where suffix is a model version, stage, or the string '%s'." % _MODELS_URI_SUFFIX_LATEST
+        + "or 'models:/<model_name>@alias' where suffix is a model version, stage, "
+        + "or the string '%s' and where alias is a registered model alias. "
+        % _MODELS_URI_SUFFIX_LATEST
+        + "Only one of suffix or alias can be defined at a time."
     )
 
 
@@ -34,11 +37,12 @@ def _get_latest_model_version(client, name, stage):
 
 def _parse_model_uri(uri):
     """
-    Returns (name, version, stage). Since a models:/ URI can only have one of
-    {version, stage, 'latest'}, it will return
-        - (name, version, None) to look for a specific version,
-        - (name, None, stage) to look for the latest version of a stage,
-        - (name, None, None) to look for the latest of all versions.
+    Returns (name, version, stage, alias). Since a models:/ URI can only have one of
+    {version, stage, 'latest', alias}, it will return
+        - (name, version, None, None) to look for a specific version,
+        - (name, None, stage, None) to look for the latest version of a stage,
+        - (name, None, None, None) to look for the latest of all versions.
+        - (name, None, None, alias) to look for a registered model alias.
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "models":
@@ -47,24 +51,37 @@ def _parse_model_uri(uri):
     path = parsed.path
     if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(_improper_model_uri_msg(uri))
-    parts = path[1:].split("/")
+    stage_parts = path[1:].split("/")
+    alias_parts = path[1:].split("@")
 
-    if len(parts) != 2 or parts[0].strip() == "":
+    if (
+        stage_parts[0].strip() == ""
+        or alias_parts[0].strip() == ""  # no model name
+        or (len(stage_parts) == 1 and len(alias_parts) != 2)  # improper alias URI
+        or (len(stage_parts) == 2 and len(alias_parts) != 1)  # improper stage URI
+        or len(stage_parts) > 2
+        or len(alias_parts) > 2  # improper URI
+    ):
         raise MlflowException(_improper_model_uri_msg(uri))
 
-    if parts[1].isdigit():
+    if len(alias_parts) == 2:
+        # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
+        return alias_parts[0], None, None, alias_parts[1]
+    if stage_parts[1].isdigit():
         # The suffix is a specific version, e.g. "models:/AdsModel1/123"
-        return parts[0], int(parts[1]), None
-    elif parts[1].lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+        return stage_parts[0], int(stage_parts[1]), None, None
+    elif stage_parts[1].lower() == _MODELS_URI_SUFFIX_LATEST.lower():
         # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
-        return parts[0], None, None
+        return stage_parts[0], None, None, None
     else:
         # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
-        return parts[0], None, parts[1]
+        return stage_parts[0], None, stage_parts[1], None
 
 
 def get_model_name_and_version(client, models_uri):
-    (model_name, model_version, model_stage) = _parse_model_uri(models_uri)
+    (model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
     if model_version is not None:
         return model_name, str(model_version)
+    if model_alias is not None:
+        return model_name, client.get_model_version_by_alias(model_name, model_alias).version
     return model_name, str(_get_latest_model_version(client, model_name, model_stage))

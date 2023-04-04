@@ -72,7 +72,7 @@ class WheeledModel:
             with mlflow.start_run():
                 WheeledModel.log_model(model_uri)
         """
-        model_name, _, _ = _parse_model_uri(model_uri)
+        model_name, _, _, _ = _parse_model_uri(model_uri)
         return Model.log(
             artifact_path=None,
             flavor=WheeledModel(model_uri),
