@@ -130,3 +130,9 @@ def get_registered_constructors() -> Dict[str, ConstructorFunction]:
 
 _dataset_registry = DatasetRegistry()
 _dataset_registry.register_entrypoints()
+try:
+    from mlflow.data.huggingface_dataset import from_huggingface
+
+    _dataset_registry.register_constructor(from_huggingface)
+except ImportError:
+    pass
