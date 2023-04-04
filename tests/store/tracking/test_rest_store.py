@@ -14,6 +14,9 @@ from mlflow.entities import (
     ExperimentTag,
     Experiment,
     LifecycleStage,
+    DatasetInput,
+    Dataset,
+    InputTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -246,6 +249,16 @@ class TestRestStore:
             self._verify_requests(mock_http, creds, "runs/log-batch", "POST", body)
 
         with mock_http_request() as mock_http:
+            dataset = Dataset(name="name", digest="digest", source_type="st", source="source")
+            tag = InputTag(key="k1", value="v1")
+            dataset_input = DatasetInput(dataset=dataset, tags=[tag])
+            store.log_inputs("some_uuid", [dataset_input])
+            body = message_to_json(
+                LogInputs(run_id="some_uuid", datasets=[dataset_input.to_proto()])
+            )
+            self._verify_requests(mock_http, creds, "runs/log-inputs", "POST", body)
+
+        with mock_http_request() as mock_http:
             store.delete_run("u25")
             self._verify_requests(
                 mock_http, creds, "runs/delete", "POST", message_to_json(DeleteRun(run_id="u25"))
@@ -456,6 +469,19 @@ class TestRestStore:
 
     @mock.patch("requests.Session.request")
     def test_get_metric_history_on_non_existent_metric_key(self, request):
+        creds = MlflowHostCreds("https://hello")
+        rest_store = RestStore(lambda: creds)
+        empty_metric_response = self._mock_response_with_200_status_code()
+        empty_metric_response.text = json.dumps({})
+        with mock.patch(
+            "requests.Session.request", side_effect=[empty_metric_response]
+        ) as mock_request:
+            metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
+            mock_request.assert_called_once()
+            assert metrics == []
+
+    @mock.patch("requests.Session.request")
+    def test_log_inputs(self, request):
         creds = MlflowHostCreds("https://hello")
         rest_store = RestStore(lambda: creds)
         empty_metric_response = self._mock_response_with_200_status_code()
