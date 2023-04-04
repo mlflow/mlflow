@@ -162,18 +162,6 @@ public final class Databricks {
   }
 
   /**
-   * <pre>
-   * Unknown error. This error generally should not be returned explicitly, but will be used
-   * as a fallback if the error enum is missing from the message for some reason.
-   * It's assigned tag 0 to follow the best practice from
-   * https://developers.google.com/protocol-buffers/docs/style#enums
-   * 
-   * Maps to:
-   * - google.rpc.Code: UNKNOWN = 2;
-   * - HTTP code: 500 Internal Server Error
-   * UNKNOWN = 0; commented out because this conflicts with `SourceType.UNKNOWN` in mlflow/protos/service.proto
-   * </pre>
-   *
    * Protobuf enum {@code mlflow.ErrorCode}
    */
   public enum ErrorCode
