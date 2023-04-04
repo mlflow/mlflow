@@ -689,7 +689,8 @@ public class MlflowClient implements Serializable, Closeable {
       provider = new BasicMlflowHostCreds(trackingUri);
     } else if (trackingUri.equals("databricks")) {
       MlflowHostCredsProvider profileProvider = new DatabricksConfigHostCredsProvider();
-      MlflowHostCredsProvider dynamicProvider = DatabricksDynamicHostCredsProvider.createIfAvailable();
+      MlflowHostCredsProvider dynamicProvider = DatabricksDynamicHostCredsProvider
+          .createIfAvailable();
       if (dynamicProvider != null) {
         provider = new HostCredsProviderChain(dynamicProvider, profileProvider);
       } else {
