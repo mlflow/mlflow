@@ -112,14 +112,13 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         try:
             return _infer_schema(self._df)
         except Exception as e:
-            _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
+            _logger._warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
         Converts the dataset to a collection of pyfunc inputs and outputs for model
         evaluation. Required for use with mlflow.evaluate().
-        May not be implemented by all datasets.
         """
         if self._targets:
             inputs = self._df.drop(columns=[self._targets])

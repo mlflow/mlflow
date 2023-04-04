@@ -106,14 +106,13 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         try:
             return _infer_schema(self._features)
         except Exception as e:
-            _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
+            _logger._warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
         Converts the dataset to a collection of pyfunc inputs and outputs for model
         evaluation. Required for use with mlflow.evaluate().
-        May not be implemented by all datasets.
         """
         return PyFuncInputsOutputs(self._features, self._targets)
 
@@ -142,7 +141,7 @@ def from_numpy(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source: FileSystemDatasetSource = resolve_dataset_source(source)
+    resolved_source = resolve_dataset_source(source)
     return NumpyDataset(
         features=features, source=resolved_source, targets=targets, name=name, digest=digest
     )

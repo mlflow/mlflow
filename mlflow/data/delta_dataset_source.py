@@ -5,6 +5,7 @@ from pyspark.sql import SparkSession, DataFrame
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -42,15 +43,7 @@ class DeltaDatasetSource(DatasetSource):
         Loads the dataset source as a Delta Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
-        spark = (
-            SparkSession.builder.master("local[*]")
-            .config("spark.jars.packages", "io.delta:delta-core_2.12:2.2.0")
-            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-            .config(
-                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-            )
-            .getOrCreate()
-        )
+        spark = SparkSession.builder.getOrCreate()
 
         spark_read_op = spark.read.format("delta")
         if self._delta_table_version is not None:
@@ -83,7 +76,7 @@ class DeltaDatasetSource(DatasetSource):
 
     # check if table is in the Databricks Unity Catalog
     def _is_databricks_uc_table(self):
-        if self._delta_table_name:
+        if is_in_databricks_runtime() and self._delta_table_name is not None:
             try:
                 catalog_name, _, _ = self._delta_table_name.split(".")
                 return (
