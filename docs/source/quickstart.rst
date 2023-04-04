@@ -3,7 +3,7 @@
 Quickstart
 ==========
 
-You can install MLFlow, instrument your code, and view a run's results in a few minutes:
+Install MLFlow, instrument your code, and view a run's results in a few minutes:
 
 
 How do I install MLFlow? 
@@ -22,7 +22,7 @@ For more options, see tk.
 How do I add MLFlow tracking to my Python code?
 -----------------------------------------------
 
-With the most popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()``. MLFlow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
+For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLFlow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
 
 .. code-section::
 
@@ -93,7 +93,7 @@ This example demonstrates the use of these functions:
 How do I view my MLFlow runs and experiments?
 ---------------------------------------------
 
-MLFlow comes with a tracking UI that lets you view your runs and the experiments that contain them. To start the UI, run:
+Once you've run your code, you may view the results with MLFlow's tracking UI. To start the UI, run:
 
 .. code-section::
 
@@ -112,7 +112,7 @@ You are in the **Default** experiment, which now contains the tracking data for 
 How do I share my MLFlow runs and experiments?
 ----------------------------------------------
 
-By default, MLFlow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a tracking server, or a Databricks workspace.
+By default, MLFlow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
 
 You can run a tracking server on a network-accessible server by running:
 
@@ -173,8 +173,48 @@ How do I do a hyperparameter sweep with MLFlow Tracking?
 
 tk
 
-Original, which still contains many details that we don't want to lose:
+Next Steps
+----------
+.. 
+    First, code:
 
+- Example: MLFlow tutorial
+- MLFlow example directory
+
+.. 
+    Drilldown for each H2. These could also be at the bottom
+    of their respective sections. Depends on info architecture design.
+
+- Customizing and troubleshooting MLFlow installation
+- Using Autolog, including a list of what libraries are supported
+- Effectively using the MLFlow Tracking API
+- Choosing and configuring the MLFlow tracking backend 
+- Navigating the MLFlow Tracking UI
+
+.. 
+    Next tool: either Models or Projects
+
+- Storing models with MLFlow tracking
+- End-to-end tracking, collaboration, and deployment with MLFlow Projects
+
+.. 
+    More top-down-y stuff
+
+- Understanding MLFlow's concepts, tools, and APIs 
+- Why MLFlow?
+  
+
+{>> Important things in original we don't want to lose:
+
+- mlflow skinny and extras and why you might choose one or t'other
+- Do we document / walkthrough virtualenvs or, e.g., conda or is that all assumed?
+- What about R? 
+- Mac python on install (relates to env answer)
+- repo contains a big helpful directory of examples 
+- WORKER_TIMEOUT issue 
+- Project content: I don't think we want this in the QS, but it's all good stuff
+
+<<}
 
 Installing MLflow
 -----------------
