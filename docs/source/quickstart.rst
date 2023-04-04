@@ -3,6 +3,188 @@
 Quickstart
 ==========
 
+You can install MLFlow, instrument your code, and view a run's results in a few minutes:
+
+
+How do I install MLFlow? 
+------------------------
+
+You may install MLflow from PyPi using pip:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        # Install MLflow
+        pip install mlflow
+
+For more options, see :ref:`install_mlflow`.
+
+How do I add MLFlow tracking to my Python code?
+-----------------------------------------------
+
+With the most popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()``. MLFlow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
+
+.. code-section::
+
+    .. code-block:: python
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.sklearn.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+
+In addition, or if you are using a library for which ``autolog`` is not yet supported, you may use key-value pairs to track:
+
+.. list-table:: Tracked item
+   :header-rows: 1
+
+   * - Name
+     - Used for
+     - Function call
+   * - Parameters
+     - Constant values (for instance, configuration parameters)
+     - ``mlflow.log_param``
+   * - Metrics
+     - Values updated during the run (for instance, accuracy)
+     - ``mflog.log_metric``
+    * - Artifacts
+    - Files produced by the run (for instance, model weights)
+    - ``mlflow.log_artifacts``
+
+ This example demonstrates the use of these functions:
+
+.. code-section::
+    .. code-block:: python
+
+        import os
+        from random import random, randint
+        from mlflow import log_metric, log_param, log_artifacts
+
+        if __name__ == "__main__":
+            # Log a parameter (key-value pair)
+            log_param("config_value", randint(0, 100))
+
+            # Log a metric; metrics can be updated throughout the run
+            log_metric("accuracy", random() / 2.0)
+            log_metric("accuracy", random() + 0.1)
+            log_metric("accuracy", random() + 0.2)
+
+            # Log an artifact (output file)
+            if not os.path.exists("outputs"):
+                os.makedirs("outputs")
+            with open("outputs/test.txt", "w") as f:
+                f.write("hello world!")
+            log_artifacts("outputs")
+
+How do I view my MLFlow runs and experiments?
+---------------------------------------------
+
+MLFlow comes with a tracking UI that lets you view your runs and the experiments that contain them. To start the UI, run:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        mlflow ui
+
+And then navigate to http://localhost:5000 in your browser. You will see a page similar to:
+
+.. image:: _static/images/quickstart-ui-screenshot.png
+    :width: 800px
+    :align: center
+
+You are in the **Default** experiment, which now contains the tracking data for your run. You can view the parameters, metrics, and artifacts of your run by clicking on the run name. 
+
+How do I share my MLFlow runs and experiments?
+----------------------------------------------
+
+By default, MLFlow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a tracking server, or a Databricks workspace.
+
+You can run a tracking server on a network-accessible server by running:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        mlflow server
+
+On your development machine, set the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server. For example, if your tracking server is listening on the default port of **5000** on the machine with IP address **192.168.0.1**, you can set the ``MLFLOW_TRACKING_URI`` environment variable to:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        export MLFLOW_TRACKING_URI=http://192.168.0.1:5000
+
+Now, when you run your code, it will send tracking data to the tracking server. To view the results, run the tracking UI on your local machine and point it to the tracking server:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        mlflow ui --backend-store-uri http://192.168.0.1:5000
+
+.. 
+    CONTENT REVIEW: Do we want the following? On the one hand, it will not be a common real-world use-case. On the other hand, it probably _is_ a common use-case for people who are trying out MLFlow for the first time.
+
+If you wish to run both the tracking server and the tracking UI on the same machine, you must make them listen on different ports. You can start the tracking UI on a different port with the ``-p, --port`` option:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        mlflow ui -p 8080
+
+.. 
+    TECH REVIEW: In the above, is `mlflow ui -p 8080` picking up the `MLFLOW_TRACKING_URI` environment variable and using it for the backend store URI? The above *works* but I don't know if that's just because the backing store URI data directories "just happen" to be in a subdirectory of where I'm running the tracking UI.
+
+..
+
+    CONTENT REVIEW: Maybe that's all we need for *this* page? Short and sweet, you've: 
+
+    - installed MLFlow
+    - used `autolog` and explicit logging
+    - run the tracking UI
+    - run the tracking server
+
+    Maybe we end there and "Next Steps" it? 
+
+    If not:
+
+How do I store a model in MLFlow?
+---------------------------------
+
+tk 
+
+
+How do I run a model artifact from a specific MLFlow run?
+--------------------------------------------------------
+
+tk
+
+How do I do a hyperparameter sweep with MLFlow Tracking?
+--------------------------------------------------------
+
+tk
+
+
+
+Original, which still contains many details that we don't want to lose:
+
+
 Installing MLflow
 -----------------
 
