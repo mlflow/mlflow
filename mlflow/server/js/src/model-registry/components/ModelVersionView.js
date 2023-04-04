@@ -31,6 +31,7 @@ export class ModelVersionViewImpl extends React.Component {
     modelVersion: PropTypes.object,
     schema: PropTypes.object,
     runInfo: PropTypes.object,
+    modelSource: PropTypes.string,
     runDisplayName: PropTypes.string,
     handleStageTransitionDropdownSelect: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
@@ -316,7 +317,10 @@ export class ModelVersionViewImpl extends React.Component {
         </a>
       );
     } else if (runInfo) {
-      const artifactPath = modelSource.substring(modelSource.indexOf('/artifacts/') + 11);
+      if (!modelSource) {
+        throw new Error('model source is missing.');
+      }
+      const artifactPath = modelSource.match(/.+\/artifacts\/(.+)$/)[1];
       return (
         <Link
           to={Routers.getRunPageRoute(
@@ -497,7 +501,7 @@ const mapStateToProps = (state, ownProps) => {
   const { modelName } = ownProps;
   const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
-  return { tags, modelSource: ownProps.modelVersion.source };
+  return { tags, modelSource: ownProps.modelVersion?.source };
 };
 const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
 
