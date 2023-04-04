@@ -24,7 +24,6 @@ class DeltaDatasetSource(DatasetSource):
         delta_table_name: Optional[str] = None,
         delta_table_version: Optional[int] = None,
     ):
-
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
                 'Must specify exactly one of "path" and "table_name"',
