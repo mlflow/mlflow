@@ -715,9 +715,7 @@ def _update_run():
     run_name = request_message.run_name if request_message.HasField("run_name") else None
     end_time = request_message.end_time if request_message.HasField("end_time") else None
     status = request_message.status if request_message.HasField("status") else None
-    updated_info = _get_tracking_store().update_run_info(
-        run_id, status, end_time, run_name
-    )
+    updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
