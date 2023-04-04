@@ -137,20 +137,6 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 
         mlflow ui --backend-store-uri http://192.168.0.1:5000
 
-.. 
-    CONTENT REVIEW: Do we want the following? On the one hand, it will not be a common real-world use-case. On the other hand, it probably _is_ a common use-case for people who are trying out MLFlow for the first time.
-
-If you wish to run both the tracking server and the tracking UI on the same machine, you must make them listen on different ports. You can start the tracking UI on a different port with the ``-p, --port`` option:
-
-.. code-section::
-
-    .. code-block:: shell
-
-        mlflow ui -p 8080
-
-.. 
-    TECH REVIEW: In the above, is `mlflow ui -p 8080` picking up the `MLFLOW_TRACKING_URI` environment variable and using it for the backend store URI? The above *works* but I don't know if that's just because the backing store URI data directories "just happen" to be in a subdirectory of where I'm running the tracking UI.
-
 ..
 
     CONTENT REVIEW: Maybe that's all we need for *this* page? Short and sweet, you've: 
@@ -163,6 +149,12 @@ If you wish to run both the tracking server and the tracking UI on the same mach
     Maybe we end there and "Next Steps" it? 
 
     If not:
+
+How do I use MLFlow with a Databricks workspace?
+------------------------------------------------
+
+tk 
+
 
 How do I store a model in MLFlow?
 ---------------------------------
@@ -179,8 +171,6 @@ How do I do a hyperparameter sweep with MLFlow Tracking?
 --------------------------------------------------------
 
 tk
-
-
 
 Original, which still contains many details that we don't want to lose:
 
