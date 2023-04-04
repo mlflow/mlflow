@@ -185,30 +185,132 @@ message DocumentationMetadata {
 }
 
 enum ErrorCode {
+  // Internal error. This means that some invariants expected by the underlying system have been
+  // broken. This error code is reserved for serious errors, which generally cannot be resolved
+  // by the user.
   //
-  // Internal, system-level error codes, which generally cannot be resolved by the user, but
-  // instead are due to service issues.
+  // Prefer this over all kinds of detailed error messages (e.g IO_ERROR), unless there's some
+  // automation that relies on the custom error code.
   //
-  // Generic internal error occurred.
+  // Maps to:
+  // - google.rpc.Code: INTERNAL = 13;
+  // - HTTP code: 500 Internal Server Error
   INTERNAL_ERROR = 1;
 
-  // An internal system could not be contacted due to a period of unavailability.
+  // The service is currently unavailable. This is most likely a transient condition, which can be
+  // corrected by retrying with a backoff. Note that it is not always safe to retrynon-idempotent
+  // operations.
+  //
+  // Prefer this over SERVICE_UNDER_MAINTENANCE, WORKSPACE_TEMPORARILY_UNAVAILABLE.
+  //
+  // Maps to:
+  // - google.rpc.Code: UNAVAILABLE = 14;
+  // - HTTP code: 503 Service Unavailable
   TEMPORARILY_UNAVAILABLE = 2;
 
   // Indicates that an IOException has been internally thrown.
   IO_ERROR = 3;
 
-  // The request is invalid.
+  // The request is invalid. Prefer more specific error code whenever possible.
+  // Also see similar recommendation for the google.rpc.Code.FAILED_PRECONDITION.
+  //
+  // Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSEABLE_HTTP_ERROR.
+  //
+  // Maps to:
+  // - google.rpc.Code: FAILED_PRECONDITION = 9;
+  // - HTTP code: 400 Bad Request
   BAD_REQUEST = 4;
+
+  // An external service is unavailable temporarily as it is being updated/re-deployed. Indicates
+  // gateway proxy to safely retry the request.
+  SERVICE_UNDER_MAINTENANCE = 5;
+
+  // A workspace is temporarily unavailable as the workspace is being re-assigned.
+  WORKSPACE_TEMPORARILY_UNAVAILABLE = 6;
+
+  // The deadline expired before the operation could complete. For operations that change the state
+  // of the system, this error may be returned even if the operation has completed successfully.
+  // For example, a successful response from a server could have been delayed long enough for
+  // the deadline to expire. When possible - implementations should make sure further processing of
+  // the request is aborted, e.g. by throwing an exception instead of making the RPC request,
+  // making the database query, etc.
+  //
+  // Maps to:
+  // - google.rpc.Code: DEADLINE_EXCEEDED = 4;
+  // - HTTP code: 504 Gateway Timeout
+  DEADLINE_EXCEEDED = 7;
+
+  // The operation was canceled by the caller. An example - client closed the connection without
+  // waiting for a response.
+  //
+  // Maps to:
+  // - google.rpc.Code: CANCELLED = 1;
+  // - HTTP code: 499 Client Closed Request
+  CANCELLED = 8;
+
+  // Operation is rejected due to throttling, e.g. some resource has been exhausted, per-user quota
+  // triggered, or the entire file system is out of space.
+  //
+  // Maps to:
+  // - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+  // - HTTP code: 429 Too Many Requests
+  RESOURCE_EXHAUSTED = 9;
+
+  // The operation was aborted, typically due to a concurrency issue such as a sequencer
+  // check failure, transaction abort, or transaction conflict.
+  //
+  // Maps to:
+  // - google.rpc.Code: ABORTED = 10;
+  // - HTTP code: 409 Conflict
+  ABORTED = 10;
+
+  // Operation was performed on a resource that does not exist,
+  // e.g. file or directory was not found.
+  //
+  // Maps to:
+  // - google.rpc.Code: NOT_FOUND = 5;
+  // - HTTP code: 404 Not Found
+  NOT_FOUND = 11;
+
+  // Operation was rejected due a conflict with an existing resource, e.g. attempted to create
+  // file or directory that already exists.
+  //
+  // Prefer this over RESOURCE_CONFLICT.
+  //
+  // Maps to:
+  // - google.rpc.Code: ALREADY_EXISTS = 6;
+  // - HTTP code: 409 Conflict
+  ALREADY_EXISTS = 12;
+
+  // The request does not have valid authentication (AuthN) credentials for the operation.
+  //
+  // Prefer this over CUSTOMER_UNAUTHORIZED, unless you need to keep consistent behavior with legacy
+  // code.
+  // For authorization (AuthZ) errors use PERMISSION_DENIED.
+  // 
+  // Maps to:
+  // - google.rpc.Code: UNAUTHENTICATED = 16;
+  // - HTTP code: 401 Unauthorized
+  UNAUTHENTICATED = 13;
 
   //
   // Common application-level error codes, which were caused by the user input but may be returned
   // by multiple services.
   //
+
   // Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
+  //
+  // Maps to:
+  // - google.rpc.Code: INVALID_ARGUMENT = 3;
+  // - HTTP code: 400 Bad Request
   INVALID_PARAMETER_VALUE = 1000;
 
-  // Indicates that the given API endpoint does not exist.
+  // Indicates that the given API endpoint does not exist. Legacy, when possible - NOT_IMPLEMENTED
+  // should be used instead to indicate that API doesn't exist.
+  //
+  // Maps to:
+  // - google.rpc.Code: NOT_FOUND = 5;
+  // - HTTP code: 404 Not Found
   ENDPOINT_NOT_FOUND = 1001;
 
   // Indicates that the given API request was malformed.
@@ -217,17 +319,81 @@ enum ErrorCode {
   // If one or more of the inputs to a given RPC are not in a valid state for the action.
   INVALID_STATE = 1003;
 
-  // If a given user/entity doesn't have the required permission(s) to perform an action
+  // The caller does not have permission to execute the specified operation.
+  // PERMISSION_DENIED must not be used for rejections caused by exhausting some resource,
+  // use RESOURCE_EXHAUSTED instead for those errors.
+  // PERMISSION_DENIED must not be used if the caller can not be identified,
+  // use CUSTOMER_UNAUTHORIZED instead for those errors.
+  // This error code does not imply the request is valid or the requested entity exists or
+  // satisfies other pre-conditions.
+  //
+  // Maps to:
+  // - google.rpc.Code: PERMISSION_DENIED = 7;
+  // - HTTP code: 403 Forbidden
   PERMISSION_DENIED = 1004;
 
-  // If a given user/entity is trying to use a feature which has been disabled
+  // If a given user/entity is trying to use a feature which has been disabled.
+  //
+  // Maps to:
+  // - google.rpc.Code: NOT_FOUND = 5;
+  // - HTTP code: 404 Not Found
   FEATURE_DISABLED = 1005;
 
-  // If customer-provided credentials are not authorized to perform an operation
+  // The request does not have valid authentication (AuthN) credentials for the operation.
+  //
+  // For authentication (AuthN) errors prefer using UNAUTHENTICATED, unless you need to keep
+  // consistent behavior with legacy code.
+  // For authorization (AuthZ) errors use PERMISSION_DENIED.
+  //
+  // Important: name is confusing, this error code is for authentication (AuthN) errors, not
+  // authorization (AuthZ) errors. It maps to 401 Unauthorized and suffers from the same confusing
+  // naming. See https://datatracker.ietf.org/doc/html/rfc7235#section-3.1 - "[...] status code
+  // indicates that the request has not been applied because it lacks valid authentication
+  // credentials for the target resource. [...] If the request included authentication credentials,
+  // then the 401 response indicates that authorization has been refused for those credentials."
+  //
+  // Also, see https://stackoverflow.com/a/6937030/16352922, it covers it pretty well.
+  //
+  // Maps to:
+  // - google.rpc.Code: UNAUTHENTICATED = 16;
+  // - HTTP code: 401 Unauthorized
   CUSTOMER_UNAUTHORIZED = 1006;
 
-  // If the API request is rejected due to throttling
+  // If the API request is rejected due to throttling.
+  // Prefer a more generic RESOURCE_EXHAUSTED for the new use cases.
+  //
+  // Maps to:
+  // - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+  // - HTTP code: 429 Too Many Requests
   REQUEST_LIMIT_EXCEEDED = 1007;
+
+  // Indicates API request was rejected due a conflict with an existing resource.
+  RESOURCE_CONFLICT = 1008;
+
+  // Indicates that the HTTP response cannot be correctly deserialized.
+  // This currently is only used in DUST test clients, and not by any real service code.
+  UNPARSEABLE_HTTP_ERROR = 1009;
+
+  // The operation is not implemented or is not supported/enabled in this service.
+  //
+  // Maps to:
+  // - google.rpc.Code: UNIMPLEMENTED = 12;
+  // - HTTP code: 501 Not Implemented
+  NOT_IMPLEMENTED = 1010;
+
+  // Unrecoverable data loss or corruption.
+  //
+  // One of the major use cases is to indicate that server failed to validate the integrity of
+  // the request. This error can occur when the checksum specified in the `X-Databricks-Checksum`
+  // request header (or trailer) doesn't match the actual request content checksum.
+  //
+  // Note, in case of the severe corruption that results in a malformed request, the server may
+  // send a generic `400 Bad Request` response rather than sending this error code.
+  //
+  // Maps to:
+  // - google.rpc.Code: DATA_LOSS = 15;
+  // - HTTP code: 500 Internal Server Error
+  DATA_LOSS = 1011;
 
   ///////////
   // VAULT //
@@ -244,9 +410,17 @@ enum ErrorCode {
   ///////////////
 
   // Operation was performed on a resource that already exists.
+  //
+  // Prefer using ALREADY_EXISTS. Unlike ALREADY_EXISTS - this maps to HTTP code
+  // 500 Internal Server Error due to legacy reasons, remapping will be a backwards incompatible
+  // change.
   RESOURCE_ALREADY_EXISTS = 3001;
 
   // Operation was performed on a resource that does not exist.
+  //
+  // Prefer using NOT_FOUND - see the note for the RESOURCE_ALREADY_EXISTS, because this pair of
+  // codes is related and RESOURCE_ALREADY_EXISTS has bad mapping to the HTTP codes we added
+  // new error codes NOT_FOUND and ALREADY_EXISTS, and recommend to use them instead.
   RESOURCE_DOES_NOT_EXIST = 3002;
 
   ///////////
@@ -258,6 +432,10 @@ enum ErrorCode {
   MAX_BLOCK_SIZE_EXCEEDED = 4002;
 
   MAX_READ_SIZE_EXCEEDED = 4003;
+
+  PARTIAL_DELETE = 4004;
+
+  MAX_LIST_SIZE_EXCEEDED = 4005;
 
   //////////////
   // CLUSTERS //
@@ -277,11 +455,104 @@ enum ErrorCode {
   DIRECTORY_PROTECTED = 6002;
 
   MAX_NOTEBOOK_SIZE_EXCEEDED = 6003;
-}
 
-// Serialization format for DatabricksServiceException.
-message DatabricksServiceExceptionProto {
-  optional ErrorCode error_code = 1;
-  optional string message = 2;
-  optional string stack_trace = 3;
+  MAX_CHILD_NODE_SIZE_EXCEEDED = 6004;
+
+  //////////////////////
+  // WORKSPACE SEARCH //
+  //////////////////////
+
+  SEARCH_QUERY_TOO_LONG = 6100;
+
+  SEARCH_QUERY_TOO_SHORT = 6101;
+
+  /////////
+  // AAD //
+  /////////
+
+  MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST = 7001;
+
+  PERMISSION_NOT_PROPAGATED = 7002;
+
+  DEPLOYMENT_TIMEOUT = 7003;
+
+  //////////////
+  // PROJECTS //
+  //////////////
+
+  GIT_CONFLICT = 8001;
+
+  GIT_UNKNOWN_REF = 8002;
+
+  GIT_SENSITIVE_TOKEN_DETECTED = 8003;
+
+  GIT_URL_NOT_ON_ALLOW_LIST = 8004;
+
+  GIT_REMOTE_ERROR = 8005;
+
+  PROJECTS_OPERATION_TIMEOUT = 8006;
+
+  IPYNB_FILE_IN_REPO = 8007;
+
+  /////////////////
+  // Partner Hub //
+  /////////////////
+
+  INSECURE_PARTNER_RESPONSE = 8100;
+
+  MALFORMED_PARTNER_RESPONSE = 8101;
+
+  ///////////////////
+  // UNITY CATALOG //
+  ///////////////////
+
+  METASTORE_DOES_NOT_EXIST = 9000;
+
+  DAC_DOES_NOT_EXIST = 9001;
+
+  CATALOG_DOES_NOT_EXIST = 9002;
+
+  SCHEMA_DOES_NOT_EXIST = 9003;
+
+  TABLE_DOES_NOT_EXIST = 9004;
+
+  SHARE_DOES_NOT_EXIST = 9005;
+
+  RECIPIENT_DOES_NOT_EXIST = 9006;
+
+  STORAGE_CREDENTIAL_DOES_NOT_EXIST = 9007;
+
+  EXTERNAL_LOCATION_DOES_NOT_EXIST = 9008;
+
+  PRINCIPAL_DOES_NOT_EXIST = 9009;
+
+  PROVIDER_DOES_NOT_EXIST = 9010;
+
+  METASTORE_ALREADY_EXISTS = 9020;
+
+  DAC_ALREADY_EXISTS = 9021;
+
+  CATALOG_ALREADY_EXISTS = 9022;
+
+  SCHEMA_ALREADY_EXISTS = 9023;
+
+  TABLE_ALREADY_EXISTS = 9024;
+
+  SHARE_ALREADY_EXISTS = 9025;
+
+  RECIPIENT_ALREADY_EXISTS = 9026;
+
+  STORAGE_CREDENTIAL_ALREADY_EXISTS = 9027;
+
+  EXTERNAL_LOCATION_ALREADY_EXISTS = 9028;
+
+  PROVIDER_ALREADY_EXISTS = 9029;
+
+  CATALOG_NOT_EMPTY = 9040;
+
+  SCHEMA_NOT_EMPTY = 9041;
+
+  METASTORE_NOT_EMPTY = 9042;
+
+  PROVIDER_SHARE_NOT_ACCESSIBLE = 9060;
 }
