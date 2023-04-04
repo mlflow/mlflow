@@ -2,6 +2,7 @@ import json
 import logging
 import random
 import time
+from typing import List
 import uuid
 import threading
 from functools import reduce
@@ -13,6 +14,7 @@ from sqlalchemy import sql
 from sqlalchemy.future import select
 
 from mlflow.entities import RunTag, Metric
+from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -25,6 +27,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
+    SqlDataset,
+    SqlInput,
+    SqlInputTag,
 )
 from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment
@@ -48,6 +53,7 @@ from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_batch_log_data,
+    _validate_dataset_inputs,
     _validate_run_id,
     _validate_metric,
     _validate_experiment_tag,
@@ -1235,6 +1241,106 @@ class SqlAlchemyStore(AbstractStore):
                 value = json.dumps([model_dict])
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
+
+    def log_inputs(self, run_id, datasets):
+        if not isinstance(datasets, list):
+            raise TypeError("Argument 'datasets' should be a list, got '{}'".format(type(datasets)))
+        _validate_run_id(run_id)
+        _validate_dataset_inputs(datasets)
+
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            experiment_id = run.experiment_id
+            self._check_run_is_active(run)
+            try:
+                self._log_inputs_impl(experiment_id, run_id, datasets)
+            except MlflowException as e:
+                raise e
+            except Exception as e:
+                raise MlflowException(e, INTERNAL_ERROR)
+
+    def _log_inputs_impl(self, experiment_id, run_id, dataset_inputs: List[DatasetInput]):
+        if len(dataset_inputs) == 0:
+            return
+        for dataset_input in dataset_inputs:
+            if dataset_input.dataset is None:
+                raise MlflowException(
+                    "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
+                )
+        # transaction to ensure that all datasets are logged or none are logged
+        dataset_names_to_check = [dataset_input.dataset.name for dataset_input in dataset_inputs]
+        dataset_digests_to_check = [
+            dataset_input.dataset.digest for dataset_input in dataset_inputs
+        ]
+
+        with self.ManagedSessionMaker() as session:
+            # find all datasets with the same name and digest
+            existing_datasets = (
+                session.query(SqlDataset)
+                .filter(SqlDataset.name.in_(dataset_names_to_check))
+                .filter(SqlDataset.digest.in_(dataset_digests_to_check))
+                .all()
+            )
+            # if the dataset already exists, use the existing dataset uuid
+            # otherwise, create a new dataset uuid
+            dataset_uuids = {}
+            for dataset in existing_datasets:
+                dataset_uuids[(dataset.name, dataset.digest)] = dataset.dataset_uuid
+            for dataset_input in dataset_inputs:
+                if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
+                    dataset_uuids[
+                        (dataset_input.dataset.name, dataset_input.dataset.digest)
+                    ] = uuid.uuid4().hex
+
+            # write all datasets to the database
+            for dataset_input in dataset_inputs:
+                dataset_uuid = dataset_uuids[
+                    (dataset_input.dataset.name, dataset_input.dataset.digest)
+                ]
+                session.merge(
+                    SqlDataset(
+                        dataset_uuid=dataset_uuid,
+                        experiment_id=experiment_id,
+                        name=dataset_input.dataset.name,
+                        digest=dataset_input.dataset.digest,
+                        dataset_source_type=dataset_input.dataset.source_type,
+                        dataset_source=dataset_input.dataset.source,
+                        dataset_schema=dataset_input.dataset.schema,
+                        dataset_profile=dataset_input.dataset.profile,
+                    )
+                )
+
+            # create a new input uuid for each dataset input
+            input_uuids = [uuid.uuid4().hex for _ in range(len(dataset_inputs))]
+
+            # write all input edges to the database
+            for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
+                dataset_uuid = dataset_uuids[
+                    (dataset_input.dataset.name, dataset_input.dataset.digest)
+                ]
+                session.merge(
+                    SqlInput(
+                        input_uuid=input_uuid,
+                        source_type="DATASET",
+                        source_id=dataset_uuid,
+                        destination_type="RUN",
+                        destination_id=run_id,
+                    )
+                )
+
+            # write all input tags for the database
+            for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
+                dataset_uuid = dataset_uuids[
+                    (dataset_input.dataset.name, dataset_input.dataset.digest)
+                ]
+                for input_tag in dataset_input.tags:
+                    session.merge(
+                        SqlInputTag(
+                            input_uuid=input_uuid,
+                            name=input_tag.key,
+                            value=input_tag.value,
+                        )
+                    )
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):

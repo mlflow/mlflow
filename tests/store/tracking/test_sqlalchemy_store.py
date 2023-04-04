@@ -1204,9 +1204,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        assert sorted(
-            [(m.key, m.value, m.timestamp) for m in expected],
-        ) == sorted(
+        assert sorted([(m.key, m.value, m.timestamp) for m in expected],) == sorted(
             [(m.key, m.value, m.timestamp) for m in actual],
         )
 
@@ -1654,14 +1652,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
         assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
         assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
+        assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
-        assert sorted(
-            [r1, r2],
-        ) == sorted(
+        assert sorted([r1, r2],) == sorted(
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
@@ -2704,6 +2698,54 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
             # delete contents of datasets table
             conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
+
+    def test_log_inputs(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+        )
+        tag = entities.InputTag("tag1", "value1")
+        dataset_inputs = [entities.DatasetInput(dataset, [tag])]
+
+        self.store.log_inputs(run.info.run_id, dataset_inputs)
+
+        # run = self.store.get_run(run.info.run_id)
+        # assert len(run.inputs.dataset_inputs) == 1
+
+        with self.store.engine.begin() as conn:
+            dataset_results = conn.execute(
+                sqlalchemy.sql.text("SELECT dataset_uuid, name, digest from datasets")
+            ).first()
+            dataset_uuid = dataset_results[0]
+            assert dataset_results[1] == "name1"
+            assert dataset_results[2] == "digest1"
+
+            inputs_results = conn.execute(
+                sqlalchemy.sql.text(
+                    """SELECT 
+                        input_uuid, 
+                        source_type, 
+                        source_id, 
+                        destination_type
+                    from inputs"""
+                )
+            ).first()
+            input_uuid = inputs_results[0]
+            assert inputs_results[1] == "DATASET"
+            assert inputs_results[2] == dataset_uuid
+            assert inputs_results[3] == "RUN"
+
+            input_tags_results = conn.execute(
+                sqlalchemy.sql.text("SELECT input_uuid, name, value from input_tags")
+            ).first()
+            assert input_tags_results[0] == input_uuid
+            assert input_tags_results[1] == "tag1"
+            assert input_tags_results[2] == "value1"
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
