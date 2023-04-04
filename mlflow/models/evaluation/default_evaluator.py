@@ -469,7 +469,7 @@ def _evaluate_custom_metric(
     :param eval_df: A Pandas dataframe object containing a prediction and a target column.
     :param builtin_metrics: A dictionary of metrics produced by the default evaluator.
     :param additional_df: A Pandas dataframe that contains additional information for the overall dataset
-    :param additional_array: A numpy array that contains additional information for the overall dataset.
+    :param additional_array: A numpy array that contains additional information for the overall dataset
     :return: A scalar metric value.
     """
     exception_header = (
