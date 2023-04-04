@@ -702,6 +702,30 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
+def log_inputs(datasets: Dict[str, Any]) -> None:
+    """
+    Log a batch of datasets for the current run.
+
+    :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
+                   not)
+    :returns: None
+
+    .. test-code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        params = {"learning_rate": 0.01, "n_estimators": 10}
+
+        # Log a batch of parameters
+        with mlflow.start_run():
+            mlflow.log_params(params)
+    """
+    run_id = _get_or_start_run().info.run_id
+    datasets_arr = [Param(key, str(value)) for key, value in params.items()]
+    MlflowClient().log_inputs(run_id=run_id, datasets=datasets_arr)
+
+
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
