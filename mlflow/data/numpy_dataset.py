@@ -8,7 +8,6 @@ from functools import cached_property
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
