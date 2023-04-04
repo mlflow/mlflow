@@ -32,9 +32,19 @@ def test_conversion_to_json():
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = NumpyDataset(features=np.array([1, 2, 3]), source=source, name="testname")
-    assert dataset.digest == dataset._compute_digest()
-    assert dataset.digest == "fdf1765f"
+    features = np.array([1, 2, 3])
+    targets = np.array([4, 5, 6])
+    dataset_with_features = NumpyDataset(features=features, source=source, name="testname")
+    assert dataset_with_features.digest == dataset_with_features._compute_digest()
+    assert dataset_with_features.digest == "fdf1765f"
+    dataset_with_features_and_targets = NumpyDataset(
+        features=features, targets=targets, source=source, name="testname"
+    )
+    assert (
+        dataset_with_features_and_targets.digest
+        == dataset_with_features_and_targets._compute_digest()
+    )
+    assert dataset_with_features_and_targets.digest == "1387de76"
 
 
 def test_features_property():
@@ -45,6 +55,15 @@ def test_features_property():
     assert np.array_equal(dataset.features, features)
 
 
+def test_targets_property():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    features = np.array([1, 2, 3])
+    targets = np.array([4, 5, 6])
+    dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")
+    assert np.array_equal(dataset.targets, targets)
+
+
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
@@ -53,7 +72,7 @@ def test_to_pyfunc():
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
-def test_from_numpy_file_system_datasource(tmp_path):
+def test_from_numpy(tmp_path):
     features = np.array([1, 2, 3])
     path = tmp_path / "temp.csv"
     pd.DataFrame(features).to_csv(path)

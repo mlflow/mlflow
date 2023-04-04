@@ -18,6 +18,10 @@ from mlflow.types.utils import _infer_schema
 
 
 class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
+    """
+    Represents a Pandas dataset for use with MLflow Tracking.
+    """
+
     def __init__(
         self,
         df: pd.DataFrame,
@@ -27,7 +31,13 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        TODO: Pandas docs
+        :param df: A pandas dataset.
+        :param source: The source of the pandas dataset.
+        :param targets: The name of the target column. Optional.
+        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                     automatically generated.
+        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                       is automatically computed.
         """
         self._df = df
         self._targets = targets
@@ -52,7 +62,6 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         columns = df.columns
         for x in columns:
             md5.update(x.encode())
-        # TODO: Make this a normalize_hash function (truncation)
         return md5.hexdigest()[:8]
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
@@ -74,9 +83,6 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     @property
     def source(self) -> FileSystemDatasetSource:
-        """
-        TODO: Pandas docs
-        """
         return self._source
 
     @property
@@ -86,7 +92,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def profile(self) -> Optional[Any]:
         """
-        TODO: Pandas docs
+        A profile of the dataset. May be None if no profile is available.
         """
         return {
             "num_rows": len(self._df),

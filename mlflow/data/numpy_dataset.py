@@ -15,6 +15,10 @@ from mlflow.types.utils import _infer_schema
 
 
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
+    """
+    Represents a NumPy dataset for use with MLflow Tracking.
+    """
+
     def __init__(
         self,
         features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
@@ -24,7 +28,13 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        TODO: Numpy docs
+        :param features: A numpy array or list/dict of arrays containing dataset features.
+        :param source: The source of the numpy dataset.
+        :param targets: TA numpy array or list/dict of arrays containing dataset targets. Optional
+        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                     automatically generated.
+        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                       is automatically computed.
         """
         self._features = features
         self._targets = targets
@@ -52,7 +62,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
             md5.update(np.int64(x))
 
         # hash trimmed targets contents
-        if self._targets:
+        if self._targets is not None:
             flattened_targets = self._targets.flatten()
             trimmed_targets = flattened_targets[0:MAX_ROWS]
             try:
@@ -84,9 +94,6 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     @property
     def source(self) -> FileSystemDatasetSource:
-        """
-        TODO: Numpy docs
-        """
         return self._source
 
     @property
@@ -100,7 +107,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def profile(self) -> Optional[Any]:
         """
-        TODO: Numpy docs
+        A profile of the dataset. May be None if no profile is available.
         """
         return {
             "shape": self._features.shape,
@@ -111,7 +118,6 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
-        # TODO: Error handling
         return _infer_schema(self._features)
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
