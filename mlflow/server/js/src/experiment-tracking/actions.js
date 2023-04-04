@@ -7,13 +7,14 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 
 export const RUNS_SEARCH_MAX_RESULTS = 100;
+export const EXPERIMENTS_SEARCH_MAX_RESULTS = 200;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
 export const searchExperimentsApi = (id = getUUID()) => {
   return {
     type: SEARCH_EXPERIMENTS_API,
     payload: MlflowService.searchExperiments({
-      max_results: 20000,
+      max_results: EXPERIMENTS_SEARCH_MAX_RESULTS,
     }),
     meta: { id: id },
   };
