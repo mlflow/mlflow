@@ -111,7 +111,7 @@ mlflow_set_experiment_tag <- function(key, value, experiment_id = NULL, client =
 #' @param experiment_id ID of the experiment.
 #' @template roxlate-client
 #' @export
-mlflow_delete_experiment_tag <- function(key, value, experiment_id = NULL, client = NULL) {
+mlflow_delete_experiment_tag <- function(key, experiment_id = NULL, client = NULL) {
   key <- cast_string(key)
   client <- resolve_client(client)
 
