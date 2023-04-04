@@ -327,7 +327,5 @@ class RestStore(AbstractStore):
 
     def log_inputs(self, run_id, datasets):
         datasets_protos = [dataset.to_proto() for dataset in datasets]
-        req_body = message_to_json(
-            LogInputs(run_id=run_id, datasets=datasets_protos)
-        )
+        req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
         self._call_endpoint(LogInputs, req_body)
