@@ -26,7 +26,7 @@ _EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
 _REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
 
 # Regex for valid registered model alias to prevent conflict with version aliases.
-_REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^v\d+$")
+_REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^[vV]\d+$")
 
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
@@ -382,7 +382,9 @@ def _validate_model_alias_name(model_alias_name):
         "Registered model alias name", MAX_REGISTERED_MODEL_ALIAS_LENGTH, model_alias_name
     )
     if model_alias_name.lower() == "latest":
-        raise MlflowException("'latest' alias name is reserved.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            "'latest' alias name (case insensitive) is reserved.", INVALID_PARAMETER_VALUE
+        )
     if _REGISTERED_MODEL_ALIAS_VERSION_REGEX.match(model_alias_name):
         raise MlflowException(
             f"Version alias name '{model_alias_name}' is reserved.", INVALID_PARAMETER_VALUE

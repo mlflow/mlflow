@@ -1,3 +1,5 @@
+import re
+from typing import NamedTuple, Optional
 import urllib.parse
 
 import mlflow.tracking
@@ -35,6 +37,13 @@ def _get_latest_model_version(client, name, stage):
     return max(int(x.version) for x in latest)
 
 
+class ParsedModelUri(NamedTuple):
+    name: str
+    version: Optional[str] = None
+    stage: Optional[str] = None
+    alias: Optional[str] = None
+
+
 def _parse_model_uri(uri):
     """
     Returns (name, version, stage, alias). Since a models:/ URI can only have one of
@@ -47,41 +56,40 @@ def _parse_model_uri(uri):
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
-
     path = parsed.path
-    if not path.startswith("/") or len(path) <= 1:
+    r = re.compile(r"^\/(?P<model_name>[\w \-]+)(?P<suffix>\/[\w]+)?(?P<alias>@[\w\-]+)?$")
+    m = r.match(path)
+    if m is None:
         raise MlflowException(_improper_model_uri_msg(uri))
-    stage_parts = path[1:].split("/")
-    alias_parts = path[1:].split("@")
-
+    model_name = m.group("model_name") if "model_name" in m.groupdict() else None
+    suffix = m.group("suffix") if "suffix" in m.groupdict() else None
+    alias = m.group("alias") if "alias" in m.groupdict() else None
     if (
-        stage_parts[0].strip() == ""
-        or alias_parts[0].strip() == ""  # no model name
-        or (len(stage_parts) == 1 and len(alias_parts) != 2)  # improper alias URI
-        or (len(stage_parts) == 2 and len(alias_parts) != 1)  # improper stage URI
-        or len(stage_parts) > 2
-        or len(alias_parts) > 2  # improper URI
+        (model_name is None or model_name == "")
+        or (suffix and alias)
+        or (suffix is None and alias is None)
     ):
         raise MlflowException(_improper_model_uri_msg(uri))
 
-    if len(alias_parts) == 2:
+    if alias:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
-        return alias_parts[0], None, None, alias_parts[1]
-    if stage_parts[1].isdigit():
+        return ParsedModelUri(model_name, alias=alias[1:])
+    suffix = suffix[1:]
+    if suffix.isdigit():
         # The suffix is a specific version, e.g. "models:/AdsModel1/123"
-        return stage_parts[0], int(stage_parts[1]), None, None
-    elif stage_parts[1].lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+        return ParsedModelUri(model_name, version=suffix)
+    elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
         # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
-        return stage_parts[0], None, None, None
+        return ParsedModelUri(model_name)
     else:
         # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
-        return stage_parts[0], None, stage_parts[1], None
+        return ParsedModelUri(model_name, stage=suffix)
 
 
 def get_model_name_and_version(client, models_uri):
     (model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
     if model_version is not None:
-        return model_name, str(model_version)
+        return model_name, model_version
     if model_alias is not None:
         return model_name, client.get_model_version_by_alias(model_name, model_alias).version
     return model_name, str(_get_latest_model_version(client, model_name, model_stage))

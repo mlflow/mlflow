@@ -10,10 +10,10 @@ from mlflow.entities.model_registry import ModelVersion
 @pytest.mark.parametrize(
     ("uri", "expected_name", "expected_version"),
     [
-        ("models:/AdsModel1/0", "AdsModel1", 0),
-        ("models:/Ads Model 1/12345", "Ads Model 1", 12345),
-        ("models:/12345/67890", "12345", 67890),
-        ("models://profile@databricks/12345/67890", "12345", 67890),
+        ("models:/AdsModel1/0", "AdsModel1", "0"),
+        ("models:/Ads Model 1/12345", "Ads Model 1", "12345"),
+        ("models:/12345/67890", "12345", "67890"),
+        ("models://profile@databricks/12345/67890", "12345", "67890"),
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
@@ -85,6 +85,9 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "notmodels:/NameOfModel@alias",  # wrong scheme with alias
         "models:/",  # no model name
+        "models:/Name",  # no specifiers
+        "models:/Name/",  # empty suffix
+        "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
         "models:/Name/Stage@Alias",  # stage and alias both specified
         "models:/Name@alias/Stage",  # Stage and alias both specified

@@ -54,7 +54,7 @@ GOOD_ALIAS_NAMES = [
     "v123_temp",
     "123",
     "123v",
-    "temp_v123",
+    "temp_V123",
 ]
 
 BAD_ALIAS_NAMES = [
@@ -76,7 +76,7 @@ BAD_ALIAS_NAMES = [
     "$dgs",
     "latest",
     "v123",
-    "v1",
+    "V1",
 ]
 
 
