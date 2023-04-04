@@ -1,44 +1,50 @@
-import hashlib
 import json
+import logging
 from typing import Optional, Any, Dict, Union
 
-import numpy as np
 import pandas as pd
 from functools import cached_property
 
 from mlflow.data.dataset import Dataset
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
-from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.dataset_source import DatasetSource
-
+from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+
+_logger = logging.getLogger(__name__)
 
 
 class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
-    Represents a Pandas dataset for use with MLflow Tracking.
+    Represents a Pandas DataFrame for use with MLflow Tracking.
     """
 
     def __init__(
         self,
         df: pd.DataFrame,
-        source: Union[FileSystemDatasetSource, SparkDatasetSource, DeltaDatasetSource],
+        source: DatasetSource,
         targets: str = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
-        :param df: A pandas dataset.
-        :param source: The source of the pandas dataset.
+        :param df: A pandas DataFrame.
+        :param source: The source of the pandas DataFrame.
         :param targets: The name of the target column. Optional.
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
         """
+        if targets is not None and targets not in df.columns:
+            raise MlflowException(
+                f"The specified pandas DataFrame does not contain the specified targets column"
+                f" '{targets}'.",
+                INVALID_PARAMETER_VALUE,
+            )
         self._df = df
         self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
@@ -48,21 +54,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        MAX_ROWS = 10000
-
-        # drop object columns
-        df = self._df.select_dtypes(exclude=["object"])
-        trimmed_df = df.head(MAX_ROWS)
-        # hash trimmed dataframe contents
-        md5 = hashlib.md5(pd.util.hash_pandas_object(trimmed_df).values)
-        # hash dataframe dimensions
-        n_rows = len(df)
-        md5.update(np.int64(n_rows))
-        # hash column names
-        columns = df.columns
-        for x in columns:
-            md5.update(x.encode())
-        return md5.hexdigest()[:8]
+        return compute_pandas_digest(self._df)
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
@@ -82,12 +74,25 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return base_dict
 
     @property
-    def source(self) -> FileSystemDatasetSource:
+    def df(self) -> pd.DataFrame:
+        """
+        The underlying pandas DataFrame.
+        """
+        return self._df
+
+    @property
+    def source(self) -> DatasetSource:
+        """
+        The source of the dataset.
+        """
         return self._source
 
     @property
-    def df(self) -> pd.DataFrame:
-        return self._df
+    def targets(self) -> Optional[str]:
+        """
+        The name of the target column. May be None if no target column is available.
+        """
+        return self._targets
 
     @property
     def profile(self) -> Optional[Any]:
@@ -100,11 +105,15 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Schema:
+    def schema(self) -> Optional[Schema]:
         """
         An MLflow ColSpec schema representing the columnar dataset
         """
-        return _infer_schema(self._df)
+        try:
+            return _infer_schema(self._df)
+        except Exception as e:
+            _logger._warning("Failed to infer schema for Hugging Face dataset. Exception: %s", e)
+            return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
@@ -123,17 +132,21 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 def from_pandas(
     df: pd.DataFrame,
     source: Union[str, DatasetSource],
+    targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> PandasDataset:
     """
+    Constructs a PandasDataset object from Pandas DataFrame, optional targets, and source.
+    If the source is path like, then this will construct a DatasetSource object from the source
+    path. Otherwise, the source is assumed to be a DatasetSource object.
     :param df: A Pandas DataFrame
     :param source: The source from which the DataFrame was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
-                    spark table etc. Attempting to use other source types will throw.
-    :param targets: An optional target column name or list of target column names for
-                    supervised training. The columns must be present in the dataframe
-                    (`df`).
+                    spark table etc. If source is not a path like string,
+                    pass in a DatasetSource object directly.
+    :param targets: An optional target column name for supervised training. This column
+                    must be present in the dataframe (`df`).
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
@@ -146,4 +159,4 @@ def from_pandas(
         resolved_source = resolve_dataset_source(
             source,
         )
-    return PandasDataset(df=df, source=resolved_source, name=name, digest=digest)
+    return PandasDataset(df=df, source=resolved_source, targets=targets, name=name, digest=digest)

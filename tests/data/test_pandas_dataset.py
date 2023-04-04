@@ -10,6 +10,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -78,6 +79,42 @@ def test_df_property():
     assert dataset.df.equals(df)
 
 
+def test_targets_property():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df_no_targets = pd.DataFrame([1, 2, 3], columns=["Numbers"])
+    dataset_no_targets = PandasDataset(
+        df=df_no_targets,
+        source=source,
+        name="testname",
+    )
+    assert dataset_no_targets._targets is None
+    df_with_targets = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    dataset_with_targets = PandasDataset(
+        df=df_with_targets,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    assert dataset_with_targets._targets == "c"
+
+
+def test_with_invalid_targets():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    with pytest.raises(
+        MlflowException,
+        match="The specified pandas DataFrame does not contain the specified targets column 'd'.",
+    ):
+        PandasDataset(
+            df=df,
+            source=source,
+            targets="d",
+            name="testname",
+        )
+
+
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
@@ -100,6 +137,17 @@ def test_to_pyfunc_with_outputs():
         targets="c",
         name="testname",
     )
+    input_outputs = dataset.to_pyfunc()
+    assert isinstance(input_outputs, PyFuncInputsOutputs)
+    assert input_outputs.inputs.equals(pd.DataFrame([[1, 2], [1, 2]], columns=["a", "b"]))
+    assert input_outputs.outputs.equals(pd.Series([3, 3], name="c"))
+
+
+def test_from_pandas_with_targets(tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = mlflow.data.from_pandas(df, targets="c", source=path)
     input_outputs = dataset.to_pyfunc()
     assert isinstance(input_outputs, PyFuncInputsOutputs)
     assert input_outputs.inputs.equals(pd.DataFrame([[1, 2], [1, 2]], columns=["a", "b"]))

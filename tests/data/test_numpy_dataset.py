@@ -60,8 +60,12 @@ def test_targets_property():
     source = TestDatasetSource._resolve(source_uri)
     features = np.array([1, 2, 3])
     targets = np.array([4, 5, 6])
-    dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")
-    assert np.array_equal(dataset.targets, targets)
+    dataset_with_targets = NumpyDataset(
+        features=features, targets=targets, source=source, name="testname"
+    )
+    assert np.array_equal(dataset_with_targets.targets, targets)
+    dataset_without_targets = NumpyDataset(features=features, source=source, name="testname")
+    assert dataset_without_targets.targets is None
 
 
 def test_to_pyfunc():
@@ -81,6 +85,10 @@ def test_from_numpy(tmp_path):
     assert isinstance(mlflow_features, NumpyDataset)
     assert np.array_equal(mlflow_features.features, features)
     assert mlflow_features.schema == _infer_schema(features)
-    assert mlflow_features.profile == {"shape": features.shape}
+    assert mlflow_features.profile == {
+        "shape": features.shape,
+        "size": features.size,
+        "nbytes": features.nbytes,
+    }
 
     assert isinstance(mlflow_features.source, FileSystemDatasetSource)

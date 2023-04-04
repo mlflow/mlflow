@@ -9,12 +9,12 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
 
-HIVE_METASTORE_NAME = "hive_metastore"
+DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
-LOCAL_METASTORE_NAMES = [HIVE_METASTORE_NAME, "spark_catalog"]
+DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catalog"]
 # samples catalog is managed by databricks for hosting public dataset like NYC taxi dataset.
 # it is neither a UC nor local metastore catalog
-SAMPLES_CATALOG_NAME = "samples"
+DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 
 class DeltaDatasetSource(DatasetSource):
@@ -26,7 +26,7 @@ class DeltaDatasetSource(DatasetSource):
     ):
         if (path, delta_table_name).count(None) != 1:
             raise MlflowException(
-                'Must specify exactly one of "path" and "table_name"',
+                'Must specify exactly one of "path" or "table_name"',
                 INVALID_PARAMETER_VALUE,
             )
         self._path = path
@@ -39,15 +39,7 @@ class DeltaDatasetSource(DatasetSource):
 
     def load(self, **kwargs) -> DataFrame:
         """
-        Loads the dataset source as a Hugging Face Dataset or DatasetDict, depending on whether
-        multiple splits are defined by the source or not.
-        :param kwargs: Additional keyword arguments used for loading the dataset with
-                       the Hugging Face `datasets.load_dataset()` method. The following keyword
-                       arguments are used automatically from the dataset source but may be overriden
-                       by values passed in **kwargs: path, name, data_dir, data_files, split,
-                       revision, task.
-        :throws: MlflowException if the Spark dataset source does not define a path
-                 from which to load the data.
+        Loads the dataset source as a Delta Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
         spark = SparkSession.builder.getOrCreate()
@@ -55,11 +47,23 @@ class DeltaDatasetSource(DatasetSource):
         spark_read_op = spark.read.format("delta")
         if self._delta_table_version is not None:
             spark_read_op = spark_read_op.option("versionAsOf", self._delta_table_version)
-        # Read the Delta table using spark.read.format and table method
+
         if self._path:
             return spark_read_op.load(self._path)
         else:
             return spark_read_op.table(self._delta_table_name)
+
+    @property
+    def path(self) -> Optional[str]:
+        return self._path
+
+    @property
+    def delta_table_name(self) -> Optional[str]:
+        return self._delta_table_name
+
+    @property
+    def delta_table_version(self) -> Optional[int]:
+        return self._delta_table_version
 
     @staticmethod
     def _can_resolve(raw_source: Any):
@@ -69,14 +73,14 @@ class DeltaDatasetSource(DatasetSource):
     def _resolve(cls, raw_source: str) -> DeltaDatasetSourceType:
         raise NotImplementedError
 
-    # check if table is in UC
-    def _is_uc_table(self):
+    # check if table is in the Databricks Unity Catalog
+    def _is_databricks_uc_table(self):
         if self._delta_table_name:
             try:
                 catalog_name, _, _ = self._delta_table_name.split(".")
                 return (
-                    catalog_name not in LOCAL_METASTORE_NAMES
-                    and catalog_name != SAMPLES_CATALOG_NAME
+                    catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
+                    and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
                 )
             except ValueError:
                 return False
@@ -89,12 +93,14 @@ class DeltaDatasetSource(DatasetSource):
             info["delta_table_name"] = self._delta_table_name
         if self._delta_table_version:
             info["delta_table_version"] = self._delta_table_version
-        if self._is_uc_table():
-            info["is_uc_table"] = True
+        if self._is_databricks_uc_table():
+            info["is_databricks_uc_table"] = True
         return info
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> DeltaDatasetSourceType:
         return cls(
             path=source_dict.get("path"),
+            delta_table_name=source_dict.get("delta_table_name"),
+            delta_table_version=source_dict.get("delta_table_version"),
         )

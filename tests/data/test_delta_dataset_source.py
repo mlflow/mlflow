@@ -85,7 +85,19 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
         "default.temp_delta_too_many_inputs", path=tmp_path
     )
 
-    with pytest.raises(
-        MlflowException, match='Must specify exactly one of "path" and "table_name"'
-    ):
+    with pytest.raises(MlflowException, match='Must specify exactly one of "path" or "table_name"'):
         DeltaDatasetSource(path=tmp_path, delta_table_name="temp_delta_too_many_inputs")
+
+
+def test_delta_dataset_source_to_and_from_dict(spark_session, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp_from_dict.delta")
+    df_spark.write.format("delta").mode("overwrite").save(path)
+
+    delta_datasource = DeltaDatasetSource(path=path)
+    loaded_df_spark = delta_datasource.load()
+    assert loaded_df_spark.count() == df_spark.count()
+    datasource_dict = delta_datasource._to_dict()
+    delta_datasource_from_dict = DeltaDatasetSource._from_dict(datasource_dict)
+    assert delta_datasource_from_dict.path == delta_datasource.path
