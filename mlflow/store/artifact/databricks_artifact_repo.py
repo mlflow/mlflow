@@ -75,6 +75,25 @@ def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     return math.ceil(os.path.getsize(local_file) / chunk_size)
 
 
+def _complete_futures(futures_dict):
+    """
+    Waits for the completion of all the futures in the given dictionary and returns
+    a tuple of two dictionaries. The first dictionary contains the results of the
+    futures (unordered) and the second contains the errors (unordered) that occurred
+    during the execution of the futures.
+    """
+    results = {}
+    errors = {}
+    for future in as_completed(futures_dict):
+        key = futures_dict[future]
+        try:
+            results[key] = future.result()
+        except Exception as e:
+            errors[key] = repr(e)
+
+    return results, errors
+
+
 class DatabricksArtifactRepository(ArtifactRepository):
     """
     Performs storage operations on artifacts in the access-controlled
@@ -201,24 +220,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         return {header.name: header.value for header in headers}
 
-    def _complete_futures(self, futures_dict):
-        """
-        Waits for the completion of all the futures in the given dictionary and returns
-        a tuple of two dictionaries. The first dictionary contains the results of the
-        futures (unordered) and the second contains the errors (unordered) that occurred
-        during the execution of the futures.
-        """
-        results = {}
-        errors = {}
-        for future in as_completed(futures_dict):
-            key = futures_dict[future]
-            try:
-                results[key] = future.result()
-            except Exception as e:
-                errors[key] = repr(e)
-
-        return results, errors
-
     def _azure_upload_chunk(
         self, credentials, headers, local_file, artifact_path, start_byte, size
     ):
@@ -270,7 +271,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = index
 
-            results, errors = self._complete_futures(futures)
+            results, errors = _complete_futures(futures)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
@@ -351,7 +352,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = index
 
-            _, errors = self._complete_futures(futures)
+            _, errors = _complete_futures(futures)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -525,7 +526,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             futures[future] = part_number
 
-        results, errors = self._complete_futures(futures)
+        results, errors = _complete_futures(futures)
         if errors:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
