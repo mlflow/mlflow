@@ -89,7 +89,7 @@ custom_metrics:
     recipe_steps_dir.mkdir(parents=True)
     recipe_steps_dir.joinpath("custom_metrics.py").write_text(
         """
-def weighted_mean_squared_error_func(eval_df, builtin_metrics):
+def weighted_mean_squared_error_func(eval_df, builtin_metrics, additional_df=None, additional_array=None):
     from sklearn.metrics import mean_squared_error
 
     return mean_squared_error(
