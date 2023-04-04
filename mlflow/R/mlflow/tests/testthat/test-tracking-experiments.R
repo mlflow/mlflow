@@ -254,6 +254,7 @@ test_that("mlflow_delete_experiment_tag() works correctly", {
 
   # test that deleting a tag works
   mlflow_delete_experiment_tag("dataset", experiment_id, client = client)
+  mlflow_delete_experiment_tag("multiline tag", experiment_id, client = client)
   experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
   expect_equal(experiment$tags, NA)
 })
