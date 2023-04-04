@@ -53,7 +53,7 @@ def spark_custom_env(tmpdir):
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
         additional_pip_deps.append("pandas<2")
-    _mlflow_conda_env(conda_env, additional_pip_deps=["pyspark", "pytest"])
+    _mlflow_conda_env(conda_env, additional_pip_deps=additional_pip_deps)
     return conda_env
 
 
