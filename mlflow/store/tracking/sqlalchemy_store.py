@@ -1267,7 +1267,9 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
                 )
-        # transaction to ensure that all datasets are logged or none are logged
+
+        # TODO: wrap in transaction to ensure that all datasets are logged or none are logged
+
         dataset_names_to_check = [dataset_input.dataset.name for dataset_input in dataset_inputs]
         dataset_digests_to_check = [
             dataset_input.dataset.digest for dataset_input in dataset_inputs
@@ -1292,12 +1294,15 @@ class SqlAlchemyStore(AbstractStore):
                         (dataset_input.dataset.name, dataset_input.dataset.digest)
                     ] = uuid.uuid4().hex
 
-            # write all datasets to the database
+            # collect all objects to write to DB in a single list
+            objs_to_write = []
+
+            # add datasets to objs_to_write
             for dataset_input in dataset_inputs:
                 dataset_uuid = dataset_uuids[
                     (dataset_input.dataset.name, dataset_input.dataset.digest)
                 ]
-                session.merge(
+                objs_to_write.append(
                     SqlDataset(
                         dataset_uuid=dataset_uuid,
                         experiment_id=experiment_id,
@@ -1313,12 +1318,12 @@ class SqlAlchemyStore(AbstractStore):
             # create a new input uuid for each dataset input
             input_uuids = [uuid.uuid4().hex for _ in range(len(dataset_inputs))]
 
-            # write all input edges to the database
+            # add input edges to objs_to_write
             for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
                 dataset_uuid = dataset_uuids[
                     (dataset_input.dataset.name, dataset_input.dataset.digest)
                 ]
-                session.merge(
+                objs_to_write.append(
                     SqlInput(
                         input_uuid=input_uuid,
                         source_type="DATASET",
@@ -1328,19 +1333,22 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 )
 
-            # write all input tags for the database
+            # add input tags to objs_to_write
             for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
                 dataset_uuid = dataset_uuids[
                     (dataset_input.dataset.name, dataset_input.dataset.digest)
                 ]
                 for input_tag in dataset_input.tags:
-                    session.merge(
+                    objs_to_write.append(
                         SqlInputTag(
                             input_uuid=input_uuid,
                             name=input_tag.key,
                             value=input_tag.value,
                         )
                     )
+
+            # write all objects to the database
+            self._save_to_db(session=session, objs=objs_to_write)
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):
