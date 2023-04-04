@@ -1,15 +1,11 @@
-import { ExperimentEntity, KeyValueEntity } from '../../../types';
-import React, { useCallback, useState } from 'react';
-
-import { Button } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
+import React from 'react';
+import { useSelector } from 'react-redux';
 import { CollapsibleSection } from '../../../../common/components/CollapsibleSection';
 import { EditableTagsTableView } from '../../../../common/components/EditableTagsTableView';
-import { FormattedMessage } from 'react-intl';
-import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
+import { ExperimentEntity } from '../../../types';
 import { getExperimentTags } from '../../../reducers/Reducers';
-import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
 import { useFetchExperiments } from '../hooks/useFetchExperiments';
-import { useSelector } from 'react-redux';
 
 export interface ExperimentViewTagsProps {
   experiment: ExperimentEntity;

@@ -389,7 +389,7 @@ export const deleteExperimentTagApi = (experimentId, tagName, id = getUUID()) =>
       experiment_id: experimentId,
       key: tagName,
     }),
-    meta: { id, experimentId, key: tagName},
+    meta: { id, experimentId, key: tagName },
   };
 };
 
