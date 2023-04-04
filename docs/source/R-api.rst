@@ -270,7 +270,7 @@ experiment metadata that can be updated.
 
 .. code:: r
 
-   mlflow_delete_experiment_tag(key, value, experiment_id = NULL, client = NULL)
+   mlflow_delete_experiment_tag(key, experiment_id = NULL, client = NULL)
 
 .. _arguments-6:
 

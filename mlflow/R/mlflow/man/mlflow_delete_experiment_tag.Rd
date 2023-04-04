@@ -4,7 +4,7 @@
 \alias{mlflow_delete_experiment_tag}
 \title{Delete Experiment Tag}
 \usage{
-mlflow_delete_experiment_tag(key, value, experiment_id = NULL, client = NULL)
+mlflow_delete_experiment_tag(key, experiment_id = NULL, client = NULL)
 }
 \arguments{
 \item{key}{Name of the tag. All storage backends are guaranteed to support
