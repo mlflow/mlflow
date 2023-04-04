@@ -46,7 +46,7 @@ class ParsedModelUri(NamedTuple):
 
 def _parse_model_uri(uri):
     """
-    Returns (name, version, stage, alias). Since a models:/ URI can only have one of
+    Returns a ParsedModelUri tuple. Since a models:/ URI can only have one of
     {version, stage, 'latest', alias}, it will return
         - (name, version, None, None) to look for a specific version,
         - (name, None, stage, None) to look for the latest version of a stage,
