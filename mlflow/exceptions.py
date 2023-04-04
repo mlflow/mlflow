@@ -2,6 +2,7 @@ import json
 
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
+    NOT_IMPLEMENTED,
     TEMPORARILY_UNAVAILABLE,
     ENDPOINT_NOT_FOUND,
     PERMISSION_DENIED,
@@ -19,6 +20,7 @@ from mlflow.protos.databricks_pb2 import (
 ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.Name(INTERNAL_ERROR): 500,
     ErrorCode.Name(INVALID_STATE): 500,
+    ErrorCode.Name(NOT_IMPLEMENTED): 501,
     ErrorCode.Name(TEMPORARILY_UNAVAILABLE): 503,
     ErrorCode.Name(REQUEST_LIMIT_EXCEEDED): 429,
     ErrorCode.Name(ENDPOINT_NOT_FOUND): 404,
