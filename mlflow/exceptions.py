@@ -13,6 +13,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     INVALID_STATE,
     RESOURCE_ALREADY_EXISTS,
+    DATA_LOSS,
     ErrorCode,
 )
 
@@ -21,6 +22,7 @@ ERROR_CODE_TO_HTTP_STATUS = {
     ErrorCode.Name(INTERNAL_ERROR): 500,
     ErrorCode.Name(INVALID_STATE): 500,
     ErrorCode.Name(NOT_IMPLEMENTED): 501,
+    ErrorCode.Name(DATA_LOSS): 500,
     ErrorCode.Name(TEMPORARILY_UNAVAILABLE): 503,
     ErrorCode.Name(REQUEST_LIMIT_EXCEEDED): 429,
     ErrorCode.Name(ENDPOINT_NOT_FOUND): 404,
