@@ -29,6 +29,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.exceptions import MlflowException, MissingConfigException
+from mlflow.protos.internal_pb2 import InputVertexType
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -149,8 +150,6 @@ class FileStore(AbstractStore):
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
     RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME, DATASETS_FOLDER_NAME]
-    INPUT_VERTEX_TYPE_DATASET = "dataset"
-    INPUT_VERTEX_TYPE_RUN = "run"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
 
@@ -1101,13 +1100,13 @@ class FileStore(AbstractStore):
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir, exist_ok=True)
                 fs_input = FileStore._FileStoreInput(
-                    source_type=FileStore.INPUT_VERTEX_TYPE_DATASET,
+                    source_type=InputVertexType.DATASET,
                     source_id=dataset_id,
-                    destination_type=FileStore.INPUT_VERTEX_TYPE_RUN,
+                    destination_type=InputVertexType.RUN,
                     destination_id=run_id,
                     tags={tag.key: tag.value for tag in dataset_input.tags},
                 )
-                write_yaml(input_dir, FileStore.META_DATA_FILE_NAME, fs_input._asdict())
+                fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
@@ -1122,11 +1121,32 @@ class FileStore(AbstractStore):
         return md5.hexdigest()
 
     class _FileStoreInput(NamedTuple):
-        source_type: str
+        source_type: int
         source_id: str
-        destination_type: str
+        destination_type: int
         destination_id: str
         tags: Dict[str, str]
+
+        def write_yaml(self, root: str, file_name: str):
+            dict_for_yaml = {
+                "source_type": InputVertexType.Name(self.source_type),
+                "source_id": self.source_id,
+                "destination_type": InputVertexType.Name(self.destination_type),
+                "destination_id": self.source_id,
+                "tags": self.tags,
+            }
+            write_yaml(root, file_name, dict_for_yaml)
+
+        @classmethod
+        def from_yaml(cls, root, file_name):
+            dict_from_yaml = FileStore._read_yaml(root, file_name)
+            return cls(
+                source_type=InputVertexType.Value(dict_from_yaml["source_type"]),
+                source_id=dict_from_yaml["source_id"],
+                destination_type=InputVertexType.Value(dict_from_yaml["destination_type"]),
+                destination_id=dict_from_yaml["destination_id"],
+                tags=dict_from_yaml["tags"],
+            )
 
     def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
@@ -1139,8 +1159,11 @@ class FileStore(AbstractStore):
         dataset_dirs = os.listdir(datasets_parent_path)
         dataset_inputs = []
         for input_dir in os.listdir(inputs_parent_path):
-            fs_input = FileStore._get_input_from_dir(inputs_parent_path, input_dir)
-            if fs_input.source_type != FileStore.INPUT_VERTEX_TYPE_DATASET:
+            input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
+            fs_input = FileStore._FileStoreInput.from_yaml(
+                input_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_input.source_type != InputVertexType.DATASET:
                 logging.warning(
                     f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
                 )
@@ -1167,14 +1190,6 @@ class FileStore(AbstractStore):
             dataset_inputs.append(dataset_input)
 
         return RunInputs(dataset_inputs=dataset_inputs)
-
-    @staticmethod
-    def _get_input_from_dir(parent_path, input_dir) -> _FileStoreInput:
-        input_dict = FileStore._read_yaml(
-            os.path.join(parent_path, input_dir), FileStore.META_DATA_FILE_NAME
-        )
-        fs_input = FileStore._FileStoreInput(**input_dict)
-        return fs_input
 
     @staticmethod
     def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:
