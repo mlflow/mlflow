@@ -2714,38 +2714,51 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.store.log_inputs(run.info.run_id, dataset_inputs)
 
-        # run = self.store.get_run(run.info.run_id)
-        # assert len(run.inputs.dataset_inputs) == 1
+        # TODO: remove this test case now that we can read from get_run
+        # with self.store.engine.begin() as conn:
+        #     dataset_results = conn.execute(
+        #         sqlalchemy.sql.text("SELECT dataset_uuid, name, digest from datasets")
+        #     ).first()
+        #     dataset_uuid = dataset_results[0]
+        #     assert dataset_results[1] == "name1"
+        #     assert dataset_results[2] == "digest1"
 
-        with self.store.engine.begin() as conn:
-            dataset_results = conn.execute(
-                sqlalchemy.sql.text("SELECT dataset_uuid, name, digest from datasets")
-            ).first()
-            dataset_uuid = dataset_results[0]
-            assert dataset_results[1] == "name1"
-            assert dataset_results[2] == "digest1"
+        #     inputs_results = conn.execute(
+        #         sqlalchemy.sql.text(
+        #             """SELECT
+        #                 input_uuid,
+        #                 source_type,
+        #                 source_id,
+        #                 destination_type
+        #             from inputs"""
+        #         )
+        #     ).first()
+        #     input_uuid = inputs_results[0]
+        #     assert inputs_results[1] == "DATASET"
+        #     assert inputs_results[2] == dataset_uuid
+        #     assert inputs_results[3] == "RUN"
 
-            inputs_results = conn.execute(
-                sqlalchemy.sql.text(
-                    """SELECT 
-                        input_uuid, 
-                        source_type, 
-                        source_id, 
-                        destination_type
-                    from inputs"""
-                )
-            ).first()
-            input_uuid = inputs_results[0]
-            assert inputs_results[1] == "DATASET"
-            assert inputs_results[2] == dataset_uuid
-            assert inputs_results[3] == "RUN"
+        #     input_tags_results = conn.execute(
+        #         sqlalchemy.sql.text("SELECT input_uuid, name, value from input_tags")
+        #     ).first()
+        #     assert input_tags_results[0] == input_uuid
+        #     assert input_tags_results[1] == "tag1"
+        #     assert input_tags_results[2] == "value1"
 
-            input_tags_results = conn.execute(
-                sqlalchemy.sql.text("SELECT input_uuid, name, value from input_tags")
-            ).first()
-            assert input_tags_results[0] == input_uuid
-            assert input_tags_results[1] == "tag1"
-            assert input_tags_results[2] == "value1"
+        run = self.store.get_run(run.info.run_id)
+        assert len(run.inputs.dataset_inputs) == 1
+        dataset_input = run.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "name1"
+        assert dataset_input.dataset.digest == "digest1"
+        assert dataset_input.dataset.source_type == "st1"
+        assert dataset_input.dataset.source == "source1"
+
+        assert len(dataset_input.tags) == 1
+        input_tag = dataset_input.tags[0]
+        assert input_tag.key == "tag1"
+        assert input_tag.value == "value1"
+
+        # TODO: add a test case for reading runs with search_run
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):

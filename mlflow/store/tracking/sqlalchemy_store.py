@@ -32,7 +32,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInputTag,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment
+from mlflow.entities import RunStatus, SourceType, Experiment, Run, RunInputs
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
@@ -521,6 +521,49 @@ class SqlAlchemyStore(AbstractStore):
 
         return runs[0]
 
+    def _get_run_inputs(self, session, run_uuids):
+        SqlDatasetAlias = sqlalchemy.orm.aliased(SqlDataset)
+        datasets = (
+            session.query(
+                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlDataset
+            )
+            .join(SqlDatasetAlias, SqlInput.source_id == SqlDatasetAlias.dataset_uuid)
+            .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
+            .order_by("run_uuid")
+        ).all()
+        input_uuids = [str(dataset.input_uuid) for dataset in datasets]
+        SqlInputTagAlias = sqlalchemy.orm.aliased(SqlInputTag)
+        input_tags = (
+            session.query(
+                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlInputTag
+            )
+            .join(SqlInputTagAlias, (SqlInput.input_uuid == SqlInputTagAlias.input_uuid))
+            .filter(SqlInput.input_uuid.in_(input_uuids))
+            .order_by("run_uuid")
+        ).all()
+        input_tag_iterator = iter(input_tags)
+
+        dataset_inputs = []
+        for dataset in datasets:
+            input_uuid, _, dataset_sql = dataset # middle varible is run_uuid
+            dataset_entity = dataset_sql.to_mlflow_entity()
+            tags = []
+            while True:
+                try:
+                    tag = next(input_tag_iterator)
+                    tag_input_uuid, _, tag_sql = tag # middle varible is tag_run_uuid
+                    tag_entity = tag_sql.to_mlflow_entity()
+                    if tag_input_uuid == input_uuid:
+                        tags.append(tag_entity)
+                    else:
+                        break
+                except StopIteration:
+                    break
+            dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
+            dataset_inputs.append(dataset_input_entity)
+
+        return RunInputs(dataset_inputs=dataset_inputs)
+
     @staticmethod
     def _get_eager_run_query_options():
         """
@@ -589,7 +632,10 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             run = self._get_run(run_uuid=run_id, session=session, eager=True)
-            return run.to_mlflow_entity()
+            mlflow_run = run.to_mlflow_entity()
+            # Get the run inputs
+            inputs = self._get_run_inputs(run_uuids=[run_id], session=session)
+            return Run(mlflow_run.info, mlflow_run.data, inputs)
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
