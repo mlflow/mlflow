@@ -79,6 +79,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
+from mlflow.utils.uri import is_local_uri
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 
 _logger = logging.getLogger(__name__)
@@ -793,6 +794,12 @@ def _delete_registered_model_tag():
 @_disable_if_artifacts_only
 def _create_model_version():
     request_message = _get_request_message(CreateModelVersion())
+    if is_local_uri(request_message.source):
+        raise MlflowException(
+            f"Model version source cannot be a local path: '{request_message.source}'",
+            INVALID_PARAMETER_VALUE,
+        )
+
     model_version = _get_model_registry_store().create_model_version(
         name=request_message.name,
         source=request_message.source,

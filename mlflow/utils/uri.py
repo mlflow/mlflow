@@ -1,4 +1,5 @@
 import sys
+import pathlib
 import posixpath
 import urllib.parse
 
@@ -7,6 +8,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_ARTIFACTS_URI
 from mlflow.utils.validation import _validate_db_type_string
+from mlflow.utils.os import is_windows
 from mlflow.utils.logging_utils import eprint
 
 _INVALID_DB_URI_MSG = (
@@ -20,9 +22,21 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return uri != "databricks" and (scheme == "" or scheme == "file")
+    if uri == "databricks":
+        return False
 
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.hostname:
+        return False
+
+    scheme = parsed_uri.scheme
+    if scheme == "" or scheme == "file":
+        return True
+
+    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
+        return True
+
+    return False
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
