@@ -33,10 +33,9 @@ public class ModelRegistryMlflowClientTest {
     private final TestClientProvider testClientProvider = new TestClientProvider();
 
     private MlflowClient client;
+    private String source;
 
     private String modelName;
-    private File tempDir;
-    private File tempFile;
 
     private static final String content = "Hello, Worldz!";
 
@@ -59,16 +58,17 @@ public class ModelRegistryMlflowClientTest {
 
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
+        source = String.format("runs:/%s/model", runId);
 
-        tempDir = Files.createTempDirectory("tempDir").toFile();
-        tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
+        File tempDir = Files.createTempDirectory("tempDir").toFile();
+        File tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
 
         FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, runId, String.format("runs:/%s/model", runId)));
     }
 
     @AfterTest
@@ -102,7 +102,7 @@ public class ModelRegistryMlflowClientTest {
     @Test
     public void testGetModelVersionDownloadUri() {
         String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
-        Assert.assertEquals(tempDir.getAbsolutePath(), downloadUri);
+        Assert.assertEquals(source, downloadUri);
     }
 
     @Test
