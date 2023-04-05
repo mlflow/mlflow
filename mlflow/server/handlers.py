@@ -1287,7 +1287,6 @@ def _validate_source(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
             store = _get_tracking_store()
-            print("foo")
             run = store.get_run(run_id)
             source = pathlib.Path(local_file_uri_to_path(source)).resolve()
             run_artifact_dir = pathlib.Path(local_file_uri_to_path(run.info.artifact_uri)).resolve()
