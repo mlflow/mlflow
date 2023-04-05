@@ -105,6 +105,9 @@ The example package contains a ``setup.py`` that declares a number of
             # Define a RunContextProvider plugin. The entry point name for run context providers
             # is not used, and so is set to the string "unused" here
             "mlflow.run_context_provider": "unused=mlflow_test_plugin.run_context_provider:PluginRunContextProvider",
+            # Define a DefaultExperimentProvider plugin. The entry point name for
+            # default experiment providers is not used, and so is set to the string "unused" here
+            "mlflow.default_experiment_provider": "unused=mlflow_test_plugin.default_experiment_provider:PluginDefaultExperimentProvider",
             # Define a RequestHeaderProvider plugin. The entry point name for request header providers
             # is not used, and so is set to the string "unused" here
             "mlflow.request_header_provider": "unused=mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider",
@@ -116,6 +119,8 @@ The example package contains a ``setup.py`` that declares a number of
             "mlflow.deployments": "faketarget=mlflow_test_plugin.fake_deployment_plugin",
             # Define a Mlflow model evaluator with name "dummy_evaluator"
             "mlflow.model_evaluator": "dummy_evaluator=mlflow_test_plugin.dummy_evaluator:DummyEvaluator",
+            # Define a custom Mlflow application with name custom_app
+            "mlflow.app": "custom_app=mlflow_test_plugin.app:custom_app",
         },
     )
 
@@ -168,6 +173,14 @@ plugin:
        within the ``mlflow_test_plugin`` module) to register.
      - `GitRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/git_context.py#L38>`_,
        `DefaultRunContext <https://github.com/mlflow/mlflow/blob/branch-1.13/mlflow/tracking/context/default_context.py#L41>`_
+   * - Plugins for specifying custom experiment id lookup/creation at runtime. The plugin must have a way to create or look up the experiment id.
+     - mlflow.default_experiment_provider
+     - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.default_experiment_provider:PluginDefaultExperimentProvider``) specifies a custom subclass of
+       `mlflow.tracking.default_experiment.abstract_context.DefaultExperimentProvider <https://github.com/mlflow/mlflow/blob/branch-2.2/mlflow/tracking/default_experiment/abstract_context.py#L6>`_
+       (e.g., the `PluginDefaultExperimentProvider class <https://github.com/mlflow/mlflow/blob/branch-2.2/tests/resources/mlflow-test-plugin/mlflow_test_plugin/default_experiment_provider.py#L4>`_
+       within the ``mlflow_test_plugin`` module) to register.
+     - `DatabricksJobExperimentProvider <https://github.com/mlflow/mlflow/blob/branch-2.2/mlflow/tracking/default_experiment/databricks_job_experiment_provider.py#L15>`_,
+       `DatabricksNotebookExperimentProvider <https://github.com/mlflow/mlflow/blob/branch-2.2/mlflow/tracking/default_experiment/databricks_notebook_experiment_provider.py#L12>`_
    * - Plugins for specifying custom context request headers to attach to outgoing requests, e.g. headers identifying the client's environment.
      - mlflow.request_header_provider
      - The entry point name is unused. The entry point value (e.g. ``mlflow_test_plugin.request_header_provider:PluginRequestHeaderProvider``) specifies a custom subclass of
