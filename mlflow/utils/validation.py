@@ -471,7 +471,7 @@ def _validate_input_tag(input_tag: InputTag):
     if input_tag is None:
         raise MlflowException("InputTag cannot be None", INVALID_PARAMETER_VALUE)
     if input_tag.key is None:
-        raise MlflowException("InputTag name cannot be None", INVALID_PARAMETER_VALUE)
+        raise MlflowException("InputTag key cannot be None", INVALID_PARAMETER_VALUE)
     if input_tag.value is None:
         raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE)
     if len(input_tag.key) > MAX_INPUT_TAG_KEY_SIZE:

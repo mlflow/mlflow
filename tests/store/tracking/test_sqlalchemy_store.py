@@ -1204,7 +1204,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         actual = self.store.get_metric_history(run.info.run_id, key)
 
-        assert sorted([(m.key, m.value, m.timestamp) for m in expected],) == sorted(
+        assert sorted(
+            [(m.key, m.value, m.timestamp) for m in expected],
+        ) == sorted(
             [(m.key, m.value, m.timestamp) for m in actual],
         )
 
@@ -1652,10 +1654,14 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert self._search(experiment_id, filter_string="tags.generic_2 = 'another value'") == [r2]
         assert self._search(experiment_id, filter_string="tags.generic_tag = 'wrong_val'") == []
         assert self._search(experiment_id, filter_string="tags.generic_tag != 'p_val'") == []
-        assert sorted([r1, r2],) == sorted(
+        assert sorted(
+            [r1, r2],
+        ) == sorted(
             self._search(experiment_id, filter_string="tags.generic_tag != 'wrong_val'"),
         )
-        assert sorted([r1, r2],) == sorted(
+        assert sorted(
+            [r1, r2],
+        ) == sorted(
             self._search(experiment_id, filter_string="tags.generic_2 != 'wrong_val'"),
         )
         assert self._search(experiment_id, filter_string="tags.p_a = 'abc'") == [r1]
@@ -2759,6 +2765,214 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert input_tag.value == "value1"
 
         # TODO: add a test case for reading runs with search_run
+
+    def test_log_inputs_fails_with_missing_inputs(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset = entities.Dataset(
+            name="name1", digest="digest1", source_type="type", source="source"
+        )
+
+        tags = [entities.InputTag(key="key", value="train")]
+
+        # Test input key missing
+        with pytest.raises(MlflowException, match="InputTag key cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=[entities.InputTag(key=None, value="train")], dataset=dataset
+                    )
+                ],
+            )
+
+        # Test input value missing
+        with pytest.raises(MlflowException, match="InputTag value cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=[entities.InputTag(key="key", value=None)], dataset=dataset
+                    )
+                ],
+            )
+
+        # Test dataset name missing
+        with pytest.raises(MlflowException, match="Dataset name cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name=None, digest="digest1", source_type="type", source="source"
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset digest missing
+        with pytest.raises(MlflowException, match="Dataset digest cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name", digest=None, source_type="type", source="source"
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset source type missing
+        with pytest.raises(MlflowException, match="Dataset source_type cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name", digest="digest1", source_type=None, source="source"
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset source missing
+        with pytest.raises(MlflowException, match="Dataset source cannot be None"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name", digest="digest1", source_type="type", source=None
+                        ),
+                    )
+                ],
+            )
+
+    def test_log_inputs_fails_with_too_large_inputs(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset = entities.Dataset(
+            name="name1", digest="digest1", source_type="type", source="source"
+        )
+
+        tags = [entities.InputTag(key="key", value="train")]
+
+        # Test input key too large (limit is 255)
+        with pytest.raises(MlflowException, match="InputTag key exceeds the maximum length of 255"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=[entities.InputTag(key="a" * 256, value="train")], dataset=dataset
+                    )
+                ],
+            )
+
+        # Test input value too large (limit is 500)
+        with pytest.raises(
+            MlflowException, match="InputTag value exceeds the maximum length of 500"
+        ):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=[entities.InputTag(key="key", value="a" * 501)], dataset=dataset
+                    )
+                ],
+            )
+
+        # Test dataset name too large (limit is 500)
+        with pytest.raises(MlflowException, match="Dataset name exceeds the maximum length of 500"):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="a" * 501, digest="digest1", source_type="type", source="source"
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset digest too large (limit is 36)
+        with pytest.raises(
+            MlflowException, match="Dataset digest exceeds the maximum length of 36"
+        ):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name", digest="a" * 37, source_type="type", source="source"
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset source too large (limit is 65535)
+        with pytest.raises(
+            MlflowException, match="Dataset source exceeds the maximum length of 65535"
+        ):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name", digest="digest", source_type="type", source="a" * 65536
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset schema too large (limit is 65535)
+        with pytest.raises(
+            MlflowException, match="Dataset schema exceeds the maximum length of 65535"
+        ):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name",
+                            digest="digest",
+                            source_type="type",
+                            source="source",
+                            schema="a" * 65536,
+                        ),
+                    )
+                ],
+            )
+
+        # Test dataset profile too large (limit is 16777215)
+        with pytest.raises(
+            MlflowException, match="Dataset profile exceeds the maximum length of 16777215"
+        ):
+            self.store.log_inputs(
+                run.info.run_id,
+                [
+                    entities.DatasetInput(
+                        tags=tags,
+                        dataset=entities.Dataset(
+                            name="name",
+                            digest="digest",
+                            source_type="type",
+                            source="source",
+                            profile="a" * 16777216,
+                        ),
+                    )
+                ],
+            )
 
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
