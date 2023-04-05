@@ -50,7 +50,7 @@ export class SchemaTableImpl extends React.PureComponent {
     if (schemaTypeSpec.type === MODEL_SCHEMA_TENSOR_TYPE) {
       return (
         `Tensor (dtype: ${schemaTypeSpec['tensor-spec'].dtype},` +
-        ` shape: [${schemaTypeSpec['tensor-spec'].shape}])`
+        ` shape: `+ JSON.stringify(schemaTypeSpec['tensor-spec'].shape)
       );
     } else {
       return schemaTypeSpec.type;
