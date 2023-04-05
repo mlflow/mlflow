@@ -731,7 +731,7 @@ def log_input(dataset: Dataset, context: str) -> None:
         df = pd.read_csv("data.csv")
         dataset = mlflow.data.from_pandas(df, source="data.csv")
 
-        # Log a batch of parameters
+        # Log an input dataset used for training
         with mlflow.start_run():
             mlflow.log_input(dataset, context="training")
     """

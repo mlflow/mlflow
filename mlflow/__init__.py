@@ -155,6 +155,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    log_input,
 )
 from mlflow.tracking._model_registry.fluent import register_model, search_registered_models
 from mlflow.tracking import (
@@ -187,6 +188,7 @@ __all__ = [
     "log_dict",
     "log_figure",
     "log_image",
+    "log_input",
     "active_run",
     "start_run",
     "end_run",
