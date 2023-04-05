@@ -2,7 +2,6 @@ import json
 import logging
 import random
 import time
-from typing import List
 import uuid
 import threading
 from functools import reduce
@@ -542,27 +541,45 @@ class SqlAlchemyStore(AbstractStore):
             .order_by("run_uuid")
         ).all()
         input_tag_iterator = iter(input_tags)
+        dataset_iterator = iter(datasets)
+        # for run_uuid in run_uuids:
 
-        dataset_inputs = []
-        for dataset in datasets:
-            input_uuid, _, dataset_sql = dataset  # middle varible is run_uuid
-            dataset_entity = dataset_sql.to_mlflow_entity()
-            tags = []
+        results = []
+        for run_uuid in run_uuids:
+            dataset_inputs = []
             while True:
                 try:
-                    tag = next(input_tag_iterator)
-                    tag_input_uuid, _, tag_sql = tag  # middle varible is tag_run_uuid
-                    tag_entity = tag_sql.to_mlflow_entity()
-                    if tag_input_uuid == input_uuid:
-                        tags.append(tag_entity)
-                    else:
-                        break
+                    dataset = next(dataset_iterator)
+                    (
+                        input_uuid,
+                        dataset_run_uuid,
+                        dataset_sql,
+                    ) = dataset
+                    if run_uuid == dataset_run_uuid:
+                        dataset_entity = dataset_sql.to_mlflow_entity()
+                        tags = []
+                        while True:
+                            try:
+                                tag = next(input_tag_iterator)
+                                (
+                                    tag_input_uuid,
+                                    _,
+                                    tag_sql,
+                                ) = tag  # middle varible is tag_run_uuid
+                                tag_entity = tag_sql.to_mlflow_entity()
+                                if tag_input_uuid == input_uuid:
+                                    tags.append(tag_entity)
+                                else:
+                                    break
+                            except StopIteration:
+                                break
+                        dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
+                        dataset_inputs.append(dataset_input_entity)
                 except StopIteration:
                     break
-            dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
-            dataset_inputs.append(dataset_input_entity)
+            results.append(dataset_inputs)
 
-        return RunInputs(dataset_inputs=dataset_inputs)
+        return results
 
     @staticmethod
     def _get_eager_run_query_options():
@@ -634,8 +651,8 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session, eager=True)
             mlflow_run = run.to_mlflow_entity()
             # Get the run inputs
-            inputs = self._get_run_inputs(run_uuids=[run_id], session=session)
-            return Run(mlflow_run.info, mlflow_run.data, inputs)
+            inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
+            return Run(mlflow_run.info, mlflow_run.data, RunInputs(dataset_inputs=inputs))
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -1246,9 +1263,19 @@ class SqlAlchemyStore(AbstractStore):
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
-            next_page_token = compute_next_token(len(runs))
+            run_ids = [run.info.run_id for run in runs]
 
-        return runs, next_page_token
+            # add inputs to runs
+            inputs = self._get_run_inputs(run_uuids=run_ids, session=session)
+            runs_with_inputs = []
+            for i, run in enumerate(runs):
+                runs_with_inputs.append(
+                    Run(run.info, run.data, RunInputs(dataset_inputs=inputs[i]))
+                )
+
+            next_page_token = compute_next_token(len(runs_with_inputs))
+
+        return runs_with_inputs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)

@@ -2705,7 +2705,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             # delete contents of datasets table
             conn.execute(sqlalchemy.sql.text("DELETE FROM datasets"))
 
-    def test_log_inputs(self):
+    def test_log_inputs_with_get_run(self):
         experiment_id = self._experiment_factory("test exp")
         run = self._run_factory(config=self._get_run_configs(experiment_id))
 
@@ -2720,40 +2720,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         self.store.log_inputs(run.info.run_id, dataset_inputs)
 
-        # TODO: remove this test case now that we can read from get_run
-        # with self.store.engine.begin() as conn:
-        #     dataset_results = conn.execute(
-        #         sqlalchemy.sql.text("SELECT dataset_uuid, name, digest from datasets")
-        #     ).first()
-        #     dataset_uuid = dataset_results[0]
-        #     assert dataset_results[1] == "name1"
-        #     assert dataset_results[2] == "digest1"
+        run_result = self.store.get_run(run.info.run_id)
 
-        #     inputs_results = conn.execute(
-        #         sqlalchemy.sql.text(
-        #             """SELECT
-        #                 input_uuid,
-        #                 source_type,
-        #                 source_id,
-        #                 destination_type
-        #             from inputs"""
-        #         )
-        #     ).first()
-        #     input_uuid = inputs_results[0]
-        #     assert inputs_results[1] == "DATASET"
-        #     assert inputs_results[2] == dataset_uuid
-        #     assert inputs_results[3] == "RUN"
-
-        #     input_tags_results = conn.execute(
-        #         sqlalchemy.sql.text("SELECT input_uuid, name, value from input_tags")
-        #     ).first()
-        #     assert input_tags_results[0] == input_uuid
-        #     assert input_tags_results[1] == "tag1"
-        #     assert input_tags_results[2] == "value1"
-
-        run = self.store.get_run(run.info.run_id)
-        assert len(run.inputs.dataset_inputs) == 1
-        dataset_input = run.inputs.dataset_inputs[0]
+        assert len(run_result.inputs.dataset_inputs) == 1
+        dataset_input = run_result.inputs.dataset_inputs[0]
         assert dataset_input.dataset.name == "name1"
         assert dataset_input.dataset.digest == "digest1"
         assert dataset_input.dataset.source_type == "st1"
@@ -2764,7 +2734,36 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert input_tag.key == "tag1"
         assert input_tag.value == "value1"
 
-        # TODO: add a test case for reading runs with search_run
+    def test_log_inputs_with_search_run(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+        )
+        tag = entities.InputTag("tag1", "value1")
+        dataset_inputs = [entities.DatasetInput(dataset, [tag])]
+
+        self.store.log_inputs(run.info.run_id, dataset_inputs)
+
+        search_run_result = self.store.search_runs([experiment_id], None, ViewType.ALL)
+        assert len(search_run_result) == 1
+        run_result = search_run_result[0]
+
+        assert len(run_result.inputs.dataset_inputs) == 1
+        dataset_input = run_result.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "name1"
+        assert dataset_input.dataset.digest == "digest1"
+        assert dataset_input.dataset.source_type == "st1"
+        assert dataset_input.dataset.source == "source1"
+
+        assert len(dataset_input.tags) == 1
+        input_tag = dataset_input.tags[0]
+        assert input_tag.key == "tag1"
+        assert input_tag.value == "value1"
 
     def test_log_inputs_fails_with_missing_inputs(self):
         experiment_id = self._experiment_factory("test exp")
