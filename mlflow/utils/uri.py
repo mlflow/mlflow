@@ -1,4 +1,3 @@
-import os
 import posixpath
 import urllib.parse
 import pathlib
@@ -7,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.validation import _validate_db_type_string
+from mlflow.utils.os import is_windows
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -15,10 +15,6 @@ _INVALID_DB_URI_MSG = (
 
 _DBFS_FUSE_PREFIX = "/dbfs/"
 _DBFS_HDFS_URI_PREFIX = "dbfs:/"
-
-
-def is_windows():
-    return os.name == "nt"
 
 
 def is_local_uri(uri):
