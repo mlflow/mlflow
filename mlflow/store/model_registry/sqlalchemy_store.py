@@ -32,6 +32,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlRegisteredModelTag,
     SqlModelVersionTag,
+    SqlRegisteredModelAlias,
 )
 from mlflow.utils.search_utils import SearchUtils, SearchModelUtils, SearchModelVersionUtils
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -41,6 +42,7 @@ from mlflow.utils.validation import (
     _validate_model_name,
     _validate_model_version,
     _validate_tag_name,
+    _validate_model_alias_name,
 )
 from mlflow.utils.time_utils import get_current_time_millis
 
@@ -663,7 +665,10 @@ class SqlAlchemyStore(AbstractStore):
                     ]
                     self._save_to_db(session, [sql_registered_model, model_version])
                     session.flush()
-                    return model_version.to_mlflow_entity()
+                    model_version_entity = self._populate_model_version_aliases(
+                        session, name, model_version.to_mlflow_entity()
+                    )
+                    return model_version_entity
                 except sqlalchemy.exc.IntegrityError:
                     more_retries = self.CREATE_MODEL_VERSION_RETRIES - attempt - 1
                     _logger.info(
@@ -676,6 +681,14 @@ class SqlAlchemyStore(AbstractStore):
             f"Model Version creation error (name={name}). Giving up after "
             f"{self.CREATE_MODEL_VERSION_RETRIES} attempts."
         )
+
+    @classmethod
+    def _populate_model_version_aliases(cls, session, name, version):
+        model_aliases = cls._get_registered_model(session, name).registered_model_aliases
+        version.aliases = [
+            alias.alias for alias in model_aliases if alias.version == version.version
+        ]
+        return version
 
     @classmethod
     def _get_model_version_from_db(cls, session, name, version, conditions, query_options=None):
@@ -728,7 +741,10 @@ class SqlAlchemyStore(AbstractStore):
                 SqlModelVersion.version == version,
             ]
             sql_model_version = self._get_model_version_from_db(session, name, version, conditions)
-            return sql_model_version.to_mlflow_entity()
+            model_version_entity = self._populate_model_version_aliases(
+                session, name, sql_model_version.to_mlflow_entity()
+            )
+            return model_version_entity
 
     def update_model_version(self, name, version, description=None):
         """
@@ -745,7 +761,10 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version.description = description
             sql_model_version.last_updated_time = updated_time
             self._save_to_db(session, [sql_model_version])
-            return sql_model_version.to_mlflow_entity()
+            model_version_entity = self._populate_model_version_aliases(
+                session, name, sql_model_version.to_mlflow_entity()
+            )
+            return model_version_entity
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
         """
@@ -791,7 +810,10 @@ class SqlAlchemyStore(AbstractStore):
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = last_updated_time
             self._save_to_db(session, [*model_versions, sql_model_version, sql_registered_model])
-            return sql_model_version.to_mlflow_entity()
+            model_version_entity = self._populate_model_version_aliases(
+                session, name, sql_model_version.to_mlflow_entity()
+            )
+            return model_version_entity
 
     def delete_model_version(self, name, version):
         """
@@ -827,7 +849,10 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session, name, version, eager=True)
-            return sql_model_version.to_mlflow_entity()
+            model_version_entity = self._populate_model_version_aliases(
+                session, name, sql_model_version.to_mlflow_entity()
+            )
+            return model_version_entity
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -1014,3 +1039,74 @@ class SqlAlchemyStore(AbstractStore):
             existing_tag = self._get_model_version_tag(session, name, version, key)
             if existing_tag is not None:
                 session.delete(existing_tag)
+
+    @classmethod
+    def _get_registered_model_alias(cls, session, name, alias):
+        alias = (
+            session.query(SqlRegisteredModelAlias)
+            .filter(
+                SqlRegisteredModelAlias.name == name,
+                SqlRegisteredModelAlias.alias == alias,
+            )
+            .first()
+        )
+        return alias
+
+    def set_registered_model_alias(self, name, alias, version):
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        _validate_model_version(version)
+        with self.ManagedSessionMaker() as session:
+            # check if model version exists
+            self._get_sql_model_version(session, name, version)
+            session.merge(SqlRegisteredModelAlias(name=name, alias=alias, version=version))
+
+    def delete_registered_model_alias(self, name, alias):
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        with self.ManagedSessionMaker() as session:
+            # check if registered model exists
+            self._get_registered_model(session, name)
+            existing_alias = self._get_registered_model_alias(session, name, alias)
+            if existing_alias is not None:
+                session.delete(existing_alias)
+
+    def get_model_version_by_alias(self, name, alias):
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        with self.ManagedSessionMaker() as session:
+            existing_alias = self._get_registered_model_alias(session, name, alias)
+            if existing_alias is not None:
+                sql_model_version = self._get_sql_model_version(
+                    session, existing_alias.name, existing_alias.version
+                )
+                model_version_entity = self._populate_model_version_aliases(
+                    session, name, sql_model_version.to_mlflow_entity()
+                )
+                return model_version_entity
+            else:
+                raise MlflowException(
+                    f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
+                )

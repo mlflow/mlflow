@@ -461,6 +461,26 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         )
 
 
+def test_creation_default_values_in_unity_catalog(mock_registry_store):
+    client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source="source",
+        run_id="runid",
+    )
+    client.create_model_version("name", "source", "runid")
+    # verify that registry store was called with tags=[] and run_link=None
+    mock_registry_store.create_model_version.assert_called_once_with(
+        "name", "source", "runid", [], None, None
+    )
+    client.create_registered_model(name="name", description="description")
+    # verify that registry store was called with tags=[]
+    mock_registry_store.create_registered_model.assert_called_once_with("name", [], "description")
+
+
 def test_create_model_version_non_ready_model(mock_registry_store):
     run_id = "runid"
     client = MlflowClient(tracking_uri="http://10.123.1231.11")
@@ -704,6 +724,29 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
     # delete_model_version_tag with version and stage not set
     with pytest.raises(MlflowException, match="version or stage must be set"):
         MlflowClient().delete_model_version_tag("model_name", key="tag1")
+
+
+def test_set_registered_model_alias(mock_registry_store):
+    MlflowClient().set_registered_model_alias("model_name", "test_alias", 1)
+    mock_registry_store.set_registered_model_alias.assert_called_once_with(
+        "model_name", "test_alias", 1
+    )
+
+
+def test_delete_registered_model_alias(mock_registry_store):
+    MlflowClient().delete_registered_model_alias("model_name", "test_alias")
+    mock_registry_store.delete_registered_model_alias.assert_called_once_with(
+        "model_name", "test_alias"
+    )
+
+
+def test_get_model_version_by_alias(mock_registry_store):
+    mock_registry_store.get_model_version_by_alias.return_value = _default_model_version()
+    res = MlflowClient().get_model_version_by_alias("model_name", "test_alias")
+    assert res == _default_model_version()
+    mock_registry_store.get_model_version_by_alias.assert_called_once_with(
+        "model_name", "test_alias"
+    )
 
 
 def test_update_run(mock_store):

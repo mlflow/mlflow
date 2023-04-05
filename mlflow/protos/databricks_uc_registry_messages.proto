@@ -30,16 +30,16 @@ message RegisteredModel {
 
 enum ModelVersionStatus {
   // Unspecified enum value
-  MODEL_VERSION_STATUS_UNSPECIFIED = 0;
+  UNSPECIFIED = 0;
 
   // Request to register a new model version is pending as server performs background tasks.
-  MODEL_VERSION_STATUS_PENDING_REGISTRATION = 1;
+  PENDING_REGISTRATION = 1;
 
   // Request to register a new model version has failed.
-  MODEL_VERSION_STATUS_FAILED_REGISTRATION = 2;
+  FAILED_REGISTRATION = 2;
 
   // Model version is ready for use.
-  MODEL_VERSION_STATUS_READY = 3;
+  READY = 3;
 }
 
 message ModelVersion {
@@ -85,9 +85,9 @@ message ModelVersion {
 }
 
 enum ModelVersionOperation {
-  MODEL_VERSION_OPERATION_UNKNOWN = 0;
-  MODEL_VERSION_READ = 1;
-  MODEL_VERSION_READ_WRITE = 2;
+  MODEL_VERSION_OPERATION_UNSPECIFIED = 0;
+  MODEL_VERSION_OPERATION_READ = 1;
+  MODEL_VERSION_OPERATION_READ_WRITE = 2;
 }
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary

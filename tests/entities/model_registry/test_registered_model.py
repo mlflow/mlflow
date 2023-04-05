@@ -1,3 +1,4 @@
+from mlflow.entities.model_registry import RegisteredModelAlias
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
@@ -12,6 +13,7 @@ def _check(
     description,
     latest_versions,
     tags,
+    aliases,
 ):
     assert isinstance(registered_model, RegisteredModel)
     assert registered_model.name == name
@@ -21,13 +23,14 @@ def _check(
     assert registered_model.last_updated_timestamp == last_updated_timestamp
     assert registered_model.latest_versions == latest_versions
     assert registered_model.tags == tags
+    assert registered_model.aliases == aliases
 
 
 def test_creation_and_hydration():
     name = random_str()
     description = random_str()
     rmd_1 = RegisteredModel(name, 1, 2, description, [], [])
-    _check(rmd_1, name, 1, 2, description, [], {})
+    _check(rmd_1, name, 1, 2, description, [], {}, {})
 
     as_dict = {
         "name": name,
@@ -36,6 +39,7 @@ def test_creation_and_hydration():
         "description": description,
         "latest_versions": [],
         "tags": {},
+        "aliases": {},
     }
     assert dict(rmd_1) == as_dict
 
@@ -45,10 +49,10 @@ def test_creation_and_hydration():
     assert proto.last_updated_timestamp == 2
     assert proto.description == description
     rmd_2 = RegisteredModel.from_proto(proto)
-    _check(rmd_2, name, 1, 2, description, [], {})
+    _check(rmd_2, name, 1, 2, description, [], {}, {})
     as_dict["tags"] = []
     rmd_3 = RegisteredModel.from_dictionary(as_dict)
-    _check(rmd_3, name, 1, 2, description, [], {})
+    _check(rmd_3, name, 1, 2, description, [], {}, {})
 
 
 def test_with_latest_model_versions():
@@ -86,6 +90,7 @@ def test_with_latest_model_versions():
         "description": random_str(),
         "latest_versions": [mvd_1, mvd_2],
         "tags": [],
+        "aliases": {},
     }
     rmd_1 = RegisteredModel.from_dictionary(as_dict)
     as_dict["tags"] = {}
@@ -114,6 +119,7 @@ def test_with_tags():
         "description": random_str(),
         "latest_versions": [],
         "tags": tags,
+        "aliases": {},
     }
     rmd_1 = RegisteredModel.from_dictionary(as_dict)
     as_dict["tags"] = {tag.key: tag.value for tag in (tags or [])}
@@ -125,6 +131,30 @@ def test_with_tags():
     assert {tag.value for tag in proto.tags} == {"value", "not a random value"}
 
 
+def test_with_aliases():
+    name = random_str()
+    alias1 = RegisteredModelAlias("test_alias", "1")
+    alias2 = RegisteredModelAlias("other_alias", "2")
+    aliases = [alias1, alias2]
+    as_dict = {
+        "name": name,
+        "creation_timestamp": 1,
+        "last_updated_timestamp": 4000,
+        "description": random_str(),
+        "latest_versions": [],
+        "tags": {},
+        "aliases": aliases,
+    }
+    rmd_1 = RegisteredModel.from_dictionary(as_dict)
+    as_dict["aliases"] = {alias.alias: alias.version for alias in (aliases or [])}
+    assert dict(rmd_1) == as_dict
+    proto = rmd_1.to_proto()
+    assert proto.creation_timestamp == 1
+    assert proto.last_updated_timestamp == 4000
+    assert {alias.alias for alias in proto.aliases} == {"test_alias", "other_alias"}
+    assert {alias.version for alias in proto.aliases} == {"1", "2"}
+
+
 def test_string_repr():
     rmd = RegisteredModel(
         name="myname",
@@ -133,9 +163,10 @@ def test_string_repr():
         description="something about a model",
         latest_versions=["1", "2", "3"],
         tags=[],
+        aliases={},
     )
     assert (
-        str(rmd) == "<RegisteredModel: creation_timestamp=1000, "
+        str(rmd) == "<RegisteredModel: aliases={}, creation_timestamp=1000, "
         "description='something about a model', last_updated_timestamp=2002, "
         "latest_versions=['1', '2', '3'], name='myname', tags={}>"
     )

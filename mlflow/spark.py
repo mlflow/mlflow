@@ -24,6 +24,7 @@ import posixpath
 import re
 import shutil
 import yaml
+from packaging.version import Version
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
@@ -86,10 +87,16 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
+    import pyspark
+
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
     pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
-    return [pyspark_req]
+    reqs = [pyspark_req]
+    if Version(pyspark.__version__) <= Version("3.3.2"):
+        # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
+        reqs.append("pandas<2")
+    return reqs
 
 
 def get_default_conda_env():

@@ -40,7 +40,9 @@ from mlflow.server.handlers import (
     _delete_registered_model_tag,
     _set_model_version_tag,
     _delete_model_version_tag,
-    _guess_mime_type,
+    _set_registered_model_alias,
+    _delete_registered_model_alias,
+    _get_model_version_by_alias,
 )
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
@@ -68,10 +70,12 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
-from mlflow.utils.os import is_windows
 
 
 @pytest.fixture()
@@ -703,37 +707,47 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     assert args == {"name": name, "version": version, "key": key}
 
 
-@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-@pytest.mark.parametrize(
-    ("file_path", "expected_mime_type"),
-    [
-        ("/a/b/c.txt", "text/plain"),
-        ("c.txt", "text/plain"),
-        ("c.pkl", "application/octet-stream"),
-        ("/a/b/c.pkl", "application/octet-stream"),
-        ("/a/b/c.png", "image/png"),
-        ("/a/b/c.pdf", "application/pdf"),
-        ("/a/b/MLmodel", "text/plain"),
-        ("/a/b/mlproject", "text/plain"),
-    ],
-)
-def test_guess_mime_type(file_path, expected_mime_type):
-    assert _guess_mime_type(file_path) == expected_mime_type
+def test_set_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    version = "1"
+    mock_get_request_message.return_value = SetRegisteredModelAlias(
+        name=name, alias=alias, version=version
+    )
+    _set_registered_model_alias()
+    _, args = mock_model_registry_store.set_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias, "version": version}
 
 
-@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
-@pytest.mark.parametrize(
-    ("file_path", "expected_mime_type"),
-    [
-        ("C:\\a\\b\\c.txt", "text/plain"),
-        ("c.txt", "text/plain"),
-        ("c.pkl", "application/octet-stream"),
-        ("C:\\a\\b\\c.pkl", "application/octet-stream"),
-        ("C:\\a\\b\\c.png", "image/png"),
-        ("C:\\a\\b\\c.pdf", "application/pdf"),
-        ("C:\\a\\b\\MLmodel", "text/plain"),
-        ("C:\\a\\b\\mlproject", "text/plain"),
-    ],
-)
-def test_guess_mime_type_on_windows(file_path, expected_mime_type):
-    assert _guess_mime_type(file_path) == expected_mime_type
+def test_delete_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    mock_get_request_message.return_value = DeleteRegisteredModelAlias(name=name, alias=alias)
+    _delete_registered_model_alias()
+    _, args = mock_model_registry_store.delete_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias}
+
+
+def test_get_model_version_by_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    mock_get_request_message.return_value = GetModelVersionByAlias(name=name, alias=alias)
+    mvd = ModelVersion(
+        name="model1",
+        version="5",
+        creation_timestamp=1,
+        last_updated_timestamp=12,
+        description="v 5",
+        user_id="u1",
+        current_stage="Production",
+        source="A/B",
+        run_id=uuid.uuid4().hex,
+        status="READY",
+        status_message=None,
+        aliases=["test_alias"],
+    )
+    mock_model_registry_store.get_model_version_by_alias.return_value = mvd
+    resp = _get_model_version_by_alias()
+    _, args = mock_model_registry_store.get_model_version_by_alias.call_args
+    assert args == {"name": name, "alias": alias}
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
