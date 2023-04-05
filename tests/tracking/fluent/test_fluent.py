@@ -907,8 +907,6 @@ def validate_search_runs(results, data, output_format):
         data_subset = {k: data[k] for k in keys if k in keys}
         assert result_data == data_subset
     elif output_format == "pandas":
-        import pandas as pd
-
         expected_df = pd.DataFrame(data)
         expected_df["start_time"] = pd.to_datetime(expected_df["start_time"], unit="ms", utc=True)
         expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
@@ -1201,5 +1199,5 @@ def test_log_input(tmp_path):
     path = tmp_path / "temp.csv"
     df.to_csv(path)
     dataset = from_pandas(df, source=path)
-    with start_run() as active_run:
+    with start_run():
         mlflow.log_input(dataset, "train")
