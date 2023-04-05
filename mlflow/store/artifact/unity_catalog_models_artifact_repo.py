@@ -1,14 +1,19 @@
-import json
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
-    MODEL_VERSION_READ,
+    MODEL_VERSION_OPERATION_READ,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import call_endpoint
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import (
+    call_endpoint,
+    extract_api_info_for_service,
+    _REST_API_PATH_PREFIX,
+)
 from mlflow.utils.uri import (
     get_databricks_profile_uri_from_artifact_uri,
     get_db_info_from_uri,
@@ -21,9 +26,7 @@ from mlflow.store.artifact.utils.models import (
 
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 
-REGISTRY_GET_SCOPED_TOKEN_ENDPOINT = (
-    "/mlflow/unity-catalog/model-versions/generate-temporary-credentials"
-)
+_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 
 
 class UnityCatalogModelsArtifactRepository(ArtifactRepository):
@@ -33,11 +36,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
     Temporary scoped tokens for the appropriate cloud storage locations are fetched from the
     remote backend and used to download model artifacts.
 
-    The artifact_uri is expected to be of the form
-    - `models:/<model_name>/<model_version>`
-    - `models:/<model_name>/<stage>`  (refers to the latest model version in the given stage)
-    - `models:/<model_name>/latest`  (refers to the latest of all model versions)
-    - `models://<profile>/<model_name>/<model_version or stage or 'latest'>`
+    The artifact_uri is expected to be of the form `models:/<model_name>/<model_version>`
 
     Note : This artifact repository is meant is to be instantiated by the ModelsArtifactRepository
     when the client is pointing to a Unity Catalog model registry.
@@ -78,18 +77,21 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         return self.client.get_model_version_download_uri(self.model_name, self.model_version)
 
     def _get_scoped_token(self):
-        req_body = {
-            "name": self.model_name,
-            "version": self.model_version,
-            "operation": MODEL_VERSION_READ,
-        }
         db_creds = get_databricks_host_creds(self.registry_uri)
+        endpoint, method = _METHOD_TO_INFO[GenerateTemporaryModelVersionCredentialsRequest]
+        req_body = message_to_json(
+            GenerateTemporaryModelVersionCredentialsRequest(
+                name=self.model_name,
+                version=self.model_version,
+                operation=MODEL_VERSION_OPERATION_READ,
+            )
+        )
         response_proto = GenerateTemporaryModelVersionCredentialsResponse()
         return call_endpoint(
             host_creds=db_creds,
-            endpoint=REGISTRY_GET_SCOPED_TOKEN_ENDPOINT,
-            method="POST",
-            json_body=json.dumps(req_body),
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
             response_proto=response_proto,
         ).credentials
 
@@ -102,7 +104,7 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
         repo = get_artifact_repo_from_storage_info(
             storage_location=blob_storage_path, scoped_token=scoped_token
         )
-        repo.download_artifacts(artifact_path, dst_path)
+        return repo.download_artifacts(artifact_path, dst_path)
 
     def log_artifact(self, local_file, artifact_path=None):
         raise MlflowException("This repository does not support logging artifacts.")

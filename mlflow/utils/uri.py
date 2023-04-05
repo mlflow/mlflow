@@ -36,7 +36,11 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return False
 
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.hostname:
+    if parsed_uri.hostname and not (
+        parsed_uri.hostname == "."
+        or parsed_uri.hostname.startswith("localhost")
+        or parsed_uri.hostname.startswith("127.0.0.1")
+    ):
         return False
 
     scheme = parsed_uri.scheme
@@ -47,6 +51,10 @@ def is_local_uri(uri, is_tracking_or_registry_uri=True):
         return True
 
     return False
+
+
+def is_file_uri(uri):
+    return urllib.parse.urlparse(uri).scheme == "file"
 
 
 def is_http_uri(uri):

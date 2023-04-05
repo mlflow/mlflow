@@ -1,5 +1,14 @@
-import textwrap
+from functools import wraps
+from packaging.version import Version
+from pkg_resources import get_distribution
 import re
+import textwrap
+import warnings
+
+from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.utils.autologging_utils.versioning import (
+    FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY,
+)
 
 
 def _create_placeholder(key):
@@ -176,3 +185,59 @@ section of the model's conda environment (``conda.yaml``) file.
 """,
     }
 )
+
+
+def get_module_min_and_max_supported_ranges(module_name):
+    """
+    Extracts the minimum and maximum supported package versions from the provided module name.
+    The version information is provided via the yaml-to-python-script generation script in
+    dev/update_ml_package_versions.py which writes a python file to the importable namespace of
+    mlflow.ml_package_versions
+
+    :param module_name: The string name of the module as it is registered in ml_package_versions.py
+    :return: tuple of minimum supported version, maximum supported version as strings.
+    """
+    versions = _ML_PACKAGE_VERSIONS[module_name]["models"]
+    min_version = versions["minimum"]
+    max_version = versions["maximum"]
+    return min_version, max_version
+
+
+def docstring_version_compatibility_warning(integration_name):
+    """
+    Generates a docstring that can be applied as a note stating a version compatibility range for
+    a given flavor.
+
+    :param integration_name: The name of the module as stored within ml-package-versions.yml
+    :return: The wrapped function with the additional docstring header applied
+    """
+
+    def annotated_func(func):
+        # NB: if using this decorator, ensure the package name to module name reference is
+        # updated with the flavor's `save` and `load` functions being used within the dictionary
+        # mlflow.utils.autologging_utils.versioning.FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY
+        _, module_key = FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY[integration_name]
+        min_ver, max_ver = get_module_min_and_max_supported_ranges(module_key)
+        required_pkg_versions = f"``{min_ver}`` -  ``{max_ver}``"
+
+        notice = (
+            f"The '{integration_name}' MLflow Models integration is known to be compatible with "
+            f"the following package version ranges: {required_pkg_versions}. "
+            f"MLflow Models integrations with {integration_name} may not succeed when used with "
+            "package versions outside of this range."
+        )
+
+        @wraps(func)
+        def version_func(*args, **kwargs):
+            installed_version = Version(get_distribution(module_key).version)
+            if installed_version < Version(min_ver) or installed_version > Version(max_ver):
+                warnings.warn(notice, category=FutureWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        version_func.__doc__ = (
+            "    .. Note:: " + notice + "\n" * 2 + func.__doc__ if func.__doc__ else notice
+        )
+
+        return version_func
+
+    return annotated_func

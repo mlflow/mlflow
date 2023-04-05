@@ -202,3 +202,11 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
 )
+
+#: Specifies whether or not to allow using a file URI as a model version source.
+#: Please be aware that setting this environment variable to True is potentially risky
+#: because it can allow access to arbitrary files on the specified filesystem
+#: (default: ``False``).
+MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
+    "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
+)
