@@ -7,7 +7,7 @@ import sys
 import shutil
 
 import uuid
-from typing import List, Dict, NamedTuple
+from typing import List, Dict, NamedTuple, Optional
 
 from mlflow.entities import (
     Experiment,
@@ -1069,7 +1069,7 @@ class FileStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def log_inputs(self, run_id: str, datasets: List[DatasetInput]):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
@@ -1082,6 +1082,10 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
+
+        if datasets is None:
+            return
+
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         run_dir = self._get_run_dir(run_info.experiment_id, run_id)
 
@@ -1167,7 +1171,7 @@ class FileStore(AbstractStore):
                 logging.warning(
                     f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
                 )
-                pass
+                continue
 
             matching_dataset_dirs = [d for d in dataset_dirs if d == fs_input.source_id]
             if not matching_dataset_dirs:
@@ -1175,7 +1179,7 @@ class FileStore(AbstractStore):
                     f"Failed to find dataset with ID '{fs_input.source_id}' referenced as an input"
                     f" of the run with ID '{run_info.run_id}'. Skipping."
                 )
-                pass
+                continue
             elif len(matching_dataset_dirs) > 1:
                 logging.warning(
                     f"Found multiple datasets with ID '{fs_input.source_id}'. Using the first one."

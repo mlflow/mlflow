@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, DatasetInput
 from mlflow.exceptions import MlflowException
@@ -326,7 +326,7 @@ class RestStore(AbstractStore):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
         self._call_endpoint(LogModel, req_body)
 
-    def log_inputs(self, run_id: str, datasets: List[DatasetInput]):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

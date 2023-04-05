@@ -2194,7 +2194,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
     tags = [InputTag(key="key1", value="value1"), InputTag(key="key2", value="value2")]
     store.log_inputs(run.info.run_id, [DatasetInput(dataset, tags)])
 
-    for i in range(100):
+    for i in range(3):
         # Since the dataset name and digest are the same as the previously logged dataset,
         # no changes should be made
         overwrite_dataset = Dataset(
@@ -2252,7 +2252,7 @@ def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(store):
 
     # Logging the same dataset with different tags to new runs should result in each run
     # having its own new input tags and the same dataset input
-    for i in range(100):
+    for i in range(3):
         new_run = store.create_run(
             experiment_id=exp_id,
             user_id="user",

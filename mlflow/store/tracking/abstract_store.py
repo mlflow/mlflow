@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABCMeta
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities import ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
@@ -350,7 +350,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def log_inputs(self, run_id: str, datasets: List[DatasetInput]):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 

@@ -5,7 +5,7 @@ import time
 import uuid
 import threading
 from functools import reduce
-from typing import List
+from typing import List, Optional
 
 import math
 import sqlalchemy
@@ -1237,7 +1237,7 @@ class SqlAlchemyStore(AbstractStore):
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
 
-    def log_inputs(self, run_id: str, datasets: List[DatasetInput]):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.
 
