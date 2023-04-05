@@ -429,7 +429,19 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         experiment = self._get_experiment(experiment_id)
-        experiment._set_last_update_time(get_current_time_millis())
+        experiment._lifecycle_stage = LifecycleStage.DELETED
+        deletion_time = get_current_time_millis()
+        experiment._set_last_update_time(deletion_time)
+        runs = self._list_run_infos(experiment, experiment_id)
+        for run in runs:
+            run_id = run.info.run_id
+            run_info = self._get_run_info(run_id)
+            if run_info is None:
+                raise MlflowException(
+                    "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                )
+            new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+            self._overwrite_run_info(new_info, deleted_time=deletion_time)
         meta_dir = os.path.join(self.root_directory, experiment_id)
         overwrite_yaml(
             root=meta_dir,
@@ -463,7 +475,18 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
         experiment = self._get_experiment(experiment_id)
         meta_dir = os.path.join(self.root_directory, experiment_id)
+        experiment._lifecycle_stage = LifecycleStage.ACTIVE
         experiment._set_last_update_time(get_current_time_millis())
+        runs = self._list_run_infos(experiment, experiment_id)
+        for run in runs:
+            run_id = run.info.run_id
+            run_info = self._get_run_info(run_id)
+            if run_info is None:
+                raise MlflowException(
+                    "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
+                )
+            new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
+            self._overwrite_run_info(new_info, deleted_time=None)
         overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
