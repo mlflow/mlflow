@@ -27,7 +27,7 @@ env:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
@@ -48,7 +48,7 @@ jobs:
       run: |
         ./dev/lint.sh
   r:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: mlflow/R/mlflow
@@ -98,7 +98,7 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
@@ -115,7 +115,7 @@ jobs:
         ./dev/run-python-skinny-tests.sh
 
   python-small:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
@@ -131,7 +131,7 @@ jobs:
         ./dev/run-small-python-tests.sh
 
   python-large:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Increase available disk space
@@ -191,7 +191,7 @@ jobs:
         ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
 
   java:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/setup-python
@@ -213,7 +213,7 @@ jobs:
         mvn clean package -q
 
   js:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     defaults:
       run:
         working-directory: mlflow/server/js
@@ -237,7 +237,7 @@ jobs:
         npm run test
 
   protos:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Test building Docker image
@@ -256,7 +256,7 @@ jobs:
         ./dev/test-generate-protos.sh
 
   flavors:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - name: Increase available disk space
@@ -289,7 +289,7 @@ jobs:
   # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
   # run these tests in a separate job.
   models:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-python
@@ -314,7 +314,7 @@ jobs:
           pytest tests/models --large
 
   import:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
@@ -334,7 +334,7 @@ jobs:
           fi
 
   sagemaker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - uses: ./.github/actions/setup-python

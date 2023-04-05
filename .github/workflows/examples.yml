@@ -20,7 +20,7 @@ env:
 
 jobs:
   examples:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Increase available disk space
@@ -74,7 +74,7 @@ jobs:
         df -h
 
   docker:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Increase available disk space
