@@ -137,20 +137,6 @@ try:
     _dataset_registry.register_constructor(from_pandas)
 except ImportError:
     pass
-
-try:
-    from mlflow.data.numpy_dataset import from_numpy
-
-    _dataset_registry.register_constructor(from_numpy)
-except ImportError:
-    pass
-
-try:
-    from mlflow.data.pandas_dataset import from_pandas
-
-    _dataset_registry.register_constructor(from_pandas)
-except ImportError:
-    pass
 try:
     from mlflow.data.numpy_dataset import from_numpy
 
