@@ -19,7 +19,6 @@ from mlflow.entities import (
     Param,
     RunData,
     RunInfo,
-    RunInputs,
     SourceType,
     RunStatus,
     Run,
