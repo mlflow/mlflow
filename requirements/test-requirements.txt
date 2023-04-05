@@ -21,7 +21,7 @@ ipython
 # 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
 flaml!=1.1.0
 # Required by custom flavor example
-sktime==0.16.0
+sktime>=0.16.0
 # Required by transformers tests
 # Note: other requirements for transformers are defined in cross-version-tests.yml
 # they are not installed here due to their size and stability implications for other test suites
@@ -29,3 +29,5 @@ huggingface_hub
 # Pinned due to protobuf requirement pinning in 1.3.0 of ml-server that is incompatible
 mlserver>=1.2.0, <1.3
 mlserver-mlflow>=1.2.0, <1.3
+# Required by evaluator tests 
+shap

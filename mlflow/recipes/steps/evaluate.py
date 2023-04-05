@@ -391,25 +391,37 @@ class EvaluateStep(BaseStep):
                 classifiers_plot_tab.add_image("ROC_CURVE_PLOT", roc_curve_path, width=400)
 
         # Tab 3: SHAP plots.
-        shap_plot_tab = card.add_tab(
-            "Feature Importance",
-            '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
-            '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
-            '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
-        )
+        def _add_shap_plots(card):
+            """Contingent on shap being installed."""
+            shap_plot_tab = card.add_tab(
+                "Feature Importance",
+                '<h3 class="section-title">Feature Importance on Validation Dataset</h3>'
+                '<h3 class="section-title">SHAP Bar Plot</h3>{{SHAP_BAR_PLOT}}'
+                '<h3 class="section-title">SHAP Beeswarm Plot</h3>{{SHAP_BEESWARM_PLOT}}',
+            )
 
-        shap_bar_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            f"{_VALIDATION_METRIC_PREFIX}shap_feature_importance_plot.png",
-        )
-        shap_beeswarm_plot_path = os.path.join(
-            output_directory,
-            "eval_validation/artifacts",
-            f"{_VALIDATION_METRIC_PREFIX}shap_beeswarm_plot.png",
-        )
-        shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
-        shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+            shap_bar_plot_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                f"{_VALIDATION_METRIC_PREFIX}shap_feature_importance_plot.png",
+            )
+            shap_beeswarm_plot_path = os.path.join(
+                output_directory,
+                "eval_validation/artifacts",
+                f"{_VALIDATION_METRIC_PREFIX}shap_beeswarm_plot.png",
+            )
+            shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
+            shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
+
+        try:
+            import shap  # pylint: disable=W0611
+            from matplotlib import pyplot  # pylint: disable=W0611
+
+            _add_shap_plots(card)
+        except ImportError:
+            _logger.warning(
+                "SHAP or matplotlib package is not installed, so shap plots will not be added."
+            )
 
         # Tab 3: Warning log outputs.
         warning_output_path = os.path.join(output_directory, "warning_logs.txt")
