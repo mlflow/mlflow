@@ -1,6 +1,7 @@
+import json
 import logging
 import pathlib
-
+import pandas as pd
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 import yaml
 
@@ -35,6 +36,7 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
     _download_artifact_from_uri,
+    _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
     _add_code_from_conf_to_system_path,
 )
@@ -44,6 +46,7 @@ FLAVOR_NAME = "transformers"
 _PIPELINE_BINARY_KEY = "pipeline"
 _PIPELINE_BINARY_FILE_NAME = "pipeline"
 _COMPONENTS_BINARY_KEY = "components"
+_INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _MODEL_KEY = "model"
 _TOKENIZER_KEY = "tokenizer"
 _FEATURE_EXTRACTOR_KEY = "feature_extractor"
@@ -165,6 +168,7 @@ def save_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
+    inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -245,6 +249,61 @@ def save_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
+    :param inference_config: A dict of valid overrides that can be applied to a pipeline instance
+                             during inference. These arguments are used exclusively for the case
+                             of loading the model as a ``pyfunc`` Model or for use in Spark.
+                             These values are not applied to a returned Pipeline from a call to
+                             ``mlflow.transformers.load_model()``
+
+                             .. Warning:: If the key provided is not compatible with either the
+                                          Pipeline instance for the task provided or is not a valid
+                                          override to any arguments available in the Model, an
+                                          Exception will be raised at runtime. It is very important
+                                          to validate the entries in this dictionary to ensure
+                                          that they are valid prior to saving or logging.
+
+                             An example of providing overrides for a question generation model:
+
+                             .. code-block:: python
+
+                               from transformers import pipeline, AutoTokenizer
+
+                               task = "text-generation"
+                               architecture = "gpt2"
+
+                               sentence_pipeline = pipeline(
+                                  task=task,
+                                  tokenizer=AutoTokenizer.from_pretrained(architecture),
+                                  model=architecture
+                               )
+
+                               # Validate that the overrides function
+                               prompts = [
+                                 "Generative models are",
+                                 "I'd like a coconut so that I can"
+                               ]
+
+                               # validation of config prior to save or log
+                               inference_config = {
+                                   "top_k": 2,
+                                   "num_beams": 5,
+                                   "max_length": 30,
+                                   "temperature": 0.62,
+                                   "top_p": 0.85,
+                                   "repetition_penalty": 1.15,
+                                   }
+
+                               # Verify that no exceptions are thrown
+                               sentence_generation(prompts, **inference_config)
+
+                               with mlflow.start_run():
+                                 mlflow.transformers.save_model(
+                                   transformers_model=sentence_generation,
+                                   path="/path/for/model",
+                                   task=task,
+                                   inference_config=inference_config
+                                 )
+
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -319,6 +378,7 @@ def save_model(
             component_config=components,
             pipeline=built_pipeline,
             processor=processor,
+            inference_config=inference_config,
         )
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -398,6 +458,7 @@ def log_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
+    inference_config: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: str = None,
     signature: Optional[ModelSignature] = None,
@@ -479,6 +540,61 @@ def log_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
+    :param inference_config: A dict of valid overrides that can be applied to a pipeline instance
+                             during inference. These arguments are used exclusively for the case
+                             of loading the model as a ``pyfunc`` Model or for use in Spark.
+                             These values are not applied to a returned Pipeline from a call to
+                             ``mlflow.transformers.load_model()``
+
+                             .. Warning:: If the key provided is not compatible with either the
+                                          Pipeline instance for the task provided or is not a valid
+                                          override to any arguments available in the Model, an
+                                          Exception will be raised at runtime. It is very important
+                                          to validate the entries in this dictionary to ensure
+                                          that they are valid prior to saving or logging.
+
+                             An example of providing overrides for a question generation model:
+
+                             .. code-block:: python
+
+                               from transformers import pipeline, AutoTokenizer
+
+                               task = "text-generation"
+                               architecture = "gpt2"
+
+                               sentence_pipeline = pipeline(
+                                  task=task,
+                                  tokenizer=AutoTokenizer.from_pretrained(architecture),
+                                  model=architecture
+                               )
+
+                               # Validate that the overrides function
+                               prompts = [
+                                 "Generative models are",
+                                 "I'd like a coconut so that I can"
+                               ]
+
+                               # validation of config prior to save or log
+                               inference_config = {
+                                   "top_k": 2,
+                                   "num_beams": 5,
+                                   "max_length": 30,
+                                   "temperature": 0.62,
+                                   "top_p": 0.85,
+                                   "repetition_penalty": 1.15,
+                                   }
+
+                               # Verify that no exceptions are thrown
+                               sentence_generation(prompts, **inference_config)
+
+                               with mlflow.start_run():
+                                 mlflow.transformers.save_model(
+                                   transformers_model=sentence_generation,
+                                   path="/path/for/model",
+                                   task=task,
+                                   inference_config=inference_config
+                                 )
+
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
@@ -525,6 +641,7 @@ def log_model(
         processor=processor,
         task=task,
         model_card=model_card,
+        inference_config=inference_config,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -582,8 +699,6 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
     :return: A ``transformers`` model instance or a dictionary of components
     """
 
-    import transformers
-
     if return_type not in _SUPPORTED_RETURN_TYPES:
         raise MlflowException(
             f"The specified return_type mode '{return_type}' is unsupported. "
@@ -607,15 +722,10 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    components = _load_model(local_model_path, flavor_config)
-    if return_type == "pipeline":
-        components.update(**kwargs)
-        return transformers.pipeline(**components)
-    elif return_type == "components":
-        return components
+    return _load_model(local_model_path, flavor_config, return_type, **kwargs)
 
 
-def _load_model(path: str, flavor_config):
+def _load_model(path: str, flavor_config, return_type: str, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
@@ -641,7 +751,12 @@ def _load_model(path: str, flavor_config):
         component_type_key = f"{component_key}_type"
         component_type = flavor_config[component_type_key]
         conf[component_key] = _load_component(local_path, component_key, component_type)
-    return conf
+
+    if return_type == "pipeline":
+        conf.update(**kwargs)
+        return transformers.pipeline(**conf)
+    elif return_type == "components":
+        return conf
 
 
 def _fetch_model_card(model_or_pipeline):
@@ -663,7 +778,10 @@ def _fetch_model_card(model_or_pipeline):
     model = model_or_pipeline.model
 
     if hasattr(hub, "ModelCard"):
-        return hub.ModelCard.load(model.name_or_path)
+        try:
+            return hub.ModelCard.load(model.name_or_path)
+        except Exception as e:
+            _logger.warning(f"The model card could not be retrieved from the hub due to {e}")
     else:
         _logger.warning(
             f"The version of huggingface_hub that is installed does not provide "
@@ -715,7 +833,7 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor
+    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
 ):
     """
     Saves non-model pipeline components explicitly to a separate directory path for compatibility
@@ -730,6 +848,8 @@ def _save_components(
         component.save_pretrained(root_path.joinpath(component_name))
     if processor:
         processor.save_pretrained(root_path.joinpath(_PROCESSOR_KEY))
+    if inference_config:
+        root_path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(json.dumps(inference_config))
 
 
 def _load_component(root_path: pathlib.Path, component_key: str, component_type):
@@ -824,7 +944,7 @@ def _validate_transformers_task_type(task: str) -> None:
 
     valid_tasks = get_supported_tasks()
 
-    if task not in valid_tasks:
+    if task not in valid_tasks and not task.startswith("translation"):
         raise MlflowException(
             f"The task provided is invalid. '{task}' is not a supported task. "
             f"Must be one of the registered tasks: {valid_tasks}",
@@ -990,3 +1110,238 @@ class _TransformersModel(NamedTuple):
         )
 
         return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
+
+
+def _get_inference_config(local_path):
+    """
+    Load the inference config if it was provided for use in the `_TransformersWrapper` pyfunc
+    Model wrapper.
+    """
+    config_path = local_path.joinpath("inference_config.txt")
+    if config_path.exists():
+        return json.loads(config_path.read_text())
+
+
+def _load_pyfunc(path):
+    """
+    Loads the model as pyfunc model
+    """
+    local_path = pathlib.Path(path)
+    flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
+    inference_config = _get_inference_config(local_path)
+    return _TransformersWrapper(
+        _load_model(str(local_path), flavor_configuration, "pipeline"), inference_config
+    )
+
+
+class _TransformersWrapper:
+    def __init__(self, pipeline, inference_config):
+        self.pipeline = pipeline
+        self.inference_config = inference_config
+        if inference_config:
+            self._validate_inference_config_keys(pipeline, inference_config)
+        self._conversation = None
+
+    @staticmethod
+    def _validate_inference_config_keys(pipeline, inference_config):
+        """
+        Raise an Exception if invalid inference_config keys for the given Pipeline and
+        Model were provided during save.
+        """
+        invalid_keys = []
+        for key in inference_config.keys():
+            if not hasattr(pipeline, key) and not hasattr(pipeline.model, key):
+                invalid_keys.append(key)
+        if invalid_keys:
+            raise MlflowException(
+                "The Inference Configuration overrides that were saved with "
+                "this model are not compatible as overrides to either the "
+                "Pipeline or the Model. Please re-save the model with valid "
+                f"inference configuration keys. Invalid keys: {invalid_keys}"
+            )
+
+    def predict(self, data):
+        if isinstance(data, pd.DataFrame):
+            dict_data = data.to_dict(orient="records")
+            input_data = [list(entry.values())[0] for entry in dict_data]
+        elif isinstance(data, dict):
+            input_data = data
+        elif isinstance(data, list):
+            if not all(isinstance(entry, (str, dict)) for entry in data):
+                raise MlflowException(
+                    "Invalid data submission. Ensure all elements in the list are strings."
+                )
+            input_data = data
+        elif isinstance(data, str):
+            input_data = data
+        else:
+            raise TypeError(
+                "Input data must be either a pandas.DataFrame, a List of strings, "
+                "or a dictionary."
+            )
+
+        predictions = self._predict(input_data)
+
+        # TODO: Validate if we want to return a DataFrame
+        return predictions
+
+    def _predict(self, data):
+        import transformers
+
+        # NB: the ordering of these conditional statements matters. TranslationPipeline and
+        # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
+        # in which the return data structure from their __call__ implementation is modified.
+        if isinstance(self.pipeline, transformers.TranslationPipeline):
+            output_key = "translation_text"
+        elif isinstance(self.pipeline, transformers.SummarizationPipeline):
+            output_key = "summary_text"
+        elif isinstance(
+            self.pipeline,
+            (transformers.Text2TextGenerationPipeline, transformers.TextGenerationPipeline),
+        ):
+            output_key = "generated_text"
+        elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
+            data = self._parse_question_answer_input(data)
+            output_key = "answer"
+        elif isinstance(self.pipeline, transformers.FillMaskPipeline):
+            output_key = "token_str"
+        elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
+            output_key = "label"
+        elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
+            output_key = "labels"
+        elif isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
+            output_key = "answer"
+        elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
+            output_key = "entity"
+        elif isinstance(self.pipeline, transformers.ConversationalPipeline):
+            if not self._conversation:
+                self._conversation = transformers.Conversation()
+            self._conversation.add_user_input(data)
+        else:
+            raise MlflowException(
+                f"The loaded pipeline type {type(self.pipeline).__name__} is "
+                "not enabled for pyfunc predict functionality."
+            )
+
+        if isinstance(self.pipeline, transformers.ConversationalPipeline):
+            conversation_output = self.pipeline(self._conversation)
+            return conversation_output.generated_responses[-1]
+        elif isinstance(data, dict):
+            raw_output = self.pipeline(**data)
+        else:
+            raw_output = self.pipeline(data)
+
+        # Handle the pipeline outputs
+        if isinstance(self.pipeline, transformers.FillMaskPipeline):
+            output = self._parse_list_of_multiple_dicts(raw_output, output_key)
+        elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
+            interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
+            output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
+        elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
+            output = self._parse_tokenizer_output(raw_output, output_key)
+        else:
+            output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
+
+        pre_sanitize = self._pre_sanitize_reduction(data, output)
+
+        return self._sanitize_output(pre_sanitize)
+
+    def _pre_sanitize_reduction(self, input, output):
+        import transformers
+
+        if isinstance(self.pipeline, transformers.TokenClassificationPipeline):
+            return output
+        else:
+            return output[0] if isinstance(input, str) else output
+
+    def _sanitize_output(self, output):
+        # Some pipelines and their underlying models leave leading or trailing whitespace.
+        # This method removes that whitespace.
+        if isinstance(output, str):
+            return output.strip()
+        elif isinstance(output, list):
+            if isinstance(output[0], str):
+                return [text.strip() for text in output]
+            else:
+                return [self._sanitize_output(coll) for coll in output]
+        elif isinstance(output, dict):
+            return {k: v.strip() for k, v in output.items()}
+
+    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
+        if isinstance(output_data, list):
+            output_coll = []
+            for output in output_data:
+                if isinstance(output, dict):
+                    output_coll.append(output[target_dict_key])
+                elif isinstance(output, list):
+                    output_coll.append(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    )
+            return output_coll
+        else:
+            return output_data[target_dict_key]
+
+    def _parse_tokenizer_output(self, output_data, target_dict_key):
+        # NB: We're collapsing the results here to a comma separated string for each inference
+        # input string. This is to simplify having to otherwise make extensive changes to
+        # ColSpec in order to support schema enforcement of List[List[str]]
+        if isinstance(output_data[0], list):
+            return [self._parse_tokenizer_output(coll, target_dict_key) for coll in output_data]
+        else:
+            return ",".join([coll[target_dict_key] for coll in output_data])
+
+    @staticmethod
+    def _parse_list_of_multiple_dicts(output_data, target_dict_key):
+        if isinstance(output_data[0], list):
+            return [collection[0][target_dict_key] for collection in output_data]
+        else:
+            return [output_data[0][target_dict_key]]
+
+    def _parse_list_output_for_multiple_candidate_pipelines(self, output_data):
+        # NB: This will not continue to parse nested lists. Pipelines do not output complex
+        # types that are greater than 2 levels deep so there is no need for more complex
+        # traversal for outputs.
+        if isinstance(output_data[0], list):
+            return [
+                self._parse_list_output_for_multiple_candidate_pipelines(x) for x in output_data
+            ]
+        else:
+            return output_data[0]
+
+    def _parse_question_answer_input(self, data):
+        """
+        Parses the single string input representation for a question answer pipeline into the
+        required dict format for a `question-answering` pipeline.
+        """
+        if isinstance(data, str):
+            if any(key not in data for key in ["question: ", "context: "]):
+                raise MlflowException(
+                    "There is an error in the syntax of the provided string. A "
+                    "question and a context must be provided in the format: "
+                    "`question: <text> context: <text>`. Validate that the "
+                    "required keys are provided."
+                )
+            else:
+                first, last = data.split("context:")
+                if first:
+                    return {
+                        "question": first.split("question:")[1].strip(),
+                        "context": last.strip(),
+                    }
+                else:
+                    context, question = last.split("question:")
+                    return {"question": question.strip(), "context": context.strip()}
+        elif isinstance(data, list):
+            return [self._parse_question_answer_input(entry) for entry in data]
+        elif isinstance(data, dict):
+            expected_keys = {"question", "context"}
+            if not expected_keys.intersection(set(data.keys())) == expected_keys:
+                raise MlflowException(
+                    "Invalid keys were submitted. Keys must be exclusively " f"{expected_keys}"
+                )
+            return data
+        else:
+            raise MlflowException(
+                "An invalid type has been supplied. Must be either a string, "
+                f"a list of strings, or a dict. {type(data)} is not supported."
+            )

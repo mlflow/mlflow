@@ -136,6 +136,10 @@ def _infer_schema(data: Any) -> Schema:
                 for field in data.schema.fields
             ]
         )
+    elif isinstance(data, str):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
+        schema = Schema([ColSpec(type=DataType.string) for _ in data])
     else:
         raise TypeError(
             "Expected one of the following types:\n"
@@ -146,6 +150,8 @@ def _infer_schema(data: Any) -> Schema:
             "- pyspark.sql.DataFrame\n",
             "- scipy.sparse.csr_matrix\n"
             "- scipy.sparse.csc_matrix\n"
+            "- str\n"
+            "- List[str]\n"
             "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(

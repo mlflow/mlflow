@@ -1,4 +1,6 @@
 import os
+
+import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
@@ -14,6 +16,8 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import infer_signature
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -43,6 +47,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large
@@ -118,6 +123,73 @@ def small_conversational_model():
     tokenizer = transformers.AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
     model = transformers.AutoModelWithLMHead.from_pretrained("satvikag/chatbot")
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
+
+
+@pytest.fixture(scope="module")
+def fill_mask_pipeline():
+    return transformers.pipeline(task="fill-mask", model="bert-base-uncased")
+
+
+@pytest.fixture(scope="module")
+def text2text_generation_pipeline():
+    task = "text2text-generation"
+    architecture = "mrm8488/t5-base-finetuned-question-generation-ap"
+
+    return transformers.pipeline(
+        task=task,
+        tokenizer=transformers.AutoTokenizer.from_pretrained(architecture),
+        model=architecture,
+    )
+
+
+@pytest.fixture(scope="module")
+def text_generation_pipeline():
+    task = "text-generation"
+    architecture = "gpt2"
+    return transformers.pipeline(
+        task=task,
+        model=architecture,
+        tokenizer=transformers.AutoTokenizer.from_pretrained(architecture),
+    )
+
+
+@pytest.fixture(scope="module")
+def translation_pipeline():
+    return transformers.pipeline(task="translation_en_to_de")
+
+
+@pytest.fixture(scope="module")
+def text_classification_pipeline():
+    return transformers.pipeline(model="distilbert-base-uncased-finetuned-sst-2-english")
+
+
+@pytest.fixture(scope="module")
+def summarizer_pipeline():
+    return transformers.pipeline("summarization")
+
+
+@pytest.fixture(scope="module")
+def zero_shot_pipeline():
+    return transformers.pipeline(model="facebook/bart-large-mnli")
+
+
+@pytest.fixture(scope="module")
+def table_question_answering_pipeline():
+    return transformers.pipeline(
+        task="table-question-answering", model="microsoft/tapex-base-finetuned-wtq"
+    )
+
+
+@pytest.fixture(scope="module")
+def ner_pipeline():
+    return transformers.pipeline(
+        task="token-classification", model="vblagoje/bert-english-uncased-finetuned-pos"
+    )
+
+
+@pytest.fixture(scope="module")
+def conversational_pipeline():
+    return transformers.pipeline(model="microsoft/DialoGPT-medium")
 
 
 @pytest.fixture(scope="module")
@@ -898,3 +970,401 @@ def test_invalid_task_inference_raises_error(model_path):
             mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
         dummy_pipeline.task = "text-classification"
         mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
+
+
+@pytest.mark.parametrize(
+    "inference_payload, answer",
+    [
+        (["question: Who's house? context: The house is owned by a man named Run."], "Run"),
+        ({"question": "Who's house?", "context": "The house is owned by a man named Run."}, "Run"),
+        (
+            [
+                {
+                    "question": "What color is it?",
+                    "context": "Some people said it was green but I know that it's definitely blue",
+                },
+                {
+                    "question": "How do the wheels go?",
+                    "context": "The wheels on the bus go round and round. Round and round.",
+                },
+            ],
+            ["blue", "round and round"],
+        ),
+        (
+            [
+                "question: What color is it? context: Some people said it was green but "
+                "I know that it's pink.",
+                "context: The people on the bus go up and down. Up and down. "
+                "question: How do the people go?",
+            ],
+            ["pink", "up and down"],
+        ),
+    ],
+)
+def test_qa_pipeline_pyfunc_load_and_infer(
+    small_qa_pipeline, model_path, inference_payload, answer
+):
+    mlflow.transformers.save_model(
+        transformers_model=small_qa_pipeline,
+        path=model_path,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(inference_payload)
+
+    assert inference == answer
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        (
+            [
+                (
+                    "answer: To provide high quality answers. context: The best goal "
+                    "of any benevolent generative text AI is to answer questions well."
+                ),
+                (
+                    "answer: To distribute electricity. context: Substations exist for "
+                    "the sole purpose of routing electrical power to customers from "
+                    "the site of generation."
+                ),
+            ],
+            [
+                "question: What is the best goal of a benevolent generative text AI?",
+                "question: Substations exist for what purpose?",
+            ],
+        ),
+        (
+            "answer: It's Run's house. context: The house was purchased by Run "
+            "after his initial musical success.",
+            "question: What was the name of Run's house?",
+        ),
+    ],
+)
+def test_text2text_generation_pipeline_with_inference_configs(
+    text2text_generation_pipeline, model_path, input, result
+):
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline, path=model_path, inference_config=inference_config
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(input)
+
+    assert inference == result
+
+
+@pytest.mark.parametrize(
+    "input", [("Generative models are"), (["Generative models are", "Computers are"])]
+)
+def test_text_generation_pipeline(text_generation_pipeline, model_path, input):
+    inference_config = {
+        "prefix": "software",
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    mlflow.transformers.save_model(
+        text_generation_pipeline, path=model_path, inference_config=inference_config
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(input)
+    if isinstance(input, list):
+        assert inference[0].startswith(input[0])
+        assert inference[1].startswith(input[1])
+    else:
+        assert inference.startswith(input)
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        ("Riding a [MASK] on the beach is fun!", "bike"),
+        (["If I had [MASK], I would fly to the top of a mountain"], ["wings"]),
+        (
+            ["I use stacks of [MASK] to buy things", "I [MASK] the whole bowl of cherries"],
+            ["cash", "ate"],
+        ),
+    ],
+)
+def test_fill_mask_pipeline(fill_mask_pipeline, model_path, input, result):
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(input)
+    assert inference == result
+
+
+def test_pandas_df_input_to_pyfunc(fill_mask_pipeline, model_path):
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    mask_input = [
+        "Riding a [MASK] on the beach is fun.",
+        "If I had [MASK], I would fly to the top of a mountain.",
+        "The [MASK] howled at the moon as a pack",
+    ]
+    df_input = pd.DataFrame([{"input": x} for x in mask_input])
+
+    inference = pyfunc_loaded.predict(df_input)
+
+    assert inference == ["bike", "wings", "wolves"]
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        ("I've got a lovely bunch of coconuts!", "Ich habe einen schönen Haufen Kokosnuss!"),
+        (
+            [
+                "I am the very model of a modern major general",
+                "Once upon a time, there was a little turtle",
+            ],
+            [
+                "Ich bin das Vorbild eines modernen Großgenerals.",
+                "Es gab einmal eine kleine Schildkröte",
+            ],
+        ),
+    ],
+)
+def test_translation_pipeline(translation_pipeline, model_path, input, result):
+    mlflow.transformers.save_model(translation_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    inference = pyfunc_loaded.predict(input)
+    assert inference == result
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        ("I'm telling you that Han shot first!", "POSITIVE"),
+        (
+            [
+                "I think this sushi might have gone off",
+                "That gym smells like feet, hot garbage, and sadness",
+                "I love that we have a moon",
+            ],
+            ["NEGATIVE", "NEGATIVE", "POSITIVE"],
+        ),
+    ],
+)
+def test_classifier_pipeline(text_classification_pipeline, model_path, input, result):
+    mlflow.transformers.save_model(text_classification_pipeline, path=model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    inference = pyfunc_loaded.predict(input)
+    assert inference == result
+
+
+@pytest.mark.parametrize(
+    "input",
+    ["There once was a boy", ["Baking cookies is quite easy", "Writing unittests is good for"]],
+)
+def test_summarization_pipeline(summarizer_pipeline, model_path, input):
+    inference_config = {
+        "prefix": "software",
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+        "min_length": 10,
+    }
+    mlflow.transformers.save_model(
+        summarizer_pipeline, path=model_path, inference_config=inference_config
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(input)
+    if isinstance(input, list):
+        assert inference[0].strip().startswith(input[0])
+        assert inference[1].strip().startswith(input[1])
+    else:
+        assert inference.strip().startswith(input)
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        (
+            {
+                "sequences": "I love the latest update to this IDE!",
+                "candidate_labels": ["happy", "sad"],
+            },
+            "happy",
+        ),
+        (
+            {
+                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
+                "candidate_labels": ["happy", "sad"],
+                "hypothesis_template": "This example talks about how the dog is {}",
+            },
+            ["happy", "sad"],
+        ),
+    ],
+)
+def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, input, result):
+    mlflow.transformers.save_model(zero_shot_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict(input)
+
+    assert inference == result
+
+
+def test_table_question_answering_pipeline(table_question_answering_pipeline, model_path):
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+    mlflow.transformers.save_model(table_question_answering_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict({"query": "What should we order more of?", "table": table})
+    assert inference == "apples"
+
+    inference_multiple = loaded_pyfunc.predict(
+        {"query": ["What is our highest sales?", "What should we order more of?"], "table": table}
+    )
+    assert inference_multiple == ["1230945.55", "apples"]
+
+
+def test_conversational_pipeline(conversational_pipeline, model_path):
+    mlflow.transformers.save_model(conversational_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    first_response = loaded_pyfunc.predict("What is the best way to get to Antarctica?")
+
+    assert first_response == "I think you can get there by boat."
+
+    second_response = loaded_pyfunc.predict("What kind of boat should I use?")
+
+    assert second_response == "A boat that can go to Antarctica."
+
+    # Test that a new loaded instance has no context.
+    loaded_again_pyfunc = mlflow.pyfunc.load_model(model_path)
+    third_response = loaded_again_pyfunc.predict("What kind of boat should I use?")
+
+    assert third_response == "A boat that can't sink."
+
+    fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
+
+    assert fourth_response == "Only if you have a boat that can't sink."
+
+
+@pytest.mark.parametrize(
+    "input, in_signature, out_signature",
+    [
+        ("Generative models are", '[{"type": "string"}]', '[{"type": "string"}]'),
+        (
+            ["Computers are", "Dogs are"],
+            '[{"type": "string"}, {"type": "string"}]',
+            '[{"type": "string"}, {"type": "string"}]',
+        ),
+    ],
+)
+def test_signature_inference_strings_and_lists_of_strings(
+    text_generation_pipeline, model_path, input, in_signature, out_signature
+):
+    mlflow.transformers.save_model(text_generation_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    answer = loaded_pyfunc.predict(input)
+    signature = infer_signature(input, answer)
+
+    assert signature.inputs.to_json() == in_signature
+    assert signature.outputs.to_json() == out_signature
+
+
+@pytest.mark.parametrize(
+    "input, result",
+    [
+        (
+            "I have a dog and his name is Willy!",
+            "PRON,VERB,DET,NOUN,CCONJ,PRON,NOUN,AUX,PROPN,PUNCT",
+        ),
+        (
+            ["We are the knights who say nee!", "Houston, we may have a problem."],
+            [
+                "PRON,AUX,DET,PROPN,PRON,VERB,INTJ,PUNCT",
+                "PROPN,PUNCT,PRON,AUX,VERB,DET,NOUN,PUNCT",
+            ],
+        ),
+    ],
+)
+def test_ner_pipeline(ner_pipeline, model_path, input, result):
+    mlflow.transformers.save_model(ner_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict(input)
+
+    assert inference == result
+
+
+def test_signature_inference_dict_input_to_string_output():
+    pass
+
+
+# TODO: make sure that _enforce_schema can support input of scalar str, list[str], dict[str, dict]
+
+
+def test_model_saved_with_signature_using_string_input():
+    pass
+
+
+# TODO: ensure that
+
+
+def test_model_saved_with_signature_using_list_of_string_input():
+    pass
+
+
+def test_model_saved_with_signature_using_dict_input():
+    pass
+
+
+def test_model_saved_with_signature_using_compound_input():
+    pass
+
+
+#
+# def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
+#     artifact_path = "qa_model"
+#     with mlflow.start_run():
+#         mlflow.transformers.log_model(
+#             transformers_model=small_qa_pipeline,
+#             artifact_path=artifact_path,
+#         )
+#         model_uri = mlflow.get_artifact_uri(artifact_path)
+#
+#     inference_payload = ["question: Who's house? context: The house is owned by a man named Run."]
+#
+#     from mlflow.deployments import PredictionsResponse
+#
+#     response = pyfunc_serve_and_score_model(
+#         model_uri,
+#         data=inference_payload,
+#         content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV,
+#     )
+#     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+#
+#     print(values)
+#
+#     assert 1 == 0
+
+
+def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
+    mlflow.transformers.save_model(small_multi_modal_pipeline, model_path)
+    with pytest.raises(MlflowException, match='Model does not have the "python_function" flavor'):
+        mlflow.pyfunc.load_model(model_path)
