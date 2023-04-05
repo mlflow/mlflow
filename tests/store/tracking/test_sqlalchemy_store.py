@@ -2765,6 +2765,77 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert input_tag.key == "tag1"
         assert input_tag.value == "value1"
 
+    def test_log_inputs_with_multiple_tags(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+        )
+        tag1 = entities.InputTag("tag1", "value1")
+        tag2 = entities.InputTag("tag2", "value2")
+        dataset_inputs = [entities.DatasetInput(dataset, [tag1, tag2])]
+
+        self.store.log_inputs(run.info.run_id, dataset_inputs)
+
+        search_run_result = self.store.search_runs([experiment_id], None, ViewType.ALL)
+        assert len(search_run_result) == 1
+        run_result = search_run_result[0]
+
+        assert len(run_result.inputs.dataset_inputs) == 1
+        dataset_input = run_result.inputs.dataset_inputs[0]
+        assert dataset_input.dataset.name == "name1"
+        assert dataset_input.dataset.digest == "digest1"
+        assert dataset_input.dataset.source_type == "st1"
+        assert dataset_input.dataset.source == "source1"
+
+        assert len(dataset_input.tags) == 2
+        input_tag1 = dataset_input.tags[0]
+        assert input_tag1.key == "tag1"
+        assert input_tag1.value == "value1"
+        input_tag2 = dataset_input.tags[1]
+        assert input_tag2.key == "tag2"
+        assert input_tag2.value == "value2"
+
+    def test_log_inputs_across_runs(self):
+        experiment_id = self._experiment_factory("test exp")
+        run1 = self._run_factory(config=self._get_run_configs(experiment_id))
+        run2 = self._run_factory(config=self._get_run_configs(experiment_id))
+
+        dataset1 = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+        )
+        dataset2 = entities.Dataset(
+            name="name2",
+            digest="digest2",
+            source_type="st2",
+            source="source2",
+        )
+
+        self.store.log_inputs(
+            run1.info.run_id,
+            [
+                entities.DatasetInput(dataset1, [entities.InputTag("context", "train")]),
+                entities.DatasetInput(dataset2, [entities.InputTag("context", "test")]),
+            ],
+        )
+
+        self.store.log_inputs(
+            run2.info.run_id,
+            [
+                entities.DatasetInput(dataset2, [entities.InputTag("context", "train")]),
+            ],
+        )
+
+        search_run_result = self.store.search_runs([experiment_id], None, ViewType.ALL)
+        assert len(search_run_result) == 2
+
     def test_log_inputs_fails_with_missing_inputs(self):
         experiment_id = self._experiment_factory("test exp")
         run = self._run_factory(config=self._get_run_configs(experiment_id))
