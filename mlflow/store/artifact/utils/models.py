@@ -7,6 +7,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
+_MODEL_URI_REGEX = re.compile(
+    r"^\/(?P<model_name>[\w \-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+)
 
 
 def is_using_databricks_registry(uri):
@@ -17,8 +20,8 @@ def is_using_databricks_registry(uri):
 def _improper_model_uri_msg(uri):
     return (
         "Not a proper models:/ URI: %s. " % uri
-        + "Models URIs must be of the form 'models:/<model_name>/suffix' "
-        + "or 'models:/<model_name>@alias' where suffix is a model version, stage, "
+        + "Models URIs must be of the form 'models:/<model_name>/<suffix>' "
+        + "or 'models:/<model_name>@<alias>' where suffix is a model version, stage, "
         + "or the string '%s' and where alias is a registered model alias. "
         % _MODELS_URI_SUFFIX_LATEST
         + "Only one of suffix or alias can be defined at a time."
@@ -57,25 +60,20 @@ def _parse_model_uri(uri):
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
-    r = re.compile(r"^\/(?P<model_name>[\w \-]+)(?P<suffix>\/[\w]+)?(?P<alias>@[\w\-]+)?$")
-    m = r.match(path)
+    m = _MODEL_URI_REGEX.match(path)
     if m is None:
         raise MlflowException(_improper_model_uri_msg(uri))
-    model_name = m.group("model_name") if "model_name" in m.groupdict() else None
-    suffix = m.group("suffix") if "suffix" in m.groupdict() else None
-    alias = m.group("alias") if "alias" in m.groupdict() else None
-    if (
-        (model_name is None or model_name == "")
-        or (suffix and alias)
-        or (suffix is None and alias is None)
-    ):
+    gd = m.groupdict()
+    model_name = gd.get("model_name")
+    suffix = gd.get("suffix")
+    alias = gd.get("alias")
+    if (model_name.strip() == "") or (suffix and alias) or (suffix is None and alias is None):
         raise MlflowException(_improper_model_uri_msg(uri))
 
     if alias:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
-        return ParsedModelUri(model_name, alias=alias[1:])
-    suffix = suffix[1:]
-    if suffix.isdigit():
+        return ParsedModelUri(model_name, alias=alias)
+    elif suffix.isdigit():
         # The suffix is a specific version, e.g. "models:/AdsModel1/123"
         return ParsedModelUri(model_name, version=suffix)
     elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():

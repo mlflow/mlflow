@@ -85,6 +85,7 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "notmodels:/NameOfModel/StageName",  # wrong scheme with stage
         "notmodels:/NameOfModel@alias",  # wrong scheme with alias
         "models:/",  # no model name
+        "models:/ /Stage",  # empty name
         "models:/Name",  # no specifiers
         "models:/Name/",  # empty suffix
         "models:/Name@",  # empty alias

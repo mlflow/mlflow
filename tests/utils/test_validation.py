@@ -75,6 +75,7 @@ BAD_ALIAS_NAMES = [
     None,
     "$dgs",
     "latest",
+    "Latest",
     "v123",
     "V1",
 ]
