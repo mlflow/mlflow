@@ -1,18 +1,35 @@
 import json
-
-from mlflow.types.schema import Schema
-
 import pandas as pd
+import pytest
 
 from tests.resources.data.dataset_source import TestDatasetSource
+
+import mlflow.data
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-# from mlflow.data.delta_dataset_source import DeltaDatasetSource
-
-import mlflow.data
+from mlflow.data.delta_dataset_source import DeltaDatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
+
+
+@pytest.fixture(scope="class", autouse=True)
+def spark_session():
+    from pyspark.sql import SparkSession
+
+    session = (
+        SparkSession.builder.master("local[*]")
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.2.0")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
+        .getOrCreate()
+    )
+    yield session
+    session.stop()
 
 
 def test_conversion_to_json():
@@ -62,6 +79,42 @@ def test_df_property():
     assert dataset.df.equals(df)
 
 
+def test_targets_property():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df_no_targets = pd.DataFrame([1, 2, 3], columns=["Numbers"])
+    dataset_no_targets = PandasDataset(
+        df=df_no_targets,
+        source=source,
+        name="testname",
+    )
+    assert dataset_no_targets._targets is None
+    df_with_targets = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    dataset_with_targets = PandasDataset(
+        df=df_with_targets,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    assert dataset_with_targets._targets == "c"
+
+
+def test_with_invalid_targets():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    with pytest.raises(
+        MlflowException,
+        match="The specified pandas DataFrame does not contain the specified targets column 'd'.",
+    ):
+        PandasDataset(
+            df=df,
+            source=source,
+            targets="d",
+            name="testname",
+        )
+
+
 def test_to_pyfunc():
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
@@ -90,6 +143,17 @@ def test_to_pyfunc_with_outputs():
     assert input_outputs.outputs.equals(pd.Series([3, 3], name="c"))
 
 
+def test_from_pandas_with_targets(tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = mlflow.data.from_pandas(df, targets="c", source=path)
+    input_outputs = dataset.to_pyfunc()
+    assert isinstance(input_outputs, PyFuncInputsOutputs)
+    assert input_outputs.inputs.equals(pd.DataFrame([[1, 2], [1, 2]], columns=["a", "b"]))
+    assert input_outputs.outputs.equals(pd.Series([3, 3], name="c"))
+
+
 def test_from_pandas_file_system_datasource(tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
     path = tmp_path / "temp.csv"
@@ -107,17 +171,14 @@ def test_from_pandas_file_system_datasource(tmp_path):
     assert isinstance(mlflow_df.source, FileSystemDatasetSource)
 
 
-def test_from_pandas_spark_datasource(tmp_path):
-    from pyspark.sql import SparkSession
-
-    spark = SparkSession.builder.getOrCreate()
-
+def test_from_pandas_spark_datasource(spark_session, tmp_path):
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark.createDataFrame(df)
-
+    df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
-    mlflow_df = mlflow.data.from_pandas(df, source=path)
+
+    spark_datasource = SparkDatasetSource(path=path)
+    mlflow_df = mlflow.data.from_pandas(df, source=spark_datasource)
 
     assert isinstance(mlflow_df, PandasDataset)
     assert mlflow_df.df.equals(df)
@@ -130,25 +191,21 @@ def test_from_pandas_spark_datasource(tmp_path):
     assert isinstance(mlflow_df.source, SparkDatasetSource)
 
 
-# def test_from_pandas_delta_datasource(tmp_path):
-#     from pyspark.sql import SparkSession
+def test_from_pandas_delta_datasource(spark_session, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.delta")
+    df_spark.write.format("delta").mode("overwrite").save(path)
 
-#     spark = SparkSession.builder.getOrCreate()
+    delta_datasource = DeltaDatasetSource(path=path)
+    mlflow_df = mlflow.data.from_pandas(df, source=delta_datasource)
 
+    assert isinstance(mlflow_df, PandasDataset)
+    assert mlflow_df.df.equals(df)
+    assert mlflow_df.schema == _infer_schema(df)
+    assert mlflow_df.profile == {
+        "num_rows": len(df),
+        "num_elements": df.size,
+    }
 
-#     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-#     df_spark = spark.createDataFrame(df)
-
-#     path = tmp_path / "temp"
-#     df_spark.to_delta(path)
-#     mlflow_df = mlflow.data.from_pandas(df, source=path)
-
-#     assert isinstance(mlflow_df, PandasDataset)
-#     assert mlflow_df.df.equals(df)
-#     assert mlflow_df.schema == _infer_schema(df)
-#     assert mlflow_df.profile == {
-#         "num_rows": len(df),
-#         "num_elements": df.size,
-#     }
-
-#     assert isinstance(mlflow_df.source, DeltaDatasetSource)
+    assert isinstance(mlflow_df.source, DeltaDatasetSource)

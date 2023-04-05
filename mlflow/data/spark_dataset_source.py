@@ -1,6 +1,8 @@
 from typing import TypeVar, Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from pyspark.sql import SparkSession, DataFrame
 
 
@@ -14,6 +16,11 @@ class SparkDatasetSource(DatasetSource):
         table_name: Optional[str] = None,
         sql: Optional[str] = None,
     ):
+        if (path, table_name, sql).count(None) != 2:
+            raise MlflowException(
+                'Must specify exactly one of "path", "table_name", or "sql"',
+                INVALID_PARAMETER_VALUE,
+            )
         self._path = path
         self._table_name = table_name
         self._sql = sql
@@ -24,22 +31,17 @@ class SparkDatasetSource(DatasetSource):
 
     def load(self, **kwargs) -> DataFrame:
         """
-        Loads the dataset source as a Hugging Face Dataset or DatasetDict, depending on whether
-        multiple splits are defined by the source or not.
-
-        :param kwargs: Additional keyword arguments used for loading the dataset with
-                       the Hugging Face `datasets.load_dataset()` method. The following keyword
-                       arguments are used automatically from the dataset source but may be overriden
-                       by values passed in **kwargs: path, name, data_dir, data_files, split,
-                       revision, task.
-        :throws: MlflowException if the Spark dataset source does not define a path
-                 from which to load the data.
+        Loads the dataset source as a Spark Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
         spark = SparkSession.builder.getOrCreate()
 
-        # TODO: read from self.table_name and sql
-        return spark.read.parquet(self._path)
+        if self._path:
+            return spark.read.parquet(self._path)
+        if self._table_name:
+            return spark.read.table(self._table_name)
+        if self._sql:
+            return spark.sql(self._sql)
 
     @staticmethod
     def _can_resolve(raw_source: Any):
@@ -50,12 +52,19 @@ class SparkDatasetSource(DatasetSource):
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
-        return {
-            "path": self._path,
-        }
+        info = {}
+        if self._path is not None:
+            info["path"] = self._path
+        elif self._table_name is not None:
+            info["table_name"] = self._table_name
+        elif self._sql is not None:
+            info["sql"] = self._sql
+        return info
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> SparkDatasetSourceType:
         return cls(
             path=source_dict.get("path"),
+            table_name=source_dict.get("table_name"),
+            sql=source_dict.get("sql"),
         )

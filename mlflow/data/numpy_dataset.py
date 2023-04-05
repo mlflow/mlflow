@@ -1,28 +1,41 @@
-import hashlib
 import json
+import logging
 from typing import List, Optional, Any, Dict, Union
 
 import numpy as np
-import pandas as pd
+from functools import cached_property
 
 from mlflow.data.dataset import Dataset
-from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
+from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
+_logger = logging.getLogger(__name__)
+
 
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
+    """
+    Represents a NumPy dataset for use with MLflow Tracking.
+    """
+
     def __init__(
         self,
         features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
-        source: FileSystemDatasetSource,
+        source: DatasetSource,
         targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
-        TODO: Numpy docs
+        :param features: A numpy array or list/dict of arrays containing dataset features.
+        :param source: The source of the numpy dataset.
+        :param targets: A numpy array or list/dict of arrays containing dataset targets. Optional
+        :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
+                     automatically generated.
+        :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
+                       is automatically computed.
         """
         self._features = features
         self._targets = targets
@@ -33,35 +46,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        MAX_ROWS = 10000
-
-        flattened_features = self._features.flatten()
-        trimmed_features = flattened_features[0:MAX_ROWS]
-
-        md5 = hashlib.md5()
-
-        # hash trimmed feature contents
-        try:
-            md5.update(pd.util.hash_array(trimmed_features))
-        except TypeError:
-            md5.update(np.int64(trimmed_features.size))
-        # hash full feature dimensions
-        for x in self._features.shape:
-            md5.update(np.int64(x))
-
-        # hash trimmed targets contents
-        if self._targets:
-            flattened_targets = self._targets.flatten()
-            trimmed_targets = flattened_targets[0:MAX_ROWS]
-            try:
-                md5.update(pd.util.hash_array(trimmed_targets))
-            except TypeError:
-                md5.update(np.int64(trimmed_targets.size))
-            # hash full feature dimensions
-            for x in self._targets.shape:
-                md5.update(np.int64(x))
-
-        return md5.hexdigest()[:8]
+        return compute_numpy_digest(self._features, self._targets)
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
@@ -81,59 +66,72 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return base_dict
 
     @property
-    def source(self) -> FileSystemDatasetSource:
+    def source(self) -> DatasetSource:
         """
-        TODO: Numpy docs
+        The source of the dataset.
         """
         return self._source
 
     @property
     def features(self) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+        """
+        The features of the dataset.
+        """
         return self._features
 
     @property
-    def targets(self) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+    def targets(self) -> Optional[Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]]:
+        """
+        The targets of the dataset. May be None if no targets are available.
+        """
         return self._targets
 
     @property
     def profile(self) -> Optional[Any]:
         """
-        TODO: Numpy docs
+        A profile of the dataset. May be None if no profile is available.
         """
         return {
             "shape": self._features.shape,
+            "size": self._features.size,
+            "nbytes": self._features.nbytes,
         }
 
-    @property
-    def schema(self) -> Schema:
+    @cached_property
+    def schema(self) -> Optional[Schema]:
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
-        # TODO: Error handling
-        return _infer_schema(self._features)
+        try:
+            return _infer_schema(self._features)
+        except Exception as e:
+            _logger._warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
+            return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
         Converts the dataset to a collection of pyfunc inputs and outputs for model
         evaluation. Required for use with mlflow.evaluate().
-        May not be implemented by all datasets.
         """
         return PyFuncInputsOutputs(self._features, self._targets)
 
 
 def from_numpy(
     features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
-    source: str,
+    source: Union[str, DatasetSource],
     targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> NumpyDataset:
     """
+    Constructs a NumpyDataset object from NumPy features, optional targets, and source.
+    If the source is path like, then this will construct a DatasetSource object from the source
+    path. Otherwise, the source is assumed to be a DatasetSource object.
     :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
                     or dictionary of named np.ndarrays.
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
-                    path, an S3 URI, an HTTPS URL etc. Attempting to use other source
-                     types will throw.
+                    path, an S3 URI, an HTTPS URL etc. If source is not a path like string,
+                    pass in a DatasetSource object directly.
     :param targets: Optional NumPy targets, represented as an np.ndarray, list of
                     np.ndarrays or dictionary of named np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.
@@ -142,9 +140,7 @@ def from_numpy(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source: FileSystemDatasetSource = resolve_dataset_source(
-        source, candidate_sources=[FileSystemDatasetSource]
-    )
+    resolved_source = resolve_dataset_source(source)
     return NumpyDataset(
         features=features, source=resolved_source, targets=targets, name=name, digest=digest
     )
