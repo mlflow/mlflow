@@ -395,7 +395,7 @@ class TrackingServiceClient:
 
     def log_inputs(self, run_id, datasets=()):
         """
-        Log multiple dataset inputs
+        Log multiple dataset inputs to a run.
 
         :param run_id: String ID of the run
         :param datasets: If provided, List of DatasetInput(dataset, tags) instances.

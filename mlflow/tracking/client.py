@@ -991,7 +991,7 @@ class MlflowClient:
         datasets: Sequence[DatasetInput] = (),
     ) -> None:
         """
-        Log multiple dataset inputs
+        Log multiple dataset inputs to a run.
 
         :param run_id: String ID of the run
         :param datasets: If provided, List of DatasetInput(dataset, tags) instances.

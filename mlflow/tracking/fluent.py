@@ -2,6 +2,7 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+import json
 import os
 
 import atexit
@@ -10,7 +11,19 @@ import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.data.dataset import Dataset
+from mlflow.entities import (
+    Experiment,
+    Run,
+    RunStatus,
+    Param,
+    RunTag,
+    Metric,
+    ViewType,
+    Dataset as DatasetEntity,
+    InputTag,
+    DatasetInput,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -702,12 +715,12 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
-def log_inputs(datasets: Dict[str, Any]) -> None:
+def log_input(dataset: Dataset, context: str) -> None:
     """
-    Log a batch of datasets for the current run.
+    Log a dataset used in the current run.
 
-    :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
-                   not)
+    :param dataset: mlflow.data.Dataset object to be logged.
+    :param context: Context in which the dataset is used. For example: "training", "testing".
     :returns: None
 
     .. test-code-block:: python
@@ -715,15 +728,33 @@ def log_inputs(datasets: Dict[str, Any]) -> None:
 
         import mlflow
 
-        params = {"learning_rate": 0.01, "n_estimators": 10}
+        df = pd.read_csv("data.csv")
+        dataset = mlflow.data.from_pandas(df, source="data.csv")
 
         # Log a batch of parameters
         with mlflow.start_run():
-            mlflow.log_params(params)
+            mlflow.log_input(dataset, context="training")
     """
     run_id = _get_or_start_run().info.run_id
-    datasets_arr = [Param(key, str(value)) for key, value in params.items()]
-    MlflowClient().log_inputs(run_id=run_id, datasets=datasets_arr)
+    dataset_dict = json.loads(dataset.to_json())
+    dataset_input = DatasetInput(
+        dataset=DatasetEntity(
+            name=dataset_dict["name"],
+            digest=dataset_dict["digest"],
+            source_type=dataset_dict["source_type"],
+            source=dataset_dict["source"],
+            schema=dataset_dict.schema if "schema" in dataset_dict else None,
+            profile=dataset_dict.profile if "profile" in dataset_dict else None,
+        ),
+        tags=[
+            InputTag(
+                key="mlflow.input.context",
+                value=context,
+            )
+        ],
+    )
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
