@@ -172,7 +172,11 @@ ENABLE_MLSERVER = click.option(
     "--enable-mlserver",
     is_flag=True,
     default=False,
-    help="Enable serving with MLServer through the v2 inference protocol.",
+    help=(
+        "Enable serving with MLServer through the v2 inference protocol. "
+        "You can use environment variables to configure MLServer. "
+        "(See https://mlserver.readthedocs.io/en/latest/reference/settings.html)"
+    ),
 )
 
 ARTIFACTS_DESTINATION = click.option(

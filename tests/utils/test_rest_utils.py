@@ -14,6 +14,7 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     call_endpoint,
     call_endpoints,
+    augmented_raise_for_status,
     _can_parse_as_json_object,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -263,6 +264,26 @@ def test_http_request_server_cert_path(request):
 
 
 @mock.patch("requests.Session.request")
+def test_http_request_with_content_type_header(request):
+    host_only = MlflowHostCreds("http://my-host", token="my-token")
+    response = mock.MagicMock()
+    response.status_code = 200
+    request.return_value = response
+    extra_headers = {"Content-Type": "text/plain"}
+    http_request(host_only, "/my/endpoint", "GET", extra_headers=extra_headers)
+    headers = DefaultRequestHeaderProvider().request_headers()
+    headers["Authorization"] = "Bearer my-token"
+    headers["Content-Type"] = "text/plain"
+    request.assert_called_with(
+        "GET",
+        "http://my-host/my/endpoint",
+        verify=True,
+        headers=headers,
+        timeout=120,
+    )
+
+
+@mock.patch("requests.Session.request")
 def test_http_request_request_headers(request):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
@@ -485,3 +506,20 @@ def test_http_request_explains_how_to_increase_timeout_in_error_message():
             ),
         ):
             http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
+
+
+def test_augmented_raise_for_status():
+    response = requests.Response()
+    response.status_code = 403
+    response._content = b"Token expired"
+
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        response = requests.get("https://github.com/mlflow/mlflow.git")
+        mock_request.assert_called_once()
+
+    with pytest.raises(requests.HTTPError, match="Token expired") as e:
+        augmented_raise_for_status(response)
+
+    assert e.value.response == response
+    assert e.value.request == response.request
+    assert response.text in str(e.value)

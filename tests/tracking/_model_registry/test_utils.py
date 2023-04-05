@@ -4,11 +4,10 @@ import os
 import pytest
 from unittest import mock
 
-import mlflow.tracking
-from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.utils import _get_store, get_registry_uri, set_registry_uri
 from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
@@ -132,11 +131,8 @@ def test_get_store_caches_on_store_uri(tmpdir):
 
 
 @pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
-def test_get_store_raises_on_uc_registry_uri(store_uri, reset_registry_uri):
-    set_registry_uri(store_uri)
-    client = mlflow.tracking.MlflowClient()
-    with pytest.raises(MlflowException, match="does not support models in the Unity Catalog"):
-        client.search_registered_models()
+def test_get_store_uc_registry_uri(store_uri, reset_registry_uri):
+    assert isinstance(_get_store(store_uri), UcModelRegistryStore)
 
 
 def test_store_object_can_be_serialized_by_pickle():

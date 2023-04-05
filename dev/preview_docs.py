@@ -22,6 +22,24 @@ class Session(requests.Session):
         return resp.json()
 
 
+MARKER = "<!-- documentation preview -->"
+
+
+def upsert_comment(session, repo, pull_number, comment_body):
+    comments = session.get(f"https://api.github.com/repos/{repo}/issues/{pull_number}/comments")
+    preview_docs_comment = next(filter(lambda c: MARKER in c["body"], comments), None)
+    comment_body_with_marker = MARKER + "\n\n" + comment_body
+    if preview_docs_comment is None:
+        print("Creating comment")
+        session.post(
+            f"https://api.github.com/repos/{repo}/issues/{pull_number}/comments",
+            json={"body": comment_body_with_marker},
+        )
+    else:
+        print("Updating comment")
+        session.patch(preview_docs_comment["url"], json={"body": comment_body_with_marker})
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit-sha", required=True)
@@ -54,7 +72,7 @@ def main():
         time.sleep(3)
     else:
         print(f"Could not find {build_doc_job_name} job status")
-        comment = f"""
+        comment_body = f"""
 Failed to find a documentation preview for {args.commit_sha}.
 
 <details>
@@ -68,10 +86,7 @@ Failed to find a documentation preview for {args.commit_sha}.
 
 </details>
 """
-        session.post(
-            f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments",
-            json={"body": comment},
-        )
+        upsert_comment(session, repo, args.pull_number, comment_body)
         return
 
     # Get the artifact URL of the top level index.html
@@ -85,14 +100,7 @@ Failed to find a documentation preview for {args.commit_sha}.
     print(f"Artifact URL: {artifact_url}")
 
     # Post the artifact URL as a comment
-    comments = session.get(
-        f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments"
-    )
-    marker = "<!-- documentation preview -->"
-    preview_docs_comment = next(filter(lambda c: marker in c["body"], comments), None)
     comment_body = f"""
-{marker}
-
 Documentation preview for {args.commit_sha} will be available [here]({artifact_url}) when [this CircleCI job]({job_url}) completes successfully.
 
 <details>
@@ -105,15 +113,7 @@ Documentation preview for {args.commit_sha} will be available [here]({artifact_u
 
 </details>
 """
-    if preview_docs_comment is None:
-        print("Creating comment")
-        session.post(
-            f"https://api.github.com/repos/{repo}/issues/{args.pull_number}/comments",
-            json={"body": comment_body},
-        )
-    else:
-        print("Updating comment")
-        session.patch(preview_docs_comment["url"], json={"body": comment_body})
+    upsert_comment(session, repo, args.pull_number, comment_body)
 
 
 if __name__ == "__main__":

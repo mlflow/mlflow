@@ -267,6 +267,103 @@ def test_create_deployment_with_assume_role_arn(
     ]
 
 
+@mock_sagemaker_aws_services
+def test_create_deployment_with_async_config(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "deploy_with_async_config"
+    expected_async_inference_config = {
+        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+        "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
+    }
+    sagemaker_deployment_client.create_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+        config={"async_inference_config": expected_async_inference_config},
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    endpoint_config = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=target_config["EndpointConfigName"]
+    )
+    assert "AsyncInferenceConfig" in endpoint_config
+    assert endpoint_config["AsyncInferenceConfig"] == expected_async_inference_config
+
+
+@mock_sagemaker_aws_services
+def test_create_deployment_without_async_config(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "deploy_without_endpoint_config"
+    sagemaker_deployment_client.create_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    assert "AsyncInferenceConfig" not in target_config
+
+
+@mock_sagemaker_aws_services
+def test_update_deployment_with_async_config_when_endpoint_exists(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "update_deploy_with_async_config"
+    expected_async_inference_config = {
+        "ClientConfig": {"MaxConcurrentInvocationsPerInstance": 4},
+        "OutputConfig": {"S3OutputPath": "s3://bucket_name/", "NotificationConfig": {}},
+    }
+    sagemaker_deployment_client.create_deployment(
+        name=app_name, model_uri=pretrained_model.model_uri
+    )
+    sagemaker_deployment_client.update_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+        config={"async_inference_config": expected_async_inference_config},
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    endpoint_config = sagemaker_client.describe_endpoint_config(
+        EndpointConfigName=target_config["EndpointConfigName"]
+    )
+    assert "AsyncInferenceConfig" in endpoint_config
+    assert endpoint_config["AsyncInferenceConfig"] == expected_async_inference_config
+
+
+@mock_sagemaker_aws_services
+def test_update_deployment_without_async_config(
+    pretrained_model, sagemaker_client, sagemaker_deployment_client
+):
+    app_name = "deploy_without_async_config"
+    sagemaker_deployment_client.update_deployment(
+        name=app_name,
+        model_uri=pretrained_model.model_uri,
+    )
+    configs = sagemaker_client.list_endpoint_configs()
+    target_config = None
+    for config in configs["EndpointConfigs"]:
+        if app_name in config["EndpointConfigName"]:
+            target_config = config
+    if target_config is None:
+        raise Exception("Endpoint config not found")
+    assert "AsyncInferenceConfig" not in target_config
+
+
 def test_create_deployment_with_unsupported_flavor_raises_exception(
     pretrained_model, sagemaker_deployment_client
 ):
@@ -362,7 +459,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
         "GUNCORN_CMD_ARGS": '"--timeout 60"',
-        "DISABLE_NGINX": "1",
+        "DISABLE_NGINX": "true",
     }
 
     if proxies_enabled:
@@ -378,7 +475,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
                 name=name,
                 model_uri=pretrained_model.model_uri,
                 config=dict(
-                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
                 ),
             )
     else:
@@ -388,7 +485,7 @@ def test_create_deployment_create_sagemaker_and_s3_resources_with_expected_names
                 name=name,
                 model_uri=pretrained_model.model_uri,
                 config=dict(
-                    env={"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
+                    env={"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'},
                 ),
             )
 
@@ -425,12 +522,12 @@ def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_and_e
 ):
     region_name = sagemaker_client.meta.region_name
     environment_variables = {"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}
-    override_environment_variables = {"DISABLE_NGINX": "1", "GUNCORN_CMD_ARGS": '"--timeout 60"'}
+    override_environment_variables = {"DISABLE_NGINX": "true", "GUNCORN_CMD_ARGS": '"--timeout 60"'}
     expected_model_environment = {
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
         "GUNCORN_CMD_ARGS": '"--timeout 60"',
-        "DISABLE_NGINX": "1",
+        "DISABLE_NGINX": "true",
     }
 
     if proxies_enabled:

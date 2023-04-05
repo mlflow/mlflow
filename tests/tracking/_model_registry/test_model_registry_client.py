@@ -29,10 +29,12 @@ def mock_store():
 
 
 def newModelRegistryClient():
-    return ModelRegistryClient("uri:/fake")
+    return ModelRegistryClient("uri:/fake", "uri:/fake")
 
 
-def _model_version(name, version, stage, source="some:/source", run_id="run13579", tags=None):
+def _model_version(
+    name, version, stage, source="some:/source", run_id="run13579", tags=None, aliases=None
+):
     return ModelVersion(
         name,
         version,
@@ -44,6 +46,7 @@ def _model_version(name, version, stage, source="some:/source", run_id="run13579
         source,
         run_id,
         tags=tags,
+        aliases=aliases,
     )
 
 
@@ -388,3 +391,23 @@ def test_set_model_version_tag(mock_store):
 def test_delete_model_version_tag(mock_store):
     newModelRegistryClient().delete_model_version_tag("Model 1", "1", "key")
     mock_store.delete_model_version_tag.assert_called_once()
+
+
+def test_set_registered_model_alias(mock_store):
+    newModelRegistryClient().set_registered_model_alias("Model 1", "test_alias", "1")
+    mock_store.set_registered_model_alias.assert_called_once()
+
+
+def test_delete_registered_model_alias(mock_store):
+    newModelRegistryClient().delete_registered_model_alias("Model 1", "test_alias")
+    mock_store.delete_registered_model_alias.assert_called_once()
+
+
+def test_get_model_version_by_alias(mock_store):
+    mock_store.get_model_version_by_alias.return_value = _model_version(
+        "Model 1", "12", "Production", aliases=["test_alias"]
+    )
+    result = newModelRegistryClient().get_model_version_by_alias("Model 1", "test_alias")
+    mock_store.get_model_version_by_alias.assert_called_once()
+    assert result.name == "Model 1"
+    assert result.aliases == ["test_alias"]

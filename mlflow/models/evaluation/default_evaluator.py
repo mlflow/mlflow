@@ -575,7 +575,8 @@ class DefaultEvaluator(ModelEvaluator):
     ):
         from matplotlib import pyplot
 
-        artifact_file_name = f"{artifact_name}.png"
+        prefix = self.evaluator_config.get("metric_prefix", "")
+        artifact_file_name = f"{prefix}{artifact_name}.png"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
 
         try:
