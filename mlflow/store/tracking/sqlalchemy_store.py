@@ -1248,7 +1248,7 @@ class SqlAlchemyStore(AbstractStore):
         :return: None.
         """
         # TODO: Implement log_inputs() for SQLAlchemyStore
-        raise NotImplementedError
+        pass
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):

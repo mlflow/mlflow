@@ -337,4 +337,4 @@ class RestStore(AbstractStore):
         :return: None.
         """
         # TODO: Implement log_inputs() for RestStore
-        raise NotImplementedError
+        pass
