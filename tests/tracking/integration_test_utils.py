@@ -1,17 +1,15 @@
 from subprocess import Popen
 
-from unittest import mock
+import sys
 import os
 from threading import Thread
 
 import logging
 import socket
 import time
-import tempfile
 
 import mlflow
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
-from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 _logger = logging.getLogger(__name__)
@@ -53,7 +51,7 @@ def _await_server_down_or_die(process, timeout=60):
         raise Exception("Server failed to shutdown after %s seconds" % timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri):
+def _init_server(backend_uri, root_artifact_uri, extra_env=None):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -62,26 +60,31 @@ def _init_server(backend_uri, root_artifact_uri):
     """
     mlflow.set_tracking_uri(None)
     server_port = get_safe_port()
-    env = {
-        BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
-            tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))
-        ),
-    }
-    with mock.patch.dict(os.environ, env):
-        cmd = [
-            "python",
+    process = Popen(
+        [
+            sys.executable,
             "-c",
-            'from mlflow.server import app; app.run("{hostname}", {port})'.format(
-                hostname=LOCALHOST, port=server_port
-            ),
-        ]
-        process = Popen(cmd)
+            f'from mlflow.server import app; app.run("{LOCALHOST}", {server_port})',
+        ],
+        env={
+            **os.environ,
+            BACKEND_STORE_URI_ENV_VAR: backend_uri,
+            ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
+            **(extra_env or {}),
+        },
+    )
 
     _await_server_up_or_die(server_port)
-    url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
+    url = f"http://{LOCALHOST}:{server_port}"
     _logger.info(f"Launching tracking server against backend URI {backend_uri}. Server URL: {url}")
     return url, process
+
+
+def _terminate_server(process, timeout=10):
+    """Waits until the local flask server process is terminated."""
+    _logger.info("Terminating server...")
+    process.terminate()
+    process.wait(timeout=timeout)
 
 
 def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload):

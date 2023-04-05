@@ -10,11 +10,13 @@ import pytest
 import logging
 import tempfile
 import urllib.parse
+import requests
 from unittest import mock
 
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.server.handlers import validate_path_is_safe
 from mlflow.models import Model
 
 import mlflow.pyfunc
@@ -33,9 +35,9 @@ from mlflow.utils.time_utils import get_current_time_millis
 
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
-    _await_server_down_or_die,
     _init_server,
     _send_rest_tracking_post_request,
+    _terminate_server,
 )
 
 
@@ -46,18 +48,17 @@ _logger = logging.getLogger(__name__)
 def mlflow_client(request, tmp_path):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     if request.param == "file":
-        uri = path_to_local_file_uri(str(tmp_path.joinpath("file")))
+        backend_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
-        path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
-        uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
+        path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
 
-    url, process = _init_server(backend_uri=uri, root_artifact_uri=str(tmp_path))
-
+    url, process = _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri())
     yield MlflowClient(url)
 
-    _logger.info(f"Terminating server at {url}...")
-    process.terminate()
-    _await_server_down_or_die(process)
+    _terminate_server(process)
 
 
 @pytest.fixture()
@@ -770,3 +771,237 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["ab"]
     experiments = mlflow_client.search_experiments(view_type=ViewType.ALL)
     assert [e.name for e in experiments] == ["ab", "Abc", "a", "Default"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "path",
+        "path/",
+        "path/to/file",
+    ],
+)
+def test_validate_path_is_safe_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "../path",
+        "../../path",
+        "./../path",
+        "path/../to/file",
+        "path/../../to/file",
+    ],
+)
+def test_validate_path_is_safe_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+def test_path_validation(mlflow_client, request):
+    experiment_id = mlflow_client.create_experiment("tags validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+    invalid_path = "../path"
+
+    def assert_response(resp):
+        assert resp.status_code == 400
+        assert response.json() == {
+            "error_code": "INVALID_PARAMETER_VALUE",
+            "message": f"Invalid path: {invalid_path}",
+        }
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/artifacts/list",
+        params={"run_id": run_id, "path": invalid_path},
+    )
+    assert_response(response)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/get-artifact",
+        params={"run_id": run_id, "path": invalid_path},
+    )
+    assert_response(response)
+
+    if request.node.name.endswith("[sqlalchemy]"):
+        response = requests.get(
+            f"{mlflow_client.tracking_uri}/model-versions/get-artifact",
+            params={"name": "model", "version": 1, "path": invalid_path},
+        )
+        assert_response(response)
+
+
+def test_create_model_version_with_path_source(mlflow_client, request):
+    if request.node.name.endswith("[file]"):
+        pytest.skip("Model registry doesn't support file store")
+
+    name = "mode"
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    mlflow_client.create_registered_model(name)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri[len("file://") :],
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # run_id is not specified
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri[len("file://") :],
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    # run_id is specified but source is not in the run's artifact directory
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "/tmp",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+
+def test_create_model_version_with_file_uri(mlflow_client, request):
+    if request.node.name.endswith("[file]"):
+        pytest.skip("Model registry doesn't support file store")
+
+    name = "test"
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    mlflow_client.create_registered_model(name)
+    assert run.info.artifact_uri.startswith("file://")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/.",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model/..",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # run_id is not specified
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    # run_id is specified but source is not in the run's artifact directory
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///tmp",
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file://123.456.789.123/path/to/source",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "MLflow tracking server doesn't allow" in response.json()["message"]
+
+
+def test_create_model_version_with_file_uri_env_var(tmp_path, request):
+    if request.node.name.endswith("[file]"):
+        pytest.skip("Model registry doesn't support file store")
+
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+        len("file://") :
+    ]
+    url, process = _init_server(
+        backend_uri,
+        root_artifact_uri=tmp_path.as_uri(),
+        extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
+    )
+    try:
+        mlflow_client = MlflowClient(url)
+
+        name = "test"
+        exp_id = mlflow_client.create_experiment("test")
+        run = mlflow_client.create_run(experiment_id=exp_id)
+        mlflow_client.create_registered_model(name)
+
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+            json={
+                "name": name,
+                "source": "file://123.456.789.123/path/to/source",
+                "run_id": run.info.run_id,
+            },
+        )
+        assert response.status_code == 200
+    finally:
+        _terminate_server(process)
+
+
+def test_logging_model_with_local_artifact_uri(mlflow_client, request):
+    if request.node.name.endswith("[file]"):
+        pytest.skip("Model registry doesn't support file store")
+
+    from sklearn.linear_model import LogisticRegression
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    with mlflow.start_run() as run:
+        assert run.info.artifact_uri.startswith("file://")
+        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.pyfunc.load_model("models:/rmn/1")

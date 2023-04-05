@@ -1,10 +1,12 @@
 import posixpath
 import urllib.parse
+import pathlib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.validation import _validate_db_type_string
+from mlflow.utils.os import is_windows
 
 _INVALID_DB_URI_MSG = (
     "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for "
@@ -17,8 +19,33 @@ _DBFS_HDFS_URI_PREFIX = "dbfs:/"
 
 def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
-    scheme = urllib.parse.urlparse(uri).scheme
-    return uri != "databricks" and (scheme == "" or scheme == "file")
+    if uri == "databricks":
+        return False
+
+    if is_windows() and uri.startswith("\\\\"):
+        # windows network drive path looks like: "\\<server name>\path\..."
+        return False
+
+    parsed_uri = urllib.parse.urlparse(uri)
+    if parsed_uri.hostname and not (
+        parsed_uri.hostname == "."
+        or parsed_uri.hostname.startswith("localhost")
+        or parsed_uri.hostname.startswith("127.0.0.1")
+    ):
+        return False
+
+    scheme = parsed_uri.scheme
+    if scheme == "" or scheme == "file":
+        return True
+
+    if is_windows() and len(scheme) == 1 and scheme.lower() == pathlib.Path(uri).drive.lower()[0]:
+        return True
+
+    return False
+
+
+def is_file_uri(uri):
+    return urllib.parse.urlparse(uri).scheme == "file"
 
 
 def is_http_uri(uri):
