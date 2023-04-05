@@ -44,3 +44,5 @@ pmdarima
 diviner
 # Required for Hugging Face testing with MLflow Tracking datasets
 datasets
+# Required by mlflow.transformers
+transformers

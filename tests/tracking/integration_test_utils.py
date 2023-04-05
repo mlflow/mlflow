@@ -13,7 +13,7 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 _logger = logging.getLogger(__name__)
 
 
-def _await_server_up_or_die(port, timeout=10):
+def _await_server_up_or_die(port, timeout=20):
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
@@ -38,7 +38,7 @@ def _terminate_server(process, timeout=10):
     process.wait(timeout=timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri):
+def _init_server(backend_uri, root_artifact_uri, extra_env=None):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -57,6 +57,7 @@ def _init_server(backend_uri, root_artifact_uri):
             **os.environ,
             BACKEND_STORE_URI_ENV_VAR: backend_uri,
             ARTIFACT_ROOT_ENV_VAR: root_artifact_uri,
+            **(extra_env or {}),
         },
     )
 

@@ -71,6 +71,7 @@ try:
     from mlflow import prophet
     from mlflow import pmdarima
     from mlflow import diviner
+    from mlflow import transformers
 
     _model_flavors_supported = [
         "catboost",
@@ -94,6 +95,7 @@ try:
         "prophet",
         "pmdarima",
         "diviner",
+        "transformers",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does

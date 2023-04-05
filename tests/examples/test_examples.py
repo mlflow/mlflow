@@ -162,6 +162,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("diviner", ["python", "train.py"]),
         ("spark_udf", ["python", "spark_udf_datetime.py"]),
         ("pyfunc", ["python", "train.py"]),
+        ("sktime", ["python", "train.py"]),
     ],
 )
 def test_command_example(directory, command):

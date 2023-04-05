@@ -6,6 +6,10 @@ _ML_PACKAGE_VERSIONS = {
         "package_info": {
             "pip_release": "scikit-learn"
         },
+        "models": {
+            "minimum": "0.22.1",
+            "maximum": "1.2.1"
+        },
         "autologging": {
             "minimum": "0.22.1",
             "maximum": "1.2.1"
@@ -14,6 +18,10 @@ _ML_PACKAGE_VERSIONS = {
     "pytorch": {
         "package_info": {
             "pip_release": "torch"
+        },
+        "models": {
+            "minimum": "1.6.0",
+            "maximum": "1.13.1"
         },
         "autologging": {
             "minimum": "1.6.0",
@@ -33,6 +41,10 @@ _ML_PACKAGE_VERSIONS = {
         "package_info": {
             "pip_release": "tensorflow"
         },
+        "models": {
+            "minimum": "2.3.0",
+            "maximum": "2.11.0"
+        },
         "autologging": {
             "minimum": "2.3.0",
             "maximum": "2.11.0"
@@ -41,6 +53,10 @@ _ML_PACKAGE_VERSIONS = {
     "xgboost": {
         "package_info": {
             "pip_release": "xgboost"
+        },
+        "models": {
+            "minimum": "1.1.1",
+            "maximum": "1.7.4"
         },
         "autologging": {
             "minimum": "1.1.1",
@@ -51,14 +67,31 @@ _ML_PACKAGE_VERSIONS = {
         "package_info": {
             "pip_release": "lightgbm"
         },
+        "models": {
+            "minimum": "2.3.1",
+            "maximum": "3.3.5"
+        },
         "autologging": {
             "minimum": "2.3.1",
             "maximum": "3.3.5"
         }
     },
+    "catboost": {
+        "package_info": {
+            "pip_release": "catboost"
+        },
+        "models": {
+            "minimum": "0.23.1",
+            "maximum": "1.1.1"
+        }
+    },
     "gluon": {
         "package_info": {
             "pip_release": "mxnet"
+        },
+        "models": {
+            "minimum": "1.5.1",
+            "maximum": "1.9.1"
         },
         "autologging": {
             "minimum": "1.5.1",
@@ -69,14 +102,40 @@ _ML_PACKAGE_VERSIONS = {
         "package_info": {
             "pip_release": "fastai"
         },
+        "models": {
+            "minimum": "2.4.1",
+            "maximum": "2.7.11"
+        },
         "autologging": {
             "minimum": "2.4.1",
             "maximum": "2.7.11"
         }
     },
+    "onnx": {
+        "package_info": {
+            "pip_release": "onnx"
+        },
+        "models": {
+            "minimum": "1.7.0",
+            "maximum": "1.13.1"
+        }
+    },
+    "spacy": {
+        "package_info": {
+            "pip_release": "spacy"
+        },
+        "models": {
+            "minimum": "2.2.4",
+            "maximum": "3.5.0"
+        }
+    },
     "statsmodels": {
         "package_info": {
             "pip_release": "statsmodels"
+        },
+        "models": {
+            "minimum": "0.11.1",
+            "maximum": "0.13.5"
         },
         "autologging": {
             "minimum": "0.11.1",
@@ -87,9 +146,85 @@ _ML_PACKAGE_VERSIONS = {
         "package_info": {
             "pip_release": "pyspark"
         },
+        "models": {
+            "minimum": "3.0.0",
+            "maximum": "3.4.0"
+        },
         "autologging": {
             "minimum": "3.0.0",
             "maximum": "3.4.0"
+        }
+    },
+    "mleap": {
+        "package_info": {
+            "pip_release": "mleap"
+        },
+        "models": {
+            "minimum": "0.18.0",
+            "maximum": "0.22.0"
+        }
+    },
+    "prophet": {
+        "package_info": {
+            "pip_release": "prophet"
+        },
+        "models": {
+            "minimum": "1.0.1",
+            "maximum": "1.1.2"
+        }
+    },
+    "pmdarima": {
+        "package_info": {
+            "pip_release": "pmdarima"
+        },
+        "models": {
+            "minimum": "1.8.0",
+            "maximum": "2.0.2"
+        }
+    },
+    "diviner": {
+        "package_info": {
+            "pip_release": "diviner"
+        },
+        "models": {
+            "minimum": "0.1.0",
+            "maximum": "0.1.1"
+        }
+    },
+    "h2o": {
+        "package_info": {
+            "pip_release": "h2o"
+        },
+        "models": {
+            "minimum": "3.40.0.1",
+            "maximum": "3.40.0.1"
+        }
+    },
+    "shap": {
+        "package_info": {
+            "pip_release": "shap"
+        },
+        "models": {
+            "minimum": "0.41.0",
+            "maximum": "0.41.0"
+        }
+    },
+    "paddle": {
+        "package_info": {
+            "pip_release": "paddlepaddle"
+        },
+        "models": {
+            "minimum": "2.4.1",
+            "maximum": "2.4.2"
+        }
+    },
+    "transformers": {
+        "package_info": {
+            "pip_release": "transformers"
+        },
+        "models": {
+            "minimum": "4.25.1",
+            "maximum": "4.27.4"
         }
     }
 }

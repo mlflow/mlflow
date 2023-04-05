@@ -5,6 +5,7 @@ import time
 import uuid
 import threading
 from functools import reduce
+from typing import List, Optional
 
 import math
 import sqlalchemy
@@ -12,7 +13,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import sql
 from sqlalchemy.future import select
 
-from mlflow.entities import RunTag, Metric
+from mlflow.entities import RunTag, Metric, DatasetInput
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -958,12 +959,13 @@ class SqlAlchemyStore(AbstractStore):
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) > 0:
                     old_value = existing_params[0]
-                    raise MlflowException(
-                        "Changing param values is not allowed. Param with key='{}' was already"
-                        " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                        " '{}'.".format(param.key, old_value, run_id, param.value),
-                        INVALID_PARAMETER_VALUE,
-                    )
+                    if old_value != param.value:
+                        raise MlflowException(
+                            "Changing param values is not allowed. Param with key='{}' was already"
+                            " logged with value='{}' for run ID='{}'. Attempted logging new value"
+                            " '{}'.".format(param.key, old_value, run_id, param.value),
+                            INVALID_PARAMETER_VALUE,
+                        )
                 else:
                     raise
 
@@ -1235,6 +1237,19 @@ class SqlAlchemyStore(AbstractStore):
                 value = json.dumps([model_dict])
             _validate_tag(MLFLOW_LOGGED_MODELS, value)
             session.merge(SqlTag(key=MLFLOW_LOGGED_MODELS, value=value, run_uuid=run_id))
+
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+        """
+        Log inputs, such as datasets, to the specified run.
+
+        :param run_id: String id for the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                         as inputs to the run.
+
+        :return: None.
+        """
+        # TODO: Implement log_inputs() for SQLAlchemyStore
+        pass
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):

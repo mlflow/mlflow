@@ -37,7 +37,7 @@ pytorch:
   models:
     minimum: "1.6.0"
     maximum: "1.13.1"
-    requirements::
+    requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
@@ -319,6 +319,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["boto3", "scikit-learn", "pyarrow"]
+      "<= 3.3.2": ["pandas<2"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -339,6 +340,7 @@ spark:
     allow_unreleased_max_version: True
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "<= 3.3.2": ["pandas<2"]
     run: |
       find tests/spark/autologging/ml -name 'test*.py' | xargs -L 1 pytest
 
@@ -454,3 +456,16 @@ paddle:
     maximum: "2.4.1"
     run: |
       pytest tests/paddle/test_paddle_autolog.py
+
+transformers:
+  package_info:
+    pip_release: "transformers"
+    install_dev: |
+      pip install git+https://github.com/huggingface/transformers
+  models:
+    minimum: "4.25.1"
+    maximum: "4.27.4"
+    requirements:
+      ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow"]
+    run: |
+      pytest tests/transformers/test_transformers_model_export.py

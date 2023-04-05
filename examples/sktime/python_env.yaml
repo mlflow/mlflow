@@ -1,0 +1,6 @@
+python: "3.8"
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow<3,>=2.1
+  - sktime==0.16.0
