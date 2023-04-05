@@ -2364,3 +2364,16 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         run2,
         [expected_dataset1_storage_id, expected_dataset2_storage_id, expected_dataset3_storage_id],
     )
+
+
+def test_log_inputs_handles_case_when_no_datasets_are_specified(store):
+    exp_id = store.create_experiment("log_input_no_datasets")
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=0,
+        tags=[],
+        run_name=None,
+    )
+    store.log_inputs(run.info.run_id)
+    store.log_inputs(run.info.run_id, datasets=None)
