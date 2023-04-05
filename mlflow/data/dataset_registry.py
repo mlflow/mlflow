@@ -163,3 +163,10 @@ try:
     _dataset_registry.register_constructor(from_huggingface)
 except ImportError:
     pass
+try:
+    from mlflow.data.spark_dataset import load_delta, from_spark
+
+    _dataset_registry.register_constructor(load_delta)
+    _dataset_registry.register_constructor(from_spark)
+except ImportError:
+    pass
