@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import Optional, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.entities import Dataset as DatasetEntity
 
 
 class Dataset:
@@ -113,3 +114,16 @@ class Dataset:
         :return: The schema of the dataset, e.g. an instance of `mlflow.types.Schema`. Returns None
                  if no schema is defined for the dataset.
         """
+
+    def _to_mlflow_entity(self) -> DatasetEntity:
+        """
+        :return: A DatasetEntity instance representing the dataset.
+        """
+        return DatasetEntity(
+            name=self.name,
+            digest=self.digest,
+            source_type=self._source._get_source_type(),
+            source=self._source.to_json(),
+            schema=self.schema,
+            profile=self.profile,
+        )

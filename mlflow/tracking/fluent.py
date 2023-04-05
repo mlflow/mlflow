@@ -2,7 +2,6 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
-import json
 import os
 
 import atexit
@@ -20,7 +19,6 @@ from mlflow.entities import (
     RunTag,
     Metric,
     ViewType,
-    Dataset as DatasetEntity,
     InputTag,
     DatasetInput,
 )
@@ -715,12 +713,14 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
-def log_input(dataset: Dataset, context: str) -> None:
+def log_input(dataset: Dataset, context: str = None, tags: Dict[str, str] = None) -> None:
     """
     Log a dataset used in the current run.
 
     :param dataset: mlflow.data.Dataset object to be logged.
     :param context: Context in which the dataset is used. For example: "training", "testing".
+                    This will be set as a tag with key `mlflow.data.context`.
+    :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
     :returns: None
 
     .. test-code-block:: python
@@ -736,23 +736,13 @@ def log_input(dataset: Dataset, context: str) -> None:
             mlflow.log_input(dataset, context="training")
     """
     run_id = _get_or_start_run().info.run_id
-    dataset_dict = json.loads(dataset.to_json())
-    dataset_input = DatasetInput(
-        dataset=DatasetEntity(
-            name=dataset_dict["name"],
-            digest=dataset_dict["digest"],
-            source_type=dataset_dict["source_type"],
-            source=dataset_dict["source"],
-            schema=dataset_dict.schema if "schema" in dataset_dict else None,
-            profile=dataset_dict.profile if "profile" in dataset_dict else None,
-        ),
-        tags=[
-            InputTag(
-                key="mlflow.input.context",
-                value=context,
-            )
-        ],
-    )
+    tags_to_log = []
+    if tags:
+        tags_to_log.append([InputTag(key=key, value=value) for key, value in tags.items()])
+    if context:
+        tags_to_log.append(InputTag(key="mlflow.data.context", value=context))
+
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
 
     MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 

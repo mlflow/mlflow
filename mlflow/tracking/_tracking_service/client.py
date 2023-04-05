@@ -393,7 +393,7 @@ class TrackingServiceClient:
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
-    def log_inputs(self, run_id, datasets=()):
+    def log_inputs(self, run_id, datasets=None):
         """
         Log multiple dataset inputs to a run.
 
@@ -403,7 +403,7 @@ class TrackingServiceClient:
         Raises an MlflowException if any errors occur.
         :return: None
         """
-        if len(datasets) == 0:
+        if datasets is None or len(datasets) == 0:
             return
 
         self.store.log_inputs(run_id=run_id, datasets=datasets)
