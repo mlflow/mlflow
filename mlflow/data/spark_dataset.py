@@ -180,7 +180,7 @@ def load_delta(
     if name is None and table_name is not None:
         name = table_name + (f"v{version}" if version is not None else "")
 
-    source = DeltaDatasetSource(path=path, table_name=table_name, version=version)
+    source = DeltaDatasetSource(path=path, delta_table_name=table_name, delta_table_version=version)
     df: DataFrame = source.load()
 
     return SparkDataset(
@@ -251,7 +251,7 @@ def from_spark(
     elif path is not None:
         if _is_delta_table_path(path):
             version = version or _try_get_delta_table_latest_version_from_path(path)
-            source = DeltaDatasetSource(path=path, version=version)
+            source = DeltaDatasetSource(path=path, delta_table_version=version)
         elif version is None:
             source = SparkDatasetSource(path=path)
         else:
@@ -264,8 +264,8 @@ def from_spark(
         if _is_delta_table(table_name):
             version = version or _try_get_delta_table_latest_version_from_table_name(table_name)
             source = DeltaDatasetSource(
-                table_name=table_name,
-                version=version,
+                delta_table_name=table_name,
+                delta_table_version=version,
             )
         elif version is None:
             source = SparkDatasetSource(table_name=table_name)
