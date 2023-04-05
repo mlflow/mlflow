@@ -130,7 +130,6 @@ def get_registered_constructors() -> Dict[str, ConstructorFunction]:
 
 _dataset_registry = DatasetRegistry()
 _dataset_registry.register_entrypoints()
-
 try:
     from mlflow.data.pandas_dataset import from_pandas
 
