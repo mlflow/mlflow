@@ -1408,109 +1408,6 @@ public final class Databricks {
     // @@protoc_insertion_point(enum_scope:mlflow.ErrorCode)
   }
 
-  /**
-   * <pre>
-   * .. note::
-   *     Experimental: This API may change or be removed in a future release without warning.
-   * Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can
-   * have an input relationship.
-   * </pre>
-   *
-   * Protobuf enum {@code mlflow.InputVertexType}
-   */
-  public enum InputVertexType
-      implements com.google.protobuf.ProtocolMessageEnum {
-    /**
-     * <code>RUN = 1;</code>
-     */
-    RUN(1),
-    /**
-     * <code>DATASET = 2;</code>
-     */
-    DATASET(2),
-    ;
-
-    /**
-     * <code>RUN = 1;</code>
-     */
-    public static final int RUN_VALUE = 1;
-    /**
-     * <code>DATASET = 2;</code>
-     */
-    public static final int DATASET_VALUE = 2;
-
-
-    public final int getNumber() {
-      return value;
-    }
-
-    /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
-     * @deprecated Use {@link #forNumber(int)} instead.
-     */
-    @java.lang.Deprecated
-    public static InputVertexType valueOf(int value) {
-      return forNumber(value);
-    }
-
-    /**
-     * @param value The numeric wire value of the corresponding enum entry.
-     * @return The enum associated with the given numeric wire value.
-     */
-    public static InputVertexType forNumber(int value) {
-      switch (value) {
-        case 1: return RUN;
-        case 2: return DATASET;
-        default: return null;
-      }
-    }
-
-    public static com.google.protobuf.Internal.EnumLiteMap<InputVertexType>
-        internalGetValueMap() {
-      return internalValueMap;
-    }
-    private static final com.google.protobuf.Internal.EnumLiteMap<
-        InputVertexType> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<InputVertexType>() {
-            public InputVertexType findValueByNumber(int number) {
-              return InputVertexType.forNumber(number);
-            }
-          };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor
-        getValueDescriptor() {
-      return getDescriptor().getValues().get(ordinal());
-    }
-    public final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptorForType() {
-      return getDescriptor();
-    }
-    public static final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.getDescriptor().getEnumTypes().get(2);
-    }
-
-    private static final InputVertexType[] VALUES = values();
-
-    public static InputVertexType valueOf(
-        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
-      if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException(
-          "EnumValueDescriptor is not for this type.");
-      }
-      return VALUES[desc.getIndex()];
-    }
-
-    private final int value;
-
-    private InputVertexType(int value) {
-      this.value = value;
-    }
-
-    // @@protoc_insertion_point(enum_scope:mlflow.InputVertexType)
-  }
-
   public interface DatabricksRpcOptionsOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.DatabricksRpcOptions)
       com.google.protobuf.MessageOrBuilder {
@@ -7620,33 +7517,32 @@ public final class Databricks {
       "ON_ALREADY_EXISTS\020\304F\022\034\n\027PROVIDER_ALREADY" +
       "_EXISTS\020\305F\022\026\n\021CATALOG_NOT_EMPTY\020\320F\022\025\n\020SC" +
       "HEMA_NOT_EMPTY\020\321F\022\030\n\023METASTORE_NOT_EMPTY" +
-      "\020\322F\022\"\n\035PROVIDER_SHARE_NOT_ACCESSIBLE\020\344F*" +
-      "\'\n\017InputVertexType\022\007\n\003RUN\020\001\022\013\n\007DATASET\020\002" +
-      ":G\n\nvisibility\022\035.google.protobuf.FieldOp" +
-      "tions\030\356\220\003 \001(\0162\022.mlflow.Visibility::\n\021val" +
-      "idate_required\022\035.google.protobuf.FieldOp" +
-      "tions\030\357\220\003 \001(\010:4\n\013json_inline\022\035.google.pr" +
-      "otobuf.FieldOptions\030\360\220\003 \001(\010:1\n\010json_map\022" +
-      "\035.google.protobuf.FieldOptions\030\361\220\003 \001(\010:Q" +
-      "\n\tfield_doc\022\035.google.protobuf.FieldOptio" +
-      "ns\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetadat" +
-      "a:K\n\003rpc\022\036.google.protobuf.MethodOptions" +
-      "\030\356\220\003 \001(\0132\034.mlflow.DatabricksRpcOptions:S" +
-      "\n\nmethod_doc\022\036.google.protobuf.MethodOpt" +
-      "ions\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetad" +
-      "ata:U\n\013message_doc\022\037.google.protobuf.Mes" +
-      "sageOptions\030\362\220\003 \003(\0132\035.mlflow.Documentati" +
-      "onMetadata:U\n\013service_doc\022\037.google.proto" +
-      "buf.ServiceOptions\030\362\220\003 \003(\0132\035.mlflow.Docu" +
-      "mentationMetadata:O\n\010enum_doc\022\034.google.p" +
-      "rotobuf.EnumOptions\030\362\220\003 \003(\0132\035.mlflow.Doc" +
-      "umentationMetadata:V\n\025enum_value_visibil" +
-      "ity\022!.google.protobuf.EnumValueOptions\030\356" +
-      "\220\003 \001(\0162\022.mlflow.Visibility:Z\n\016enum_value" +
-      "_doc\022!.google.protobuf.EnumValueOptions\030" +
-      "\362\220\003 \003(\0132\035.mlflow.DocumentationMetadataB*" +
-      "\n#com.databricks.api.proto.databricks\342?\002" +
-      "\020\001"
+      "\020\322F\022\"\n\035PROVIDER_SHARE_NOT_ACCESSIBLE\020\344F:" +
+      "G\n\nvisibility\022\035.google.protobuf.FieldOpt" +
+      "ions\030\356\220\003 \001(\0162\022.mlflow.Visibility::\n\021vali" +
+      "date_required\022\035.google.protobuf.FieldOpt" +
+      "ions\030\357\220\003 \001(\010:4\n\013json_inline\022\035.google.pro" +
+      "tobuf.FieldOptions\030\360\220\003 \001(\010:1\n\010json_map\022\035" +
+      ".google.protobuf.FieldOptions\030\361\220\003 \001(\010:Q\n" +
+      "\tfield_doc\022\035.google.protobuf.FieldOption" +
+      "s\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetadata" +
+      ":K\n\003rpc\022\036.google.protobuf.MethodOptions\030" +
+      "\356\220\003 \001(\0132\034.mlflow.DatabricksRpcOptions:S\n" +
+      "\nmethod_doc\022\036.google.protobuf.MethodOpti" +
+      "ons\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetada" +
+      "ta:U\n\013message_doc\022\037.google.protobuf.Mess" +
+      "ageOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
+      "nMetadata:U\n\013service_doc\022\037.google.protob" +
+      "uf.ServiceOptions\030\362\220\003 \003(\0132\035.mlflow.Docum" +
+      "entationMetadata:O\n\010enum_doc\022\034.google.pr" +
+      "otobuf.EnumOptions\030\362\220\003 \003(\0132\035.mlflow.Docu" +
+      "mentationMetadata:V\n\025enum_value_visibili" +
+      "ty\022!.google.protobuf.EnumValueOptions\030\356\220" +
+      "\003 \001(\0162\022.mlflow.Visibility:Z\n\016enum_value_" +
+      "doc\022!.google.protobuf.EnumValueOptions\030\362" +
+      "\220\003 \003(\0132\035.mlflow.DocumentationMetadataB*\n" +
+      "#com.databricks.api.proto.databricks\342?\002\020" +
+      "\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,

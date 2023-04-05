@@ -1,4 +1,6 @@
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
+from typing import List, Optional
+
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, DatasetInput
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -323,3 +325,16 @@ class RestStore(AbstractStore):
     def record_logged_model(self, run_id, mlflow_model):
         req_body = message_to_json(LogModel(run_id=run_id, model_json=mlflow_model.to_json()))
         self._call_endpoint(LogModel, req_body)
+
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+        """
+        Log inputs, such as datasets, to the specified run.
+
+        :param run_id: String id for the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                         as inputs to the run.
+
+        :return: None.
+        """
+        # TODO: Implement log_inputs() for RestStore
+        pass
