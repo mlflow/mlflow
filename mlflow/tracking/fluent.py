@@ -10,7 +10,18 @@ import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.data.dataset import Dataset
+from mlflow.entities import (
+    Experiment,
+    Run,
+    RunStatus,
+    Param,
+    RunTag,
+    Metric,
+    ViewType,
+    InputTag,
+    DatasetInput,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -700,6 +711,40 @@ def log_params(params: Dict[str, Any]) -> None:
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def log_input(dataset: Dataset, context: str = None, tags: Dict[str, str] = None) -> None:
+    """
+    Log a dataset used in the current run.
+
+    :param dataset: mlflow.data.Dataset object to be logged.
+    :param context: Context in which the dataset is used. For example: "training", "testing".
+                    This will be set as an input tag with key `mlflow.data.context`.
+    :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
+    :returns: None
+
+    .. test-code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        df = pd.read_csv("data.csv")
+        dataset = mlflow.data.from_pandas(df, source="data.csv")
+
+        # Log an input dataset used for training
+        with mlflow.start_run():
+            mlflow.log_input(dataset, context="training")
+    """
+    run_id = _get_or_start_run().info.run_id
+    tags_to_log = []
+    if tags:
+        tags_to_log.append([InputTag(key=key, value=value) for key, value in tags.items()])
+    if context:
+        tags_to_log.append(InputTag(key="mlflow.data.context", value=context))
+
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:

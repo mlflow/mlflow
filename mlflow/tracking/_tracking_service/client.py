@@ -393,6 +393,21 @@ class TrackingServiceClient:
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
+    def log_inputs(self, run_id, datasets=None):
+        """
+        Log one or more dataset inputs to a run.
+
+        :param run_id: String ID of the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+
+        Raises an MlflowException if any errors occur.
+        :return: None
+        """
+        if datasets is None or len(datasets) == 0:
+            return
+
+        self.store.log_inputs(run_id=run_id, datasets=datasets)
+
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model
 

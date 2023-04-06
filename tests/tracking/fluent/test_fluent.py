@@ -5,10 +5,12 @@ from itertools import zip_longest
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
+import json
 import os
 import random
 import uuid
 import inspect
+import pandas as pd
 
 import pytest
 from unittest import mock
@@ -17,6 +19,7 @@ import mlflow
 from mlflow import MlflowClient
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
+from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
     Metric,
@@ -905,8 +908,6 @@ def validate_search_runs(results, data, output_format):
         data_subset = {k: data[k] for k in keys if k in keys}
         assert result_data == data_subset
     elif output_format == "pandas":
-        import pandas as pd
-
         expected_df = pd.DataFrame(data)
         expected_df["start_time"] = pd.to_datetime(expected_df["start_time"], unit="ms", utc=True)
         expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
@@ -1192,3 +1193,31 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+def test_log_input(tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = from_pandas(df, source=path)
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "placeholder_name"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {
+        "mlflow_colspec": [
+            {"name": "a", "type": "long"},
+            {"name": "b", "type": "long"},
+            {"name": "c", "type": "long"},
+        ]
+    }
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+
+    assert len(dataset_inputs[0].tags) == 1
+    assert dataset_inputs[0].tags[0].key == "mlflow.data.context"
+    assert dataset_inputs[0].tags[0].value == "train"

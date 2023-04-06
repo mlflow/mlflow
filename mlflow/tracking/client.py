@@ -13,7 +13,7 @@ import tempfile
 import yaml
 from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -989,6 +989,22 @@ class MlflowClient:
             status: FINISHED
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
+
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Sequence[DatasetInput] = None,
+    ) -> None:
+        """
+        Log one or more dataset inputs to a run.
+
+        :param run_id: String ID of the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+
+        Raises an MlflowException if any errors occur.
+        :return: None
+        """
+        self._tracking_client.log_inputs(run_id, datasets)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """
