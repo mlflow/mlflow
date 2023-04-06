@@ -5,6 +5,7 @@ from itertools import zip_longest
 from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
+import json
 import os
 import random
 import uuid
@@ -1199,5 +1200,18 @@ def test_log_input(tmp_path):
     path = tmp_path / "temp.csv"
     df.to_csv(path)
     dataset = from_pandas(df, source=path)
-    with start_run():
+    with start_run() as run:
         mlflow.log_input(dataset, "train")
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+    
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "placeholder_name"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {"mlflow_colspec": [{"name": "a", "type": "long"}, {"name": "b", "type": "long"}, {"name": "c", "type": "long"}]}
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+    
+    assert len(dataset_inputs[0].tags) == 1
+    assert dataset_inputs[0].tags[0].key == "mlflow.data.context"
+    assert dataset_inputs[0].tags[0].value == "train"

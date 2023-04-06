@@ -119,11 +119,12 @@ class Dataset:
         """
         :return: A DatasetEntity instance representing the dataset.
         """
+        dataset_json = json.loads(self.to_json())
         return DatasetEntity(
-            name=self.name,
-            digest=self.digest,
-            source_type=self._source._get_source_type(),
-            source=self._source.to_json(),
-            schema=self.schema,
-            profile=self.profile,
+            name=dataset_json["name"],
+            digest=dataset_json["digest"],
+            source_type=dataset_json["source_type"],
+            source=dataset_json["source"],
+            schema=dataset_json["schema"],
+            profile=dataset_json["profile"],
         )
