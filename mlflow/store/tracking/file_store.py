@@ -432,15 +432,14 @@ class FileStore(AbstractStore):
         experiment._lifecycle_stage = LifecycleStage.DELETED
         deletion_time = get_current_time_millis()
         experiment._set_last_update_time(deletion_time)
-        runs = self._list_run_infos(experiment, experiment_id)
-        for run in runs:
-            run_id = run.info.run_id
-            run_info = self._get_run_info(run_id)
-            if run_info is None:
-                logging.warning(f"Run {run_id} metadata is in invalid state.")
-            new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
-            self._overwrite_run_info(new_info, deleted_time=deletion_time)
-        meta_dir = os.path.join(self.root_directory, experiment_id)
+        runs = self._list_run_infos(experiment_id, view_type=ViewType.ACTIVE_ONLY)
+        for run_info in runs:
+            if run_info is not None:
+                new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
+                self._overwrite_run_info(new_info, deleted_time=deletion_time)
+            else:
+                logging.warning("Run metadata is in invalid state.")
+        meta_dir = os.path.join(self.root_directory, str(experiment_id))
         overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
@@ -475,14 +474,13 @@ class FileStore(AbstractStore):
         meta_dir = os.path.join(self.root_directory, experiment_id)
         experiment._lifecycle_stage = LifecycleStage.ACTIVE
         experiment._set_last_update_time(get_current_time_millis())
-        runs = self._list_run_infos(experiment, experiment_id)
-        for run in runs:
-            run_id = run.info.run_id
-            run_info = self._get_run_info(run_id)
-            if run_info is None:
-                logging.warning(f"Run {run_id} metadata is in invalid state.")
-            new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
-            self._overwrite_run_info(new_info, deleted_time=None)
+        runs = self._list_run_infos(experiment_id, view_type=ViewType.ACTIVE_ONLY)
+        for run_info in runs:
+            if run_info is not None:
+                new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
+                self._overwrite_run_info(new_info, deleted_time=None)
+            else:
+                logging.warning("Run metadata is in invalid state.")
         overwrite_yaml(
             root=meta_dir,
             file_name=FileStore.META_DATA_FILE_NAME,
