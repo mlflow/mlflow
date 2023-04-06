@@ -395,10 +395,10 @@ class TrackingServiceClient:
 
     def log_inputs(self, run_id, datasets=None):
         """
-        Log multiple dataset inputs to a run.
+        Log one or more dataset inputs to a run.
 
         :param run_id: String ID of the run
-        :param datasets: If provided, List of DatasetInput(dataset, tags) instances.
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
 
         Raises an MlflowException if any errors occur.
         :return: None
