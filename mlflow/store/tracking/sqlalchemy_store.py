@@ -1329,8 +1329,6 @@ class SqlAlchemyStore(AbstractStore):
                     "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
                 )
 
-        # TODO: wrap in transaction to ensure that all datasets are logged or none are logged
-
         dataset_names_to_check = [dataset_input.dataset.name for dataset_input in dataset_inputs]
         dataset_digests_to_check = [
             dataset_input.dataset.digest for dataset_input in dataset_inputs
@@ -1338,14 +1336,13 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             # find all datasets with the same name and digest
+            # if the dataset already exists, use the existing dataset uuid
             existing_datasets = (
                 session.query(SqlDataset)
                 .filter(SqlDataset.name.in_(dataset_names_to_check))
                 .filter(SqlDataset.digest.in_(dataset_digests_to_check))
                 .all()
             )
-            # if the dataset already exists, use the existing dataset uuid
-            # otherwise, create a new dataset uuid
             dataset_uuids = {}
             for dataset in existing_datasets:
                 dataset_uuids[(dataset.name, dataset.digest)] = dataset.dataset_uuid
@@ -1373,42 +1370,50 @@ class SqlAlchemyStore(AbstractStore):
                         )
                     )
 
-            # create a new input uuid for each dataset input
-            input_uuids = [uuid.uuid4().hex for _ in range(len(dataset_inputs))]
+            # find all inputs with the same source_id and destination_id
+            # if the input already exists, use the existing input uuid
+            existing_inputs = (
+                session.query(SqlInput)
+                .filter(SqlInput.source_type == "DATASET")
+                .filter(SqlInput.source_id.in_(dataset_uuids.values()))
+                .filter(SqlInput.destination_type == "RUN")
+                .filter(SqlInput.destination_id == run_id)
+                .all()
+            )
+            input_uuids = {}
+            for input in existing_inputs:
+                input_uuids[(input.source_id, input.destination_id)] = input.input_uuid
 
             # add input edges to objs_to_write
-            for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
+            for dataset_input in dataset_inputs:
                 dataset_uuid = dataset_uuids[
                     (dataset_input.dataset.name, dataset_input.dataset.digest)
                 ]
-                objs_to_write.append(
-                    SqlInput(
-                        input_uuid=input_uuid,
-                        source_type="DATASET",
-                        source_id=dataset_uuid,
-                        destination_type="RUN",
-                        destination_id=run_id,
-                    )
-                )
-
-            # add input tags to objs_to_write
-            for dataset_input, input_uuid in zip(dataset_inputs, input_uuids):
-                dataset_uuid = dataset_uuids[
-                    (dataset_input.dataset.name, dataset_input.dataset.digest)
-                ]
-                for input_tag in dataset_input.tags:
+                if (dataset_uuid, run_id) not in input_uuids:
+                    new_input_uuid = uuid.uuid4().hex
+                    input_uuids[
+                        (dataset_input.dataset.name, dataset_input.dataset.digest)
+                    ] = new_input_uuid
                     objs_to_write.append(
-                        SqlInputTag(
-                            input_uuid=input_uuid,
-                            name=input_tag.key,
-                            value=input_tag.value,
+                        SqlInput(
+                            input_uuid=new_input_uuid,
+                            source_type="DATASET",
+                            source_id=dataset_uuid,
+                            destination_type="RUN",
+                            destination_id=run_id,
                         )
                     )
+                    # add input tags to objs_to_write
+                    for input_tag in dataset_input.tags:
+                        objs_to_write.append(
+                            SqlInputTag(
+                                input_uuid=new_input_uuid,
+                                name=input_tag.key,
+                                value=input_tag.value,
+                            )
+                        )
 
-            # write all objects to the database
-            # note that we have to loop because sqlalchemy does not have merge_all
-            for obj in objs_to_write:
-                session.merge(obj)
+            self._save_to_db(session, objs_to_write)
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):
