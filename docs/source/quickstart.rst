@@ -3,13 +3,26 @@
 Quickstart
 ==========
 
-Install MLFlow, instrument your code, and view a run's results in a few minutes:
+Install MLflow, instrument your code, and view results in a few minutes.
+--------------------------------------------------------------------------------
+
+As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team. 
+
+.. image:: _static/images/quickstart_mlflow_tracking_overview.png
+    :width: 800px
+    :align: center
+
+MLflow is available for Python, R, and Java, but this quickstart shows Python only. 
+
+.. 
+    This really feels like second-classing R & Java. Maybe I 
+    can put at least a discussion of Java & R alternatives in the drilldown page. I mean, "installing dependencies in a Java project" is too broad, but I don't like the way this has a "well, it's really Python" feel
 
 
-How do I install MLFlow? 
+How do I install MLflow? 
 ------------------------
 
-You may install MLflow from PyPi using pip:
+Install MLflow from PyPi using pip:
 
 .. code-section::
 
@@ -17,12 +30,12 @@ You may install MLflow from PyPi using pip:
 
         pip install mlflow
 
-For more options, see tk.
+For more options, see :ref:`quickstart_drilldown_install`. 
 
-How do I add MLFlow tracking to my Python code?
+How do I add MLflow tracking to my Python code?
 -----------------------------------------------
 
-For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLFlow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
+For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLflow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
 
 .. code-section::
 
@@ -90,10 +103,13 @@ This example demonstrates the use of these functions:
                 f.write("hello world!")
             log_artifacts("outputs")
 
-How do I view my MLFlow runs and experiments?
+- For more details on autolog, including a list of what libraries are supported, see :ref:`quickstart_drilldown_autolog`. 
+- For additional functions such as `log_text` and `log_image` and see :ref:`quickstart_drilldown_tracking_api`.
+
+How do I view my MLflow runs and experiments?
 ---------------------------------------------
 
-Once you've run your code, you may view the results with MLFlow's tracking UI. To start the UI, run:
+Once you've run your code, you may view the results with MLflow's tracking UI. To start the UI, run:
 
 .. code-section::
 
@@ -106,13 +122,23 @@ And then navigate to http://localhost:5000 in your browser. You will see a page 
 .. image:: _static/images/quickstart-ui-screenshot.png
     :width: 800px
     :align: center
+.. 
+    TODO: Add a screenshot of the UI
 
-You are in the **Default** experiment, which now contains the tracking data for your run. You can view the parameters, metrics, and artifacts of your run by clicking on the run name. 
+You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. You can view the parameters, metrics, and artifacts of your run by clicking on the run name. 
 
-How do I share my MLFlow runs and experiments?
+For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`.
+
+How do I share my MLflow runs and experiments?
 ----------------------------------------------
 
-By default, MLFlow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
+.. 
+    TODO: So this needs to change to be `set_tracking_uri`
+
+By default, MLflow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
+
+..
+    TODO: Explain what a tracking server is
 
 You can run a tracking server on a network-accessible server by running:
 
@@ -138,72 +164,82 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 
         mlflow ui --backend-store-uri http://192.168.0.1:5000
 
-..
+There are many options available for the tracking backend. For more details, see :ref:`quickstart_drilldown_tracking_backend`.
 
-    CONTENT REVIEW: Maybe that's all we need for *this* page? Short and sweet, you've: 
 
-    - installed MLFlow
-    - used `autolog` and explicit logging
-    - run the tracking UI
-    - run the tracking server
-
-    Maybe we end there and "Next Steps" it? 
-
-    If not:
-
-How do I use MLFlow with a Databricks workspace?
+How do I use MLflow with a Databricks workspace?
 ------------------------------------------------
 
 tk 
 
 
-How do I store a model in MLFlow?
+How do I store a model in MLflow?
 ---------------------------------
 
 tk 
 
 
-How do I run a model artifact from a specific MLFlow run?
+How do I run a model artifact from a specific MLflow run?
 ---------------------------------------------------------
 
 tk
 
-How do I do a hyperparameter sweep with MLFlow Tracking?
---------------------------------------------------------
-
-tk
 
 Next Steps
 ----------
 .. 
     First, code:
 
-- Example: MLFlow tutorial
-- MLFlow example directory
-
-.. 
-    Drilldown for each H2. These could also be at the bottom
-    of their respective sections. Depends on info architecture design.
-
-- Customizing and troubleshooting MLFlow installation
-- Using Autolog, including a list of what libraries are supported
-- Effectively using the MLFlow Tracking API
-- Choosing and configuring the MLFlow tracking backend 
-- Navigating the MLFlow Tracking UI
+- Example: MLflow tutorial
+- MLflow example directory
 
 .. 
     Next tool: either Models or Projects
 
-- Storing models with MLFlow tracking
-- End-to-end tracking, collaboration, and deployment with MLFlow Projects
+- Storing models with MLflow tracking
+- End-to-end tracking, collaboration, and deployment with MLflow Projects
 
 .. 
     More top-down-y stuff
 
-- Understanding MLFlow's concepts, tools, and APIs 
-- Why MLFlow?
+- Understanding MLflow's concepts, tools, and APIs 
+- Why MLflow?
   
 
+.. code-section::
+
+    ---
+    title: MLFlow tracking
+    ---
+    stateDiagram-v2
+    direction LR
+    Data --> Train
+    Train --> Review
+    Train --> Train
+    Review --> Train
+    Review --> Register
+    Register --> Deploy
+    Deploy --> Monitor
+
+    Monitor --> Data 
+
+    flowchart LR
+    id4[(Datalake)]
+    A[Data Prep] -->B[Train]
+    B --> id1
+    B --> B
+    id1 --> C
+    C[Review & Select]
+    C --> id2
+    C --> B
+    id2 --> D[Deploy]
+    D --> E[Monitor]
+    E --> id4
+    id4 --> A
+    id1[(Tracking backend)]
+    id2[(Model Registry)]
+    
+    
 {>> Important things in original we don't want to lose:
 
 - mlflow skinny and extras and why you might choose one or t'other
@@ -215,6 +251,11 @@ Next Steps
 - Project content: I don't think we want this in the QS, but it's all good stuff
 
 <<}
+
+.. _asdf:
+
+## Tracking
+Blah blah blah
 
 Installing MLflow
 -----------------
