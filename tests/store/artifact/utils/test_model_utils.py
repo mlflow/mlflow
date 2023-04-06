@@ -95,6 +95,7 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "models:/Name@Alias@other",  # too many aliases
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
+        "models://Name@te#ty;",  # invalid characters
     ],
 )
 def test_parse_models_uri_invalid_input(uri):
