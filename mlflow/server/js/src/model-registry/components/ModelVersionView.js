@@ -317,10 +317,12 @@ export class ModelVersionViewImpl extends React.Component {
         </a>
       );
     } else if (runInfo) {
-      if (!modelSource) {
-        throw new Error('model source is missing.');
+      let artifactPath = null
+      if (modelSource) {
+        artifactPath = modelSource?.match(
+          new RegExp(`/${runInfo.getRunUuid()}/artifacts/(.+)`),
+        )?.[1];
       }
-      const artifactPath = modelSource.match(/.+\/artifacts\/(.+)$/)[1];
       return (
         <Link
           to={Routers.getRunPageRoute(
