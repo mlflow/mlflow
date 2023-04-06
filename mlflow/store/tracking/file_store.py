@@ -437,9 +437,7 @@ class FileStore(AbstractStore):
             run_id = run.info.run_id
             run_info = self._get_run_info(run_id)
             if run_info is None:
-                raise MlflowException(
-                    "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
-                )
+                logging.warning(f"Run {run_id} metadata is in invalid state.")
             new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.DELETED)
             self._overwrite_run_info(new_info, deleted_time=deletion_time)
         meta_dir = os.path.join(self.root_directory, experiment_id)
@@ -482,9 +480,7 @@ class FileStore(AbstractStore):
             run_id = run.info.run_id
             run_info = self._get_run_info(run_id)
             if run_info is None:
-                raise MlflowException(
-                    "Run '%s' metadata is in invalid state." % run_id, databricks_pb2.INVALID_STATE
-                )
+                logging.warning(f"Run {run_id} metadata is in invalid state.")
             new_info = run_info._copy_with_overrides(lifecycle_stage=LifecycleStage.ACTIVE)
             self._overwrite_run_info(new_info, deleted_time=None)
         overwrite_yaml(
