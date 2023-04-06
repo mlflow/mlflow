@@ -513,7 +513,7 @@ class SqlDataset(Base):
     """
     dataset_profile = Column(UnicodeText, nullable=True)
     """
-    Param dataset_schema: `UnicodeText`.
+    Param dataset_profile: `UnicodeText`.
     """
 
     def __repr__(self):
@@ -537,10 +537,10 @@ class SqlDataset(Base):
         return Dataset(
             name=self.name,
             digest=self.digest,
-            source_type=self.source_type,
-            source=self.source,
-            schema=self.schema,
-            profile=self.profile,
+            source_type=self.dataset_source_type,
+            source=self.dataset_source,
+            schema=self.dataset_schema,
+            profile=self.dataset_profile,
         )
 
 

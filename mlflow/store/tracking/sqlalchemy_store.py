@@ -26,9 +26,12 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTag,
     SqlExperimentTag,
     SqlLatestMetric,
+    SqlDataset,
+    SqlInput,
+    SqlInputTag,
 )
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment
+from mlflow.entities import RunStatus, SourceType, Experiment, Run, RunInputs
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities import ViewType
@@ -49,6 +52,7 @@ from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.validation import (
     _validate_batch_log_limits,
     _validate_batch_log_data,
+    _validate_dataset_inputs,
     _validate_run_id,
     _validate_metric,
     _validate_experiment_tag,
@@ -516,6 +520,41 @@ class SqlAlchemyStore(AbstractStore):
 
         return runs[0]
 
+    def _get_run_inputs(self, session, run_uuids):
+        datasets = (
+            session.query(
+                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlDataset
+            )
+            .select_from(SqlDataset)
+            .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+            .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
+            .order_by("run_uuid")
+        ).all()
+        input_uuids = [dataset.input_uuid for dataset in datasets]
+        input_tags = (
+            session.query(
+                SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlInputTag
+            )
+            .join(SqlInput, (SqlInput.input_uuid == SqlInputTag.input_uuid))
+            .filter(SqlInput.input_uuid.in_(input_uuids))
+            .order_by("run_uuid")
+        ).all()
+
+        all_dataset_inputs = []
+        for run_uuid in run_uuids:
+            dataset_inputs = []
+            for input_uuid, dataset_run_uuid, dataset_sql in datasets:
+                if run_uuid == dataset_run_uuid:
+                    dataset_entity = dataset_sql.to_mlflow_entity()
+                    tags = []
+                    for tag_input_uuid, tag_run_uuid, tag_sql in input_tags:
+                        if input_uuid == tag_input_uuid and run_uuid == tag_run_uuid:
+                            tags.append(tag_sql.to_mlflow_entity())
+                    dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
+                    dataset_inputs.append(dataset_input_entity)
+            all_dataset_inputs.append(dataset_inputs)
+        return all_dataset_inputs
+
     @staticmethod
     def _get_eager_run_query_options():
         """
@@ -584,7 +623,10 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             run = self._get_run(run_uuid=run_id, session=session, eager=True)
-            return run.to_mlflow_entity()
+            mlflow_run = run.to_mlflow_entity()
+            # Get the run inputs and add to the run
+            inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
+            return Run(mlflow_run.info, mlflow_run.data, RunInputs(dataset_inputs=inputs))
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -1195,9 +1237,19 @@ class SqlAlchemyStore(AbstractStore):
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
-            next_page_token = compute_next_token(len(runs))
+            run_ids = [run.info.run_id for run in runs]
 
-        return runs, next_page_token
+            # add inputs to runs
+            inputs = self._get_run_inputs(run_uuids=run_ids, session=session)
+            runs_with_inputs = []
+            for i, run in enumerate(runs):
+                runs_with_inputs.append(
+                    Run(run.info, run.data, RunInputs(dataset_inputs=inputs[i]))
+                )
+
+            next_page_token = compute_next_token(len(runs_with_inputs))
+
+        return runs_with_inputs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
@@ -1248,8 +1300,122 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: None.
         """
-        # TODO: Implement log_inputs() for SQLAlchemyStore
-        pass
+        _validate_run_id(run_id)
+        if datasets is not None:
+            if not isinstance(datasets, list):
+                raise TypeError(
+                    "Argument 'datasets' should be a list, got '{}'".format(type(datasets))
+                )
+            _validate_dataset_inputs(datasets)
+
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            experiment_id = run.experiment_id
+            self._check_run_is_active(run)
+            try:
+                self._log_inputs_impl(experiment_id, run_id, datasets)
+            except MlflowException as e:
+                raise e
+            except Exception as e:
+                raise MlflowException(e, INTERNAL_ERROR)
+
+    def _log_inputs_impl(
+        self, experiment_id, run_id, dataset_inputs: Optional[List[DatasetInput]] = None
+    ):
+        if dataset_inputs is None or len(dataset_inputs) == 0:
+            return
+        for dataset_input in dataset_inputs:
+            if dataset_input.dataset is None:
+                raise MlflowException(
+                    "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
+                )
+
+        with self.ManagedSessionMaker() as session:
+            dataset_names_to_check = [
+                dataset_input.dataset.name for dataset_input in dataset_inputs
+            ]
+            dataset_digests_to_check = [
+                dataset_input.dataset.digest for dataset_input in dataset_inputs
+            ]
+            # find all datasets with the same name and digest
+            # if the dataset already exists, use the existing dataset uuid
+            existing_datasets = (
+                session.query(SqlDataset)
+                .filter(SqlDataset.name.in_(dataset_names_to_check))
+                .filter(SqlDataset.digest.in_(dataset_digests_to_check))
+                .all()
+            )
+            dataset_uuids = {}
+            for dataset in existing_datasets:
+                dataset_uuids[(dataset.name, dataset.digest)] = dataset.dataset_uuid
+
+            # collect all objects to write to DB in a single list
+            objs_to_write = []
+
+            # add datasets to objs_to_write
+            for dataset_input in dataset_inputs:
+                if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
+                    new_dataset_uuid = uuid.uuid4().hex
+                    dataset_uuids[
+                        (dataset_input.dataset.name, dataset_input.dataset.digest)
+                    ] = new_dataset_uuid
+                    objs_to_write.append(
+                        SqlDataset(
+                            dataset_uuid=new_dataset_uuid,
+                            experiment_id=experiment_id,
+                            name=dataset_input.dataset.name,
+                            digest=dataset_input.dataset.digest,
+                            dataset_source_type=dataset_input.dataset.source_type,
+                            dataset_source=dataset_input.dataset.source,
+                            dataset_schema=dataset_input.dataset.schema,
+                            dataset_profile=dataset_input.dataset.profile,
+                        )
+                    )
+
+            # find all inputs with the same source_id and destination_id
+            # if the input already exists, use the existing input uuid
+            existing_inputs = (
+                session.query(SqlInput)
+                .filter(SqlInput.source_type == "DATASET")
+                .filter(SqlInput.source_id.in_(dataset_uuids.values()))
+                .filter(SqlInput.destination_type == "RUN")
+                .filter(SqlInput.destination_id == run_id)
+                .all()
+            )
+            input_uuids = {}
+            for input in existing_inputs:
+                input_uuids[(input.source_id, input.destination_id)] = input.input_uuid
+
+            # add input edges to objs_to_write
+            for dataset_input in dataset_inputs:
+                dataset_uuid = dataset_uuids[
+                    (dataset_input.dataset.name, dataset_input.dataset.digest)
+                ]
+                if (dataset_uuid, run_id) not in input_uuids:
+                    new_input_uuid = uuid.uuid4().hex
+                    input_uuids[
+                        (dataset_input.dataset.name, dataset_input.dataset.digest)
+                    ] = new_input_uuid
+                    objs_to_write.append(
+                        SqlInput(
+                            input_uuid=new_input_uuid,
+                            source_type="DATASET",
+                            source_id=dataset_uuid,
+                            destination_type="RUN",
+                            destination_id=run_id,
+                        )
+                    )
+                    # add input tags to objs_to_write
+                    for input_tag in dataset_input.tags:
+                        objs_to_write.append(
+                            SqlInputTag(
+                                input_uuid=new_input_uuid,
+                                name=input_tag.key,
+                                value=input_tag.value,
+                            )
+                        )
+
+            self._save_to_db(session, objs_to_write)
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):
