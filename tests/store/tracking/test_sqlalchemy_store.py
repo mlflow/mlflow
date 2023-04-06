@@ -62,6 +62,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlExperimentTag,
     SqlExperiment,
+    SqlInputTag,
+    SqlInput,
+    SqlDataset,
 )
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
@@ -177,6 +180,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                     SqlMetric,
                     SqlLatestMetric,
                     SqlTag,
+                    SqlInputTag,
+                    SqlInput,
+                    SqlDataset,
                     SqlRun,
                     SqlExperimentTag,
                     SqlExperiment,
