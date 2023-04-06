@@ -525,13 +525,12 @@ class SqlAlchemyStore(AbstractStore):
             session.query(
                 SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlDataset
             )
-            # .join(SqlDatasetAlias, SqlInput.source_id == SqlDatasetAlias.dataset_uuid)
             .select_from(SqlDataset)
             .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
             .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
             .order_by("run_uuid")
         ).all()
-        input_uuids = [str(dataset.input_uuid) for dataset in datasets]
+        input_uuids = [dataset.input_uuid for dataset in datasets]
         input_tags = (
             session.query(
                 SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlInputTag
@@ -541,7 +540,7 @@ class SqlAlchemyStore(AbstractStore):
             .order_by("run_uuid")
         ).all()
 
-        results = []
+        all_dataset_inputs = []
         for run_uuid in run_uuids:
             dataset_inputs = []
             for input_uuid, dataset_run_uuid, dataset_sql in datasets:
@@ -553,8 +552,8 @@ class SqlAlchemyStore(AbstractStore):
                             tags.append(tag_sql.to_mlflow_entity())
                     dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
                     dataset_inputs.append(dataset_input_entity)
-            results.append(dataset_inputs)
-        return results
+            all_dataset_inputs.append(dataset_inputs)
+        return all_dataset_inputs
 
     @staticmethod
     def _get_eager_run_query_options():
@@ -625,7 +624,7 @@ class SqlAlchemyStore(AbstractStore):
             # that are otherwise executed at attribute access time under a lazy loading model.
             run = self._get_run(run_uuid=run_id, session=session, eager=True)
             mlflow_run = run.to_mlflow_entity()
-            # Get the run inputs
+            # Get the run inputs and add to the run
             inputs = self._get_run_inputs(run_uuids=[run_id], session=session)[0]
             return Run(mlflow_run.info, mlflow_run.data, RunInputs(dataset_inputs=inputs))
 
@@ -1301,10 +1300,12 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: None.
         """
-        if not isinstance(datasets, list) and datasets is not None:
-            raise TypeError("Argument 'datasets' should be a list, got '{}'".format(type(datasets)))
         _validate_run_id(run_id)
         if datasets is not None:
+            if not isinstance(datasets, list):
+                raise TypeError(
+                    "Argument 'datasets' should be a list, got '{}'".format(type(datasets))
+                )
             _validate_dataset_inputs(datasets)
 
         with self.ManagedSessionMaker() as session:
@@ -1329,12 +1330,13 @@ class SqlAlchemyStore(AbstractStore):
                     "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
                 )
 
-        dataset_names_to_check = [dataset_input.dataset.name for dataset_input in dataset_inputs]
-        dataset_digests_to_check = [
-            dataset_input.dataset.digest for dataset_input in dataset_inputs
-        ]
-
         with self.ManagedSessionMaker() as session:
+            dataset_names_to_check = [
+                dataset_input.dataset.name for dataset_input in dataset_inputs
+            ]
+            dataset_digests_to_check = [
+                dataset_input.dataset.digest for dataset_input in dataset_inputs
+            ]
             # find all datasets with the same name and digest
             # if the dataset already exists, use the existing dataset uuid
             existing_datasets = (

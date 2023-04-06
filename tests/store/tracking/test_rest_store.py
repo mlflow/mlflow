@@ -480,19 +480,6 @@ class TestRestStore:
             mock_request.assert_called_once()
             assert metrics == []
 
-    @mock.patch("requests.Session.request")
-    def test_log_inputs(self, request):
-        creds = MlflowHostCreds("https://hello")
-        rest_store = RestStore(lambda: creds)
-        empty_metric_response = self._mock_response_with_200_status_code()
-        empty_metric_response.text = json.dumps({})
-        with mock.patch(
-            "requests.Session.request", side_effect=[empty_metric_response]
-        ) as mock_request:
-            metrics = rest_store.get_metric_history(run_id="1", metric_key="test_metric")
-            mock_request.assert_called_once()
-            assert metrics == []
-
 
 if __name__ == "__main__":
     unittest.main()
