@@ -801,7 +801,7 @@ def _log_inputs():
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
-    if "datasets" in request_message:
+    if "datasets" in request_message.keys():
         datasets = [
             DatasetInput.from_proto(proto_dataset_input)
             for proto_dataset_input in request_message.datasets
