@@ -1199,3 +1199,14 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
         assert run.info.artifact_uri.startswith("file://")
         mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
+
+
+def test_update_run_name_without_changing_status(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("update run name")
+    created_run = mlflow_client.create_run(experiment_id)
+    mlflow_client.set_terminated(created_run.info.run_id, "FINISHED")
+
+    mlflow_client.update_run(created_run.info.run_id, name="name_abc")
+    updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
+    assert updated_run_info.run_name == "name_abc"
+    assert updated_run_info.status == "FINISHED"

@@ -711,7 +711,6 @@ def _update_run():
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
-
     run_name = request_message.run_name if request_message.HasField("run_name") else None
     end_time = request_message.end_time if request_message.HasField("end_time") else None
     status = request_message.status if request_message.HasField("status") else None
