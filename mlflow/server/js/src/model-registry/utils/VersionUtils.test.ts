@@ -1,4 +1,4 @@
-import { extractArtifactPathFromModelSource } from './VersionUtil';
+import { extractArtifactPathFromModelSource } from './VersionUtils';
 
 describe('extractArtifactPathFromModelSource', () => {
   it('test extractArtifactPathFromModelSource', () => {

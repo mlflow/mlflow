@@ -24,7 +24,7 @@ import { setModelVersionTagApi, deleteModelVersionTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, injectIntl } from 'react-intl';
-import { extractArtifactPathFromModelSource } from '../utils/VersionUtil';
+import { extractArtifactPathFromModelSource } from '../utils/VersionUtils';
 
 export class ModelVersionViewImpl extends React.Component {
   static propTypes = {
@@ -32,7 +32,6 @@ export class ModelVersionViewImpl extends React.Component {
     modelVersion: PropTypes.object,
     schema: PropTypes.object,
     runInfo: PropTypes.object,
-    modelSource: PropTypes.string,
     runDisplayName: PropTypes.string,
     handleStageTransitionDropdownSelect: PropTypes.func.isRequired,
     deleteModelVersionApi: PropTypes.func.isRequired,
@@ -308,7 +307,7 @@ export class ModelVersionViewImpl extends React.Component {
   }
 
   resolveRunLink() {
-    const { modelVersion, runInfo, modelSource } = this.props;
+    const { modelVersion, runInfo } = this.props;
     if (modelVersion.run_link) {
       return (
         // Reported during ESLint upgrade
@@ -319,6 +318,7 @@ export class ModelVersionViewImpl extends React.Component {
       );
     } else if (runInfo) {
       let artifactPath = null;
+      const modelSource = this.props.modelVersion?.source;
       if (modelSource) {
         artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.getRunUuid());
       }
@@ -502,7 +502,7 @@ const mapStateToProps = (state, ownProps) => {
   const { modelName } = ownProps;
   const { version } = ownProps.modelVersion;
   const tags = getModelVersionTags(modelName, version, state);
-  return { tags, modelSource: ownProps.modelVersion?.source };
+  return { tags };
 };
 const mapDispatchToProps = { setModelVersionTagApi, deleteModelVersionTagApi };
 
