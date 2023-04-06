@@ -24,6 +24,7 @@ import { setModelVersionTagApi, deleteModelVersionTagApi } from '../actions';
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, injectIntl } from 'react-intl';
+import { extractArtifactPathFromModelSource } from '../utils/VersionUtil';
 
 export class ModelVersionViewImpl extends React.Component {
   static propTypes = {
@@ -317,11 +318,9 @@ export class ModelVersionViewImpl extends React.Component {
         </a>
       );
     } else if (runInfo) {
-      let artifactPath = null
+      let artifactPath = null;
       if (modelSource) {
-        artifactPath = modelSource?.match(
-          new RegExp(`/${runInfo.getRunUuid()}/artifacts/(.+)`),
-        )?.[1];
+        artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.getRunUuid());
       }
       return (
         <Link
