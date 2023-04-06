@@ -726,6 +726,29 @@ def test_delete_model_version_tag(mock_registry_store_with_get_latest_version):
         MlflowClient().delete_model_version_tag("model_name", key="tag1")
 
 
+def test_set_registered_model_alias(mock_registry_store):
+    MlflowClient().set_registered_model_alias("model_name", "test_alias", 1)
+    mock_registry_store.set_registered_model_alias.assert_called_once_with(
+        "model_name", "test_alias", 1
+    )
+
+
+def test_delete_registered_model_alias(mock_registry_store):
+    MlflowClient().delete_registered_model_alias("model_name", "test_alias")
+    mock_registry_store.delete_registered_model_alias.assert_called_once_with(
+        "model_name", "test_alias"
+    )
+
+
+def test_get_model_version_by_alias(mock_registry_store):
+    mock_registry_store.get_model_version_by_alias.return_value = _default_model_version()
+    res = MlflowClient().get_model_version_by_alias("model_name", "test_alias")
+    assert res == _default_model_version()
+    mock_registry_store.get_model_version_by_alias.assert_called_once_with(
+        "model_name", "test_alias"
+    )
+
+
 def test_update_run(mock_store):
     MlflowClient().update_run(run_id="run_id", status="FINISHED", name="my name")
     mock_store.update_run_info.assert_called_once_with(
