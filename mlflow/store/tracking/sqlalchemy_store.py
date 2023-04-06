@@ -521,64 +521,39 @@ class SqlAlchemyStore(AbstractStore):
         return runs[0]
 
     def _get_run_inputs(self, session, run_uuids):
-        SqlDatasetAlias = sqlalchemy.orm.aliased(SqlDataset)
         datasets = (
             session.query(
                 SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlDataset
             )
-            .join(SqlDatasetAlias, SqlInput.source_id == SqlDatasetAlias.dataset_uuid)
+            # .join(SqlDatasetAlias, SqlInput.source_id == SqlDatasetAlias.dataset_uuid)
+            .select_from(SqlDataset)
+            .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
             .filter(SqlInput.destination_type == "RUN", SqlInput.destination_id.in_(run_uuids))
             .order_by("run_uuid")
         ).all()
         input_uuids = [str(dataset.input_uuid) for dataset in datasets]
-        SqlInputTagAlias = sqlalchemy.orm.aliased(SqlInputTag)
         input_tags = (
             session.query(
                 SqlInput.input_uuid, SqlInput.destination_id.label("run_uuid"), SqlInputTag
             )
-            .join(SqlInputTagAlias, (SqlInput.input_uuid == SqlInputTagAlias.input_uuid))
+            .join(SqlInput, (SqlInput.input_uuid == SqlInputTag.input_uuid))
             .filter(SqlInput.input_uuid.in_(input_uuids))
             .order_by("run_uuid")
         ).all()
-        input_tag_iterator = iter(input_tags)
-        dataset_iterator = iter(datasets)
-        # for run_uuid in run_uuids:
 
         results = []
         for run_uuid in run_uuids:
             dataset_inputs = []
-            while True:
-                try:
-                    dataset = next(dataset_iterator)
-                    (
-                        input_uuid,
-                        dataset_run_uuid,
-                        dataset_sql,
-                    ) = dataset
-                    if run_uuid == dataset_run_uuid:
-                        dataset_entity = dataset_sql.to_mlflow_entity()
-                        tags = []
-                        while True:
-                            try:
-                                tag = next(input_tag_iterator)
-                                (
-                                    tag_input_uuid,
-                                    _,
-                                    tag_sql,
-                                ) = tag  # middle varible is tag_run_uuid
-                                tag_entity = tag_sql.to_mlflow_entity()
-                                if tag_input_uuid == input_uuid:
-                                    tags.append(tag_entity)
-                                else:
-                                    break
-                            except StopIteration:
-                                break
-                        dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
-                        dataset_inputs.append(dataset_input_entity)
-                except StopIteration:
-                    break
+            for input_uuid, dataset_run_uuid, dataset_sql in datasets:
+                if run_uuid == dataset_run_uuid:
+                    dataset_entity = dataset_sql.to_mlflow_entity()
+                    tags = []
+                    for tag_input_uuid, tag_run_uuid, tag_sql in input_tags:
+                        if input_uuid == tag_input_uuid and run_uuid == tag_run_uuid:
+                            tags.append(tag_sql.to_mlflow_entity())
+                    dataset_input_entity = DatasetInput(dataset=dataset_entity, tags=tags)
+                    dataset_inputs.append(dataset_input_entity)
             results.append(dataset_inputs)
-
         return results
 
     @staticmethod
@@ -1326,10 +1301,11 @@ class SqlAlchemyStore(AbstractStore):
 
         :return: None.
         """
-        if not isinstance(datasets, list):
+        if not isinstance(datasets, list) and datasets is not None:
             raise TypeError("Argument 'datasets' should be a list, got '{}'".format(type(datasets)))
         _validate_run_id(run_id)
-        _validate_dataset_inputs(datasets)
+        if datasets is not None:
+            _validate_dataset_inputs(datasets)
 
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -1342,8 +1318,10 @@ class SqlAlchemyStore(AbstractStore):
             except Exception as e:
                 raise MlflowException(e, INTERNAL_ERROR)
 
-    def _log_inputs_impl(self, experiment_id, run_id, dataset_inputs: List[DatasetInput]):
-        if len(dataset_inputs) == 0:
+    def _log_inputs_impl(
+        self, experiment_id, run_id, dataset_inputs: Optional[List[DatasetInput]] = None
+    ):
+        if dataset_inputs is None or len(dataset_inputs) == 0:
             return
         for dataset_input in dataset_inputs:
             if dataset_input.dataset is None:

@@ -65,6 +65,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
+from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
 
 DB_URI = "sqlite:///"
 ARTIFACT_URI = "artifact_folder"
@@ -2722,17 +2723,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
 
         run_result = self.store.get_run(run.info.run_id)
 
-        assert len(run_result.inputs.dataset_inputs) == 1
-        dataset_input = run_result.inputs.dataset_inputs[0]
-        assert dataset_input.dataset.name == "name1"
-        assert dataset_input.dataset.digest == "digest1"
-        assert dataset_input.dataset.source_type == "st1"
-        assert dataset_input.dataset.source == "source1"
-
-        assert len(dataset_input.tags) == 1
-        input_tag = dataset_input.tags[0]
-        assert input_tag.key == "tag1"
-        assert input_tag.value == "value1"
+        assert_dataset_inputs_equal(run_result.inputs.dataset_inputs, dataset_inputs)
 
     def test_log_inputs_with_search_run(self):
         experiment_id = self._experiment_factory("test exp")
@@ -2753,17 +2744,7 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert len(search_run_result) == 1
         run_result = search_run_result[0]
 
-        assert len(run_result.inputs.dataset_inputs) == 1
-        dataset_input = run_result.inputs.dataset_inputs[0]
-        assert dataset_input.dataset.name == "name1"
-        assert dataset_input.dataset.digest == "digest1"
-        assert dataset_input.dataset.source_type == "st1"
-        assert dataset_input.dataset.source == "source1"
-
-        assert len(dataset_input.tags) == 1
-        input_tag = dataset_input.tags[0]
-        assert input_tag.key == "tag1"
-        assert input_tag.value == "value1"
+        assert_dataset_inputs_equal(run_result.inputs.dataset_inputs, dataset_inputs)
 
     def test_log_inputs_with_multiple_tags(self):
         experiment_id = self._experiment_factory("test exp")
@@ -2785,25 +2766,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert len(search_run_result) == 1
         run_result = search_run_result[0]
 
-        assert len(run_result.inputs.dataset_inputs) == 1
-        dataset_input = run_result.inputs.dataset_inputs[0]
-        assert dataset_input.dataset.name == "name1"
-        assert dataset_input.dataset.digest == "digest1"
-        assert dataset_input.dataset.source_type == "st1"
-        assert dataset_input.dataset.source == "source1"
-
-        assert len(dataset_input.tags) == 2
-        input_tag1 = dataset_input.tags[0]
-        assert input_tag1.key == "tag1"
-        assert input_tag1.value == "value1"
-        input_tag2 = dataset_input.tags[1]
-        assert input_tag2.key == "tag2"
-        assert input_tag2.value == "value2"
+        assert_dataset_inputs_equal(run_result.inputs.dataset_inputs, dataset_inputs)
 
     def test_log_inputs_across_runs(self):
         experiment_id = self._experiment_factory("test exp")
-        run1 = self._run_factory(config=self._get_run_configs(experiment_id))
-        run2 = self._run_factory(config=self._get_run_configs(experiment_id))
+        run1 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=2))
+        run2 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=1))
 
         dataset1 = entities.Dataset(
             name="name1",
@@ -2818,23 +2786,230 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             source="source2",
         )
 
+        inputs_to_run1 = [
+            entities.DatasetInput(dataset1, [entities.InputTag("context", "train")]),
+            entities.DatasetInput(dataset2, [entities.InputTag("context", "test")]),
+        ]
         self.store.log_inputs(
             run1.info.run_id,
-            [
-                entities.DatasetInput(dataset1, [entities.InputTag("context", "train")]),
-                entities.DatasetInput(dataset2, [entities.InputTag("context", "test")]),
-            ],
+            inputs_to_run1,
         )
+
+        inputs_to_run2 = [
+            entities.DatasetInput(dataset2, [entities.InputTag("context", "train")]),
+        ]
 
         self.store.log_inputs(
             run2.info.run_id,
-            [
-                entities.DatasetInput(dataset2, [entities.InputTag("context", "train")]),
-            ],
+            inputs_to_run2,
         )
+
+        run1_from_store = self.store.get_run(run1.info.run_id)
+        assert len(run1_from_store.inputs.dataset_inputs) == 2
+        assert_dataset_inputs_equal(run1_from_store.inputs.dataset_inputs, inputs_to_run1)
+
+        run2_from_store = self.store.get_run(run2.info.run_id)
+        assert len(run2_from_store.inputs.dataset_inputs) == 1
+        assert_dataset_inputs_equal(run2_from_store.inputs.dataset_inputs, inputs_to_run2)
 
         search_run_result = self.store.search_runs([experiment_id], None, ViewType.ALL)
         assert len(search_run_result) == 2
+        run1_result_from_search = search_run_result[0]
+        assert_dataset_inputs_equal(run1_result_from_search.inputs.dataset_inputs, inputs_to_run1)
+        run2_result_from_search = search_run_result[1]
+        assert_dataset_inputs_equal(run2_result_from_search.inputs.dataset_inputs, inputs_to_run2)
+
+    def test_log_inputs_and_retrieve_runs_behaves_as_expected(self):
+        experiment_id = self._experiment_factory("test exp")
+        run1 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=1))
+        run2 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=3))
+        run3 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=2))
+
+        dataset1 = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+            schema="schema1",
+            profile="profile1",
+        )
+        dataset2 = entities.Dataset(
+            name="name2",
+            digest="digest2",
+            source_type="st2",
+            source="source2",
+            schema="schema2",
+            profile="profile2",
+        )
+        dataset3 = entities.Dataset(
+            name="name3",
+            digest="digest3",
+            source_type="st3",
+            source="source3",
+            schema="schema3",
+            profile="profile3",
+        )
+
+        tags1 = [
+            entities.InputTag(key="key1", value="value1"),
+            entities.InputTag(key="key2", value="value2"),
+        ]
+        tags2 = [
+            entities.InputTag(key="key3", value="value3"),
+            entities.InputTag(key="key4", value="value4"),
+        ]
+        tags3 = [
+            entities.InputTag(key="key5", value="value5"),
+            entities.InputTag(key="key6", value="value6"),
+        ]
+
+        inputs_run1 = [
+            entities.DatasetInput(dataset1, tags1),
+            entities.DatasetInput(dataset2, tags1),
+        ]
+        inputs_run2 = [
+            entities.DatasetInput(dataset1, tags2),
+            entities.DatasetInput(dataset3, tags3),
+        ]
+        inputs_run3 = [entities.DatasetInput(dataset2, tags3)]
+
+        self.store.log_inputs(run1.info.run_id, inputs_run1)
+        self.store.log_inputs(run2.info.run_id, inputs_run2)
+        self.store.log_inputs(run3.info.run_id, inputs_run3)
+
+        run1 = self.store.get_run(run1.info.run_id)
+        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+        run2 = self.store.get_run(run2.info.run_id)
+        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+        run3 = self.store.get_run(run3.info.run_id)
+        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+        search_results_1 = self.store.search_runs(
+            [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time ASC"]
+        )
+        run1 = search_results_1[0]
+        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+        run2 = search_results_1[2]
+        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+        run3 = search_results_1[1]
+        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+        search_results_2 = self.store.search_runs(
+            [experiment_id], None, ViewType.ALL, max_results=4, order_by=["start_time DESC"]
+        )
+        run1 = search_results_2[2]
+        assert_dataset_inputs_equal(run1.inputs.dataset_inputs, inputs_run1)
+        run2 = search_results_2[0]
+        assert_dataset_inputs_equal(run2.inputs.dataset_inputs, inputs_run2)
+        run3 = search_results_2[1]
+        assert_dataset_inputs_equal(run3.inputs.dataset_inputs, inputs_run3)
+
+    def test_log_input_multiple_times_does_not_overwrite_tags_or_dataset(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+        dataset = entities.Dataset(
+            name="name",
+            digest="digest",
+            source_type="st",
+            source="source",
+            schema="schema",
+            profile="profile",
+        )
+        tags = [
+            entities.InputTag(key="key1", value="value1"),
+            entities.InputTag(key="key2", value="value2"),
+        ]
+        self.store.log_inputs(run.info.run_id, [entities.DatasetInput(dataset, tags)])
+
+        for i in range(3):
+            # Since the dataset name and digest are the same as the previously logged dataset,
+            # no changes should be made
+            overwrite_dataset = entities.Dataset(
+                name="name",
+                digest="digest",
+                source_type="st{i}",
+                source=f"source{i}",
+                schema=f"schema{i}",
+                profile=f"profile{i}",
+            )
+            # Since the dataset has already been logged as an input to the run, no changes should be
+            # made to the input tags
+            overwrite_tags = [
+                entities.InputTag(key=f"key{i}", value=f"value{i}"),
+                entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            ]
+            self.store.log_inputs(
+                run.info.run_id, [entities.DatasetInput(overwrite_dataset, overwrite_tags)]
+            )
+
+        run = self.store.get_run(run.info.run_id)
+        assert_dataset_inputs_equal(
+            run.inputs.dataset_inputs, [entities.DatasetInput(dataset, tags)]
+        )
+
+        # Logging a dataset with a different name or digest to the original run should result
+        # in the addition of another dataset input
+        other_name_dataset = entities.Dataset(
+            name="other_name",
+            digest="digest",
+            source_type="st",
+            source="source",
+            schema="schema",
+            profile="profile",
+        )
+        other_name_input_tags = [entities.InputTag(key="k1", value="v1")]
+        self.store.log_inputs(
+            run.info.run_id, [entities.DatasetInput(other_name_dataset, other_name_input_tags)]
+        )
+
+        other_digest_dataset = entities.Dataset(
+            name="name",
+            digest="other_digest",
+            source_type="st",
+            source="source",
+            schema="schema",
+            profile="profile",
+        )
+        other_digest_input_tags = [entities.InputTag(key="k2", value="v2")]
+        self.store.log_inputs(
+            run.info.run_id, [entities.DatasetInput(other_digest_dataset, other_digest_input_tags)]
+        )
+
+        run = self.store.get_run(run.info.run_id)
+        assert_dataset_inputs_equal(
+            run.inputs.dataset_inputs,
+            [
+                entities.DatasetInput(dataset, tags),
+                entities.DatasetInput(other_name_dataset, other_name_input_tags),
+                entities.DatasetInput(other_digest_dataset, other_digest_input_tags),
+            ],
+        )
+
+        # Logging the same dataset with different tags to new runs should result in each run
+        # having its own new input tags and the same dataset input
+        for i in range(3):
+            new_run = self.store.create_run(
+                experiment_id=experiment_id,
+                user_id="user",
+                start_time=0,
+                tags=[],
+                run_name=None,
+            )
+            new_tags = [
+                entities.InputTag(key=f"key{i}", value=f"value{i}"),
+                entities.InputTag(key=f"key{i+1}", value=f"value{i+1}"),
+            ]
+            self.store.log_inputs(new_run.info.run_id, [entities.DatasetInput(dataset, new_tags)])
+            new_run = self.store.get_run(new_run.info.run_id)
+            assert_dataset_inputs_equal(
+                new_run.inputs.dataset_inputs, [entities.DatasetInput(dataset, new_tags)]
+            )
+
+    def test_log_inputs_handles_case_when_no_datasets_are_specified(self):
+        experiment_id = self._experiment_factory("test exp")
+        run = self._run_factory(config=self._get_run_configs(experiment_id))
+        self.store.log_inputs(run.info.run_id)
+        self.store.log_inputs(run.info.run_id, datasets=None)
 
     def test_log_inputs_fails_with_missing_inputs(self):
         experiment_id = self._experiment_factory("test exp")
