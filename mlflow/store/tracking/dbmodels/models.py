@@ -513,7 +513,7 @@ class SqlDataset(Base):
     """
     dataset_profile = Column(UnicodeText, nullable=True)
     """
-    Param dataset_schema: `UnicodeText`.
+    Param dataset_profile: `UnicodeText`.
     """
 
     def __repr__(self):
@@ -537,10 +537,10 @@ class SqlDataset(Base):
         return Dataset(
             name=self.name,
             digest=self.digest,
-            source_type=self.source_type,
-            source=self.source,
-            schema=self.schema,
-            profile=self.profile,
+            source_type=self.dataset_source_type,
+            source=self.dataset_source,
+            schema=self.dataset_schema,
+            profile=self.dataset_profile,
         )
 
 
@@ -598,7 +598,7 @@ class SqlInputTag(Base):
     __tablename__ = "input_tags"
     __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
 
-    input_uuid = Column(String(36), ForeignKey("experiments.experiment_id"), nullable=False)
+    input_uuid = Column(String(36), ForeignKey("inputs.input_uuid"), nullable=False)
     """
     Input UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
     *Foreign Key* into ``inputs`` table. Part of *Primary Key* for ``input_tags`` table.

@@ -26,6 +26,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     SetExperimentTag,
     GetExperimentByName,
+    LogInputs,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
@@ -336,5 +337,6 @@ class RestStore(AbstractStore):
 
         :return: None.
         """
-        # TODO: Implement log_inputs() for RestStore
-        pass
+        datasets_protos = [dataset.to_proto() for dataset in datasets]
+        req_body = message_to_json(LogInputs(run_id=run_id, datasets=datasets_protos))
+        self._call_endpoint(LogInputs, req_body)

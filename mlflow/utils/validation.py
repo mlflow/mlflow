@@ -5,10 +5,13 @@ import numbers
 import posixpath
 import re
 
+from typing import List
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.string_utils import is_string_type
+from mlflow.entities import DatasetInput, Dataset, InputTag
 
 # Regex for valid param and metric names: may only contain slashes, alphanumerics,
 # underscores, periods, dashes, and spaces.
@@ -48,6 +51,13 @@ MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
+MAX_DATASET_NAME_SIZE = 500
+MAX_DATASET_DIGEST_SIZE = 36
+MAX_DATASET_SCHEMA_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
+MAX_DATASET_SOURCE_SIZE = 65535  # 64KB -1 (the db limit for TEXT column)
+MAX_DATASET_PROFILE_SIZE = 16777215  # 16MB -1 (the db limit for MEDIUMTEXT column)
+MAX_INPUT_TAG_KEY_SIZE = 255
+MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 256
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ", ".join(DATABASE_ENGINES)
@@ -406,3 +416,71 @@ def _validate_model_version_or_stage_exists(version, stage):
 def _validate_tag_value(value):
     if value is None:
         raise MlflowException("Tag value cannot be None", INVALID_PARAMETER_VALUE)
+
+
+def _validate_dataset_inputs(dataset_inputs: List[DatasetInput]):
+    for dataset_input in dataset_inputs:
+        _validate_dataset(dataset_input.dataset)
+        _validate_input_tags(dataset_input.tags)
+
+
+def _validate_dataset(dataset: Dataset):
+    if dataset is None:
+        raise MlflowException("Dataset cannot be None", INVALID_PARAMETER_VALUE)
+    if dataset.name is None:
+        raise MlflowException("Dataset name cannot be None", INVALID_PARAMETER_VALUE)
+    if dataset.digest is None:
+        raise MlflowException("Dataset digest cannot be None", INVALID_PARAMETER_VALUE)
+    if dataset.source_type is None:
+        raise MlflowException("Dataset source_type cannot be None", INVALID_PARAMETER_VALUE)
+    if dataset.source is None:
+        raise MlflowException("Dataset source cannot be None", INVALID_PARAMETER_VALUE)
+    if len(dataset.name) > MAX_DATASET_NAME_SIZE:
+        raise MlflowException(
+            f"Dataset name exceeds the maximum length of {MAX_DATASET_NAME_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+    if len(dataset.digest) > MAX_DATASET_DIGEST_SIZE:
+        raise MlflowException(
+            f"Dataset digest exceeds the maximum length of {MAX_DATASET_DIGEST_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+    if len(dataset.source) > MAX_DATASET_SOURCE_SIZE:
+        raise MlflowException(
+            f"Dataset source exceeds the maximum length of {MAX_DATASET_SOURCE_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+    if dataset.schema is not None and len(dataset.schema) > MAX_DATASET_SCHEMA_SIZE:
+        raise MlflowException(
+            f"Dataset schema exceeds the maximum length of {MAX_DATASET_SCHEMA_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+    if dataset.profile is not None and len(dataset.profile) > MAX_DATASET_PROFILE_SIZE:
+        raise MlflowException(
+            f"Dataset profile exceeds the maximum length of {MAX_DATASET_PROFILE_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_input_tags(input_tags: List[InputTag]):
+    for input_tag in input_tags:
+        _validate_input_tag(input_tag)
+
+
+def _validate_input_tag(input_tag: InputTag):
+    if input_tag is None:
+        raise MlflowException("InputTag cannot be None", INVALID_PARAMETER_VALUE)
+    if input_tag.key is None:
+        raise MlflowException("InputTag key cannot be None", INVALID_PARAMETER_VALUE)
+    if input_tag.value is None:
+        raise MlflowException("InputTag value cannot be None", INVALID_PARAMETER_VALUE)
+    if len(input_tag.key) > MAX_INPUT_TAG_KEY_SIZE:
+        raise MlflowException(
+            f"InputTag key exceeds the maximum length of {MAX_INPUT_TAG_KEY_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
+    if len(input_tag.value) > MAX_INPUT_TAG_VALUE_SIZE:
+        raise MlflowException(
+            f"InputTag value exceeds the maximum length of {MAX_INPUT_TAG_VALUE_SIZE}",
+            INVALID_PARAMETER_VALUE,
+        )
