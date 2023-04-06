@@ -173,7 +173,6 @@ describe('ModelVersionView', () => {
       ...minimalProps,
       runInfo: runInfo,
       runDisplayName: expectedRunDisplayName,
-      modelVersion: {source: 'file:///path/to/artifacts/model'}
     };
     wrapper = createComponentInstance(props);
     const linkedRun = wrapper.find('.linked-run').at(0); // TODO: Figure out why it returns 2.
