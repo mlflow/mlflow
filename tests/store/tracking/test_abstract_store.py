@@ -60,7 +60,7 @@ class AbstractStoreTestImpl(AbstractStore):
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError()
 
-    def log_inputs(self, run_id, datasets):
+    def log_inputs(self, run_id, datasets=None):
         raise NotImplementedError()
 
 

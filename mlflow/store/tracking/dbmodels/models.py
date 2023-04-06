@@ -598,7 +598,7 @@ class SqlInputTag(Base):
     __tablename__ = "input_tags"
     __table_args__ = (PrimaryKeyConstraint("input_uuid", "name", name="input_tags_pk"),)
 
-    input_uuid = Column(String(36), ForeignKey("experiments.experiment_id"), nullable=False)
+    input_uuid = Column(String(36), ForeignKey("inputs.input_uuid"), nullable=False)
     """
     Input UUID: `String` (limit 36 characters). Defined as *Non-null* in schema.
     *Foreign Key* into ``inputs`` table. Part of *Primary Key* for ``input_tags`` table.

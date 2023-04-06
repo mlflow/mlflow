@@ -1346,8 +1346,10 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             dataset_uuids = {}
-            for dataset in existing_datasets:
-                dataset_uuids[(dataset.name, dataset.digest)] = dataset.dataset_uuid
+            for existing_dataset in existing_datasets:
+                dataset_uuids[
+                    (existing_dataset.name, existing_dataset.digest)
+                ] = existing_dataset.dataset_uuid
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
@@ -1383,8 +1385,10 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
             input_uuids = {}
-            for input in existing_inputs:
-                input_uuids[(input.source_id, input.destination_id)] = input.input_uuid
+            for existing_input in existing_inputs:
+                input_uuids[
+                    (existing_input.source_id, existing_input.destination_id)
+                ] = existing_input.input_uuid
 
             # add input edges to objs_to_write
             for dataset_input in dataset_inputs:
