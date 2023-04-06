@@ -127,6 +127,13 @@ class _Example:
             if isinstance(input_ex, dict):
                 if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
+                elif all(isinstance(x, (str, list)) for x in input_ex.values()):
+                    for value in input_ex.values():
+                        if isinstance(value, list) and not all(_is_scalar(x) for x in value):
+                            raise TypeError(
+                                "List values within dictionaries must be of scalar type."
+                            )
+                    input_ex = pd.DataFrame(input_ex)
                 else:
                     raise TypeError(
                         "Data in the dictionary must be scalar or of type numpy.ndarray"
@@ -611,7 +618,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if not input_schema.is_tensor_spec():
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series)):
             try:
-                pf_input = pd.DataFrame(pf_input)
+                if isinstance(pf_input, dict) and all(
+                    not isinstance(value, (dict, list)) for value in pf_input.values()
+                ):
+                    pf_input = pd.DataFrame(pf_input, index=[0])
+                else:
+                    pf_input = pd.DataFrame(pf_input)
             except Exception as e:
                 raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"

@@ -1,5 +1,5 @@
+import json
 import os
-
 import pandas as pd
 from packaging.version import Version
 import pathlib
@@ -975,6 +975,7 @@ def test_invalid_task_inference_raises_error(model_path):
 @pytest.mark.parametrize(
     "inference_payload, answer",
     [
+        ("question: Who's house? context: The house is owned by a man named Run.", "Run"),
         (["question: Who's house? context: The house is owned by a man named Run."], "Run"),
         ({"question": "Who's house?", "context": "The house is owned by a man named Run."}, "Run"),
         (
@@ -1093,7 +1094,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, input):
     "input, result",
     [
         ("Riding a [MASK] on the beach is fun!", "bike"),
-        (["If I had [MASK], I would fly to the top of a mountain"], ["wings"]),
+        (["If I had [MASK], I would fly to the top of a mountain"], "wings"),
         (
             ["I use stacks of [MASK] to buy things", "I [MASK] the whole bowl of cherries"],
             ["cash", "ate"],
@@ -1108,20 +1109,42 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, input, result):
     assert inference == result
 
 
-def test_pandas_df_input_to_pyfunc(fill_mask_pipeline, model_path):
+def test_pandas_df_input_to_pyfunc_simple_input(fill_mask_pipeline, model_path):
     mlflow.transformers.save_model(fill_mask_pipeline, path=model_path)
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    simple_input = pd.DataFrame({"inputs": "Riding a [MASK] on the beach is fun!"}, index=[0])
+    simple_inference = pyfunc_loaded.predict(simple_input)
+    assert simple_inference == "bike"
 
     mask_input = [
         "Riding a [MASK] on the beach is fun.",
         "If I had [MASK], I would fly to the top of a mountain.",
         "The [MASK] howled at the moon as a pack",
     ]
-    df_input = pd.DataFrame([{"input": x} for x in mask_input])
+    df_input = pd.DataFrame([{"inputs": x} for x in mask_input])
 
     inference = pyfunc_loaded.predict(df_input)
 
     assert inference == ["bike", "wings", "wolves"]
+
+
+def test_pandas_df_input_to_pyfunc_complex_input(table_question_answering_pipeline, model_path):
+    mlflow.transformers.save_model(table_question_answering_pipeline, model_path)
+    loaded = mlflow.pyfunc.load_model(model_path)
+
+    input = pd.DataFrame(
+        {
+            "query": ["What is our highest sales?", "What should we order more of?"],
+            "table": (
+                '{"Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"], '
+                '"Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"], '
+                '"Inventory": ["910", "4589", "11200", "80", "3459"]}'
+            ),
+        }
+    )
+    inference = loaded.predict(input)
+    assert inference == ["1230945.55", "apples"]
 
 
 @pytest.mark.parametrize(
@@ -1241,6 +1264,22 @@ def test_table_question_answering_pipeline(table_question_answering_pipeline, mo
     assert inference_multiple == ["1230945.55", "apples"]
 
 
+def test_table_question_answering_pipeline_with_pandas_df_input(
+    table_question_answering_pipeline, model_path
+):
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+    table_df = pd.DataFrame(table)
+    mlflow.transformers.save_model(table_question_answering_pipeline, model_path)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict({"query": "What should we order more of?", "table": table_df})
+
+    assert inference == "apples"
+
+
 def test_conversational_pipeline(conversational_pipeline, model_path):
     mlflow.transformers.save_model(conversational_pipeline, model_path)
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
@@ -1262,30 +1301,6 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
     fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
 
     assert fourth_response == "Only if you have a boat that can't sink."
-
-
-@pytest.mark.parametrize(
-    "input, in_signature, out_signature",
-    [
-        ("Generative models are", '[{"type": "string"}]', '[{"type": "string"}]'),
-        (
-            ["Computers are", "Dogs are"],
-            '[{"type": "string"}, {"type": "string"}]',
-            '[{"type": "string"}, {"type": "string"}]',
-        ),
-    ],
-)
-def test_signature_inference_strings_and_lists_of_strings(
-    text_generation_pipeline, model_path, input, in_signature, out_signature
-):
-    mlflow.transformers.save_model(text_generation_pipeline, model_path)
-    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
-
-    answer = loaded_pyfunc.predict(input)
-    signature = infer_signature(input, answer)
-
-    assert signature.inputs.to_json() == in_signature
-    assert signature.outputs.to_json() == out_signature
 
 
 @pytest.mark.parametrize(
@@ -1312,31 +1327,178 @@ def test_ner_pipeline(ner_pipeline, model_path, input, result):
     assert inference == result
 
 
-def test_signature_inference_dict_input_to_string_output():
-    pass
+@pytest.mark.parametrize(
+    "input, in_signature, out_signature",
+    [
+        ("Generative models are", '[{"type": "string"}]', '[{"type": "string"}]'),
+        (
+            ["Computers are", "Dogs are"],
+            '[{"type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+    ],
+)
+def test_signature_inference_strings_and_lists_of_strings(
+    text_generation_pipeline, model_path, input, in_signature, out_signature
+):
+    pyfunc = mlflow.transformers._TransformersWrapper(text_generation_pipeline, None)
+
+    answer = pyfunc.predict(input)
+    signature = infer_signature(input, answer)
+
+    assert signature.inputs.to_json() == in_signature
+    assert signature.outputs.to_json() == out_signature
 
 
-# TODO: make sure that _enforce_schema can support input of scalar str, list[str], dict[str, dict]
+@pytest.mark.parametrize(
+    "input, in_signature, out_signature",
+    [
+        (
+            {
+                "sequences": "This new MLflow flavor is awesome!",
+                "candidate_labels": '"happy", "sad"',
+            },
+            '[{"name": "sequences", "type": "string"}, {"name": "candidate_labels", '
+            '"type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+    ],
+)
+def test_signature_inference_dict_input_to_string_output(
+    zero_shot_pipeline, input, in_signature, out_signature
+):
+    pyfunc = mlflow.transformers._TransformersWrapper(zero_shot_pipeline, None)
+
+    signature = infer_signature(input, pyfunc.predict(input))
+
+    assert signature.inputs.to_json() == in_signature
+    assert signature.outputs.to_json() == out_signature
 
 
-def test_model_saved_with_signature_using_string_input():
-    pass
+@pytest.mark.parametrize(
+    "input, in_signature, out_signature",
+    [
+        (
+            "question: Who's house? context: The house is owned by a man named Run.",
+            '[{"type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+        (
+            [
+                {
+                    "question": "What color is it?",
+                    "context": "Some people said it was green but I know that it's definitely blue",
+                },
+                {
+                    "question": "How do the wheels go?",
+                    "context": "The wheels on the bus go round and round. Round and round.",
+                },
+            ],
+            '[{"name": "question", "type": "string"}, {"name": "context", "type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+        (
+            ["question: Who's house? context: The house is owned by a man named Run."],
+            '[{"type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+        (
+            {"question": "Who's house?", "context": "The house is owned by a man named Run."},
+            '[{"name": "question", "type": "string"}, {"name": "context", "type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+        (
+            [
+                "question: What color is it? context: Some people said it was green but "
+                "I know that it's pink.",
+                "context: The people on the bus go up and down. Up and down. "
+                "question: How do the people go?",
+            ],
+            '[{"type": "string"}]',
+            '[{"type": "string"}]',
+        ),
+    ],
+)
+def test_question_answering_with_signature(small_qa_pipeline, input, in_signature, out_signature):
+    pyfunc = mlflow.transformers._TransformersWrapper(small_qa_pipeline, None)
+    signature = infer_signature(input, pyfunc.predict(input))
+
+    assert signature.inputs.to_json() == in_signature
+    assert signature.outputs.to_json() == out_signature
 
 
-# TODO: ensure that
+def test_table_question_answering_with_signature(table_question_answering_pipeline):
+    pyfunc = mlflow.transformers._TransformersWrapper(table_question_answering_pipeline, None)
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+    invalid_input = {
+        "query": ["What is our highest sales?", "What should we order more of?"],
+        "table": table,
+    }
+
+    with pytest.raises(
+        MlflowException, match="Invalid values in dictionary. If passing a dictionary"
+    ):
+        infer_signature(invalid_input, pyfunc.predict(invalid_input))
+
+    valid_input = {
+        "query": ["What is our highest sales?", "What should we order more of?"],
+        "table": json.dumps(table),
+    }
+    signature = infer_signature(valid_input, pyfunc.predict(valid_input))
+
+    assert (
+        signature.inputs.to_json()
+        == '[{"name": "query", "type": "string"}, {"name": "table", "type": "string"}]'
+    )
+    assert signature.outputs.to_json() == '[{"type": "string"}]'
 
 
-def test_model_saved_with_signature_using_list_of_string_input():
-    pass
+@pytest.mark.parametrize(
+    "query, answer",
+    [
+        ("What is our highest sales?", "1230945.55"),
+        (["What is our highest sales?", "What is our lowest sales?"], ["1230945.55", "2325.88"]),
+    ],
+)
+def test_schema_enforcement_table_question_answering(
+    table_question_answering_pipeline, model_path, query, answer
+):
+    pyfunc = mlflow.transformers._TransformersWrapper(table_question_answering_pipeline, None)
+
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+    valid_input = {
+        "query": query,
+        "table": json.dumps(table),
+    }
+    signature = infer_signature(valid_input, pyfunc.predict(valid_input))
+
+    assert (
+        signature.inputs.to_json()
+        == '[{"name": "query", "type": "string"}, {"name": "table", "type": "string"}]'
+    )
+    assert signature.outputs.to_json() == '[{"type": "string"}]'
+
+    mlflow.transformers.save_model(
+        transformers_model=table_question_answering_pipeline,
+        path=model_path,
+        signature=signature,
+        input_example=valid_input,
+    )
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    assert loaded_pyfunc.predict(valid_input) == answer
 
 
-def test_model_saved_with_signature_using_dict_input():
-    pass
-
-
-def test_model_saved_with_signature_using_compound_input():
-    pass
-
+# TODO: make sure serving works!
 
 #
 # def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):

@@ -1161,9 +1161,14 @@ class _TransformersWrapper:
             )
 
     def predict(self, data):
+        import transformers
+
         if isinstance(data, pd.DataFrame):
-            dict_data = data.to_dict(orient="records")
-            input_data = [list(entry.values())[0] for entry in dict_data]
+            input_data = data.to_dict(orient="records")
+            if isinstance(self.pipeline, transformers.FillMaskPipeline):
+                # NB: Some pipeline types do not accept a dict input and require either
+                # a str or a List[str]
+                input_data = [list(entry.values())[0] for entry in input_data]
         elif isinstance(data, dict):
             input_data = data
         elif isinstance(data, list):
@@ -1176,7 +1181,7 @@ class _TransformersWrapper:
             input_data = data
         else:
             raise TypeError(
-                "Input data must be either a pandas.DataFrame, a List of strings, "
+                "Input data must be either a pandas.DataFrame, a string, a List of strings, "
                 "or a dictionary."
             )
 
@@ -1209,11 +1214,14 @@ class _TransformersWrapper:
             output_key = "label"
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             output_key = "labels"
+            data = self._parse_string_wrapped_list_input_as_list(data, "candidate_labels")
         elif isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
             output_key = "answer"
+            data = self._parse_json_encoded_dict_payload_to_dict(data, "table")
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output_key = "entity"
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
+            output_key = None
             if not self._conversation:
                 self._conversation = transformers.Conversation()
             self._conversation.add_user_input(data)
@@ -1261,7 +1269,9 @@ class _TransformersWrapper:
             return output.strip()
         elif isinstance(output, list):
             if isinstance(output[0], str):
-                return [text.strip() for text in output]
+                cleaned = [text.strip() for text in output]
+                # If the list has only a single string, return as string.
+                return cleaned if len(cleaned) > 1 else cleaned[0]
             else:
                 return [self._sanitize_output(coll) for coll in output]
         elif isinstance(output, dict):
@@ -1345,3 +1355,46 @@ class _TransformersWrapper:
                 "An invalid type has been supplied. Must be either a string, "
                 f"a list of strings, or a dict. {type(data)} is not supported."
             )
+
+    @staticmethod
+    def _parse_string_wrapped_list_input_as_list(data, key_to_unpack):
+        """
+        Parses the complex input types for pipelines such as ZeroShotClassification in which
+        the required input type is Dict[str, Union[str, List[str]]] wherein the list
+        provided is encoded as a csv string. This method unpacks that string to the required
+        elements.
+        """
+        return {
+            key: (
+                [v.strip().replace("'", "").replace('"', "") for v in value.split(",")]
+                if isinstance(value, str) and key == key_to_unpack
+                else value
+            )
+            for key, value in data.items()
+        }
+
+    @staticmethod
+    def _parse_json_encoded_dict_payload_to_dict(data, key_to_unpack):
+        """
+        Parses complex dict input types that have been json encoded. Pipelines like
+        TableQuestionAnswering require such input types.
+        """
+        if isinstance(data, list):
+            return [
+                {
+                    key: (
+                        json.loads(value)
+                        if key == key_to_unpack and isinstance(value, str)
+                        else value
+                    )
+                    for key, value in entry.items()
+                }
+                for entry in data
+            ]
+        else:
+            return {
+                key: (
+                    json.loads(value) if key == key_to_unpack and isinstance(value, str) else value
+                )
+                for key, value in data.items()
+            }

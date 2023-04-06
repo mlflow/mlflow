@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -87,9 +88,12 @@ def _infer_schema(data: Any) -> Schema:
     The input should be one of these:
       - pandas.DataFrame or pandas.Series
       - dictionary of { name -> numpy.ndarray}
+      - dictionary of { name -> [str, List[str]}
       - numpy.ndarray
       - pyspark.sql.DataFrame
       - csc/csr matrix
+      - str
+      - List[str]
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -101,19 +105,20 @@ def _infer_schema(data: Any) -> Schema:
     from scipy.sparse import csr_matrix, csc_matrix
 
     if isinstance(data, dict):
-        res = []
-        for name in data.keys():
-            ndarray = data[name]
-            if not isinstance(ndarray, np.ndarray):
-                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
-            res.append(
-                TensorSpec(
-                    type=clean_tensor_type(ndarray.dtype),
-                    shape=_get_tensor_shape(ndarray),
-                    name=name,
+        if all(isinstance(values, np.ndarray) for values in data.values()):
+            res = []
+            for name in data.keys():
+                ndarray = data[name]
+                res.append(
+                    TensorSpec(
+                        type=clean_tensor_type(ndarray.dtype),
+                        shape=_get_tensor_shape(ndarray),
+                        name=name,
+                    )
                 )
-            )
-        schema = Schema(res)
+            schema = Schema(res)
+        elif _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data):
+            schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
         schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
@@ -138,8 +143,13 @@ def _infer_schema(data: Any) -> Schema:
         )
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
-    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
-        schema = Schema([ColSpec(type=DataType.string) for _ in data])
+    elif isinstance(data, list):
+        if all(isinstance(element, str) for element in data):
+            schema = Schema([ColSpec(type=DataType.string)])
+        elif all(isinstance(element, dict) for element in data) and all(
+            isinstance(value, str) for d in data for value in d.values()
+        ):
+            schema = Schema([ColSpec(type=DataType.string, name=name) for name in data[0].keys()])
     else:
         raise TypeError(
             "Expected one of the following types:\n"
@@ -152,6 +162,7 @@ def _infer_schema(data: Any) -> Schema:
             "- scipy.sparse.csc_matrix\n"
             "- str\n"
             "- List[str]\n"
+            "- List[Dict[str, str]]"
             "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(
@@ -292,3 +303,22 @@ def _is_spark_df(x) -> bool:
         return isinstance(x, pyspark.sql.dataframe.DataFrame)
     except ImportError:
         return False
+
+
+def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> bool:
+    invalid_keys = []
+    for key, value in data.items():
+        if isinstance(value, list):
+            if not any(isinstance(item, str) for item in value):
+                invalid_keys.append(key)
+        else:
+            if not isinstance(value, str):
+                invalid_keys.append(key)
+    if invalid_keys:
+        raise MlflowException(
+            "Invalid values in dictionary. If passing a dictionary containing strings, all values must"
+            "be either strings or lists of strings. The following values in the input dictionary"
+            f"are invalid: {invalid_keys}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    return True
