@@ -1371,32 +1371,29 @@ class SqlAlchemyStore(AbstractStore):
             dataset_uuids = {}
             for dataset in existing_datasets:
                 dataset_uuids[(dataset.name, dataset.digest)] = dataset.dataset_uuid
-            for dataset_input in dataset_inputs:
-                if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
-                    dataset_uuids[
-                        (dataset_input.dataset.name, dataset_input.dataset.digest)
-                    ] = uuid.uuid4().hex
 
             # collect all objects to write to DB in a single list
             objs_to_write = []
 
             # add datasets to objs_to_write
             for dataset_input in dataset_inputs:
-                dataset_uuid = dataset_uuids[
-                    (dataset_input.dataset.name, dataset_input.dataset.digest)
-                ]
-                objs_to_write.append(
-                    SqlDataset(
-                        dataset_uuid=dataset_uuid,
-                        experiment_id=experiment_id,
-                        name=dataset_input.dataset.name,
-                        digest=dataset_input.dataset.digest,
-                        dataset_source_type=dataset_input.dataset.source_type,
-                        dataset_source=dataset_input.dataset.source,
-                        dataset_schema=dataset_input.dataset.schema,
-                        dataset_profile=dataset_input.dataset.profile,
+                if (dataset_input.dataset.name, dataset_input.dataset.digest) not in dataset_uuids:
+                    new_dataset_uuid = uuid.uuid4().hex
+                    dataset_uuids[
+                        (dataset_input.dataset.name, dataset_input.dataset.digest)
+                    ] = new_dataset_uuid
+                    objs_to_write.append(
+                        SqlDataset(
+                            dataset_uuid=new_dataset_uuid,
+                            experiment_id=experiment_id,
+                            name=dataset_input.dataset.name,
+                            digest=dataset_input.dataset.digest,
+                            dataset_source_type=dataset_input.dataset.source_type,
+                            dataset_source=dataset_input.dataset.source,
+                            dataset_schema=dataset_input.dataset.schema,
+                            dataset_profile=dataset_input.dataset.profile,
+                        )
                     )
-                )
 
             # create a new input uuid for each dataset input
             input_uuids = [uuid.uuid4().hex for _ in range(len(dataset_inputs))]
@@ -1431,7 +1428,9 @@ class SqlAlchemyStore(AbstractStore):
                     )
 
             # write all objects to the database
-            self._save_to_db(session=session, objs=objs_to_write)
+            # note that we have to loop because sqlalchemy does not have merge_all
+            for obj in objs_to_write:
+                session.merge(obj)
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):
