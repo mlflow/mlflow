@@ -801,7 +801,7 @@ def _log_inputs():
             "datasets": [_assert_required, _assert_array],
         },
     )
-    run_id = request_message.run_id or request_message.run_uuid
+    run_id = request_message.run_id
     datasets = [
         DatasetInput.from_proto(proto_dataset_input)
         for proto_dataset_input in request_message.datasets
