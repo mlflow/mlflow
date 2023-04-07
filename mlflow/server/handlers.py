@@ -14,7 +14,7 @@ from flask import Response, request, current_app, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo
+from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag, FileInfo, DatasetInput
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -43,6 +43,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     GetExperimentByName,
     LogModel,
+    LogInputs,
 )
 from mlflow.protos.model_registry_pb2 import (
     ModelRegistryService,
@@ -785,6 +786,29 @@ def _log_param():
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_param(run_id, param)
     response_message = LogParam.Response()
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _log_inputs():
+    request_message = _get_request_message(
+        LogInputs(),
+        schema={
+            "run_id": [_assert_required, _assert_string],
+            "datasets": [_assert_required, _assert_array],
+        },
+    )
+    run_id = request_message.run_id
+    datasets = [
+        DatasetInput.from_proto(proto_dataset_input)
+        for proto_dataset_input in request_message.datasets
+    ]
+
+    _get_tracking_store().log_inputs(run_id, datasets=datasets)
+    response_message = LogInputs.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -1773,6 +1797,7 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     SearchExperiments: _search_experiments,
+    LogInputs: _log_inputs,
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
     GetRegisteredModel: _get_registered_model,
