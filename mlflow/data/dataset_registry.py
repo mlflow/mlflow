@@ -9,7 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-class ConstructorFunction():
+class ConstructorFunction:
     def __call__(self, *args: Any) -> Dataset:
         pass
 
