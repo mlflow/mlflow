@@ -2,7 +2,6 @@ import inspect
 import entrypoints
 import warnings
 from typing import Any, Dict
-from typing_extensions import Protocol
 
 import mlflow.data
 from mlflow.exceptions import MlflowException
@@ -10,7 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-class ConstructorFunction(Protocol):
+class ConstructorFunction():
     def __call__(self, *args: Any) -> Dataset:
         pass
 
