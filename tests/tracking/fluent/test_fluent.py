@@ -1219,5 +1219,5 @@ def test_log_input(tmp_path):
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
 
     assert len(dataset_inputs[0].tags) == 1
-    assert dataset_inputs[0].tags[0].key == "mlflow.data.context"
+    assert dataset_inputs[0].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[0].tags[0].value == "train"

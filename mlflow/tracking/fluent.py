@@ -43,6 +43,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
@@ -713,7 +714,9 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
-def log_input(dataset: Dataset, context: str = None, tags: Dict[str, str] = None) -> None:
+def log_input(
+    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+) -> None:
     """
     Log a dataset used in the current run.
 
@@ -740,7 +743,7 @@ def log_input(dataset: Dataset, context: str = None, tags: Dict[str, str] = None
     if tags:
         tags_to_log.append([InputTag(key=key, value=value) for key, value in tags.items()])
     if context:
-        tags_to_log.append(InputTag(key="mlflow.data.context", value=context))
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
 

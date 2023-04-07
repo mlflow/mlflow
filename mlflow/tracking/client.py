@@ -993,7 +993,7 @@ class MlflowClient:
     def log_inputs(
         self,
         run_id: str,
-        datasets: Sequence[DatasetInput] = None,
+        datasets: Optional[Sequence[DatasetInput]] = None,
     ) -> None:
         """
         Log one or more dataset inputs to a run.
