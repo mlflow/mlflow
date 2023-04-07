@@ -6,6 +6,8 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import os
 from itertools import zip_longest
+from typing import List, Optional
+from mlflow.entities.dataset_input import DatasetInput
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_MAX_RESULTS
 from mlflow.tracking._tracking_service import utils
@@ -393,7 +395,7 @@ class TrackingServiceClient:
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
 
-    def log_inputs(self, run_id, datasets=None):
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log one or more dataset inputs to a run.
 
