@@ -387,6 +387,9 @@ prophet:
 
   models:
     minimum: "1.0.1"
+    requirements:
+      # Prophet 1.0.x versions are incompatible with pandas >= 2.0
+      "< 1.1": ["pandas<2"]
     maximum: "1.1.2"
     run: |
       pytest tests/prophet/test_prophet_model_export.py
