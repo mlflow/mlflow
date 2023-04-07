@@ -435,8 +435,6 @@ class SplitStep(BaseStep):
                 f"Running {post_split_filter_config} on train, validation and test datasets."
             )
             train_df = train_df[post_split_filter(train_df)]
-            validation_df = validation_df[post_split_filter(validation_df)]
-            test_df = test_df[post_split_filter(test_df)]
 
         if min(len(train_df), len(validation_df), len(test_df)) < 4:
             raise MlflowException(
