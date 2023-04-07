@@ -406,8 +406,8 @@ def test_mlflow_models_serve(enable_mlserver):
                 artifact_path="model",
                 python_model=model,
                 extra_pip_requirements=[
-                    "mlserver>=1.2.0.dev13",
-                    "mlserver-mlflow>=1.2.0.dev13",
+                    "mlserver>=1.2.0",
+                    "mlserver-mlflow>=1.2.0",
                     PROTOBUF_REQUIREMENT,
                 ],
             )
