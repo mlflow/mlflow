@@ -51,6 +51,8 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
+        # Retrieve a semantic hash of the DataFrame's logical plan, which is much more efficient
+        # and deterministic than hashing DataFrame records
         return get_normalized_md5_digest([np.int64(self._df.semanticHash())])
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
@@ -122,10 +124,9 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         `pandas.DataFrame` into: 1. a `pandas.DataFrame` of features and
         2. a `pandas.Series` of targets.
 
-        This method should only be called if the resulting `pandas.DataFrame` is expected to be
-        small, as all the data is loaded into the driver's memory.
+        To avoid overuse of driver memory, only the first 10,000 DataFrame rows are selected.
         """
-        df = self._df.toPandas()
+        df = self._df.limit(10000).toPandas()
         if self._targets is not None:
             if self._targets not in df.columns:
                 raise MlflowException(
@@ -157,8 +158,8 @@ def load_delta(
     :param path: The path to the Delta table. Either `path` or `table_name` must be specified.
     :param table_name: The name of the Delta table. Either `path` or `table_name` must be specified.
     :param version: The Delta table version. If not specified, the version will be inferred.
-    :param targets: The name of the Delta table column containing targets (labels) for supervised
-                    learning.
+    :param targets: Optional. The name of the Delta table column containing targets (labels) for
+                    supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -201,7 +202,7 @@ def from_spark(
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
-):
+) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs an MLflow :py:class:`SparkDataset` object for use with
     MLflow Tracking.
@@ -225,8 +226,8 @@ def from_spark(
                 since the DataFrame may have been modified by Spark operations. This is used to
                 reload the dataset upon request via `SparkDataset.source.load()`. Either `path`,
                 `table_name`, or `sql` must be specified.
-    :param targets: The name of the Delta table column containing targets (labels) for supervised
-                    learning.
+    :param targets: Optional. The name of the Data Frame column containing targets (labels) for
+                    supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -242,7 +243,8 @@ def from_spark(
 
     if (sql, version).count(None) == 0:
         raise MlflowException(
-            "`version` may only be specified when `table_name` or `path` is specified.",
+            "`version` may not be specified when `sql` is specified. `version` may only be"
+            " specified when `table_name` or `path` is specified.",
             INVALID_PARAMETER_VALUE,
         )
 
