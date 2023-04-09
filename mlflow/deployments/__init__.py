@@ -42,7 +42,12 @@ class PredictionsResponse(dict):
         import pandas as pd
 
         if predictions_format == "dataframe":
-            return pd.DataFrame(data=self["predictions"])
+            predictions = self["predictions"]
+            if isinstance(predictions, str):
+                return pd.DataFrame(data=[predictions], index=[0])
+            elif isinstance(predictions, list):
+                return pd.DataFrame(data=predictions, index=[0])
+            return pd.DataFrame(data=predictions)
         elif predictions_format == "ndarray":
             return np.array(self["predictions"], dtype)
         else:

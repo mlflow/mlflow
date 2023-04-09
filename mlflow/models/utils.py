@@ -26,18 +26,12 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix"]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str]
 
 PyFuncInput = Union[
-    pd.DataFrame,
-    pd.Series,
-    np.ndarray,
-    "csc_matrix",
-    "csr_matrix",
-    List[Any],
-    Dict[str, Any],
+    pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list]
+PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
 
 class _Example:
@@ -148,6 +142,8 @@ class _Example:
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
+            elif isinstance(input_ex, str):
+                input_ex = pd.DataFrame([input_ex], index=[0])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
                     import pyspark.sql.dataframe
@@ -616,12 +612,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series)):
+        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
             try:
                 if isinstance(pf_input, dict) and all(
                     not isinstance(value, (dict, list)) for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame(pf_input, index=[0])
+                elif isinstance(pf_input, str):
+                    pf_input = pd.DataFrame({"inputs": pf_input}, index=[0])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
@@ -690,6 +688,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
                  - scipy.sparse.csr_matrix
                  - List[Any]
                  - Dict[str, Any]
+                 - str
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
     :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
              not match the schema.

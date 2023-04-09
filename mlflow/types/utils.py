@@ -94,6 +94,8 @@ def _infer_schema(data: Any) -> Schema:
       - csc/csr matrix
       - str
       - List[str]
+      - List[Dict[str, Union[str, List[str]]]]
+      - Dict[str, Union[str, List[str]]]
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -104,21 +106,22 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csr_matrix, csc_matrix
 
-    if isinstance(data, dict):
-        if all(isinstance(values, np.ndarray) for values in data.values()):
-            res = []
-            for name in data.keys():
-                ndarray = data[name]
-                res.append(
-                    TensorSpec(
-                        type=clean_tensor_type(ndarray.dtype),
-                        shape=_get_tensor_shape(ndarray),
-                        name=name,
-                    )
+    if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
+        res = []
+        for name in data.keys():
+            ndarray = data[name]
+            res.append(
+                TensorSpec(
+                    type=clean_tensor_type(ndarray.dtype),
+                    shape=_get_tensor_shape(ndarray),
+                    name=name,
                 )
-            schema = Schema(res)
-        elif _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data):
-            schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
+            )
+        schema = Schema(res)
+    elif isinstance(
+        data, dict
+    ) and _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data):
+        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
         schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
@@ -143,13 +146,23 @@ def _infer_schema(data: Any) -> Schema:
         )
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
-    elif isinstance(data, list):
-        if all(isinstance(element, str) for element in data):
-            schema = Schema([ColSpec(type=DataType.string)])
-        elif all(isinstance(element, dict) for element in data) and all(
-            isinstance(value, str) for d in data for value in d.values()
-        ):
+    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif (
+        isinstance(data, list)
+        and all(isinstance(element, dict) for element in data)
+        and all(isinstance(value, str) for d in data for value in d.values())
+    ):
+        first_keys = set(data[0].keys())
+        if all(set(d.keys()).intersection(first_keys) == set(d.keys()) for d in data):
             schema = Schema([ColSpec(type=DataType.string, name=name) for name in data[0].keys()])
+        else:
+            raise MlflowException(
+                "The list of dictionaries supplied has inconsistent keys among "
+                "each dictionary in the list. Please validate the uniformity "
+                "in the key naming for each dictionary.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
     else:
         raise TypeError(
             "Expected one of the following types:\n"
@@ -162,7 +175,8 @@ def _infer_schema(data: Any) -> Schema:
             "- scipy.sparse.csc_matrix\n"
             "- str\n"
             "- List[str]\n"
-            "- List[Dict[str, str]]"
+            "- List[Dict[str, Union[str, List[str]]]]\n"
+            "- Dict[str, Union[str, List[str]]]\n"
             "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(
@@ -306,19 +320,26 @@ def _is_spark_df(x) -> bool:
 
 
 def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> bool:
-    invalid_keys = []
+    invalid_values = []
     for key, value in data.items():
-        if isinstance(value, list):
-            if not any(isinstance(item, str) for item in value):
-                invalid_keys.append(key)
-        else:
-            if not isinstance(value, str):
-                invalid_keys.append(key)
+        if isinstance(value, list) and not all(isinstance(item, str) for item in value):
+            invalid_values.append(key)
+        elif not isinstance(value, (list, str)):
+            invalid_values.append(key)
+    if invalid_values:
+        raise MlflowException(
+            "Invalid values in dictionary. If passing a dictionary containing strings, all "
+            "values must be either strings or lists of strings. If passing a dictionary containing "
+            "numeric values, the data must be enclosed in an numpy.ndarray. The following keys "
+            f"in the input dictionary are invalid: {invalid_values}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    invalid_keys = []
+    for key in data.keys():
+        if not isinstance(key, str):
+            invalid_keys.append(key)
     if invalid_keys:
         raise MlflowException(
-            "Invalid values in dictionary. If passing a dictionary containing strings, all values must"
-            "be either strings or lists of strings. The following values in the input dictionary"
-            f"are invalid: {invalid_keys}",
-            error_code=INVALID_PARAMETER_VALUE,
+            f"The dictionary keys are not all strings. Invalid keys: {invalid_keys}"
         )
     return True
