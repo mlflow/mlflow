@@ -6,6 +6,8 @@ import re
 
 import pytest
 import posixpath
+
+import requests
 from requests.models import Response
 from unittest import mock
 from unittest.mock import ANY
@@ -956,6 +958,7 @@ def test_databricks_download_file(
         download_mock.assert_called_with(
             cloud_credential_info=mock_credential_info,
             dst_local_file_path=ANY,
+            file_size=ANY,
         )
 
 
@@ -985,6 +988,7 @@ def test_databricks_download_file_with_relative_path(remote_file_path, local_pat
         download_mock.assert_called_with(
             cloud_credential_info=mock_credential_info,
             dst_local_file_path=ANY,
+            file_size=ANY,
         )
 
 
@@ -1429,3 +1433,26 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             headers={"header": "abort"},
             timeout=None,
         )
+
+
+def test_parallelized_download_retries_failed_chunks(databricks_artifact_repo, large_file, mock_chunk_size):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    response = Response()
+    response.status_code = 401
+    failed_downloads = {2: requests.HTTPError(response=response), 5: requests.HTTPError(response=response)}
+
+    with mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+            return_value=[mock_credential_info],
+    ) as get_creds_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri", return_value=failed_downloads
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
+    ) as download_chunk_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]]
+    ):
+        databricks_artifact_repo.download_artifacts("a.txt")
+        assert get_creds_mock.call_count == 2  # Once for initial fetch, once for retries
+        assert set([call.args[0] for call in download_chunk_mock.call_args_list]) == {2, 5}
