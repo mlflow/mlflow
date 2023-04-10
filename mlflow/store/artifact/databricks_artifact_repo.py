@@ -726,9 +726,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        # list_artifacts API only returns a list of FileInfos at the specified path if it's a directory.
-        # To get file size, we need to iterate over FileInfos contained by the parent directory. A bad path
-        # could result in there being no matching FileInfos (by path), so fall back to None size to prevent
+        # list_artifacts API only returns a list of FileInfos at the specified path
+        # if it's a directory. To get file size, we need to iterate over FileInfos
+        # contained by the parent directory. A bad path could result in there being
+        # no matching FileInfos (by path), so fall back to None size to prevent
         # parallelized download.
         parent_dir, _ = posixpath.split(remote_file_path)
         file_infos = self.list_artifacts(parent_dir)

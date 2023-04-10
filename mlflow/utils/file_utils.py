@@ -11,7 +11,6 @@ import tarfile
 import tempfile
 import stat
 import pathlib
-import time
 
 import urllib.parse
 import urllib.request
@@ -24,15 +23,14 @@ import atexit
 import requests
 import yaml
 
-from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
-
 try:
     from yaml import CSafeLoader as YamlSafeLoader, CSafeDumper as YamlSafeDumper
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.entities import FileInfo
-from mlflow.exceptions import MissingConfigException, MlflowException
+from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils import merge_dicts

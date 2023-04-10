@@ -1462,4 +1462,4 @@ def test_parallelized_download_retries_failed_chunks(
     ):
         databricks_artifact_repo.download_artifacts("a.txt")
         assert get_creds_mock.call_count == 2  # Once for initial fetch, once for retries
-        assert set([call.args[0] for call in download_chunk_mock.call_args_list]) == {2, 5}
+        assert {call.args[0] for call in download_chunk_mock.call_args_list} == {2, 5}
