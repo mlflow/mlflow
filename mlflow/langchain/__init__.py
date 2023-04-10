@@ -14,7 +14,7 @@ LangChain (native) format
 """
 import os
 import yaml
-
+from mlflow.types.schema import Schema, ColSpec, DataType
 import mlflow
 from mlflow import pyfunc
 from mlflow.utils.requirements_utils import _get_pinned_requirement
@@ -49,7 +49,7 @@ import logging
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
-_MODEL_DATA_FILE_NAME = "model.json"
+_MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
 _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
@@ -90,7 +90,7 @@ def save_model(
 
     :param lc_model: LLMChain model (an instance of LangChain() forecaster that has been fit
                      on a temporal series.
-    :param path: Local path where the serialized model (as JSON) is to be saved.
+    :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -133,10 +133,26 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
+    else:
+        input_columns = [
+            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+        ]
+        input_schema = Schema(input_columns)
+        output_columns = [
+            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
+        ]
+        output_schema = Schema(output_columns)
+        mlflow_model.signature = ModelSignature(input_schema, output_schema)
+
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
+    else:
+        if type(lc_model.llm) == langchain.llms.openai.OpenAI:
+            pass
+        elif type(lc_model.llm) == langchain.llms.huggingface_hub.HuggingFaceHub:
+            pass
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     _save_model(lc_model, model_data_path)
