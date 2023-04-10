@@ -1000,6 +1000,76 @@ public class MlflowClient implements Serializable, Closeable {
   }
 
   /**
+   * Return up to 1000 registered models.
+   *
+   * @return A page of registered models with up to 1000 items.
+   */
+  public Page<RegisteredModel> searchRegisteredModels() {
+    return searchRegisteredModels(null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to 1000 registered models that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "name LIKE '%my_model_name%'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of registered models with up to 1000 items.
+   */
+  public Page<RegisteredModel> searchRegisteredModels(String searchFilter) {
+    return searchRegisteredModels(searchFilter, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return registered models that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "name LIKE '%my_model_name%'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of model versions desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   *
+   * @return A page of registered models that satisfy the search filter.
+   */
+  public Page<RegisteredModel> searchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy) {
+    return searchRegisteredModels(searchFilter, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return registered models that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "name LIKE '%my_model_name%'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of registered models desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchRegisteredModels(String)}.
+   *
+   * @return A page of registered models that satisfy the search filter.
+   */
+  public Page<RegisteredModel> searchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy, String pageToken) {
+    String json = sendGet(mapper.makeSearchRegisteredModels(
+        searchFilter, maxResults, orderBy, pageToken
+    ));
+    SearchRegisteredModels.Response response = mapper.toSearchRegisteredModelsResponse(json);
+    return new RegisteredModelsPage(
+        response.getRegisteredModelsList(),
+        response.getNextPageToken(),
+        searchFilter,
+        maxResults,
+        orderBy,
+        this);
+  }
+
+  /**
    * Closes the MlflowClient and releases any associated resources.
    */
   public void close() {

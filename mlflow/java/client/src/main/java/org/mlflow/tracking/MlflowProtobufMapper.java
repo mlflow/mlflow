@@ -220,6 +220,25 @@ class MlflowProtobufMapper {
     }
   }
 
+  String makeSearchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy, String pageToken) {
+    try {
+      URIBuilder builder = new URIBuilder("registered-models/search")
+              .addParameter("max_results", Integer.toString(maxResults));
+      if (searchFilter != null && searchFilter != "") {
+        builder.addParameter("filter", searchFilter);
+      }
+      if (pageToken != null && pageToken != "") {
+        builder.addParameter("page_token", pageToken);
+      }
+      for( String order: orderBy) {
+        builder.addParameter("order_by", order);
+      }
+      return builder.build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for search registered models.", e);
+    }
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
@@ -299,6 +318,12 @@ class MlflowProtobufMapper {
 
   SearchModelVersions.Response toSearchModelVersionsResponse(String json) {
     SearchModelVersions.Response.Builder builder = SearchModelVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  SearchRegisteredModels.Response toSearchRegisteredModelsResponse(String json) {
+    SearchRegisteredModels.Response.Builder builder = SearchRegisteredModels.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
