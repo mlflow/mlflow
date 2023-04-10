@@ -12,15 +12,14 @@ As a data scientist, your explorations involve running your evolving training co
     :width: 800px
     :align: center
 
-MLflow is available for Python, R, and Java, but this quickstart shows Python only. 
+MLflow is available for Python, R, and Java, but this quickstart shows Python only.
 
-.. 
-    This really feels like second-classing R & Java. Maybe I 
-    can put at least a discussion of Java & R alternatives in the drilldown page. I mean, "installing dependencies in a Java project" is too broad, but I don't like the way this has a "well, it's really Python" feel
+- For a quickstart in R, see :ref:`quickstart_r`.
+- For a quicstart in Java, see :ref:`quickstart_java`.
+  
 
-
-How do I install MLflow? 
-------------------------
+Installing MLflow
+-----------------
 
 Install MLflow from PyPi using pip:
 
@@ -32,8 +31,8 @@ Install MLflow from PyPi using pip:
 
 For more options, see :ref:`quickstart_drilldown_install`. 
 
-How do I add MLflow tracking to my Python code?
------------------------------------------------
+Adding MLflow tracking to your code
+-----------------------------------
 
 For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLflow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
 
@@ -106,8 +105,8 @@ This example demonstrates the use of these functions:
 - For more details on autolog, including a list of what libraries are supported, see :ref:`quickstart_drilldown_autolog`. 
 - For additional functions such as `log_text` and `log_image` and see :ref:`quickstart_drilldown_tracking_api`.
 
-How do I view my MLflow runs and experiments?
----------------------------------------------
+Viewing MLflow runs and experiments
+-----------------------------------
 
 Once you've run your code, you may view the results with MLflow's tracking UI. To start the UI, run:
 
@@ -119,28 +118,26 @@ Once you've run your code, you may view the results with MLflow's tracking UI. T
 
 And then navigate to http://localhost:5000 in your browser. You will see a page similar to:
 
-.. image:: _static/images/quickstart-ui-screenshot.png
+.. image:: _static/images/quickstart_ui_screenshot.png
     :width: 800px
     :align: center
 .. 
-    TODO: Add a screenshot of the UI
 
 You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. You can view the parameters, metrics, and artifacts of your run by clicking on the run name. 
 
 For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`.
 
-How do I share my MLflow runs and experiments?
-----------------------------------------------
+Sharing MLflow runs and experiments
+-----------------------------------
 
-.. 
-    TODO: So this needs to change to be `set_tracking_uri`
+By default, MLflow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by:
 
-By default, MLflow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. For instance, you can set it to a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
+- calling ``mlflow.set_tracking_uri`` in your code; or
+- setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. 
 
-..
-    TODO: Explain what a tracking server is
+With either option, you can track your runs in a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
 
-You can run a tracking server on a network-accessible server by running:
+A tracking server is a lightweight HTTP server. You can run a tracking server on a network-accessible server by running:
 
 .. code-section::
 
@@ -148,7 +145,16 @@ You can run a tracking server on a network-accessible server by running:
 
         mlflow server
 
-On your development machine, set the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server. For example, if your tracking server is listening on the default port of **5000** on the machine with IP address **192.168.0.1**, you can set the ``MLFLOW_TRACKING_URI`` environment variable to:
+For instance, if you've run the above command on a machine with IP address **192.168.0.1** and port **5000**, you can add tracking data to it either by:
+
+.. code-section:: 
+
+    .. code-block:: python
+
+        mlflow.set_tracking_uri("http://192.168.0.1:5000")
+        mlflow.autolog() # Or other tracking functions
+        
+Or, on your development machine, by setting the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server:
 
 .. code-section::
 
@@ -167,16 +173,43 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 There are many options available for the tracking backend. For more details, see :ref:`quickstart_drilldown_tracking_backend`.
 
 
-How do I use MLflow with a Databricks workspace?
-------------------------------------------------
+Using MLflow with a Databricks workspace
+----------------------------------------
 
-tk 
+You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL of your Databricks workspace in the Configuration page of the workspace:
 
+.. image:: _static/images/quickstart_databricks_workspace_url.png
+    :width: 800px
+    :align: center
+
+At the command-line, run the following command to configure your experiment: 
+
+.. code-section::
+
+    .. code-block:: shell
+
+        databricks configure
+
+Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (`databricks tokens create`), you can use it instead of your password. Call `databricks configure` with the `-t, \--token` option. 
+
+In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Databricks and set the experiment to the path of your experiment in Databricks, replacing `USER_NAME` and `EXPERIMENT_NAME` with the appropriate values:
+
+.. code-section::
+
+    .. code-block:: python
+
+        mlflow.set_tracking_uri("databricks")
+        mlflow.set_experiment(f"/Users/USER_NAME/EXPERIMENT_NAME")
+
+If the specified experiment does not exist, it will be created.
 
 How do I store a model in MLflow?
 ---------------------------------
 
 tk 
+
+
+
 
 
 How do I run a model artifact from a specific MLflow run?
@@ -205,7 +238,12 @@ Next Steps
 - Understanding MLflow's concepts, tools, and APIs 
 - Why MLflow?
   
+.. 
+    Java & R stuff
 
+- MLflow for Java
+- MLFlow for R
+  
 .. code-section::
 
     ---
