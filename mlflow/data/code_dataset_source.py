@@ -9,9 +9,11 @@ CodeDatasetSourceType = TypeVar("CodeDatasetSourceType", bound="CodeDatasetSourc
 class CodeDatasetSource(DatasetSource):
     def __init__(
         self,
-        path: str,
+        mlflow_source_type: str,
+        mlflow_source_name: str,
     ):
-        self._path = path
+        self._mlflow_source_type = mlflow_source_type
+        self._mlflow_source_name = mlflow_source_name
 
     @staticmethod
     def _get_source_type() -> str:
@@ -33,11 +35,13 @@ class CodeDatasetSource(DatasetSource):
 
     def _to_dict(self) -> Dict[Any, Any]:
         return {
-            "path": self._path,
+            "mlflow_source_type": self._mlflow_source_type,
+            "mlflow_source_name": self._mlflow_source_name,
         }
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> CodeDatasetSourceType:
         return cls(
-            path=source_dict.get("path"),
+            mlflow_source_type=source_dict.get("mlflow_source_type"),
+            mlflow_source_name=source_dict.get("mlflow_source_name"),
         )
