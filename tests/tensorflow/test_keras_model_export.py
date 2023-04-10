@@ -214,11 +214,7 @@ def test_pyfunc_serve_and_score(data):
     x, _ = data
     model = get_model(data)
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(
-            model,
-            artifact_path="model",
-            extra_pip_requirements=[PROTOBUF_REQUIREMENT],
-        )
+        model_info = mlflow.tensorflow.log_model(model, artifact_path="model")
     expected = model.predict(x.values)
     scoring_response = pyfunc_serve_and_score_model(
         model_uri=model_info.model_uri,
