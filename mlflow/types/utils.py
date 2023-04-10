@@ -118,9 +118,8 @@ def _infer_schema(data: Any) -> Schema:
                 )
             )
         schema = Schema(res)
-    elif isinstance(
-        data, dict
-    ) and _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data):
+    elif isinstance(data, dict):
+        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
         schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
@@ -153,9 +152,9 @@ def _infer_schema(data: Any) -> Schema:
         and all(isinstance(element, dict) for element in data)
         and all(isinstance(value, str) for d in data for value in d.values())
     ):
-        first_keys = set(data[0].keys())
-        if all(set(d.keys()).intersection(first_keys) == set(d.keys()) for d in data):
-            schema = Schema([ColSpec(type=DataType.string, name=name) for name in data[0].keys()])
+        first_keys = data[0].keys()
+        if all(d.keys() == first_keys for d in data):
+            schema = Schema([ColSpec(type=DataType.string, name=name) for name in first_keys])
         else:
             raise MlflowException(
                 "The list of dictionaries supplied has inconsistent keys among "
@@ -319,9 +318,12 @@ def _is_spark_df(x) -> bool:
         return False
 
 
-def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> bool:
+def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
+    invalid_keys = []
     invalid_values = []
     for key, value in data.items():
+        if not isinstance(key, str):
+            invalid_keys.append(key)
         if isinstance(value, list) and not all(isinstance(item, str) for item in value):
             invalid_values.append(key)
         elif not isinstance(value, (list, str)):
@@ -330,16 +332,11 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
         raise MlflowException(
             "Invalid values in dictionary. If passing a dictionary containing strings, all "
             "values must be either strings or lists of strings. If passing a dictionary containing "
-            "numeric values, the data must be enclosed in an numpy.ndarray. The following keys "
+            "numeric values, the data must be enclosed in a numpy.ndarray. The following keys "
             f"in the input dictionary are invalid: {invalid_values}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    invalid_keys = []
-    for key in data.keys():
-        if not isinstance(key, str):
-            invalid_keys.append(key)
     if invalid_keys:
         raise MlflowException(
             f"The dictionary keys are not all strings. Invalid keys: {invalid_keys}"
         )
-    return True

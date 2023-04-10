@@ -252,60 +252,61 @@ def save_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
-    :param inference_config: A dict of valid overrides that can be applied to a pipeline instance
-                             during inference. These arguments are used exclusively for the case
-                             of loading the model as a ``pyfunc`` Model or for use in Spark.
-                             These values are not applied to a returned Pipeline from a call to
-                             ``mlflow.transformers.load_model()``
+    :param inference_config:
+        A dict of valid overrides that can be applied to a pipeline instance during inference.
+        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+        Model or for use in Spark.
+        These values are not applied to a returned Pipeline from a call to
+        ``mlflow.transformers.load_model()``
 
-                             .. Warning:: If the key provided is not compatible with either the
-                                          Pipeline instance for the task provided or is not a valid
-                                          override to any arguments available in the Model, an
-                                          Exception will be raised at runtime. It is very important
-                                          to validate the entries in this dictionary to ensure
-                                          that they are valid prior to saving or logging.
+        .. Warning:: If the key provided is not compatible with either the
+                  Pipeline instance for the task provided or is not a valid
+                  override to any arguments available in the Model, an
+                  Exception will be raised at runtime. It is very important
+                  to validate the entries in this dictionary to ensure
+                  that they are valid prior to saving or logging.
 
-                             An example of providing overrides for a question generation model:
+        An example of providing overrides for a question generation model:
 
-                             .. code-block:: python
+        .. code-block:: python
 
-                               from transformers import pipeline, AutoTokenizer
+            from transformers import pipeline, AutoTokenizer
 
-                               task = "text-generation"
-                               architecture = "gpt2"
+            task = "text-generation"
+            architecture = "gpt2"
 
-                               sentence_pipeline = pipeline(
-                                  task=task,
-                                  tokenizer=AutoTokenizer.from_pretrained(architecture),
-                                  model=architecture
-                               )
+            sentence_pipeline = pipeline(
+              task=task,
+              tokenizer=AutoTokenizer.from_pretrained(architecture),
+              model=architecture
+            )
 
-                               # Validate that the overrides function
-                               prompts = [
-                                 "Generative models are",
-                                 "I'd like a coconut so that I can"
-                               ]
+            # Validate that the overrides function
+            prompts = [
+             "Generative models are",
+             "I'd like a coconut so that I can"
+            ]
 
-                               # validation of config prior to save or log
-                               inference_config = {
-                                   "top_k": 2,
-                                   "num_beams": 5,
-                                   "max_length": 30,
-                                   "temperature": 0.62,
-                                   "top_p": 0.85,
-                                   "repetition_penalty": 1.15,
-                                   }
+            # validation of config prior to save or log
+            inference_config = {
+               "top_k": 2,
+               "num_beams": 5,
+               "max_length": 30,
+               "temperature": 0.62,
+               "top_p": 0.85,
+               "repetition_penalty": 1.15,
+               }
 
-                               # Verify that no exceptions are thrown
-                               sentence_generation(prompts, **inference_config)
+            # Verify that no exceptions are thrown
+            sentence_generation(prompts, **inference_config)
 
-                               with mlflow.start_run():
-                                 mlflow.transformers.save_model(
-                                   transformers_model=sentence_generation,
-                                   path="/path/for/model",
-                                   task=task,
-                                   inference_config=inference_config
-                                 )
+            with mlflow.start_run():
+             mlflow.transformers.save_model(
+               transformers_model=sentence_generation,
+               path="/path/for/model",
+               task=task,
+               inference_config=inference_config
+             )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -317,7 +318,7 @@ def save_model(
                       of `mlflow.models.signature`.
                       Example:
 
-                      .. code-black:: python
+                      .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         from mlflow.transformers import _TransformersWrapper
@@ -582,60 +583,61 @@ def log_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
-    :param inference_config: A dict of valid overrides that can be applied to a pipeline instance
-                             during inference. These arguments are used exclusively for the case
-                             of loading the model as a ``pyfunc`` Model or for use in Spark.
-                             These values are not applied to a returned Pipeline from a call to
-                             ``mlflow.transformers.load_model()``
+    :param inference_config:
+        A dict of valid overrides that can be applied to a pipeline instance during inference.
+        These arguments are used exclusively for the case of loading the model as a ``pyfunc``
+        Model or for use in Spark.
+        These values are not applied to a returned Pipeline from a call to
+        ``mlflow.transformers.load_model()``
 
-                             .. Warning:: If the key provided is not compatible with either the
-                                          Pipeline instance for the task provided or is not a valid
-                                          override to any arguments available in the Model, an
-                                          Exception will be raised at runtime. It is very important
-                                          to validate the entries in this dictionary to ensure
-                                          that they are valid prior to saving or logging.
+        .. Warning:: If the key provided is not compatible with either the
+                     Pipeline instance for the task provided or is not a valid
+                     override to any arguments available in the Model, an
+                     Exception will be raised at runtime. It is very important
+                     to validate the entries in this dictionary to ensure
+                     that they are valid prior to saving or logging.
 
-                             An example of providing overrides for a question generation model:
+        An example of providing overrides for a question generation model:
 
-                             .. code-block:: python
+        .. code-block:: python
 
-                               from transformers import pipeline, AutoTokenizer
+          from transformers import pipeline, AutoTokenizer
 
-                               task = "text-generation"
-                               architecture = "gpt2"
+          task = "text-generation"
+          architecture = "gpt2"
 
-                               sentence_pipeline = pipeline(
-                                  task=task,
-                                  tokenizer=AutoTokenizer.from_pretrained(architecture),
-                                  model=architecture
-                               )
+          sentence_pipeline = pipeline(
+             task=task,
+             tokenizer=AutoTokenizer.from_pretrained(architecture),
+             model=architecture
+          )
 
-                               # Validate that the overrides function
-                               prompts = [
-                                 "Generative models are",
-                                 "I'd like a coconut so that I can"
-                               ]
+          # Validate that the overrides function
+          prompts = [
+            "Generative models are",
+            "I'd like a coconut so that I can"
+          ]
 
-                               # validation of config prior to save or log
-                               inference_config = {
-                                   "top_k": 2,
-                                   "num_beams": 5,
-                                   "max_length": 30,
-                                   "temperature": 0.62,
-                                   "top_p": 0.85,
-                                   "repetition_penalty": 1.15,
-                                   }
+          # validation of config prior to save or log
+          inference_config = {
+              "top_k": 2,
+              "num_beams": 5,
+              "max_length": 30,
+              "temperature": 0.62,
+              "top_p": 0.85,
+              "repetition_penalty": 1.15,
+              }
 
-                               # Verify that no exceptions are thrown
-                               sentence_generation(prompts, **inference_config)
+          # Verify that no exceptions are thrown
+          sentence_generation(prompts, **inference_config)
 
-                               with mlflow.start_run():
-                                 mlflow.transformers.log_model(
-                                   transformers_model=sentence_generation,
-                                   artifact_path="my_sentence_generator",
-                                   task=task,
-                                   inference_config=inference_config
-                                 )
+          with mlflow.start_run():
+            mlflow.transformers.log_model(
+              transformers_model=sentence_generation,
+              artifact_path="my_sentence_generator",
+              task=task,
+              inference_config=inference_config
+            )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -649,7 +651,7 @@ def log_model(
                       of `mlflow.models.signature`.
                       Example:
 
-                      .. code-black:: python
+                      .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
                         from mlflow.transformers import _TransformersWrapper
@@ -1369,7 +1371,8 @@ class _TransformersWrapper:
             if not all(isinstance(entry, (str, dict)) for entry in data):
                 raise MlflowException(
                     "Invalid data submission. Ensure all elements in the list are strings "
-                    "or dictionaries.",
+                    "or dictionaries. If dictionaries are supplied, all keys in the "
+                    "dictionaries must be strings and values must be either str or List[str].",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             input_data = data
@@ -1430,7 +1433,7 @@ class _TransformersWrapper:
             output_key = "answer"
             data = self._parse_json_encoded_dict_payload_to_dict(data, "table")
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
-            output_key = "entity"
+            output_key = {"entity_group", "entity"}
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -1463,9 +1466,7 @@ class _TransformersWrapper:
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
-        pre_sanitize = self._pre_sanitize_reduction(data, output)
-
-        return self._sanitize_output(pre_sanitize)
+        return self._sanitize_output(output, data)
 
     def _parse_raw_pipeline_input(self, data):
         """
@@ -1590,28 +1591,34 @@ class _TransformersWrapper:
         else:
             return data
 
-    def _pre_sanitize_reduction(self, input, output):
-        import transformers
-
-        if isinstance(self.pipeline, transformers.TokenClassificationPipeline):
-            return output
-        else:
-            return output[0] if isinstance(input, str) else output
-
-    def _sanitize_output(self, output):
+    def _sanitize_output(self, output, input_data):
         # Some pipelines and their underlying models leave leading or trailing whitespace.
         # This method removes that whitespace.
+        import transformers
+
+        if (
+            not isinstance(self.pipeline, transformers.TokenClassificationPipeline)
+            and isinstance(input_data, str)
+            and isinstance(output, list)
+        ):
+            # Retrieve the first output for return types that are List[str] of only a single
+            # element.
+            output = output[0]
         if isinstance(output, str):
             return output.strip()
         elif isinstance(output, list):
-            if isinstance(output[0], str):
+            if all(isinstance(elem, str) for elem in output):
                 cleaned = [text.strip() for text in output]
                 # If the list has only a single string, return as string.
                 return cleaned if len(cleaned) > 1 else cleaned[0]
             else:
-                return [self._sanitize_output(coll) for coll in output]
-        elif isinstance(output, dict):
+                return [self._sanitize_output(coll, input_data) for coll in output]
+        elif isinstance(output, dict) and all(
+            isinstance(key, str) and isinstance(value, str) for key, value in output.items()
+        ):
             return {k: v.strip() for k, v in output.items()}
+        else:
+            return output
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
         if isinstance(output_data, list):
@@ -1627,14 +1634,18 @@ class _TransformersWrapper:
         else:
             return output_data[target_dict_key]
 
-    def _parse_tokenizer_output(self, output_data, target_dict_key):
+    def _parse_tokenizer_output(self, output_data, target_set):
         # NB: We're collapsing the results here to a comma separated string for each inference
         # input string. This is to simplify having to otherwise make extensive changes to
         # ColSpec in order to support schema enforcement of List[List[str]]
         if isinstance(output_data[0], list):
-            return [self._parse_tokenizer_output(coll, target_dict_key) for coll in output_data]
+            return [self._parse_tokenizer_output(coll, target_set) for coll in output_data]
         else:
-            return ",".join([coll[target_dict_key] for coll in output_data])
+            # NB: Since there are no attributes accessible from the pipeline object that determine
+            # what the characteristics of the return structure names are within the dictionaries,
+            # Determine which one is present in the output to extract the correct entries.
+            target = target_set.intersection(output_data[0].keys()).pop()
+            return ",".join([coll[target] for coll in output_data])
 
     @staticmethod
     def _parse_list_of_multiple_dicts(output_data, target_dict_key):

@@ -302,86 +302,49 @@ def test_schema_inference_on_string_input():
         _infer_schema(1)
 
 
-@pytest.mark.parametrize(
-    "data, valid",
-    [
-        ({"a": "b", "c": "d"}, True),
-        ({"a": ["a", "b"], "b": ["c", "d"]}, True),
-        ({"a": "a", "b": ["a", "b"]}, True),
-        ({"a": 1, "b": "c"}, False),
-        ({"a": 1, "b": ["a", "b"]}, False),
-    ],
-)
-def test_schema_inference_on_dictionary_of_strings(data, valid):
-    if valid:
-        schema = _infer_schema(data)
-        assert schema == Schema([ColSpec(DataType.string, name) for name in data.keys()])
-    else:
+def test_schema_inference_on_dictionary_of_strings():
+    for valid_data in [
+        {"a": "b", "c": "d"},
+        {"a": ["a", "b"], "b": ["c", "d"]},
+        {"a": "a", "b": ["a", "b"]},
+    ]:
+        schema = _infer_schema(valid_data)
+        assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data.keys()])
+    for invalid_data in [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]:
         with pytest.raises(
             MlflowException, match="Invalid values in dictionary. If passing a dictionary"
         ):
-            _infer_schema(data)
+            _infer_schema(invalid_data)
 
 
-@pytest.mark.parametrize(
-    "data, valid",
-    [
-        ({"a": "b", "b": "c"}, True),
-        ({1: "a", "b": "c"}, False),
-        ({12.4: "c", "d": "e"}, False),
-    ],
-)
-def test_schema_inference_validating_dictionary_keys(data, valid):
-    if valid:
-        schema = _infer_schema(data)
-        assert schema == Schema([ColSpec(DataType.string, name) for name in data.keys()])
-    else:
+def test_schema_inference_validating_dictionary_keys():
+    valid_data = {"a": "b", "b": "c"}
+    schema = _infer_schema(valid_data)
+    assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data.keys()])
+    for data in [{1: "a", "b": "c"}, {12.4: "c", "d": "e"}]:
         with pytest.raises(
             MlflowException, match="The dictionary keys are not all strings. Invalid "
         ):
             _infer_schema(data)
 
 
-@pytest.mark.parametrize(
-    "data, expected_schema",
-    [
-        (["a", "b", "c"], Schema([ColSpec(DataType.string)])),
-        (["a", 1], None),
-        (["a", ["b", "c"]], None),
-    ],
-)
-def test_schema_inference_on_list_of_strings(data, expected_schema):
-    if expected_schema:
-        schema = _infer_schema(data)
-        assert schema == expected_schema
-    else:
+def test_schema_inference_on_list_of_strings():
+    schema = _infer_schema(["a", "b", "c"])
+    assert schema == Schema([ColSpec(DataType.string)])
+
+    for data in [["a", 1], ["a", ["b", "c"]]]:
         with pytest.raises(TypeError, match="Expected one of the following types"):
             _infer_schema(data)
 
 
-@pytest.mark.parametrize(
-    "data, expected_schema",
-    [
-        (
-            [{"a": "a", "b": "b"}, {"a": "a", "b": "b"}],
-            Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")]),
-        ),
-        ([{"a": "a", "b": "b"}, {"a": "c", "c": "invalid"}], "inconsistent"),
-        ([{"a": 1}, {"b": "a"}], "invalid"),
-    ],
-)
-def test_schema_inference_on_list_of_dicts(data, expected_schema):
-    if isinstance(expected_schema, Schema):
-        schema = _infer_schema(data)
-        assert schema == expected_schema
-    elif expected_schema == "inconsistent":
-        with pytest.raises(
-            MlflowException, match="The list of dictionaries supplied has inconsistent"
-        ):
-            _infer_schema(data)
-    elif expected_schema == "invalid":
-        with pytest.raises(TypeError, match="Expected one of the following types:"):
-            _infer_schema(data)
+def test_schema_inference_on_list_of_dicts():
+    schema = _infer_schema([{"a": "a", "b": "b"}, {"a": "a", "b": "b"}])
+    assert schema == Schema([ColSpec(DataType.string, "a"), ColSpec(DataType.string, "b")])
+
+    with pytest.raises(MlflowException, match="The list of dictionaries supplied has inconsistent"):
+        _infer_schema([{"a": "a", "b": "b"}, {"a": "c", "c": "invalid"}])
+    with pytest.raises(TypeError, match="Expected one of the following types:"):
+        _infer_schema([{"a": 1}, {"b": "a"}])
 
 
 def test_schema_inference_on_basic_numpy(pandas_df_with_all_types):
