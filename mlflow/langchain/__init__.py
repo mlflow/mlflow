@@ -43,6 +43,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+import langchain
 import logging
 
 logger = logging.getLogger(mlflow.__name__)
@@ -51,6 +52,7 @@ FLAVOR_NAME = "langchain"
 _MODEL_DATA_FILE_NAME = "model.json"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
+_SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
 
 
 def get_default_pip_requirements():
@@ -121,9 +123,6 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     """
-
-    import langchain
-
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
@@ -254,6 +253,17 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    if type(lc_model) != langchain.chains.llm.LLMChain:
+        raise TypeError(
+            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain "
+            + f"instances, found {type(lc_model)}"
+        )
+    if type(lc_model.llm) not in _SUPPORTED_LLMS:
+        logger.warning(
+            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
+            "OpenAI, found %s",
+            str(type(lc_model.llm)),
+        )
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
