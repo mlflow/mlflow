@@ -946,6 +946,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1185,6 +1186,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
+                       If ``False``, datasets are not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1226,6 +1229,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
@@ -1242,6 +1246,7 @@ def _autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
