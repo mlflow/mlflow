@@ -68,7 +68,6 @@ _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
-METHOD = "parallel"
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -739,7 +738,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
-        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or METHOD == "serial":
+        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE:
             self._download_from_cloud(
                 cloud_credential_info=read_credentials[0],
                 dst_local_file_path=local_path,
