@@ -1435,23 +1435,30 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         )
 
 
-def test_parallelized_download_retries_failed_chunks(databricks_artifact_repo, large_file, mock_chunk_size):
+def test_parallelized_download_retries_failed_chunks(
+    databricks_artifact_repo, large_file, mock_chunk_size
+):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
     )
     response = Response()
     response.status_code = 401
-    failed_downloads = {2: requests.HTTPError(response=response), 5: requests.HTTPError(response=response)}
+    failed_downloads = {
+        2: requests.HTTPError(response=response),
+        5: requests.HTTPError(response=response),
+    }
 
     with mock.patch(
-            f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
-            return_value=[mock_credential_info],
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+        return_value=[mock_credential_info],
     ) as get_creds_mock, mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri", return_value=failed_downloads
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri",
+        return_value=failed_downloads,
     ), mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
     ) as download_chunk_mock, mock.patch(
-        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts", side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]]
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]],
     ):
         databricks_artifact_repo.download_artifacts("a.txt")
         assert get_creds_mock.call_count == 2  # Once for initial fetch, once for retries

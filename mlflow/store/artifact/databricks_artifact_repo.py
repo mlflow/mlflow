@@ -418,7 +418,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
 
-    def _parallelized_download_from_cloud(self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path):
+    def _parallelized_download_from_cloud(
+        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
         try:
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=cloud_credential_info.signed_uri,
@@ -429,13 +431,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             if failed_downloads:
-                new_cloud_creds = self._get_read_credential_infos(self.run_id, dst_run_relative_artifact_path)[0]
+                new_cloud_creds = self._get_read_credential_infos(
+                    self.run_id, dst_run_relative_artifact_path
+                )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
             for i, excep in failed_downloads.items():
                 if excep.response.status_code not in (401, 403):
                     raise excep
-                download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri)
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
         except Exception as err:
             raise MlflowException(err)
 

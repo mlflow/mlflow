@@ -10,7 +10,8 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
-    parallelized_download_file_using_http_uri, download_chunk,
+    parallelized_download_file_using_http_uri,
+    download_chunk,
 )
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
@@ -123,7 +124,9 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
         return {header.get("name"): header.get("value") for header in filtered_headers}
 
-    def _parallelized_download_from_cloud(self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path):
+    def _parallelized_download_from_cloud(
+        self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
         try:
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=signed_uri,
@@ -135,11 +138,15 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 headers=headers,
             )
             if failed_downloads:
-                new_signed_uri, new_headers = self._get_signed_download_uri(dst_run_relative_artifact_path)
+                new_signed_uri, new_headers = self._get_signed_download_uri(
+                    dst_run_relative_artifact_path
+                )
             for i, excep in failed_downloads.items():
                 if excep.response.status_code not in (401, 403):
                     raise excep
-                download_chunk(i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri)
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
         except Exception as err:
             raise MlflowException(err)
 

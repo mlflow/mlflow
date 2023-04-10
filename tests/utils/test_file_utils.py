@@ -29,7 +29,8 @@ from mlflow.utils.file_utils import (
     write_spark_dataframe_to_parquet_on_local_disk,
     TempDir,
     _handle_readonly_on_windows,
-    local_file_uri_to_path, parallelized_download_file_using_http_uri,
+    local_file_uri_to_path,
+    parallelized_download_file_using_http_uri,
 )
 from mlflow.utils.os import is_windows
 from tests.projects.utils import TEST_PROJECT_DIR
@@ -381,11 +382,11 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
         calls_kwargs.append(kwargs)
         response_mock = Response()
         response_mock.status_code = 206
-        response_mock._content = b'\x01\x01'
+        response_mock._content = b"\x01\x01"
         return response_mock
 
     f = tempfile.NamedTemporaryFile()
-    with mock.patch('requests.Session.request') as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         parallelized_download_file_using_http_uri(
             "fake_uri",
@@ -393,10 +394,10 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
             file_size=1000,
             uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
             chunk_size=100,
-            headers={}
+            headers={},
         )
     f.close()
-    requested_ranges = [call_kwargs['headers']['Range'] for call_kwargs in calls_kwargs]
+    requested_ranges = [call_kwargs["headers"]["Range"] for call_kwargs in calls_kwargs]
     assert len(requested_ranges) == 10
     expected_ranges = []
     for i in range(10):
@@ -409,7 +410,7 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
 
 def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
     calls_kwargs = multiprocessing.Manager().list([])
-    file_content = b'\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
+    file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
 
     def mock_request_side_effect(method, url, *args, **kwargs):
         calls_kwargs.append(kwargs)
@@ -420,7 +421,7 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
         return response_mock
 
     f = tempfile.NamedTemporaryFile()
-    with mock.patch('requests.Session.request') as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         parallelized_download_file_using_http_uri(
             "fake_uri",
@@ -428,7 +429,7 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
             file_size=10,
             uri_type=ArtifactCredentialType.GCP_SIGNED_URL,
             chunk_size=2,
-            headers={}
+            headers={},
         )
     # Should only have called once because the whole file was returned
     assert len(calls_kwargs) == 1
@@ -440,7 +441,7 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
 
 def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
     calls_kwargs = multiprocessing.Manager().list([])
-    file_content = b'\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01'
+    file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
 
     def mock_request_side_effect(method, url, *args, **kwargs):
         calls_kwargs.append(kwargs)
@@ -449,12 +450,12 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
         # 10-byte file
         response_mock._content = file_content
         # Randomly fail for the first chunk
-        if kwargs['headers']['Range'].startswith('bytes=0'):
+        if kwargs["headers"]["Range"].startswith("bytes=0"):
             raise requests.HTTPError("test exception")
         return response_mock
 
     f = tempfile.NamedTemporaryFile()
-    with mock.patch('requests.Session.request') as request_mock:
+    with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         failed_downloads = parallelized_download_file_using_http_uri(
             "fake_uri",
@@ -462,7 +463,7 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
             file_size=10,
             uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
             chunk_size=2,
-            headers={}
+            headers={},
         )
         assert len(failed_downloads) == 1
         assert str(failed_downloads[0]) == "test exception"
