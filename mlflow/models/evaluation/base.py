@@ -1339,13 +1339,7 @@ def evaluate(
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
     if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-        input_outputs = data.to_pyfunc()
-        dataset = EvaluationDataset(
-            input_outputs.inputs,
-            targets=input_outputs.outputs,
-            path=dataset_path,
-            feature_names=feature_names,
-        )
+        dataset = data.to_evaluation_dataset()
     else:
         dataset = EvaluationDataset(
             data,

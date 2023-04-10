@@ -9,6 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -114,6 +115,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         evaluation. Required for use with mlflow.evaluate().
         """
         return PyFuncInputsOutputs(self._features, self._targets)
+
+    def to_evaluation_dataset(self) -> EvaluationDataset:
+        raise NotImplementedError
 
 
 def from_numpy(

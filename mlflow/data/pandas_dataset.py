@@ -10,6 +10,7 @@ from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -126,6 +127,16 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(inputs, outputs)
         else:
             return PyFuncInputsOutputs(self._df)
+
+    def to_evaluation_dataset(self) -> EvaluationDataset:
+        pyfunc_data = self.to_pyfunc()
+        return EvaluationDataset(
+            data=pyfunc_data.inputs,
+            targets=pyfunc_data.outputs,
+            name=self.name,
+            path=self.source.to_json(),
+            feature_names=self.schema.column_names() if self.schema else None,
+        )
 
 
 def from_pandas(
