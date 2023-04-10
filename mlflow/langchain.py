@@ -43,6 +43,9 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+import logging
+
+logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
 _MODEL_DATA_FILE_NAME = "model.json"
@@ -283,7 +286,18 @@ def _load_pyfunc(path):
     Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    return _LangChainModelWrapper(_load_model(path))
+    logger.warning(f"path = {path}")
+    return _LangChainModelWrapper(_load_model_from_local_fs(path))
+
+
+def _load_model_from_local_fs(local_model_path):
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    lc_model_path = os.path.join(
+        local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
+    )
+    logger.warning(f"loading model from local path = {lc_model_path}")
+    return _load_model(lc_model_path)
 
 
 def load_model(model_uri, dst_path=None):
@@ -307,13 +321,7 @@ def load_model(model_uri, dst_path=None):
     :return: A LangChain model instance
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    lc_model_path = os.path.join(
-        local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
-    )
-
-    return _load_model(lc_model_path)
+    return _load_model_from_local_fs(local_model_path)
 
 
 class _LangChainModelWrapper:
