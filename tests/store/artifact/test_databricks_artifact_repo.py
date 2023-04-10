@@ -958,7 +958,6 @@ def test_databricks_download_file(
         download_mock.assert_called_with(
             cloud_credential_info=mock_credential_info,
             dst_local_file_path=ANY,
-            file_size=ANY,
         )
 
 
@@ -988,7 +987,6 @@ def test_databricks_download_file_with_relative_path(remote_file_path, local_pat
         download_mock.assert_called_with(
             cloud_credential_info=mock_credential_info,
             dst_local_file_path=ANY,
-            file_size=ANY,
         )
 
 
