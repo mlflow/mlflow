@@ -53,3 +53,13 @@ Choosing and configuring the MLflow tracking backend
 ----------------------------------------------------
 
 tk
+
+.. _quickstart_drilldown_log_and_load_model:
+
+Storing and serving MLflow models
+---------------------------------
+
+tk
+{>> Need to talk about `pyfunc` <<}
+
+

@@ -103,7 +103,7 @@ This example demonstrates the use of these functions:
             log_artifacts("outputs")
 
 - For more details on autolog, including a list of what libraries are supported, see :ref:`quickstart_drilldown_autolog`. 
-- For additional functions such as `log_text` and `log_image` and see :ref:`quickstart_drilldown_tracking_api`.
+- For additional functions such as `log_text` and `log_image`, see :ref:`quickstart_drilldown_tracking_api`.
 
 Viewing MLflow runs and experiments
 -----------------------------------
@@ -130,10 +130,10 @@ For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`
 Sharing MLflow runs and experiments
 -----------------------------------
 
-By default, MLflow stores tracking data and artifacts in a ``./mlruns`` subdirectory of where you ran the code. You can change this behavior by:
+By default, MLflow stores tracking data and artifacts in an ``mlruns/`` subdirectory of where you ran the code. You can change this behavior by:
 
 - calling ``mlflow.set_tracking_uri`` in your code; or
-- setting the ``MLFLOW_TRACKING_URI`` environment variable to a different location. 
+- setting the ``MLFLOW_TRACKING_URI`` environment variable 
 
 With either option, you can track your runs in a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
 
@@ -162,13 +162,7 @@ Or, on your development machine, by setting the ``MLFLOW_TRACKING_URI`` environm
 
         export MLFLOW_TRACKING_URI=http://192.168.0.1:5000
 
-Now, when you run your code, it will send tracking data to the tracking server. To view the results, run the tracking UI on your local machine and point it to the tracking server:
-
-.. code-section::
-
-    .. code-block:: shell
-
-        mlflow ui --backend-store-uri http://192.168.0.1:5000
+Now, when you run your code, it will send tracking data to the tracking server. You can view the tracking data by navigating to the URI with a browser.
 
 There are many options available for the tracking backend. For more details, see :ref:`quickstart_drilldown_tracking_backend`.
 
@@ -190,7 +184,7 @@ At the command-line, run the following command to configure your experiment:
 
         databricks configure
 
-Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (`databricks tokens create`), you can use it instead of your password. Call `databricks configure` with the `-t, \--token` option. 
+Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (`databricks tokens create`), you can use it instead of your password. Call `databricks configure` with the `-t, \--token` option. {>> TODO: Enough, or should I add a link to docs for `tokens create`? <<}
 
 In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Databricks and set the experiment to the path of your experiment in Databricks, replacing `USER_NAME` and `EXPERIMENT_NAME` with the appropriate values:
 
@@ -199,24 +193,87 @@ In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Dat
     .. code-block:: python
 
         mlflow.set_tracking_uri("databricks")
-        mlflow.set_experiment(f"/Users/USER_NAME/EXPERIMENT_NAME")
+        mlflow.set_experiment("/Users/USER_NAME/EXPERIMENT_NAME")
+
+{>> TODO: Other places in the doc, I use a pseudo-f-string (`"mlflow.{module_name}.blah"`). I don't want to do that in a code-block unless it actually _is_ an f-string. So I could do it above. Or I could do it like I just did, with the pseudo-constants. FWIW, Azure uses the pseudo-constants but I always thought it was more confusing, as it's SHOUTING. <<}
 
 If the specified experiment does not exist, it will be created.
 
-How do I store a model in MLflow?
----------------------------------
+Storing a model in MLflow
+--------------------------
 
-tk 
+An MLflow Model is a standard format for packaging machine learning models. It consists of a directory containing:
 
+* An **MLModel** file in YAML format specifying the model's **flavor** (or **flavors**)
+* The various files required by the model's flavor(s) to instantiate the model. This will often be a serialized Python object. 
+* Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file)
 
+When using autologging, MLflow will automatically log the run's model. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. For example:
 
+.. code-section::
 
+    .. code-block:: python
 
-How do I run a model artifact from a specific MLflow run?
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+        print(predictions)
+
+        mlflow.sklearn.log_model(rf, "model")
+
+In this case, the `sklearn` flavor stores the following files in the **artifacts** directory of the run's directory on the tracking server:
+
+.. code-section:: 
+
+    .. code-block:: shell
+
+        model/
+        |-- MLmodel
+        |-- conda.yaml
+        |-- model.pkl
+        |-- python_env.yaml
+        |-- requirements.txt
+
+If you've not set the ``MLFLOW_TRACKING_URI`` environment variable to point to a remote tracking server, this **model** directory will be under the ``mlruns`` directory.
+
+For more information, including a list of supported model flavors, see :ref:`quickstart_drilldown_log_and_load_model`.
+
+Running a model from a specific training run
 ---------------------------------------------------------
 
-tk
+To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI, or by calling ``mlflow.search_runs``. For example:
 
+.. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        model = mlflow.sklearn.load_model("runs:/97f4e98c5f3645c8acd800cbddf5f6da/model")
+        predictions = model.predict(X_test)
+        print(predictions)
+
+Note that while `log_model` saves environment-specifying files such as ``conda.yaml`` and ``requirements.txt``, `load_model` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by `log_model`. {>> tk This is super important to get right! TODO <<}
+
+To learn more about loading runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
 Next Steps
 ----------
