@@ -187,18 +187,20 @@ At the command-line, run the following command to configure your experiment:
 
         databricks configure
 
-Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (``databricks tokens create``), you can use it instead of your password. Call ``databricks configure`` with the ``-t, \--token`` option. {>> TODO: Enough, or should I add a link to docs for `tokens create`? <<}
+Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (``databricks tokens create``), you can use it instead of your password. Call ``databricks configure`` with the ``-t, \--token`` option. 
 
-In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Databricks and set the experiment to the path of your experiment in Databricks, replacing ``USER_NAME`` and ``EXPERIMENT_NAME`` with the appropriate values:
+..
+    Consider adding a link to the Databricks CLI docs for tokens create
+
+In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Databricks and set the experiment to the path of your experiment in Databricks, replacing ``user_name`` and ``experiment_name`` with the appropriate values:
 
 .. code-section::
 
     .. code-block:: python
 
         mlflow.set_tracking_uri("databricks")
-        mlflow.set_experiment("/Users/USER_NAME/EXPERIMENT_NAME")
+        mlflow.set_experiment(f"/Users/{user_name}/{experiment_name}")
 
-{>> TODO: Other places in the doc, I use a pseudo-f-string (``"mlflow.{module_name}.blah"``). I don't want to do that in a code-block unless it actually _is_ an f-string. So I could do it above. Or I could do it like I just did, with the pseudo-constants. FWIW, Azure uses the pseudo-constants but I always thought it was more confusing, as it's SHOUTING. <<}
 
 If the specified experiment does not exist, it will be created.
 
@@ -259,7 +261,7 @@ Running a model from a specific training run
 To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
 
 .. image:: _static/images/quickstart_run_id.png
-    :width: 100pt
+    :width: 400px
     :align: center
 
 .. code-section::
@@ -287,19 +289,8 @@ Next Steps
 .. 
     First, code:
 
-- Example: MLflow tutorial
-- `MLflow examples <https:../../examples#readme>`_
-
+- :ref:`MLflow tutorials and examples <tutorials-and-examples>`
 - :ref:`registry`
-
-.. 
-    More top-down-y stuff
-
 - :ref:`concepts`
-- Why MLflow?
-  
-.. 
-    Java & R stuff
-
-- MLflow for Java
+- :ref:`java_api`
 - :ref:`R-api`
