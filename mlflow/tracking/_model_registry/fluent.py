@@ -2,7 +2,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils import get_results_from_paginated_fn
@@ -68,7 +68,9 @@ def register_model(
         create_model_response = client.create_registered_model(name)
         eprint("Successfully registered model '%s'." % create_model_response.name)
     except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+        if e.error_code == ErrorCode.Name(
+            RESOURCE_ALREADY_EXISTS
+        ) or e.error_code == ErrorCode.Name(ALREADY_EXISTS):
             eprint(
                 "Registered model '%s' already exists. Creating a new version of this model..."
                 % name
