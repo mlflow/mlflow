@@ -723,6 +723,24 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
     )
 
 
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_basic_post_training_metric_autologging(dataset_iris_binomial, log_datasets):
+    mlflow.pyspark.ml.autolog(log_datasets=log_datasets)
+
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_iris_binomial)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+    else:
+        assert len(dataset_inputs) == 0
+
+
 def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog()
 
