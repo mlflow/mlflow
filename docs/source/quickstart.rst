@@ -8,7 +8,7 @@ Install MLflow, instrument your code, and view results in a few minutes.
 
 As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team. 
 
-.. image:: _static/images/mlflow_quickstart_tracking_overview.png
+.. image:: _static/images/quickstart_tracking_overview.png
     :width: 800px
     :align: center
 
@@ -121,7 +121,7 @@ Once you've run your code, you may view the results with MLflow's tracking UI. T
 
 And then navigate to http://localhost:5000 in your browser. You will see a page similar to:
 
-.. image:: _static/images/mlflow_quickstart_ui_screenshot.png
+.. image:: _static/images/quickstart_ui_screenshot.png
     :width: 800px
     :align: center
 .. 
@@ -173,9 +173,9 @@ There are many options available for the tracking backend. For more details, see
 Using MLflow with a Databricks workspace
 ----------------------------------------
 
-You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL of your Databricks workspace in the Configuration page of the workspace:
+You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
 
-.. image:: _static/images/mlflow_quickstart_databricks_workspace_url.png
+.. image:: _static/images/quickstart_databricks_workspace_url.png
     :width: 800px
     :align: center
 
@@ -258,8 +258,8 @@ Running a model from a specific training run
 
 To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
 
-.. image:: _static/images/mlflow_quickstart_run_id.png
-    :width: 800px
+.. image:: _static/images/quickstart_run_id.png
+    :width: 100pt
     :align: center
 
 .. code-section::
@@ -278,7 +278,7 @@ To load and run a model stored in a previous run, you can use the ``mlflow.{libr
         predictions = model.predict(X_test)
         print(predictions)
 
-Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. {>> tk This is super important to get right! TODO <<}
+Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. 
 
 To learn more about loading runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
@@ -288,7 +288,7 @@ Next Steps
     First, code:
 
 - Example: MLflow tutorial
-- `MLflow examples<../../examples#readme>`_
+- `MLflow examples <https:../../examples#readme>`_
 
 - :ref:`registry`
 
