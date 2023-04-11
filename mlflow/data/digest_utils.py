@@ -28,7 +28,7 @@ def compute_pandas_digest(df) -> str:
             pd.util.hash_pandas_object(trimmed_df).values,
             np.int64(len(df)),
         ]
-        + [x.encode() for x in df.columns]
+        + [str(x).encode() for x in df.columns]
     )
 
 

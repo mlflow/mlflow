@@ -78,6 +78,7 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from scipy.sparse import issparse
 
 FLAVOR_NAME = "sklearn"
 
@@ -1472,12 +1473,12 @@ def _autolog(
             )
 
             # create a dataset
-            if isinstance(X, np.ndarray):
-                dataset = from_numpy(features=X, targets=y, source=source)
-            elif isinstance(X, pd.DataFrame):
-                dataset = from_pandas(df=X, targets=y, source=source)
+            if isinstance(X, pd.DataFrame):
+                dataset = from_pandas(df=X, source=source)
             else:
-                raise Exception("Unsupported dataset type: {}".format(type(X)))
+                arr_X = X.toarray() if issparse(X) else X
+                arr_y = y.toarray() if issparse(y) else y
+                dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
             dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
