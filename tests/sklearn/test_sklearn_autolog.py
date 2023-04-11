@@ -1087,6 +1087,24 @@ def test_sklearn_autolog_log_models_configuration(log_models):
     assert (MODEL_DIR in artifacts) == log_models
 
 
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_sklearn_autolog_log_datasets_configuration(log_datasets):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=log_datasets)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+    else:
+        assert len(dataset_inputs) == 0
+
+
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
     """
     Verifies that preprocessing and feature manipulation estimators, which represent data

@@ -24,6 +24,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -49,7 +54,12 @@ from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_AUTOLOGGING,
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+)
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -1450,6 +1460,25 @@ def _autolog(
                 # Copy the input example so that it is not mutated by the call to
                 # predict() prior to signature inference
                 estimator.predict(deepcopy(input_example)),
+            )
+
+        # log datasets
+        if log_datasets:
+            # create a CodeDatasetSource
+            context_tags = context_registry.resolve_tags()
+            source = CodeDatasetSource(
+                mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+            )
+
+            # create a dataset
+            dataset = from_numpy(X, source=source)
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+            dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+            # log the dataset
+            autologging_client.log_inputs(
+                run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
             )
 
         # log common metrics and artifacts for estimators (classifier, regressor)
