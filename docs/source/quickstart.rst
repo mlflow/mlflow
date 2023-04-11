@@ -290,6 +290,6 @@ Next Steps
 
 - :ref:`MLflow tutorials and examples <tutorials-and-examples>`
 - :ref:`registry`
-- :ref:`concepts`
+- :ref:`MLflow concepts <concepts>`
 - :ref:`java_api`
 - :ref:`R-api`
