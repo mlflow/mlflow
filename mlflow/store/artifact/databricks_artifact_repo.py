@@ -43,6 +43,7 @@ from mlflow.utils.file_utils import (
     parallelized_download_file_using_http_uri,
     download_chunk,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import read_chunk
@@ -745,7 +746,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
-        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE:
+        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
             self._download_from_cloud(
                 cloud_credential_info=read_credentials[0],
                 dst_local_file_path=local_path,

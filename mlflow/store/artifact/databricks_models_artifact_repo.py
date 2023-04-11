@@ -13,6 +13,7 @@ from mlflow.utils.file_utils import (
     parallelized_download_file_using_http_uri,
     download_chunk,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
@@ -161,7 +162,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE:
+            if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
                 download_file_using_http_uri(
                     signed_uri,
                     local_path,
