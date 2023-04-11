@@ -1462,7 +1462,7 @@ def _autolog(
                 estimator.predict(deepcopy(input_example)),
             )
 
-        # log datasets
+        # log datasets during training
         if log_datasets:
             # create a CodeDatasetSource
             context_tags = context_registry.resolve_tags()
@@ -1472,7 +1472,12 @@ def _autolog(
             )
 
             # create a dataset
-            dataset = from_numpy(X, source=source)
+            if isinstance(X, np.ndarray):
+                dataset = from_numpy(features=X, targets=y, source=source)
+            elif isinstance(X, pd.DataFrame):
+                dataset = from_pandas(df=X, targets=y, source=source)
+            else:
+                raise Exception("Unsupported dataset type: {}".format(type(X)))
             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
             dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
