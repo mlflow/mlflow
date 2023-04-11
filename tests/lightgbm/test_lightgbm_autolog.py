@@ -761,19 +761,6 @@ def test_lgb_api_autolog_registering_model(bst_params, train_set):
         assert registered_model.name == registered_model_name
 
 
-# # @pytest.mark.parametrize("log_datasets", [True, False])
-# def test_lgb_log_datasets(bst_params, train_set):
-#     mlflow.lightgbm.autolog()
-#     lgb.train(bst_params, train_set)
-#     run = get_latest_run()
-
-#         # dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
-#         # if log_datasets:
-#         #     assert len(dataset_inputs) == 1
-#         # else:
-#         #     assert len(dataset_inputs) == 0
-
-
 @pytest.mark.parametrize("log_datasets", [True, False])
 def test_lgb_log_datasets(bst_params, train_set, log_datasets):
     with mlflow.start_run() as run:

@@ -719,3 +719,18 @@ def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
     assert f"model/model.{model_format}" in artifacts
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_lgb_log_datasets(bst_params, dtrain, log_datasets):
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_datasets=log_datasets)
+        xgb.train(bst_params, dtrain)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+    else:
+        assert len(dataset_inputs) == 0

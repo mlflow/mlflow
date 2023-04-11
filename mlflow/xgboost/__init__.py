@@ -19,6 +19,8 @@ XGBoost (native) format
 import os
 import shutil
 import json
+import pandas as pd
+from sklearn.utils import issparse
 import yaml
 import tempfile
 import logging
@@ -26,6 +28,11 @@ from copy import deepcopy
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.models import Model, ModelInputExample, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
@@ -44,6 +51,7 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
@@ -69,6 +77,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "xgboost"
@@ -379,6 +388,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -416,6 +426,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
+                       If ``False``, datasets are not logged.
     :param disable: If ``True``, disables the XGBoost autologging integration. If ``False``,
                     enables the XGBoost autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -463,7 +475,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train_impl(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, _log_datasets, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -718,27 +730,66 @@ def autolog(
                 model_format=model_format,
             )
 
+        # Whether to automatically log the training dataset as a dataset artifact based on boolean flag.
+        if _log_datasets:
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+
+                # create a dataset
+                data = dtrain.get_data()
+                if isinstance(dtrain, pd.DataFrame):
+                    dataset = from_pandas(df=data, source=source)
+                else:
+                    arr_data = data.toarray() if issparse(data) else data
+                    dataset = from_numpy(features=arr_data, source=source)
+                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                # log the dataset
+                autologging_client.log_inputs(
+                    run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                )
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
+            except Exception as e:
+                _logger.warning("Failed to log datasets. Reason: {}".format(str(e)))
+
         param_logging_operations.await_completion()
         if early_stopping:
             early_stopping_logging_operations.await_completion()
 
         return model
 
-    def train(_log_models, original, *args, **kwargs):
+    def train(_log_models, _log_datasets, original, *args, **kwargs):
         current_sklearn_session = _SklearnTrainingSession.get_current_session()
         if current_sklearn_session is None or current_sklearn_session.should_log():
-            return train_impl(_log_models, original, *args, **kwargs)
+            return train_impl(_log_models, _log_datasets, original, *args, **kwargs)
         else:
             return original(*args, **kwargs)
 
-    safe_patch(FLAVOR_NAME, xgboost, "train", functools.partial(train, log_models), manage_run=True)
+    safe_patch(
+        FLAVOR_NAME,
+        xgboost,
+        "train",
+        functools.partial(train, log_models, log_datasets),
+        manage_run=True,
+    )
     # The `train()` method logs XGBoost models as Booster objects. When using XGBoost
     # scikit-learn models, we want to save / log models as their model classes. So we turn
     # off the log_models functionality in the `train()` method patched to `xgboost.sklearn`.
     # Instead the model logging is handled in `fit_mlflow_sklearn()` in `mlflow.sklearn._autolog()`,
     # where models are logged as XGBoost scikit-learn models after the `fit()` method returns.
     safe_patch(
-        FLAVOR_NAME, xgboost.sklearn, "train", functools.partial(train, False), manage_run=True
+        FLAVOR_NAME,
+        xgboost.sklearn,
+        "train",
+        functools.partial(train, False, log_datasets),
+        manage_run=True,
     )
     safe_patch(FLAVOR_NAME, xgboost.DMatrix, "__init__", __init__)
 
@@ -750,6 +801,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,

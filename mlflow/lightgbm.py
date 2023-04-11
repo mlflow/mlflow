@@ -77,8 +77,8 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.sklearn import _SklearnTrainingSession
 from mlflow.tracking.context import registry as context_registry
+from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "lightgbm"
 
@@ -849,7 +849,7 @@ def autolog(
                 registered_model_name=registered_model_name,
             )
 
-        # # Whether to automatically log the training dataset as a dataset artifact based on boolean flag.
+        # Whether to automatically log the training dataset as a dataset artifact based on boolean flag.
         if _log_datasets:
             try:
                 data = train_set.data
@@ -870,7 +870,6 @@ def autolog(
                 tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
                 dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
-                print(dataset_input)
                 # log the dataset
                 autologging_client.log_inputs(
                     run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
