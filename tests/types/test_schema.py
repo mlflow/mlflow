@@ -309,7 +309,7 @@ def test_schema_inference_on_dictionary_of_strings():
         {"a": "a", "b": ["a", "b"]},
     ]:
         schema = _infer_schema(valid_data)
-        assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data.keys()])
+        assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data])
     for invalid_data in [{"a": 1, "b": "c"}, {"a": 1, "b": ["a", "b"]}]:
         with pytest.raises(
             MlflowException, match="Invalid values in dictionary. If passing a dictionary"
@@ -320,7 +320,7 @@ def test_schema_inference_on_dictionary_of_strings():
 def test_schema_inference_validating_dictionary_keys():
     valid_data = {"a": "b", "b": "c"}
     schema = _infer_schema(valid_data)
-    assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data.keys()])
+    assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data])
     for data in [{1: "a", "b": "c"}, {12.4: "c", "d": "e"}]:
         with pytest.raises(
             MlflowException, match="The dictionary keys are not all strings. Invalid "

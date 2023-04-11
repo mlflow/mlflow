@@ -276,37 +276,32 @@ def save_model(
             architecture = "gpt2"
 
             sentence_pipeline = pipeline(
-              task=task,
-              tokenizer=AutoTokenizer.from_pretrained(architecture),
-              model=architecture
+                task=task, tokenizer=AutoTokenizer.from_pretrained(architecture), model=architecture
             )
 
             # Validate that the overrides function
-            prompts = [
-             "Generative models are",
-             "I'd like a coconut so that I can"
-            ]
+            prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
             # validation of config prior to save or log
             inference_config = {
-               "top_k": 2,
-               "num_beams": 5,
-               "max_length": 30,
-               "temperature": 0.62,
-               "top_p": 0.85,
-               "repetition_penalty": 1.15,
-               }
+                "top_k": 2,
+                "num_beams": 5,
+                "max_length": 30,
+                "temperature": 0.62,
+                "top_p": 0.85,
+                "repetition_penalty": 1.15,
+            }
 
             # Verify that no exceptions are thrown
             sentence_generation(prompts, **inference_config)
 
             with mlflow.start_run():
-             mlflow.transformers.save_model(
-               transformers_model=sentence_generation,
-               path="/path/for/model",
-               task=task,
-               inference_config=inference_config
-             )
+                mlflow.transformers.save_model(
+                    transformers_model=sentence_generation,
+                    path="/path/for/model",
+                    task=task,
+                    inference_config=inference_config,
+                )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -332,12 +327,12 @@ def save_model(
                         signature = infer_signature(data, inference_pyfunc.predict(data))
 
                         with mlflow.start_run():
-                          mlflow.transformers.save_model(
-                            transformers_model=en_to_de,
-                            path="/path/to/save/model",
-                            signature=signature,
-                            input_example=data
-                          )
+                            mlflow.transformers.save_model(
+                                transformers_model=en_to_de,
+                                path="/path/to/save/model",
+                                signature=signature,
+                                input_example=data,
+                            )
 
                         loaded = mlflow.pyfunc.load_model(model_path)
                         print(loaded.predict(data))
@@ -607,16 +602,11 @@ def log_model(
           architecture = "gpt2"
 
           sentence_pipeline = pipeline(
-             task=task,
-             tokenizer=AutoTokenizer.from_pretrained(architecture),
-             model=architecture
+              task=task, tokenizer=AutoTokenizer.from_pretrained(architecture), model=architecture
           )
 
           # Validate that the overrides function
-          prompts = [
-            "Generative models are",
-            "I'd like a coconut so that I can"
-          ]
+          prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
           # validation of config prior to save or log
           inference_config = {
@@ -626,18 +616,18 @@ def log_model(
               "temperature": 0.62,
               "top_p": 0.85,
               "repetition_penalty": 1.15,
-              }
+          }
 
           # Verify that no exceptions are thrown
           sentence_generation(prompts, **inference_config)
 
           with mlflow.start_run():
-            mlflow.transformers.log_model(
-              transformers_model=sentence_generation,
-              artifact_path="my_sentence_generator",
-              task=task,
-              inference_config=inference_config
-            )
+              mlflow.transformers.log_model(
+                  transformers_model=sentence_generation,
+                  artifact_path="my_sentence_generator",
+                  task=task,
+                  inference_config=inference_config,
+              )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -665,12 +655,12 @@ def log_model(
                         signature = infer_signature(data, inference_pyfunc.predict(data))
 
                         with mlflow.start_run() as run:
-                          mlflow.transformers.log_model(
-                            transformers_model=en_to_de,
-                            artifact_path="english_to_german_translator",
-                            signature=signature,
-                            input_example=data
-                          )
+                            mlflow.transformers.log_model(
+                                transformers_model=en_to_de,
+                                artifact_path="english_to_german_translator",
+                                signature=signature,
+                                input_example=data,
+                            )
 
                         model_uri = f"runs:/{run.info.run_id}/english_to_german_translator"
                         loaded = mlflow.pyfunc.load_model(model_uri)

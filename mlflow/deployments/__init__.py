@@ -44,7 +44,7 @@ class PredictionsResponse(dict):
         if predictions_format == "dataframe":
             predictions = self["predictions"]
             if isinstance(predictions, str):
-                return pd.DataFrame(data=[predictions], index=[0])
+                return pd.DataFrame(data=[predictions])
             elif isinstance(predictions, list) and all(
                 isinstance(value, str) for value in predictions
             ):
