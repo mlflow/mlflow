@@ -597,7 +597,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 def download_chunk(request_index, chunk_size, headers, download_path, http_uri):
     range_start = chunk_size * request_index
     range_end = str(range_start + chunk_size - 1)
-    combined_headers = headers | {"Range": f"bytes={range_start}-{range_end}"}
+    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
     with cloud_storage_http_request(
         "get", http_uri, stream=False, headers=combined_headers
     ) as response:

@@ -385,7 +385,9 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
         response_mock._content = b"\x01\x01"
         return response_mock
 
-    f = tempfile.NamedTemporaryFile()
+    # Workaround for windows preventing re-opening of an open handle
+    f = tempfile.NamedTemporaryFile(delete=False)
+    f.close()
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         parallelized_download_file_using_http_uri(
@@ -406,6 +408,7 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
             byte_range += f"{(100*(i+1))-1}"
         expected_ranges.append(byte_range)
     assert set(requested_ranges) == set(expected_ranges)
+    os.unlink(f.name)
 
 
 def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
@@ -420,7 +423,8 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
         response_mock._content = file_content
         return response_mock
 
-    f = tempfile.NamedTemporaryFile()
+    f = tempfile.NamedTemporaryFile(delete=False)
+    f.close()
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         parallelized_download_file_using_http_uri(
@@ -437,6 +441,7 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
     contents = f.read()
     assert contents == file_content
     f.close()
+    os.unlink(f.name)
 
 
 def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
@@ -454,7 +459,8 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
             raise requests.HTTPError("test exception")
         return response_mock
 
-    f = tempfile.NamedTemporaryFile()
+    f = tempfile.NamedTemporaryFile(delete=False)
+    f.close()
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         failed_downloads = parallelized_download_file_using_http_uri(
@@ -467,3 +473,4 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
         )
         assert len(failed_downloads) == 1
         assert str(failed_downloads[0]) == "test exception"
+    os.unlink(f.name)
