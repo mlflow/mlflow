@@ -3,20 +3,16 @@
 .. _quickstart_drilldown:
 
 Quickstart additional material: Options and troubleshooting
-===========================================================
-
+==========================================================
 
 .. 
-    Hmm... At the moment, I have this as a single separate document.
-    Other options would be to inline this below the 'next steps' section of the quickstart doc itself. That would probably be a net gain for SEO, at the expense of a longer doc. 
-
-    The other option would be to have each section here as a separate doc, and link to them from the quickstart doc. Would that be a gain for SEO (doc is better than section?)
-
+    Eventually, these H2s will probably all be separate articles. For now, I'm 
+    avoiding that so as not to create a bunch of super-skinny pages. 
 
 .. _quickstart_drilldown_install:
 
 Customizing and troubleshooting MLflow installation
----------------------------------------------------
+--------------------------------------------------
 
 tk
 - Java exists

@@ -1,10 +1,10 @@
 .. _quickstart:
 
 Quickstart
------------
+==========
 
 Install MLflow, instrument your code, and view results in a few minutes.
-=======================================================================
+-----------------------------------------------------------------------
 
 
 As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team.
@@ -20,7 +20,7 @@ MLflow is available for Python, R, and Java, but this quickstart shows Python on
     Task: https://databricks.atlassian.net/browse/DOC-8674?atlOrigin=eyJpIjoiNjg5ZmYxODUzNjYxNDQzY2FjYTUxMTYyMDE4ZWFjNGQiLCJwIjoiaiJ9
 
 Installing MLflow
-=================
+-----------------
 
 Install MLflow from PyPi using pip:
 
@@ -33,7 +33,7 @@ Install MLflow from PyPi using pip:
 For more options, see :ref:`quickstart_drilldown_install`.
 
 Adding MLflow tracking to your code
-===================================
+-----------------------------------
 
 For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLflow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
 
@@ -107,7 +107,7 @@ This example demonstrates the use of these functions:
 - For additional functions such as ``log_text`` and ``log_image``, see :ref:`quickstart_drilldown_tracking_api`.
 
 Viewing MLflow runs and experiments
-===================================
+-----------------------------------
 
 Once you've run your code, you may view the results with MLflow's tracking UI. To start the UI, run:
 
@@ -130,7 +130,7 @@ You are in the **Default** experiment, which now contains the tracking data for 
 For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`.
 
 Sharing MLflow runs and experiments
-===================================
+-----------------------------------
 
 By default, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. You can change this behavior by:
 
@@ -169,7 +169,7 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 There are many options available for the tracking backend. For more details, see :ref:`quickstart_drilldown_tracking_backend`.
 
 Using MLflow with a Databricks workspace
-========================================
+----------------------------------------
 
 You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
 
@@ -203,7 +203,7 @@ In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Dat
 If the specified experiment does not exist, it will be created.
 
 Storing a model in MLflow
-=========================
+-------------------------
 
 An MLflow Model is a directory that packages machine learning models and support files in a standard format. The directory contains:
 
@@ -254,7 +254,7 @@ If you've not set the ``MLFLOW_TRACKING_URI`` environment variable to point to a
 For more information, including a list of supported model flavors, see :ref:`quickstart_drilldown_log_and_load_model`.
 
 Running a model from a specific training run
-============================================
+--------------------------------------------
 
 To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
 
@@ -284,7 +284,7 @@ Note that while ``log_model`` saves environment-specifying files such as **conda
 To learn more about loading runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
 Next Steps
-==========
+----------
 ..
     First, code:
 
