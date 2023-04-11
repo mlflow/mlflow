@@ -1003,7 +1003,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     model_conf = get_model_conf(run.info.artifact_uri)
 
-    mock_warning.assert_called_once()
+    assert mock_warning.call_count == 2
     mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()

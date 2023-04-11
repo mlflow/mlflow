@@ -1465,28 +1465,30 @@ def _autolog(
 
         # log datasets during training
         if log_datasets:
-            # create a CodeDatasetSource
-            context_tags = context_registry.resolve_tags()
-            source = CodeDatasetSource(
-                mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-            )
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
 
-            # create a dataset
-            if isinstance(X, pd.DataFrame):
-                dataset = from_pandas(df=X, source=source)
-            else:
-                arr_X = X.toarray() if issparse(X) else X
-                arr_y = y.toarray() if issparse(y) else y
-                dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
-            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-            dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+                # create a dataset
+                if isinstance(X, pd.DataFrame):
+                    dataset = from_pandas(df=X, source=source)
+                else:
+                    arr_X = X.toarray() if issparse(X) else X
+                    arr_y = y.toarray() if issparse(y) else y
+                    dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
+                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
-            # log the dataset
-            autologging_client.log_inputs(
-                run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-            )
-
+                # log the dataset
+                autologging_client.log_inputs(
+                    run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                )
+            except Exception as e:
+                _logger.warning("Failed to log datasets. Reason: {}".format(str(e)))
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,
