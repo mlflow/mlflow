@@ -25,6 +25,10 @@ import re
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -46,6 +50,7 @@ from mlflow.utils.environment import (
     _mlflow_conda_env,
 )
 from mlflow.utils.file_utils import write_to
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
@@ -67,6 +72,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.models import infer_signature
 from mlflow.exceptions import INVALID_PARAMETER_VALUE
 
@@ -979,6 +985,7 @@ def _setup_callbacks(lst, metrics_logger):
 def autolog(
     every_n_iter=1,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1026,6 +1033,8 @@ def autolog(
                          100 will log metrics at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
+                       If ``False``, datasets are not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1256,6 +1265,22 @@ def autolog(
 
                 if log_models:
                     _log_keras_model(history, args)
+
+                if log_datasets:
+                    # create a CodeDatasetSource
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(
+                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                    )
+
+                    # create a dataset
+                    # TODO: check if isinstance(training_data, tensorflow.data.Dataset)
+                    # TODO: replace this with from_tensorflow_dataset()
+                    dataset = from_pandas(df=training_data, source=source)
+
+                    # log the dataset
+                    mlflow.log_input(dataset, "train")
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,

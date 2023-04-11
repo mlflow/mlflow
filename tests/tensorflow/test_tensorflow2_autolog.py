@@ -190,6 +190,27 @@ def test_tf_keras_autolog_log_models_configuration(
     assert ("model" in artifacts) == log_models
 
 
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_tf_keras_autolog_log_datasets_configuration(
+    random_train_data, random_one_hot_labels, log_datasets
+):
+    mlflow.tensorflow.autolog(log_datasets=log_datasets)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    model.fit(data, labels, epochs=10)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+    else:
+        assert len(dataset_inputs) == 0
+
+
 def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
