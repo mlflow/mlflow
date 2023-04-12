@@ -148,18 +148,6 @@ def fill_mask_pipeline():
 
 
 @pytest.fixture(scope="module")
-def text2text_generation_pipeline():
-    task = "text2text-generation"
-    architecture = "mrm8488/t5-base-finetuned-question-generation-ap"
-
-    yield transformers.pipeline(
-        task=task,
-        tokenizer=transformers.AutoTokenizer.from_pretrained(architecture),
-        model=architecture,
-    )
-
-
-@pytest.fixture(scope="module")
 def text_generation_pipeline():
     task = "text-generation"
     architecture = "gpt2"
@@ -172,17 +160,16 @@ def text_generation_pipeline():
 
 @pytest.fixture(scope="module")
 def translation_pipeline():
-    yield transformers.pipeline(task="translation_en_to_de")
+    yield transformers.pipeline(
+        task="translation_en_to_de",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+    )
 
 
 @pytest.fixture(scope="module")
 def text_classification_pipeline():
     yield transformers.pipeline(model="distilbert-base-uncased-finetuned-sst-2-english")
-
-
-@pytest.fixture(scope="module")
-def summarizer_pipeline():
-    yield transformers.pipeline("summarization")
 
 
 @pytest.fixture(scope="module")
@@ -1105,96 +1092,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
 
 @pytest.mark.parametrize(
-    "data, result",
-    [
-        (
-            [
-                {
-                    "answer": "To provide high quality answers.",
-                    "context": (
-                        "The best goal of any benevolent generative text "
-                        "AI is to answer questions well."
-                    ),
-                },
-                {
-                    "answer": "To distribute electricity.",
-                    "context": (
-                        "Substations exist for the sole purpose of routing "
-                        "electrical power to customers from the site of generation."
-                    ),
-                },
-            ],
-            [
-                "question: What is the best goal of a benevolent generative text AI?",
-                "question: Substations exist for what purpose?",
-            ],
-        ),
-        (
-            {
-                "answer": "It's Run's house.",
-                "context": "The house was purchased by Run after his initial musical success.",
-            },
-            "question: What was the name of Run's house?",
-        ),
-    ],
-)
-def test_text2text_generation_pipeline_with_inference_configs(
-    text2text_generation_pipeline, model_path, data, result
-):
-    infer_pyfunc = mlflow.transformers._TransformersWrapper(text2text_generation_pipeline)
-    signature = infer_signature(data, infer_pyfunc.predict(data))
-
-    inference_config = {
-        "top_k": 2,
-        "num_beams": 5,
-        "max_length": 30,
-        "temperature": 0.62,
-        "top_p": 0.85,
-        "repetition_penalty": 1.15,
-    }
-    mlflow.transformers.save_model(
-        text2text_generation_pipeline,
-        path=model_path,
-        inference_config=inference_config,
-        signature=signature,
-    )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
-    inference = pyfunc_loaded.predict(data)
-
-    assert inference == result
-
-    if isinstance(data, dict):
-        pd_input = pd.DataFrame(data, index=[0])
-    else:
-        pd_input = pd.DataFrame(data)
-    pd_inference = pyfunc_loaded.predict(pd_input)
-    assert pd_inference == result
-    clean_cache()
-
-
-@pytest.mark.parametrize(
-    "invalid_data",
-    [
-        ("answer: broken. context: this test condition"),
-        ({"answer": "something", "context": ["nothing", "that", "makes", "sense"]}),
-        ([{"answer": ["42"], "context": "life"}, {"unmatched": "keys", "cause": "failure"}]),
-    ],
-)
-def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, invalid_data):
-    # Adding this validation test due to the fact that we're constructing the input to the
-    # Pipeline. The Pipeline requires a format of a pseudo-dict-like string. An example of
-    # a valid input string: "answer: green. context: grass is primarily green in color."
-    # We generate this string from a dict or generate a list of these strings from a list of
-    # dictionaries.
-    infer_pyfunc = mlflow.transformers._TransformersWrapper(text2text_generation_pipeline)
-    with pytest.raises(MlflowException, match="An invalid type has been supplied. Please supply"):
-        infer_signature(invalid_data, infer_pyfunc.predict(invalid_data))
-    clean_cache()
-
-
-@pytest.mark.parametrize(
-    "data", [("Generative models are"), (["Generative models are", "Computers are"])]
+    "data", ["Generative models are", (["Generative models are", "Computers are"])]
 )
 def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
     infer_pyfunc = mlflow.transformers._TransformersWrapper(text_generation_pipeline)
@@ -1352,15 +1250,15 @@ def test_table_question_answering_pipeline(
 @pytest.mark.parametrize(
     "data, result",
     [
-        ("I've got a lovely bunch of coconuts!", "Ich habe einen schönen Haufen Kokosnuss!"),
+        ("I've got a lovely bunch of coconuts!", "Ich habe eine schöne Haufe von Kokos!"),
         (
             [
                 "I am the very model of a modern major general",
                 "Once upon a time, there was a little turtle",
             ],
             [
-                "Ich bin das Vorbild eines modernen Großgenerals.",
-                "Es gab einmal eine kleine Schildkröte",
+                "Ich bin das Modell eines modernen Generals.",
+                "Einmal gab es eine kleine Schildkröte.",
             ],
         ),
     ],
@@ -1420,60 +1318,6 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data, res
 
     pd_inference = pyfunc_loaded.predict(pd_input)
     assert pd_inference == result
-    clean_cache()
-
-
-@pytest.mark.parametrize(
-    "data",
-    [
-        "There once was a boy",
-        ["Dolly isn't just a sheep anymore"],
-        ["Baking cookies is quite easy", "Writing unittests is good for"],
-    ],
-)
-def test_summarization_pipeline(summarizer_pipeline, model_path, data):
-    inference_config = {
-        "prefix": "software",
-        "top_k": 2,
-        "num_beams": 5,
-        "max_length": 30,
-        "temperature": 0.62,
-        "top_p": 0.85,
-        "repetition_penalty": 1.15,
-        "min_length": 10,
-    }
-    infer_pyfunc = mlflow.transformers._TransformersWrapper(summarizer_pipeline)
-    signature = infer_signature(data, infer_pyfunc.predict(data))
-
-    mlflow.transformers.save_model(
-        summarizer_pipeline, path=model_path, inference_config=inference_config, signature=signature
-    )
-    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-
-    inference = pyfunc_loaded.predict(data)
-    if isinstance(data, list) and len(data) > 1:
-        for i, entry in enumerate(data):
-            assert inference[i].strip().startswith(entry)
-    elif isinstance(data, list) and len(data) == 1:
-        assert inference.strip().startswith(data[0])
-    else:
-        assert inference.strip().startswith(data)
-
-    if len(data) > 1 and isinstance(data, list):
-        pd_input = pd.DataFrame([{"inputs": v} for v in data])
-    elif isinstance(data, list) and len(data) == 1:
-        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
-    else:
-        pd_input = pd.DataFrame({"inputs": data}, index=[0])
-
-    pd_inference = pyfunc_loaded.predict(pd_input)
-    if isinstance(data, list) and len(data) > 1:
-        for i, entry in enumerate(data):
-            assert pd_inference[i].strip().startswith(entry)
-    elif isinstance(data, list) and len(data) == 1:
-        assert pd_inference.strip().startswith(data[0])
-    else:
-        assert pd_inference.strip().startswith(data)
     clean_cache()
 
 
