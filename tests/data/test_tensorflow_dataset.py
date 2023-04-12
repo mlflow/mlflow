@@ -20,9 +20,8 @@ def test_from_tensorflow_dataset_constructs_expected_dataset():
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset, source="test")
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert mlflow_ds.data == tf_dataset
-    assert mlflow_ds.schema == _infer_schema(tf_dataset.numpy())
+    assert mlflow_ds.schema == _infer_schema(next(tf_dataset.as_numpy_iterator()))
     assert mlflow_ds.profile == {
-        "num_rows": tf_dataset.num_rows,
-        "dataset_size": tf_dataset.dataset_size,
-        "size_in_bytes": tf_dataset.size_in_bytes,
+        "num_rows": len(tf_dataset),
+        "num_elements": tf_dataset.cardinality().numpy(),
     }

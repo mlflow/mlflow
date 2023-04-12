@@ -87,7 +87,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return {
             "num_rows": len(self._data),
-            "num_elements": int(self._data.size),
+            "num_elements": int(self._data.cardinality().numpy())
+            if isinstance(self._data, tf.data.Dataset)
+            else self._data.size,
         }
 
     @cached_property
@@ -96,7 +98,11 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         An MLflow TensorSpec schema representing the tensor dataset
         """
         try:
-            return _infer_schema(self._data)
+            return (
+                _infer_schema(next(self._data.as_numpy_iterator()))
+                if isinstance(self._data, tf.data.Dataset)
+                else _infer_schema(self._data.numpy())
+            )
         except Exception as e:
             _logger._warning("Failed to infer schema for Tensorflow dataset. Exception: %s", e)
             return None
