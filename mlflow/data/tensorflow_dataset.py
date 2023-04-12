@@ -7,7 +7,7 @@ from functools import cached_property
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
-from mlflow.data.digest_utils import compute_tensorflow_dataset_digest
+from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -47,7 +47,11 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        return compute_tensorflow_dataset_digest(self._data)
+        return (
+            compute_tensorflow_dataset_digest(self._data)
+            if isinstance(self._data, tf.data.Dataset)
+            else compute_tensor_digest(self._data)
+        )
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
@@ -89,7 +93,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "num_rows": len(self._data),
             "num_elements": int(self._data.cardinality().numpy())
             if isinstance(self._data, tf.data.Dataset)
-            else self._data.size,
+            else tf.size(self._data).numpy(),
         }
 
     @cached_property
