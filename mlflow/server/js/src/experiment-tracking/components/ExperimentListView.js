@@ -306,7 +306,9 @@ const classNames = {
     // Ensure it displays experiment names for smaller screens, but don't
     // take more than 20% of the screen.
     minWidth: 'max(280px, 20vw)',
-    maxWidth: '20vw',
+    maxWidth: '50vw',
+    overflow: 'auto',
+    resize: 'horizontal',
     display: 'grid',
     gridTemplateRows: 'auto auto 1fr',
   }),
