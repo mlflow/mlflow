@@ -1311,7 +1311,7 @@ class _TransformersWrapper:
         Model were provided during save.
         """
         invalid_keys = []
-        for key in inference_config.keys():
+        for key in inference_config:
             if not hasattr(pipeline, key) and not hasattr(pipeline.model, key):
                 invalid_keys.append(key)
         if invalid_keys:
@@ -1510,7 +1510,7 @@ class _TransformersWrapper:
         if not isinstance(self.pipeline, transformers.TableQuestionAnsweringPipeline):
             return data
 
-        if "table" not in data.keys():
+        if "table" not in data:
             raise MlflowException(
                 "The input dictionary must have the 'table' key.",
                 error_code=INVALID_PARAMETER_VALUE,
@@ -1562,7 +1562,7 @@ class _TransformersWrapper:
             parsed = collection[0]
             for coll in collection:
                 for key, value in coll.items():
-                    if key not in parsed.keys():
+                    if key not in parsed:
                         raise MlflowException(
                             "Unable to parse the input. The keys within each "
                             "dictionary of the parsed input are not consistent"
