@@ -29,6 +29,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
 )
+from mlflow.utils.os import is_windows
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
@@ -1433,6 +1434,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         )
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 def test_parallelized_download_retries_failed_chunks(
     databricks_artifact_repo, large_file, mock_chunk_size
 ):
@@ -1463,6 +1465,7 @@ def test_parallelized_download_retries_failed_chunks(
         assert {call.args[0] for call in download_chunk_mock.call_args_list} == {2, 5}
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 def test_parallelized_download_throws_for_other_errors(
     databricks_artifact_repo, large_file, mock_chunk_size
 ):

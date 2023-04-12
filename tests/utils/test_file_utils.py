@@ -5,7 +5,6 @@ import hashlib
 import multiprocessing
 import os
 import shutil
-import tempfile
 from unittest import mock
 
 import jinja2.exceptions
@@ -374,7 +373,7 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks():
+def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks(tmp_path):
     calls_kwargs = multiprocessing.Manager().list([])
 
     # Get call kwargs manually. Calls are not properly stored in a MagicMock object
@@ -386,13 +385,10 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
         response_mock._content = b"\x01\x01"
         return response_mock
 
-    # Workaround for windows preventing re-opening of an open handle
-    f = tempfile.NamedTemporaryFile(delete=False)
-    f.close()
     with mock.patch("requests.Session.request", side_effect=mock_request_side_effect):
         parallelized_download_file_using_http_uri(
             "fake_uri",
-            f.name,
+            tmp_path / "testfile",
             file_size=1000,
             uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
             chunk_size=100,
@@ -400,16 +396,12 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
         )
     requested_ranges = [call_kwargs["headers"]["Range"] for call_kwargs in calls_kwargs]
     assert len(requested_ranges) == 10
-    expected_ranges = []
-    for i in range(10):
-        byte_range = f"bytes={100*i}-{(100*(i+1))-1}"
-        expected_ranges.append(byte_range)
+    expected_ranges = [f"bytes={100*i}-{(100*(i+1))-1}" for i in range(10)]
     assert sorted(requested_ranges) == expected_ranges
-    os.unlink(f.name)
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
+def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding(tmp_path):
     calls_kwargs = multiprocessing.Manager().list([])
     file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
 
@@ -421,13 +413,12 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
         response_mock._content = file_content
         return response_mock
 
-    f = tempfile.NamedTemporaryFile(delete=False)
-    f.close()
+    filename = tmp_path / "testfile"
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         parallelized_download_file_using_http_uri(
             "fake_uri",
-            f.name,
+            filename,
             file_size=10,
             uri_type=ArtifactCredentialType.GCP_SIGNED_URL,
             chunk_size=2,
@@ -435,16 +426,14 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
         )
     # Should only have called once because the whole file was returned
     assert len(calls_kwargs) == 1
-    f = open(f.name, "rb")
-    f.seek(0)
-    contents = f.read()
-    assert contents == file_content
-    f.close()
-    os.unlink(f.name)
+    with open(filename, "rb") as f:
+        f.seek(0)
+        contents = f.read()
+        assert contents == file_content
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
+def test_parallelized_download_file_using_http_uri_returns_errors_correctly(tmp_path):
     calls_kwargs = multiprocessing.Manager().list([])
     file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
 
@@ -459,13 +448,11 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
             raise requests.HTTPError("test exception")
         return response_mock
 
-    f = tempfile.NamedTemporaryFile(delete=False)
-    f.close()
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
         failed_downloads = parallelized_download_file_using_http_uri(
             "fake_uri",
-            f.name,
+            tmp_path / "testfile",
             file_size=10,
             uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
             chunk_size=2,
@@ -473,4 +460,3 @@ def test_parallelized_download_file_using_http_uri_returns_errors_correctly():
         )
         assert len(failed_downloads) == 1
         assert str(failed_downloads[0]) == "test exception"
-    os.unlink(f.name)

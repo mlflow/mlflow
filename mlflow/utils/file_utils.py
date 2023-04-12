@@ -626,7 +626,7 @@ def parallelized_download_file_using_http_uri(
     # Create file if it doesn't exist. We should do this here before sending to the workers
     # so they can each individually seek to their respective positions and write chunks
     # without overwriting.
-    Path().touch(download_path)
+    Path(download_path).touch()
     futures = {}
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
