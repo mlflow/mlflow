@@ -36,6 +36,6 @@ def test_from_pandas_spark_datasource(spark_session, tmp_path):
     # TODO: figure out how to compare spark df
     # assert mlflow_df.df.equals(df)
     assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {}
+    assert mlflow_df.profile == {"approx_count": 2}
 
     assert isinstance(mlflow_df.source, SparkDatasetSource)

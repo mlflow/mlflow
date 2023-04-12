@@ -103,9 +103,15 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     @property
     def profile(self) -> Optional[Any]:
-        # TODO: Include an approximate count of records from the table source. We don't
-        # want to compute the full count, which could be quite slow
-        return {}
+        """
+        A profile of the dataset. May be None if no profile is available.
+        """
+        # use Spark RDD countApprox to get approximate count since count() may be expensive
+        approx_count = self.df.rdd.countApprox(timeout=1000, confidence=0.90)
+
+        return {
+            "approx_count": approx_count,
+        }
 
     @cached_property
     def schema(self) -> Optional[Schema]:
