@@ -61,6 +61,16 @@ def compute_numpy_digest(features, targets=None) -> str:
     return get_normalized_md5_digest(hashable_elements)
 
 
+def compute_tensorflow_digest(df) -> str:
+    """
+    Computes a digest for the given Tensorflow DataFrame.
+
+    :param df: A Tensorflow DataFrame.
+    :return: A string digest.
+    """
+    return compute_numpy_digest(df.to_numpy())
+
+
 def get_normalized_md5_digest(elements: List[Any]) -> str:
     """
     Computes a normalized digest for a list of hashable elements.

@@ -148,3 +148,9 @@ try:
     _dataset_registry.register_constructor(from_huggingface)
 except ImportError:
     pass
+try:
+    from mlflow.data.tensorflow_dataset import from_tensorflow
+
+    _dataset_registry.register_constructor(from_tensorflow)
+except ImportError:
+    pass
