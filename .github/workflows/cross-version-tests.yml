@@ -172,6 +172,10 @@ jobs:
           pip install --upgrade pip wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
+          if [ "${{ matrix.package }}" = "transformers" ]
+          then
+            pip install accelerate datasets
+          fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:
           CACHE_DIR: /home/runner/.cache/wheels
