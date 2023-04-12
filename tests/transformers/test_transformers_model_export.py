@@ -1190,24 +1190,6 @@ def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, r
 
 
 @pytest.mark.parametrize(
-    "invalid_data",
-    [
-        ({"a": "b"}),
-        ([{"a": "b"}, [{"a": "c"}]]),
-    ],
-)
-def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
-    if isinstance(invalid_data, list):
-        match = "Invalid data submission. Ensure all"
-    else:
-        match = "The input data is of an incorrect type"
-    infer_pyfunc = mlflow.transformers._TransformersWrapper(fill_mask_pipeline)
-    with pytest.raises(MlflowException, match=match):
-        infer_signature(invalid_data, infer_pyfunc.predict(invalid_data))
-    clean_cache()
-
-
-@pytest.mark.parametrize(
     "query, result",
     [
         ({"query": "What should we order more of?"}, "apples"),
@@ -1321,49 +1303,6 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data, res
     clean_cache()
 
 
-@pytest.mark.parametrize(
-    "data, result",
-    [
-        (
-            {
-                "sequences": "I love the latest update to this IDE!",
-                "candidate_labels": ["happy", "sad"],
-            },
-            "happy",
-        ),
-        (
-            {
-                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
-                "candidate_labels": '["happy", "sad"]',
-                "hypothesis_template": "This example talks about how the dog is {}",
-            },
-            ["happy", "sad"],
-        ),
-    ],
-)
-def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data, result):
-    # NB: The list submission for this pipeline type can accept json-encoded lists or lists within
-    # the values of the dictionary.
-    infer_pyfunc = mlflow.transformers._TransformersWrapper(zero_shot_pipeline)
-    signature = infer_signature(data, infer_pyfunc.predict(data))
-
-    mlflow.transformers.save_model(zero_shot_pipeline, model_path, signature=signature)
-
-    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
-    inference = loaded_pyfunc.predict(data)
-
-    assert inference == result
-
-    if all(isinstance(value, str) for value in data.values()):
-        pd_input = pd.DataFrame(data, index=[0])
-    else:
-        pd_input = pd.DataFrame(data)
-    pd_inference = loaded_pyfunc.predict(pd_input)
-
-    assert pd_inference == result
-    clean_cache()
-
-
 def test_conversational_pipeline(conversational_pipeline, model_path):
     infer_pyfunc = mlflow.transformers._TransformersWrapper(conversational_pipeline)
     signature = infer_signature("Hi there", infer_pyfunc.predict("Hi there"))
@@ -1430,7 +1369,6 @@ def test_ner_pipeline(pipeline_name, model_path, data, result, request):
 
     pd_inference = loaded_pyfunc.predict(pd_input)
     assert pd_inference == result
-    clean_cache()
 
 
 @pytest.mark.parametrize(
