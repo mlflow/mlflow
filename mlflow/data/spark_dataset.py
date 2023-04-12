@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Union
 
 import numpy as np
 from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.utils import AnalysisException
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -294,28 +295,22 @@ def from_spark(
     )
 
 
-# TODO: fix this logic... something is not working
 def _is_delta_table(table_name: str) -> bool:
     """
     Checks if a Delta table exists with the specified table name.
 
     :return: True if a Delta table exists with the specified table name. False otherwise.
+    :rtype: bool
     """
+    spark = SparkSession.builder.getOrCreate()
 
     try:
-        spark = SparkSession.builder.getOrCreate()
-        table = spark.catalog.getTable(table_name)
-        table_identifier = spark.sparkContext._jvm.org.apache.spark.sql.catalyst.TableIdentifier(
-            table.name,
-            spark.sparkContext._jvm.scala.Some(table.database),
-            spark.sparkContext._jvm.scala.Some(table.catalog),
-        )
-        table_metadata = (
-            spark._jsparkSession.sessionState().catalog().getTableMetadata(table_identifier)
-        )
-        table_provider = table_metadata.provider()
-        return table_provider.isDefined() and table_provider.get() == "delta"
-    except Exception:
+        # use DESCRIBE DETAIL to check if the table is a Delta table
+        # https://docs.databricks.com/delta/delta-utility.html#describe-detail
+        # format will be `delta` for delta tables
+        spark.sql(f"DESCRIBE DETAIL {table_name}").filter("format = 'delta'").count()
+        return True
+    except AnalysisException:
         return False
 
 
