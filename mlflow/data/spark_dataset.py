@@ -27,12 +27,9 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Table) for use with MLflow Tracking.
     """
 
-    from pyspark.sql import SparkSession, DataFrame
-    from pyspark.sql.utils import AnalysisException
-
     def __init__(
         self,
-        df: DataFrame,
+        df,
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -76,7 +73,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return base_dict
 
     @property
-    def df(self) -> DataFrame:
+    def df(self):
         """
         The Spark DataFrame instance.
 
@@ -161,9 +158,6 @@ def load_delta(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> SparkDataset:
-    from pyspark.sql import SparkSession, DataFrame
-    from pyspark.sql.utils import AnalysisException
-
     """
     Loads a :py:class:`SparkDataset` from a Delta table for use with MLflow Tracking.
 
@@ -194,7 +188,7 @@ def load_delta(
         name = table_name + (f"v{version}" if version is not None else "")
 
     source = DeltaDatasetSource(path=path, delta_table_name=table_name, delta_table_version=version)
-    df: DataFrame = source.load()
+    df = source.load()
 
     return SparkDataset(
         df=df,
@@ -247,8 +241,6 @@ def from_spark(
                    is automatically computed.
     :return: An instance of :py:class:`SparkDataset`.
     """
-    from pyspark.sql import SparkSession, DataFrame
-    from pyspark.sql.utils import AnalysisException
 
     if (path, table_name, sql).count(None) != 2:
         raise MlflowException(
