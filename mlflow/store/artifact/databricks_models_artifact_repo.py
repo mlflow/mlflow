@@ -1,5 +1,6 @@
 import logging
 import json
+import os
 import posixpath
 
 import mlflow.tracking
@@ -138,17 +139,25 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 headers=headers,
             )
+            download_errors = [
+                e for e in failed_downloads.values() if e.response.status_code not in (401, 403)
+            ]
+            if download_errors:
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{download_errors}"
+                )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
-            for i, excep in failed_downloads.items():
-                if excep.response.status_code not in (401, 403):
-                    raise excep
+            for i in failed_downloads:
                 download_chunk(
                     i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
                 )
         except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
             raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
@@ -162,6 +171,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
+            # Windows doesn't support the 'fork' multiprocessing context.
             if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
                 download_file_using_http_uri(
                     signed_uri,

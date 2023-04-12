@@ -14,6 +14,7 @@ import pathlib
 
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -596,11 +597,13 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 def download_chunk(request_index, chunk_size, headers, download_path, http_uri):
     range_start = chunk_size * request_index
-    range_end = str(range_start + chunk_size - 1)
+    range_end = range_start + chunk_size - 1
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
     with cloud_storage_http_request(
         "get", http_uri, stream=False, headers=combined_headers
     ) as response:
+        # File will have been created upstream. Use r+b to ensure chunks
+        # don't overwrite the entire file.
         with open(download_path, "r+b") as f:
             f.seek(range_start)
             f.write(response.content)
@@ -623,8 +626,7 @@ def parallelized_download_file_using_http_uri(
     # Create file if it doesn't exist. We should do this here before sending to the workers
     # so they can each individually seek to their respective positions and write chunks
     # without overwriting.
-    f = open(download_path, "wb")
-    f.close()
+    Path().touch(download_path)
     futures = {}
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:

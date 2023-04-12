@@ -389,8 +389,7 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
     # Workaround for windows preventing re-opening of an open handle
     f = tempfile.NamedTemporaryFile(delete=False)
     f.close()
-    with mock.patch("requests.Session.request") as request_mock:
-        request_mock.side_effect = mock_request_side_effect
+    with mock.patch("requests.Session.request", side_effect=mock_request_side_effect):
         parallelized_download_file_using_http_uri(
             "fake_uri",
             f.name,
@@ -399,14 +398,13 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks()
             chunk_size=100,
             headers={},
         )
-    f.close()
     requested_ranges = [call_kwargs["headers"]["Range"] for call_kwargs in calls_kwargs]
     assert len(requested_ranges) == 10
     expected_ranges = []
     for i in range(10):
         byte_range = f"bytes={100*i}-{(100*(i+1))-1}"
         expected_ranges.append(byte_range)
-    assert set(requested_ranges) == set(expected_ranges)
+    assert sorted(requested_ranges) == expected_ranges
     os.unlink(f.name)
 
 
@@ -437,7 +435,7 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding():
         )
     # Should only have called once because the whole file was returned
     assert len(calls_kwargs) == 1
-    f = open(f.name, 'rb')
+    f = open(f.name, "rb")
     f.seek(0)
     contents = f.read()
     assert contents == file_content

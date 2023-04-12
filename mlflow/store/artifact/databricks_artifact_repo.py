@@ -431,19 +431,29 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
+            download_errors = [
+                e for e in failed_downloads.values() if e.response.status_code not in (401, 403)
+            ]
+            if download_errors:
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{download_errors}"
+                )
+
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos(
                     self.run_id, dst_run_relative_artifact_path
                 )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-            for i, excep in failed_downloads.items():
-                if excep.response.status_code not in (401, 403):
-                    raise excep
+
+            for i in failed_downloads:
                 download_chunk(
                     i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
                 )
         except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
             raise MlflowException(err)
 
     def _download_from_cloud(self, cloud_credential_info, dst_local_file_path):
@@ -746,6 +756,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
+        # Windows doesn't support the 'fork' multiprocessing context.
         if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
             self._download_from_cloud(
                 cloud_credential_info=read_credentials[0],
