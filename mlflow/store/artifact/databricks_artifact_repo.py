@@ -66,6 +66,7 @@ _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
+_ARTIFACT_UPLOAD_BATCH_SIZE = 50  # Max number of artifacts for which to fetch write credentials at once.
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -652,8 +653,8 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        for path_chunk in chunk_list(staged_uploads, 25):
-            get_creds_and_upload(path_chunk)
+        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+            get_creds_and_upload(chunk)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
