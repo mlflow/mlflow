@@ -14,6 +14,7 @@ from mlflow.entities.model_registry import ModelVersion
         ("models:/Ads Model 1/12345", "Ads Model 1", "12345"),
         ("models:/12345/67890", "12345", "67890"),
         ("models://profile@databricks/12345/67890", "12345", "67890"),
+        ("models:/catalog.schema.model/0", "catalog.schema.model", "0"),  # UC Model format
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
@@ -50,6 +51,7 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
         ("models:/AdsModel1/LATEST", "AdsModel1"),  # case insensitive
         ("models:/Ads Model 1/latest", "Ads Model 1"),
         ("models://scope:key@databricks/Ads Model 1/latest", "Ads Model 1"),
+        ("models:/catalog.schema.model/latest", "catalog.schema.model"),  # UC Model format
     ],
 )
 def test_parse_models_uri_with_latest(uri, expected_name):
