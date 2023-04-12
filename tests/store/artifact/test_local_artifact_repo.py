@@ -31,6 +31,19 @@ def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert artifacts_list[0].path == artifact_rel_path
 
 
+def test_log_artifact_skips_copy_if_src_and_dst_are_equal(local_artifact_repo, local_artifact_root):
+    artifact_rel_path = "test.txt"
+    artifact_text = "hello world!"
+    with TempDir() as src_dir:
+        artifact_src_path = src_dir.path(artifact_rel_path)
+        with open(artifact_src_path, "w") as f:
+            f.write(artifact_text)
+        local_artifact_repo.log_artifact(artifact_src_path)
+        artifact_path = os.path.join(local_artifact_root, artifact_rel_path)
+        assert os.path.exists(artifact_path)
+        local_artifact_repo.log_artifact(artifact_path)
+
+
 def test_log_artifacts(local_artifact_repo, local_artifact_root):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
