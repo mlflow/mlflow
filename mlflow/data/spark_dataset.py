@@ -5,8 +5,6 @@ from functools import cached_property
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.utils import AnalysisException
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -28,6 +26,9 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta
     Table) for use with MLflow Tracking.
     """
+
+    from pyspark.sql import SparkSession, DataFrame
+    from pyspark.sql.utils import AnalysisException
 
     def __init__(
         self,
@@ -160,6 +161,9 @@ def load_delta(
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> SparkDataset:
+    from pyspark.sql import SparkSession, DataFrame
+    from pyspark.sql.utils import AnalysisException
+
     """
     Loads a :py:class:`SparkDataset` from a Delta table for use with MLflow Tracking.
 
@@ -202,7 +206,7 @@ def load_delta(
 
 
 def from_spark(
-    df: DataFrame,
+    df,
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,
@@ -215,6 +219,7 @@ def from_spark(
     Given a Spark DataFrame, constructs an MLflow :py:class:`SparkDataset` object for use with
     MLflow Tracking.
 
+    :param df: The Spark DataFrame to construct a SparkDataset from.
     :param path: The path of the Spark or Delta source that the DataFrame originally came from.
                  Note that the path does not have to match the DataFrame exactly, since the
                  DataFrame may have been modified by Spark operations. This is used to reload the
@@ -240,9 +245,11 @@ def from_spark(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :param df: A Spark DataFrame.
     :return: An instance of :py:class:`SparkDataset`.
     """
+    from pyspark.sql import SparkSession, DataFrame
+    from pyspark.sql.utils import AnalysisException
+
     if (path, table_name, sql).count(None) != 2:
         raise MlflowException(
             "Must specify exactly one of `path`, `table_name`, or `sql`.",
@@ -302,6 +309,9 @@ def _is_delta_table(table_name: str) -> bool:
     :return: True if a Delta table exists with the specified table name. False otherwise.
     :rtype: bool
     """
+    from pyspark.sql import SparkSession
+    from pyspark.sql.utils import AnalysisException
+
     spark = SparkSession.builder.getOrCreate()
 
     try:
@@ -339,6 +349,8 @@ def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
              Delta core library is not installed or the specified path does not refer to a Delta
              table).
     """
+    from pyspark.sql import SparkSession
+
     try:
         spark = SparkSession.builder.getOrCreate()
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forPath(spark._jsparkSession, path)
@@ -360,6 +372,8 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
     :return: The version of the Delta table, or None if it cannot be resolved (e.g. because the
              Delta core library is not installed or no such table exists).
     """
+    from pyspark.sql import SparkSession
+
     try:
         spark = SparkSession.builder.getOrCreate()
         j_delta_table = spark._jvm.io.delta.tables.DeltaTable.forName(
