@@ -44,6 +44,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             )
 
         self._df = df
+        self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
