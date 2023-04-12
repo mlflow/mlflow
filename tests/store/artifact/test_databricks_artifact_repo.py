@@ -1106,6 +1106,35 @@ def test_artifact_logging(databricks_artifact_repo, tmpdir):
             assert f.read() == "file1"
 
 
+def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmpdir):
+    """
+    Verifies that write credentials are fetched in chunks rather than all at once.
+    """
+    src_dir = os.path.join(str(tmpdir), "src")
+    os.makedirs(src_dir)
+    for i in range(10):
+        src_file_path = os.path.join(src_dir, f"file_{i}.txt")
+        with open(src_file_path, "w") as f:
+            f.write(f"file{i}")
+    dst_dir = os.path.join(str(tmpdir), "dst")
+    os.makedirs(dst_dir)
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=ArtifactCredentialInfo(
+            signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+        ),
+    ) as mock_get_write_creds, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
+    ):
+        databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
+
+        assert mock_get_write_creds.call_count == 5
+        assert all([len(call[0][1]["paths"]) == 2 for call in mock_get_write_creds.call_args])
+
+
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
