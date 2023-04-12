@@ -2,9 +2,6 @@ import os
 import logging
 
 from typing import Optional
-from pyspark.sql import SparkSession
-from pyspark.sql.utils import AnalysisException
-from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
 
 _logger = logging.getLogger(__name__)
 
@@ -16,6 +13,8 @@ def _is_delta_table(table_name: str) -> bool:
     :return: True if a Delta table exists with the specified table name. False otherwise.
     :rtype: bool
     """
+    from pyspark.sql import SparkSession
+    from pyspark.sql.utils import AnalysisException
 
     spark = SparkSession.builder.getOrCreate()
 
@@ -37,6 +36,7 @@ def _is_delta_table_path(path: str) -> bool:
     """
     if os.path.exists(path) and "_delta_log" in os.listdir(path):
         return True
+    from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
 
     try:
         dbfs_path = dbfs_hdfs_uri_to_fuse_path(path)
@@ -54,6 +54,7 @@ def _try_get_delta_table_latest_version_from_path(path: str) -> Optional[int]:
              Delta core library is not installed or the specified path does not refer to a Delta
              table).
     """
+    from pyspark.sql import SparkSession
 
     try:
         spark = SparkSession.builder.getOrCreate()
@@ -76,6 +77,7 @@ def _try_get_delta_table_latest_version_from_table_name(table_name: str) -> Opti
     :return: The version of the Delta table, or None if it cannot be resolved (e.g. because the
              Delta core library is not installed or no such table exists).
     """
+    from pyspark.sql import SparkSession
 
     try:
         spark = SparkSession.builder.getOrCreate()
