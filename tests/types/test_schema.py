@@ -321,9 +321,9 @@ def test_schema_inference_validating_dictionary_keys():
     valid_data = {"a": "b", "b": "c"}
     schema = _infer_schema(valid_data)
     assert schema == Schema([ColSpec(DataType.string, name) for name in valid_data])
-    for data in [{1: "a", "b": "c"}, {12.4: "c", "d": "e"}]:
+    for data in [{1.7: "a", "b": "c"}, {12.4: "c", "d": "e"}]:
         with pytest.raises(
-            MlflowException, match="The dictionary keys are not all strings. Invalid "
+            MlflowException, match="The dictionary keys are not all strings or indexes. Invalid "
         ):
             _infer_schema(data)
 

@@ -61,7 +61,8 @@ pytorch-lightning:
     minimum: "1.0.5"
     maximum: "1.9.3"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
+      ">= 0.0.0":
+        ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
       "< 1.2.0": ["torch<1.11.0"]
       # torchmetrics==0.8.0 released a breaking change for versions 1.3 and 1.4 where
       # torchmetrics dependency was defined as non-upper-bounded in its requirements.
@@ -464,6 +465,14 @@ transformers:
     minimum: "4.25.1"
     maximum: "4.27.4"
     requirements:
-      ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
+      ">= 0.0.0":
+        [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate",
+        ]
     run: |
       pytest tests/transformers/test_transformers_model_export.py

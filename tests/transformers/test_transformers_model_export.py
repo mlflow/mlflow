@@ -1333,7 +1333,7 @@ def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
     else:
         match = "The input data is of an incorrect type"
     with pytest.raises(MlflowException, match=match):
-        signature = infer_signature(
+        infer_signature(
             invalid_data,
             mlflow.transformers.generate_signature_output(fill_mask_pipeline, invalid_data),
         )

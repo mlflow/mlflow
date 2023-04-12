@@ -1706,7 +1706,7 @@ class _TransformersWrapper:
                 # "context: The sky is blue. answer: blue"
                 return " ".join(f"{key}: {value}" for key, value in data.items())
             else:
-                return [value for value in data.values()]
+                return list(data.values())
         elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
         elif isinstance(data, str):
