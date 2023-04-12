@@ -27,8 +27,28 @@ def spark_session():
     session.stop()
 
 
-def test_conversion_to_json_spark_dataset_source(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+@pytest.fixture
+def df():
+    return pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+
+
+def _assert_dataframes_equal(df1, df2):
+    if df1.schema == df2.schema:
+        diff = df1.exceptAll(df2)
+        assert diff.rdd.isEmpty()
+    else:
+        assert False
+
+
+def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type):
+    assert isinstance(dataset, SparkDataset)
+    _assert_dataframes_equal(dataset.df, df_spark)
+    assert dataset.schema == _infer_schema(original_df)
+    assert dataset.profile == {"approx_count": 2}
+    assert isinstance(dataset.source, expected_source_type)
+
+
+def test_conversion_to_json_spark_dataset_source(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -54,8 +74,7 @@ def test_conversion_to_json_spark_dataset_source(spark_session, tmp_path):
     assert Schema.from_json(schema_json) == dataset.schema
 
 
-def test_conversion_to_json_delta_dataset_source(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_conversion_to_json_delta_dataset_source(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.format("delta").save(path)
@@ -81,8 +100,7 @@ def test_conversion_to_json_delta_dataset_source(spark_session, tmp_path):
     assert Schema.from_json(schema_json) == dataset.schema
 
 
-def test_digest_property_has_expected_value(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_digest_property_has_expected_value(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -99,8 +117,7 @@ def test_digest_property_has_expected_value(spark_session, tmp_path):
     # Hence we are not checking the digest value here
 
 
-def test_df_property_has_expected_value(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_df_property_has_expected_value(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -115,8 +132,7 @@ def test_df_property_has_expected_value(spark_session, tmp_path):
     assert dataset.df == df_spark
 
 
-def test_targets_property(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_targets_property(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -137,8 +153,7 @@ def test_targets_property(spark_session, tmp_path):
     assert dataset_with_targets.targets == "c"
 
 
-def test_from_spark_with_no_source_info(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_with_no_source_info(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -150,8 +165,7 @@ def test_from_spark_with_no_source_info(spark_session, tmp_path):
         mlflow_df = mlflow.data.from_spark(df_spark)
 
 
-def test_from_spark_with_sql_and_version(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_with_sql_and_version(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -164,70 +178,45 @@ def test_from_spark_with_sql_and_version(spark_session, tmp_path):
         mlflow_df = mlflow.data.from_spark(df_spark, sql="SELECT * FROM table", version=1)
 
 
-def test_from_spark_path(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_path(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
 
     mlflow_df = mlflow.data.from_spark(df_spark, path=path)
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
-
-    assert isinstance(mlflow_df.source, SparkDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
 
 
-def test_from_spark_delta_path(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_delta_path(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.delta")
     df_spark.write.format("delta").save(path)
 
     mlflow_df = mlflow.data.from_spark(df_spark, path=path)
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
-
-    assert isinstance(mlflow_df.source, DeltaDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_from_spark_sql(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_sql(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("table")
 
     mlflow_df = mlflow.data.from_spark(df_spark, sql="SELECT * FROM table")
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
-
-    assert isinstance(mlflow_df.source, SparkDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
 
 
-def test_from_spark_table_name(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_table_name(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("my_spark_table")
 
     mlflow_df = mlflow.data.from_spark(df_spark, table_name="my_spark_table")
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
-
-    assert isinstance(mlflow_df.source, SparkDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
 
 
-def test_from_spark_table_name_with_version(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_table_name_with_version(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     df_spark.createOrReplaceTempView("my_spark_table")
 
@@ -240,33 +229,81 @@ def test_from_spark_table_name_with_version(spark_session, tmp_path):
         mlflow_df = mlflow.data.from_spark(df_spark, table_name="my_spark_table", version=1)
 
 
-def test_from_spark_delta_table_name(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_delta_table_name(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     # write to delta table
     df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
 
     mlflow_df = mlflow.data.from_spark(df_spark, table_name="my_delta_table")
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
-
-    assert isinstance(mlflow_df.source, DeltaDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_from_spark_delta_table_name_and_version(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+def test_from_spark_delta_table_name_and_version(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
     # write to delta table
     df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
 
     mlflow_df = mlflow.data.from_spark(df_spark, table_name="my_delta_table", version=1)
 
-    assert isinstance(mlflow_df, SparkDataset)
-    assert mlflow_df.df == df_spark
-    assert mlflow_df.schema == _infer_schema(df)
-    assert mlflow_df.profile == {"approx_count": 2}
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
-    assert isinstance(mlflow_df.source, DeltaDatasetSource)
+
+def test_load_delta_with_no_source_info(spark_session, tmp_path):
+    with pytest.raises(
+        MlflowException,
+        match="Must specify exactly one of `table_name` or `path`.",
+    ):
+        # pylint: disable=unused-variable
+        mlflow_df = mlflow.data.load_delta()
+
+
+def test_load_delta_with_both_table_name_and_path(spark_session, tmp_path):
+    with pytest.raises(
+        MlflowException,
+        match="Must specify exactly one of `table_name` or `path`.",
+    ):
+        # pylint: disable=unused-variable
+        mlflow_df = mlflow.data.load_delta(table_name="my_table", path="my_path")
+
+
+def test_load_delta_path(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.delta")
+    df_spark.write.format("delta").mode("overwrite").save(path)
+
+    mlflow_df = mlflow.data.load_delta(path=path)
+
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+
+
+def test_load_delta_path_with_version(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.delta")
+    df_spark.write.format("delta").mode("overwrite").save(path)
+    # write again to create a new version
+    df_spark.write.format("delta").mode("overwrite").save(path)
+
+    mlflow_df = mlflow.data.load_delta(path=path, version=1)
+
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+
+
+def test_load_delta_table_name(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    # write to delta table
+    df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
+
+    mlflow_df = mlflow.data.load_delta(table_name="my_delta_table")
+
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+
+
+def test_load_delta_table_name_with_version(spark_session, tmp_path, df):
+    df_spark = spark_session.createDataFrame(df)
+    # write to delta table
+    df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
+
+    mlflow_df = mlflow.data.load_delta(table_name="my_delta_table", version=1)
+
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
