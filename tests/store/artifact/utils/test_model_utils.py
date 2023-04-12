@@ -68,6 +68,7 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ("models:/AdsModel1@cHAmpion", "AdsModel1", "cHAmpion"),  # case insensitive
         ("models:/Ads Model 1@challenger", "Ads Model 1", "challenger"),
         ("models://scope:key/Ads Model 1@None", "Ads Model 1", "None"),
+        ("models:/catalog.schema.model@None", "catalog.schema.model", "None"),  # UC Model format
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):

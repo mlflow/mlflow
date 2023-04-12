@@ -8,7 +8,7 @@ from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_da
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[\w \.\-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
