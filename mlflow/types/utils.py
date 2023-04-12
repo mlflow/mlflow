@@ -150,6 +150,7 @@ def _infer_schema(data: Any) -> Schema:
     elif (
         isinstance(data, list)
         and all(isinstance(element, dict) for element in data)
+        and all(isinstance(key, str) for d in data for key in d)
         and all(isinstance(value, str) for d in data for value in d.values())
     ):
         first_keys = data[0].keys()
@@ -322,7 +323,7 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
     invalid_keys = []
     invalid_values = []
     for key, value in data.items():
-        if not isinstance(key, str):
+        if not isinstance(key, (str, int)):
             invalid_keys.append(key)
         if isinstance(value, list) and not all(isinstance(item, str) for item in value):
             invalid_values.append(key)
@@ -338,5 +339,5 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
         )
     if invalid_keys:
         raise MlflowException(
-            f"The dictionary keys are not all strings. Invalid keys: {invalid_keys}"
+            f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
         )

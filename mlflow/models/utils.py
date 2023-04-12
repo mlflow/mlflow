@@ -143,7 +143,7 @@ class _Example:
                 else:
                     input_ex = pd.DataFrame(input_ex)
             elif isinstance(input_ex, str):
-                input_ex = pd.DataFrame([input_ex], index=[0])
+                input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
                     import pyspark.sql.dataframe

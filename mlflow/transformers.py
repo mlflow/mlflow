@@ -293,15 +293,14 @@ def save_model(
             }
 
             # Verify that no exceptions are thrown
-            sentence_generation(prompts, **inference_config)
+            sentence_pipeline(prompts, **inference_config)
 
-            with mlflow.start_run():
-                mlflow.transformers.save_model(
-                    transformers_model=sentence_generation,
-                    path="/path/for/model",
-                    task=task,
-                    inference_config=inference_config,
-                )
+            mlflow.transformers.save_model(
+                transformers_model=sentence_pipeline,
+                path="/path/for/model",
+                task=task,
+                inference_config=inference_config,
+            )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -316,25 +315,23 @@ def save_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
-                        from mlflow.transformers import _TransformersWrapper
+                        from mlflow.transformers import generate_signature_output
                         from transformers import pipeline
 
                         en_to_de = pipeline("translation_en_to_de")
 
                         data = "MLflow is great!"
+                        output = generate_signature_output(en_to_de, data)
+                        signature = infer_signature(data, output)
 
-                        inference_pyfunc = _TransformersWrapper(en_to_de)
-                        signature = infer_signature(data, inference_pyfunc.predict(data))
+                        mlflow.transformers.save_model(
+                            transformers_model=en_to_de,
+                            path="/path/to/save/model",
+                            signature=signature,
+                            input_example=data,
+                        )
 
-                        with mlflow.start_run():
-                            mlflow.transformers.save_model(
-                                transformers_model=en_to_de,
-                                path="/path/to/save/model",
-                                signature=signature,
-                                input_example=data,
-                            )
-
-                        loaded = mlflow.pyfunc.load_model(model_path)
+                        loaded = mlflow.pyfunc.load_model("/path/to/save/model")
                         print(loaded.predict(data))
                         # MLflow ist großartig!
 
@@ -619,11 +616,11 @@ def log_model(
           }
 
           # Verify that no exceptions are thrown
-          sentence_generation(prompts, **inference_config)
+          sentence_pipeline(prompts, **inference_config)
 
           with mlflow.start_run():
               mlflow.transformers.log_model(
-                  transformers_model=sentence_generation,
+                  transformers_model=sentence_pipeline,
                   artifact_path="my_sentence_generator",
                   task=task,
                   inference_config=inference_config,
@@ -644,15 +641,14 @@ def log_model(
                       .. code-block:: python
 
                         from mlflow.models.signature import infer_signature
-                        from mlflow.transformers import _TransformersWrapper
+                        from mlflow.transformers import generate_signature_output
                         from transformers import pipeline
 
                         en_to_de = pipeline("translation_en_to_de")
 
                         data = "MLflow is great!"
-
-                        inference_pyfunc = _TransformersWrapper(en_to_de)
-                        signature = infer_signature(data, inference_pyfunc.predict(data))
+                        output = generate_signature_output(en_to_de, data)
+                        signature = infer_signature(data, output)
 
                         with mlflow.start_run() as run:
                             mlflow.transformers.log_model(
@@ -1296,6 +1292,29 @@ def _load_pyfunc(path):
     )
 
 
+def generate_signature_output(pipeline, data):
+    """
+    Utility for generating the response output for the purposes of extracting an output signature
+    for model saving and logging. This function simulates loading of a saved model or pipeline
+    as a ``pyfunc`` model without having to incur a write to disk.
+
+    :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
+                     inputs are not permitted for extracting an output example.
+    :param data: An example input that is compatible with the given pipeline
+    :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
+    """
+    import transformers
+
+    if not isinstance(pipeline, transformers.Pipeline):
+        raise MlflowException(
+            f"The pipeline type submitted is not a valid transformers Pipeline. "
+            f"The type {type(pipeline).__name__} is not supported.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return _TransformersWrapper(pipeline).predict(data)
+
+
 class _TransformersWrapper:
     def __init__(self, pipeline, inference_config=None):
         self.pipeline = pipeline
@@ -1666,7 +1685,7 @@ class _TransformersWrapper:
             expected_keys = {"question", "context"}
             if not expected_keys.intersection(set(data.keys())) == expected_keys:
                 raise MlflowException(
-                    "Invalid keys were submitted. Keys must be exclusively " f"{expected_keys}"
+                    f"Invalid keys were submitted. Keys must be exclusively {expected_keys}"
                 )
             return data
         else:
@@ -1678,19 +1697,26 @@ class _TransformersWrapper:
 
     def _parse_text2text_input(self, data):
         if isinstance(data, dict) and all(isinstance(value, str) for value in data.values()):
-            # NB: Text2Text Pipelines require submission of text in a pseudo-string based dict
-            # formatting.
-            # As an example, for the input of:
-            # data = {"context": "The sky is blue", "answer": "blue"}
-            # This method will return the Pipeline-required format of:
-            # "context: The sky is blue. answer: blue"
-            return " ".join(f"{key}: {value}" for key, value in data.items())
-        elif isinstance(data, list):
+            if all(isinstance(key, str) for key in data) and "inputs" not in data:
+                # NB: Text2Text Pipelines require submission of text in a pseudo-string based dict
+                # formatting.
+                # As an example, for the input of:
+                # data = {"context": "The sky is blue", "answer": "blue"}
+                # This method will return the Pipeline-required format of:
+                # "context: The sky is blue. answer: blue"
+                return " ".join(f"{key}: {value}" for key, value in data.items())
+            else:
+                return [value for value in data.values()]
+        elif isinstance(data, list) and all(isinstance(value, dict) for value in data):
             return [self._parse_text2text_input(entry) for entry in data]
+        elif isinstance(data, str):
+            return data
+        elif isinstance(data, list) and all(isinstance(value, str) for value in data):
+            return data
         else:
             raise MlflowException(
-                "An invalid type has been supplied. Please supply a Dict[str, str] or a "
-                "List[Dict[str, str]] for a Text2Text Pipeline.",
+                "An invalid type has been supplied. Please supply a Dict[str, str], str, "
+                "List[str], or a List[Dict[str, str]] for a Text2Text Pipeline.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
