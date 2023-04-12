@@ -1132,7 +1132,7 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmpdir):
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
         assert mock_get_write_creds.call_count == 5
-        assert all([len(call[0][1]["paths"]) == 2 for call in mock_get_write_creds.call_args])
+        assert all((len(call[0][1]["paths"]) == 2 for call in mock_get_write_creds.call_args))
 
 
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
