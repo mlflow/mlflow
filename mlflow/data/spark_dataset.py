@@ -11,12 +11,6 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.digest_utils import get_normalized_md5_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
-from mlflow.data.spark_delta_utils import (
-    _is_delta_table,
-    _is_delta_table_path,
-    _try_get_delta_table_latest_version_from_path,
-    _try_get_delta_table_latest_version_from_table_name,
-)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
@@ -176,6 +170,11 @@ def load_delta(
                    is automatically computed.
     :return: An instance of :py:class:`SparkDataset`.
     """
+    from mlflow.data.spark_delta_utils import (
+        _try_get_delta_table_latest_version_from_path,
+        _try_get_delta_table_latest_version_from_table_name,
+    )
+
     if (path, table_name).count(None) != 1:
         raise MlflowException(
             "Must specify exactly one of `table_name` or `path`.",
@@ -245,6 +244,12 @@ def from_spark(
                    is automatically computed.
     :return: An instance of :py:class:`SparkDataset`.
     """
+    from mlflow.data.spark_delta_utils import (
+        _is_delta_table,
+        _is_delta_table_path,
+        _try_get_delta_table_latest_version_from_path,
+        _try_get_delta_table_latest_version_from_table_name,
+    )
 
     if (path, table_name, sql).count(None) != 2:
         raise MlflowException(
