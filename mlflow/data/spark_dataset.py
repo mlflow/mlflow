@@ -293,6 +293,7 @@ def from_spark(
     )
 
 
+# TODO: fix this logic... something is not working
 def _is_delta_table(table_name: str) -> bool:
     """
     Checks if a Delta table exists with the specified table name.
