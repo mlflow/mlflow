@@ -469,3 +469,18 @@ transformers:
       ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+
+openai:
+  package_info:
+    pip_release: "openai"
+    install_dev: |
+      pip install git+https://github.com/openai/openai-python
+  models:
+    minimum: "0.27.2"
+    maximum: "0.27.2"
+    requirements:
+      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+    run: |
+      export MLFLOW_OPENAI_TESTING=true
+      export OPENAI_API_KEY=test
+      pytest tests/openai/test_openai_model_export.py
