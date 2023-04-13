@@ -93,9 +93,10 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def targets(self) -> Optional[str]:
         """
-        The name of the Hugging Face dataset column containing targets.
+        The name of the Hugging Face dataset column containing targets (labels) for supervised
+        learning.
 
-        :return: The Hugging Face `datasets.Dataset` instance.
+        :return: The string name of the Hugging Face dataset column containing targets.
         """
         return self._targets
 
@@ -104,7 +105,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Hugging Face dataset source information.
 
-        :return: A HuggingFaceDatasetSource instance.
+        :return: A :py:class:`HuggingFaceDatasetSource` instance.
         """
         return self._source
 
@@ -121,7 +122,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @cached_property
-    def schema(self) -> Schema:
+    def schema(self) -> Optional[Schema]:
         """
         The MLflow ColSpec schema of the Hugging Face dataset.
         """
@@ -167,13 +168,15 @@ def from_huggingface(
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
     """
-    Given a Hugging Face `datasets.Dataset`, constructs an MLflow `HuggingFaceDataset` object
-    for use with MLflow Tracking.
+    Given a Hugging Face `datasets.Dataset`, constructs an MLflow :py:class:`HuggingFaceDataset`
+    object for use with MLflow Tracking.
 
     :param ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
                Other types, such as `datasets.DatasetDict`, are not supported.
     :param path: The path of the Hugging Face dataset. This is used by the `datasets.load_dataset()`
                  function to reload the dataset upon request via `HuggingFaceDataset.source.load()`.
+    :param targets: The name of the Hugging Face `dataset.Dataset` column containing targets
+                    (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
                      `datasets.load_dataset()` function to reload the dataset upon request via
                      `HuggingFaceDataset.source.load()`.
