@@ -467,4 +467,5 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
             _logger.warning(f"Could not infer schema for {type_hint} because example is missing")
             return Schema([ColSpec(type="string", name=None)])
     else:
+        _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
         return None

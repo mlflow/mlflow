@@ -216,6 +216,8 @@ def _extract_type_hints(f, input_arg_index):
             if hint_str := f.__annotations__.get(arg, None):
                 if hint := _infer_hint_from_str(hint_str):
                     hints[arg] = hint
+                else:
+                    _logger.info("Unsupported type hint: %s, skipping schema inference", hint_str)
     except Exception as e:
         _logger.warning("Failed to extract type hints from function %s: %s", f.__name__, repr(e))
         return _TypeHints()
@@ -233,4 +235,6 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     output_schema = (
         _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
     )
+    if input_schema is None and output_schema is None:
+        return None
     return ModelSignature(inputs=input_schema, outputs=output_schema)
