@@ -27,8 +27,6 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.pandas_dataset import from_pandas
-from mlflow.entities.dataset_input import DatasetInput
-from mlflow.entities.input_tag import InputTag
 from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -50,7 +48,7 @@ from mlflow.utils.environment import (
     _mlflow_conda_env,
 )
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
