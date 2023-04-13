@@ -58,6 +58,7 @@ def test_register_model_with_non_runs_uri():
             await_creation_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         )
 
+
 @pytest.mark.parametrize("error_code", [RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS])
 def test_register_model_with_existing_registered_model(error_code):
     create_model_patch = mock.patch.object(
