@@ -47,8 +47,8 @@ def log_predictions(
         ]
 
 
-        # Log llm predictions
         with mlflow.start_run():
+            # Log llm predictions
             mlflow.llm.log_predictions(inputs, outputs, prompts)
     """
     if len(inputs) <= 0 or len(inputs) != len(outputs) or len(inputs) != len(prompts):
