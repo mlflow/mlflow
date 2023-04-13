@@ -12,8 +12,6 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFu
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
-import tensorflow as tf
-
 _logger = logging.getLogger(__name__)
 
 
@@ -24,7 +22,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        data: Union[tf.Tensor, tf.data.Dataset],
+        data,
         source: DatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
@@ -45,6 +43,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
+        import tensorflow as tf
+
         return (
             compute_tensorflow_dataset_digest(self._data)
             if isinstance(self._data, tf.data.Dataset)
@@ -87,6 +87,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
+        import tensorflow as tf
+
         return {
             "num_rows": len(self._data),
             "num_elements": int(self._data.cardinality().numpy())
@@ -99,6 +101,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
+        import tensorflow as tf
+
         try:
             return (
                 _infer_schema(next(self._data.as_numpy_iterator()))
@@ -118,7 +122,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_tensorflow(
-    data: Union[tf.Tensor, tf.data.Dataset],
+    data,
     source: Union[str, DatasetSource],
     name: Optional[str] = None,
     digest: Optional[str] = None,
