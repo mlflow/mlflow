@@ -149,13 +149,10 @@ try:
     _dataset_registry.register_constructor(from_huggingface)
 except ImportError:
     pass
-# add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
-# run code not related to pyspark.
-if "pyspark" in sys.modules:
-    try:
-        from mlflow.data.spark_dataset import load_delta, from_spark
+try:
+    from mlflow.data.spark_dataset import load_delta, from_spark
 
-        _dataset_registry.register_constructor(load_delta)
-        _dataset_registry.register_constructor(from_spark)
-    except ImportError:
-        pass
+    _dataset_registry.register_constructor(load_delta)
+    _dataset_registry.register_constructor(from_spark)
+except ImportError:
+    pass

@@ -3,7 +3,6 @@ from typing import TypeVar, Any, Optional, Dict
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from pyspark.sql import SparkSession, DataFrame
 
 
 SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSource")
@@ -29,11 +28,13 @@ class SparkDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "spark"
 
-    def load(self, **kwargs) -> DataFrame:
+    def load(self, **kwargs):
         """
         Loads the dataset source as a Spark Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
+        from pyspark.sql import SparkSession
+
         spark = SparkSession.builder.getOrCreate()
 
         if self._path:
