@@ -46,7 +46,7 @@ def _get_request_session(max_retries, backoff_factor, retry_codes):
 
 def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
     """
-    Returns a cached Requests.Session object for making HTTP request.
+    Returns a Requests.Session object for making HTTP request.
 
     :param max_retries: Maximum total number of retries.
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
