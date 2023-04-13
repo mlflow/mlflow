@@ -3,33 +3,54 @@
 .. _quickstart_drilldown:
 
 Quickstart additional material: Options and troubleshooting
-==========================================================
+============================================================
 
-.. 
+..
     Eventually, these H2s will probably all be separate articles. For now, I'm 
     avoiding that so as not to create a bunch of super-skinny pages. 
 
 .. _quickstart_drilldown_install:
 
 Customizing and troubleshooting MLflow installation
---------------------------------------------------
+---------------------------------------------------
 
-tk
-- Java exists
-- R exists
-- mlflow-skinny
-- mlflow[extras]
-- Mac default python
-- environment managers
-- conda channel exists?
-tk
+Python library options
+**********************
 
-.. _quickstart_drilldown_autolog:
+Rather the default MLflow library, you can install the following optional libraries:
 
-Autolog options
----------------
+.. list-table::
+   :widths: 10 20 70
+   :header-rows: 1
 
-tk
+   * - Name
+     - ``pip install`` command
+     - Description
+   * - mlflow-skinny
+     - ``pip install mlflow-skinny``
+     - Lightweight MLflow package without SQL storage, server, UI, or data science dependencies.
+   * - mlflow[extras]
+     - ``pip install mlflow[extras]``
+     - MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in doc:`https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt`
+
+
+
+Python and Mac OS X
+**********************
+
+We strongly recommend using a virtual environment manager on Macs. We always recommend using virtual environments, but they are especially important on Mac OS X because the system ``python`` version varies depending on the installation and whether you've installed the Xcode command line tools.
+
+Virtual Environment managers
+****************************
+
+tk If there is no conda channel, we should probably just remove this section.
+
+
+
+R and Java
+**********
+
+See :ref:`installing MLflow for R<R-api>` . Since the Java ecosystem supports many routes towards installing libraries, we don't have a single installation command for Java. See :ref:`java_api` for more information.
 
 .. _quickstart_drilldown_tracking_api:
 
@@ -114,6 +135,8 @@ simple REST server for python-based models:
 .. code-block:: bash
 
     mlflow models serve -m runs:/<RUN_ID>/model
+
+    {>> TODO: Add --env-manager local and validate <<}
 
 .. note::
 

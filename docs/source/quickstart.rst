@@ -4,8 +4,17 @@ Quickstart
 ==========
 
 Install MLflow, instrument your code, and view results in a few minutes.
------------------------------------------------------------------------
+-------------------------------------------------------------------------------
 
+In 15-20 minutes, you will:
+
+- Install MLflow
+- Add MLflow tracking to your code
+- View run metrics in the MLflow tracking UI
+- (Optional) Run a tracking server to share results with others
+- (Optional) Use Databricks to store your results
+- Store the models produced by your runs
+- Run a model from a previous run
 
 As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team.
 
@@ -35,7 +44,7 @@ For more options, see :ref:`quickstart_drilldown_install`.
 Adding MLflow tracking to your code
 -----------------------------------
 
-For many popular ML libraries, you make a single function call: ``mlflow.{library_module_name}.autolog()`` (for instance, ``mlflow.xgboost.autolog()``). MLflow will automatically log the parameters, metrics, and artifacts of your run. For instance, the following autologs a scikit-learn run:
+For many popular ML libraries, you make a single function call: ``mlflow.autolog()``. If you are using one of the supported libraries, this will automatically log the parameters, metrics, and artifacts of your run (see list at :ref:`automatic-logging`). For instance, the following autologs a **scikit-learn** run:
 
 .. code-section::
 
@@ -47,7 +56,7 @@ For many popular ML libraries, you make a single function call: ``mlflow.{librar
         from sklearn.datasets import load_diabetes
         from sklearn.ensemble import RandomForestRegressor
 
-        mlflow.sklearn.autolog()
+        mlflow.autolog()
 
         db = load_diabetes()
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
@@ -70,13 +79,13 @@ In addition, or if you are using a library for which ``autolog`` is not yet supp
      - Function call
    * - Parameters
      - Constant values (for instance, configuration parameters)
-     - ``mlflow.log_param``
+     - ``mlflow.log_param``, ``mlflow.log_params``
    * - Metrics
      - Values updated during the run (for instance, accuracy)
      - ``mlflow.log_metric``
    * - Artifacts
      - Files produced by the run (for instance, model weights)
-     - ``mlflow.log_artifacts``
+     - ``mlflow.log_artifacts``, ``mlflow.log_image``, ``mlflow.log_text``
 
 This example demonstrates the use of these functions:
 
@@ -85,11 +94,14 @@ This example demonstrates the use of these functions:
 
         import os
         from random import random, randint
-        from mlflow import log_metric, log_param, log_artifacts
+        from mlflow import log_metric, log_param, log_params, log_artifacts
 
         if __name__ == "__main__":
             # Log a parameter (key-value pair)
             log_param("config_value", randint(0, 100))
+
+            # Log a dictionary of parameters
+            log_params({"param1": randint(0, 100), "param2": randint(0, 100)}
 
             # Log a metric; metrics can be updated throughout the run
             log_metric("accuracy", random() / 2.0)
@@ -103,8 +115,10 @@ This example demonstrates the use of these functions:
                 f.write("hello world!")
             log_artifacts("outputs")
 
-- For more details on autolog, including a list of what libraries are supported, see :ref:`quickstart_drilldown_autolog`.
-- For additional functions such as ``log_text`` and ``log_image``, see :ref:`quickstart_drilldown_tracking_api`.
+If you are using a library that supports autologging, but wish to disable it, you may do so by calling ``mlflow.autolog(disable=True)``.
+
+- For more details on automatic logging, see :ref:`automatic-logging`.
+- For more details on the explicit logging API, see :ref:`quickstart_drilldown_tracking_api`.
 
 Viewing MLflow runs and experiments
 -----------------------------------
@@ -132,7 +146,7 @@ For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`
 Sharing MLflow runs and experiments
 -----------------------------------
 
-By default, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. You can change this behavior by:
+For getting started, the last example stored the tracking data locally. Generally, you will want to use shared storage. Locally, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. The tracking UI, when run locally, visualizes this. You can store your data remotely by:
 
 - Calling ``mlflow.set_tracking_uri`` in your code; or
 - Setting the ``MLFLOW_TRACKING_URI`` environment variable
@@ -156,7 +170,7 @@ For instance, if you've run the above command on a machine with IP address **192
         mlflow.set_tracking_uri("http://192.168.0.1:5000")
         mlflow.autolog() # Or other tracking functions
 
-Or, on your development machine, by setting the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server:
+Or, on your development machine, you can set the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server:
 
 .. code-section::
 
@@ -207,11 +221,14 @@ Storing a model in MLflow
 
 An MLflow Model is a directory that packages machine learning models and support files in a standard format. The directory contains:
 
-- An **MLModel** file in YAML format specifying the model's **flavor** (or **flavors**);
-- The various files required by the model's flavor(s) to instantiate the model. This will often be a serialized Python object; and
-- Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file)
+- An **MLModel** file in YAML format specifying the model's **flavor** (or **flavors**), dependencies, signature (if supplied), and important metadata;
+- The various files required by the model's flavor(s) to instantiate the model. This will often be a serialized Python object;
+- Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file); and
+- Optionally, an input sample
 
-When using autologging, MLflow will automatically log the run's model. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. For example:
+When using autologging, MLflow will automatically log the run's model. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. In addition, if you wish to load the model soon, it may be convenient to output the run's ID directly to the console. For that, you'll need the object of type ``mlflow.ActiveRun`` for the current run. You get that object by wrapping all of your logging code in a ``with mlflow.start_run() as run:`` block. For example:
+
+For example:
 
 .. code-section::
 
@@ -223,20 +240,24 @@ When using autologging, MLflow will automatically log the run's model. You can a
         from sklearn.datasets import load_diabetes
         from sklearn.ensemble import RandomForestRegressor
 
-        db = load_diabetes()
-        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+        with mlflow.start_run() as run:
+            # Load the diabetes dataset.
+            db = load_diabetes()
+            X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
-        # Create and train models.
-        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
-        rf.fit(X_train, y_train)
+            # Create and train models.
+            rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+            rf.fit(X_train, y_train)
 
-        # Use the model to make predictions on the test dataset.
-        predictions = rf.predict(X_test)
-        print(predictions)
+            # Use the model to make predictions on the test dataset.
+            predictions = rf.predict(X_test)
+            print(predictions)
 
-        mlflow.sklearn.log_model(rf, "model")
+            mlflow.sklearn.log_model(rf, "model")
 
-In this case, the ``sklearn`` flavor stores the following files in the **artifacts** directory of the run's directory on the tracking server:
+            print("Run ID: {}".format(run.info.run_id))
+
+In the case of the ``sklearn`` flavor, ``log_model`` stores the following files in the **artifacts** directory of the run's directory on the tracking server:
 
 .. code-section::
 
@@ -249,9 +270,9 @@ In this case, the ``sklearn`` flavor stores the following files in the **artifac
         |-- python_env.yaml
         |-- requirements.txt
 
-If you've not set the ``MLFLOW_TRACKING_URI`` environment variable to point to a remote tracking server, this **model** directory will be under the ``mlruns`` directory.
+If you've not called ``set_tracking_uri`` or set the ``MLFLOW_TRACKING_URI`` environment variable to point to a remote tracking server, this **model** directory will be under the **mlruns** directory.
 
-For more information, including a list of supported model flavors, see :ref:`quickstart_drilldown_log_and_load_model`.
+For more information, including a list of supported model flavors and storing your own flavor, see :ref:`quickstart_drilldown_log_and_load_model`.
 
 Running a model from a specific training run
 --------------------------------------------
@@ -275,7 +296,7 @@ To load and run a model stored in a previous run, you can use the ``mlflow.{libr
         db = load_diabetes()
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
-        model = mlflow.sklearn.load_model("runs:/97f4e98c5f3645c8acd800cbddf5f6da/model")
+        model = mlflow.sklearn.load_model("runs:/97fd7ade5106ee341e0b4c63a53a9776231")
         predictions = model.predict(X_test)
         print(predictions)
 
@@ -289,7 +310,9 @@ Next Steps
     First, code:
 
 - :ref:`MLflow tutorials and examples <tutorials-and-examples>`
-- :ref:`registry`
+- Use the MLflow Registry to store and share versioned models, see :ref:`registry`
+- Use MLflow Projects for packaging your code in a reproducible and reusable way, see :ref:`projects`
+- Use MLflow Recipes (experimental) to create workflows for faster iterations and easier deployment, see :ref:`recipes`
 - :ref:`MLflow concepts <concepts>`
 - :ref:`java_api`
 - :ref:`R-api`
