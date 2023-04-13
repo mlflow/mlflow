@@ -1,4 +1,3 @@
-import sys
 import inspect
 import entrypoints
 import warnings
