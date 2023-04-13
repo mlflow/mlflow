@@ -6,6 +6,7 @@ for more details on Schema and data types.
 """
 import re
 import inspect
+import logging
 from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
 
 
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+
+_logger = logging.getLogger(__name__)
 
 
 class ModelSignature:
@@ -213,7 +216,8 @@ def _extract_type_hints(f, input_arg_index):
             if hint_str := f.__annotations__.get(arg, None):
                 if hint := _infer_hint_from_str(hint_str):
                     hints[arg] = hint
-    except Exception:
+    except Exception as e:
+        _logger.warning("Failed to extract type hints from function %s: %s", f.__name__, repr(e))
         return _TypeHints()
 
     return _TypeHints(hints.get(arg_name), hints.get("return"))

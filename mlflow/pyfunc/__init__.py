@@ -1542,16 +1542,18 @@ def save_model(
     elif python_model is not None:
         if callable(python_model):
             input_arg_index = 0  # first argument
-            mlflow_model.signature = _infer_signature_from_type_hints(
+            if signature := _infer_signature_from_type_hints(
                 python_model, input_arg_index, input_example=input_example
-            )
+            ):
+                mlflow_model.signature = signature
         elif isinstance(python_model, PythonModel):
             input_arg_index = 1  # second argument
-            mlflow_model.signature = _infer_signature_from_type_hints(
+            if signature := _infer_signature_from_type_hints(
                 python_model.predict,
-                input_arg_index=1,  # second argument
+                input_arg_index=input_arg_index,
                 input_example=input_example,
-            )
+            ):
+                mlflow_model.signature = signature
 
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
