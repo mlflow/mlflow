@@ -17,7 +17,7 @@ _logger = logging.getLogger(__name__)
 
 class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
-    Represents a Tensorflow DataFrame for use with MLflow Tracking.
+    Represents a Tensorflow dataset for use with MLflow Tracking.
     """
 
     def __init__(
@@ -71,7 +71,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return base_dict
 
     @property
-    def data(self) -> pd.DataFrame:
+    def data(self):
         """
         The underlying Tensorflow data.
         """
@@ -130,11 +130,11 @@ def from_tensorflow(
     digest: Optional[str] = None,
 ) -> TensorflowDataset:
     """
-    Constructs a TensorflowDataset object from Tensorflow DataFrame, optional targets, and source.
+    Constructs a TensorflowDataset object from Tensorflow data, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
     :param data: A Tensorflow dataset or Tensorflow tensor.
-    :param source: The source from which the DataFrame was derived, e.g. a filesystem
+    :param source: The source from which the data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
                     pass in a DatasetSource object directly.
