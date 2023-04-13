@@ -81,7 +81,7 @@ def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
 
 
 def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, **kwargs
+    method, url, max_retries, backoff_factor, retry_codes, cached_session=True, **kwargs
 ):
     """
     Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -93,11 +93,12 @@ def _get_http_response_with_retries(
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
     """
-    if kwargs.get("cached_session", True):
+    if cached_session:
         session = _get_request_session(max_retries, backoff_factor, retry_codes)
     else:
         session = _get_request_session_uncached(max_retries, backoff_factor, retry_codes)
@@ -310,6 +311,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
+    cached_session=True,
     **kwargs,
 ):
     """
@@ -324,6 +326,7 @@ def cloud_storage_http_request(
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request. Default to None owing to long duration operation in read / write.
+    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return requests.Response object.
@@ -331,7 +334,14 @@ def cloud_storage_http_request(
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
     return _get_http_response_with_retries(
-        method, url, max_retries, backoff_factor, retry_codes, timeout=timeout, **kwargs
+        method,
+        url,
+        max_retries,
+        backoff_factor,
+        retry_codes,
+        timeout=timeout,
+        cached_session=cached_session,
+        **kwargs,
     )
 
 
