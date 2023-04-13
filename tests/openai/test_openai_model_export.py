@@ -22,6 +22,7 @@ class MockResponse:
 
 
 def _mock_chat_completion_json():
+    # https://platform.openai.com/docs/api-reference/chat/create
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",
@@ -39,6 +40,15 @@ def _mock_chat_completion_json():
 
 def _mock_chat_completion_response():
     return MockResponse(200, _mock_chat_completion_json())
+
+
+def _mock_models_retrieve_json():
+    # https://platform.openai.com/docs/api-reference/models/retrieve
+    return {"id": "gpt-3.5-turbo", "object": "model", "owned_by": "openai", "permission": []}
+
+
+def _mock_models_retrieve_response():
+    return MockResponse(200, _mock_models_retrieve_json())
 
 
 @contextmanager
@@ -82,36 +92,44 @@ def spark():
         yield s
 
 
-@pytest.mark.parametrize(
-    "task",
-    [
-        openai.ChatCompletion,
-        openai.ChatCompletion.OBJECT_NAME,
-    ],
-)
-def test_log_model(task):
+def test_log_model():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             model="gpt-3.5-turbo",
-            task=task,
+            task="chat.completions",
             artifact_path="model",
             temperature=0.9,
-            messages=[{"role": "user", "content": "What is MLflow?"}],
+            messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
 
     loaded_model = mlflow.openai.load_model(model_info.model_uri)
     assert loaded_model["model"] == "gpt-3.5-turbo"
     assert loaded_model["task"] == "chat.completions"
     assert loaded_model["temperature"] == 0.9
-    assert loaded_model["messages"] == [{"role": "user", "content": "What is MLflow?"}]
-
+    assert loaded_model["messages"] == [{"role": "system", "content": "You are an MLflow expert."}]
     with _mock_request(return_value=_mock_chat_completion_response()) as mock:
         completion = openai.ChatCompletion.create(
             model=loaded_model["model"],
             messages=loaded_model["messages"],
+            temperature=loaded_model["temperature"],
         )
         assert completion.choices[0].message.content == TEST_CONTENT
         mock.assert_called_once()
+
+
+def test_task_argument_accepts_class(tmp_path):
+    mlflow.openai.save_model(model="gpt-3.5-turbo", task=openai.ChatCompletion, path=tmp_path)
+    loaded_model = mlflow.openai.load_model(tmp_path)
+    assert loaded_model["task"] == "chat.completions"
+
+
+def test_model_argument_accepts_retrieved_model(tmp_path):
+    with _mock_request(return_value=_mock_models_retrieve_response()) as mock:
+        model = openai.Model.retrieve("gpt-3.5-turbo")
+        mock.assert_called_once()
+    mlflow.openai.save_model(model=model, task=openai.ChatCompletion, path=tmp_path)
+    loaded_model = mlflow.openai.load_model(tmp_path)
+    assert loaded_model["model"] == "gpt-3.5-turbo"
 
 
 def test_signature_is_automatically_created_for_chat_completion(tmp_path):
@@ -123,8 +141,8 @@ def test_signature_is_automatically_created_for_chat_completion(tmp_path):
     ]
 
 
-def test_pyfunc_is_not_added_for_task_that_is_not_chat_completion(tmp_path):
-    mlflow.openai.save_model(model="gpt-3.5-turbo", task=openai.Embedding, path=tmp_path)
+def test_pyfunc_flavor_is_only_added_for_chat_completion(tmp_path):
+    mlflow.openai.save_model(model="gpt-3.5-turbo", task="embeddings", path=tmp_path)
     model = mlflow.models.Model(tmp_path)
     assert "pyfunc" not in model.flavors
 
@@ -152,25 +170,20 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         [{"role": "user", "content": "What is MLflow?"}],
     ],
 )
-def test_pyfunc_predict(data):
-    with mlflow.start_run():
-        model_info = mlflow.openai.log_model(
-            model="gpt-3.5-turbo", task="chat.completions", artifact_path="model"
-        )
-
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+def test_pyfunc_predict(tmp_path, data):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task="chat.completions",
+        path=tmp_path,
+        messages=[{"system": "user", "content": "You're an MLflow maintainer."}],
+    )
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(data) == [TEST_CONTENT]
 
 
-def test_spark_udf(spark):
-    with mlflow.start_run():
-        model_info = mlflow.openai.log_model(
-            model="gpt-3.5-turbo",
-            task="chat.completions",
-            artifact_path="model",
-        )
-
-    udf = mlflow.pyfunc.spark_udf(spark=spark, model_uri=model_info.model_uri, result_type="string")
+def test_spark_udf(tmp_path, spark):
+    mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
+    udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="string")
     df = spark.createDataFrame(
         [
             ("user", "What is MLflow?"),
@@ -202,10 +215,9 @@ class ChatCompletionModel(mlflow.pyfunc.PythonModel):
         openai.error.APIError(message="APIError", code=500),
     ],
 )
-def test_auto_request_retry(error):
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+def test_auto_request_retry(tmp_path, error):
+    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
     resp = _mock_chat_completion_response()
     with _mock_request(side_effect=[error, resp]) as mock_request:
         text = loaded_model.predict(None)
@@ -213,10 +225,9 @@ def test_auto_request_retry(error):
         assert mock_request.call_count == 2
 
 
-def test_auto_request_retry_exceeds_maximum_attempts():
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+def test_auto_request_retry_exceeds_maximum_attempts(tmp_path):
+    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
     with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
         with _mock_request(
             side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
@@ -226,10 +237,9 @@ def test_auto_request_retry_exceeds_maximum_attempts():
     assert mock_request.call_count == 5
 
 
-def test_auto_request_retry_is_disabled_when_env_var_is_false(monkeypatch):
-    with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=ChatCompletionModel())
-    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+def test_auto_request_retry_is_disabled_when_env_var_is_false(tmp_path, monkeypatch):
+    mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
     with pytest.raises(openai.error.RateLimitError, match="RateLimitError"):
         with _mock_request(
             side_effect=openai.error.RateLimitError(message="RateLimitError", code=403)
