@@ -30,7 +30,7 @@ from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, InvalidUrlException
 
 _logger = logging.getLogger(__name__)
 
@@ -584,7 +584,15 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.delete_artifacts()
+        try:
+            artifact_repo.delete_artifacts()
+        except InvalidUrlException as iue:
+            click.echo(f"Warning: {iue}")
+            click.echo(
+                "Do not delete artifact target. Keep the gc process going. "
+                "Please check whether the artifact exists or not "
+                "and delete unused artifacts manually."
+            )
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 
