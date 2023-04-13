@@ -1,14 +1,7 @@
-import json
-import os
-
-import pandas as pd
 import numpy as np
-import pytest
 
 import mlflow.data
 from mlflow.data.tensorflow_dataset import TensorflowDataset
-from mlflow.exceptions import MlflowException
-from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 import tensorflow as tf
