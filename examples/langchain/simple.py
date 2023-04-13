@@ -1,6 +1,7 @@
 import os
 import mlflow
 
+from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 
@@ -9,11 +10,7 @@ prompt = PromptTemplate(
     input_variables=["product"],
     template="What is a good name for a company that makes {product}?",
 )
-
-from langchain.chains import LLMChain
 chain = LLMChain(llm=llm, prompt=prompt)
-
-
 
 with mlflow.start_run():
     logged_model = mlflow.langchain.log_model(chain, "langchain_model")
