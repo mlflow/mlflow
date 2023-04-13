@@ -175,7 +175,7 @@ def test_pyfunc_predict(tmp_path, data):
         model="gpt-3.5-turbo",
         task="chat.completions",
         path=tmp_path,
-        messages=[{"system": "user", "content": "You're an MLflow maintainer."}],
+        messages=[{"system": "user", "content": "You are an MLflow expert."}],
     )
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(data) == [TEST_CONTENT]
