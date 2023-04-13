@@ -1,5 +1,3 @@
-:orphan:
-
 .. _quickstart_drilldown:
 
 Quickstart additional material: Options and troubleshooting
@@ -43,38 +41,18 @@ We strongly recommend using a virtual environment manager on Macs. We always rec
 Virtual Environment managers
 ****************************
 
-tk If there is no conda channel, we should probably just remove this section.
+We release MLflow on:
 
-
+- PyPI (``pip install mlflow``)
+- conda-forge (``conda install -c conda-forge mlflow``)
+- CRAN (``install.packages("mlflow")``)
+- Maven Central (``mlflow-client``, ``mlflow-parent``, ``mlflow-scoring``, ``mlflow-spark``)
 
 R and Java
 **********
 
-See :ref:`installing MLflow for R<R-api>` . Since the Java ecosystem supports many routes towards installing libraries, we don't have a single installation command for Java. See :ref:`java_api` for more information.
+See :ref:`installing MLflow for R<R-api>` . For Java, we release to Maven Central. For more information, see :ref:`java_api`.
 
-.. _quickstart_drilldown_tracking_api:
-
-Effectively using the MLflow Tracking API
------------------------------------------
-
-tk
-
-.. _quickstart_drilldown_tracking_ui:
-
-Navigating the MLflow Tracking UI
----------------------------------
-
-tk
-
-- WORKER_TIMEOUT issue 
-
-
-.. _quickstart_drilldown_tracking_backend:
-
-Choosing and configuring the MLflow tracking backend 
-----------------------------------------------------
-
-tk
 
 .. _quickstart_drilldown_log_and_load_model:
 

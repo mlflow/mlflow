@@ -497,6 +497,8 @@ class has four key functions:
 * :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
 
+.. _models_built-in-model-flavors:
+
 Built-In Model Flavors
 ----------------------
 

@@ -141,7 +141,7 @@ And then navigate to http://localhost:5000 in your browser. You will see a page 
 
 You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. You can view the parameters, metrics, and artifacts of your run by clicking on the run name.
 
-For more details on the tracking UI, see :ref:`quickstart_drilldown_tracking_ui`.
+For more details on the tracking UI, see :ref:`tracking`.
 
 Sharing MLflow runs and experiments
 -----------------------------------
@@ -180,7 +180,7 @@ Or, on your development machine, you can set the ``MLFLOW_TRACKING_URI`` environ
 
 Now, when you run your code, it will send tracking data to the tracking server. You can view the tracking data by navigating to the URI with a browser.
 
-There are many options available for the tracking backend. For more details, see :ref:`quickstart_drilldown_tracking_backend`.
+There are many options available for the tracking backend. For more details, see :ref:`tracking_server`.
 
 Using MLflow with a Databricks workspace
 ----------------------------------------
@@ -272,7 +272,7 @@ In the case of the ``sklearn`` flavor, ``log_model`` stores the following files 
 
 If you've not called ``set_tracking_uri`` or set the ``MLFLOW_TRACKING_URI`` environment variable to point to a remote tracking server, this **model** directory will be under the **mlruns** directory.
 
-For more information, including a list of supported model flavors and storing your own flavor, see :ref:`quickstart_drilldown_log_and_load_model`.
+For more information, including a list of supported model flavors and storing your own flavor, see :ref:`models_built-in-model-flavors`.
 
 Running a model from a specific training run
 --------------------------------------------
