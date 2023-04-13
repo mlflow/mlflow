@@ -72,6 +72,7 @@ try:
     from mlflow import pmdarima
     from mlflow import diviner
     from mlflow import transformers
+    from mlflow import llm
 
     _model_flavors_supported = [
         "catboost",
