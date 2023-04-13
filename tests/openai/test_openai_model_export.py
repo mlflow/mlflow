@@ -150,9 +150,6 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     [
         pd.DataFrame({"role": ["user"], "content": ["What is MLflow?"]}),
         [{"role": "user", "content": "What is MLflow?"}],
-        ["What is MLflow?"],
-        {"role": "user", "content": "What is MLflow?"},
-        "What is MLflow?",
     ],
 )
 def test_pyfunc_predict(data):

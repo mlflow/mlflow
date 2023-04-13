@@ -439,7 +439,7 @@ class _OpenAIWrapper:
     def __init__(self, model):
         if model["task"] != "chat.completions":
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Currently, only the 'chat.completions' task is supported for pyfunc",
+                "Currently, only 'chat.completions' task is supported",
             )
         self.model = model
 
@@ -450,31 +450,19 @@ class _OpenAIWrapper:
         if isinstance(data, pd.DataFrame):
             if "content" not in data or "role" not in data:
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    ("The input dataframe must contain the columns 'content' and 'role'"),
+                    "Input dataframe must contain columns 'content' and 'role'",
                 )
             messages = data.to_dict(orient="records")
         elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
             if not all(map(_has_content_and_role, data)):
                 raise mlflow.MlflowException.invalid_parameter_value(
-                    "The input list of dictionaries must contain the keys 'content' and 'role'",
+                    "Input list of dictionaries must contain keys 'content' and 'role'",
                 )
             messages = data
-        elif isinstance(data, list) and all(isinstance(d, str) for d in data):
-            messages = [{"role": "user", "content": x} for x in data]
-        elif isinstance(data, dict):
-            if not _has_content_and_role(data):
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "The input dictionary must contain the keys 'content' and 'role'",
-                )
-            messages = [data]
-        elif isinstance(data, str):
-            messages = [{"role": "user", "content": data}]
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                (
-                    "The input data must be a Pandas DataFrame, a list of dictionaries, a list "
-                    "of strings, or a string, got {}".format(type(data).__name__)
-                ),
+                "Input must be a pandas DataFrame or a list of dictionaries with keys "
+                "'content' and 'role'",
             )
 
         model_dict = self.model.copy()
