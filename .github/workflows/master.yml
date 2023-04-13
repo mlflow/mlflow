@@ -328,4 +328,6 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
-          pytest tests/mleap
+          # MLeap is incompatible on Windows with PySpark3.4 release. 
+          # Reinstate tests when MLeap has released a fix. [ML-30491]
+          # pytest tests/mleap
