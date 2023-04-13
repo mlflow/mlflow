@@ -25,3 +25,6 @@ sktime==0.16.0
 # Required by transformers tests
 huggingface_hub
 datasets
+# Pinned due to protobuf requirement pinning in 1.3.0 of ml-server that is incompatible
+mlserver>=1.2.0.dev13, <1.3
+mlserver-mlflow>=1.2.0, <1.3
