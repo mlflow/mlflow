@@ -9,9 +9,10 @@ import {
   PencilIcon,
   Typography,
   WithDesignSystemThemeHoc,
+  Spinner,
 } from '@databricks/design-system';
 import { List } from 'antd';
-import { List as VList, AutoSizer } from 'react-virtualized';
+import { List as VList, AutoSizer, InfiniteLoader } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 import { Link, withRouter } from 'react-router-dom';
 import { Experiment } from '../sdk/MlflowMessages';
@@ -20,17 +21,21 @@ import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
+import { MlflowService } from '../sdk/MlflowService';
+import { getUUID } from '../../common/utils/ActionUtils';
+import RequestStateWrapper from '../../common/components/RequestStateWrapper';
+import { EXPERIMENTS_SEARCH_MAX_RESULTS } from '../actions';
 
 export class ExperimentListView extends Component {
   static propTypes = {
-    activeExperimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
+    activeExperimentIds: PropTypes.arrayOf(PropTypes.string),
     designSystemThemeApi: PropTypes.shape({ theme: PropTypes.object }).isRequired,
-    experiments: PropTypes.arrayOf(Experiment).isRequired,
     history: PropTypes.object.isRequired,
   };
 
   state = {
     checkedKeys: this.props.activeExperimentIds,
+    experiments: [],
     hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
@@ -38,6 +43,13 @@ export class ExperimentListView extends Component {
     showRenameExperimentModal: false,
     selectedExperimentId: '0',
     selectedExperimentName: '',
+    nextPageToken: null,
+    searchExperimentsRequestId: getUUID(),
+    isLoading: true,
+  };
+
+  componentDidMount = () => {
+    this.handleLoadMore();
   };
 
   bindListRef = (ref) => {
@@ -51,11 +63,54 @@ export class ExperimentListView extends Component {
     }
   };
 
+  handleLoadMore = () => {
+    //todo next page token
+    let params = { max_results: EXPERIMENTS_SEARCH_MAX_RESULTS };
+    if (this.state.nextPageToken !== null) {
+      params.page_token = this.state.nextPageToken;
+    }
+    if (this.state.searchInput !== '') {
+      params.filter = this.state.searchInput;
+    }
+    MlflowService.searchExperiments(params).then(
+      (payload) => {
+        const newExperiments = payload.experiments.map((eJson) => {
+          return Experiment.fromJs(eJson);
+        });
+        console.log(
+          newExperiments.map((e) => {
+            return e.name;
+          }),
+        );
+        this.setState((prevState, props) => {
+          return {
+            experiments: [...prevState.experiments, ...newExperiments],
+            nextPageToken: payload.next_page_token,
+            isLoading: false,
+          };
+        });
+      },
+      (error) => {
+        console.log(error);
+      },
+    );
+  };
+
+  onScroll = ({ startIndex, stopIndex }) => {
+    const isScrolledToLastItem = stopIndex >= this.state.experiments.length;
+    if (!isScrolledToLastItem) {
+      return;
+    }
+    this.handleLoadMore();
+  };
+
+  // TODO probably need to fire off a load more here
+  // Careful of the prev state and next page token
   filterExperiments = (searchInput) => {
-    const { experiments } = this.props;
+    const { experiments } = this.state;
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? this.props.experiments
+      ? this.state.experiments
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
@@ -205,7 +260,7 @@ export class ExperimentListView extends Component {
   };
 
   isRowLoaded = ({ index }) => {
-    return !!this.props.experiments[index];
+    return !!this.state.experiments[index];
   };
 
   unHide = () => this.setState({ hidden: false });
@@ -228,6 +283,15 @@ export class ExperimentListView extends Component {
     const { activeExperimentIds } = this.props;
     const filteredExperiments = this.filterExperiments(searchInput);
 
+    // TODO
+    // <RequestStateWrapper
+    // requestIds={[this.state.searchExperimentsRequestId]}
+    // // eslint-disable-next-line no-trailing-spaces
+    // >
+    // </RequestStateWrapper>
+    if (this.state.isLoading === true) {
+      return <Spinner />;
+    }
     return (
       <div id='experiment-list-outer-container' css={classNames.experimentListOuterContainer}>
         <CreateExperimentModal
@@ -277,16 +341,26 @@ export class ExperimentListView extends Component {
         <div>
           <AutoSizer>
             {({ width, height }) => (
-              <VList
-                rowRenderer={this.renderListItem}
-                data={filteredExperiments}
-                ref={this.bindListRef}
-                rowHeight={32}
-                overscanRowCount={10}
-                height={height}
-                width={width}
-                rowCount={filteredExperiments.length}
-              />
+              <InfiniteLoader
+                isRowLoaded={this.isRowLoaded}
+                loadMoreRows={this.onScroll}
+                rowCount={Number.MAX_SAFE_INTEGER} // arbitrarily high value
+                ref={this.infiniteLoaderRef}
+              >
+                {({ onRowsRendered, registerChild }) => (
+                  <VList
+                    rowRenderer={this.renderListItem}
+                    data={filteredExperiments}
+                    onRowsRendered={onRowsRendered}
+                    ref={this.bindListRef}
+                    rowHeight={32}
+                    overscanRowCount={10}
+                    height={height}
+                    width={width}
+                    rowCount={filteredExperiments.length}
+                  />
+                )}
+              </InfiniteLoader>
             )}
           </AutoSizer>
         </div>

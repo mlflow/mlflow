@@ -56,7 +56,7 @@ class HomeView extends Component {
     return (
       <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
         <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
-          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
+          <ExperimentListView activeExperimentIds={experimentIds || []} />
         </div>
         <PageWrapper css={{ height: '100%', flex: '1', paddingTop: 24 }}>
           {hasExperiments ? (
