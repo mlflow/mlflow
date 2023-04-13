@@ -1630,11 +1630,31 @@ class _TransformersWrapper:
             return output
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
+        """
+        Parses the output results from select Pipeline types to extract specific values from a
+        target key.
+        Examples (with "a" as the `target_dict_key`):
+
+        Input: [{"a": "valid", "b": "invalid"}, {"a": "another valid", "c": invalid"}]
+        Output: ["valid", "another_valid"]
+
+        Input: [{"a": "valid", "b": [{"a": "another valid"}, {"b": "invalid"}]},
+                {"a": "valid 2", "b": [{"a": "another valid 2"}, {"c": "invalid"}]}]
+        Output: ["valid", "another valid", "valid 2", "another valid 2"]
+        """
         if isinstance(output_data, list):
             output_coll = []
             for output in output_data:
                 if isinstance(output, dict):
-                    output_coll.append(output[target_dict_key])
+                    for key, value in output.items():
+                        if key == target_dict_key:
+                            output_coll.append(output[target_dict_key])
+                        elif isinstance(value, list) and all(
+                            isinstance(elem, dict) for elem in value
+                        ):
+                            output_coll.append(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            )
                 elif isinstance(output, list):
                     output_coll.append(
                         self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
@@ -1644,6 +1664,18 @@ class _TransformersWrapper:
             return output_data[target_dict_key]
 
     def _parse_tokenizer_output(self, output_data, target_set):
+        """
+        Parses the tokenizer pipeline output.
+
+        Examples:
+
+        Input: [{"entity": "PRON", "score": 0.95}, {"entity": "NOUN", "score": 0.998}]
+        Output: "PRON,NOUN"
+
+        Input: [[{"entity": "PRON", "score": 0.95}, {"entity": "NOUN", "score": 0.998}],
+                [{"entity": "PRON", "score": 0.95}, {"entity": "NOUN", "score": 0.998}]]
+        Output: ["PRON,NOUN", "PRON,NOUN"]
+        """
         # NB: We're collapsing the results here to a comma separated string for each inference
         # input string. This is to simplify having to otherwise make extensive changes to
         # ColSpec in order to support schema enforcement of List[List[str]]
@@ -1658,6 +1690,10 @@ class _TransformersWrapper:
 
     @staticmethod
     def _parse_list_of_multiple_dicts(output_data, target_dict_key):
+        """
+        Returns the first value of the `target_dict_key` that matches in the first dictionary in a
+        list of dictionaries.
+        """
         if isinstance(output_data[0], list):
             return [collection[0][target_dict_key] for collection in output_data]
         else:
@@ -1667,6 +1703,11 @@ class _TransformersWrapper:
         # NB: This will not continue to parse nested lists. Pipelines do not output complex
         # types that are greater than 2 levels deep so there is no need for more complex
         # traversal for outputs.
+        if isinstance(output_data, list) and len(output_data) < 1:
+            raise MlflowException(
+                "The output of the pipeline contains no data.", error_code=BAD_REQUEST
+            )
+
         if isinstance(output_data[0], list):
             return [
                 self._parse_list_output_for_multiple_candidate_pipelines(x) for x in output_data
@@ -1690,12 +1731,33 @@ class _TransformersWrapper:
             return data
         else:
             raise MlflowException(
-                "An invalid type has been supplied. Must be either List[Dict[str, str]], "
-                f"Dict[str, str], or a dict. {type(data)} is not supported.",
+                "An invalid type has been supplied. Must be either List[Dict[str, str]] or "
+                f"Dict[str, str]. {type(data)} is not supported.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
     def _parse_text2text_input(self, data):
+        """
+        Parses the mixed input types that can be submitted into a text2text Pipeline.
+        Valid examples:
+
+        Input:
+            {"context": "abc", "answer": "def"}
+        Output:
+            "context: abc answer: def"
+        Input:
+            [{"context": "abc", "answer": "def"}, {"context": "ghi", "answer": "jkl"}]
+        Output:
+            ["context: abc answer: def", "context: ghi answer: jkl"]
+        Input:
+            "abc"
+        Output:
+            "abc"
+        Input:
+            ["abc", "def"]
+        Output:
+            ["abc", "def"]
+        """
         if isinstance(data, dict) and all(isinstance(value, str) for value in data.values()):
             if all(isinstance(key, str) for key in data) and "inputs" not in data:
                 # NB: Text2Text Pipelines require submission of text in a pseudo-string based dict
@@ -1732,6 +1794,12 @@ class _TransformersWrapper:
         if isinstance(data, list):
             return [self._parse_json_encoded_list(entry, key_to_unpack) for entry in data]
         elif isinstance(data, dict):
+            if key_to_unpack not in data:
+                raise MlflowException(
+                    "Invalid key in inference payload. The expected inference data key "
+                    f"is: {key_to_unpack}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if isinstance(data[key_to_unpack], str):
                 try:
                     return {

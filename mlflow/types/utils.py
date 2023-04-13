@@ -118,9 +118,6 @@ def _infer_schema(data: Any) -> Schema:
                 )
             )
         schema = Schema(res)
-    elif isinstance(data, dict):
-        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
-        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
         schema = Schema([ColSpec(type=_infer_pandas_column(data), name=name)])
@@ -143,6 +140,9 @@ def _infer_schema(data: Any) -> Schema:
                 for field in data.schema.fields
             ]
         )
+    elif isinstance(data, dict):
+        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
+        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
     elif isinstance(data, str):
         schema = Schema([ColSpec(type=DataType.string)])
     elif isinstance(data, list) and all(isinstance(element, str) for element in data):
@@ -323,7 +323,9 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
     invalid_keys = []
     invalid_values = []
     for key, value in data.items():
-        if not isinstance(key, (str, int)):
+        if isinstance(key, bool):
+            invalid_keys.append(key)
+        elif not isinstance(key, (str, int)):
             invalid_keys.append(key)
         if isinstance(value, list) and not all(isinstance(item, str) for item in value):
             invalid_values.append(key)

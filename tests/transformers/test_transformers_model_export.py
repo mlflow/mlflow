@@ -118,6 +118,11 @@ def transformers_custom_env(tmp_path):
 
 
 @pytest.fixture()
+def mock_pyfunc_wrapper():
+    return mlflow.transformers._TransformersWrapper("mock")
+
+
+@pytest.fixture()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
     architecture = "lordtt13/emo-mobilebert"
@@ -1711,3 +1716,206 @@ def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline,
     mlflow.transformers.save_model(small_multi_modal_pipeline, model_path)
     with pytest.raises(MlflowException, match='Model does not have the "python_function" flavor'):
         mlflow.pyfunc.load_model(model_path)
+
+
+def test_pyfunc_input_validations(mock_pyfunc_wrapper):
+    def ensure_raises(data, match):
+        with pytest.raises(MlflowException, match=match):
+            mock_pyfunc_wrapper._validate_str_or_list_str(data)
+
+    match1 = "The input data is of an incorrect type"
+    match2 = "If supplying a list, all values must"
+    ensure_raises({"a": "b"}, match1)
+    ensure_raises(("a", "b"), match1)
+    ensure_raises({"a", "b"}, match1)
+    ensure_raises(True, match1)
+    ensure_raises(12, match1)
+    ensure_raises([1, 2, 3], match2)
+    ensure_raises([{"a", "b"}], match2)
+    ensure_raises([["a", "b", "c'"]], match2)
+    ensure_raises([{"a": "b"}, {"a": "c"}], match2)
+    ensure_raises([[1], [2]], match2)
+
+
+def test_pyfunc_json_encoded_dict_parsing(mock_pyfunc_wrapper):
+    plain_dict = {"a": "b", "b": "c"}
+    list_dict = [plain_dict, plain_dict]
+
+    plain_input = {"in": json.dumps(plain_dict)}
+    list_input = {"in": json.dumps(list_dict)}
+
+    plain_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(plain_input, "in")
+    assert plain_parsed == {"in": plain_dict}
+
+    list_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(list_input, "in")
+    assert list_parsed == {"in": list_dict}
+
+    invalid_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(
+        plain_input, "invalid"
+    )
+    assert invalid_parsed != {"in": plain_dict}
+    assert invalid_parsed == plain_input
+
+
+def test_pyfunc_json_encoded_list_parsing(mock_pyfunc_wrapper):
+    plain_list = ["a", "b", "c"]
+    nested_list = [plain_list, plain_list]
+    list_dict = [{"a": "b"}, {"a": "c"}]
+
+    plain_input = {"in": json.dumps(plain_list)}
+    nested_input = {"in": json.dumps(nested_list)}
+    list_dict_input = {"in": json.dumps(list_dict)}
+
+    plain_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(plain_input, "in")
+    assert plain_parsed == {"in": plain_list}
+
+    nested_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(nested_input, "in")
+    assert nested_parsed == {"in": nested_list}
+
+    list_dict_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(list_dict_input, "in")
+    assert list_dict_parsed == {"in": list_dict}
+
+    with pytest.raises(MlflowException, match="Invalid key in inference payload. The "):
+        mock_pyfunc_wrapper._parse_json_encoded_list(list_dict_input, "invalid")
+
+
+def test_pyfunc_text_to_text_input(mock_pyfunc_wrapper):
+    text2text_input = {"context": "a", "answer": "b"}
+    parsed_input = mock_pyfunc_wrapper._parse_text2text_input(text2text_input)
+    assert parsed_input == "context: a answer: b"
+
+    text2text_input_list = [text2text_input, text2text_input]
+    parsed_input_list = mock_pyfunc_wrapper._parse_text2text_input(text2text_input_list)
+    assert parsed_input_list == ["context: a answer: b", "context: a answer: b"]
+
+    parsed_with_inputs = mock_pyfunc_wrapper._parse_text2text_input({"inputs": "a"})
+    assert parsed_with_inputs == ["a"]
+
+    parsed_str = mock_pyfunc_wrapper._parse_text2text_input("a")
+    assert parsed_str == "a"
+
+    parsed_list_str = mock_pyfunc_wrapper._parse_text2text_input(["a", "b"])
+    assert parsed_list_str == ["a", "b"]
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_text2text_input([1, 2, 3])
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_text2text_input([{"a": [{"b": "c"}]}])
+
+
+def test_pyfunc_qa_input(mock_pyfunc_wrapper):
+    single_input = {"question": "a", "context": "b"}
+    parsed_single_input = mock_pyfunc_wrapper._parse_question_answer_input(single_input)
+    assert parsed_single_input == single_input
+
+    multi_input = [single_input, single_input]
+    parsed_multi_input = mock_pyfunc_wrapper._parse_question_answer_input(multi_input)
+    assert parsed_multi_input == multi_input
+
+    with pytest.raises(MlflowException, match="Invalid keys were submitted. Keys must"):
+        mock_pyfunc_wrapper._parse_question_answer_input({"q": "a", "c": "b"})
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_question_answer_input("a")
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_question_answer_input(["a", "b", "c"])
+
+
+def test_list_of_dict_to_list_of_str_parsing(mock_pyfunc_wrapper):
+    # Test with a single list of dictionaries
+    output_data = [{"a": "foo"}, {"a": "bar"}, {"a": "baz"}]
+    expected_output = ["foo", "bar", "baz"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+    # Test with a nested list of dictionaries
+    output_data = [
+        {"a": "foo", "b": [{"a": "bar"}]},
+        {"a": "baz", "b": [{"a": "qux"}]},
+    ]
+    expected_output = ["foo", "bar", "baz", "qux"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+    # Test with nested list with exclusion data
+    output_data = [
+        {"a": "valid", "b": [{"a": "another valid"}, {"b": "invalid"}]},
+        {"a": "valid 2", "b": [{"a": "another valid 2"}, {"c": "invalid"}]},
+    ]
+    expected_output = ["valid", "another valid", "valid 2", "another valid 2"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+
+def test_parsing_tokenizer_output(mock_pyfunc_wrapper):
+    output_data = [{"a": "b"}, {"a": "c"}, {"a": "d"}]
+    expected_output = "b,c,d"
+    assert mock_pyfunc_wrapper._parse_tokenizer_output(output_data, {"a"}) == expected_output
+
+    output_data = [output_data, output_data]
+    expected_output = [expected_output, expected_output]
+    assert mock_pyfunc_wrapper._parse_tokenizer_output(output_data, {"a"}) == expected_output
+
+
+def test_parse_list_of_multiple_dicts(mock_pyfunc_wrapper):
+    output_data = [{"a": "b", "d": "f"}, {"a": "z", "d": "g"}]
+    target_dict_key = "a"
+    expected_output = ["b"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_of_multiple_dicts(output_data, target_dict_key)
+        == expected_output
+    )
+
+    output_data = [
+        [{"a": "c", "d": "q"}, {"a": "o", "d": "q"}, {"a": "d", "d": "q"}, {"a": "e", "d": "r"}],
+        [{"a": "m", "d": "s"}, {"a": "e", "d": "t"}],
+    ]
+    target_dict_key = "a"
+    expected_output = ["c", "m"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_of_multiple_dicts(output_data, target_dict_key)
+        == expected_output
+    )
+
+
+def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper):
+    # Test with a single candidate pipeline output
+    output_data = [["foo", "bar", "baz"]]
+    expected_output = ["foo"]
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
+
+    # Test with multiple candidate pipeline outputs
+    output_data = [
+        ["foo", "bar", "baz"],
+        ["qux", "quux"],
+        ["corge", "grault", "garply", "waldo"],
+    ]
+    expected_output = ["foo", "qux", "corge"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
+
+    # Test with an empty list
+    output_data = []
+    with pytest.raises(MlflowException, match="The output of the pipeline contains no"):
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+
+    # Test with a nested list
+    output_data = [["foo"]]
+    expected_output = ["foo"]
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
