@@ -1,5 +1,6 @@
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 import warnings
+import logging
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+_logger = logging.getLogger(__name__)
 
 
 class TensorsNotSupportedException(MlflowException):
@@ -343,3 +347,124 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
         raise MlflowException(
             f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
         )
+
+
+def _is_all_string(x):
+    return all(isinstance(v, str) for v in x)
+
+
+def _validate_is_all_string(x):
+    if not _is_all_string(x):
+        raise MlflowException(f"Expected all values to be string, got {x}", INVALID_PARAMETER_VALUE)
+
+
+def _validate_all_keys_string(d):
+    keys = list(d.keys())
+    if not _is_all_string(keys):
+        raise MlflowException(
+            f"Expected example to be dict with string keys, got {keys}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_all_values_string(d):
+    values = list(d.values())
+    if not _is_all_string(values):
+        raise MlflowException(
+            f"Expected example to be dict with string values, got {values}", INVALID_PARAMETER_VALUE
+        )
+
+
+def _validate_keys_match(d, expected_keys):
+    if d.keys() != expected_keys:
+        raise MlflowException(
+            "Expected example to be dict with keys {}, got {}".format(
+                list(expected_keys), list(d.keys())
+            ),
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_num_items(d, num_items):
+    actual_num_items = len(d)
+    if actual_num_items != num_items:
+        raise MlflowException(
+            f"Expected example to be dict with {num_items} items, got {actual_num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_has_items(d):
+    num_items = len(d)
+    if num_items == 0:
+        raise MlflowException(
+            f"Expected example to be dict with at least one item, got {num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_is_dict(d):
+    if not isinstance(d, dict):
+        raise MlflowException(
+            f"Expected each item in example to be dict, got {type(d).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_non_empty(examples):
+    num_items = len(examples)
+    if num_items == 0:
+        raise MlflowException(
+            f"Expected examples to be non-empty list, got {num_items}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_is_list(examples):
+    if not isinstance(examples, list):
+        raise MlflowException(
+            f"Expected examples to be list, got {type(examples).__name__}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_dict_examples(examples, num_items=None):
+    examples_iter = iter(examples)
+    first_example = next(examples_iter)
+    _validate_is_dict(first_example)
+    _validate_has_items(first_example)
+    if num_items is not None:
+        _validate_num_items(first_example, num_items)
+    _validate_all_keys_string(first_example)
+    _validate_all_values_string(first_example)
+    first_keys = first_example.keys()
+
+    for example in examples_iter:
+        _validate_is_dict(example)
+        _validate_has_items(example)
+        if num_items is not None:
+            _validate_num_items(example, num_items)
+        _validate_all_keys_string(example)
+        _validate_all_values_string(example)
+        _validate_keys_match(example, first_keys)
+
+
+def _infer_schema_from_type_hint(type_hint, examples=None):
+    has_examples = examples is not None
+    if has_examples:
+        _validate_is_list(examples)
+        _validate_non_empty(examples)
+
+    if type_hint == List[str]:
+        if has_examples:
+            _validate_is_all_string(examples)
+        return Schema([ColSpec(type="string", name=None)])
+    elif type_hint == List[Dict[str, str]]:
+        if has_examples:
+            _validate_dict_examples(examples)
+            return Schema([ColSpec(type="string", name=name) for name in examples[0]])
+        else:
+            _logger.warning(f"Could not infer schema for {type_hint} because example is missing")
+            return Schema([ColSpec(type="string", name=None)])
+    else:
+        return None

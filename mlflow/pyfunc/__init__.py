@@ -216,6 +216,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import inspect
 from copy import deepcopy
 from typing import Any, Union, Iterator, Tuple
 
@@ -228,6 +229,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
@@ -1308,6 +1310,23 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     return udf_with_default_cols
 
 
+def _validate_function_python_model(python_model):
+    if not (isinstance(python_model, PythonModel) or callable(python_model)):
+        raise MlflowException(
+            "`python_model` must be a PythonModel instance or a callable object",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if callable(python_model):
+        num_args = len(inspect.signature(python_model).parameters)
+        if num_args != 1:
+            raise MlflowException(
+                "When `python_model` is a callable object, it must accept exactly one argument. "
+                f"Found {num_args} arguments.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 def save_model(
     path,
@@ -1357,18 +1376,67 @@ def save_model(
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
                          **python_function** flavor.
-    :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
-                         serialized using the CloudPickle library. Any dependencies of the class
-                         should be included in one of the following locations:
+    :param python_model:
+        An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+        argument (see the examples below). The passed-in object is serialized using the CloudPickle
+        library. Any dependencies of the class should be included in one of the following locations:
 
-                            - The MLflow library.
-                            - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+        - The MLflow library.
+        - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
+          parameter.
+        - One or more of the files specified by the ``code_path`` parameter.
 
-                         Note: If the class is imported from another module, as opposed to being
-                         defined in the ``__main__`` scope, the defining module should also be
-                         included in one of the listed locations.
+        Note: If the class is imported from another module, as opposed to being defined in the
+        ``__main__`` scope, the defining module should also be included in one of the listed
+        locations.
+
+        **Examples**
+
+        Class model
+
+        .. code-block:: python
+
+            from typing import List, Dict
+            import mlflow
+
+
+            class MyModel(mlflow.pyfunc.PythonModel):
+                def predict(self, context, model_input: List[str]) -> List[str]:
+                    return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        Functional model
+
+        .. note::
+            Experimental: Functional model support is experimental and may change or be removed in
+            a future release without warning.
+
+        .. code-block:: python
+
+            from typing import List
+            import mlflow
+
+
+            def predict(model_input: List[str]) -> List[str]:
+                return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        If the `predict` method or function has type annotations, MLflow automatically constructs
+        a model signature based on the type annotations (unless the ``signature`` argument is
+        explicitly specified), and converts the input value to the specified type before passing
+        it to the function. Currently, the following type annotations are supported:
+
+            - ``List[str]``
+            - ``List[Dict[str, str]]``
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
@@ -1415,6 +1483,15 @@ def save_model(
                                              release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    if python_model:
+        _validate_function_python_model(python_model)
+        if callable(python_model) and all(
+            a is None for a in (input_example, pip_requirements, extra_pip_requirements)
+        ):
+            raise MlflowException(
+                "If `python_model` is a callable object, at least one of `input_example`, "
+                "`pip_requirements`, or `extra_pip_requirements` must be specified."
+            )
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -1455,10 +1532,27 @@ def save_model(
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
     _validate_and_prepare_target_save_path(path)
+
     if mlflow_model is None:
         mlflow_model = Model()
+
+    hints = None
     if signature is not None:
         mlflow_model.signature = signature
+    elif python_model is not None:
+        if callable(python_model):
+            input_arg_index = 0  # first argument
+            mlflow_model.signature = _infer_signature_from_type_hints(
+                python_model, input_arg_index, input_example=input_example
+            )
+        elif isinstance(python_model, PythonModel):
+            input_arg_index = 1  # second argument
+            mlflow_model.signature = _infer_signature_from_type_hints(
+                python_model.predict,
+                input_arg_index=1,  # second argument
+                input_example=input_example,
+            )
+
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
@@ -1478,6 +1572,8 @@ def save_model(
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
+            signature=signature,
+            hints=hints,
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,
