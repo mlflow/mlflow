@@ -40,7 +40,10 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
     relative_path_to_artifact_path,
+    parallelized_download_file_using_http_uri,
+    download_chunk,
 )
+from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import read_chunk
@@ -59,7 +62,7 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100000000
+_DOWNLOAD_CHUNK_SIZE = 10_000_000
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
@@ -416,6 +419,43 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 message="Cloud provider not supported.", error_code=INTERNAL_ERROR
             )
 
+    def _parallelized_download_from_cloud(
+        self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
+        try:
+            failed_downloads = parallelized_download_file_using_http_uri(
+                http_uri=cloud_credential_info.signed_uri,
+                download_path=dst_local_file_path,
+                file_size=file_size,
+                uri_type=cloud_credential_info.type,
+                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
+            )
+            download_errors = [
+                e for e in failed_downloads.values() if e.response.status_code not in (401, 403)
+            ]
+            if download_errors:
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{download_errors}"
+                )
+
+            if failed_downloads:
+                new_cloud_creds = self._get_read_credential_infos(
+                    self.run_id, dst_run_relative_artifact_path
+                )[0]
+                new_signed_uri = new_cloud_creds.signed_uri
+                new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
+
+            for i in failed_downloads:
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
+        except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
+            raise MlflowException(err)
+
     def _download_from_cloud(self, cloud_credential_info, dst_local_file_path):
         """
         Download a file from the input `cloud_credential_info` and save it to `dst_local_file_path`.
@@ -697,6 +737,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
+        # list_artifacts API only returns a list of FileInfos at the specified path
+        # if it's a directory. To get file size, we need to iterate over FileInfos
+        # contained by the parent directory. A bad path could result in there being
+        # no matching FileInfos (by path), so fall back to None size to prevent
+        # parallelized download.
+        parent_dir, _ = posixpath.split(remote_file_path)
+        file_infos = self.list_artifacts(parent_dir)
+        file_info = [info for info in file_infos if info.path == remote_file_path]
+        file_size = file_info[0].file_size if len(file_info) == 1 else None
+
         run_relative_remote_file_path = posixpath.join(
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
@@ -706,9 +756,16 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
-        self._download_from_cloud(
-            cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
-        )
+        # Windows doesn't support the 'fork' multiprocessing context.
+        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
+            self._download_from_cloud(
+                cloud_credential_info=read_credentials[0],
+                dst_local_file_path=local_path,
+            )
+        else:
+            self._parallelized_download_from_cloud(
+                read_credentials[0], file_size, local_path, remote_file_path
+            )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
