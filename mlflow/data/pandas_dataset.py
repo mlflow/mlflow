@@ -67,7 +67,9 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
+                if self.schema
+                else None,
                 "profile": json.dumps(self.profile),
             }
         )
