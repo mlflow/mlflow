@@ -149,6 +149,12 @@ try:
 except ImportError:
     pass
 try:
+    from mlflow.data.tensorflow_dataset import from_tensorflow
+
+    _dataset_registry.register_constructor(from_tensorflow)
+except ImportError:
+    pass
+try:
     from mlflow.data.spark_dataset import load_delta, from_spark
 
     _dataset_registry.register_constructor(load_delta)
