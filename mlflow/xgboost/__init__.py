@@ -20,7 +20,7 @@ import os
 import shutil
 import json
 import pandas as pd
-from sklearn.utils import issparse
+from scipy.sparse import issparse
 import yaml
 import tempfile
 import logging

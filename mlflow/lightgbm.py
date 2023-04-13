@@ -19,7 +19,7 @@ LightGBM (native) format
 """
 import os
 import pandas as pd
-from sklearn.utils import issparse
+from scipy.sparse import issparse
 import yaml
 import json
 import tempfile
