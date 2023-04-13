@@ -199,8 +199,8 @@ def _log_credentials_json(local_model_dir, scope):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
-    path,
     task,
+    path,
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
@@ -216,9 +216,9 @@ def save_model(
 
     :param model: The OpenAI model name or reference instance, e.g.,
                   ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param path: Local path where the model is to be saved.
     :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
                  ``'chat.completions'``.
+    :param path: Local path where the model is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -345,8 +345,8 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,
-    artifact_path,
     task,
+    artifact_path,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -363,9 +363,9 @@ def log_model(
 
     :param model: The OpenAI model name or reference instance, e.g.,
                   ``openai.Model.retrieve("gpt-3.5-turbo")``.
-    :param artifact_path: Run-relative artifact path.
     :param task: The task the model is performing, e.g., ``openai.ChatCompletion`` or
                  ``'chat.completions'``.
+    :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -479,12 +479,12 @@ class _OpenAIWrapper:
 
         model_dict = self.model.copy()
         model_dict.pop("task", None)
-        model_dict.pop("messages", None)
+        prompt_messages = model_dict.pop("messages", [])
         requests = [
             {
                 **model_dict,
                 # numpy array is not JSON serializable, so convert to list
-                "messages": [message],
+                "messages": [*prompt_messages, message],
             }
             for message in messages
         ]
