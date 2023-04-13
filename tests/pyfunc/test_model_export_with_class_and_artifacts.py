@@ -1388,11 +1388,6 @@ def requires_sklearn(x: List[str]) -> List[str]:
 
 
 def test_functional_python_model_infer_requirements(tmp_path):
-    import logging
-
-    logging.basicConfig(level=logging.DEBUG)
-    logging.getLogger("mlflow").setLevel(logging.DEBUG)
-
     mlflow.pyfunc.save_model(path=tmp_path, python_model=requires_sklearn, input_example=["a"])
     assert "scikit-learn==" in tmp_path.joinpath("requirements.txt").read_text()
 
