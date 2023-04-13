@@ -95,7 +95,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "num_rows": len(self._data),
             "num_elements": int(self._data.cardinality().numpy())
             if isinstance(self._data, tf.data.Dataset)
-            else tf.size(self._data).numpy(),
+            else int(tf.size(self._data).numpy()),
         }
 
     @cached_property

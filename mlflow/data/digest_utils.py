@@ -70,21 +70,25 @@ def compute_tensorflow_dataset_digest(dataset) -> str:
     """
     import numpy as np
     import pandas as pd
+    import tensorflow as tf
 
     hashable_elements = []
     for array in dataset.as_numpy_iterator():
         if array is None:
             continue
-        flattened_array = array.flatten()
+        # flatten array or tuple of arrays
+        flat_element = tf.nest.flatten(array)
+        flattened_array = np.concatenate([x.flatten() for x in flat_element])
         trimmed_array = flattened_array[0:MAX_ROWS]
         try:
             hashable_elements.append(pd.util.hash_array(trimmed_array))
         except TypeError:
             hashable_elements.append(np.int64(trimmed_array.size))
 
-        # hash full array dimensions
-        for x in array.shape:
-            hashable_elements.append(np.int64(x))
+        # hash full array or tuple of arrays dimensions
+        for a in array:
+            for x in a.shape:
+                hashable_elements.append(np.int64(x))
 
     return get_normalized_md5_digest(hashable_elements)
 

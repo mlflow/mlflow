@@ -26,7 +26,8 @@ import re
 import mlflow
 from mlflow import pyfunc
 from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.data.pandas_dataset import from_pandas
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -1272,13 +1273,22 @@ def autolog(
                         mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                     )
 
+                    training_data = kwargs["x"] if "x" in kwargs else args[0]
+                    print("training_data", training_data)
                     # create a dataset
                     # TODO: check if isinstance(training_data, tensorflow.data.Dataset)
-                    # TODO: replace this with from_tensorflow_dataset()
-                    dataset = from_pandas(df=training_data, source=source)
+                    if isinstance(training_data, np.ndarray):
+                        dataset = from_numpy(features=training_data, source=source)
+                        mlflow.log_input(dataset, "train")
+                    elif isinstance(training_data, tensorflow.Tensor):
+                        dataset = from_tensorflow(data=training_data, source=source)
+                        mlflow.log_input(dataset, "train")
+                    elif isinstance(training_data, tensorflow.data.Dataset):
+                        dataset = from_tensorflow(data=training_data, source=source)
+                        mlflow.log_input(dataset, "train")
 
-                    # log the dataset
-                    mlflow.log_input(dataset, "train")
+                    # # log the dataset
+                    # mlflow.log_input(dataset, "train")
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
