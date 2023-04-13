@@ -7,6 +7,7 @@ import weakref
 import sys
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.spark_dataset import SparkDataset, from_spark
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
@@ -1099,8 +1100,12 @@ def autolog(
 
             # create a dataset
             # TODO: make this source more specific
-            # TODO: create from_spark() method in mlflow.datasets
-            dataset = from_spark(input_df, source)
+            # dataset = from_spark(input_df, source)
+            print("input_df", input_df)
+            dataset = SparkDataset(
+                df=input_df,
+                source=source,
+            )
 
             # log the dataset
             mlflow.log_input(dataset, "train")

@@ -724,7 +724,7 @@ def test_gen_estimator_metadata(spark_session):  # pylint: disable=unused-argume
 
 
 @pytest.mark.parametrize("log_datasets", [True, False])
-def test_basic_post_training_metric_autologging(dataset_iris_binomial, log_datasets):
+def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_datasets):
     mlflow.pyspark.ml.autolog(log_datasets=log_datasets)
 
     estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)

@@ -59,7 +59,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_tensorspec": self.schema.to_dict()}),
+                "schema": json.dumps({"mlflow_tensorspec": self.schema.to_dict()})
+                if self.schema
+                else None,
                 "profile": json.dumps(self.profile),
             }
         )
@@ -105,7 +107,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         try:
             return _infer_schema(self._features)
         except Exception as e:
-            _logger._warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
+            _logger.warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
