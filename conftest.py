@@ -68,6 +68,7 @@ def pytest_ignore_collect(path, config):
             "tests/pmdarima",
             "tests/diviner",
             "tests/transformers",
+            "tests/langchain",
             "tests/test_mlflow_lazily_imports_ml_packages.py",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc

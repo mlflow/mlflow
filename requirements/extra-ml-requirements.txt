@@ -44,3 +44,6 @@ pmdarima
 diviner
 # Required by mlflow.transformers
 transformers
+# Required by mlflow.langchain
+langchain
+openai
