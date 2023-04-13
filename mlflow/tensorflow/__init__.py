@@ -1266,29 +1266,29 @@ def autolog(
                     _log_keras_model(history, args)
 
                 if log_datasets:
-                    # create a CodeDatasetSource
-                    context_tags = context_registry.resolve_tags()
-                    source = CodeDatasetSource(
-                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                    )
+                    try:
+                        # create a CodeDatasetSource
+                        context_tags = context_registry.resolve_tags()
+                        source = CodeDatasetSource(
+                            mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                            mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                        )
 
-                    training_data = kwargs["x"] if "x" in kwargs else args[0]
-                    print("training_data", training_data)
-                    # create a dataset
-                    # TODO: check if isinstance(training_data, tensorflow.data.Dataset)
-                    if isinstance(training_data, np.ndarray):
-                        dataset = from_numpy(features=training_data, source=source)
-                        mlflow.log_input(dataset, "train")
-                    elif isinstance(training_data, tensorflow.Tensor):
-                        dataset = from_tensorflow(data=training_data, source=source)
-                        mlflow.log_input(dataset, "train")
-                    elif isinstance(training_data, tensorflow.data.Dataset):
-                        dataset = from_tensorflow(data=training_data, source=source)
-                        mlflow.log_input(dataset, "train")
-
-                    # # log the dataset
-                    # mlflow.log_input(dataset, "train")
+                        training_data = kwargs["x"] if "x" in kwargs else args[0]
+                        print("training_data", training_data)
+                        # create a dataset
+                        # TODO: check if isinstance(training_data, tensorflow.data.Dataset)
+                        if isinstance(training_data, np.ndarray):
+                            dataset = from_numpy(features=training_data, source=source)
+                            mlflow.log_input(dataset, "train")
+                        elif isinstance(training_data, tensorflow.Tensor):
+                            dataset = from_tensorflow(data=training_data, source=source)
+                            mlflow.log_input(dataset, "train")
+                        elif isinstance(training_data, tensorflow.data.Dataset):
+                            dataset = from_tensorflow(data=training_data, source=source)
+                            mlflow.log_input(dataset, "train")
+                    except Exception as e:
+                        _logger.warning("Failed to log datasets. Reason: %s", e)
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,

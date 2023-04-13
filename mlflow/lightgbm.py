@@ -849,7 +849,7 @@ def autolog(
                 registered_model_name=registered_model_name,
             )
 
-        # Whether to automatically log the training dataset as a dataset artifact based on boolean flag.
+        # Whether to automatically log the training dataset as a dataset artifact.
         if _log_datasets:
             try:
                 data = train_set.data
@@ -877,7 +877,7 @@ def autolog(
                 dataset_logging_operations = autologging_client.flush(synchronous=False)
                 dataset_logging_operations.await_completion()
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: {}".format(str(e)))
+                _logger.warning("Failed to log datasets. Reason: %s", e)
 
         param_logging_operations.await_completion()
         if early_stopping:

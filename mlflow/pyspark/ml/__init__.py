@@ -1088,24 +1088,25 @@ def autolog(
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
         if log_datasets:
-            # create a CodeDatasetSource
-            context_tags = context_registry.resolve_tags()
-            source = CodeDatasetSource(
-                mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-            )
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
 
-            # create a dataset
-            # TODO: make this source more specific
-            # dataset = from_spark(input_df, source)
-            print("input_df", input_df)
-            dataset = SparkDataset(
-                df=input_df,
-                source=source,
-            )
+                # create a dataset
+                # TODO: make this source more specific
+                dataset = SparkDataset(
+                    df=input_df,
+                    source=source,
+                )
 
-            # log the dataset
-            mlflow.log_input(dataset, "train")
+                # log the dataset
+                mlflow.log_input(dataset, "train")
+            except Exception as e:
+                _logger.warning("Failed to log datasets. Reason: %s", e)
 
     def fit_mlflow(original, self, *args, **kwargs):
         params = get_method_call_arg_value(1, "params", None, args, kwargs)

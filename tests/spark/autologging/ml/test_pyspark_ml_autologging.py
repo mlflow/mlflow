@@ -730,7 +730,7 @@ def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_dat
     estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
 
     with mlflow.start_run() as run:
-        model = estimator.fit(dataset_iris_binomial)
+        model = estimator.fit(dataset_iris_binomial)  # pylint: disable=unused-variable
 
     run_id = run.info.run_id
     client = MlflowClient()

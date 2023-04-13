@@ -1488,7 +1488,7 @@ def _autolog(
                     run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
                 )
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: {}".format(str(e)))
+                _logger.warning("Failed to log datasets. Reason: %s", e)
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,
