@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Theme } from '@emotion/react';
-import { Button } from '@databricks/design-system';
+import { Button, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { PageHeader } from '../../../../../shared/building_blocks/PageHeader';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
@@ -42,6 +42,7 @@ export const ExperimentViewHeader = React.memo(
                       description='Link to a survey for users to give feedback'
                     />
                   </Button>
+                  <NewWindowIcon css={{ marginLeft: 4 }}/>
                 </a>
             )}
           </div>

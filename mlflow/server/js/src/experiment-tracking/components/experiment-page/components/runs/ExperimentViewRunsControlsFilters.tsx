@@ -81,6 +81,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 setIsComparingRuns={(newIsComparingRuns) =>
                   updateSearchFacets({ isComparingRuns: newIsComparingRuns })
                 }
+                viewState={viewState}
               />
             )}
             <RunsSearchAutoComplete
