@@ -1233,6 +1233,13 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             assert actual.status == new_status_string
             assert actual.end_time == endtime
 
+        # test updating run name without changing other attributes.
+        origin_run_info = self.store.get_run(run.info.run_id).info
+        updated_info = self.store.update_run_info(run.info.run_id, None, None, "name_abc2")
+        assert updated_info.run_name == "name_abc2"
+        assert updated_info.status == origin_run_info.status
+        assert updated_info.end_time == origin_run_info.end_time
+
     def test_update_run_name(self):
         experiment_id = self._experiment_factory("test_update_run_name")
         configs = self._get_run_configs(experiment_id=experiment_id)

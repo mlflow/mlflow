@@ -718,3 +718,18 @@ def contains_path_separator(path):
     Returns True if a path contains a path separator, False otherwise.
     """
     return any((sep in path) for sep in (os.path.sep, os.path.altsep) if sep is not None)
+
+
+def read_chunk(path: os.PathLike, size: int, start_byte: int = 0) -> bytes:
+    """
+    Read a chunk of bytes from a file.
+
+    :param path: Path to the file.
+    :param size: The size of the chunk.
+    :param start_byte: The start byte of the chunk.
+    :return: The chunk of bytes.
+    """
+    with open(path, "rb") as f:
+        if start_byte > 0:
+            f.seek(start_byte)
+        return f.read(size)

@@ -50,6 +50,11 @@ GOOD_ALIAS_NAMES = [
     "test-alias",
     "1a2b5cDeFgH",
     "a" * 256,
+    "lates",
+    "v123_temp",
+    "123",
+    "123v",
+    "temp_V123",
 ]
 
 BAD_ALIAS_NAMES = [
@@ -69,6 +74,10 @@ BAD_ALIAS_NAMES = [
     "a" * 257,
     None,
     "$dgs",
+    "latest",
+    "Latest",
+    "v123",
+    "V1",
 ]
 
 
