@@ -2,18 +2,23 @@
 import codecs
 import filecmp
 import hashlib
+import multiprocessing
 import os
 import shutil
+from unittest import mock
 
 import jinja2.exceptions
 import pytest
 import tarfile
 import stat
 import pandas as pd
+import requests
 from pyspark.sql import SparkSession
+from requests import Response
 
 import mlflow
 from mlflow.exceptions import MissingConfigException
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     get_parent_dir,
@@ -24,6 +29,7 @@ from mlflow.utils.file_utils import (
     TempDir,
     _handle_readonly_on_windows,
     local_file_uri_to_path,
+    parallelized_download_file_using_http_uri,
 )
 from mlflow.utils.os import is_windows
 from tests.projects.utils import TEST_PROJECT_DIR
@@ -364,3 +370,93 @@ def test_shutil_copytree_without_file_permissions(tmp_path):
     assert set(os.listdir(dst_dir.joinpath("subdir"))) == {"subdir-file.txt"}
     assert dst_dir.joinpath("subdir/subdir-file.txt").read_text() == "testing 123"
     assert dst_dir.joinpath("top-level-file.txt").read_text() == "hi"
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks(tmp_path):
+    calls_kwargs = multiprocessing.Manager().list([])
+
+    # Get call kwargs manually. Calls are not properly stored in a MagicMock object
+    # in a multiprocessing context.
+    def mock_request_side_effect(method, url, *args, **kwargs):
+        calls_kwargs.append(kwargs)
+        response_mock = Response()
+        response_mock.status_code = 206
+        response_mock._content = b"\x01\x01"
+        return response_mock
+
+    with mock.patch("requests.Session.request", side_effect=mock_request_side_effect):
+        parallelized_download_file_using_http_uri(
+            "fake_uri",
+            tmp_path / "testfile",
+            file_size=1000,
+            uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            chunk_size=100,
+            headers={},
+        )
+    requested_ranges = [call_kwargs["headers"]["Range"] for call_kwargs in calls_kwargs]
+    assert len(requested_ranges) == 10
+    expected_ranges = [f"bytes={100*i}-{(100*(i+1))-1}" for i in range(10)]
+    assert sorted(requested_ranges) == expected_ranges
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding(tmp_path):
+    calls_kwargs = multiprocessing.Manager().list([])
+    file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
+
+    def mock_request_side_effect(method, url, *args, **kwargs):
+        calls_kwargs.append(kwargs)
+        response_mock = Response()
+        response_mock.status_code = 200
+        # 10-byte file
+        response_mock._content = file_content
+        return response_mock
+
+    filename = tmp_path / "testfile"
+    with mock.patch("requests.Session.request") as request_mock:
+        request_mock.side_effect = mock_request_side_effect
+        parallelized_download_file_using_http_uri(
+            "fake_uri",
+            filename,
+            file_size=10,
+            uri_type=ArtifactCredentialType.GCP_SIGNED_URL,
+            chunk_size=2,
+            headers={},
+        )
+    # Should only have called once because the whole file was returned
+    assert len(calls_kwargs) == 1
+    with open(filename, "rb") as f:
+        f.seek(0)
+        contents = f.read()
+        assert contents == file_content
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_file_using_http_uri_returns_errors_correctly(tmp_path):
+    calls_kwargs = multiprocessing.Manager().list([])
+    file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
+
+    def mock_request_side_effect(method, url, *args, **kwargs):
+        calls_kwargs.append(kwargs)
+        response_mock = Response()
+        response_mock.status_code = 200
+        # 10-byte file
+        response_mock._content = file_content
+        # Randomly fail for the first chunk
+        if kwargs["headers"]["Range"].startswith("bytes=0"):
+            raise requests.HTTPError("test exception")
+        return response_mock
+
+    with mock.patch("requests.Session.request") as request_mock:
+        request_mock.side_effect = mock_request_side_effect
+        failed_downloads = parallelized_download_file_using_http_uri(
+            "fake_uri",
+            tmp_path / "testfile",
+            file_size=10,
+            uri_type=ArtifactCredentialType.AWS_PRESIGNED_URL,
+            chunk_size=2,
+            headers={},
+        )
+        assert len(failed_downloads) == 1
+        assert str(failed_downloads[0]) == "test exception"
