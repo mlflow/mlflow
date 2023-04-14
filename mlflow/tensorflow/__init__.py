@@ -1275,9 +1275,7 @@ def autolog(
                         )
 
                         training_data = kwargs["x"] if "x" in kwargs else args[0]
-                        print("training_data", training_data)
                         # create a dataset
-                        # TODO: check if isinstance(training_data, tensorflow.data.Dataset)
                         if isinstance(training_data, np.ndarray):
                             dataset = from_numpy(features=training_data, source=source)
                             mlflow.log_input(dataset, "train")
