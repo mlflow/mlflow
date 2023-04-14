@@ -330,6 +330,7 @@ export const prepareRunsGridData = ({
     // Prepare a data package to be used by "Models" cell
     const models: RunRowModelsInfo = {
       registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [], // ModelInfoEntity
+      // @ts-expect-error TS(2322): Type 'unknown[]' is not assignable to type '{ arti... Remove this comment to see the full error message
       loggedModels: Utils.getLoggedModelsFromTags(tags),
       experimentId: runInfo.experiment_id,
       runUuid: runInfo.run_uuid,

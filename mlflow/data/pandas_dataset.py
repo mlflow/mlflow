@@ -68,7 +68,9 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
+                if self.schema
+                else None,
                 "profile": json.dumps(self.profile),
             }
         )
@@ -113,7 +115,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         try:
             return _infer_schema(self._df)
         except Exception as e:
-            _logger._warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
+            _logger.warning("Failed to infer schema for Pandas dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:

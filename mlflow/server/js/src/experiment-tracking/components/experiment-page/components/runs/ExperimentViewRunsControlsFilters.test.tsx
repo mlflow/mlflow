@@ -41,7 +41,7 @@ describe('ExperimentViewRunsControlsFilters', () => {
       updateSearchFacets: jest.fn(),
       sortOptions: [],
       onDownloadCsv: () => {},
-      viewState: {} as any,
+      viewState: { runsSelected: {} } as any,
       updateViewState: () => {},
       searchFacetsState,
       requestError: null,

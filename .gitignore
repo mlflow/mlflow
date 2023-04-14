@@ -3,6 +3,7 @@ mlruns/
 mlartifacts/
 outputs/
 mlruns.db
+**/basic_auth.db
 
 # Mac
 .DS_Store
@@ -106,3 +107,6 @@ a.py
 
 # Log file created by pre-commit hook for black
 .black.log
+
+# Pytest-monitor load testing DB file
+*.pymon

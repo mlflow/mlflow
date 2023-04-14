@@ -13,3 +13,16 @@
 .model-version-table .ant-table-thead > tr > th:not(:last-child):not(.ant-table-selection-column):not(.ant-table-row-expand-icon-cell):not([colspan])::before {
   display: none;
 }
+
+.table-endpoint-container {
+  width: 200px;
+  max-width: 200px;
+}
+
+.table-endpoint-text {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display:block;
+  overflow: hidden;
+}
+

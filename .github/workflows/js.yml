@@ -45,19 +45,26 @@ jobs:
         run: |
           echo "::remove-matcher owner=eslint-compact::"
           echo "::remove-matcher owner=eslint-stylish::"
-      - name: Install dependencies
+      - name: Install dependencies (windows)
+        if: runner.os == 'Windows'
         run: |
-          yarn install
-          git diff --exit-code
+          # On Windows, `yarn install` changes hash of @databricks/design-system in yarn.lock.
+          # Use `--no-immutable` to allow the change.
+          yarn install --no-immutable
+          git diff
+      - name: Install dependencies (non-windows)
+        if: runner.os != 'Windows'
+        run: |
+          yarn install --immutable
       - name: Run lint
         run: |
-          yarn run lint
+          yarn lint
       - name: Run extract-i18n lint
         run: |
-          yarn run extract-i18n:base --lint
+          yarn i18n:check
       - name: Run tests
         run: |
-          yarn run test
+          yarn test
       - name: Run build
         if: runner.os == 'Linux'
         env:
@@ -65,4 +72,4 @@ jobs:
           # https://github.com/wojtekmaj/react-pdf/issues/280
           CI: false
         run: |
-          yarn run build
+          yarn build

@@ -88,6 +88,7 @@ export const useFetchCompareRunsMetricHistory = (
       addRequests(runUuidsToFetch, metricKey);
 
       // Dispatch the action
+      // @ts-expect-error TS(2554): Expected 4-5 arguments, but got 2.
       dispatch(getMetricHistoryApiBulk(runUuidsToFetch, metricKey))
         .then(() => {
           // Settle request in the internal state if it's resolved

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -87,9 +88,14 @@ def _infer_schema(data: Any) -> Schema:
     The input should be one of these:
       - pandas.DataFrame or pandas.Series
       - dictionary of { name -> numpy.ndarray}
+      - dictionary of { name -> [str, List[str]}
       - numpy.ndarray
       - pyspark.sql.DataFrame
       - csc/csr matrix
+      - str
+      - List[str]
+      - List[Dict[str, Union[str, List[str]]]]
+      - Dict[str, Union[str, List[str]]]
 
     The element types should be mappable to one of :py:class:`mlflow.models.signature.DataType` for
     dataframes and to one of numpy types for tensors.
@@ -100,12 +106,10 @@ def _infer_schema(data: Any) -> Schema:
     """
     from scipy.sparse import csr_matrix, csc_matrix
 
-    if isinstance(data, dict):
+    if isinstance(data, dict) and all(isinstance(values, np.ndarray) for values in data.values()):
         res = []
         for name in data.keys():
             ndarray = data[name]
-            if not isinstance(ndarray, np.ndarray):
-                raise TypeError("Data in the dictionary must be of type numpy.ndarray")
             res.append(
                 TensorSpec(
                     type=clean_tensor_type(ndarray.dtype),
@@ -136,6 +140,29 @@ def _infer_schema(data: Any) -> Schema:
                 for field in data.schema.fields
             ]
         )
+    elif isinstance(data, dict):
+        _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data)
+        schema = Schema([ColSpec(type=DataType.string, name=name) for name in data.keys()])
+    elif isinstance(data, str):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif isinstance(data, list) and all(isinstance(element, str) for element in data):
+        schema = Schema([ColSpec(type=DataType.string)])
+    elif (
+        isinstance(data, list)
+        and all(isinstance(element, dict) for element in data)
+        and all(isinstance(key, str) for d in data for key in d)
+        and all(isinstance(value, str) for d in data for value in d.values())
+    ):
+        first_keys = data[0].keys()
+        if all(d.keys() == first_keys for d in data):
+            schema = Schema([ColSpec(type=DataType.string, name=name) for name in first_keys])
+        else:
+            raise MlflowException(
+                "The list of dictionaries supplied has inconsistent keys among "
+                "each dictionary in the list. Please validate the uniformity "
+                "in the key naming for each dictionary.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
     else:
         raise TypeError(
             "Expected one of the following types:\n"
@@ -146,6 +173,10 @@ def _infer_schema(data: Any) -> Schema:
             "- pyspark.sql.DataFrame\n",
             "- scipy.sparse.csr_matrix\n"
             "- scipy.sparse.csc_matrix\n"
+            "- str\n"
+            "- List[str]\n"
+            "- List[Dict[str, Union[str, List[str]]]]\n"
+            "- Dict[str, Union[str, List[str]]]\n"
             "but got '{}'".format(type(data)),
         )
     if not schema.is_tensor_spec() and any(
@@ -286,3 +317,29 @@ def _is_spark_df(x) -> bool:
         return isinstance(x, pyspark.sql.dataframe.DataFrame)
     except ImportError:
         return False
+
+
+def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
+    invalid_keys = []
+    invalid_values = []
+    for key, value in data.items():
+        if isinstance(key, bool):
+            invalid_keys.append(key)
+        elif not isinstance(key, (str, int)):
+            invalid_keys.append(key)
+        if isinstance(value, list) and not all(isinstance(item, str) for item in value):
+            invalid_values.append(key)
+        elif not isinstance(value, (list, str)):
+            invalid_values.append(key)
+    if invalid_values:
+        raise MlflowException(
+            "Invalid values in dictionary. If passing a dictionary containing strings, all "
+            "values must be either strings or lists of strings. If passing a dictionary containing "
+            "numeric values, the data must be enclosed in a numpy.ndarray. The following keys "
+            f"in the input dictionary are invalid: {invalid_values}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if invalid_keys:
+        raise MlflowException(
+            f"The dictionary keys are not all strings or indexes. Invalid keys: {invalid_keys}"
+        )

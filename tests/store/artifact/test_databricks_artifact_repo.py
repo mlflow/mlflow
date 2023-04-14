@@ -6,6 +6,8 @@ import re
 
 import pytest
 import posixpath
+
+import requests
 from requests.models import Response
 from unittest import mock
 from unittest.mock import ANY
@@ -27,6 +29,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
 )
+from mlflow.utils.os import is_windows
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
@@ -1106,6 +1109,38 @@ def test_artifact_logging(databricks_artifact_repo, tmpdir):
             assert f.read() == "file1"
 
 
+def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path):
+    """
+    Verifies that write credentials are fetched in chunks rather than all at once.
+    """
+    src_dir = tmp_path.joinpath("src")
+    src_dir.mkdir()
+    for i in range(10):
+        src_dir.joinpath(f"file_{i}.txt").write_text(f"file{i}")
+    dst_dir = tmp_path.joinpath("dst")
+    dst_dir.mkdir()
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[
+            ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            ),
+            ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            ),
+        ],
+    ) as mock_get_write_creds, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
+    ):
+        databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
+
+        assert mock_get_write_creds.call_count == 5
+        assert all((len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list))
+
+
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
@@ -1429,3 +1464,64 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             headers={"header": "abort"},
             timeout=None,
         )
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_retries_failed_chunks(
+    databricks_artifact_repo, large_file, mock_chunk_size
+):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    response = Response()
+    response.status_code = 401
+    failed_downloads = {
+        2: requests.HTTPError(response=response),
+        5: requests.HTTPError(response=response),
+    }
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+        return_value=[mock_credential_info],
+    ) as get_creds_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri",
+        return_value=failed_downloads,
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
+    ) as download_chunk_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]],
+    ):
+        databricks_artifact_repo.download_artifacts("a.txt")
+        assert get_creds_mock.call_count == 2  # Once for initial fetch, once for retries
+        assert {call.args[0] for call in download_chunk_mock.call_args_list} == {2, 5}
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_throws_for_other_errors(
+    databricks_artifact_repo, large_file, mock_chunk_size
+):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    response = Response()
+    response.status_code = 500
+    failed_downloads = {
+        2: requests.HTTPError(response=response),
+        5: requests.HTTPError(response=response),
+    }
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri",
+        return_value=failed_downloads,
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]],
+    ):
+        with pytest.raises(MlflowException, match="Failed to download artifact"):
+            databricks_artifact_repo.download_artifacts("a.txt")
