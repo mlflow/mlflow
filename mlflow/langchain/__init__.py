@@ -109,10 +109,13 @@ def save_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = LangChain().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
+                        model = LLMChain(llm=llm, prompt=prompt)
+                        predictions = model.run(model.make_future_dataframe(30))
+                        input_columns = [
+                            {"type": "string", "name": input_key} for input_key in chain.input_keys
+                        ]
+                        signature = infer_signature(input_columns, predictions)
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -152,11 +155,6 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
-    else:
-        if type(lc_model.llm) == langchain.llms.openai.OpenAI:
-            pass
-        elif type(lc_model.llm) == langchain.llms.huggingface_hub.HuggingFaceHub:
-            pass
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     _save_model(lc_model, model_data_path)
@@ -249,10 +247,12 @@ def log_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = LangChain().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
+                        model = LLMChain(llm=llm, prompt=prompt)
+                        predictions = model.run(model.make_future_dataframe(30))
+                        input_columns = [
+                            {"type": "string", "name": input_key} for input_key in chain.input_keys
+                        ]
+                        signature = infer_signature(input_columns, predictions)
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to

@@ -5,6 +5,9 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 
+# please add the key in the FIXME below before running this example
+environ["OPENAI_API_KEY"] = "FIXME"
+
 llm = OpenAI(temperature=0.9)
 prompt = PromptTemplate(
     input_variables=["product"],
