@@ -1,3 +1,4 @@
+from packaging.version import Version
 import hashlib
 from typing import List, Any
 
@@ -101,6 +102,27 @@ def compute_tensor_digest(tensor) -> str:
     :return: A string digest.
     """
     return compute_numpy_digest(tensor.numpy())
+
+
+def compute_spark_df_digest(df) -> str:
+    """
+    Computes a digest for the given Spark DataFrame. Retrieve a semantic hash of the
+    DataFrame's logical plan, which is much more efficient and deterministic than hashing
+    DataFrame records
+
+    :param df: A Spark DataFrame.
+    :return: A string digest.
+    """
+
+    import pyspark
+    import numpy as np
+
+    # Spark 3.1.0+ has a semanticHash() method on DataFrame
+    if Version(pyspark.__version__) >= Version("3.1.0"):
+        semantic_hash = df.semanticHash()
+    else:
+        semantic_hash = df._jdf.queryExecution().analyzed().semanticHash()
+    return get_normalized_md5_digest([np.int64(semantic_hash)])
 
 
 def get_normalized_md5_digest(elements: List[Any]) -> str:

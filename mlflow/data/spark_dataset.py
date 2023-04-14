@@ -3,12 +3,10 @@ import logging
 from functools import cached_property
 from typing import Any, Dict, Optional, Union
 
-import numpy as np
-
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
-from mlflow.data.digest_utils import get_normalized_md5_digest
+from mlflow.data.digest_utils import compute_spark_df_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
@@ -51,7 +49,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         # Retrieve a semantic hash of the DataFrame's logical plan, which is much more efficient
         # and deterministic than hashing DataFrame records
-        return get_normalized_md5_digest([np.int64(self._df.semanticHash())])
+        return compute_spark_df_digest(self._df)
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """

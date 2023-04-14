@@ -25,6 +25,7 @@ import yaml
 import tempfile
 import logging
 from copy import deepcopy
+from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
@@ -741,7 +742,16 @@ def autolog(
                 )
 
                 # create a dataset
-                data = dtrain.get_data()
+                # dmatrix has a get_data method added in 1.7
+                import xgboost as xgb
+
+                if Version(xgb.__version__) >= Version("1.7.0"):
+                    data = dtrain.get_data()
+                else:
+                    from dmatrix2np import dmatrix_to_numpy
+
+                    data = dmatrix_to_numpy(dtrain)
+
                 if isinstance(dtrain, pd.DataFrame):
                     dataset = from_pandas(df=data, source=source)
                 else:
