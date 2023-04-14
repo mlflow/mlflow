@@ -24,7 +24,7 @@ class Routes {
 
   static experimentPageSearchRoute = '/experiments/:experimentId/:searchString';
 
-  static getRunPageRoute(experimentId: any, runUuid: any, artifactPath = null) {
+  static getRunPageRoute(experimentId: any, runUuid: any, artifactPath: any = null) {
     const path = `/experiments/${experimentId}/runs/${runUuid}`;
     if (artifactPath) {
       return `${path}/artifactPath/${artifactPath}`;
