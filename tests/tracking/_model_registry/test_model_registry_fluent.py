@@ -5,6 +5,7 @@ from mlflow import register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
+    ALREADY_EXISTS,
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
 )
@@ -58,11 +59,12 @@ def test_register_model_with_non_runs_uri():
         )
 
 
-def test_register_model_with_existing_registered_model():
+@pytest.mark.parametrize("error_code", [RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS])
+def test_register_model_with_existing_registered_model(error_code):
     create_model_patch = mock.patch.object(
         MlflowClient,
         "create_registered_model",
-        side_effect=MlflowException("Some Message", RESOURCE_ALREADY_EXISTS),
+        side_effect=MlflowException("Some Message", error_code),
     )
     create_version_patch = mock.patch.object(
         MlflowClient,
