@@ -99,7 +99,13 @@ export const CompareRunsMetricsBarPlot = React.memo(
       const colors = runsData.map((d) => d.color);
 
       // Check if containing negatives to adjust rendering labels relative to axis
-      const containsNegatives = values.some((v) => v && v < 0);
+      const containsNegatives = values.some(
+        (v) =>
+          v &&
+          // @ts-expect-error TODO: fix this
+          // Operator '<' cannot be applied to types 'string | number' and 'number'.ts(2365)
+          v < 0,
+      );
 
       return [
         {

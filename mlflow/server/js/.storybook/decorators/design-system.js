@@ -7,7 +7,7 @@ export const designSystemDecorator = (Story) => {
   const modalContainerRef = useRef(null);
 
   return (
-    <DesignSystemContainer isCompact getPopupContainer={() => modalContainerRef.current} flags={{ USE_NEW_ICONS: true }}>
+    <DesignSystemContainer isCompact getPopupContainer={() => modalContainerRef.current}>
       <>
         <Global
           styles={{
