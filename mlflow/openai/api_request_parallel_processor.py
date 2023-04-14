@@ -84,17 +84,17 @@ class APIRequest:
         """
         Calls the OpenAI API and stores results.
         """
-        _logger.info(f"Starting request #{self.index}")
+        _logger.debug(f"Request #{self.index} started")
         try:
             response = await openai.ChatCompletion.acreate(**self.request_json)
+            _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
-            # Save the index (will be used for sorting) and response to the output file
             with open(self.output_file, "a") as f:
-                f.write(f"{self.index} ")
+                f.write(f"{self.index} ")  # this will be used later to sort the responses
                 json.dump(response, f)
                 f.write("\n")
         except openai.error.RateLimitError as e:
-            _logger.warning(f"Request {self.index} failed with error {e!r}")
+            _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.time_of_last_rate_limit_error = time.time()
             status_tracker.num_rate_limit_errors += 1
         # Other retryable errors
@@ -104,7 +104,7 @@ class APIRequest:
             openai.error.APIConnectionError,
             openai.error.ServiceUnavailableError,
         ) as e:
-            _logger.warning(f"Request {self.index} failed with Exception {e!r}")
+            _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.num_api_errors += 1
             if self.attempts_left > 0:
                 retry_queue.put_nowait(self)
@@ -112,7 +112,7 @@ class APIRequest:
                 status_tracker.complete_task(success=False)
         # Unretryable errors
         except Exception as e:
-            _logger.warning(f"Request {self.index} failed with Exception {e!r}")
+            _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.num_api_errors += 1
             status_tracker.complete_task(success=False)
 
@@ -294,7 +294,13 @@ async def process_api_requests(
 
 
 def run_as_subprocess(requests):
-    _logger.info(f"Running {len(requests)} requests in parallel...")
+    # Why not directly call `process_api_requests`?
+    # `process_api_requests` is a coroutine. To call it in a normal function,
+    #  we need to wrap it in `asyncio.run`, but `asyncio.run` cannot be called
+    # from a running event loop. This is a problem when running in Jupyter Notebook
+    # (see https://stackoverflow.com/q/55409641 for more details).
+    # To work around this, we call `process_api_requests` in a subprocess.
+    _logger.info(f"Processing {len(requests)} requests in parallel...")
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir = pathlib.Path(temp_dir)
         input_file = temp_dir / "input.jsonl"
