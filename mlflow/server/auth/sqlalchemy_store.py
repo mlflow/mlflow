@@ -17,6 +17,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
 )
 from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
+from mlflow.server.auth.permissions import _validate_permission
 from mlflow.store.db.utils import create_sqlalchemy_engine_with_retry, _get_managed_session_maker
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_username
@@ -35,6 +36,7 @@ class SqlUser(Base):
 
     def to_mlflow_entity(self):
         return User(
+            id=self.id,
             username=self.username,
             password_hash=self.password_hash,
             is_admin=self.is_admin,
@@ -140,3 +142,72 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
+
+    def create_experiment_permission(
+        self, experiment_id: str, user_id: int, permission: str
+    ) -> ExperimentPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                perm = SqlExperimentPermission(
+                    experiment_id=experiment_id, user_id=user_id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Experiment permission (experiment_id={experiment_id}, user_id={user_id}, "
+                    f"permission={permission}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    @classmethod
+    def _get_experiment_permission(
+        cls, session, experiment_id: str, user_id: int
+    ) -> SqlExperimentPermission:
+        try:
+            return (
+                session.query(SqlExperimentPermission)
+                .filter(SqlExperimentPermission.experiment_id == experiment_id)
+                .filter(SqlExperimentPermission.user_id == user_id)
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Experiment permission with experiment_id={experiment_id} and user_id={user_id} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple experiment permissions with experiment_id={experiment_id} and user_id={user_id}",
+                INVALID_STATE,
+            )
+
+    def get_experiment_permission(self, experiment_id: str, user_id: int) -> ExperimentPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_experiment_permission(
+                session, experiment_id, user_id
+            ).to_mlflow_entity()
+
+    def list_experiment_permissions(self, user_id: int) -> List[ExperimentPermission]:
+        with self.ManagedSessionMaker() as session:
+            perms = (
+                session.query(SqlExperimentPermission)
+                .filter(SqlExperimentPermission.user_id == user_id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_experiment_permission(
+        self, experiment_id: str, user_id: int, permission: str
+    ) -> ExperimentPermission:
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_experiment_permission(session, experiment_id, user_id)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_experiment_permission(self, experiment_id: str, user_id: int):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_experiment_permission(session, experiment_id, user_id)
+            session.delete(perm)
