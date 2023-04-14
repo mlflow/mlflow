@@ -712,9 +712,10 @@ def _update_run():
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
-    updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time, request_message.run_name
-    )
+    run_name = request_message.run_name if request_message.HasField("run_name") else None
+    end_time = request_message.end_time if request_message.HasField("end_time") else None
+    status = request_message.status if request_message.HasField("status") else None
+    updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1727,6 +1728,14 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_rest_path(base_path):
+    return f"/api/2.0{base_path}"
+
+
+def _get_ajax_path(base_path):
+    return _add_static_prefix(f"/ajax-api/2.0{base_path}")
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -1740,7 +1749,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
-    return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
+    return [_get_rest_path(base_path), _get_ajax_path(base_path)]
 
 
 def get_handler(request_class):

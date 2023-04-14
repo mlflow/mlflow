@@ -69,6 +69,7 @@ export const ExperimentViewNotes = React.memo(({ experiment }: ExperimentViewNot
       data-test-id='experiment-notes-section'
     >
       <EditableNote
+        // @ts-expect-error TS(2322): Type '{ defaultMarkdown: string | undefined; onSub... Remove this comment to see the full error message
         defaultMarkdown={storedNote}
         onSubmit={handleSubmitEditNote}
         onCancel={() => setShowNotesEditor(false)}
