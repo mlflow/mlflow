@@ -5,10 +5,9 @@
     "@ag-grid-community/client-side-row-model": "^27.2.1",
     "@ag-grid-community/core": "^27.2.1",
     "@ag-grid-community/react": "^27.2.1",
-    "@babel/eslint-parser": "^7.21.3",
+    "@babel/eslint-parser": "^7.19.1",
     "@craco/craco": "7.0.0-alpha.0",
-    "@databricks/design-system": "workspace:*",
-    "@databricks/web-shared": "workspace:*",
+    "@databricks/design-system": "file:./vendor/design-system",
     "@emotion/cache": "^11.4.0",
     "@emotion/react": "^11.4.0",
     "@tanstack/react-table": "^8.7.3",
@@ -95,8 +94,6 @@
     "@babel/preset-env": "^7.20.2",
     "@babel/preset-react": "^7.18.6",
     "@babel/preset-typescript": "^7.21.0",
-    "@databricks/config-jest": "workspace:*",
-    "@databricks/config-webpack": "workspace:*",
     "@emotion/babel-plugin": "^11.3.0",
     "@emotion/babel-preset-css-prop": "^11.2.0",
     "@emotion/eslint-plugin": "^11.7.0",
@@ -137,18 +134,19 @@
     "prettier": "^2.8.0",
     "redux-mock-store": "^1.5.3",
     "resolve": "^1.22.1",
+    "stream-browserify": "^3.0.0",
     "typescript": "^5.0.2",
-    "webpack": "^5.75.0"
+    "webpack": "^5.69.0"
   },
   "scripts": {
     "//": "IMPORTANT: For compatibility with Windows in MLflow OSS, do NOT inline environment variables in scripts other than `start-web`, `start:mfe` and `test:ci`. Environment variables can instead be set in `mlflow/server/js/scripts/global-setup.js`.",
-    "start": "NODE_OPTIONS='--max_old_space_size=8192' ./scripts/package-scripts.sh start",
+    "start": "craco start",
     "start:iframe": "HIDE_HEADER=true HIDE_EXPERIMENT_LIST=true SHOW_GDPR_PURGING_MESSAGES=true USE_ABSOLUTE_AJAX_URLS=true SHOULD_REDIRECT_IFRAME=true yarn start",
     "start:dev-proxy-fs-iframe": "START_FEATURE_STORE=true yarn start:dev-proxy-iframe",
     "start:dev-proxy-fs": "APP_NAME=feature-store START_FEATURE_STORE=true PUBLIC_URL=/ FEATURE_STORE_MFE_DEV=true yarn start:dev-proxy-iframe",
     "start:dev-proxy": "APP_NAME=mlflow MLFLOW_DEV_PROXY_MODE=true yarn start:mfe",
     "start:mfe": "PUBLIC_URL=/ MLFLOW_MFE_DEV=true npm run start:iframe",
-    "build": "NODE_OPTIONS='--max_old_space_size=8192' ./scripts/package-scripts.sh build",
+    "build": "craco --max_old_space_size=8192 build",
     "build:fs": "NODE_OPTIONS='--max_old_space_size=8192' scripts/build.sh fs",
     "build:mfe": "APP_NAME=mlflow MLFLOW_MFE_DEV=true yarn build",
     "build:fs:mfe": "APP_NAME=feature-store FEATURE_STORE_MFE_DEV=true yarn build",
@@ -192,5 +190,14 @@
         ]
       }
     }
+  },
+  "private": true,
+  "engines": {
+    "node": "^16.18.0"
+  },
+  "resolutions": {
+    "@types/react-plotly.js/@types/plotly.js": "^1.54.6",
+    "react-dev-utils/fork-ts-checker-webpack-plugin": "6.5.3",
+    "postcss-preset-env/autoprefixer": "10.4.5"
   }
 }
