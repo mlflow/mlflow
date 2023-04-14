@@ -47,7 +47,13 @@ jobs:
           echo "::remove-matcher owner=eslint-stylish::"
       - name: Install dependencies
         run: |
-          yarn install --immutable
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            # On Windows, `yarn install` changes hash of @databricks/design-system in yarn.lock.
+            # Use `--no-immutable` to allow the change.
+            yarn install --no-immutable
+          else
+            yarn install --immutable
+          fi
       - name: Run lint
         run: |
           yarn lint
