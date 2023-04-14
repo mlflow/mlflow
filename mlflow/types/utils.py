@@ -9,7 +9,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
 
