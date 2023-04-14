@@ -1939,6 +1939,47 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
+Transformers (``transformers``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``transformers`` model flavor enables logging of
+`transformers models, components, and pipelines <https://huggingface.co/docs/transformers/index>`_ in MLflow format via
+the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.transformers.load_model()` function to load a saved or logged MLflow
+Model with the ``transformers`` flavor in the native transformers formats.
+
+Supported tasks for PyFunc loading
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Explanation
+
+List of pipeline types that are supported
+
+Input and Output types for PyFunc
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Table of pipeline type to supported input types and output types
+
+Example pyfunc loading
+
+
+Save and Load options for transformers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Can save components
+
+Can save pipelines
+
+Can load as components or pipelines
+
+Model Card is fetched
+
+Signature is auto-inferred. Can be overridden.
+
+
+
+
 .. _model-evaluation:
 
 Model Evaluation
