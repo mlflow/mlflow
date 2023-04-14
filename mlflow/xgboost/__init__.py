@@ -742,30 +742,28 @@ def autolog(
                 )
 
                 # create a dataset
-                # dmatrix has a get_data method added in 1.7
                 import xgboost as xgb
 
+                # dmatrix has a get_data method added in 1.7. skip for earlier versions.
                 if Version(xgb.__version__) >= Version("1.7.0"):
                     data = dtrain.get_data()
+                    if isinstance(dtrain, pd.DataFrame):
+                        dataset = from_pandas(df=data, source=source)
+                    else:
+                        arr_data = data.toarray() if issparse(data) else data
+                        dataset = from_numpy(features=arr_data, source=source)
+                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                    # log the dataset
+                    autologging_client.log_inputs(
+                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                    )
+                    dataset_logging_operations = autologging_client.flush(synchronous=False)
+                    dataset_logging_operations.await_completion()
                 else:
-                    from dmatrix2np import dmatrix_to_numpy
+                    _logger.warning("Unable to log dataset. XGBoost version must be >= 1.7.0")
 
-                    data = dmatrix_to_numpy(dtrain)
-
-                if isinstance(dtrain, pd.DataFrame):
-                    dataset = from_pandas(df=data, source=source)
-                else:
-                    arr_data = data.toarray() if issparse(data) else data
-                    dataset = from_numpy(features=arr_data, source=source)
-                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-                dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
-
-                # log the dataset
-                autologging_client.log_inputs(
-                    run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                )
-                dataset_logging_operations = autologging_client.flush(synchronous=False)
-                dataset_logging_operations.await_completion()
             except Exception as e:
                 _logger.warning("Failed to log datasets. Reason: %s", e)
 

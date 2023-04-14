@@ -721,8 +721,12 @@ def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
     assert f"model/model.{model_format}" in artifacts
 
 
+@pytest.mark.skipif(
+    Version(xgb.__version__) < Version("1.7"),
+    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
+)
 @pytest.mark.parametrize("log_datasets", [True, False])
-def test_lgb_log_datasets(bst_params, dtrain, log_datasets):
+def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     with mlflow.start_run() as run:
         mlflow.xgboost.autolog(log_datasets=log_datasets)
         xgb.train(bst_params, dtrain)
