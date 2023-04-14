@@ -7,8 +7,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
+
+# This regex is used by _parse_model_uri and details for the regex match
+# can be found in _improper_model_uri_msg.
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[\w \.\-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
