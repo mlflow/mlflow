@@ -1137,6 +1137,49 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
+    def test_delete_experiment_tag(self):
+        exp_id = self._experiment_factory("setExperimentTagExp")
+        tag = entities.ExperimentTag("tag0", "value0")
+        new_tag = entities.RunTag("tag0", "value00000")
+        self.store.set_experiment_tag(exp_id, tag)
+        experiment = self.store.get_experiment(exp_id)
+        assert experiment.tags["tag0"] == "value0"
+        # test that updating a tag works
+        self.store.set_experiment_tag(exp_id, new_tag)
+        experiment = self.store.get_experiment(exp_id)
+        assert experiment.tags["tag0"] == "value00000"
+        # test that setting a tag on 1 experiment does not impact another experiment.
+        exp_id_2 = self._experiment_factory("setExperimentTagExp2")
+        experiment2 = self.store.get_experiment(exp_id_2)
+        assert len(experiment2.tags) == 0
+        # setting a tag on different experiments maintains different values across experiments
+        different_tag = entities.RunTag("tag0", "differentValue")
+        self.store.set_experiment_tag(exp_id_2, different_tag)
+        experiment = self.store.get_experiment(exp_id)
+        assert experiment.tags["tag0"] == "value00000"
+        experiment2 = self.store.get_experiment(exp_id_2)
+        assert experiment2.tags["tag0"] == "differentValue"
+        # test can set multi-line tags
+        multi_line_Tag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
+        self.store.set_experiment_tag(exp_id, multi_line_Tag)
+        experiment = self.store.get_experiment(exp_id)
+        assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+        # test cannot set tags that are too long
+        long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
+        with pytest.raises(MlflowException, match="exceeded length limit of 5000"):
+            self.store.set_experiment_tag(exp_id, long_tag)
+        # test can set tags that are somewhat long
+        long_tag = entities.ExperimentTag("longTagKey", "a" * 4999)
+        self.store.set_experiment_tag(exp_id, long_tag)
+        # test delete tags
+        self.store.delete_experiment_tag(exp_id, "tag0")
+        experiment = self.store.get_experiment(exp_id)
+        assert "tag0" not in experiment.tags
+        # test cannot delete tags on deleted experiments
+        self.store.delete_experiment(exp_id)
+        with pytest.raises(MlflowException, match="must be in the 'active' state"):
+            self.store.delete_experiment_tag(exp_id, "should")
+
     def test_set_tag(self):
         run = self._run_factory()
 

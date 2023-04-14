@@ -212,6 +212,52 @@ test_that("mlflow_set_experiment_tag() works correctly", {
   )
 })
 
+test_that("mlflow_delete_experiment_tag() works correctly", {
+  mlflow_clear_test_dir("mlruns")
+  client <- mlflow_client()
+  experiment_id <- mlflow_create_experiment(client = client, "setExperimentTagTestExperiment", "art_exptag_loc")
+  mlflow_set_experiment_tag("dataset", "imagenet1K", experiment_id, client = client)
+  experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
+  tags <- experiment$tags[[1]]
+  expect_identical(tags, tibble::tibble(key = 'dataset', value = 'imagenet1K'))
+  expect_identical("imagenet1K", tags$value[tags$key == "dataset"])
+
+  # test that updating a tag works
+  mlflow_set_experiment_tag("dataset", "birdbike", experiment_id, client = client)
+  experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
+  expect_equal(experiment$tags, list(tibble::tibble(key = 'dataset', value = 'birdbike')))
+
+  # test that setting a tag on 1 experiment does not impact another experiment.
+  experiment_id_2 <- mlflow_create_experiment(client = client, "setExperimentTagTestExperiment2", "art_exptag_loc2")
+  experiment_2 <- mlflow_get_experiment(experiment_id = experiment_id_2, client = client)
+  expect_equal(experiment_2$tags, NA)
+
+  # test that setting a tag on different experiments maintain different values across experiments
+  mlflow_set_experiment_tag("dataset", "birds200", experiment_id_2, client = client)
+  experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
+  tags <- experiment$tags[[1]]
+  experiment_2 <- mlflow_get_experiment(experiment_id = experiment_id_2, client = client)
+  tags_2 <- experiment_2$tags[[1]]
+  expect_equal(tags, tibble::tibble(key = 'dataset', value = 'birdbike'))
+  expect_equal(tags_2, tibble::tibble(key = 'dataset', value = 'birds200'))
+
+  # test can set multi-line tags
+  mlflow_set_experiment_tag("multiline tag", "value2\nvalue2\nvalue2", experiment_id, client = client)
+  experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
+  expect_identical(
+        tibble::tibble(
+          key = c('dataset', 'multiline tag'),
+          value= c("birdbike", "value2\nvalue2\nvalue2")
+        ),
+        experiment$tags[[1]][order(experiment$tags[[1]]$key),]
+  )
+
+  # test that deleting a tag works
+  mlflow_delete_experiment_tag("dataset", experiment_id, client = client)
+  mlflow_delete_experiment_tag("multiline tag", experiment_id, client = client)
+  experiment <- mlflow_get_experiment(experiment_id = experiment_id, client = client)
+  expect_equal(experiment$tags, NA)
+})
 
 test_that("mlflow_get_experiment_by_name() works properly", {
   mlflow_clear_test_dir("mlruns")

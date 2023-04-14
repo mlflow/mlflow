@@ -236,6 +236,15 @@ class AbstractStore:
         """
         pass
 
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag for the specified experiment
+
+        :param experiment_id: String id for the experiment
+        :param key: String key of tag to delete
+        """
+        pass
+
     def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run

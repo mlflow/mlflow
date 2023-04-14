@@ -67,6 +67,13 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeDeleteExperimentTag(String expId, String key) {
+    DeleteExperimentTag.Builder builder = DeleteExperimentTag.newBuilder();
+    builder.setExperimentId(expId);
+    builder.setKey(key);
+    return print(builder);
+  }
+
   String makeSetTag(String runId, String key, String value) {
     SetTag.Builder builder = SetTag.newBuilder();
     builder.setRunUuid(runId);

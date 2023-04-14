@@ -781,6 +781,48 @@ Request Structure
 
 ===========================
 
+.. _mlflowMlflowServicedeleteExperimentTag:
+
+Delete Experiment Tag
+=====================
+
+
++--------------------------------------------------+-------------+
+|                   Endpoint                       | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/experiments/delete-experiment-tag`` | ``POST``    |
++--------------------------------------------------+-------------+
+
+Delete a tag on an experiment.
+
+
+
+
+.. _mlflowDeleteExperimentTag:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+-------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                     Description                                     |
++===============+============+=====================================================================================+
+| experiment_id | ``STRING`` | ID of the experiment under which to log the tag. Must be provided.                  |
+|               |            | This field is required.                                                             |
+|               |            |                                                                                     |
++---------------+------------+-------------------------------------------------------------------------------------+
+| key           | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                           |
+|               |            | All storage backends are guaranteed to support key values up to 250 bytes in size.  |
+|               |            | This field is required.                                                             |
+|               |            |                                                                                     |
++---------------+------------+-------------------------------------------------------------------------------------+
+
+===========================
+
 
 
 .. _mlflowMlflowServicesetTag:

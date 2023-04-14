@@ -311,6 +311,15 @@ class TrackingServiceClient:
         tag = ExperimentTag(key, str(value))
         self.store.set_experiment_tag(experiment_id, tag)
 
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag on the experiment with the specified ID.
+
+        :param experiment_id: String ID of the experiment.
+        :param key: Name of the tag.
+        """
+        self.store.delete_experiment_tag(experiment_id, key)
+
     def set_tag(self, run_id, key, value):
         """
         Set a tag on the run with the specified ID. Value is converted to a string.
