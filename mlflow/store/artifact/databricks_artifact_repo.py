@@ -69,6 +69,9 @@ _SERVICE_AND_METHOD_TO_INFO = {
     service: extract_api_info_for_service(service, _REST_API_PATH_PREFIX)
     for service in [MlflowService, DatabricksMlflowArtifactsService]
 }
+_ARTIFACT_UPLOAD_BATCH_SIZE = (
+    50  # Max number of artifacts for which to fetch write credentials at once.
+)
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
@@ -667,30 +670,38 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     )
                 )
 
-        write_credential_infos = self._get_write_credential_infos(
-            run_id=self.run_id,
-            paths=[
-                staged_upload.dst_run_relative_artifact_path for staged_upload in staged_uploads
-            ],
-        )
-
-        inflight_uploads = {}
-        for staged_upload, write_credential_info in zip(staged_uploads, write_credential_infos):
-            upload_future = self.thread_pool.submit(
-                self._upload_to_cloud,
-                cloud_credential_info=write_credential_info,
-                src_file_path=staged_upload.src_file_path,
-                dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
-            )
-            inflight_uploads[staged_upload.src_file_path] = upload_future
-
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
-        for src_file_path, upload_future in inflight_uploads.items():
-            try:
-                upload_future.result()
-            except Exception as e:
-                failed_uploads[src_file_path] = repr(e)
+
+        def get_creds_and_upload(staged_upload_chunk):
+            write_credential_infos = self._get_write_credential_infos(
+                run_id=self.run_id,
+                paths=[
+                    staged_upload.dst_run_relative_artifact_path
+                    for staged_upload in staged_upload_chunk
+                ],
+            )
+
+            inflight_uploads = {}
+            for staged_upload, write_credential_info in zip(
+                staged_upload_chunk, write_credential_infos
+            ):
+                upload_future = self.thread_pool.submit(
+                    self._upload_to_cloud,
+                    cloud_credential_info=write_credential_info,
+                    src_file_path=staged_upload.src_file_path,
+                    dst_run_relative_artifact_path=staged_upload.dst_run_relative_artifact_path,
+                )
+                inflight_uploads[staged_upload.src_file_path] = upload_future
+
+            for src_file_path, upload_future in inflight_uploads.items():
+                try:
+                    upload_future.result()
+                except Exception as e:
+                    failed_uploads[src_file_path] = repr(e)
+
+        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+            get_creds_and_upload(chunk)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
