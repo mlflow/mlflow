@@ -1,4 +1,5 @@
 import json
+import yaml
 from unittest import mock
 from contextlib import contextmanager
 
@@ -152,8 +153,8 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
     with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True):
         mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
-    with tmp_path.joinpath("openai.json").open() as f:
-        creds = json.load(f)
+    with tmp_path.joinpath("openai.yaml").open() as f:
+        creds = yaml.safe_load(f)
         assert creds == {
             "OPENAI_API_TYPE": f"{scope}:openai_api_type",
             "OPENAI_API_KEY": f"{scope}:openai_api_key",

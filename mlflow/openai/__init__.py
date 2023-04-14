@@ -4,18 +4,16 @@ The ``mlflow.openai`` module provides an API for logging and loading OpenAI mode
 Credential management for OpenAI on Databricks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When this flavor logs a model on Databricks, it saves a JSON file with the following contents as
-``openai.json`` if the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable is set.
+When this flavor logs a model on Databricks, it saves a YAML file with the following contents as
+``openai.yaml`` if the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable is set.
 
-.. code-block:: json
+.. code-block:: yaml
 
-    {
-        "OPENAI_API_TYPE": "{scope}:openai_api_type",
-        "OPENAI_API_BASE": "{scope}:openai_api_base",
-        "OPENAI_API_KEY": "{scope}:openai_api_key",
-        "OPENAI_API_KEY_PATH": "{scope}:openai_api_key_path",
-        "OPENAI_ORGANIZATION": "{scope}:openai_organization"
-    }
+    OPENAI_API_BASE: test:openai_api_base
+    OPENAI_API_KEY: test:openai_api_key
+    OPENAI_API_KEY_PATH: test:openai_api_key_path
+    OPENAI_API_TYPE: test:openai_api_type
+    OPENAI_ORGANIZATION: test:openai_organization
 
 - ``{scope}`` is the value of the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable.
 - The keys are the environment variables that the ``openai-python`` package uses to
@@ -191,8 +189,8 @@ class OpenAIEnvVar(str, Enum):
 
 
 def _log_credentials_json(local_model_dir, scope):
-    with open(os.path.join(local_model_dir, "openai.json"), "w") as f:
-        json.dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
+    with open(os.path.join(local_model_dir, "openai.yaml"), "w") as f:
+        yaml.dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
 
 
 @experimental
