@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
+import { useNotification } from '@databricks/design-system';
 import {
   ExperimentEntity,
   ExperimentStoreEntities,
@@ -25,6 +26,7 @@ import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../constants';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { prepareRunsGridData } from '../../utils/experimentPage.row-utils';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
+import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
 
 export interface ExperimentViewRunsOwnProps {
   experiments: ExperimentEntity[];
@@ -155,14 +157,20 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     requestError,
   ]);
 
+  const [notificationsFn, notificationContainer] = useNotification();
+  const showFetchedRunsNotifications = useFetchedRunsNotification(notificationsFn);
+
   const loadMoreRunsCallback = useCallback(() => {
     if (moreRunsAvailable && !isLoadingRuns) {
       // Don't do this if we're loading runs
       // to prevent too many requests from being
       // sent out
-      loadMoreRuns();
+      loadMoreRuns().then((runs) => {
+        // Display notification about freshly loaded runs
+        showFetchedRunsNotifications(runs, runInfos);
+      });
     }
-  }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns]);
+  }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
   return (
     <>
@@ -199,6 +207,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
             updateSearchFacets={updateSearchFacets}
           />
         )}
+        {notificationContainer}
       </div>
     </>
   );

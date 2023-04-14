@@ -20,6 +20,7 @@ const flushPromises = (advance = false) =>
 
 describe('useFetchCompareRunsMetricHistory', () => {
   const getMetricHistoryApiMock = getMetricHistoryApiBulk as jest.Mock;
+  // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
   let wrapper: ReactWrapper;
 
   const isLoadingIndicatorShown = () => wrapper.exists('[data-testid="loading"]');
