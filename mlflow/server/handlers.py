@@ -1704,6 +1704,14 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_rest_path(base_path):
+    return f"/api/2.0{base_path}"
+
+
+def _get_ajax_path(base_path):
+    return _add_static_prefix(f"/ajax-api/2.0{base_path}")
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -1717,7 +1725,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
-    return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
+    return [_get_rest_path(base_path), _get_ajax_path(base_path)]
 
 
 def get_handler(request_class):
