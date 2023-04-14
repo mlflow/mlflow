@@ -469,3 +469,19 @@ transformers:
       ">= 0.0.0": ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+
+langchain:
+  package_info:
+    pip_release: "langchain"
+    install_dev: |
+      pip install git+https://github.com/hwchase17/langchain
+  models:
+    minimum: "0.0.139"
+    maximum: "0.0.139"
+    requirements:
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow"]
+      "<= 3.3.2": ["pandas<2"]
+    run: |
+      export MLFLOW_OPENAI_TESTING=true
+      export OPENAI_API_KEY=test
+      pytest tests/langchain/test_langchain_model_export.py

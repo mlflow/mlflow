@@ -1,5 +1,5 @@
 mlflow.langchain
-=============
+==================
 
 .. automodule:: mlflow.langchain
     :members:

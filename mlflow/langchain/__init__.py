@@ -14,9 +14,13 @@ LangChain (native) format
 """
 import os
 import yaml
-from mlflow.types.schema import Schema, ColSpec, DataType
+import pandas as pd
 import mlflow
+import logging
+
+from mlflow.types.schema import Schema, ColSpec, DataType
 from mlflow import pyfunc
+from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -43,8 +47,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-import langchain
-import logging
+from typing import Dict, List, Union
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -52,7 +55,6 @@ FLAVOR_NAME = "langchain"
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
-_SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
 
 
 def get_default_pip_requirements():
@@ -123,6 +125,8 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     """
+    import langchain
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     path = os.path.abspath(path)
@@ -269,11 +273,14 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    import langchain
+
     if type(lc_model) != langchain.chains.llm.LLMChain:
         raise TypeError(
             "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain "
             + f"instances, found {type(lc_model)}"
         )
+    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
     if type(lc_model.llm) not in _SUPPORTED_LLMS:
         logger.warning(
             "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
@@ -307,13 +314,41 @@ def _load_model(path):
     return model
 
 
+class _LangChainModelWrapper:
+    def __init__(self, lc_model):
+        self.lc_model = lc_model
+
+    def predict(self, data: List[Union[str, Dict[str, str], pd.DataFrame]]) -> List[str]:
+        if isinstance(data, pd.DataFrame):
+            messages = data.to_dict(orient="records")
+        elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
+            messages = data
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "Input must be a pandas DataFrame or a list of dictionaries",
+            )
+        return [self.lc_model.run(messages)]
+
+
+class _TestLangChainWrapper(_LangChainModelWrapper):
+    """
+    A wrapper class that should be used for testing purposes only.
+    """
+
+    def predict(self, data):
+        from tests.langchain.test_langchain_model_export import _mock_async_request
+
+        with _mock_async_request():
+            return super().predict(data)
+
+
 def _load_pyfunc(path):
     """
     Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    logger.warning(f"path = {path}")
-    return _LangChainModelWrapper(_load_model_from_local_fs(path))
+    wrapper_cls = _TestLangChainWrapper if _MLFLOW_OPENAI_TESTING.get() else _LangChainModelWrapper
+    return wrapper_cls(_load_model_from_local_fs(path))
 
 
 def _load_model_from_local_fs(local_model_path):
@@ -348,12 +383,3 @@ def load_model(model_uri, dst_path=None):
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     return _load_model_from_local_fs(local_model_path)
-
-
-class _LangChainModelWrapper:
-    def __init__(self, lc_model):
-        self.lc_model = lc_model
-
-    def predict(self, dataframe):
-        # TODO
-        return self.lc_model.run(dataframe)
