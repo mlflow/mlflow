@@ -28,7 +28,6 @@ for how to set up secrets on Databricks.
 import os
 import json
 import yaml
-import asyncio
 import logging
 from enum import Enum
 
@@ -443,7 +442,7 @@ class _OpenAIWrapper:
 
     def predict(self, data):
         import pandas as pd
-        from mlflow.openai.api_request_parallel_processor import process_api_requests
+        from mlflow.openai import api_request_parallel_processor
 
         if isinstance(data, pd.DataFrame):
             if "content" not in data or "role" not in data:
@@ -469,17 +468,15 @@ class _OpenAIWrapper:
         requests = [
             {
                 **model_dict,
-                # numpy array is not JSON serializable, so convert to list
                 "messages": [*prompt_messages, message],
             }
             for message in messages
         ]
-        api_key = os.getenv(OpenAIEnvVar.OPENAI_API_KEY.value)
-        if api_key is None:
+        if OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the OPENAI_API_KEY environment variable."
             )
-        results = asyncio.run(process_api_requests(requests))
+        results = api_request_parallel_processor.run_as_subprocess(requests)
         return [r["choices"][0]["message"]["content"] for r in results]
 
 
@@ -489,9 +486,9 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     """
 
     def predict(self, data):
-        from tests.openai.test_openai_model_export import _mock_async_request
+        from mlflow.openai.utils import _mock_async_request, _mock_async_chat_completion_response
 
-        with _mock_async_request():
+        with _mock_async_request(return_value=_mock_async_chat_completion_response):
             return super().predict(data)
 
 

@@ -1,7 +1,5 @@
-import json
 import yaml
 from unittest import mock
-from contextlib import contextmanager
 
 from pyspark.sql import SparkSession
 import openai
@@ -10,81 +8,12 @@ import pytest
 import pandas as pd
 
 import mlflow
-
-
-TEST_CONTENT = "test"
-
-
-class MockResponse:
-    def __init__(self, status_code, json_data):
-        self.status_code = status_code
-        self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
-
-
-def _mock_chat_completion_json():
-    # https://platform.openai.com/docs/api-reference/chat/create
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": TEST_CONTENT},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-
-
-def _mock_chat_completion_response():
-    return MockResponse(200, _mock_chat_completion_json())
-
-
-def _mock_models_retrieve_json():
-    # https://platform.openai.com/docs/api-reference/models/retrieve
-    return {"id": "gpt-3.5-turbo", "object": "model", "owned_by": "openai", "permission": []}
-
-
-def _mock_models_retrieve_response():
-    return MockResponse(200, _mock_models_retrieve_json())
-
-
-@contextmanager
-def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
-        yield m
-
-
-class MockAsyncResponse:
-    def __init__(self, status, json_data):
-        self.status = status
-        self._json = json_data
-        self.headers = {"Content-Type": "application/json"}
-
-    async def read(self):
-        return json.dumps(self._json).encode()
-
-    def __await__(self):
-        yield
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-
-    async def __aenter__(self):
-        return self
-
-
-@contextmanager
-def _mock_async_request():
-    with mock.patch(
-        "aiohttp.ClientSession.request",
-        return_value=MockAsyncResponse(200, _mock_chat_completion_json()),
-    ) as m:
-        yield m
+from mlflow.openai.utils import (
+    _mock_request,
+    _mock_chat_completion_response,
+    _mock_models_retrieve_response,
+    TEST_CONTENT,
+)
 
 
 @pytest.fixture(scope="module")
@@ -176,7 +105,7 @@ def test_pyfunc_predict(tmp_path, data):
         model="gpt-3.5-turbo",
         task="chat.completions",
         path=tmp_path,
-        messages=[{"system": "user", "content": "You are an MLflow expert."}],
+        messages=[{"role": "system", "content": "You are an MLflow expert."}],
     )
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
     assert loaded_model.predict(data) == [TEST_CONTENT]

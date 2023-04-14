@@ -19,18 +19,23 @@ Features:
 - Retries failed requests up to {max_attempts} times, to avoid missing data
 - Logs errors, to diagnose problems with requests
 """
-
+import argparse
+import json
+import pathlib
+import sys
+import subprocess
+import tempfile
 import asyncio  # for running API calls concurrently
 import logging  # for logging rate limit warnings and other messages
 import time  # for sleeping after rate limit is hit
 from dataclasses import dataclass  # for storing API inputs, outputs, and metadata
-from typing import List, Tuple
 
 import tiktoken  # for counting tokens
 import openai
 import openai.error
 
 import mlflow
+from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
 
 _logger = logging.getLogger(__name__)
 
@@ -73,7 +78,7 @@ class APIRequest:
     request_json: dict
     token_consumption: int
     attempts_left: int
-    results: List[Tuple[int, dict]]
+    output_file: str
 
     async def call_api(self, retry_queue: asyncio.Queue, status_tracker: StatusTracker):
         """
@@ -83,7 +88,11 @@ class APIRequest:
         try:
             response = await openai.ChatCompletion.acreate(**self.request_json)
             status_tracker.complete_task(success=True)
-            self.results.append((self.index, response))
+            # Save the index (will be used for sorting) and response to the output file
+            with open(self.output_file, "a") as f:
+                f.write(f"{self.index} ")
+                json.dump(response, f)
+                f.write("\n")
         except openai.error.RateLimitError as e:
             _logger.warning(f"Request {self.index} failed with error {e!r}")
             status_tracker.time_of_last_rate_limit_error = time.time()
@@ -167,7 +176,8 @@ def num_tokens_consumed_from_request(
 
 
 async def process_api_requests(
-    requests,
+    input_file: str,
+    output_file: str,
     max_requests_per_minute: float = 1_500,
     max_tokens_per_minute: float = 125_000,
     token_encoding_name: str = "cl100k_base",
@@ -191,88 +201,143 @@ async def process_api_requests(
     last_update_time = time.time()
 
     # `requests` will provide requests one at a time
-    requests_iter = enumerate(requests)
-    results = []  # stores a tuple of (index, response)
-    while True:
-        # get next request (if one is not already waiting for capacity)
-        if next_request is None:
-            if not queue_of_requests_to_retry.empty():
-                next_request = queue_of_requests_to_retry.get_nowait()
-                _logger.warning(f"Retrying request {next_request.index}: {next_request}")
-            elif req := next(requests_iter, None):
-                # get new request
-                index, request_json = req
-                next_request = APIRequest(
-                    index=index,
-                    request_json=request_json,
-                    token_consumption=num_tokens_consumed_from_request(
-                        request_json, "chat/completions", token_encoding_name
-                    ),
-                    attempts_left=max_attempts,
-                    results=results,
-                )
-                status_tracker.start_task()
-
-        # update available capacity
-        current_time = time.time()
-        seconds_since_update = current_time - last_update_time
-        available_request_capacity = min(
-            available_request_capacity + int(max_requests_per_minute * seconds_since_update / 60.0),
-            max_requests_per_minute,
-        )
-        available_token_capacity = min(
-            available_token_capacity + int(max_tokens_per_minute * seconds_since_update / 60.0),
-            max_tokens_per_minute,
-        )
-        last_update_time = current_time
-
-        # if enough capacity available, call API
-        if next_request:
-            next_request_tokens = next_request.token_consumption
-            if available_request_capacity >= 1 and available_token_capacity >= next_request_tokens:
-                # update counters
-                available_request_capacity -= 1
-                available_token_capacity -= next_request_tokens
-                next_request.attempts_left -= 1
-
-                # call API
-                asyncio.create_task(
-                    next_request.call_api(
-                        retry_queue=queue_of_requests_to_retry, status_tracker=status_tracker
+    with open(input_file) as f:
+        requests_iter = enumerate(f)
+        while True:
+            # get next request (if one is not already waiting for capacity)
+            if next_request is None:
+                if not queue_of_requests_to_retry.empty():
+                    next_request = queue_of_requests_to_retry.get_nowait()
+                    _logger.warning(f"Retrying request {next_request.index}: {next_request}")
+                elif req := next(requests_iter, None):
+                    # get new request
+                    index, request_json = req
+                    request_json = json.loads(request_json)
+                    next_request = APIRequest(
+                        index=index,
+                        request_json=request_json,
+                        token_consumption=num_tokens_consumed_from_request(
+                            request_json, "chat/completions", token_encoding_name
+                        ),
+                        attempts_left=max_attempts,
+                        output_file=output_file,
                     )
+                    status_tracker.start_task()
+
+            # update available capacity
+            current_time = time.time()
+            seconds_since_update = current_time - last_update_time
+            available_request_capacity = min(
+                available_request_capacity
+                + int(max_requests_per_minute * seconds_since_update / 60.0),
+                max_requests_per_minute,
+            )
+            available_token_capacity = min(
+                available_token_capacity + int(max_tokens_per_minute * seconds_since_update / 60.0),
+                max_tokens_per_minute,
+            )
+            last_update_time = current_time
+
+            # if enough capacity available, call API
+            if next_request:
+                next_request_tokens = next_request.token_consumption
+                if (
+                    available_request_capacity >= 1
+                    and available_token_capacity >= next_request_tokens
+                ):
+                    # update counters
+                    available_request_capacity -= 1
+                    available_token_capacity -= next_request_tokens
+                    next_request.attempts_left -= 1
+
+                    # call API
+                    asyncio.create_task(
+                        next_request.call_api(
+                            retry_queue=queue_of_requests_to_retry, status_tracker=status_tracker
+                        )
+                    )
+                    next_request = None  # reset next_request to empty
+
+            # if all tasks are finished, break
+            if status_tracker.num_tasks_in_progress == 0:
+                break
+
+            # main loop sleeps briefly so concurrent tasks can run
+            await asyncio.sleep(seconds_to_sleep_each_loop)
+
+            # if a rate limit error was hit recently, pause to cool down
+            seconds_since_rate_limit_error = (
+                time.time() - status_tracker.time_of_last_rate_limit_error
+            )
+            if seconds_since_rate_limit_error < seconds_to_pause_after_rate_limit_error:
+                remaining_seconds_to_pause = (
+                    seconds_to_pause_after_rate_limit_error - seconds_since_rate_limit_error
                 )
-                next_request = None  # reset next_request to empty
+                await asyncio.sleep(remaining_seconds_to_pause)
+                # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
+                cool_down_time = time.ctime(
+                    status_tracker.time_of_last_rate_limit_error
+                    + seconds_to_pause_after_rate_limit_error
+                )
+                _logger.warning(f"Pausing to cool down until {cool_down_time}")
 
-        # if all tasks are finished, break
-        if status_tracker.num_tasks_in_progress == 0:
-            break
-
-        # main loop sleeps briefly so concurrent tasks can run
-        await asyncio.sleep(seconds_to_sleep_each_loop)
-
-        # if a rate limit error was hit recently, pause to cool down
-        seconds_since_rate_limit_error = time.time() - status_tracker.time_of_last_rate_limit_error
-        if seconds_since_rate_limit_error < seconds_to_pause_after_rate_limit_error:
-            remaining_seconds_to_pause = (
-                seconds_to_pause_after_rate_limit_error - seconds_since_rate_limit_error
+        # after finishing, log final status
+        if status_tracker.num_tasks_failed > 0:
+            raise mlflow.MlflowException(
+                f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
             )
-            await asyncio.sleep(remaining_seconds_to_pause)
-            # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
-            cool_down_time = time.ctime(
-                status_tracker.time_of_last_rate_limit_error
-                + seconds_to_pause_after_rate_limit_error
+        if status_tracker.num_rate_limit_errors > 0:
+            _logger.warning(
+                f"{status_tracker.num_rate_limit_errors} rate limit errors received. "
+                "Consider running at a lower rate."
             )
-            _logger.warning(f"Pausing to cool down until {cool_down_time}")
 
-    # after finishing, log final status
-    if status_tracker.num_tasks_failed > 0:
-        raise mlflow.MlflowException(
-            f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
-        )
-    if status_tracker.num_rate_limit_errors > 0:
-        _logger.warning(
-            f"{status_tracker.num_rate_limit_errors} rate limit errors received. Consider running "
-            "at a lower rate."
-        )
 
-    return [result for _, result in sorted(results, key=lambda x: x[0])]
+def run_as_subprocess(requests):
+    _logger.info(f"Running {len(requests)} requests in parallel...")
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_dir = pathlib.Path(temp_dir)
+        input_file = temp_dir / "input.jsonl"
+        output_file = temp_dir / "output.jsonl"
+        with open(input_file, "w") as f:
+            for request in requests:
+                json.dump(request, f)
+                f.write("\n")
+        subprocess.run(
+            [
+                sys.executable,
+                __file__,
+                "--input-file",
+                input_file,
+                "--output-file",
+                output_file,
+            ],
+            check=True,
+        )
+        with open(output_file) as f:
+            responses = []
+            for line in f:
+                index, response = line.split(maxsplit=1)
+                index = int(index)
+                response = json.loads(response)
+                responses.append((index, response))
+            return [r[1] for r in sorted(responses, key=lambda x: x[0])]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input-file", required=True)
+    parser.add_argument("--output-file", required=True)
+    args = parser.parse_args()
+
+    if _MLFLOW_OPENAI_TESTING.get():
+        from mlflow.openai.utils import _mock_async_request, _mock_async_chat_completion_response
+
+        with _mock_async_request(return_value=_mock_async_chat_completion_response()):
+            asyncio.run(process_api_requests(args.input_file, args.output_file))
+    else:
+        asyncio.run(process_api_requests(args.input_file, args.output_file))
+
+
+if __name__ == "__main__":
+    main()
