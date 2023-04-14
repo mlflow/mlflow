@@ -50,7 +50,7 @@ export const ExperimentViewRunsEmptyTable = ({
                 defaultMessage='No runs have been logged yet. <link>Learn more</link> about how to create ML model training runs in this experiment.'
                 description='Empty state description text for experiment runs page when no runs are logged in the experiment'
                 values={{
-                  link: (chunks) => (
+                  link: (chunks: any) => (
                     <a target='_blank' href={getLearnMoreLinkUrl()} rel='noreferrer'>
                       {chunks}
                     </a>

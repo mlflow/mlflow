@@ -78,6 +78,8 @@ def pytest_ignore_collect(path, config):
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
             "tests/autologging/test_training_session.py",
+            # opt in authentication feature
+            "tests/server/auth",
         ]
 
         relpath = os.path.relpath(str(path))

@@ -4,12 +4,8 @@ import { ModelListFilters, ModelListFiltersProps } from './ModelListFilters';
 describe('ModelListFilters', () => {
   const minimalProps: ModelListFiltersProps = {
     isFiltered: false,
-    onOwnerFilterChange: () => {},
     onSearchFilterChange: () => {},
-    onStatusFilterChange: () => {},
-    ownerFilter: '',
     searchFilter: '',
-    statusFilter: '',
   };
 
   const createComponentWrapper = (moreProps: Partial<ModelListFiltersProps> = {}) => {
