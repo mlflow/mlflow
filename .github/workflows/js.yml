@@ -47,8 +47,7 @@ jobs:
           echo "::remove-matcher owner=eslint-stylish::"
       - name: Install dependencies
         run: |
-          yarn install
-          git diff --exit-code
+          yarn install --immutable
       - name: Run lint
         run: |
           yarn lint
