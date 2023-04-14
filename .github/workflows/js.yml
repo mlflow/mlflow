@@ -51,13 +51,13 @@ jobs:
           git diff --exit-code
       - name: Run lint
         run: |
-          yarn run lint
+          yarn lint
       - name: Run extract-i18n lint
         run: |
-          yarn run extract-i18n:base --lint
+          yarn i18n:check
       - name: Run tests
         run: |
-          yarn run test
+          yarn test
       - name: Run build
         if: runner.os == 'Linux'
         env:
@@ -65,4 +65,4 @@ jobs:
           # https://github.com/wojtekmaj/react-pdf/issues/280
           CI: false
         run: |
-          yarn run build
+          yarn build
