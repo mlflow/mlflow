@@ -186,7 +186,7 @@ class OpenAIEnvVar(str, Enum):
         return env_vars
 
 
-def _log_credentials_json(local_model_dir, scope):
+def _log_secrets_yaml(local_model_dir, scope):
     with open(os.path.join(local_model_dir, "openai.yaml"), "w") as f:
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
 
@@ -298,7 +298,7 @@ def save_model(
 
     if is_in_databricks_runtime():
         if scope := MLFLOW_OPENAI_SECRET_SCOPE.get():
-            _log_credentials_json(path, scope)
+            _log_secrets_yaml(path, scope)
         else:
             _logger.info(
                 "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
