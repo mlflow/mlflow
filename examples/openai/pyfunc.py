@@ -1,6 +1,9 @@
 import openai
 import mlflow
 import pandas as pd
+import logging
+
+logging.getLogger("mlflow").setLevel(logging.DEBUG)
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(

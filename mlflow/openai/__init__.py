@@ -442,7 +442,7 @@ class _OpenAIWrapper:
 
     def predict(self, data):
         import pandas as pd
-        from mlflow.openai import api_request_parallel_processor
+        from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
             if "content" not in data or "role" not in data:
@@ -476,7 +476,7 @@ class _OpenAIWrapper:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the OPENAI_API_KEY environment variable."
             )
-        results = api_request_parallel_processor.run_as_subprocess(requests)
+        results = process_api_requests(requests)
         return [r["choices"][0]["message"]["content"] for r in results]
 
 

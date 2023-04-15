@@ -1,6 +1,6 @@
-# Source: https://github.com/openai/openai-cookbook/blob/6df6ceff470eeba26a56de131254e775292eac22/examples/api_request_parallel_processor.py
-# A couple changes were made to make it work with MLflow.
-# Only chat completion is supported for now.
+# Based ons: https://github.com/openai/openai-cookbook/blob/6df6ceff470eeba26a56de131254e775292eac22/examples/api_request_parallel_processor.py
+# Several changes were made to make it work with MLflow.
+# Currently, only chat completion is supported.
 
 """
 API REQUEST PARALLEL PROCESSOR
@@ -19,23 +19,21 @@ Features:
 - Retries failed requests up to {max_attempts} times, to avoid missing data
 - Logs errors, to diagnose problems with requests
 """
-import argparse
-import json
-import pathlib
-import sys
-import subprocess
-import tempfile
-import asyncio  # for running API calls concurrently
-import logging  # for logging rate limit warnings and other messages
-import time  # for sleeping after rate limit is hit
-from dataclasses import dataclass  # for storing API inputs, outputs, and metadata
+from __future__ import annotations
 
-import tiktoken  # for counting tokens
+import logging
+import time
+import threading
+import queue
+from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor
+
+import tiktoken
 import openai
 import openai.error
+from openai.openai_object import OpenAIObject
 
 import mlflow
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
 
 _logger = logging.getLogger(__name__)
 
@@ -54,17 +52,28 @@ class StatusTracker:
     num_api_errors: int = 0  # excluding rate limit errors, counted above
     num_other_errors: int = 0
     time_of_last_rate_limit_error: int = 0  # used to cool off after hitting rate limits
+    lock: threading.Lock = threading.Lock()
 
     def start_task(self):
-        self.num_tasks_started += 1
-        self.num_tasks_in_progress += 1
+        with self.lock:
+            self.num_tasks_started += 1
+            self.num_tasks_in_progress += 1
 
     def complete_task(self, *, success: bool):
-        self.num_tasks_in_progress -= 1
-        if success:
-            self.num_tasks_succeeded += 1
-        else:
-            self.num_tasks_failed += 1
+        with self.lock:
+            self.num_tasks_in_progress -= 1
+            if success:
+                self.num_tasks_succeeded += 1
+            else:
+                self.num_tasks_failed += 1
+
+    def increment_num_rate_limit_errors(self):
+        with self.lock:
+            self.num_rate_limit_errors += 1
+
+    def increment_num_api_errors(self):
+        with self.lock:
+            self.num_api_errors += 1
 
 
 @dataclass
@@ -78,25 +87,23 @@ class APIRequest:
     request_json: dict
     token_consumption: int
     attempts_left: int
-    output_file: str
+    results: list[tuple[int, OpenAIObject]]
 
-    async def call_api(self, retry_queue: asyncio.Queue, status_tracker: StatusTracker):
+    def call_api(self, retry_queue: queue.Queue, status_tracker: StatusTracker):
         """
         Calls the OpenAI API and stores results.
         """
         _logger.debug(f"Request #{self.index} started")
         try:
-            response = await openai.ChatCompletion.acreate(**self.request_json)
+            response = openai.ChatCompletion.create(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
             status_tracker.complete_task(success=True)
-            with open(self.output_file, "a") as f:
-                f.write(f"{self.index} ")  # this will be used later to sort the responses
-                json.dump(response, f)
-                f.write("\n")
+            self.results.append((self.index, response))
         except openai.error.RateLimitError as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
             status_tracker.time_of_last_rate_limit_error = time.time()
-            status_tracker.num_rate_limit_errors += 1
+            status_tracker.increment_num_rate_limit_errors()
+            retry_queue.put_nowait(self)
         # Other retryable errors
         except (
             openai.error.Timeout,
@@ -105,7 +112,7 @@ class APIRequest:
             openai.error.ServiceUnavailableError,
         ) as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
-            status_tracker.num_api_errors += 1
+            status_tracker.increment_num_api_errors()
             if self.attempts_left > 0:
                 retry_queue.put_nowait(self)
             else:
@@ -113,7 +120,7 @@ class APIRequest:
         # Unretryable errors
         except Exception as e:
             _logger.warning(f"Request #{self.index} failed with {e!r}")
-            status_tracker.num_api_errors += 1
+            status_tracker.increment_num_api_errors()
             status_tracker.complete_task(success=False)
 
 
@@ -175,23 +182,23 @@ def num_tokens_consumed_from_request(
         raise NotImplementedError(f'API endpoint "{api_endpoint}" not implemented in this script')
 
 
-async def process_api_requests(
-    input_file: str,
-    output_file: str,
-    max_requests_per_minute: float = 1_500,
-    max_tokens_per_minute: float = 125_000,
+def process_api_requests(
+    requests: list[dict[str, any]] = None,
+    # Reference: https://platform.openai.com/docs/guides/rate-limits/overview
+    max_requests_per_minute: float = 3_500,
+    max_tokens_per_minute: float = 90_000,
     token_encoding_name: str = "cl100k_base",
     max_attempts: int = 5,
+    max_workers: int = 10,
 ):
     """
     Processes API requests in parallel, throttling to stay under rate limits.
     """
     # constants
     seconds_to_pause_after_rate_limit_error = 15
-    seconds_to_sleep_each_loop = 0.001  # 1 ms limits max throughput to 1,000 requests per second
 
     # initialize trackers
-    queue_of_requests_to_retry = asyncio.Queue()
+    retry_queue = queue.Queue()
     status_tracker = StatusTracker()  # single instance to track a collection of variables
     next_request = None  # variable to hold the next request to call
 
@@ -199,20 +206,18 @@ async def process_api_requests(
     available_request_capacity = max_requests_per_minute
     available_token_capacity = max_tokens_per_minute
     last_update_time = time.time()
-
-    # `requests` will provide requests one at a time
-    with open(input_file) as f:
-        requests_iter = enumerate(f)
+    results: list[tuple[int, OpenAIObject]] = []
+    requests_iter = enumerate(requests)
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
             if next_request is None:
-                if not queue_of_requests_to_retry.empty():
-                    next_request = queue_of_requests_to_retry.get_nowait()
+                if not retry_queue.empty():
+                    next_request = retry_queue.get_nowait()
                     _logger.warning(f"Retrying request {next_request.index}: {next_request}")
                 elif req := next(requests_iter, None):
                     # get new request
                     index, request_json = req
-                    request_json = json.loads(request_json)
                     next_request = APIRequest(
                         index=index,
                         request_json=request_json,
@@ -220,7 +225,7 @@ async def process_api_requests(
                             request_json, "chat/completions", token_encoding_name
                         ),
                         attempts_left=max_attempts,
-                        output_file=output_file,
+                        results=results,
                     )
                     status_tracker.start_task()
 
@@ -240,6 +245,8 @@ async def process_api_requests(
 
             # if enough capacity available, call API
             if next_request:
+                _logger.debug(f"Available request capacity: {available_request_capacity}")
+                _logger.debug(f"Available token capacity: {available_token_capacity}")
                 next_request_tokens = next_request.token_consumption
                 if (
                     available_request_capacity >= 1
@@ -249,21 +256,17 @@ async def process_api_requests(
                     available_request_capacity -= 1
                     available_token_capacity -= next_request_tokens
                     next_request.attempts_left -= 1
-
                     # call API
-                    asyncio.create_task(
-                        next_request.call_api(
-                            retry_queue=queue_of_requests_to_retry, status_tracker=status_tracker
-                        )
+                    executor.submit(
+                        next_request.call_api,
+                        retry_queue=retry_queue,
+                        status_tracker=status_tracker,
                     )
                     next_request = None  # reset next_request to empty
 
             # if all tasks are finished, break
             if status_tracker.num_tasks_in_progress == 0:
                 break
-
-            # main loop sleeps briefly so concurrent tasks can run
-            await asyncio.sleep(seconds_to_sleep_each_loop)
 
             # if a rate limit error was hit recently, pause to cool down
             seconds_since_rate_limit_error = (
@@ -273,13 +276,12 @@ async def process_api_requests(
                 remaining_seconds_to_pause = (
                     seconds_to_pause_after_rate_limit_error - seconds_since_rate_limit_error
                 )
-                await asyncio.sleep(remaining_seconds_to_pause)
-                # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
-                cool_down_time = time.ctime(
-                    status_tracker.time_of_last_rate_limit_error
-                    + seconds_to_pause_after_rate_limit_error
+                _logger.warning(
+                    "Encountered rate limit error. Pausing to cool down for "
+                    f"{remaining_seconds_to_pause} seconds..."
                 )
-                _logger.warning(f"Pausing to cool down until {cool_down_time}")
+                time.sleep(remaining_seconds_to_pause)
+                # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
 
         # after finishing, log final status
         if status_tracker.num_tasks_failed > 0:
@@ -292,58 +294,4 @@ async def process_api_requests(
                 "Consider running at a lower rate."
             )
 
-
-def run_as_subprocess(requests):
-    # Why not directly call `process_api_requests`?
-    # `process_api_requests` is a coroutine. To call it in a normal function,
-    #  we need to wrap it in `asyncio.run`, but `asyncio.run` cannot be called
-    # from a running event loop. This is a problem when running in Jupyter Notebook
-    # (see https://stackoverflow.com/q/55409641 for more details).
-    # To work around this, we call `process_api_requests` in a subprocess.
-    _logger.info(f"Processing {len(requests)} requests in parallel...")
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir = pathlib.Path(temp_dir)
-        input_file = temp_dir / "input.jsonl"
-        output_file = temp_dir / "output.jsonl"
-        with open(input_file, "w") as f:
-            for request in requests:
-                json.dump(request, f)
-                f.write("\n")
-        subprocess.run(
-            [
-                sys.executable,
-                __file__,
-                "--input-file",
-                input_file,
-                "--output-file",
-                output_file,
-            ],
-            check=True,
-        )
-        with open(output_file) as f:
-            responses = []
-            for line in f:
-                index, response = line.split(maxsplit=1)
-                index = int(index)
-                response = json.loads(response)
-                responses.append((index, response))
-            return [r[1] for r in sorted(responses, key=lambda x: x[0])]
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input-file", required=True)
-    parser.add_argument("--output-file", required=True)
-    args = parser.parse_args()
-
-    if _MLFLOW_OPENAI_TESTING.get():
-        from mlflow.openai.utils import _mock_async_request, _mock_async_chat_completion_response
-
-        with _mock_async_request(return_value=_mock_async_chat_completion_response()):
-            asyncio.run(process_api_requests(args.input_file, args.output_file))
-    else:
-        asyncio.run(process_api_requests(args.input_file, args.output_file))
-
-
-if __name__ == "__main__":
-    main()
+        return [res for _, res in sorted(results)]
