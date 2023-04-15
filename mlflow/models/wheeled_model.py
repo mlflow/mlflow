@@ -25,6 +25,7 @@ from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 _WHEELS_FOLDER_NAME = "wheels"
 _ORIGINAL_REQ_FILE_NAME = "original_requirements.txt"
 _PLATFORM = "platform"
+_MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = "MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"
 
 
 @experimental
@@ -87,6 +88,11 @@ class WheeledModel:
         This does not modify existing model behavior or existing model flavors. It simply downloads
         the model dependencies as wheels and modifies the requirements.txt and conda.yaml file to
         point to the downloaded wheels.
+
+        The download_command defaults to downloading only binary packages using the
+        `--only-binary=:all:` option. This behavior can be overridden using an environment
+        variable `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`, which will allows setting
+        different options such as `--prefer-binary`, `--no-binary`, etc.
         :param path: Local path where the model is to be saved.
         :param mlflow_model: The new :py:mod:`mlflow.models.Model` metadata file to store the
                              updated model metadata.
@@ -118,7 +124,9 @@ class WheeledModel:
         if not os.path.isfile(pip_requirements_path):
             self._create_pip_requirement(conda_env_path, pip_requirements_path)
 
-        self._download_wheels(pip_requirements_path=pip_requirements_path, dst_path=wheels_dir)
+        WheeledModel._download_wheels(
+            pip_requirements_path=pip_requirements_path, dst_path=wheels_dir
+        )
 
         # Keep a copy of the original requirement.txt
         shutil.copyfile(
@@ -189,17 +197,26 @@ class WheeledModel:
         mlflow_model.wheels = {_PLATFORM: platform.platform()}
         return mlflow_model
 
-    def _download_wheels(self, pip_requirements_path, dst_path):
+    @classmethod
+    def _download_wheels(cls, pip_requirements_path, dst_path):
         """
         Downloads all the wheels of the dependencies specified in the requirements.txt file.
+        The pip wheel download_command defaults to downloading only binary packages using
+        the `--only-binary=:all:` option. This behavior can be overridden using an
+        environment variable `MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS`, which will allows
+        setting different options such as `--prefer-binary`, `--no-binary`, etc.
         :param pip_requirements_path: Path to requirements.txt in the model directory
         :param dst_path: Path to the directory where the wheels are to be downloaded
         """
         if not os.path.exists(dst_path):
             os.makedirs(dst_path)
 
+        pip_wheel_options = os.environ.get(
+            _MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS, "--only-binary=:all:"
+        )
+
         download_command = (
-            f"{sys.executable} -m pip wheel --prefer-binary --wheel-dir={dst_path} -r"
+            f"{sys.executable} -m pip wheel {pip_wheel_options} --wheel-dir={dst_path} -r"
             f"{pip_requirements_path} --no-cache-dir"
         )
 
