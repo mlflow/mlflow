@@ -13,7 +13,7 @@ from mlflow.utils.validation import path_not_unique, bad_path_message
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
 # Max threads to use for parallelism.
-_NUM_MAX_THREADS = 8
+_NUM_MAX_THREADS = 20
 # Max threads per CPU
 _NUM_MAX_THREADS_PER_CPU = 2
 assert _NUM_MAX_THREADS >= _NUM_MAX_THREADS_PER_CPU

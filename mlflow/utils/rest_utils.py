@@ -5,7 +5,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
 import urllib3
-from contextlib import contextmanager
 from functools import lru_cache
 from packaging.version import Version
 
@@ -42,8 +41,12 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 
 @lru_cache(maxsize=64)
 def _get_request_session(max_retries, backoff_factor, retry_codes):
+    return _get_request_session_uncached(max_retries, backoff_factor, retry_codes)
+
+
+def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
     """
-    Returns a cached Requests.Session object for making HTTP request.
+    Returns a Requests.Session object for making HTTP request.
 
     :param max_retries: Maximum total number of retries.
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
@@ -78,7 +81,7 @@ def _get_request_session(max_retries, backoff_factor, retry_codes):
 
 
 def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, **kwargs
+    method, url, max_retries, backoff_factor, retry_codes, cached_session=True, **kwargs
 ):
     """
     Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -90,11 +93,15 @@ def _get_http_response_with_retries(
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
     """
-    session = _get_request_session(max_retries, backoff_factor, retry_codes)
+    if cached_session:
+        session = _get_request_session(max_retries, backoff_factor, retry_codes)
+    else:
+        session = _get_request_session_uncached(max_retries, backoff_factor, retry_codes)
     return session.request(method, url, **kwargs)
 
 
@@ -104,6 +111,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     **kwargs,
@@ -122,6 +130,7 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
@@ -144,13 +153,11 @@ def http_request(
 
     headers = dict(**resolve_request_headers())
 
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
+
     if auth_str:
         headers["Authorization"] = auth_str
-
-    if host_creds.server_cert_path is None:
-        verify = not host_creds.ignore_tls_verification
-    else:
-        verify = host_creds.server_cert_path
 
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
@@ -171,7 +178,7 @@ def http_request(
             backoff_factor,
             retry_codes,
             headers=headers,
-            verify=verify,
+            verify=host_creds.verify,
             timeout=timeout,
             **kwargs,
         )
@@ -233,7 +240,9 @@ def augmented_raise_for_status(response):
         response.raise_for_status()
     except HTTPError as e:
         if response.text:
-            raise HTTPError(f"{e}. Response text: {response.text}")
+            raise HTTPError(
+                f"{e}. Response text: {response.text}", request=e.request, response=e.response
+            )
         else:
             raise e
 
@@ -295,7 +304,6 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto):
                 raise e
 
 
-@contextmanager
 def cloud_storage_http_request(
     method,
     url,
@@ -303,6 +311,7 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
+    cached_session=True,
     **kwargs,
 ):
     """
@@ -317,19 +326,23 @@ def cloud_storage_http_request(
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request. Default to None owing to long duration operation in read / write.
+    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return requests.Response object.
     """
-    if method.lower() not in ("put", "get", "patch"):
+    if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
-    try:
-        with _get_http_response_with_retries(
-            method, url, max_retries, backoff_factor, retry_codes, timeout=timeout, **kwargs
-        ) as response:
-            yield response
-    except Exception as e:
-        raise MlflowException("API request failed with exception %s" % e)
+    return _get_http_response_with_retries(
+        method,
+        url,
+        max_retries,
+        backoff_factor,
+        retry_codes,
+        timeout=timeout,
+        cached_session=cached_session,
+        **kwargs,
+    )
 
 
 class MlflowHostCreds:
@@ -398,3 +411,10 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    @property
+    def verify(self):
+        if self.server_cert_path is None:
+            return not self.ignore_tls_verification
+        else:
+            return self.server_cert_path

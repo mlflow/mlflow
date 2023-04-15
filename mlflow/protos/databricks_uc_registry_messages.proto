@@ -30,16 +30,16 @@ message RegisteredModel {
 
 enum ModelVersionStatus {
   // Unspecified enum value
-  MODEL_VERSION_STATUS_UNSPECIFIED = 0;
+  UNSPECIFIED = 0;
 
   // Request to register a new model version is pending as server performs background tasks.
-  MODEL_VERSION_STATUS_PENDING_REGISTRATION = 1;
+  PENDING_REGISTRATION = 1;
 
   // Request to register a new model version has failed.
-  MODEL_VERSION_STATUS_FAILED_REGISTRATION = 2;
+  FAILED_REGISTRATION = 2;
 
   // Model version is ready for use.
-  MODEL_VERSION_STATUS_READY = 3;
+  READY = 3;
 }
 
 message ModelVersion {
@@ -71,8 +71,8 @@ message ModelVersion {
   // ID of the MLflow experiment containing the MLflow run that generated this model version
   optional string run_experiment_id = 9;
 
-  // ID of the workspace containing the MLflow run that generated this model version
-  optional int64 run_workspace_id = 10 ;
+  // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
+  optional string run_tracking_server_id = 10;
 
   // Current status of ``model_version``
   optional ModelVersionStatus status = 11;
@@ -85,9 +85,9 @@ message ModelVersion {
 }
 
 enum ModelVersionOperation {
-  MODEL_VERSION_OPERATION_UNKNOWN = 0;
-  MODEL_VERSION_READ = 1;
-  MODEL_VERSION_READ_WRITE = 2;
+  MODEL_VERSION_OPERATION_UNSPECIFIED = 0;
+  MODEL_VERSION_OPERATION_READ = 1;
+  MODEL_VERSION_OPERATION_READ_WRITE = 2;
 }
 
 // An object encapsulates temporary credentials for cloud API authentication. The temporary
@@ -212,6 +212,9 @@ message CreateModelVersionRequest {
 
   // Optional description for model version.
   optional string description = 4;
+
+  // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
+  optional string run_tracking_server_id = 5;
 }
 
 message CreateModelVersionResponse {

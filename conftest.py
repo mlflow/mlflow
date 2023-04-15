@@ -67,6 +67,7 @@ def pytest_ignore_collect(path, config):
             "tests/prophet",
             "tests/pmdarima",
             "tests/diviner",
+            "tests/transformers",
             "tests/test_mlflow_lazily_imports_ml_packages.py",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc
@@ -77,6 +78,8 @@ def pytest_ignore_collect(path, config):
             "tests/autologging/test_autologging_behaviors_integration.py",
             "tests/autologging/test_autologging_utils.py",
             "tests/autologging/test_training_session.py",
+            # opt in authentication feature
+            "tests/server/auth",
         ]
 
         relpath = os.path.relpath(str(path))

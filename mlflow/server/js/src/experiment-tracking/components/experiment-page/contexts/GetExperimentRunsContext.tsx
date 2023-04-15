@@ -7,7 +7,7 @@ import { useExperimentIds } from '../hooks/useExperimentIds';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
 import Utils from '../../../../common/utils/Utils';
 import { searchModelVersionsApi } from '../../../../model-registry/actions';
-import { UpdateExperimentSearchFacetsFn } from '../../../types';
+import { RunEntity, UpdateExperimentSearchFacetsFn } from '../../../types';
 import { useAsyncDispatch } from '../hooks/useAsyncDispatch';
 import {
   createSearchRunsParams,
@@ -55,7 +55,7 @@ export interface GetExperimentRunsContextType {
   /**
    * Function used to load more runs (if available) using currently used filters
    */
-  loadMoreRuns: () => void;
+  loadMoreRuns: () => Promise<RunEntity[]>;
 
   /**
    * Contains error descriptor if fetching runs failed
@@ -165,7 +165,7 @@ export const GetExperimentRunsContextProvider = ({
       // Immediately set loading runs flag, don't wait for RequestStateWrapper
       // otherwise it will result in the unnecessary rerender
       setIsLoadingRuns(true);
-      dispatch(action)
+      const fetchPromise = dispatch(action)
         .then((data) => {
           const { value } = data;
           nextPageToken.current = value.next_page_token;
@@ -180,6 +180,7 @@ export const GetExperimentRunsContextProvider = ({
           ) {
             setIsLoadingRuns(false);
           }
+          return value.runs || [];
         })
         .catch((e) => {
           Utils.logErrorAndNotifyUser(e, 0);
@@ -187,12 +188,14 @@ export const GetExperimentRunsContextProvider = ({
         });
 
       setSearchRunsRequestId(action.meta.id);
+
+      return fetchPromise;
     },
     [dispatch, actions],
   );
 
   const loadMoreRuns = useCallback(() => {
-    internalFetchExperimentRuns(
+    return internalFetchExperimentRuns(
       searchFacetsState,
       experimentIds,
       referenceTime.current || undefined,

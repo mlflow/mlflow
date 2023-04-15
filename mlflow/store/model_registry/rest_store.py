@@ -21,6 +21,9 @@ from mlflow.protos.model_registry_pb2 import (
     SetModelVersionTag,
     DeleteRegisteredModelTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.base_rest_store import BaseRestStore
@@ -354,3 +357,38 @@ class RestStore(BaseRestStore):
         """
         req_body = message_to_json(DeleteModelVersionTag(name=name, version=version, key=key))
         self._call_endpoint(DeleteModelVersionTag, req_body)
+
+    def set_registered_model_alias(self, name, alias, version):
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+        """
+        req_body = message_to_json(SetRegisteredModelAlias(name=name, alias=alias, version=version))
+        self._call_endpoint(SetRegisteredModelAlias, req_body)
+
+    def delete_registered_model_alias(self, name, alias):
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+        """
+        req_body = message_to_json(DeleteRegisteredModelAlias(name=name, alias=alias))
+        self._call_endpoint(DeleteRegisteredModelAlias, req_body)
+
+    def get_model_version_by_alias(self, name, alias):
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        req_body = message_to_json(GetModelVersionByAlias(name=name, alias=alias))
+        response_proto = self._call_endpoint(GetModelVersionByAlias, req_body)
+        return ModelVersion.from_proto(response_proto.model_version)

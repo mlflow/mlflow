@@ -1044,19 +1044,169 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         )
 
 
-def test_create_model_version_with_local_source(mlflow_client):
+def test_create_model_version_with_path_source(mlflow_client):
     name = "mode"
     mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
             "name": name,
-            "source": "file:///tmp/model",
-            "run_id": "run_id",
+            "source": run.info.artifact_uri[len("file://") :],
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # run_id is not specified
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri[len("file://") :],
         },
     )
     assert response.status_code == 400
-    assert response.json() == {
-        "error_code": "INVALID_PARAMETER_VALUE",
-        "message": "Model version source cannot be a local path: 'file:///tmp/model'",
-    }
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    # run_id is specified but source is not in the run's artifact directory
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "/tmp",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+
+def test_create_model_version_with_file_uri(mlflow_client):
+    name = "test"
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    assert run.info.artifact_uri.startswith("file://")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/.",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": f"{run.info.artifact_uri}/model/..",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # run_id is not specified
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri,
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    # run_id is specified but source is not in the run's artifact directory
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file:///tmp",
+        },
+    )
+    assert response.status_code == 400
+    assert "To use a local path as a model version" in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "file://123.456.789.123/path/to/source",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "MLflow tracking server doesn't allow" in response.json()["message"]
+
+
+def test_create_model_version_with_file_uri_env_var(tmp_path):
+    backend_uri = tmp_path.joinpath("file").as_uri()
+    url, process = _init_server(
+        backend_uri,
+        root_artifact_uri=tmp_path.as_uri(),
+        extra_env={"MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE": "true"},
+    )
+    try:
+        mlflow_client = MlflowClient(url)
+
+        name = "test"
+        mlflow_client.create_registered_model(name)
+        exp_id = mlflow_client.create_experiment("test")
+        run = mlflow_client.create_run(experiment_id=exp_id)
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+            json={
+                "name": name,
+                "source": "file://123.456.789.123/path/to/source",
+                "run_id": run.info.run_id,
+            },
+        )
+        assert response.status_code == 200
+    finally:
+        _terminate_server(process)
+
+
+def test_logging_model_with_local_artifact_uri(mlflow_client):
+    from sklearn.linear_model import LogisticRegression
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    with mlflow.start_run() as run:
+        assert run.info.artifact_uri.startswith("file://")
+        mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
+        mlflow.pyfunc.load_model("models:/rmn/1")
+
+
+def test_update_run_name_without_changing_status(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("update run name")
+    created_run = mlflow_client.create_run(experiment_id)
+    mlflow_client.set_terminated(created_run.info.run_id, "FINISHED")
+
+    mlflow_client.update_run(created_run.info.run_id, name="name_abc")
+    updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
+    assert updated_run_info.run_name == "name_abc"
+    assert updated_run_info.status == "FINISHED"

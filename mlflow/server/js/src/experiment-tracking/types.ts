@@ -55,6 +55,18 @@ export interface ModelInfoEntity {
   email_subscription_status: string;
 }
 
+/**
+ * A run entity as seen in the API response
+ */
+export interface RunEntity {
+  data: {
+    params: KeyValueEntity[];
+    tags: KeyValueEntity[];
+    metrics: MetricEntity[];
+  };
+  info: RunInfoEntity;
+}
+
 export interface RunInfoEntity {
   artifact_uri: string;
   end_time: number;

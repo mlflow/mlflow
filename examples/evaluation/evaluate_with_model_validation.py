@@ -30,24 +30,24 @@ def double_positive(_eval_df, builtin_metrics):
 thresholds = {
     # Specify metric value threshold
     "precision_score": MetricThreshold(
-        threshold=0.7, higher_is_better=True
+        threshold=0.7, greater_is_better=True
     ),  # precision should be >=0.7
     # Specify model comparison thresholds
     "recall_score": MetricThreshold(
         min_absolute_change=0.1,  # recall should be at least 0.1 greater than baseline model recall
         min_relative_change=0.1,  # recall should be at least 10 percent greater than baseline model recall
-        higher_is_better=True,
+        greater_is_better=True,
     ),
     # Specify both metric value and model comparison thresholds
     "accuracy_score": MetricThreshold(
         threshold=0.8,  # accuracy should be >=0.8
         min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
         min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
-        higher_is_better=True,
+        greater_is_better=True,
     ),
     # Specify threshold for custom metric
     "double_positive": MetricThreshold(
-        threshold=1e5, higher_is_better=False  # double_positive should be <=1e5
+        threshold=1e5, greater_is_better=False  # double_positive should be <=1e5
     ),
 }
 

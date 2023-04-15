@@ -140,12 +140,20 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
             # Required to serve models through MLServer
-            "mlserver>=1.2.0.dev13",
-            "mlserver-mlflow>=1.2.0.dev13",
+            # NOTE: remove the upper version pin once protobuf is no longer pinned in mlserver
+            # Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
+            "mlserver>=1.2.0, <1.3",
+            "mlserver-mlflow>=1.2.0, <1.3",
             "virtualenv",
             # Required for exporting metrics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
             "prometheus-flask-exporter",
+        ],
+        "databricks": [
+            # Required to write model artifacts to unity catalog locations
+            "azure-storage-file-datalake>12",
+            "google-cloud-storage>=1.30.0",
+            "boto3>1",
         ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
@@ -153,6 +161,9 @@ setup(
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+
+        [mlflow.app]
+        basic-auth=mlflow.server.auth:app
     """,
     cmdclass={
         "dependencies": ListDependencies,

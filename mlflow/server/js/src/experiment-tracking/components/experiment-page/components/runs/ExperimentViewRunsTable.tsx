@@ -10,7 +10,6 @@ import cx from 'classnames';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
 import Utils from '../../../../../common/utils/Utils';
-import { COLUMN_TYPES } from '../../../../constants';
 import {
   ExperimentEntity,
   UpdateExperimentSearchFacetsFn,
@@ -30,7 +29,6 @@ import {
   getFrameworkComponents,
   getRowIsLoadMore,
   getRowId,
-  isCanonicalSortKeyOfType,
   useRunsColumnDefinitions,
 } from '../../utils/experimentPage.column-utils';
 import { RUNS_VISIBILITY_MODE } from '../../utils/experimentPage.common-utils';
@@ -292,18 +290,10 @@ export const ExperimentViewRunsTable = React.memo(
     const hasSelectedAllColumns =
       searchFacetsState.selectedColumns.length >= allAvailableColumnsCount;
 
-    // Count metrics and params columns that were not selected yet so it can be displayed in CTA
-    const moreAvailableParamsAndMetricsColumns = useMemo(() => {
-      const selectedMetricsAndParamsColumns = searchFacetsState.selectedColumns.filter(
-        (s) =>
-          isCanonicalSortKeyOfType(s, COLUMN_TYPES.METRICS) ||
-          isCanonicalSortKeyOfType(s, COLUMN_TYPES.PARAMS),
-      ).length;
-
-      const allMetricsAndParamsColumns = metricKeyList.length + paramKeyList.length;
-
-      return Math.max(0, allMetricsAndParamsColumns - selectedMetricsAndParamsColumns);
-    }, [metricKeyList.length, paramKeyList.length, searchFacetsState.selectedColumns]);
+    const moreAvailableRunsTableColumnCount = Math.max(
+      0,
+      allAvailableColumnsCount - searchFacetsState.selectedColumns.length,
+    );
 
     const displayAddColumnsCTA = !hasSelectedAllColumns && !isComparingRuns && rowsData.length > 0;
 
@@ -370,7 +360,7 @@ export const ExperimentViewRunsTable = React.memo(
               onClick={onAddColumnClicked}
               visible={!isLoading}
               moreRunsAvailable={moreRunsAvailable}
-              moreAvailableParamsAndMetricsColumnCount={moreAvailableParamsAndMetricsColumns}
+              moreAvailableRunsTableColumnCount={moreAvailableRunsTableColumnCount}
             />
           )}
         </div>

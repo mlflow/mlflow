@@ -8,6 +8,7 @@ from typing import NamedTuple, List, Any
 
 import click
 import requests
+from packaging.version import Version
 
 
 def get_header_for_version(version):
@@ -86,21 +87,12 @@ def is_shallow():
 
 
 @click.command(help="Update CHANGELOG.md")
-@click.option(
-    "--prev-branch",
-    required=True,
-    help="Previous release branch to compare to, e.g. branch-0.8",
-)
-@click.option(
-    "--curr-branch",
-    default="master",
-    help="Current release (candidate) branch to compare to, e.g. branch-0.9 (default: 'master').",
-)
+@click.option("--prev-version", required=True, help="Previous version")
 @click.option("--release-version", required=True, help="MLflow version to release.")
 @click.option(
     "--remote", required=False, default="origin", help="Git remote to use (default: origin). "
 )
-def main(prev_branch, curr_branch, release_version, remote):
+def main(prev_version, release_version, remote):
     if is_shallow():
         print("Unshallowing repository to ensure `git log` works correctly")
         subprocess.check_call(["git", "fetch", "--unshallow"])
@@ -108,9 +100,11 @@ def main(prev_branch, curr_branch, release_version, remote):
         subprocess.check_call(
             ["git", "config", "remote.origin.fetch", "+refs/heads/*:refs/remotes/origin/*"]
         )
-    subprocess.check_call(["git", "fetch", remote, prev_branch])
-    subprocess.check_call(["git", "fetch", remote, curr_branch])
-    subprocess.check_call(["git", "branch", "-r"])
+    release_tag = f"v{prev_version}"
+    ver = Version(release_version)
+    branch = "master" if ver.micro == 0 else f"branch-{ver.major}.{ver.minor}"
+    subprocess.check_call(["git", "fetch", remote, "tag", release_tag])
+    subprocess.check_call(["git", "fetch", remote, branch])
     git_log_output = subprocess.check_output(
         [
             "git",
@@ -119,7 +113,7 @@ def main(prev_branch, curr_branch, release_version, remote):
             "--graph",
             "--cherry-pick",
             "--pretty=format:%s",
-            f"{remote}/{prev_branch}...{remote}/{curr_branch}",
+            f"tags/{release_tag}...{remote}/{branch}",
         ],
         text=True,
     )

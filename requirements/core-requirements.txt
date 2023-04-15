@@ -2,7 +2,7 @@
 # manually modify this file. Instead, modify the corresponding requirements YAML file and run the
 # dev/generate_requirements.py script to regenerate this file.
 
-alembic<2
+alembic<2,!=1.10.0
 docker<7,>=4.0.0
 Flask<3
 numpy<2

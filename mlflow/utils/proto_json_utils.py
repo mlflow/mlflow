@@ -215,8 +215,8 @@ def cast_df_types_according_to_schema(pdf, schema):
     elif schema.is_tensor_spec() and len(schema.input_types()) == 1:
         dtype_list = zip(actual_cols, [schema.input_types()[0] for _ in actual_cols])
     else:
-        n = min(len(schema.input_types(), pdf.columns))
-        dtype_list = zip(pdf.columns[:n], schema.input_types[:n])
+        n = min(len(schema.input_types()), len(pdf.columns))
+        dtype_list = zip(pdf.columns[:n], schema.input_types()[:n])
 
     for col_name, col_type_spec in dtype_list:
         if isinstance(col_type_spec, DataType):

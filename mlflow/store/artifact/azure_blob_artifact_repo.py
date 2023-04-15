@@ -6,6 +6,7 @@ import urllib.parse
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 
 from mlflow.environment_variables import MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT
 
@@ -38,12 +39,15 @@ class AzureBlobArtifactRepository(ArtifactRepository):
         (_, account, _, api_uri_suffix) = AzureBlobArtifactRepository.parse_wasbs_uri(artifact_uri)
         if "AZURE_STORAGE_CONNECTION_STRING" in os.environ:
             self.client = BlobServiceClient.from_connection_string(
-                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING")
+                conn_str=os.environ.get("AZURE_STORAGE_CONNECTION_STRING"),
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
         elif "AZURE_STORAGE_ACCESS_KEY" in os.environ:
             account_url = f"https://{account}.{api_uri_suffix}"
             self.client = BlobServiceClient(
-                account_url=account_url, credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY")
+                account_url=account_url,
+                credential=os.environ.get("AZURE_STORAGE_ACCESS_KEY"),
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
         else:
             try:
@@ -56,7 +60,9 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
             account_url = f"https://{account}.{api_uri_suffix}"
             self.client = BlobServiceClient(
-                account_url=account_url, credential=DefaultAzureCredential()
+                account_url=account_url,
+                credential=DefaultAzureCredential(),
+                connection_verify=_get_default_host_creds(artifact_uri).verify,
             )
 
     @staticmethod

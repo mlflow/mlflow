@@ -33,7 +33,7 @@ interface ExperimentViewRunsTableAddColumnCTAProps {
   isInitialized: boolean;
   visible?: boolean;
   moreRunsAvailable?: boolean;
-  moreAvailableParamsAndMetricsColumnCount?: number;
+  moreAvailableRunsTableColumnCount?: number;
 }
 
 /**
@@ -51,7 +51,7 @@ interface ExperimentViewRunsTableAddColumnCTAProps {
  *       isInitialized={gridInitialized}
  *       onAddColumnClicked={onAddColumnClicked}
  *       visible={!isLoading}
- *       moreAvailableParamsAndMetricsColumnCount={3}
+ *       moreAvailableRunsTableColumnCount={3}
  *     />
  *   </div>
  * );
@@ -62,7 +62,7 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
   isInitialized,
   visible,
   moreRunsAvailable,
-  moreAvailableParamsAndMetricsColumnCount = 0,
+  moreAvailableRunsTableColumnCount = 0,
 }: ExperimentViewRunsTableAddColumnCTAProps) => {
   const ctaRef = useRef<HTMLDivElement>(null);
 
@@ -224,7 +224,7 @@ export const ExperimentViewRunsTableAddColumnCTA = ({
                 defaultMessage='Show more columns {count, select, 0 {} other {({count} total)}}'
                 description='Label for a CTA button in experiment runs table which invokes column management dropdown'
                 values={{
-                  count: moreAvailableParamsAndMetricsColumnCount,
+                  count: moreAvailableRunsTableColumnCount,
                 }}
               />
             </div>

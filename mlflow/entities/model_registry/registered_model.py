@@ -1,8 +1,10 @@
+from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.protos.model_registry_pb2 import (
     RegisteredModel as ProtoRegisteredModel,
+    RegisteredModelAlias as ProtoRegisteredModelAlias,
     RegisteredModelTag as ProtoRegisteredModelTag,
 )
 
@@ -20,6 +22,7 @@ class RegisteredModel(_ModelRegistryEntity):
         description=None,
         latest_versions=None,
         tags=None,
+        aliases=None,
     ):
         # Constructor is called only from within the system by various backend stores.
         super().__init__()
@@ -29,6 +32,7 @@ class RegisteredModel(_ModelRegistryEntity):
         self._description = description
         self._latest_version = latest_versions
         self._tags = {tag.key: tag.value for tag in (tags or [])}
+        self._aliases = {alias.alias: alias.version for alias in (aliases or [])}
 
     @property
     def name(self):
@@ -78,6 +82,11 @@ class RegisteredModel(_ModelRegistryEntity):
         """Dictionary of tag key (string) -> tag value for the current registered model."""
         return self._tags
 
+    @property
+    def aliases(self):
+        """Dictionary of aliases (string) -> version for the current registered model."""
+        return self._aliases
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
@@ -85,6 +94,9 @@ class RegisteredModel(_ModelRegistryEntity):
 
     def _add_tag(self, tag):
         self._tags[tag.key] = tag.value
+
+    def _add_alias(self, alias):
+        self._aliases[alias.alias] = alias.version
 
     # proto mappers
     @classmethod
@@ -100,6 +112,8 @@ class RegisteredModel(_ModelRegistryEntity):
         )
         for tag in proto.tags:
             registered_model._add_tag(RegisteredModelTag.from_proto(tag))
+        for alias in proto.aliases:
+            registered_model._add_alias(RegisteredModelAlias.from_proto(alias))
         return registered_model
 
     def to_proto(self):
@@ -118,5 +132,11 @@ class RegisteredModel(_ModelRegistryEntity):
             )
         rmd.tags.extend(
             [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
+        )
+        rmd.aliases.extend(
+            [
+                ProtoRegisteredModelAlias(alias=alias, version=str(version))
+                for alias, version in self._aliases.items()
+            ]
         )
         return rmd

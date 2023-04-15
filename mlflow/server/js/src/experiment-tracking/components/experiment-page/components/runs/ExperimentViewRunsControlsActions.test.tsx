@@ -81,6 +81,7 @@ const doMock = (additionalProps: Partial<ExperimentViewRunsControlsActionsProps>
   };
 };
 
+// @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
 export const getActionButtons = (wrapper: ReactWrapper) => {
   const deleteButton = wrapper.find("button[data-testid='runs-delete-button']");
   const compareButton = wrapper.find("button[data-testid='runs-compare-button']");

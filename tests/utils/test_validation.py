@@ -15,6 +15,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location,
     _validate_db_type_string,
     _validate_experiment_name,
+    _validate_model_alias_name,
 )
 
 GOOD_METRIC_OR_PARAM_NAMES = [
@@ -41,6 +42,42 @@ BAD_METRIC_OR_PARAM_NAMES = [
     "\\",
     "./",
     "/./",
+]
+
+GOOD_ALIAS_NAMES = [
+    "a",
+    "Ab-5_",
+    "test-alias",
+    "1a2b5cDeFgH",
+    "a" * 256,
+    "lates",
+    "v123_temp",
+    "123",
+    "123v",
+    "temp_V123",
+]
+
+BAD_ALIAS_NAMES = [
+    "",
+    ".",
+    "/",
+    "..",
+    "//",
+    "a b",
+    "a/./b",
+    "/a",
+    "a/",
+    ":",
+    "\\",
+    "./",
+    "/./",
+    "a" * 257,
+    None,
+    "$dgs",
+    "latest",
+    "Latest",
+    "v123",
+    "V1",
 ]
 
 
@@ -112,6 +149,18 @@ def test_validate_tag_name_good(tag_name):
 def test_validate_tag_name_bad(tag_name):
     with pytest.raises(MlflowException, match="Invalid tag name") as e:
         _validate_tag_name(tag_name)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+@pytest.mark.parametrize("alias_name", GOOD_ALIAS_NAMES)
+def test_validate_model_alias_name_good(alias_name):
+    _validate_model_alias_name(alias_name)
+
+
+@pytest.mark.parametrize("alias_name", BAD_ALIAS_NAMES)
+def test_validate_model_alias_name_bad(alias_name):
+    with pytest.raises(MlflowException, match="alias name") as e:
+        _validate_model_alias_name(alias_name)
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 

@@ -52,7 +52,7 @@ class ModelSignature:
         Serialize into a 'jsonable' dictionary.
 
         Input and output schema are represented as json strings. This is so that the
-        representation is compact when embedded in a MLmofel yaml file.
+        representation is compact when embedded in an MLmodel yaml file.
 
         :return: dictionary representation with input and output schema represented as json strings.
         """

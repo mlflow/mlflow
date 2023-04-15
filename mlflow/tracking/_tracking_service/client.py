@@ -295,7 +295,7 @@ class TrackingServiceClient:
             self.store.log_param(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
-                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}"
                 raise MlflowException(msg, INVALID_PARAMETER_VALUE)
             else:
                 raise e

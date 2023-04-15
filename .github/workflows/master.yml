@@ -41,7 +41,7 @@ env:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v3
         with:
@@ -97,7 +97,7 @@ jobs:
 
   python:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
@@ -328,4 +328,6 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
-          pytest tests/mleap
+          # MLeap is incompatible on Windows with PySpark3.4 release. 
+          # Reinstate tests when MLeap has released a fix. [ML-30491]
+          # pytest tests/mleap

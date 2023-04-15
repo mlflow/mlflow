@@ -29,11 +29,13 @@ class ModelRegistryClient:
     models and model versions.
     """
 
-    def __init__(self, registry_uri):
+    def __init__(self, registry_uri, tracking_uri):
         """
         :param registry_uri: Address of local or remote model registry server.
+        :param tracking_uri: Address of local or remote tracking server.
         """
         self.registry_uri = registry_uri
+        self.tracking_uri = tracking_uri
         # NB: Fetch the tracking store (`self.store`) upon client initialization to ensure that
         # the tracking URI is valid and the store can be properly resolved. We define `store` as a
         # property method to ensure that the client is serializable, even if the store is not
@@ -41,7 +43,7 @@ class ModelRegistryClient:
 
     @property
     def store(self):
-        return utils._get_store(self.registry_uri)
+        return utils._get_store(self.registry_uri, self.tracking_uri)
 
     # Registered Model Methods
 
@@ -192,30 +194,23 @@ class ModelRegistryClient:
         mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
-                "Waiting up to %d seconds for model version to finish creation. \
-                    Model name: %s, version %s",
-                await_creation_for,
-                name,
-                mv.version,
+                f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
+                f"Model name: {name}, version {mv.version}",
             )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
             while mv.status == pending_status:
                 if datetime.utcnow() > max_datetime:
                     raise MlflowException(
-                        "Exceeded max wait time for model name: {} version: {} to become READY. \
-                            Status: {} Wait Time: {}".format(
-                            mv.name, mv.version, mv.status, await_creation_for
-                        )
+                        f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
+                        f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
             if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
                 raise MlflowException(
-                    "Model version creation failed for model name: {} version: {} with status: {} \
-                    and message: {}".format(
-                        mv.name, mv.version, mv.status, mv.status_message
-                    )
+                    f"Model version creation failed for model name: {mv.name} version: "
+                    f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
                 )
         return mv
 
@@ -330,3 +325,34 @@ class ModelRegistryClient:
         :return: None
         """
         self.store.delete_model_version_tag(name, version, key)
+
+    def set_registered_model_alias(self, name, alias, version):
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+        """
+        self.store.set_registered_model_alias(name, alias, version)
+
+    def delete_registered_model_alias(self, name, alias):
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+        """
+        self.store.delete_registered_model_alias(name, alias)
+
+    def get_model_version_by_alias(self, name, alias):
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+        """
+        return self.store.get_model_version_by_alias(name, alias)

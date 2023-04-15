@@ -38,7 +38,7 @@ _logger = logging.getLogger(__name__)
 
 
 _FEATURE_IMPORTANCE_PLOT_FILE = "feature_importance.png"
-
+_VALIDATION_METRIC_PREFIX = "val_"
 
 MetricValidationResult = namedtuple(
     "MetricValidationResult", ["metric", "greater_is_better", "value", "threshold", "validated"]
@@ -199,7 +199,7 @@ class EvaluateStep(BaseStep):
                         {
                             "explainability_algorithm": "kernel",
                             "explainability_nsamples": 10,
-                            "metric_prefix": "val_",
+                            "metric_prefix": _VALIDATION_METRIC_PREFIX,
                         },
                     ),
                     (
@@ -343,7 +343,7 @@ class EvaluateStep(BaseStep):
             confusion_matrix_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "confusion_matrix.png",
+                f"{_VALIDATION_METRIC_PREFIX}confusion_matrix.png",
             )
             if os.path.exists(confusion_matrix_path):
                 classifiers_plot_tab.add_html(
@@ -357,7 +357,7 @@ class EvaluateStep(BaseStep):
             lift_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "lift_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}lift_curve_plot.png",
             )
             if os.path.exists(lift_curve_path):
                 classifiers_plot_tab.add_html(
@@ -369,7 +369,7 @@ class EvaluateStep(BaseStep):
             pr_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "precision_recall_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}precision_recall_curve_plot.png",
             )
             if os.path.exists(pr_curve_path):
                 classifiers_plot_tab.add_html(
@@ -381,7 +381,7 @@ class EvaluateStep(BaseStep):
             roc_curve_path = os.path.join(
                 output_directory,
                 "eval_validation/artifacts",
-                "roc_curve_plot.png",
+                f"{_VALIDATION_METRIC_PREFIX}roc_curve_plot.png",
             )
             if os.path.exists(roc_curve_path):
                 classifiers_plot_tab.add_html(
@@ -399,12 +399,14 @@ class EvaluateStep(BaseStep):
         )
 
         shap_bar_plot_path = os.path.join(
-            output_directory, "eval_validation/artifacts", "shap_feature_importance_plot.png"
+            output_directory,
+            "eval_validation/artifacts",
+            f"{_VALIDATION_METRIC_PREFIX}shap_feature_importance_plot.png",
         )
         shap_beeswarm_plot_path = os.path.join(
             output_directory,
             "eval_validation/artifacts",
-            "shap_beeswarm_plot.png",
+            f"{_VALIDATION_METRIC_PREFIX}shap_beeswarm_plot.png",
         )
         shap_plot_tab.add_image("SHAP_BAR_PLOT", shap_bar_plot_path, width=800)
         shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)

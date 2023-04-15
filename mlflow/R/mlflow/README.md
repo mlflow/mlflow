@@ -1,7 +1,5 @@
 # mlflow: R interface for MLflow
 
-[![Build
-Status](https://travis-ci.org/rstudio/mlflow.svg?branch=master)](https://travis-ci.org/rstudio/mlflow)
 [![CRAN_Status_Badge](https://www.r-pkg.org/badges/version/mlflow)](https://cran.r-project.org/package=mlflow)
 
 - Install [MLflow](https://mlflow.org/) from R to track experiments

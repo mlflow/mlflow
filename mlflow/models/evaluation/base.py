@@ -824,8 +824,8 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
 
         # If metric is higher is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparsion
-        comparator_fn = operator.__ge__ if metric_threshold.higher_is_better else operator.__le__
-        operator_fn = operator.add if metric_threshold.higher_is_better else operator.sub
+        comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
+        operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
             # metric threshold fails
@@ -866,7 +866,7 @@ def _validate(validation_thresholds, candidate_metrics, baseline_metrics=None):
             # metric comparsion relative change fails
             # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
-            if metric_threshold.higher_is_better:
+            if metric_threshold.greater_is_better:
                 relative_change = (
                     candidate_metric_value - baseline_metric_value
                 ) / baseline_metric_value
@@ -1041,8 +1041,8 @@ def evaluate(
           For multiclass classification tasks, the maximum number of classes for which to log
           the per-class ROC curve and Precision-Recall curve. If the number of classes is
           larger than the configured maximum, these curves are not logged.
-        - **metric_prefix**: An optional prefix to prepend to the name of each metric produced
-          during evaluation.
+        - **metric_prefix**: An optional prefix to prepend to the name of each metric and artifact
+          produced during evaluation.
         - **log_metrics_with_dataset_info**: A boolean value specifying whether or not to include
           information about the evaluation dataset in the name of each metric logged to MLflow
           Tracking during evaluation, default value is True.
@@ -1237,7 +1237,7 @@ def evaluate(
                     min_absolute_change=0.05,
                     # accuracy should be at least 0.05 greater than baseline model accuracy
                     min_relative_change=0.05,
-                    higher_is_better=True,
+                    greater_is_better=True,
                 ),
             }
 

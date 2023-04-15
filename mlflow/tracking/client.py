@@ -34,8 +34,13 @@ from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
-from mlflow.utils.uri import is_databricks_uri
-from mlflow.utils.validation import _validate_model_version_or_stage_exists
+from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
+from mlflow.utils.validation import (
+    _validate_model_version_or_stage_exists,
+    _validate_model_name,
+    _validate_model_alias_name,
+    _validate_model_version,
+)
 
 if TYPE_CHECKING:
     import matplotlib  # pylint: disable=unused-import
@@ -95,7 +100,7 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                registry_client = ModelRegistryClient(self._registry_uri)
+                registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
                 # that the variable name is consistent with the variable name specified in the
@@ -2273,7 +2278,12 @@ class MlflowClient:
             Stage: None
         """
         tracking_uri = self._tracking_client.tracking_uri
-        if not run_link and is_databricks_uri(tracking_uri) and tracking_uri != self._registry_uri:
+        if (
+            not run_link
+            and is_databricks_uri(tracking_uri)
+            and tracking_uri != self._registry_uri
+            and not is_databricks_unity_catalog_uri(self._registry_uri)
+        ):
             if not run_id:
                 eprint(
                     "Warning: no run_link will be recorded with the model version "
@@ -2899,3 +2909,257 @@ class MlflowClient:
                 raise MlflowException("Could not find any model version for {stage} stage")
             version = latest_versions[0].version
         self._get_registry_client().delete_model_version_tag(name, version, key)
+
+    def set_registered_model_alias(self, name: str, alias: str, version: str) -> None:
+        """
+        Set a registered model alias pointing to a model version.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :param version: Registered model version number.
+        :return: None
+
+        .. code-block:: Python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_info(rm):
+                print("--Model--")
+                print("name: {}".format(rm.name))
+                print("aliases: {}".format(rm.aliases))
+
+            def print_model_version_info(mv):
+                print("--Model Version--")
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Aliases: {}".format(mv.aliases))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+
+            # Set registered model alias
+            client.set_registered_model_alias(name, "test-alias", mv.version)
+            print()
+            print_model_info(model)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: []
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {"test-alias": "1"}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: ["test-alias"]
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        _validate_model_version(version)
+        self._get_registry_client().set_registered_model_alias(name, alias, version)
+
+    def delete_registered_model_alias(self, name: str, alias: str) -> None:
+        """
+        Delete an alias associated with a registered model.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: None
+
+        .. code-block:: Python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_info(rm):
+                print("--Model--")
+                print("name: {}".format(rm.name))
+                print("aliases: {}".format(rm.aliases))
+
+            def print_model_version_info(mv):
+                print("--Model Version--")
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Aliases: {}".format(mv.aliases))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+
+            # Set registered model alias
+            client.set_registered_model_alias(name, "test-alias", mv.version)
+            print()
+            print_model_info(model)
+            print_model_version_info(mv)
+
+            # Delete registered model alias
+            client.set_registered_model_alias(name, "test-alias")
+            print()
+            print_model_info(model)
+            print_model_version_info(mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: []
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {"test-alias": "1"}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: ["test-alias"]
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: []
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        self._get_registry_client().delete_registered_model_alias(name, alias)
+
+    def get_model_version_by_alias(self, name: str, alias: str) -> ModelVersion:
+        """
+        Get the model version instance by name and alias.
+
+        :param name: Registered model name.
+        :param alias: Name of the alias.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+
+        .. code-block:: Python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+            from sklearn.ensemble import RandomForestRegressor
+
+            def print_model_info(rm):
+                print("--Model--")
+                print("name: {}".format(rm.name))
+                print("aliases: {}".format(rm.aliases))
+
+            def print_model_version_info(mv):
+                print("--Model Version--")
+                print("Name: {}".format(mv.name))
+                print("Version: {}".format(mv.version))
+                print("Aliases: {}".format(mv.aliases))
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            params = {"n_estimators": 3, "random_state": 42}
+            name = "RandomForestRegression"
+            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+
+            # Log MLflow entities
+            with mlflow.start_run() as run:
+                mlflow.log_params(params)
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+
+            # Register model name in the model registry
+            client = MlflowClient()
+            client.create_registered_model(name)
+            model = client.get_registered_model(name)
+            print_model_info(model)
+
+            # Create a new version of the rfr model under the registered model name
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
+            mv = client.create_model_version(name, model_uri, run.info.run_id)
+            print_model_version_info(mv)
+
+            # Set registered model alias
+            client.set_registered_model_alias(name, "test-alias", mv.version)
+            print()
+            print_model_info(model)
+            print_model_version_info(mv)
+
+            # Get model version by alias
+            alias_mv = client.get_model_version_by_alias(name, "test-alias")
+            print()
+            print_model_version_info(alias_mv)
+
+        .. code-block:: text
+            :caption: Output
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: []
+
+            --Model--
+            name: RandomForestRegression
+            aliases: {"test-alias": "1"}
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: ["test-alias"]
+
+            --Model Version--
+            Name: RandomForestRegression
+            Version: 1
+            Aliases: ["test-alias"]
+        """
+        _validate_model_name(name)
+        _validate_model_alias_name(alias)
+        return self._get_registry_client().get_model_version_by_alias(name, alias)

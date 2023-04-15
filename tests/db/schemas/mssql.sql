@@ -131,3 +131,11 @@ CREATE TABLE tags (
 	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid),
 	CONSTRAINT "FK__tags__run_uuid__412EB0B6" FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
+
+CREATE TABLE registered_model_aliases (
+	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	alias VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	version INTEGER NOT NULL,
+	CONSTRAINT registered_model_alias_pk PRIMARY KEY (name, alias),
+	CONSTRAINT registered_model_alias_name_fkey FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE ON DELETE CASCADE
+)

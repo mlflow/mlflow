@@ -552,8 +552,10 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            run.status = RunStatus.to_string(run_status)
-            run.end_time = end_time
+            if run_status is not None:
+                run.status = RunStatus.to_string(run_status)
+            if end_time is not None:
+                run.end_time = end_time
             if run_name:
                 run.name = run_name
                 run_name_tag = self._try_get_run_tag(session, run_id, MLFLOW_RUN_NAME)
@@ -958,12 +960,13 @@ class SqlAlchemyStore(AbstractStore):
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) > 0:
                     old_value = existing_params[0]
-                    raise MlflowException(
-                        "Changing param values is not allowed. Param with key='{}' was already"
-                        " logged with value='{}' for run ID='{}'. Attempted logging new value"
-                        " '{}'.".format(param.key, old_value, run_id, param.value),
-                        INVALID_PARAMETER_VALUE,
-                    )
+                    if old_value != param.value:
+                        raise MlflowException(
+                            "Changing param values is not allowed. Param with key='{}' was already"
+                            " logged with value='{}' for run ID='{}'. Attempted logging new value"
+                            " '{}'.".format(param.key, old_value, run_id, param.value),
+                            INVALID_PARAMETER_VALUE,
+                        )
                 else:
                     raise
 

@@ -72,11 +72,11 @@ class WheeledModel:
             with mlflow.start_run():
                 WheeledModel.log_model(model_uri)
         """
-        model_name, _, _ = _parse_model_uri(model_uri)
+        parsed_uri = _parse_model_uri(model_uri)
         return Model.log(
             artifact_path=None,
             flavor=WheeledModel(model_uri),
-            registered_model_name=registered_model_name or model_name,
+            registered_model_name=registered_model_name or parsed_uri.name,
         )
 
     def save_model(self, path, mlflow_model=None):
