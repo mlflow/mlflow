@@ -26,7 +26,6 @@ corresponding environment variable. See https://docs.databricks.com/security/sec
 for how to set up secrets on Databricks.
 """
 import os
-import json
 import yaml
 import logging
 from enum import Enum
@@ -66,7 +65,7 @@ from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 FLAVOR_NAME = "openai"
-
+MODEL_FILENAME = "model.yaml"
 
 _logger = logging.getLogger(__name__)
 
@@ -189,7 +188,7 @@ class OpenAIEnvVar(str, Enum):
 
 def _log_credentials_json(local_model_dir, scope):
     with open(os.path.join(local_model_dir, "openai.yaml"), "w") as f:
-        yaml.dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
+        yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
 
 
 @experimental
@@ -271,21 +270,20 @@ def save_model(
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
-    model_data_subpath = "model.json"
-    model_data_path = os.path.join(path, model_data_subpath)
+    model_data_path = os.path.join(path, MODEL_FILENAME)
     model_dict = {
         "model": _get_model_name(model),
         "task": task,
         **kwargs,
     }
     with open(model_data_path, "w") as f:
-        json.dump(model_dict, f)
+        yaml.safe_dump(model_dict, f)
 
     if task == "chat.completions":
         pyfunc.add_to_model(
             mlflow_model,
             loader_module="mlflow.openai",
-            data=model_data_subpath,
+            data=MODEL_FILENAME,
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
@@ -293,7 +291,7 @@ def save_model(
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         openai_version=get_openai_package_version(),
-        data=model_data_subpath,
+        data=MODEL_FILENAME,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -425,7 +423,7 @@ def log_model(
 
 def _load_model(path):
     with open(path) as f:
-        return json.load(f)
+        return yaml.safe_load(f)
 
 
 def _has_content_and_role(d):
@@ -486,9 +484,9 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     """
 
     def predict(self, data):
-        from mlflow.openai.utils import _mock_async_request, _mock_async_chat_completion_response
+        from mlflow.openai.utils import _mock_request, _mock_chat_completion_response
 
-        with _mock_async_request(return_value=_mock_async_chat_completion_response):
+        with _mock_request(return_value=_mock_chat_completion_response()):
             return super().predict(data)
 
 
@@ -526,5 +524,5 @@ def load_model(model_uri, dst_path=None):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
     flavor_conf = _get_flavor_configuration(local_model_path, FLAVOR_NAME)
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    model_data_path = os.path.join(local_model_path, flavor_conf.get("data", "model.json"))
+    model_data_path = os.path.join(local_model_path, flavor_conf.get("data", MODEL_FILENAME))
     return _load_model(model_data_path)
