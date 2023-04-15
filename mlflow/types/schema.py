@@ -284,6 +284,12 @@ class Schema:
             )
         self._inputs = inputs
 
+    def __len__(self):
+        return len(self._inputs)
+
+    def __iter__(self):
+        return iter(self._inputs)
+
     @property
     def inputs(self) -> List[Union[ColSpec, TensorSpec]]:
         """Representation of a dataset that defines this schema."""
