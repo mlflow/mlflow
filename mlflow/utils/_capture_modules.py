@@ -123,14 +123,19 @@ def main():
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
-        pyfunc_conf = Model.load(model_path).flavors.get(mlflow.pyfunc.FLAVOR_NAME)
+        mlflow_model = Model.load(model_path)
+        pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
+        input_example = mlflow_model.load_input_example(model_path)
         loader_module = importlib.import_module(pyfunc_conf[MAIN])
         original = loader_module._load_pyfunc
 
         @functools.wraps(original)
         def _load_pyfunc_patch(*args, **kwargs):
             with cap_cm:
-                return original(*args, **kwargs)
+                model = original(*args, **kwargs)
+                if input_example is not None:
+                    model.predict(input_example)
+                return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
         mlflow.pyfunc.load_model(model_path)
