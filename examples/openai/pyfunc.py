@@ -1,9 +1,17 @@
+import os
+import logging
+
 import openai
 import mlflow
 import pandas as pd
 import logging
 
 logging.getLogger("mlflow").setLevel(logging.DEBUG)
+
+# On Databricks, set the stored OpenAI API key scope here for automatically loading the API key
+# for real time inference. See https://docs.databricks.com/security/secrets/index.html on
+# how to add a scope and API key.
+os.environ["MLFLOW_OPENAI_SECRET_SCOPE"] = "<scope-name>"
 
 with mlflow.start_run():
     model_info = mlflow.openai.log_model(
