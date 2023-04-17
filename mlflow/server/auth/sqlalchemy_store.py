@@ -156,11 +156,7 @@ class SqlAlchemyStore:
                 session.flush()
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
-                raise MlflowException(
-                    f"Experiment permission (experiment_id={experiment_id}, user_id={user_id}, "
-                    f"permission={permission}) already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                )
+                raise MlflowException(f"Experiment permission creation error: {e}")
 
     @classmethod
     def _get_experiment_permission(

@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+from mlflow import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
 
 @dataclass
 class Permission:
@@ -56,6 +59,7 @@ def get_permission(permission: str) -> Permission:
 
 def _validate_permission(permission: str):
     if permission not in ALL_PERMISSIONS:
-        raise ValueError(
-            f"Invalid permission: {permission}. Valid permissions are: {tuple(ALL_PERMISSIONS)}"
+        raise MlflowException(
+            f"Invalid permission: {permission}. Valid permissions are: {tuple(ALL_PERMISSIONS)}",
+            INVALID_PARAMETER_VALUE
         )
