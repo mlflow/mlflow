@@ -210,3 +210,12 @@ MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
 MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
 )
+
+#: (Experimental, may be changed or removed)
+#: Specifies the download options to be used by pip wheel when `add_libraries_to_model` is used to
+#: create and log model dependencies as model artifacts. The default behavior only uses dependency
+#: binaries and no source packages.
+#: (default: ``--only-binary=:all:``).
+MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
+    "MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", str, "--only-binary=:all:"
+)

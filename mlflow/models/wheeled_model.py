@@ -18,6 +18,7 @@ from mlflow.utils.environment import (
     _mlflow_additional_pip_env,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.environment_variables import MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
@@ -25,7 +26,6 @@ from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 _WHEELS_FOLDER_NAME = "wheels"
 _ORIGINAL_REQ_FILE_NAME = "original_requirements.txt"
 _PLATFORM = "platform"
-_MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = "MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"
 
 
 @experimental
@@ -211,9 +211,7 @@ class WheeledModel:
         if not os.path.exists(dst_path):
             os.makedirs(dst_path)
 
-        pip_wheel_options = os.environ.get(
-            _MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS, "--only-binary=:all:"
-        )
+        pip_wheel_options = MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS.get()
 
         download_command = (
             f"{sys.executable} -m pip wheel {pip_wheel_options} --wheel-dir={dst_path} -r"
