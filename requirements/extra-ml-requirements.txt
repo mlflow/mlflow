@@ -46,6 +46,5 @@ diviner
 transformers
 # Required by mlflow.openai
 openai
-aiohttp
 tiktoken
 tenacity
