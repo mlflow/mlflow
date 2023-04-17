@@ -11,42 +11,44 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
-import os
-import yaml
-import pandas as pd
-import mlflow
 import logging
+import os
+from typing import Dict, List, Union
 
-from mlflow.types.schema import Schema, ColSpec, DataType
+import pandas as pd
+import yaml
+
+import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
-from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.models import Model, ModelInputExample
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
-from mlflow.models import Model, ModelInputExample
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.schema import ColSpec, DataType, Schema
+from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from typing import Dict, List, Union
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -73,6 +75,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     lc_model,
@@ -208,6 +211,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lc_model,
@@ -366,6 +370,7 @@ def _load_model_from_local_fs(local_model_path):
     return _load_model(lc_model_path)
 
 
+@experimental
 def load_model(model_uri, dst_path=None):
     """
     Load a LangChain model from a local file or a run.

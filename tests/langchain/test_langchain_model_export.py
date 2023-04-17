@@ -2,11 +2,9 @@ import os
 import langchain
 import mlflow
 import pytest
-import json
 import transformers
 
 from contextlib import contextmanager
-from unittest import mock
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.llms import OpenAI
@@ -16,47 +14,12 @@ from langchain.chains.base import Chain
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 
-TEST_CONTENT = "MLflow-test"
-
-
-class MockResponse:
-    def __init__(self, status_code, json_data):
-        self.status_code = status_code
-        self.content = json.dumps(json_data).encode()
-        self.headers = {"Content-Type": "application/json"}
-
-
-def _mock_text_completion_json():
-    # https://platform.openai.com/docs/api-reference/chat/create
-    return {
-        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [
-            {
-                "index": 0,
-                "text": TEST_CONTENT,
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
-    }
-
-
-def _mock_text_completion_response():
-    return MockResponse(200, _mock_text_completion_json())
-
-
-@contextmanager
-def _mock_request(**kwargs):
-    with mock.patch("requests.Session.request", **kwargs) as m:
-        yield m
+from mlflow.openai.utils import _mock_chat_completion_response, _mock_request, TEST_CONTENT
 
 
 @contextmanager
 def _mock_async_request():
-    with _mock_request(return_value=_mock_text_completion_response()) as m:
+    with _mock_request(return_value=_mock_chat_completion_response()) as m:
         yield m
 
 
@@ -92,9 +55,7 @@ def create_huggingface_model(model_path):
 
 
 def create_openai_llmchain():
-    os.environ[
-        "OPENAI_API_KEY"
-    ] = "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"  # no credit
+    os.environ["OPENAI_API_KEY"] = "foo"
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
@@ -201,7 +162,7 @@ def test_pyfunc_load_uni_var_model():
 
 
 def test_langchain_model_predict():
-    with _mock_request(return_value=_mock_text_completion_response()):
+    with _mock_request(return_value=_mock_chat_completion_response()):
         model = create_model("openai")
         with mlflow.start_run():
             logged_model = mlflow.langchain.log_model(model, "langchain_model")
