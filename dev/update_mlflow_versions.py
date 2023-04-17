@@ -48,7 +48,7 @@ def update_versions(new_py_version: str) -> None:
                 "js",
                 "src",
                 "common",
-                "constants.js",
+                "constants.tsx",
             )
         ],
         pattern=re.escape(current_py_version),

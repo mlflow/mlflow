@@ -74,6 +74,7 @@ try:
     from mlflow import transformers
     from mlflow import langchain
     from mlflow import llm
+    from mlflow import openai
 
     _model_flavors_supported = [
         "catboost",
