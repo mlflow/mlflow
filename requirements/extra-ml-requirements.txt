@@ -45,3 +45,7 @@ diviner
 # Required by mlflow.transformers
 transformers
 sentencepiece
+# Required by mlflow.openai
+openai
+tiktoken
+tenacity

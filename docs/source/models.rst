@@ -1756,6 +1756,25 @@ This loaded PyFunc model can only be scored with a DataFrame input.
 You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
 model flavor in native diviner formats.
 
+OpenAI (``openai``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``openai`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``openi`` model flavor enables logging of `OpenAI models <https://github.com/openai/openai-python>`_ in MLflow format via
+the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.openai.load_model()` function to load a saved or logged MLflow
+Model with the ``openai`` flavor as a dictionary of the model's attributes.
+
+Example:
+
+.. literalinclude:: ../../examples/openai/pyfunc.py
+    :language: python
+
 Diviner Types
 ~~~~~~~~~~~~~
 Diviner is a library that provides an orchestration framework for performing time series forecasting on groups of
