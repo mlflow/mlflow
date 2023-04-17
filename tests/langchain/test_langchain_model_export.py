@@ -1,4 +1,3 @@
-import os
 import langchain
 import mlflow
 import pytest
@@ -55,7 +54,6 @@ def create_huggingface_model(model_path):
 
 
 def create_openai_llmchain():
-    os.environ["OPENAI_API_KEY"] = "foo"
     llm = OpenAI(temperature=0.9)
     prompt = PromptTemplate(
         input_variables=["product"],
