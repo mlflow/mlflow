@@ -118,7 +118,7 @@ This example demonstrates the use of these functions:
 If you are using a library that supports autologging, but wish to disable it, you may do so by calling ``mlflow.autolog(disable=True)``.
 
 - For more details on automatic logging, see :ref:`automatic-logging`.
-- For more details on the explicit logging API, see :ref:`quickstart_drilldown_tracking_api`.
+- For more details on the explicit logging API, see :ref:`tracking_logging_functions`.
 
 Viewing MLflow runs and experiments
 -----------------------------------

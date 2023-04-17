@@ -53,15 +53,7 @@ R and Java
 
 See :ref:`installing MLflow for R<R-api>` . For Java, we release to Maven Central. For more information, see :ref:`java_api`.
 
-
-.. _quickstart_drilldown_log_and_load_model:
-
-Storing and serving MLflow models
----------------------------------
-
-tk
-{>> Need to talk about `pyfunc` <<}
-
+{~~
 Running MLflow Projects
 -----------------------
 
@@ -139,3 +131,4 @@ which returns::
 For more information, see :doc:`models`.
 
 
+~~}

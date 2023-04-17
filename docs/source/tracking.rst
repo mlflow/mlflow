@@ -316,6 +316,7 @@ shows the Python API.
   :depth: 1
   :local:
 
+.. _tracking_logging_functions:
 
 Logging Functions
 ------------------

@@ -73,7 +73,7 @@ Launch the MLflow UI:
 View results at http://localhost:5000. You should see a newly-created run with a param named
 "param1" and a metric named "foo":
 
-    .. image:: ./_static/images/quickstart_ui_screenshot.png
+    .. image:: ./_static/images/quickstart/quickstart_ui_screenshot.png
 
 
 
