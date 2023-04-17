@@ -284,6 +284,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
+from mlflow.environment_variables import MLFLOW_OPENAI_RETRIES_ENABLED, _MLFLOW_OPENAI_TESTING
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -412,6 +413,17 @@ class PyFuncModel:
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
+
+        if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
+            from mlflow.openai.retry import openai_auto_retry_patch
+
+            try:
+                with openai_auto_retry_patch():
+                    return self._predict_fn(data)
+            except Exception:
+                if _MLFLOW_OPENAI_TESTING.get():
+                    raise
+
         return self._predict_fn(data)
 
     @experimental
@@ -942,6 +954,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
+    openai_env_vars = mlflow.openai.OpenAIEnvVar.read_environ()
 
     _EnvManager.validate(env_manager)
 
@@ -1170,6 +1183,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if mlflow_home is not None:
             os.environ["MLFLOW_HOME"] = mlflow_home
+        if openai_env_vars:
+            os.environ.update(openai_env_vars)
         scoring_server_proc = None
 
         if env_manager != _EnvManager.LOCAL:
