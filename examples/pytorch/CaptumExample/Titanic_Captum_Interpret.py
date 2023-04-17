@@ -92,6 +92,8 @@ class TitanicSimpleNNModel(nn.Module):
 def prepare():
     RANDOM_SEED = 42
     titanic_data = get_titanic()
+    print(titanic_data)
+
     labels = titanic_data["survived"].to_numpy()
     titanic_data = titanic_data.drop(["survived"], axis=1)
     feature_names = list(titanic_data.columns)
@@ -100,7 +102,9 @@ def prepare():
     train_features, test_features, train_labels, test_labels = train_test_split(
         data, labels, test_size=0.3, random_state=RANDOM_SEED, stratify=labels
     )
-    return (train_features, train_labels, test_features, test_labels, feature_names)
+    train_features = np.vstack(train_features[:, :]).astype(np.float32)
+    test_features = np.vstack(test_features[:, :]).astype(np.float32)
+    return train_features, train_labels, test_features, test_labels, feature_names
 
 
 def count_model_parameters(model):
