@@ -6,8 +6,7 @@ LangChain models in the pyfunc flavor:
 LangChain (native) format
     This is the main flavor that can be accessed with LangChain APIs.
 :py:mod:`mlflow.pyfunc`
-    Produced for use by generic pyfunc-based deployment tools and for batch auditing
-    of historical forecasts.
+    Produced for use by generic pyfunc-based deployment tools and for batch inference.
 
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
@@ -90,8 +89,7 @@ def save_model(
     """
     Save a LangChain model to a path on the local file system.
 
-    :param lc_model: LLMChain model (an instance of LangChain() forecaster that has been fit
-                     on a temporal series.
+    :param lc_model: An LLMChain model.
     :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -100,6 +98,10 @@ def save_model(
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      If not specified, the model signature would be set according to
+                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+                      `DataType.string` as the column type.
+                      Alternatively, you can explicitly specify the model signature.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
@@ -110,7 +112,7 @@ def save_model(
                         from mlflow.models.signature import infer_signature
 
                         model = LLMChain(llm=llm, prompt=prompt)
-                        predictions = model.run(model.make_future_dataframe(30))
+                        predictions = model.run(input_dataframe)
                         input_columns = [
                             {"type": "string", "name": input_key} for input_key in chain.input_keys
                         ]
@@ -237,6 +239,10 @@ def log_model(
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output
                       :py:class:`Schema <mlflow.types.Schema>`.
+                      If not specified, the model signature would be set according to
+                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+                      `DataType.string` as the column type.
+                      Alternatively, you can explicitly specify the model signature.
                       The model signature can be :py:func:`inferred
                       <mlflow.models.infer_signature>` from datasets with valid model input
                       (e.g. the training dataset with target column omitted) and valid model
@@ -248,7 +254,7 @@ def log_model(
                         from mlflow.models.signature import infer_signature
 
                         model = LLMChain(llm=llm, prompt=prompt)
-                        predictions = model.run(model.make_future_dataframe(30))
+                        predictions = model.run(input_dataframe)
                         input_columns = [
                             {"type": "string", "name": input_key} for input_key in chain.input_keys
                         ]
