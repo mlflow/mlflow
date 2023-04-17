@@ -5,8 +5,8 @@ The MLflow Regression Recipe is an MLflow Recipe for developing high-quality reg
 It is designed for developing models using scikit-learn and frameworks that integrate with
 scikit-learn, such as the ``XGBRegressor`` API from XGBoost. The corresponding recipe
 template repository is available at https://github.com/mlflow/recipes-regression-template, and the
-:py:class:`RegressionRecipe API Documentation <RegressionRecipe>` provides instructions for
-executing the recipe and inspecting its results.
+`RegressionRecipe API Documentation <https://github.com/mlflow/recipes-regression-template/blob/main/README.md>_`
+provides instructions for executing the recipe and inspecting its results.
 
 The training recipe contains the following sequential steps:
 
@@ -131,7 +131,7 @@ The recipe steps are defined as follows:
 
 import logging
 
-from mlflow.recipes.recipe import _BaseRecipe
+from mlflow.recipes.recipe import BaseRecipe
 from mlflow.recipes.steps.ingest import IngestStep, IngestScoringStep
 from mlflow.recipes.steps.split import SplitStep
 from mlflow.recipes.steps.transform import TransformStep
@@ -141,13 +141,11 @@ from mlflow.recipes.steps.predict import PredictStep
 from mlflow.recipes.steps.register import RegisterStep
 from mlflow.recipes.step import BaseStep
 from typing import Any, Optional
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-class RegressionRecipe(_BaseRecipe):
+class RegressionRecipe(BaseRecipe):
     """
     A recipe for developing high-quality regression models. The recipe is designed for
     developing models using scikit-learn and frameworks that integrate with scikit-learn,
@@ -277,7 +275,6 @@ class RegressionRecipe(_BaseRecipe):
         """
         return super().run(step=step)
 
-    @experimental
     def get_artifact(self, artifact_name: str) -> Optional[Any]:
         """
         Reads an artifact from the recipe's outputs. Supported artifact names can be obtained by
