@@ -17,7 +17,7 @@ from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
-_AUTOML_DEFAULT_TIME_BUDGET = 30
+_AUTOML_DEFAULT_TIME_BUDGET = 600
 _MLFLOW_TO_FLAML_METRICS = {
     "mean_absolute_error": "mae",
     "mean_squared_error": "mse",
