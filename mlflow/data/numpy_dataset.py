@@ -119,7 +119,10 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return PyFuncInputsOutputs(self._features, self._targets)
 
     def to_evaluation_dataset(self) -> EvaluationDataset:
-        raise NotImplementedError
+        raise EvaluationDataset(
+            data=self._features,
+            targets=self._targets,
+        )
 
 
 def from_numpy(

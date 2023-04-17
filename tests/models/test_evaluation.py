@@ -32,6 +32,9 @@ from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.data.pandas_dataset import from_pandas
+
+# from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     evaluate,
@@ -88,6 +91,12 @@ def get_run_data(run_id):
     data = client.get_run(run_id).data
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     return RunData(params=data.params, metrics=data.metrics, tags=data.tags, artifacts=artifacts)
+
+
+def get_run_datasets(run_id):
+    client = MlflowClient()
+    datasets = client.get_run(run_id).inputs.dataset_inputs
+    return datasets
 
 
 def get_raw_tag(run_id, tag_name):
@@ -560,6 +569,29 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
 
     for k, v in eval_result.metrics.items():
         assert v == saved_metrics[k]
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src", targets="y")
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=mlflow_df,
+            targets="y",
+            model_type="regressor",
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+    data = get_run_datasets(run.info.run_id)
+    print(data)
+    assert False
 
 
 def test_dataset_name():

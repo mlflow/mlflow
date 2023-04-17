@@ -131,13 +131,9 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(self._df)
 
     def to_evaluation_dataset(self) -> EvaluationDataset:
-        pyfunc_data = self.to_pyfunc()
         return EvaluationDataset(
-            data=pyfunc_data.inputs,
-            targets=pyfunc_data.outputs,
-            name=self.name,
-            path=self.source.to_json(),
-            feature_names=self.schema.column_names() if self.schema else None,
+            data=self._df,
+            targets=self._targets,
         )
 
 

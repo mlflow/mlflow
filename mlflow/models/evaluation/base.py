@@ -17,7 +17,6 @@ from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.data.dataset import Dataset
-from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
     MetricThreshold,
@@ -1337,6 +1336,8 @@ def evaluate(
         evaluator_name_list,
         evaluator_name_to_conf_map,
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
+
+    from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
     if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
         dataset = data.to_evaluation_dataset()

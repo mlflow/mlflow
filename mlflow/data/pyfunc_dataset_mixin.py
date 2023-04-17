@@ -2,7 +2,7 @@ from mlflow.models.utils import PyFuncInput, PyFuncOutput
 from typing import List
 from abc import abstractmethod
 from dataclasses import dataclass
-from mlflow.models.evaluation import EvaluationDataset
+from mlflow.models.evaluation.base import EvaluationDataset
 
 
 @dataclass
