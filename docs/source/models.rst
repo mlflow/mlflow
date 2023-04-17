@@ -1745,17 +1745,6 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
-Diviner (``diviner``)
-^^^^^^^^^^^^^^^^^^^^^
-The ``diviner`` model flavor enables logging of
-`diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
-:py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
-``python_function`` flavor to the MLflow Models that they produce, allowing the model to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
-model flavor in native diviner formats.
-
 OpenAI (``openai``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1774,6 +1763,17 @@ Example:
 
 .. literalinclude:: ../../examples/openai/pyfunc.py
     :language: python
+
+Diviner (``diviner``)
+^^^^^^^^^^^^^^^^^^^^^
+The ``diviner`` model flavor enables logging of
+`diviner models <https://databricks-diviner.readthedocs.io/en/latest/index.html>`_ in MLflow format via the
+:py:func:`mlflow.diviner.save_model()` and :py:func:`mlflow.diviner.log_model()` methods. These methods also add the
+``python_function`` flavor to the MLflow Models that they produce, allowing the model to be interpreted as generic
+Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
+This loaded PyFunc model can only be scored with a DataFrame input.
+You can also use the :py:func:`mlflow.diviner.load_model()` method to load MLflow Models with the ``diviner``
+model flavor in native diviner formats.
 
 Diviner Types
 ~~~~~~~~~~~~~
