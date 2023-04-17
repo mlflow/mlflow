@@ -169,7 +169,15 @@ jobs:
       - name: Install mlflow & test dependencies
         run: |
           python --version
-          pip install --upgrade pip wheel
+          # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
+          # in pip 23.1 https://github.com/pypa/pip/issues/8368
+          if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
+          then
+            pip install -U pip<23.1
+          else
+            pip install -U pip
+          fi
+          pip install -U wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
