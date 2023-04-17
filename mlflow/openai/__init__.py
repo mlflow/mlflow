@@ -77,7 +77,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    return list(map(_get_pinned_requirement, ["openai", "aiohttp", "tiktoken", "tenacity"]))
+    return list(map(_get_pinned_requirement, ["openai", "tiktoken", "tenacity"]))
 
 
 @experimental
