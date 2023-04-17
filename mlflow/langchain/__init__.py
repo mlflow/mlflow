@@ -363,7 +363,7 @@ def _load_model_from_local_fs(local_model_path):
     lc_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
-    logger.warning(f"loading model from local path = {lc_model_path}")
+    logger.debug(f"loading model from local path = {lc_model_path}")
     return _load_model(lc_model_path)
 
 
