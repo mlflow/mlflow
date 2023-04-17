@@ -44,3 +44,4 @@ pmdarima
 diviner
 # Required by mlflow.transformers
 transformers
+sentencepiece

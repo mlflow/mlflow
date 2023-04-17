@@ -1986,21 +1986,21 @@ data type inputs and outputs.
 Supported transformers Pipeline types for Pyfunc
 """"""""""""""""""""""""""""""""""""""""""""""""
 
-================================= ================================= =================
-Pipeline Type                     Input Type                        Output Type
-================================= ================================= =================
-Conversational                    str or List[str]                  str or List[str]
-Summarization                     str or List[str]                  str or List[str]
-Text Classification               str or List[str]                  str or List[str]
-Text Generation                   str or List[str]                  str or List[str]
-Text2Text Generation              str or List[str]                  str or List[str]
-Token Classification              str or List[str]                  str or List[str]
-Translation                       str or List[str]                  str or List[str]
-ZeroShot Classification*          Dict[str, Union[List[str]|str]]*  str or List[str]
-Table Question Answering**        Dict[str, Union[List[str]|str]]** str or List[str]
-Question Answering***             Dict[str, str]***                 str or List[str]
-Fill Mask****                     str or List[str]****              str or List[str]
-================================= ================================= =================
+================================= ============================== =================
+Pipeline Type                     Input Type                     Output Type
+================================= ============================== =================
+Conversational                    str or List[str]               str or List[str]
+Summarization                     str or List[str]               str or List[str]
+Text Classification               str or List[str]               str or List[str]
+Text Generation                   str or List[str]               str or List[str]
+Text2Text Generation              str or List[str]               str or List[str]
+Token Classification              str or List[str]               str or List[str]
+Translation                       str or List[str]               str or List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str]
+Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
+Question Answering***             Dict[str, str]***              str or List[str]
+Fill Mask****                     str or List[str]****           str or List[str]
+================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
 Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
@@ -2035,13 +2035,14 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
     )
 
     # Log the pipeline
-    model_info = mlflow.transformers.log_model(
-        transformers_model=conversational_pipeline,
-        artifact_path="chatbot",
-        task="conversational",
-        signature=signature,
-        input_example="A clever and witty question",
-    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=conversational_pipeline,
+            artifact_path="chatbot",
+            task="conversational",
+            signature=signature,
+            input_example="A clever and witty question",
+        )
 
     # Load the saved pipeline as pyfunc
     chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -2092,11 +2093,12 @@ After logging, the components are automatically inserted into the appropriate ``
     transformers_model = {"model": model, "tokenizer": tokenizer}
 
     # Log the model components
-    model_info = mlflow.transformers.log_model(
-        transformers_model=transformers_model,
-        artifact_path="text_classifier",
-        task=task,
-    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=transformers_model,
+            artifact_path="text_classifier",
+            task=task,
+        )
 
     # Load the components as a pipeline
     loaded_pipeline = mlflow.transformers.load_model(
@@ -2130,10 +2132,12 @@ where pre / post-processing is performed on containers that do not house the mod
         ),
     )
 
-    model_info = mlflow.transformers.log_model(
-        transformers_model=translation_pipeline,
-        artifact_path="french_translator",
-    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=translation_pipeline,
+            artifact_path="french_translator",
+        )
+
     translation_components = mlflow.transformers.load_model(
         model_info.model_uri, return_type="components"
     )

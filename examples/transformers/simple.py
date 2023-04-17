@@ -13,14 +13,12 @@ generation_pipeline = transformers.pipeline(
 )
 
 with mlflow.start_run() as run:
-    mlflow.transformers.log_model(
+    model_info = mlflow.transformers.log_model(
         transformers_model=generation_pipeline,
         artifact_path="sentence_builder",
         input_example="keyboard engineer model data science",
     )
 
-model_uri = f"runs:/{run.info.run_id}/sentence_builder"
-
-sentence_generator = mlflow.pyfunc.load_model(model_uri)
+sentence_generator = mlflow.pyfunc.load_model(model_info.model_uri)
 
 print(sentence_generator.predict(["pack howl moon wolf", "brush easel paint landscape"]))
