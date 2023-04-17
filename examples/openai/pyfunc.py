@@ -13,6 +13,14 @@ with mlflow.start_run():
         messages=[{"role": "system", "content": "You are an MLflow expert!"}],
     )
 
+
+print(mlflow.openai.load_model(model_info.model_uri))
+# {
+#     "messages": [{"content": "You are an MLflow expert!", "role": "system"}],
+#     "model": "gpt-3.5-turbo",
+#     "task": "chat.completions",
+# }
+
 df = pd.DataFrame(
     {
         "role": ["user"] * 10,
