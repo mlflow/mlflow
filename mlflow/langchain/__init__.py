@@ -333,11 +333,13 @@ class _LangChainModelWrapper:
 
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
-        elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
+        elif isinstance(data, list) and (
+            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+        ):
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of dictionaries",
+                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
