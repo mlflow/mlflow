@@ -1292,6 +1292,7 @@ def _load_pyfunc(path):
     )
 
 
+@experimental
 def generate_signature_output(pipeline, data):
     """
     Utility for generating the response output for the purposes of extracting an output signature
