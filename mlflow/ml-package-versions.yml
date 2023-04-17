@@ -477,10 +477,9 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain
   models:
     minimum: "0.0.139"
-    maximum: "0.0.139"
+    maximum: "0.0.141"
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow"]
-      "<= 3.3.2": ["pandas<2"]
     run: |
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test

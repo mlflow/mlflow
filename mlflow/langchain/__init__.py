@@ -324,7 +324,7 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: List[Union[str, Dict[str, str], pd.DataFrame]]) -> List[str]:
+    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
         elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
@@ -363,7 +363,6 @@ def _load_model_from_local_fs(local_model_path):
     lc_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
-    logger.debug(f"loading model from local path = {lc_model_path}")
     return _load_model(lc_model_path)
 
 
