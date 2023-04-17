@@ -329,6 +329,8 @@ class _LangChainModelWrapper:
         self.lc_model = lc_model
 
     def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+
         if isinstance(data, pd.DataFrame):
             messages = data.to_dict(orient="records")
         elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
@@ -337,7 +339,7 @@ class _LangChainModelWrapper:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of dictionaries",
             )
-        return [self.lc_model.run(messages)]
+        return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 
 class _TestLangChainWrapper(_LangChainModelWrapper):

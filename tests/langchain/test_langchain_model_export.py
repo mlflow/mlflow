@@ -148,7 +148,7 @@ def test_langchain_native_log_and_load_model():
     assert loaded_model.prompt.template == "What is a good name for a company that makes {product}?"
 
 
-def test_pyfunc_load_uni_var_model():
+def test_pyfunc_load_openai_model():
     model = create_model("openai")
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
