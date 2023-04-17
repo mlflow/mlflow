@@ -114,8 +114,8 @@ def save_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = LLMChain(llm=llm, prompt=prompt)
-                        predictions = model.run(input_dataframe)
+                        chain = LLMChain(llm=llm, prompt=prompt)
+                        prediction = chain.run(input_str)
                         input_columns = [
                             {"type": "string", "name": input_key} for input_key in chain.input_keys
                         ]
@@ -257,8 +257,8 @@ def log_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = LLMChain(llm=llm, prompt=prompt)
-                        predictions = model.run(input_dataframe)
+                        chain = LLMChain(llm=llm, prompt=prompt)
+                        prediction = chain.run(input_str)
                         input_columns = [
                             {"type": "string", "name": input_key} for input_key in chain.input_keys
                         ]
