@@ -219,3 +219,12 @@ MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", 
 
 #: Specifier whether or not to retry OpenAI API calls.
 MLFLOW_OPENAI_RETRIES_ENABLED = _BooleanEnvironmentVariable("MLFLOW_OPENAI_RETRIES_ENABLED", True)
+
+#: (Experimental, may be changed or removed)
+#: Specifies the download options to be used by pip wheel when `add_libraries_to_model` is used to
+#: create and log model dependencies as model artifacts. The default behavior only uses dependency
+#: binaries and no source packages.
+#: (default: ``--only-binary=:all:``).
+MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
+    "MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", str, "--only-binary=:all:"
+)
