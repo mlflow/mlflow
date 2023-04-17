@@ -170,7 +170,7 @@ jobs:
         run: |
           python --version
           # prophet==1.0.1 can only be installed `setup.py install` fallback but this was removed
-          # in pip 23.1 https://github.com/pypa/pip/issues/8368
+          # in pip 23.1. See https://github.com/pypa/pip/issues/8368 more details.
           if [ "${{ matrix.package }}==${{ matrix.version }}" = "prophet==1.0.1" ]
           then
             pip install -U pip<23.1
