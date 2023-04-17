@@ -23,7 +23,6 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     :maxdepth: 1
 
     quickstart
-    quickstart_drilldown
     tutorials-and-examples/index
     concepts
     tracking
@@ -40,3 +39,8 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     java_api/index
     rest-api
     docker
+
+.. toctree::
+   :hidden:
+
+    quickstart_drilldown

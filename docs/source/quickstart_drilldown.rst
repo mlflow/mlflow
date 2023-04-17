@@ -15,7 +15,7 @@ Customizing and troubleshooting MLflow installation
 Python library options
 **********************
 
-Rather the default MLflow library, you can install the following optional libraries:
+Rather than the default MLflow library, you can install the following variations:
 
 .. list-table::
    :widths: 10 20 70
@@ -81,9 +81,7 @@ simple REST server for python-based models:
 
 .. code-block:: bash
 
-    mlflow models serve -m runs:/<RUN_ID>/model
-
-    {>> TODO: Add --env-manager local and validate <<}
+    mlflow models serve -m --env-manager local runs:/<RUN_ID>/model
 
 .. note::
 
@@ -107,8 +105,6 @@ which returns::
 
 For more information, see :doc:`models`.
 
-
-{~~
 Running MLflow Projects
 -----------------------
 
@@ -135,4 +131,3 @@ runs using ``mlflow ui``.
 For more information, see :doc:`projects`.
 
 
-~~}
