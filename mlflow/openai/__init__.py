@@ -484,9 +484,9 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     """
 
     def predict(self, data):
-        from mlflow.openai.utils import _mock_request, _mock_chat_completion_response
+        from mlflow.openai.utils import _mock_chat_completion_request
 
-        with _mock_request(return_value=_mock_chat_completion_response()):
+        with _mock_chat_completion_request():
             return super().predict(data)
 
 
