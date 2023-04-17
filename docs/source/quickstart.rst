@@ -143,6 +143,8 @@ You are in the **Default** experiment, which now contains the tracking data for 
 
 For more details on the tracking UI, see :ref:`tracking`.
 
+.. _quickstart_tracking_server:
+
 Sharing MLflow runs and experiments
 -----------------------------------
 
@@ -302,7 +304,7 @@ To load and run a model stored in a previous run, you can use the ``mlflow.{libr
 
 Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``.
 
-To learn more about loading runs, see :ref:`quickstart_drilldown_log_and_load_model`.
+To learn more about loading models for specific runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
 Next Steps
 ----------

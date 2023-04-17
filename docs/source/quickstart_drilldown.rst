@@ -53,31 +53,8 @@ R and Java
 
 See :ref:`installing MLflow for R<R-api>` . For Java, we release to Maven Central. For more information, see :ref:`java_api`.
 
-{~~
-Running MLflow Projects
------------------------
 
-You can easily run existing projects with the ``mlflow run`` command, which runs a project from
-either a local directory or a GitHub URI:
-
-.. code-block:: bash
-
-    mlflow run sklearn_elasticnet_wine -P alpha=0.5
-
-    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
-
-There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
-projects log their Tracking API data in the local ``mlruns`` directory so you can see these
-runs using ``mlflow ui``.
-
-.. note::
-    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
-    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
-    ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
-    in your Python environment.
-
-For more information, see :doc:`projects`.
+.. _quickstart_drilldown_log_and_load_model:
 
 Saving and Serving Models
 -------------------------
@@ -129,6 +106,33 @@ which returns::
     [1, 0]
 
 For more information, see :doc:`models`.
+
+
+{~~
+Running MLflow Projects
+-----------------------
+
+You can easily run existing projects with the ``mlflow run`` command, which runs a project from
+either a local directory or a GitHub URI:
+
+.. code-block:: bash
+
+    mlflow run sklearn_elasticnet_wine -P alpha=0.5
+
+    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
+
+There's a sample project in ``tutorial``, including a ``MLproject`` file that
+specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
+projects log their Tracking API data in the local ``mlruns`` directory so you can see these
+runs using ``mlflow ui``.
+
+.. note::
+    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
+    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
+    ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
+    in your Python environment.
+
+For more information, see :doc:`projects`.
 
 
 ~~}
