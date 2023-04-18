@@ -25,6 +25,7 @@ def _chat_completion_json_sample():
                 "index": 0,
                 "message": {"role": "assistant", "content": TEST_CONTENT},
                 "finish_reason": "stop",
+                "text": TEST_CONTENT,
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
