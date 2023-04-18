@@ -58,8 +58,16 @@ class DatasetSourceRegistry:
                 issubclass(source, candidate_src) for candidate_src in candidate_sources
             ):
                 continue
-            if source._can_resolve(raw_source):
-                matching_sources.append(source)
+            try:
+                if source._can_resolve(raw_source):
+                    matching_sources.append(source)
+            except Exception as e:
+                warnings.warn(
+                    f"Failed to determine whether {source.__name__} can resolve source"
+                    f" information for '{raw_source}'. Exception: {e}",
+                    stacklevel=2,
+                )
+                continue
 
         if len(matching_sources) > 1:
             source_class_names_str = ", ".join([source.__name__ for source in matching_sources])
@@ -70,14 +78,22 @@ class DatasetSourceRegistry:
                 stacklevel=2,
             )
 
-        if len(matching_sources) >= 1:
-            return matching_sources[-1]._resolve(raw_source)
-        else:
-            raise MlflowException(
-                f"Could not find a source information resolver for the specified"
-                f" dataset source: {raw_source}.",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+        for matching_source in reversed(matching_sources):
+            try:
+                return matching_source._resolve(raw_source)
+            except Exception as e:
+                warnings.warn(
+                    f"Encountered an unexpected error while using {matching_source.__name__} to"
+                    f" resolve source information for '{raw_source}'. Exception: {e}",
+                    stacklevel=2,
+                )
+                continue
+
+        raise MlflowException(
+            f"Could not find a source information resolver for the specified"
+            f" dataset source: {raw_source}.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
         """
