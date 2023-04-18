@@ -233,4 +233,4 @@ def test_dataset_source_conversion_to_json():
     )
     assert isinstance(reloaded_source, HuggingFaceDatasetSource)
     assert type(source) == type(reloaded_source)
-    assert reloaded_source.uri == source.uri
+    assert reloaded_source.to_json() == source.to_json()
