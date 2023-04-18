@@ -100,7 +100,7 @@ class SqlAlchemyStore:
             except MlflowException:
                 return False
 
-    def create_user(self, username: str, password: str, is_admin: bool = False):
+    def create_user(self, username: str, password: str, is_admin: bool = False) -> User:
         _validate_username(username)
         pwhash = generate_password_hash(password)
         with self.ManagedSessionMaker() as session:
@@ -142,6 +142,13 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
+
+    def update_user(self, username: str, password: str) -> User:
+        pwhash = generate_password_hash(password)
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username)
+            user.password_hash = pwhash
+            return user.to_mlflow_entity()
 
     def create_experiment_permission(
         self, experiment_id: str, user_id: int, permission: str

@@ -149,6 +149,25 @@ def test_list_user(store):
     assert users[2].username == username3
 
 
+def test_authenticate_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    assert store.authenticate_user(username1, password1)
+    assert not store.authenticate_user(username1, random_str())
+
+
+def test_update_user(store):
+    username1 = random_str()
+    password1 = random_str()
+    _user_maker(store, username1, password1)
+    password2 = random_str()
+    store.update_user(username1, password2)
+
+    assert not store.authenticate_user(username1, password1)
+    assert store.authenticate_user(username1, password2)
+
+
 def test_create_experiment_permission(store):
     username1 = random_str()
     password1 = random_str()
