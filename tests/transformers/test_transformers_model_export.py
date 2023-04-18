@@ -1160,6 +1160,10 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ("muppet keyboard type", "A muppet is typing on a keyboard."),
         (
             ["pencil draw paper", "pie apple eat"],
+            # NB: The result of this test case, without inference config overrides is:
+            # ["A man drawing on paper with pencil", "A man eating a pie with applies"]
+            # The inference config override forces additional insertion of more grammatically
+            # correct responses to validate that the inference config is being applied.
             ["A man is drawing on paper with a pencil.", "A man is eating a pie with apples."],
         ),
     ],
@@ -1171,11 +1175,6 @@ def test_text2text_generation_pipeline_with_inference_configs(
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
     )
-
-    # NB: The result of the 2nd test, without inference config overrides is:
-    # ["A man drawing on paper with pencil", "A man eating a pie with applies"]
-    # The inference config override forces additional insertion of more grammatically correct
-    # responses.
 
     inference_config = {
         "top_k": 2,
@@ -1925,18 +1924,31 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output",
+    "pipeline_input, pipeline_output, expected_output, flavor_config",
     [
         (
             "What answers?",
             [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
             "A collection of answers",
+            {"instance_type": "InstructionTextGenerationPipeline"},
         ),
-        ("Hello!", [{"generated_text": "Hello!\n\nHow are you?"}], "How are you?"),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nHow are you?"}],
+            "How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nA: How are you?"}],
+            "How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
         (
             ["Hi!", "What's up?"],
             [[{"generated_text": "Hi!\n\nHello there"}, {"generated_text": "Not much, and you?"}]],
             ["Hello there", "Not much, and you?"],
+            {"instance_type": "InstructionTextGenerationPipeline"},
         ),
         # Tests a standard TextGenerationPipeline output
         (
@@ -1948,28 +1960,36 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
                 ]
             ],
             ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
+            {"instance_type": "TextGenerationPipeline"},
         ),
     ],
 )
 def test_parse_input_from_instruction_pipeline(
-    mock_pyfunc_wrapper, pipeline_input, pipeline_output, expected_output
+    mock_pyfunc_wrapper, pipeline_input, pipeline_output, expected_output, flavor_config
 ):
     assert (
         mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
-            pipeline_input, pipeline_output, "generated_text"
+            pipeline_input, pipeline_output, "generated_text", flavor_config, False
         )
         == expected_output
     )
 
 
-def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper):
+@pytest.mark.parametrize(
+    "flavor_config",
+    [
+        {"instance_type": "InstructionTextGenerationPipeline"},
+        {"instance_type": "TextGenerationPipeline"},
+    ],
+)
+def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config):
     prompt = "What is your favorite boba flavor?"
 
     bad_output = {"generated_text": ["Strawberry Milk Cap", "Honeydew with boba"]}
 
     with pytest.raises(MlflowException, match="Unable to parse the pipeline output. Expected"):
         mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
-            prompt, bad_output, "generated_text"
+            prompt, bad_output, "generated_text", flavor_config, True
         )
 
 
@@ -1991,4 +2011,25 @@ def test_instructional_pipeline(model_path):
     inference = pyfunc_loaded.predict("What is MLflow?")
 
     assert not inference.startswith("What is MLflow?")
+    assert "\n" not in inference
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline_with_prompt_in_output(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        inference_config={"max_length": 100, "include_prompt": True},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert inference.startswith("What is MLflow?")
     assert "\n" not in inference

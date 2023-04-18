@@ -1288,7 +1288,9 @@ def _load_pyfunc(path):
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
     inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY))
     return _TransformersWrapper(
-        _load_model(str(local_path), flavor_configuration, "pipeline"), inference_config
+        _load_model(str(local_path), flavor_configuration, "pipeline"),
+        flavor_configuration,
+        inference_config,
     )
 
 
@@ -1317,10 +1319,15 @@ def generate_signature_output(pipeline, data):
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, inference_config=None):
+    def __init__(self, pipeline, flavor_config=None, inference_config=None):
         self.pipeline = pipeline
+        self.flavor_config = flavor_config
         self.inference_config = inference_config
         self._conversation = None
+        # NB: Current special-case custom pipeline types that have not been added to
+        # the native-supported transformers package but require custom parsing:
+        # InstructionTextGenerationPipeline [Dolly] https://huggingface.co/databricks/dolly-v2-12b
+        #   (and all variants)
         self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
 
     def _convert_pandas_to_dict(self, data):
@@ -1439,6 +1446,11 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
+        # Optional input preservation for specific pipeline types
+        include_prompt = (
+            self.inference_config.pop("include_prompt", False) if self.inference_config else False
+        )
+
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
@@ -1459,7 +1471,7 @@ class _TransformersWrapper:
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data, raw_output, output_key
+                data, raw_output, output_key, self.flavor_config, include_prompt
             )
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
@@ -1596,13 +1608,14 @@ class _TransformersWrapper:
         else:
             return data
 
-    @staticmethod
-    def _strip_input_from_response_in_instruction_pipelines(input_data, output, output_key):
+    def _strip_input_from_response_in_instruction_pipelines(
+        self, input_data, output, output_key, flavor_config, include_prompt
+    ):
         """
         Parse the output from instruction pipelines to conform with other text generator
         pipeline types and remove line feed characters and other confusing outputs
         """
-        replacements = {"\n\n": " ", "A:": ""}
+        replacements = {"\n\n": " "}
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
@@ -1622,20 +1635,26 @@ class _TransformersWrapper:
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
             # return statements, followed by the start of the response to the prompt. We only
-            # want to left-trim these types of pipelines output values.
-            if data_out.startswith(data_in + "\n\n"):
-                output_string = data_out[len(data_in) :].strip()
+            # want to left-trim these types of pipelines output values if the user hasn't disabled
+            # the removal action of the input prompt in the returned str or List[str]
+            if (
+                data_out.startswith(data_in + "\n\n")
+                and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+            ):
+                # If the user has indicated to preserve the prompt input in the response, do not
+                # split the response output or trim any portions of the response string
+                if not include_prompt:
+                    data_out = data_out[len(data_in) :].lstrip()
+                    if data_out.startswith("A:"):
+                        data_out = data_out[2:].lstrip()
+                for to_replace, replace in replacements.items():
+                    data_out = data_out.replace(to_replace, replace)
+                return data_out
             else:
-                output_string = data_out.strip()
-
-            for to_replace, replace in replacements.items():
-                output_string = output_string.replace(to_replace, replace)
-
-            return output_string
+                return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
-            zipped = list(zip(input_data, output))
-            return [trim_input(data_in, data_out) for data_in, data_out in zipped]
+            return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
         elif isinstance(input_data, str) and isinstance(output, str):
             return trim_input(input_data, output)
         else:
