@@ -1753,7 +1753,7 @@ OpenAI (``openai``) (Experimental)
     subject to be added as additional functionality is brought to the flavor.
 
 The ``openi`` model flavor enables logging of `OpenAI models <https://github.com/openai/openai-python>`_ in MLflow format via
-the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` functions. Use of these
+the :py:func:`mlflow.openai.save_model()` and :py:func:`mlflow.openai.log_model()` functions. Use of these
 functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
 interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
 You can also use the :py:func:`mlflow.openai.load_model()` function to load a saved or logged MLflow
@@ -1762,6 +1762,26 @@ Model with the ``openai`` flavor as a dictionary of the model's attributes.
 Example:
 
 .. literalinclude:: ../../examples/openai/pyfunc.py
+    :language: python
+
+
+LangChain (``langchain``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``langchain`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
+the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
+Model with the ``langchain`` flavor as a dictionary of the model's attributes.
+
+Example:
+
+.. literalinclude:: ../../examples/langchain/simple_chain.py
     :language: python
 
 Diviner (``diviner``)
