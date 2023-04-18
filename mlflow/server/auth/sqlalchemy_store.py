@@ -208,3 +208,67 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             perm = self._get_experiment_permission(session, experiment_id, user_id)
             session.delete(perm)
+
+    def create_registered_model_permission(
+        self, name: str, user_id: int, permission: str
+    ) -> RegisteredModelPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                perm = SqlRegisteredModelPermission(
+                    name=name, user_id=user_id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(f"Registered model permission creation error: {e}")
+
+    @classmethod
+    def _get_registered_model_permission(
+        cls, session, name: str, user_id: int
+    ) -> SqlRegisteredModelPermission:
+        try:
+            return (
+                session.query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.name == name)
+                .filter(SqlRegisteredModelPermission.user_id == user_id)
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Registered model permission with name={name} and user_id={user_id} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple registered model permissions with name={name} and user_id={user_id}",
+                INVALID_STATE,
+            )
+
+    def get_registered_model_permission(self, name: str, user_id: int) -> RegisteredModelPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_registered_model_permission(session, name, user_id).to_mlflow_entity()
+
+    def list_registered_model_permissions(self, user_id: int) -> List[RegisteredModelPermission]:
+        with self.ManagedSessionMaker() as session:
+            perms = (
+                session.query(SqlRegisteredModelPermission)
+                .filter(SqlRegisteredModelPermission.user_id == user_id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_registered_model_permission(
+        self, name: str, user_id: int, permission: str
+    ) -> RegisteredModelPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_registered_model_permission(session, name, user_id)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_registered_model_permission(self, name: str, user_id: int):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_registered_model_permission(session, name, user_id)
+            session.delete(perm)

@@ -6,7 +6,7 @@ from mlflow.server.auth import (
     _AUTH_CONFIG_PATH_ENV_VAR,
 )
 from mlflow.server.auth.config import read_auth_config
-from mlflow.server.auth.entities import User, ExperimentPermission
+from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
 from mlflow.server.auth.sqlalchemy_store import (
     SqlUser,
     SqlExperimentPermission,
@@ -60,6 +60,10 @@ def _user_maker(store, username, password, is_admin=False):
 
 def _ep_maker(store, experiment_id, user_id, permission):
     return store.create_experiment_permission(experiment_id, user_id, permission)
+
+
+def _rmp_maker(store, name, user_id, permission):
+    return store.create_registered_model_permission(name, user_id, permission)
 
 
 def test_create_user(store):
@@ -253,7 +257,9 @@ def test_update_experiment_permission(store):
 
     # invalid permission will fail
     with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
-        store.update_experiment_permission(experiment_id1, user_id1, "some_invalid_permission_string")
+        store.update_experiment_permission(
+            experiment_id1, user_id1, "some_invalid_permission_string"
+        )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -273,4 +279,135 @@ def test_delete_experiment_permission(store):
         match=rf"Experiment permission with experiment_id={experiment_id1} and user_id={user_id1} not found",
     ) as exception_context:
         store.get_experiment_permission(experiment_id1, user_id1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_create_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    rmp1 = _rmp_maker(store, name1, user_id1, permission1)
+    assert rmp1.name == name1
+    assert rmp1.user_id == user_id1
+    assert rmp1.permission == permission1
+
+    # error on duplicate
+    with pytest.raises(
+        MlflowException, match=r"Registered model permission creation error"
+    ) as exception_context:
+        _rmp_maker(store, name1, user_id1, permission1)
+    assert exception_context.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+
+    # slightly different name is ok
+    name2 = random_str()
+    rmp2 = _rmp_maker(store, name2, user_id1, permission1)
+    assert rmp2.name == name2
+    assert rmp2.user_id == user_id1
+    assert rmp2.permission == permission1
+
+    # all permissions are ok
+    for perm in ALL_PERMISSIONS:
+        name3 = random_str()
+        rmp3 = _rmp_maker(store, name3, user_id1, perm)
+        assert rmp3.name == name3
+        assert rmp3.user_id == user_id1
+        assert rmp3.permission == perm
+
+    # invalid permission will fail
+    name4 = random_str()
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        _rmp_maker(store, name4, user_id1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_get_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _rmp_maker(store, name1, user_id1, permission1)
+    rmp1 = store.get_registered_model_permission(name1, user_id1)
+    assert isinstance(rmp1, RegisteredModelPermission)
+    assert rmp1.name == name1
+    assert rmp1.user_id == user_id1
+    assert rmp1.permission == permission1
+
+    # error on non-existent row
+    user_id2 = random_str()
+    with pytest.raises(
+        MlflowException,
+        match=rf"Registered model permission with name={name1} and user_id={user_id2} not found",
+    ) as exception_context:
+        store.get_registered_model_permission(name1, user_id2)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_list_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = "1" + random_str()
+    _rmp_maker(store, name1, user1.id, READ.name)
+
+    name2 = "2" + random_str()
+    _rmp_maker(store, name2, user1.id, READ.name)
+
+    name3 = "3" + random_str()
+    _rmp_maker(store, name3, user1.id, READ.name)
+
+    rmps = store.list_registered_model_permissions(user1.id)
+    rmps.sort(key=lambda rmp: rmp.name)
+
+    assert len(rmps) == 3
+    assert isinstance(rmps[0], RegisteredModelPermission)
+    assert rmps[0].name == name1
+    assert rmps[1].name == name2
+    assert rmps[2].name == name3
+
+
+def test_update_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _rmp_maker(store, name1, user_id1, permission1)
+
+    permission2 = EDIT.name
+    store.update_registered_model_permission(name1, user_id1, permission2)
+    rmp1 = store.get_registered_model_permission(name1, user_id1)
+    assert rmp1.permission == permission2
+
+    # invalid permission will fail
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        store.update_registered_model_permission(name1, user_id1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_delete_registered_model_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    name1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _rmp_maker(store, name1, user_id1, permission1)
+
+    store.delete_registered_model_permission(name1, user_id1)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Registered model permission with name={name1} and user_id={user_id1} not found",
+    ) as exception_context:
+        store.get_registered_model_permission(name1, user_id1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

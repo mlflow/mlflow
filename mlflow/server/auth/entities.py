@@ -93,7 +93,7 @@ class RegisteredModelPermission:
 
     @property
     def name(self):
-        return self.name
+        return self._name
 
     @property
     def user_id(self):
