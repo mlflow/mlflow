@@ -12,7 +12,7 @@ Features:
 - [Models] Add support for `Pytorch` and `Lightning` 2.0 (#8072, @shrinath-suresh)
 - [Tracking] Add support for logging LLM input, output, and prompt artifacts (#8234, #8204, @sunishsheth2009)
 - [Tracking] Add support for HTTP Basic Auth in the MLflow tracking server (#8130, @gabrielfu)
-- [Tracking] Add support for  `search_model_versions` to high-level fluent API (#8223, @mariusschlegel)
+- [Tracking] Add `search_model_versions` to the fluent API (#8223, @mariusschlegel)
 - [Artifacts] Add support for parallelized artifact downloads (#8116, @apurva-koti)
 - [Artifacts] Add support for parallelized artifact uploads for AWS (#8003, @harupy)
 - [Artifacts] Add content type headers to artifact upload requests for the `HttpArtifactRepository` (#8048, @WillEngler)
