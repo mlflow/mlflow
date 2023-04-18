@@ -155,6 +155,8 @@ def test_authenticate_user(store):
     _user_maker(store, username1, password1)
     assert store.authenticate_user(username1, password1)
     assert not store.authenticate_user(username1, random_str())
+    # non existent user
+    assert not store.authenticate_user(random_str(), random_str())
 
 
 def test_update_user(store):
