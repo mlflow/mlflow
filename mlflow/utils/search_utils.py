@@ -375,11 +375,11 @@ class SearchUtils:
 
     @classmethod
     def _invalid_statement_token_search_runs(cls, token):
-        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+        if isinstance(token, Comparison):
             return False
         elif token.is_whitespace:
             return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
         else:
             return True
