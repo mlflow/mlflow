@@ -44,7 +44,7 @@ def test_delta_dataset_source_from_path(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, DeltaDatasetSource)
     assert type(delta_datasource) == type(reloaded_source)
-    assert reloaded_source.path == delta_datasource.path
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_from_table(spark_session, tmp_path):
@@ -68,7 +68,7 @@ def test_delta_dataset_source_from_table(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, DeltaDatasetSource)
     assert type(delta_datasource) == type(reloaded_source)
-    assert reloaded_source.delta_table_name == delta_datasource.delta_table_name
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_from_table_versioned(spark_session, tmp_path):
@@ -101,8 +101,7 @@ def test_delta_dataset_source_from_table_versioned(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, DeltaDatasetSource)
     assert type(delta_datasource) == type(reloaded_source)
-    assert reloaded_source.delta_table_name == delta_datasource.delta_table_name
-    assert reloaded_source.delta_table_version == delta_datasource.delta_table_version
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):

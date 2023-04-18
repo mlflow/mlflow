@@ -40,7 +40,7 @@ def test_spark_dataset_source_from_path(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, SparkDatasetSource)
     assert type(spark_datasource) == type(reloaded_source)
-    assert reloaded_source.path == spark_datasource.path
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_from_table(spark_session, tmp_path):
@@ -58,7 +58,7 @@ def test_spark_dataset_source_from_table(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, SparkDatasetSource)
     assert type(spark_datasource) == type(reloaded_source)
-    assert reloaded_source.table == spark_datasource.table
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_from_sql(spark_session, tmp_path):
@@ -76,7 +76,7 @@ def test_spark_dataset_source_from_sql(spark_session, tmp_path):
     )
     assert isinstance(reloaded_source, SparkDatasetSource)
     assert type(spark_datasource) == type(reloaded_source)
-    assert reloaded_source.sql == spark_datasource.sql
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_too_many_inputs(spark_session, tmp_path):
