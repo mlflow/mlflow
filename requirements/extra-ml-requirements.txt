@@ -49,3 +49,5 @@ sentencepiece
 openai
 tiktoken
 tenacity
+# Required by mlflow.langchain
+langchain

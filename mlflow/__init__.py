@@ -72,6 +72,7 @@ try:
     from mlflow import pmdarima
     from mlflow import diviner
     from mlflow import transformers
+    from mlflow import langchain
     from mlflow import llm
     from mlflow import openai
 
@@ -98,6 +99,7 @@ try:
         "pmdarima",
         "diviner",
         "transformers",
+        "langchain",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does

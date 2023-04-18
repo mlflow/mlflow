@@ -485,3 +485,18 @@ openai:
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test
       pytest tests/openai/test_openai_model_export.py
+
+langchain:
+  package_info:
+    pip_release: "langchain"
+    install_dev: |
+      pip install git+https://github.com/hwchase17/langchain
+  models:
+    minimum: "0.0.139"
+    maximum: "0.0.141"
+    requirements:
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow"]
+    run: |
+      export MLFLOW_OPENAI_TESTING=true
+      export OPENAI_API_KEY=test
+      pytest tests/langchain/test_langchain_model_export.py
