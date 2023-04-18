@@ -15,6 +15,7 @@ from mlflow.server.auth.sqlalchemy_store import (
 )
 from mlflow.server.auth.permissions import (
     READ,
+    EDIT,
     ALL_PERMISSIONS,
 )
 from mlflow.protos.databricks_pb2 import (
@@ -233,3 +234,38 @@ def test_list_experiment_permission(store):
     assert eps[0].experiment_id == experiment_id1
     assert eps[1].experiment_id == experiment_id2
     assert eps[2].experiment_id == experiment_id3
+
+
+def test_update_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _ep_maker(store, experiment_id1, user_id1, permission1)
+
+    permission2 = EDIT.name
+    store.update_experiment_permission(experiment_id1, user_id1, permission2)
+    ep1 = store.get_experiment_permission(experiment_id1, user_id1)
+    assert ep1.permission == permission2
+
+
+def test_delete_experiment_permission(store):
+    username1 = random_str()
+    password1 = random_str()
+    user1 = _user_maker(store, username1, password1)
+
+    experiment_id1 = random_str()
+    user_id1 = user1.id
+    permission1 = READ.name
+    _ep_maker(store, experiment_id1, user_id1, permission1)
+
+    store.delete_experiment_permission(experiment_id1, user_id1)
+    with pytest.raises(
+        MlflowException,
+        match=rf"Experiment permission with experiment_id={experiment_id1} and user_id={user_id1} not found",
+    ) as exception_context:
+        store.get_experiment_permission(experiment_id1, user_id1)
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
