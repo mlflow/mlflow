@@ -7,7 +7,7 @@ import weakref
 import sys
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.data.spark_dataset import SparkDataset
+from mlflow.data.spark_dataset import SparkDataset, from_spark
 from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
 from mlflow.exceptions import MlflowException
@@ -45,6 +45,7 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.utils.time_utils import get_current_time_millis
+from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 _logger = logging.getLogger(__name__)
 _SparkTrainingSession = _get_new_training_session_class()
@@ -1089,22 +1090,39 @@ def autolog(
 
         if log_datasets:
             try:
-                # create a CodeDatasetSource
-                context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
-
-                # create a dataset
-                # TODO: make this source more specific
-                dataset = SparkDataset(
-                    df=input_df,
-                    source=source,
-                )
-
-                # log the dataset
-                mlflow.log_input(dataset, "train")
+                # if spark datasource already logged, then use as source
+                run_tags = mlflow.active_run().data.tags
+                if _SPARK_TABLE_INFO_TAG_NAME in run_tags:
+                    spark_datasource_tag = run_tags["sparkDatasourceInfo"]
+                    parsed_spark_datasource_tag = [
+                        {
+                            key_value.split("=")[0]: key_value.split("=")[1]
+                            for key_value in info.split(",")
+                        }
+                        for info in spark_datasource_tag.split("\n")
+                    ][0]
+                    dataset = from_spark(
+                        input_df,
+                        path=parsed_spark_datasource_tag["path"],
+                        version=(
+                            parsed_spark_datasource_tag["version"]
+                            if "version" in parsed_spark_datasource_tag
+                            else None
+                        ),
+                    )
+                    mlflow.log_input(dataset, "train")
+                else:
+                    # create a CodeDatasetSource
+                    context_tags = context_registry.resolve_tags()
+                    code_source = CodeDatasetSource(
+                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                    )
+                    dataset = SparkDataset(
+                        df=input_df,
+                        source=code_source,
+                    )
+                    mlflow.log_input(dataset, "train")
             except Exception as e:
                 _logger.warning("Failed to log datasets. Reason: %s", e)
 
