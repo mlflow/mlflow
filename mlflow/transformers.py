@@ -1286,7 +1286,7 @@ def _load_pyfunc(path):
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(local_path)
+    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY))
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"), inference_config
     )
@@ -1320,28 +1320,8 @@ class _TransformersWrapper:
     def __init__(self, pipeline, inference_config=None):
         self.pipeline = pipeline
         self.inference_config = inference_config
-        if inference_config:
-            self._validate_inference_config_keys(pipeline, inference_config)
         self._conversation = None
-
-    @staticmethod
-    def _validate_inference_config_keys(pipeline, inference_config):
-        """
-        Raise an Exception if invalid inference_config keys for the given Pipeline and
-        Model were provided during save.
-        """
-        invalid_keys = []
-        for key in inference_config:
-            if not hasattr(pipeline, key) and not hasattr(pipeline.model, key):
-                invalid_keys.append(key)
-        if invalid_keys:
-            raise MlflowException(
-                "The Inference Configuration overrides that were saved with "
-                "this model are not compatible as overrides to either the "
-                "Pipeline or the Model. Please re-save the model with valid "
-                f"inference configuration keys. Invalid keys: {invalid_keys}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
 
     def _convert_pandas_to_dict(self, data):
         import transformers
@@ -1449,6 +1429,9 @@ class _TransformersWrapper:
             if not self._conversation:
                 self._conversation = transformers.Conversation()
             self._conversation.add_user_input(data)
+        elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
+            self._validate_str_or_list_str(data)
+            output_key = "generated_text"
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1461,12 +1444,24 @@ class _TransformersWrapper:
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         elif isinstance(data, dict):
-            raw_output = self.pipeline(**data)
+            if self.inference_config:
+                raw_output = self.pipeline(**data, **self.inference_config)
+            else:
+                raw_output = self.pipeline(**data)
         else:
-            raw_output = self.pipeline(data)
+            if self.inference_config:
+                raw_output = self.pipeline(data, **self.inference_config)
+            else:
+                raw_output = self.pipeline(data)
 
         # Handle the pipeline outputs
-        if isinstance(self.pipeline, transformers.FillMaskPipeline):
+        if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
+            self.pipeline, transformers.TextGenerationPipeline
+        ):
+            output = self._strip_input_from_response_in_instruction_pipelines(
+                data, raw_output, output_key
+            )
+        elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
@@ -1600,6 +1595,54 @@ class _TransformersWrapper:
             return parsed
         else:
             return data
+
+    @staticmethod
+    def _strip_input_from_response_in_instruction_pipelines(input_data, output, output_key):
+        """
+        Parse the output from instruction pipelines to conform with other text generator
+        pipeline types and remove line feed characters and other confusing outputs
+        """
+        replacements = {"\n\n": " ", "A:": ""}
+
+        def extract_response_data(data_out):
+            if all(isinstance(x, dict) for x in data_out):
+                return [elem[output_key] for elem in data_out][0]
+            elif all(isinstance(x, list) for x in data_out):
+                return [elem[output_key] for coll in data_out for elem in coll]
+            else:
+                raise MlflowException(
+                    "Unable to parse the pipeline output. Expected List[Dict[str,str]] or "
+                    f"List[List[Dict[str,str]]] but got {type(data_out)} instead."
+                )
+
+        output = extract_response_data(output)
+
+        def trim_input(data_in, data_out):
+            # NB: the '\n\n' pattern is exclusive to specific InstructionalTextGenerationPipeline
+            # types that have been loaded as a plain TextGenerator. The structure of these
+            # pipelines will precisely repeat the input question immediately followed by 2 carriage
+            # return statements, followed by the start of the response to the prompt. We only
+            # want to left-trim these types of pipelines output values.
+            if data_out.startswith(data_in + "\n\n"):
+                output_string = data_out[len(data_in) :].strip()
+            else:
+                output_string = data_out.strip()
+
+            for to_replace, replace in replacements.items():
+                output_string = output_string.replace(to_replace, replace)
+
+            return output_string
+
+        if isinstance(input_data, list) and isinstance(output, list):
+            zipped = list(zip(input_data, output))
+            return [trim_input(data_in, data_out) for data_in, data_out in zipped]
+        elif isinstance(input_data, str) and isinstance(output, str):
+            return trim_input(input_data, output)
+        else:
+            raise MlflowException(
+                "Unknown data structure after parsing output. Expected str or List[str]. "
+                f"Got {type(output)} instead."
+            )
 
     def _sanitize_output(self, output, input_data):
         # Some pipelines and their underlying models leave leading or trailing whitespace.

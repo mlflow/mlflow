@@ -1160,7 +1160,7 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         ("muppet keyboard type", "A muppet is typing on a keyboard."),
         (
             ["pencil draw paper", "pie apple eat"],
-            ["A man is drawing on paper with a pencil.", "A man eating a pie with apples."],
+            ["A man is drawing on paper with a pencil.", "A man is eating a pie with apples."],
         ),
     ],
 )
@@ -1171,6 +1171,11 @@ def test_text2text_generation_pipeline_with_inference_configs(
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
     )
+
+    # NB: The result of the 2nd test, without inference config overrides is:
+    # ["A man drawing on paper with pencil", "A man eating a pie with applies"]
+    # The inference config override forces additional insertion of more grammatically correct
+    # responses.
 
     inference_config = {
         "top_k": 2,
@@ -1475,14 +1480,12 @@ def test_translation_pipeline(translation_pipeline, model_path, data, result):
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_summarization_pipeline(summarizer_pipeline, model_path, data):
     inference_config = {
-        "prefix": "software",
         "top_k": 2,
         "num_beams": 5,
-        "max_length": 30,
+        "max_length": 90,
         "temperature": 0.62,
         "top_p": 0.85,
         "repetition_penalty": 1.15,
-        "min_length": 10,
     }
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(summarizer_pipeline, data)
@@ -1919,3 +1922,62 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
         mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
         == expected_output
     )
+
+
+@pytest.mark.parametrize(
+    "pipeline_input, pipeline_output, expected_output",
+    [
+        (
+            "What answers?",
+            [{"generated_text": "What answers?\n\nA collection of \n\nanswers"}],
+            "A collection of answers",
+        ),
+        ("Hello!", [{"generated_text": "Hello!\n\nHow are you?"}], "How are you?"),
+        (
+            ["Hi!", "What's up?"],
+            [[{"generated_text": "Hi!\nHello there"}, {"generated_text": "Not much, and you?"}]],
+            ["Hello there", "Not much, and you?"],
+        ),
+    ],
+)
+def test_parse_input_from_instruction_pipeline(
+    mock_pyfunc_wrapper, pipeline_input, pipeline_output, expected_output
+):
+    assert (
+        mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
+            pipeline_input, pipeline_output, "generated_text"
+        )
+        == expected_output
+    )
+
+
+def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper):
+    prompt = "What is your favorite boba flavor?"
+
+    bad_output = {"generated_text": ["Strawberry Milk Cap", "Honeydew with boba"]}
+
+    with pytest.raises(MlflowException, match="Unable to parse the pipeline output. Expected"):
+        mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
+            prompt, bad_output, "generated_text"
+        )
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        inference_config={"max_length": 100},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert not inference.startswith("What is MLflow?")
+    assert "\n" not in inference
