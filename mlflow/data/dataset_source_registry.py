@@ -2,11 +2,11 @@ import entrypoints
 import warnings
 from typing import Any, List
 
-from mlflow.exceptions import MlflowException
-from mlflow.data.dataset_source import DatasetSource
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
+from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.http_dataset_source import HTTPDatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 
 class DatasetSourceRegistry:
@@ -151,18 +151,13 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
 # over any internally-defined generic behavior
 _dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
+_dataset_source_registry.register(HTTPDatasetSource)
 _dataset_source_registry.register_entrypoints()
 
 try:
     from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 
     _dataset_source_registry.register(HuggingFaceDatasetSource)
-except ImportError:
-    pass
-try:
-    from mlflow.data.http_dataset_source import HTTPDatasetSource
-
-    _dataset_source_registry.register(HTTPDatasetSource)
 except ImportError:
     pass
 try:

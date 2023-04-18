@@ -53,7 +53,10 @@ class HTTPDatasetSource(DatasetSource):
         augmented_raise_for_status(resp)
 
         path = urlparse(self.url).path
-        basename = posixpath.basename(path)
+        if path is not None:
+            basename = posixpath.basename(path)
+        else:
+            basename = "dataset_source"
 
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
