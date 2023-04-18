@@ -159,3 +159,21 @@ try:
     _dataset_source_registry.register(HuggingFaceDatasetSource)
 except ImportError:
     pass
+try:
+    from mlflow.data.http_dataset_source import HTTPDatasetSource
+
+    _dataset_source_registry.register(HTTPDatasetSource)
+except ImportError:
+    pass
+try:
+    from mlflow.data.spark_dataset_source import SparkDatasetSource
+
+    _dataset_source_registry.register(SparkDatasetSource)
+except ImportError:
+    pass
+try:
+    from mlflow.data.delta_dataset_source import DeltaDatasetSource
+
+    _dataset_source_registry.register(DeltaDatasetSource)
+except ImportError:
+    pass
