@@ -54,7 +54,7 @@ def _join_in_comparison_tokens(tokens):
 
     tokens = [t for t in tokens if not t.is_whitespace]
     num_tokens = len(tokens)
-    # IN (...)
+    # IN
     if num_tokens == 3:
         first, second, third = tokens
         if (
@@ -63,7 +63,7 @@ def _join_in_comparison_tokens(tokens):
             and isinstance(third, Parenthesis)
         ):
             return [Comparison(TokenList(tokens))]
-    # NOT IN (...)
+    # NOT IN
     elif num_tokens == 4:
         first, second, third, fourth = tokens
         if (
