@@ -1,52 +1,60 @@
 """
-The ``mlflow.prophet`` module provides an API for logging and loading Prophet models.
-This module exports univariate Prophet models in the following flavors:
+The ``mlflow.langchain`` module provides an API for logging and loading LangChain models.
+This module exports multivariate LangChain models in the langchain flavor and univariate
+LangChain models in the pyfunc flavor:
 
-Prophet (native) format
-    This is the main flavor that can be accessed with Prophet APIs.
+LangChain (native) format
+    This is the main flavor that can be accessed with LangChain APIs.
 :py:mod:`mlflow.pyfunc`
-    Produced for use by generic pyfunc-based deployment tools and for batch auditing
-    of historical forecasts.
+    Produced for use by generic pyfunc-based deployment tools and for batch inference.
 
-.. _Prophet:
-    https://facebook.github.io/prophet/docs/quick_start.html#python-api
+.. _LangChain:
+    https://python.langchain.com/en/latest/index.html
 """
+import logging
 import os
+from typing import Dict, List, Union
+
+import pandas as pd
 import yaml
-import json
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-from mlflow.utils.environment import (
-    _mlflow_conda_env,
-    _validate_env_arguments,
-    _process_pip_requirements,
-    _process_conda_env,
-    _CONDA_ENV_FILE_NAME,
-    _REQUIREMENTS_FILE_NAME,
-    _CONSTRAINTS_FILE_NAME,
-    _PYTHON_ENV_FILE_NAME,
-    _PythonEnv,
-)
-from mlflow.utils.file_utils import write_to
-from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
+from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
+from mlflow.models import Model, ModelInputExample
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
-from mlflow.models import Model, ModelInputExample
+from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.schema import ColSpec, DataType, Schema
+from mlflow.utils.annotations import experimental
+from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+    _validate_env_arguments,
+)
+from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
-    _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
 )
-from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
-FLAVOR_NAME = "prophet"
-_MODEL_BINARY_KEY = "data"
-_MODEL_BINARY_FILE_NAME = "model.pr"
+logger = logging.getLogger(mlflow.__name__)
+
+FLAVOR_NAME = "langchain"
+_MODEL_DATA_FILE_NAME = "model.yaml"
+_MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
 
 
@@ -56,11 +64,7 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at a minimum, contains these requirements.
     """
-    # Note: Prophet's whl build process will fail due to missing dependencies, defaulting
-    # to setup.py installation process.
-    # If a pystan installation error occurs, ensure gcc>=8 is installed in your environment.
-    # See: https://gcc.gnu.org/install/
-    return [_get_pinned_requirement("prophet")]
+    return [_get_pinned_requirement("langchain")]
 
 
 def get_default_conda_env():
@@ -71,9 +75,10 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
-    pr_model,
+    lc_model,
     path,
     conda_env=None,
     code_paths=None,
@@ -85,11 +90,10 @@ def save_model(
     metadata=None,
 ):
     """
-    Save a Prophet model to a path on the local file system.
+    Save a LangChain model to a path on the local file system.
 
-    :param pr_model: Prophet model (an instance of Prophet() forecaster that has been fit
-                     on a temporal series.
-    :param path: Local path where the serialized model (as JSON) is to be saved.
+    :param lc_model: An LLMChain model.
+    :param path: Local path where the serialized model (as YAML) is to be saved.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -97,6 +101,10 @@ def save_model(
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
+                      If not specified, the model signature would be set according to
+                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+                      `DataType.string` as the column type.
+                      Alternatively, you can explicitly specify the model signature.
                       The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
                       from datasets with valid model input (e.g. the training dataset with target
                       column omitted) and valid model output (e.g. model predictions generated on
@@ -106,10 +114,13 @@ def save_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = Prophet().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
+                        chain = LLMChain(llm=llm, prompt=prompt)
+                        prediction = chain.run(input_str)
+                        input_columns = [
+                            {"type": "string", "name": input_key} for input_key in chain.input_keys
+                        ]
+                        signature = infer_signature(input_columns, predictions)
+
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
@@ -122,7 +133,7 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     """
-    import prophet
+    import langchain
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -134,30 +145,41 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
+    else:
+        input_columns = [
+            ColSpec(type=DataType.string, name=input_key) for input_key in lc_model.input_keys
+        ]
+        input_schema = Schema(input_columns)
+        output_columns = [
+            ColSpec(type=DataType.string, name=output_key) for output_key in lc_model.output_keys
+        ]
+        output_schema = Schema(output_columns)
+        mlflow_model.signature = ModelSignature(input_schema, output_schema)
+
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_path = os.path.join(path, _MODEL_BINARY_FILE_NAME)
-    _save_model(pr_model, model_data_path)
+    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
+    _save_model(lc_model, model_data_path)
 
-    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
+    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
     pyfunc.add_to_model(
         mlflow_model,
-        loader_module="mlflow.prophet",
+        loader_module="mlflow.langchain",
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
-        **model_bin_kwargs,
+        **model_data_kwargs,
     )
     flavor_conf = {
-        _MODEL_TYPE_KEY: pr_model.__class__.__name__,
-        **model_bin_kwargs,
+        _MODEL_TYPE_KEY: lc_model.__class__.__name__,
+        **model_data_kwargs,
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        prophet_version=prophet.__version__,
+        langchain_version=langchain.__version__,
         code=code_dir_subpath,
         **flavor_conf,
     )
@@ -165,20 +187,15 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            # cannot use inferred requirements due to prophet's build process
-            # as the package installation of pystan requires Cython to be present
-            # in the path. Prophet's installation itself requires imports of
-            # existing libraries, preventing the execution of a batched pip install
-            # and instead using a a strictly defined list of dependencies.
-            # NOTE: if Prophet .whl build architecture is changed, this should be
-            # modified to a standard inferred approach.
             default_reqs = get_default_pip_requirements()
+            inferred_reqs = mlflow.models.infer_pip_requirements(
+                str(path), FLAVOR_NAME, fallback=default_reqs
+            )
+            default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:
             default_reqs = None
         conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
-            default_reqs,
-            pip_requirements,
-            extra_pip_requirements,
+            default_reqs, pip_requirements, extra_pip_requirements
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
@@ -194,9 +211,10 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-    pr_model,
+    lc_model,
     artifact_path,
     conda_env=None,
     code_paths=None,
@@ -209,9 +227,9 @@ def log_model(
     metadata=None,
 ):
     """
-    Log a Prophet model as an MLflow artifact for the current run.
+    Log a LangChain model as an MLflow artifact for the current run.
 
-    :param pr_model: Prophet model to be saved.
+    :param pr_model: LangChain model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -225,6 +243,10 @@ def log_model(
     :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       describes model input and output
                       :py:class:`Schema <mlflow.types.Schema>`.
+                      If not specified, the model signature would be set according to
+                      `lc_model.input_keys` and `lc_model.output_keys` as columns names, and
+                      `DataType.string` as the column type.
+                      Alternatively, you can explicitly specify the model signature.
                       The model signature can be :py:func:`inferred
                       <mlflow.models.infer_signature>` from datasets with valid model input
                       (e.g. the training dataset with target column omitted) and valid model
@@ -235,10 +257,12 @@ def log_model(
 
                         from mlflow.models.signature import infer_signature
 
-                        model = Prophet().fit(df)
-                        train = model.history
-                        predictions = model.predict(model.make_future_dataframe(30))
-                        signature = infer_signature(train, predictions)
+                        chain = LLMChain(llm=llm, prompt=prompt)
+                        prediction = chain.run(input_str)
+                        input_columns = [
+                            {"type": "string", "name": input_key} for input_key in chain.input_keys
+                        ]
+                        signature = infer_signature(input_columns, predictions)
 
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to
@@ -259,11 +283,25 @@ def log_model(
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
+    import langchain
+
+    if type(lc_model) != langchain.chains.llm.LLMChain:
+        raise TypeError(
+            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain "
+            + f"instances, found {type(lc_model)}"
+        )
+    _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
+    if type(lc_model.llm) not in _SUPPORTED_LLMS:
+        logger.warning(
+            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
+            "OpenAI, found %s",
+            str(type(lc_model.llm)),
+        )
     return Model.log(
         artifact_path=artifact_path,
-        flavor=mlflow.prophet,
+        flavor=mlflow.langchain,
         registered_model_name=registered_model_name,
-        pr_model=pr_model,
+        lc_model=lc_model,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -276,32 +314,70 @@ def log_model(
 
 
 def _save_model(model, path):
-    from prophet.serialize import model_to_json
-
-    model_ser = model_to_json(model)
-    with open(path, "w") as f:
-        json.dump(model_ser, f)
+    model.save(path)
 
 
 def _load_model(path):
-    from prophet.serialize import model_from_json
+    from langchain.chains.loading import load_chain
 
-    with open(path) as f:
-        model = json.load(f)
-    return model_from_json(model)
+    model = load_chain(path)
+    return model
+
+
+class _LangChainModelWrapper:
+    def __init__(self, lc_model):
+        self.lc_model = lc_model
+
+    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
+        from mlflow.langchain.api_request_parallel_processor import process_api_requests
+
+        if isinstance(data, pd.DataFrame):
+            messages = data.to_dict(orient="records")
+        elif isinstance(data, list) and (
+            all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
+        ):
+            messages = data
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
+            )
+        return process_api_requests(lc_model=self.lc_model, requests=messages)
+
+
+class _TestLangChainWrapper(_LangChainModelWrapper):
+    """
+    A wrapper class that should be used for testing purposes only.
+    """
+
+    def predict(self, data):
+        from tests.langchain.test_langchain_model_export import _mock_async_request
+
+        with _mock_async_request():
+            return super().predict(data)
 
 
 def _load_pyfunc(path):
     """
-    Load PyFunc implementation for Prophet. Called by ``pyfunc.load_model``.
-    :param path: Local filesystem path to the MLflow Model with the ``prophet`` flavor.
+    Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
+    :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    return _ProphetModelWrapper(_load_model(path))
+    wrapper_cls = _TestLangChainWrapper if _MLFLOW_OPENAI_TESTING.get() else _LangChainModelWrapper
+    return wrapper_cls(_load_model_from_local_fs(path))
 
 
+def _load_model_from_local_fs(local_model_path):
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+    lc_model_path = os.path.join(
+        local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
+    )
+    return _load_model(lc_model_path)
+
+
+@experimental
 def load_model(model_uri, dst_path=None):
     """
-    Load a Prophet model from a local file or a run.
+    Load a LangChain model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -317,21 +393,7 @@ def load_model(model_uri, dst_path=None):
                      This directory must already exist. If unspecified, a local output
                      path will be created.
 
-    :return: A Prophet model instance
+    :return: A LangChain model instance
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
-    pr_model_path = os.path.join(
-        local_model_path, flavor_conf.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME)
-    )
-
-    return _load_model(pr_model_path)
-
-
-class _ProphetModelWrapper:
-    def __init__(self, pr_model):
-        self.pr_model = pr_model
-
-    def predict(self, dataframe):
-        return self.pr_model.predict(dataframe)
+    return _load_model_from_local_fs(local_model_path)

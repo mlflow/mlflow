@@ -363,7 +363,7 @@ mleap:
     maximum: "0.22.0"
     requirements:
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
-      ">= 0.21.0": ["pyspark"]
+      ">= 0.21.0": ["pyspark<3.4"]
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
@@ -470,3 +470,33 @@ transformers:
         ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+
+openai:
+  package_info:
+    pip_release: "openai"
+    install_dev: |
+      pip install git+https://github.com/openai/openai-python
+  models:
+    minimum: "0.27.2"
+    maximum: "0.27.2"
+    requirements:
+      ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
+    run: |
+      export MLFLOW_OPENAI_TESTING=true
+      export OPENAI_API_KEY=test
+      pytest tests/openai/test_openai_model_export.py
+
+langchain:
+  package_info:
+    pip_release: "langchain"
+    install_dev: |
+      pip install git+https://github.com/hwchase17/langchain
+  models:
+    minimum: "0.0.139"
+    maximum: "0.0.141"
+    requirements:
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow"]
+    run: |
+      export MLFLOW_OPENAI_TESTING=true
+      export OPENAI_API_KEY=test
+      pytest tests/langchain/test_langchain_model_export.py

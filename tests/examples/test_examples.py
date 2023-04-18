@@ -165,6 +165,9 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("pyfunc", ["python", "train.py"]),
         ("sktime", ["python", "train.py"]),
         ("tensorflow", ["python", "train.py"]),
+        ("transformers", ["python", "conversational.py"]),
+        ("transformers", ["python", "load_components.py"]),
+        ("transformers", ["python", "simple.py"]),
     ],
 )
 def test_command_example(directory, command):
