@@ -440,7 +440,7 @@ def test_tensor_multi_named_schema_enforcement():
         MlflowException,
         match=re.escape(
             "The input pandas dataframe column 'a' contains scalar values, which requires the "
-            "shape to be (-1,), but got tensor spec shape of (-1, 5)"
+            "shape to be (-1,) or (-1, 1), but got tensor spec shape of (-1, 5)"
         ),
     ):
         pyfunc_model.predict(pdf)
@@ -547,7 +547,7 @@ def test_schema_enforcement_named_tensor_schema_1d():
         expected_exception=MlflowException,
         match=re.escape(
             "The input pandas dataframe column 'a' contains scalar "
-            "values, which requires the shape to be (-1,), but got tensor spec "
+            "values, which requires the shape to be (-1,) or (-1, 1), but got tensor spec "
             "shape of (-1, 2)."
         ),
     ):
