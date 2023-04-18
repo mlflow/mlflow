@@ -2,16 +2,15 @@ import entrypoints
 import warnings
 from typing import Any, List
 
-from mlflow.exceptions import MlflowException
-from mlflow.data.dataset_source import DatasetSource
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
+from mlflow.data.dataset_source import DatasetSource
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 
 class DatasetSourceRegistry:
     def __init__(self):
-        self._sources = []
+        self.sources = []
 
     def register(self, source: DatasetSource):
         """
@@ -19,7 +18,7 @@ class DatasetSourceRegistry:
 
         :param source: The DatasetSource to register.
         """
-        self._sources.append(source)
+        self.sources.append(source)
 
     def register_entrypoints(self):
         """
@@ -53,7 +52,7 @@ class DatasetSourceRegistry:
         :return: The resolved DatasetSource.
         """
         matching_sources = []
-        for source in self._sources:
+        for source in self.sources:
             if candidate_sources and not any(
                 issubclass(source, candidate_src) for candidate_src in candidate_sources
             ):
@@ -103,7 +102,7 @@ class DatasetSourceRegistry:
         :param source_type: The string type of the DatasetSource, which indicates how to parse the
                             source JSON.
         """
-        for source in reversed(self._sources):
+        for source in reversed(self.sources):
             if source._get_source_type() == source_type:
                 return source.from_json(source_json)
 
@@ -155,6 +154,15 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
     return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
     )
+
+
+def get_registered_sources() -> List[DatasetSource]:
+    """
+    Obtains the registered dataset sources.
+
+    :return: A list of registered dataset sources.
+    """
+    return _dataset_source_registry.sources
 
 
 # NB: The ordering here is important. The last dataset source to be registered takes precedence
