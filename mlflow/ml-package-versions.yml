@@ -495,7 +495,7 @@ langchain:
     minimum: "0.0.139"
     maximum: "0.0.143"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow"]
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
     run: |
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test

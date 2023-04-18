@@ -101,6 +101,7 @@ try:
         "transformers",
         "langchain",
         "llm",
+        "openai",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
