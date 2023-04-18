@@ -466,14 +466,17 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         )
 
     if np.isscalar(pd_series[0]):
-        if tensor_spec.shape != (-1,):
-            raise MlflowException(
-                f"The input pandas dataframe column '{name}' contains scalar "
-                "values, which requires the shape to be (-1,), but got tensor spec "
-                f"shape of {tensor_spec.shape}.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        return _enforce_tensor_spec(np.array(pd_series, dtype=tensor_spec.type), tensor_spec)
+        for shape in [(-1,), (-1, 1)]:
+            if tensor_spec.shape == shape:
+                return _enforce_tensor_spec(
+                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape), tensor_spec
+                )
+        raise MlflowException(
+            f"The input pandas dataframe column '{name}' contains scalar "
+            "values, which requires the shape to be (-1,) or (-1, 1), but got tensor spec "
+            f"shape of {tensor_spec.shape}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
