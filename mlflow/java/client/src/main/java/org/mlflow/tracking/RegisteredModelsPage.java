@@ -65,7 +65,10 @@ class RegisteredModelsPage implements Page<RegisteredModel> {
    */
   public Page<RegisteredModel> getNextPage() {
     if (this.hasNextPage()) {
-      return this.client.searchRegisteredModels(this.searchFilter, this.maxResults, this.orderBy, this.token);
+      return this.client.searchRegisteredModels(this.searchFilter,
+                                                this.maxResults,
+                                                this.orderBy,
+                                                this.token);
     } else {
       return new EmptyPage<>();
     }

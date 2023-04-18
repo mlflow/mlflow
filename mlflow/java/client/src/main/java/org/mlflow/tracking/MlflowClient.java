@@ -1036,7 +1036,9 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @return A page of registered models that satisfy the search filter.
    */
-  public Page<RegisteredModel> searchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy) {
+  public Page<RegisteredModel> searchRegisteredModels(String searchFilter,
+                                                      int maxResults,
+                                                      List<String> orderBy) {
     return searchRegisteredModels(searchFilter, maxResults, orderBy, null);
   }
 
@@ -1055,7 +1057,10 @@ public class MlflowClient implements Serializable, Closeable {
    *
    * @return A page of registered models that satisfy the search filter.
    */
-  public Page<RegisteredModel> searchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy, String pageToken) {
+  public Page<RegisteredModel> searchRegisteredModels(String searchFilter,
+                                                      int maxResults,
+                                                      List<String> orderBy,
+                                                      String pageToken) {
     String json = sendGet(mapper.makeSearchRegisteredModels(
         searchFilter, maxResults, orderBy, pageToken
     ));

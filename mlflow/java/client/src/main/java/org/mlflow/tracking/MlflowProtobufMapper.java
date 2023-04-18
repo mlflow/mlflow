@@ -220,7 +220,9 @@ class MlflowProtobufMapper {
     }
   }
 
-  String makeSearchRegisteredModels(String searchFilter, int maxResults, List<String> orderBy, String pageToken) {
+  String makeSearchRegisteredModels(String searchFilter,
+                                    int maxResults,
+                                    List<String> orderBy, String pageToken) {
     try {
       URIBuilder builder = new URIBuilder("registered-models/search")
               .addParameter("max_results", Integer.toString(maxResults));
@@ -235,7 +237,9 @@ class MlflowProtobufMapper {
       }
       return builder.build().toString();
     } catch (URISyntaxException e) {
-      throw new MlflowClientException("Failed to construct request URI for search registered models.", e);
+      throw new MlflowClientException(
+          "Failed to construct request URI for search registered models.",
+          e);
     }
   }
 
