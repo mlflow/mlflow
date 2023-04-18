@@ -928,3 +928,20 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
     _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+
+
+def test_schema_enforcement_single_column_2d_array():
+    X = np.array([[1], [2], [3]])
+    y = np.array([1, 2, 3])
+    model = sklearn.linear_model.LinearRegression()
+    model.fit(X, y)
+    signature = infer_signature(X, y)
+    assert signature.inputs.inputs[0].shape == (-1, 1)
+    assert signature.outputs.inputs[0].shape == (-1,)
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    pdf = pd.DataFrame(X)
+    np.testing.assert_almost_equal(loaded_model.predict(pdf), model.predict(pdf))
