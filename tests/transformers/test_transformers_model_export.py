@@ -1929,14 +1929,25 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
     [
         (
             "What answers?",
-            [{"generated_text": "What answers?\n\nA collection of \n\nanswers"}],
+            [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
             "A collection of answers",
         ),
         ("Hello!", [{"generated_text": "Hello!\n\nHow are you?"}], "How are you?"),
         (
             ["Hi!", "What's up?"],
-            [[{"generated_text": "Hi!\nHello there"}, {"generated_text": "Not much, and you?"}]],
+            [[{"generated_text": "Hi!\n\nHello there"}, {"generated_text": "Not much, and you?"}]],
             ["Hello there", "Not much, and you?"],
+        ),
+        # Tests a standard TextGenerationPipeline output
+        (
+            ["We like to", "Open the"],
+            [
+                [
+                    {"generated_text": "We like to party"},
+                    {"generated_text": "Open the door get on the floor everybody do the dinosaur"},
+                ]
+            ],
+            ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
         ),
     ],
 )
