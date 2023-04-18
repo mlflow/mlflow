@@ -589,9 +589,8 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
     for k, v in eval_result.metrics.items():
         assert v == saved_metrics[k]
 
-    data = get_run_datasets(run.info.run_id)
-    print(data)
-    assert False
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
 
 
 def test_dataset_name():
