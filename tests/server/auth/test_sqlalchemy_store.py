@@ -251,6 +251,11 @@ def test_update_experiment_permission(store):
     ep1 = store.get_experiment_permission(experiment_id1, user_id1)
     assert ep1.permission == permission2
 
+    # invalid permission will fail
+    with pytest.raises(MlflowException, match=r"Invalid permission") as exception_context:
+        store.update_experiment_permission(experiment_id1, user_id1, "some_invalid_permission_string")
+    assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
 
 def test_delete_experiment_permission(store):
     username1 = random_str()

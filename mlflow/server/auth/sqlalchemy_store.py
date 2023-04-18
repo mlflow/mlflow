@@ -198,6 +198,7 @@ class SqlAlchemyStore:
     def update_experiment_permission(
         self, experiment_id: str, user_id: int, permission: str
     ) -> ExperimentPermission:
+        _validate_permission(permission)
         with self.ManagedSessionMaker() as session:
             perm = self._get_experiment_permission(session, experiment_id, user_id)
             perm.permission = permission
