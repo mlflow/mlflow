@@ -53,7 +53,10 @@ class HTTPDatasetSource(DatasetSource):
         augmented_raise_for_status(resp)
 
         path = urlparse(self.url).path
-        if path is not None:
+        content_disposition = resp.headers.get("Content-Disposition")
+        if content_disposition is not None and len(content_disposition) > 0:
+            basename = content_disposition
+        elif path is not None and len(posixpath.basename(path)) > 0:
             basename = posixpath.basename(path)
         else:
             basename = "dataset_source"

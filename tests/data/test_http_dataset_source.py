@@ -46,18 +46,32 @@ def test_http_dataset_source_is_registered_and_resolvable():
 
 
 def test_source_load(tmp_path):
-    url = (
-        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
-    )
-    source = HTTPDatasetSource(url)
+    source1 = HTTPDatasetSource("https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv")
 
-    loaded1 = source.load()
+    loaded1 = source1.load()
     parsed1 = pd.read_csv(loaded1, sep=";")
     assert "fixed acidity" in parsed1.columns
     assert len(parsed1) > 10
 
-    loaded2 = source.load(dst_path=tmp_path)
-    assert loaded2 == os.path.join(tmp_path, "winequality-red.csv")
+    loaded2 = source1.load(dst_path=tmp_path)
+    assert loaded2 == str(tmp_path / "winequality-red.csv")
     parsed2 = pd.read_csv(loaded2, sep=";")
     assert "fixed acidity" in parsed2.columns
     assert len(parsed1) > 10
+
+    source2 = HTTPDatasetSource("https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv#foo?query=param")
+    loaded3 = source2.load(dst_path=tmp_path)
+    assert loaded3 == str(tmp_path / "winequality-red.csv")
+    parsed3 = pd.read_csv(loaded3, sep=";")
+    assert "fixed acidity" in parsed3.columns
+    assert len(parsed1) > 10
+
+    source3 = HTTPDatasetSource("https://github.com/")
+    loaded4 = source3.load()
+    assert os.path.exists(loaded4)
+    assert os.path.basename(loaded4) == "dataset_source"
+
+    source4 = HTTPDatasetSource("https://github.com")
+    loaded5 = source4.load()
+    assert os.path.exists(loaded5)
+    assert os.path.basename(loaded5) == "dataset_source"
