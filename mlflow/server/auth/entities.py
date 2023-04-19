@@ -79,6 +79,13 @@ class ExperimentPermission:
     def permission(self, permission):
         self._permission = permission
 
+    def to_json(self):
+        return {
+            "experiment_id": self.experiment_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
 
 class RegisteredModelPermission:
     def __init__(
