@@ -1446,9 +1446,12 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
-        # Optional input preservation for specific pipeline types
+        # Optional input preservation for specific pipeline types. This is True (include raw
+        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # option during model saving, excess newline characters and the fed-in prompt will be
+        # trimmed out.
         include_prompt = (
-            self.inference_config.pop("include_prompt", False) if self.inference_config else False
+            self.inference_config.pop("include_prompt", True) if self.inference_config else True
         )
 
         # Generate inference data with the pipeline object
@@ -1609,7 +1612,7 @@ class _TransformersWrapper:
             return data
 
     def _strip_input_from_response_in_instruction_pipelines(
-        self, input_data, output, output_key, flavor_config, include_prompt
+        self, input_data, output, output_key, flavor_config, include_prompt=True
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
@@ -1647,8 +1650,8 @@ class _TransformersWrapper:
                     data_out = data_out[len(data_in) :].lstrip()
                     if data_out.startswith("A:"):
                         data_out = data_out[2:].lstrip()
-                for to_replace, replace in replacements.items():
-                    data_out = data_out.replace(to_replace, replace)
+                    for to_replace, replace in replacements.items():
+                        data_out = data_out.replace(to_replace, replace)
                 return data_out
             else:
                 return data_out
