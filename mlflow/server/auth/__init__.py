@@ -11,7 +11,7 @@ import logging
 import uuid
 import os
 from pathlib import Path
-from typing import Dict
+from typing import Callable
 
 from flask import Flask, request, make_response, Response, redirect, flash, render_template_string
 
@@ -29,7 +29,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
     _TRACKING_PASSWORD_ENV_VAR,
 )
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST, ErrorCode, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetRun,
@@ -141,13 +141,11 @@ def _get_request_param(param: str) -> str:
     elif request.method == "POST":
         args = request.json
     else:
-        _logger.error(f"Unsupported HTTP method '{request.method}'")
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
 
-    _logger.info(f"Getting request param (method={request.method}): {str(args)}")
     if param not in args:
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
@@ -157,12 +155,27 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
+def _get_permission_from_store_or_default(store_func: Callable[[], str]) -> Permission:
+    """
+    Attempts to get permission from store,
+    and returns default permission in case if no record is found.
+    """
+    try:
+        perm = store_func()
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+            perm = auth_config.default_permission
+        else:
+            raise
+    return get_permission(perm)
+
+
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     user = store.get_user(request.authorization.username)
-    perm = store.get_experiment_permission(experiment_id, user.id)
-    perm = perm.permission if perm else auth_config.default_permission
-    return get_permission(perm)
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, user.id).permission
+    )
 
 
 def _get_permission_from_run_id() -> Permission:
@@ -172,17 +185,17 @@ def _get_permission_from_run_id() -> Permission:
     run = get_run(run_id)
     experiment_id = run.info.experiment_id
     user = store.get_user(request.authorization.username)
-    perm = store.get_experiment_permission(experiment_id, user.id)
-    perm = perm.permission if perm else auth_config.default_permission
-    return get_permission(perm)
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, user.id).permission
+    )
 
 
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     user = store.get_user(request.authorization.username)
-    perm = store.get_registered_model_permission(name, user.id)
-    perm = perm.permission if perm else auth_config.default_permission
-    return get_permission(perm)
+    return _get_permission_from_store_or_default(
+        lambda: store.get_registered_model_permission(name, user.id).permission
+    )
 
 
 def validate_can_read_experiment():
@@ -325,7 +338,7 @@ def _before_request():
     # authorization
     validator = BEFORE_REQUEST_VALIDATORS.get((request.path, request.method))
     if validator:
-        _logger.info(f"Calling validator: {validator.__name__}")
+        _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
 
@@ -399,26 +412,29 @@ def create_root_user(username, password):
 
 
 @catch_mlflow_exception
-def create_experiment_permission() -> Dict:
+def create_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
     user_id = int(_get_request_param("user_id"))
     permission = _get_request_param("permission")
-    return store.create_experiment_permission(experiment_id, user_id, permission).to_json()
+    ep = store.create_experiment_permission(experiment_id, user_id, permission)
+    return make_response({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception
-def get_experiment_permission() -> str:
+def get_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
     user_id = int(_get_request_param("user_id"))
-    return store.get_experiment_permission(experiment_id, user_id).permission.name
+    ep = store.get_experiment_permission(experiment_id, user_id)
+    return make_response({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception
-def update_experiment_permission() -> Dict:
+def update_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
     user_id = int(_get_request_param("user_id"))
     permission = _get_request_param("permission")
-    return store.update_experiment_permission(experiment_id, user_id, permission).to_json()
+    store.update_experiment_permission(experiment_id, user_id, permission)
+    return make_response({})
 
 
 @catch_mlflow_exception
@@ -426,6 +442,7 @@ def delete_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
     user_id = int(_get_request_param("user_id"))
     store.delete_experiment_permission(experiment_id, user_id)
+    return make_response({})
 
 
 @catch_mlflow_exception
@@ -433,14 +450,16 @@ def create_registered_model_permission():
     name = _get_request_param("name")
     user_id = int(_get_request_param("user_id"))
     permission = _get_request_param("permission")
-    return store.create_registered_model_permission(name, user_id, permission)
+    rmp = store.create_registered_model_permission(name, user_id, permission)
+    return make_response({"registered_model_permission": rmp.to_json()})
 
 
 @catch_mlflow_exception
-def get_registered_model_permission() -> str:
+def get_registered_model_permission():
     name = _get_request_param("name")
     user_id = int(_get_request_param("user_id"))
-    return store.get_registered_model_permission(name, user_id).permission
+    rmp = store.get_registered_model_permission(name, user_id)
+    return make_response({"registered_model_permission": rmp.to_json()})
 
 
 @catch_mlflow_exception
@@ -448,7 +467,8 @@ def update_registered_model_permission():
     name = _get_request_param("name")
     user_id = int(_get_request_param("user_id"))
     permission = _get_request_param("permission")
-    return store.update_registered_model_permission(name, user_id, permission)
+    store.update_registered_model_permission(name, user_id, permission)
+    return make_response({})
 
 
 @catch_mlflow_exception
@@ -456,6 +476,7 @@ def delete_registered_model_permission():
     name = _get_request_param("name")
     user_id = int(_get_request_param("user_id"))
     store.delete_registered_model_permission(name, user_id)
+    return make_response({})
 
 
 def _enable_auth(app: Flask):
