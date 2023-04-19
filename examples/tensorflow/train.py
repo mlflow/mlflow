@@ -177,8 +177,7 @@ if __name__ == "__main__":
             "batch_size", batch_size,
         })
         # Log the final metrics
-        mlflow.log_metric("final_train_loss", train_loss)
-        mlflow.log_metric("final_test_loss", test_loss)
+        mlflow.log_metrics(...)
         print(f"\nFinal train loss: {train_loss:0.3f}")
         print(f"Final test loss: {test_loss:0.3f}")
 
