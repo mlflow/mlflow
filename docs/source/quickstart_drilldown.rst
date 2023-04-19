@@ -105,7 +105,7 @@ which returns::
 
 For more information, see :doc:`models`.
 
-Running MLflow Projects
+Run MLflow projects
 -----------------------
 
 You can easily run existing projects with the ``mlflow run`` command, which runs a project from
