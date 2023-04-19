@@ -1231,6 +1231,13 @@ def test_search_runs_run_id(store):
 
     result = store.search_runs(
         [exp_id],
+        filter_string=f"attributes.run_name = '1' AND attributes.run_id IN ('{run_id1}')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert [r.info.run_id for r in result] == [run_id1]
+
+    result = store.search_runs(
+        [exp_id],
         filter_string=f"attributes.run_id NOT IN ('{run_id1}')",
         run_view_type=ViewType.ACTIVE_ONLY,
     )
