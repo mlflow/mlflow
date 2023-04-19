@@ -118,7 +118,7 @@ If you are using a library that supports autologging, but wish to disable it, yo
 - For more details on automatic logging, see :ref:`automatic-logging`.
 - For more details on the explicit logging API, see :ref:`tracking_logging_functions`.
 
-Viewing MLflow runs and experiments
+View MLflow runs and experiments
 -----------------------------------
 
 Once you've run your code, you may view the results with MLflow's tracking UI. To start the UI, run:
