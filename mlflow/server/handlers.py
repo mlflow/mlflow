@@ -84,7 +84,7 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_local_uri, is_file_uri
+from mlflow.utils.uri import is_local_uri, is_file_uri, is_http_uri, is_mlflow_artifacts_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
@@ -1323,6 +1323,32 @@ def _delete_registered_model_tag():
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
+def _validate_non_local_source_contains_relative_paths(source: str):
+    """
+    Validation check to ensure that sources that are provided that conform to the schemes:
+    http, https, or mlflow-artifacts do not contain relative path designations that are intended
+    to access local file system paths on the tracking server.
+
+    Example paths that this validation function is intended to find and raise an Exception if
+    passed:
+    "mlflow-artifacts://host:port/../../../../"
+    "http://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
+    "https://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
+    "/models/artifacts/../../../"
+    """
+    source_path = urllib.parse.urlparse(source).path
+    raw_source_path = pathlib.Path(source_path)
+    resolved_path = raw_source_path.resolve()
+
+    if resolved_path != raw_source_path:
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
+            "local file path, or mlflow-artifacts uri, an absolute path must be provided without "
+            "relative path references present.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_source(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
@@ -1351,6 +1377,9 @@ def _validate_source(source: str, run_id: str) -> None:
             "True.",
             INVALID_PARAMETER_VALUE,
         )
+
+    if is_http_uri(source) or is_mlflow_artifacts_uri(source) or is_local_uri(source):
+        _validate_non_local_source_contains_relative_paths(source)
 
 
 @catch_mlflow_exception
