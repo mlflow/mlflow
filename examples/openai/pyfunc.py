@@ -8,6 +8,8 @@ import logging
 
 logging.getLogger("mlflow").setLevel(logging.DEBUG)
 
+assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
+
 # On Databricks, set the stored OpenAI API key scope here for automatically loading the API key
 # for real time inference. See https://docs.databricks.com/security/secrets/index.html on
 # how to add a scope and API key.
