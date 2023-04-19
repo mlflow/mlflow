@@ -26,7 +26,7 @@ MLflow is available for Python, R, and Java, but this quickstart shows Python on
 ..
     Task: https://databricks.atlassian.net/browse/DOC-8674?atlOrigin=eyJpIjoiNjg5ZmYxODUzNjYxNDQzY2FjYTUxMTYyMDE4ZWFjNGQiLCJwIjoiaiJ9
 
-Installing MLflow
+Install MLflow
 -----------------
 
 Install MLflow from PyPi using pip:
