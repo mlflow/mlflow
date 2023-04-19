@@ -304,7 +304,7 @@ Note that while ``log_model`` saves environment-specifying files such as **conda
 
 To learn more about loading models for specific runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
-Next Steps
+Next steps
 ----------
 ..
     First, code:
