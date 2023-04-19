@@ -182,7 +182,7 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 
 There are many options available for the tracking backend. For more details, see :ref:`tracking_server`.
 
-Using MLflow with a Databricks workspace
+Use MLflow with a Databricks workspace
 ----------------------------------------
 
 You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
