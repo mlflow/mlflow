@@ -56,7 +56,7 @@ See :ref:`installing MLflow for R<R-api>` . For Java, we release to Maven Centra
 
 .. _quickstart_drilldown_log_and_load_model:
 
-Saving and Serving Models
+Save and serve models
 -------------------------
 
 MLflow includes a generic ``MLmodel`` format for saving *models* from a variety of tools in diverse
