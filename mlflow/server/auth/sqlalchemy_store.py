@@ -5,6 +5,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     Boolean,
+    UniqueConstraint,
 )
 from sqlalchemy.exc import IntegrityError, NoResultFound, MultipleResultsFound
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -50,9 +51,10 @@ class SqlUser(Base):
 class SqlExperimentPermission(Base):
     __tablename__ = "experiment_permissions"
     id = Column(Integer(), primary_key=True)
-    experiment_id = Column(String(255), unique=True, nullable=False)
+    experiment_id = Column(String(255), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"), )
 
     def to_mlflow_entity(self):
         return ExperimentPermission(
@@ -65,9 +67,10 @@ class SqlExperimentPermission(Base):
 class SqlRegisteredModelPermission(Base):
     __tablename__ = "registered_model_permissions"
     id = Column(Integer(), primary_key=True)
-    name = Column(String(255), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("name", "user_id", name="unique_name_user"), )
 
     def to_mlflow_entity(self):
         return RegisteredModelPermission(
@@ -163,7 +166,11 @@ class SqlAlchemyStore:
                 session.flush()
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
-                raise MlflowException(f"Experiment permission creation error: {e}")
+                raise MlflowException(
+                    f"Experiment permission (experiment_id={experiment_id}, user_id={user_id}) already exists. "
+                    f"Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
     @classmethod
     def _get_experiment_permission(
@@ -229,7 +236,11 @@ class SqlAlchemyStore:
                 session.flush()
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
-                raise MlflowException(f"Registered model permission creation error: {e}")
+                raise MlflowException(
+                    f"Registered model permission (name={name}, user_id={user_id}) already exists. "
+                    f"Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
 
     @classmethod
     def _get_registered_model_permission(
