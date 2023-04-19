@@ -54,7 +54,7 @@ class SqlExperimentPermission(Base):
     experiment_id = Column(String(255), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     permission = Column(String(255))
-    __table_args__ = (UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"), )
+    __table_args__ = (UniqueConstraint("experiment_id", "user_id", name="unique_experiment_user"),)
 
     def to_mlflow_entity(self):
         return ExperimentPermission(
@@ -70,7 +70,7 @@ class SqlRegisteredModelPermission(Base):
     name = Column(String(255), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     permission = Column(String(255))
-    __table_args__ = (UniqueConstraint("name", "user_id", name="unique_name_user"), )
+    __table_args__ = (UniqueConstraint("name", "user_id", name="unique_name_user"),)
 
     def to_mlflow_entity(self):
         return RegisteredModelPermission(

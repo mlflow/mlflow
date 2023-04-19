@@ -29,7 +29,12 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
     _TRACKING_PASSWORD_ENV_VAR,
 )
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST, ErrorCode, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import (
+    ErrorCode,
+    BAD_REQUEST,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+)
 from mlflow.protos.service_pb2 import (
     GetExperiment,
     GetRun,
