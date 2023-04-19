@@ -156,43 +156,27 @@ def _normalize_package_name(pkg_name):
     return _NORMALIZE_REGEX.sub("-", pkg_name).lower()
 
 
-def _get_requires(pkg_name, top_pkg_name=None):
-    if top_pkg_name is None:
-        # Assume the top package
-        top_pkg_name = pkg_name
-
-    pkg_name = _normalize_package_name(pkg_name)
-    if pkg_name not in pkg_resources.working_set.by_key:
-        return
-
-    package = pkg_resources.working_set.by_key[pkg_name]
-    reqs = package.requires()
-    if len(reqs) == 0:
-        return
-
-    for req in reqs:
-        req_name = _normalize_package_name(req.name)
-        if req_name == top_pkg_name:
-            # If the top package ends up providing himself again through a
-            # recursive dependency, we don't want to consider it as a
-            # dependency
-            continue
-
-        yield req_name
+def _get_requires(pkg_name):
+    norm_pkg_name = _normalize_package_name(pkg_name)
+    if package := pkg_resources.working_set.by_key.get(norm_pkg_name):
+        for req in package.requires():
+            yield _normalize_package_name(req.name)
 
 
-def _get_requires_recursive(pkg_name, top_pkg_name=None) -> set:
+def _get_requires_recursive(pkg_name, seen_before=None):
     """
     Recursively yields both direct and transitive dependencies of the specified
     package.
-    The `top_pkg_name` argument will track what's the top-level dependency for
-    which we want to list all sub-dependencies.
-    This ensures that we don't fall into recursive loops for packages with are
-    dependant on each other.
     """
-    for req in _get_requires(pkg_name, top_pkg_name):
+    norm_pkg_name = _normalize_package_name(pkg_name)
+    seen_before = seen_before or {norm_pkg_name}
+    for req in _get_requires(pkg_name):
+        # Prevent infinite recursion due to cyclic dependencies
+        if req in seen_before:
+            continue
+        seen_before.add(req)
         yield req
-        yield from _get_requires_recursive(req, top_pkg_name)
+        yield from _get_requires_recursive(req, seen_before)
 
 
 def _prune_packages(packages):
