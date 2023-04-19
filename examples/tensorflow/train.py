@@ -1,12 +1,11 @@
 # tensorflow 2.x core api
+import logging
 from urllib.parse import urlparse
 
 import mlflow
 import pandas as pd
 
 import tensorflow as tf
-
-import logging
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger(__name__)
@@ -52,30 +51,19 @@ class LinearRegression(tf.Module):
 class ExportModule(tf.Module):
     """Exporting TF model"""
 
-    def __init__(self, model, extract_features, norm_x, norm_y):
+    def __init__(self, model, norm_x, norm_y):
         # Initialize pre and postprocessing functions
         self.model = model
-        self.extract_features = extract_features
         self.norm_x = norm_x
         self.norm_y = norm_y
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float32)])
     def __call__(self, x):
         # Run the ExportModule for new data points
-        x = self.extract_features(x)
         x = self.norm_x.norm(x)
         y = self.model(x)
         y = self.norm_y.unnorm(y)
         return y
-
-
-def onehot_origin(x):
-    """function to One hot encode the data"""
-    origin = tf.cast(x[:, -1], tf.int32)
-    # Use `origin - 1` to account for 1-indexed feature
-    origin_oh = tf.one_hot(origin - 1, 3)
-    x_ohe = tf.concat([x[:, :-1], origin_oh], axis=1)
-    return x_ohe
 
 
 def mse_loss(y_pred, y):
@@ -89,44 +77,33 @@ if __name__ == "__main__":
 
     # Enable auto-logging to MLflow to capture TensorBoard metrics.
     mlflow.tensorflow.autolog()
+
     # Dataset url
-    url = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
-    column_names = [
-        "MPG",
-        "Cylinders",
-        "Displacement",
-        "Horsepower",
-        "Weight",
-        "Acceleration",
-        "Model Year",
-        "Origin",
-    ]
-    dataset = pd.read_csv(
-        url, names=column_names, na_values="?", comment="\t", sep=" ", skipinitialspace=True
-    )
+    url = "https://raw.githubusercontent.com/dheerajnbhat/datasets/main/ml/californiaHousing/californiaHousing.csv"
+    dataset = pd.read_csv(url, na_values="?")
     # Drop missing values
     dataset = dataset.dropna()
+    # using only 1500
+    dataset = dataset[:1500]
     dataset_tf = tf.convert_to_tensor(dataset, dtype=tf.float32)
 
     # Split dataset into train and test
     dataset_shuffled = tf.random.shuffle(dataset_tf, seed=42)
     train_data, test_data = dataset_shuffled[100:], dataset_shuffled[:100]
-    x_train, y_train = train_data[:, 1:], train_data[:, 0]
-    x_test, y_test = test_data[:, 1:], test_data[:, 0]
-    # One hot encode origin column
-    x_train_ohe, x_test_ohe = onehot_origin(x_train), onehot_origin(x_test)
+    x_train, y_train = train_data[:, :-1], train_data[:, -1]
+    x_test, y_test = test_data[:, :-1], test_data[:, -1]
     # Data normalization
-    norm_x = Normalize(x_train_ohe)
+    norm_x = Normalize(x_train)
     norm_y = Normalize(y_train)
-    x_train_norm, y_train_norm = norm_x.norm(x_train_ohe), norm_y.norm(y_train)
-    x_test_norm, y_test_norm = norm_x.norm(x_test_ohe), norm_y.norm(y_test)
+    x_train_norm, y_train_norm = norm_x.norm(x_train), norm_y.norm(y_train)
+    x_test_norm, y_test_norm = norm_x.norm(x_test), norm_y.norm(y_test)
 
     with mlflow.start_run():
         # Initialize linear regression model
         lin_reg = LinearRegression()
 
         # Use mini batches for memory efficiency and faster convergence
-        batch_size = 64
+        batch_size = 32
         train_dataset = tf.data.Dataset.from_tensor_slices((x_train_norm, y_train_norm))
         train_dataset = train_dataset.shuffle(buffer_size=x_train.shape[0]).batch(batch_size)
         test_dataset = tf.data.Dataset.from_tensor_slices((x_test_norm, y_test_norm))
@@ -171,20 +148,25 @@ if __name__ == "__main__":
                 print(f"Mean squared error for step {epoch}: {train_loss.numpy():0.3f}")
 
         # Log the parameters
-        mlflow.log_params({
-            "epochs": epochs,
-            "learning_rate": learning_rate,
-            "batch_size", batch_size,
-        })
+        mlflow.log_params(
+            {
+                "epochs": epochs,
+                "learning_rate": learning_rate,
+                "batch_size": batch_size,
+            }
+        )
         # Log the final metrics
-        mlflow.log_metrics(...)
+        mlflow.log_metrics(
+            {
+                "final_train_loss": train_loss.numpy(),
+                "final_test_loss": test_loss.numpy(),
+            }
+        )
         print(f"\nFinal train loss: {train_loss:0.3f}")
         print(f"Final test loss: {test_loss:0.3f}")
 
         # Export the tensorflow model
-        lin_reg_export = ExportModule(
-            model=lin_reg, extract_features=onehot_origin, norm_x=norm_x, norm_y=norm_y
-        )
+        lin_reg_export = ExportModule(model=lin_reg, norm_x=norm_x, norm_y=norm_y)
 
         # Model registry does not work with file store
         # I think we can just log the model.
