@@ -78,7 +78,7 @@ There are different kinds of remote tracking URIs:
   `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_tracking_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
-How Runs and Artifacts are Recorded
+How runs and artifacts are recorded
 ===================================
 As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
 and a variety of remote file storage solutions. For storing runs and artifacts, MLflow uses two components for `storage <https://mlflow.org/docs/latest/tracking.html#storage>`_: backend store and artifact store. While the backend store persists
