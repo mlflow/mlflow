@@ -39,7 +39,7 @@ Install MLflow from PyPi using pip:
 
 For more options, see :ref:`quickstart_drilldown_install`.
 
-Adding MLflow tracking to your code
+Add MLflow tracking to your code
 -----------------------------------
 
 For many popular ML libraries, you make a single function call: ``mlflow.autolog()``. If you are using one of the supported libraries, this will automatically log the parameters, metrics, and artifacts of your run (see list at :ref:`automatic-logging`). For instance, the following autologs a **scikit-learn** run:
