@@ -187,7 +187,6 @@ if __name__ == "__main__":
             model=lin_reg, extract_features=onehot_origin, norm_x=norm_x, norm_y=norm_y
         )
 
-        tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
         # Model registry does not work with file store
         if tracking_url_type_store != "file":
             # Register the model
