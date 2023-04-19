@@ -9,7 +9,7 @@ Quickstart additional material: Options and troubleshooting
 
 .. _quickstart_drilldown_install:
 
-Customizing and troubleshooting MLflow installation
+Customize and troubleshoot MLflow installation
 ---------------------------------------------------
 
 Python library options
