@@ -219,7 +219,6 @@ def _get_virtualenv_name(python_env, work_dir_path, env_id=None):
         is_constraint=False,
         base_dir=work_dir_path,
     )
-
     return _get_mlflow_env_name(
         str(python_env) + "".join(map(str, sorted(requirements))) + (env_id or "")
     )
