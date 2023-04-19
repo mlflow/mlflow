@@ -58,9 +58,15 @@ def _join_in_comparison_tokens(tokens):
     iterator = enumerate(non_whitespace_tokens)
     while elem := next(iterator, None):
         index, first = elem
+        # We need at least 3 tokens to form an IN comparison or a NOT IN comparison
         if num_tokens - index < 3:
             joined_tokens.extend(non_whitespace_tokens[index:])
             break
+
+        # Wait until we encounter an identifier token
+        if not isinstance(first, Identifier):
+            joined_tokens.append(first)
+            continue
 
         (_, second) = next(iterator)
         (_, third) = next(iterator)
@@ -71,7 +77,7 @@ def _join_in_comparison_tokens(tokens):
             and second.match(ttype=TokenType.Keyword, values=["IN"])
             and isinstance(third, Parenthesis)
         ):
-            joined_tokens.append(Comparison(TokenList(tokens)))
+            joined_tokens.append(Comparison(TokenList([first, second, third])))
             continue
 
         (_, fourth) = next(iterator, (None, None))
@@ -92,6 +98,7 @@ def _join_in_comparison_tokens(tokens):
             continue
 
         joined_tokens.extend([first, second, third, fourth])
+
     return joined_tokens
 
 
