@@ -216,7 +216,7 @@ In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Dat
 
 If the specified experiment does not exist, it will be created.
 
-Storing a model in MLflow
+Store a model in MLflow
 -------------------------
 
 An MLflow Model is a directory that packages machine learning models and support files in a standard format. The directory contains:
