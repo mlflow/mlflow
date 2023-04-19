@@ -1,6 +1,6 @@
 .. _quickstart_drilldown:
 
-Quickstart additional material: Options and troubleshooting
+Quickstart options and troubleshooting
 ============================================================
 
 ..
