@@ -318,7 +318,7 @@ shows the Python API.
 
 .. _tracking_logging_functions:
 
-Logging Functions
+Logging functions
 ------------------
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
