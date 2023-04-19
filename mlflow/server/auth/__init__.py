@@ -419,68 +419,68 @@ def create_root_user(username, password):
 @catch_mlflow_exception
 def create_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
-    user_id = int(_get_request_param("user_id"))
+    username = _get_request_param("username")
     permission = _get_request_param("permission")
-    ep = store.create_experiment_permission(experiment_id, user_id, permission)
+    ep = store.create_experiment_permission(experiment_id, username, permission)
     return make_response({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception
 def get_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
-    user_id = int(_get_request_param("user_id"))
-    ep = store.get_experiment_permission(experiment_id, user_id)
+    username = _get_request_param("username")
+    ep = store.get_experiment_permission(experiment_id, username)
     return make_response({"experiment_permission": ep.to_json()})
 
 
 @catch_mlflow_exception
 def update_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
-    user_id = int(_get_request_param("user_id"))
+    username = _get_request_param("username")
     permission = _get_request_param("permission")
-    store.update_experiment_permission(experiment_id, user_id, permission)
+    store.update_experiment_permission(experiment_id, username, permission)
     return make_response({})
 
 
 @catch_mlflow_exception
 def delete_experiment_permission():
     experiment_id = _get_request_param("experiment_id")
-    user_id = int(_get_request_param("user_id"))
-    store.delete_experiment_permission(experiment_id, user_id)
+    username = _get_request_param("username")
+    store.delete_experiment_permission(experiment_id, username)
     return make_response({})
 
 
 @catch_mlflow_exception
 def create_registered_model_permission():
     name = _get_request_param("name")
-    user_id = int(_get_request_param("user_id"))
+    username = _get_request_param("username")
     permission = _get_request_param("permission")
-    rmp = store.create_registered_model_permission(name, user_id, permission)
+    rmp = store.create_registered_model_permission(name, username, permission)
     return make_response({"registered_model_permission": rmp.to_json()})
 
 
 @catch_mlflow_exception
 def get_registered_model_permission():
     name = _get_request_param("name")
-    user_id = int(_get_request_param("user_id"))
-    rmp = store.get_registered_model_permission(name, user_id)
+    username = _get_request_param("username")
+    rmp = store.get_registered_model_permission(name, username)
     return make_response({"registered_model_permission": rmp.to_json()})
 
 
 @catch_mlflow_exception
 def update_registered_model_permission():
     name = _get_request_param("name")
-    user_id = int(_get_request_param("user_id"))
+    username = _get_request_param("username")
     permission = _get_request_param("permission")
-    store.update_registered_model_permission(name, user_id, permission)
+    store.update_registered_model_permission(name, username, permission)
     return make_response({})
 
 
 @catch_mlflow_exception
 def delete_registered_model_permission():
     name = _get_request_param("name")
-    user_id = int(_get_request_param("user_id"))
-    store.delete_registered_model_permission(name, user_id)
+    username = _get_request_param("username")
+    store.delete_registered_model_permission(name, username)
     return make_response({})
 
 
