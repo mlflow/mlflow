@@ -526,8 +526,9 @@ langchain:
     minimum: "0.0.139"
     maximum: "0.0.143"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test
+      export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py

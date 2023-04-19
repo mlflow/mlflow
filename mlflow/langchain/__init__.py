@@ -16,6 +16,8 @@ import os
 from typing import Dict, List, Union
 
 import pandas as pd
+import cloudpickle
+import json
 import yaml
 
 import mlflow
@@ -55,6 +57,12 @@ logger = logging.getLogger(mlflow.__name__)
 FLAVOR_NAME = "langchain"
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
+_AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
+_AGENT_PRIMITIVES_DATA_KEY = "agent_primitive_data"
+_AGENT_DATA_FILE_NAME = "agent.json"
+_AGENT_DATA_KEY = "agent_data"
+_TOOLS_DATA_FILE_NAME = "tools.pkl"
+_TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
 
 
@@ -161,10 +169,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    _save_model(lc_model, model_data_path)
+    model_data_kwargs = _save_model(lc_model, path)
 
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -285,13 +291,22 @@ def log_model(
     """
     import langchain
 
-    if type(lc_model) != langchain.chains.llm.LLMChain:
+    if (
+        type(lc_model) != langchain.chains.llm.LLMChain
+        and type(lc_model) != langchain.agents.agent.AgentExecutor
+    ):
         raise TypeError(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain "
-            + f"instances, found {type(lc_model)}"
+            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
+            + f"langchain.agents.agent.AgentExecutor instances, found {type(lc_model)}"
         )
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
-    if type(lc_model.llm) not in _SUPPORTED_LLMS:
+    if (
+        type(lc_model) == langchain.chains.llm.LLMChain
+        and type(lc_model.llm) not in _SUPPORTED_LLMS
+    ) or (
+        type(lc_model) == langchain.agents.agent.AgentExecutor
+        and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
+    ):
         logger.warning(
             "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
             "OpenAI, found %s",
@@ -314,13 +329,66 @@ def log_model(
 
 
 def _save_model(model, path):
-    model.save(path)
+    import langchain
+
+    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
+    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+
+    if type(model) == langchain.chains.llm.LLMChain:
+        model.save(model_data_path)
+    elif type(model) == langchain.agents.agent.AgentExecutor:
+        if model.agent and model.agent.llm_chain:
+            model.agent.llm_chain.save(model_data_path)
+
+        if model.agent:
+            agent_data_path = os.path.join(path, _AGENT_DATA_FILE_NAME)
+            model.save_agent(agent_data_path)
+            model_data_kwargs = {**model_data_kwargs, _AGENT_DATA_KEY: _AGENT_DATA_FILE_NAME}
+
+        if model.tools:
+            tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
+            with open(tools_data_path, "wb") as f:
+                cloudpickle.dump(model.tools, f)
+            model_data_kwargs = {**model_data_kwargs, _TOOLS_DATA_KEY: _TOOLS_DATA_FILE_NAME}
+
+        key_to_ignore = ["llm_chain", "agent", "tools", "callback_manager"]
+        temp_dict = {}
+        for k, v in model.__dict__.items():
+            if k not in key_to_ignore:
+                temp_dict[k] = v
+
+        agent_primitive_path = os.path.join(path, _AGENT_PRIMITIVES_FILE_NAME)
+        with open(agent_primitive_path, "w") as config_file:
+            json.dump(temp_dict, config_file, indent=4)
+
+        model_data_kwargs = {
+            **model_data_kwargs,
+            _AGENT_PRIMITIVES_DATA_KEY: _AGENT_PRIMITIVES_FILE_NAME,
+        }
+    else:
+        logger.error("Could not save model.")
+        pass
+
+    return model_data_kwargs
 
 
-def _load_model(path):
-    from langchain.chains.loading import load_chain
+def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=None):
+    model = None
+    if agent_path is None and tools_path is None:
+        from langchain.chains.loading import load_chain
 
-    model = load_chain(path)
+        model = load_chain(path)
+    else:
+        from langchain.chains.loading import load_chain
+        from langchain.agents import initialize_agent
+
+        llm = load_chain(path)
+        with open(tools_path, "rb") as f:
+            tools = cloudpickle.load(f)
+        with open(agent_primitive_path, "r") as config_file:
+            args = json.load(config_file)
+
+        model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **args)
     return model
 
 
@@ -371,7 +439,21 @@ def _load_model_from_local_fs(local_model_path):
     lc_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
-    return _load_model(lc_model_path)
+    agent_model_path = None
+    if flavor_conf.get(_AGENT_DATA_KEY):
+        agent_model_path = os.path.join(local_model_path, flavor_conf.get(_AGENT_DATA_KEY))
+
+    tools_model_path = None
+    if flavor_conf.get(_TOOLS_DATA_KEY):
+        tools_model_path = os.path.join(local_model_path, flavor_conf.get(_TOOLS_DATA_KEY))
+
+    agent_primitive_path = None
+    if flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY):
+        agent_primitive_path = os.path.join(
+            local_model_path, flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY)
+        )
+
+    return _load_model(lc_model_path, agent_model_path, tools_model_path, agent_primitive_path)
 
 
 @experimental
