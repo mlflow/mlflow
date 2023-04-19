@@ -143,7 +143,7 @@ For more details on the tracking UI, see :ref:`tracking`.
 
 .. _quickstart_tracking_server:
 
-Sharing MLflow runs and experiments
+Share MLflow runs and experiments
 -----------------------------------
 
 For getting started, the last example stored the tracking data locally. Generally, you will want to use shared storage. Locally, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. The tracking UI, when run locally, visualizes this. You can store your data remotely by:
