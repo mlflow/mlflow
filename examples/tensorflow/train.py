@@ -83,13 +83,12 @@ def mse_loss(y_pred, y):
     return tf.reduce_mean(tf.square(y_pred - y))
 
 
-# Enable auto-logging to MLflow to capture TensorBoard metrics.
-mlflow.tensorflow.autolog()
-
 if __name__ == "__main__":
     # Set a random seed for reproducible results
     tf.random.set_seed(42)
 
+    # Enable auto-logging to MLflow to capture TensorBoard metrics.
+    mlflow.tensorflow.autolog()
     # Dataset url
     url = "http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data"
     column_names = [
