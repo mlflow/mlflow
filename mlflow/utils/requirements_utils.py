@@ -163,7 +163,7 @@ def _get_requires(pkg_name):
             yield _normalize_package_name(req.name)
 
 
-def _get_requires_recursive(pkg_name, seen_before=None) -> set:
+def _get_requires_recursive(pkg_name, seen_before=None):
     """
     Recursively yields both direct and transitive dependencies of the specified
     package.
