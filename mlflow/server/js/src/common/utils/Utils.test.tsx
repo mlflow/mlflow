@@ -544,16 +544,12 @@ test('getSearchParamsFromUrl', () => {
   const url3 = '?searchInput=some-Input';
   const url4 = '?boolVal1=true&boolVal2=false';
   // old style for arrays
-  const url5 =
-    'categorizedUncheckedKeys%5Bmetrics%5D%5B0%5D=1&categorizedUncheckedKeys%5Bmetrics%5D%5B1%5D=%F0%9F%99%82';
-  const url6 = 'categorizedUncheckedKeys[metrics]=1,%F0%9F%99%82'; // new style for arrays
   const url7 = 'a[b][]=c'; // single item array
   const url8 = 'a[]='; // empty array
   const bigArray = [...Array(501).keys()].map((x) => x.toString());
   const bigArrayParams = 'arr=' + bigArray.join(',');
   const bigArrayParamsOldStyle = bigArray.map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
   const tooBigArrayParams = [...Array(502).keys()].map((i) => 'arr%5B' + i + '%5D=' + i).join('&');
-  const uncheckedKeysObj = { categorizedUncheckedKeys: { metrics: ['1', '🙂'] } };
   expect(Utils.getSearchParamsFromUrl(url0)).toEqual({
     searchInput: '',
   });
@@ -566,8 +562,6 @@ test('getSearchParamsFromUrl', () => {
     boolVal1: true,
     boolVal2: false,
   });
-  expect(Utils.getSearchParamsFromUrl(url5)).toEqual(uncheckedKeysObj);
-  expect(Utils.getSearchParamsFromUrl(url6)).toEqual(uncheckedKeysObj);
   expect(Utils.getSearchParamsFromUrl(url7)).toEqual({ a: { b: ['c'] } });
   expect(Utils.getSearchParamsFromUrl(url8)).toEqual({ a: [''] });
   expect(Utils.getSearchParamsFromUrl(bigArrayParams)).toEqual({ arr: bigArray });

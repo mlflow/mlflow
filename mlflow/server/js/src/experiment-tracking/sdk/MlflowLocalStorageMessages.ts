@@ -44,8 +44,6 @@ export const ExperimentPagePersistedState = Immutable.Record(
     lifecycleFilter: DEFAULT_LIFECYCLE_FILTER,
     // Filter of model versions to display
     modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
-    // Unchecked keys in the columns dropdown
-    categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   },
   'ExperimentPagePersistedState',
 );

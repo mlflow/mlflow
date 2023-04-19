@@ -203,13 +203,6 @@ export enum MODEL_VERSION_FILTER {
   ALL_RUNS = 'All Runs',
 }
 
-export type ExperimentCategorizedUncheckedKeys = {
-  attributes: string[];
-  metrics: string[];
-  params: string[];
-  tags: string[];
-};
-
 /**
  * Function used to update the filter set and fetch new set of runs.
  * First parameter is the subset of fields that the current sort/filter model will be merged with.
