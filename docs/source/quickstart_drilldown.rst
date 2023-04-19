@@ -38,7 +38,7 @@ Python and Mac OS X
 
 We strongly recommend using a virtual environment manager on Macs. We always recommend using virtual environments, but they are especially important on Mac OS X because the system ``python`` version varies depending on the installation and whether you've installed the Xcode command line tools.
 
-Virtual Environment managers
+Virtual environment managers
 ****************************
 
 We release MLflow on:
