@@ -46,12 +46,6 @@ export const ExperimentPagePersistedState = Immutable.Record(
     modelVersionFilter: DEFAULT_MODEL_VERSION_FILTER,
     // Unchecked keys in the columns dropdown
     categorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
-    // Switch to select only columns with differences
-    diffSwitchSelected: DEFAULT_DIFF_SWITCH_SELECTED,
-    // Columns unselected before turning on the diff-view switch
-    preSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
-    // Columns unselected as the result of turning on the diff-view switch
-    postSwitchCategorizedUncheckedKeys: DEFAULT_CATEGORIZED_UNCHECKED_KEYS,
   },
   'ExperimentPagePersistedState',
 );
