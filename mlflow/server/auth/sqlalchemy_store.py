@@ -145,12 +145,20 @@ class SqlAlchemyStore:
             users = session.query(SqlUser).all()
             return [u.to_mlflow_entity() for u in users]
 
-    def update_user(self, username: str, password: str) -> User:
-        pwhash = generate_password_hash(password)
+    def update_user(self, username: str, password: str = None, is_admin: bool = None) -> User:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
-            user.password_hash = pwhash
+            if password:
+                pwhash = generate_password_hash(password)
+                user.password_hash = pwhash
+            if is_admin:
+                user.is_admin = is_admin
             return user.to_mlflow_entity()
+
+    def delete_user(self, username: str):
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username)
+            session.delete(user)
 
     def create_experiment_permission(
         self, experiment_id: str, username: str, permission: str

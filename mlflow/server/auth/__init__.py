@@ -11,7 +11,7 @@ import logging
 import uuid
 import os
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Optional
 
 from flask import Flask, request, make_response, Response, redirect, flash, render_template_string
 
@@ -95,8 +95,12 @@ store = SqlAlchemyStore()
 
 class ROUTES:
     HOME = "/"
-    USERS = _get_rest_path("/mlflow/users")
     SIGNUP = "/signup"
+    CREATE_USER = _get_rest_path("/mlflow/users/create")
+    GET_USER = _get_rest_path("/mlflow/users/get")
+    UPDATE_USER_PASSWORD = _get_rest_path("/mlflow/users/update-password")
+    UPDATE_USER_ADMIN = _get_rest_path("/mlflow/users/update-admin")
+    DELETE_USER = _get_rest_path("/mlflow/users/delete")
     CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/create")
     GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
     UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
@@ -113,7 +117,7 @@ class ROUTES:
     )
 
 
-UNPROTECTED_ROUTES = [ROUTES.USERS, ROUTES.SIGNUP]
+UNPROTECTED_ROUTES = [ROUTES.CREATE_USER, ROUTES.SIGNUP]
 
 
 def is_unprotected_route(path: str) -> bool:
@@ -139,7 +143,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str) -> str:
+def _get_request_param(param: str, optional: bool = False) -> Optional[str]:
     if request.method == "GET":
         args = request.args
     elif request.method == "POST":
@@ -150,13 +154,13 @@ def _get_request_param(param: str) -> str:
             BAD_REQUEST,
         )
 
-    if param not in args:
+    if param not in args and not optional:
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
             INVALID_PARAMETER_VALUE,
         )
-    return args[param]
+    return args.get(param, None)
 
 
 def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
@@ -250,6 +254,37 @@ def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
 
 
+def sender_is_admin():
+    """Validate if the sender is admin"""
+    username = request.authorization.username
+    return store.get_user(username).is_admin
+
+
+def username_is_sender():
+    """Validate if the request username is the sender"""
+    username = _get_request_param("username")
+    sender = request.authorization.username
+    return username == sender
+
+
+def validate_can_read_user():
+    return username_is_sender()
+
+
+def validate_can_update_user_password():
+    return username_is_sender()
+
+
+def validate_can_update_user_admin():
+    # only admins can update, but admins won't reach this validator
+    return False
+
+
+def validate_can_delete_user():
+    # only admins can delete, but admins won't reach this validator
+    return False
+
+
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     GetExperiment: validate_can_read_experiment,
@@ -306,6 +341,13 @@ BEFORE_REQUEST_VALIDATORS = {
 
 BEFORE_REQUEST_VALIDATORS.update(
     {
+        (ROUTES.GET_USER, "GET"): validate_can_read_user,
+        (ROUTES.UPDATE_USER_PASSWORD, "POST"): validate_can_update_user_password,
+        (ROUTES.UPDATE_USER_ADMIN, "POST"): validate_can_update_user_admin,
+        (ROUTES.DELETE_USER, "POST"): validate_can_delete_user,
+        (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+        (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
         (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
@@ -335,8 +377,7 @@ def _before_request():
         return make_basic_auth_response()
 
     # admins don't need to be authorized
-    user = store.get_user(username)
-    if user.is_admin:
+    if sender_is_admin():
         _logger.debug(f"Admin (username={username}) authorization not required")
         return
 
@@ -353,6 +394,15 @@ def _before_request():
 def _after_request(resp):
     # TODO: Implement post-request logic
     return resp
+
+
+def create_root_user(username, password):
+    if not store.has_user(username):
+        store.create_user(username, password, is_admin=True)
+        _logger.info(
+            f"Created root user '{username}'. "
+            "It is recommended that you set a new password as soon as possible."
+        )
 
 
 def signup():
@@ -384,7 +434,7 @@ def signup():
   {% endif %}
 {% endwith %}
 """,
-        users_route=ROUTES.USERS,
+        users_route=ROUTES.CREATE_USER,
     )
 
 
@@ -409,13 +459,43 @@ def create_user():
     return redirect(ROUTES.HOME)
 
 
-def create_root_user(username, password):
-    if not store.has_user(username):
-        store.create_user(username, password, is_admin=True)
-        _logger.info(
-            f"Created root user '{username}'. "
-            "It is recommended that you set a new password as soon as possible."
+@catch_mlflow_exception
+def get_user():
+    username = _get_request_param("username")
+    user = store.get_user(username)
+    return make_response({"user": user.to_json()})
+
+
+@catch_mlflow_exception
+def update_user_password():
+    username = _get_request_param("username")
+    password = _get_request_param("password")
+    store.update_user(username, password=password)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def update_user_admin():
+    username = _get_request_param("username")
+    is_admin_str = _get_request_param("is_admin")
+    if is_admin_str.lower() == "true":
+        is_admin = True
+    elif is_admin_str.lower() == "false":
+        is_admin = False
+    else:
+        raise MlflowException(
+            f"Invalid parameter 'is_admin': '{is_admin_str}', must be either 'true' or 'false'.",
+            INVALID_PARAMETER_VALUE,
         )
+    store.update_user(username, is_admin=is_admin)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_user():
+    username = _get_request_param("username")
+    store.delete_user(username)
+    return make_response({})
 
 
 @catch_mlflow_exception
@@ -509,8 +589,28 @@ def _enable_auth(app: Flask):
         methods=["GET"],
     )
     app.add_url_rule(
-        rule=ROUTES.USERS,
+        rule=ROUTES.CREATE_USER,
         view_func=create_user,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=ROUTES.GET_USER,
+        view_func=create_user,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=ROUTES.UPDATE_USER_PASSWORD,
+        view_func=update_user_password,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=ROUTES.UPDATE_USER_ADMIN,
+        view_func=update_user_admin,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=ROUTES.DELETE_USER,
+        view_func=delete_user,
         methods=["POST"],
     )
     app.add_url_rule(
