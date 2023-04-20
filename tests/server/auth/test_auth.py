@@ -64,6 +64,3 @@ def test_authenticate(client, monkeypatch):
         }
     )
     client.search_experiments()
-
-
-def test_
