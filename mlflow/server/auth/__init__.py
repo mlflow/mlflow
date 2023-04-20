@@ -143,7 +143,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str, optional: bool = False) -> Optional[str]:
+def _get_request_param(param: str) -> Optional[str]:
     if request.method == "GET":
         args = request.args
     elif request.method == "POST":
@@ -154,13 +154,13 @@ def _get_request_param(param: str, optional: bool = False) -> Optional[str]:
             BAD_REQUEST,
         )
 
-    if param not in args and not optional:
+    if param not in args:
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
             INVALID_PARAMETER_VALUE,
         )
-    return args.get(param, None)
+    return args[param]
 
 
 def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
