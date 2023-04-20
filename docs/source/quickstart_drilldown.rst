@@ -76,7 +76,7 @@ MLflow artifacts and then load them again for serving. There is an example train
     python sklearn_logistic_regression/train.py
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at
-``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
+``mlflow ui``, you will also see that the run saved a **model** folder containing an ``MLmodel``
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
 within the artifacts directory (here "model") to various tools. For example, MLflow includes a
 simple REST server for python-based models:
