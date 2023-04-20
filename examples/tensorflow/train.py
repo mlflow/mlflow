@@ -14,7 +14,6 @@ class Normalize(tf.Module):
         self.std = tf.math.reduce_std(x, axis=0)
 
     def norm(self, x):
-        # Normalize the input
         return (x - self.mean) / self.std
 
     def unnorm(self, x):
