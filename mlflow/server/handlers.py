@@ -1339,10 +1339,12 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "file://path/to/../../../../some/where/you/should/not/be"
     """
     source_path = urllib.parse.urlparse(source).path
-    raw_source_path = pathlib.Path(source_path)
-    resolved_path = raw_source_path.resolve()
+    resolved_source = pathlib.Path(source_path).resolve().as_posix()
+    # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
+    # drive path of the pwd to a given path. We don't care about the drive here, though.
+    _, resolved_path = os.path.splitdrive(resolved_source)
 
-    if resolved_path != raw_source_path:
+    if resolved_path != source_path:
         raise MlflowException(
             f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
             "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
