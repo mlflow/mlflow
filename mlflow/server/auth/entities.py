@@ -1,17 +1,23 @@
 class User:
     def __init__(
         self,
+        id,
         username,
         password_hash,
         is_admin,
         experiment_permissions=None,
         registered_model_permissions=None,
     ):
+        self._id = id
         self._username = username
         self._password_hash = password_hash
         self._is_admin = is_admin
         self._experiment_permissions = experiment_permissions
         self._registered_model_permissions = registered_model_permissions
+
+    @property
+    def id(self):
+        return self._id
 
     @property
     def username(self):

@@ -37,6 +37,7 @@ class SqlUser(Base):
 
     def to_mlflow_entity(self):
         return User(
+            id=self.id,
             username=self.username,
             password_hash=self.password_hash,
             is_admin=self.is_admin,
@@ -148,10 +149,10 @@ class SqlAlchemyStore:
     def update_user(self, username: str, password: str = None, is_admin: bool = None) -> User:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)
-            if password:
+            if password is not None:
                 pwhash = generate_password_hash(password)
                 user.password_hash = pwhash
-            if is_admin:
+            if is_admin is not None:
                 user.is_admin = is_admin
             return user.to_mlflow_entity()
 
@@ -248,7 +249,7 @@ class SqlAlchemyStore:
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Registered model permission (name={name}, user_id={user_id}) already exists. "
+                    f"Registered model permission (name={name}, username={username}) already exists. "
                     f"Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
@@ -267,12 +268,12 @@ class SqlAlchemyStore:
             )
         except NoResultFound:
             raise MlflowException(
-                f"Registered model permission with name={name} and user_id={user_id} not found",
+                f"Registered model permission with name={name} and username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         except MultipleResultsFound:
             raise MlflowException(
-                f"Found multiple registered model permissions with name={name} and user_id={user_id}",
+                f"Found multiple registered model permissions with name={name} and username={username}",
                 INVALID_STATE,
             )
 
