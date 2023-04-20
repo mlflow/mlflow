@@ -638,7 +638,7 @@ def parallelized_download_file_using_http_uri(
         # If downloaded size was equal to the chunk size it would have been downloaded serially,
         # so we don't need to consider this here
         if downloaded_size > chunk_size:
-            return
+            return {}
         else:
             starting_index = 1
 
