@@ -3,6 +3,7 @@ import mlflow
 import pandas as pd
 
 import tensorflow as tf
+from sklearn.datasets import fetch_california_housing
 
 
 class Normalize(tf.Module):
@@ -67,9 +68,8 @@ if __name__ == "__main__":
     # Set a random seed for reproducible results
     tf.random.set_seed(42)
 
-    # Dataset url
-    url = "https://raw.githubusercontent.com/dheerajnbhat/datasets/main/ml/californiaHousing/californiaHousing.csv"
-    dataset = pd.read_csv(url, na_values="?")
+    # Load dataset
+    dataset = pd.DataFrame(data=fetch_california_housing(as_frame=True)["frame"])
     # Drop missing values
     dataset = dataset.dropna()
     # using only 1500
