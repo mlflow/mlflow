@@ -9,11 +9,11 @@ When this flavor logs a model on Databricks, it saves a YAML file with the follo
 
 .. code-block:: yaml
 
-    OPENAI_API_BASE: test:openai_api_base
-    OPENAI_API_KEY: test:openai_api_key
-    OPENAI_API_KEY_PATH: test:openai_api_key_path
-    OPENAI_API_TYPE: test:openai_api_type
-    OPENAI_ORGANIZATION: test:openai_organization
+    OPENAI_API_BASE: {scope}:openai_api_base
+    OPENAI_API_KEY: {scope}:openai_api_key
+    OPENAI_API_KEY_PATH: {scope}:openai_api_key_path
+    OPENAI_API_TYPE: {scope}:openai_api_type
+    OPENAI_ORGANIZATION: {scope}:openai_organization
 
 - ``{scope}`` is the value of the ``MLFLOW_OPENAI_SECRET_SCOPE`` environment variable.
 - The keys are the environment variables that the ``openai-python`` package uses to
