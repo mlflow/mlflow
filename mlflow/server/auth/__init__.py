@@ -80,7 +80,6 @@ from mlflow.protos.model_registry_pb2 import (
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
 
 
 def _get_auth_config_path():
@@ -597,7 +596,7 @@ def _enable_auth(app: Flask):
     )
     app.add_url_rule(
         rule=ROUTES.GET_USER,
-        view_func=create_user,
+        view_func=get_user,
         methods=["POST"],
     )
     app.add_url_rule(
