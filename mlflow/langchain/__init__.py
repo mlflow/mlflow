@@ -229,7 +229,7 @@ def log_model(
     """
     Log a LangChain model as an MLflow artifact for the current run.
 
-    :param pr_model: LangChain model to be saved.
+    :param lc_model: LangChain model to be saved.
     :param artifact_path: Run-relative artifact path.
     :param conda_env: {{ conda_env }}
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
