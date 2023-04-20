@@ -84,7 +84,7 @@ from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 from mlflow.utils.string_utils import is_string_type
-from mlflow.utils.uri import is_local_uri, is_file_uri, is_http_uri, is_mlflow_artifacts_uri
+from mlflow.utils.uri import is_local_uri, is_file_uri
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.environment_variables import MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE
@@ -1335,6 +1335,8 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "http://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
     "https://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
     "/models/artifacts/../../../"
+    "s3:/my_bucket/models/path/../../other/path"
+    "file://path/to/../../../../some/where/you/should/not/be"
     """
     source_path = urllib.parse.urlparse(source).path
     raw_source_path = pathlib.Path(source_path)
@@ -1343,8 +1345,8 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     if resolved_path != raw_source_path:
         raise MlflowException(
             f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
-            "local file path, or mlflow-artifacts uri, an absolute path must be provided without "
-            "relative path references present.",
+            "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
+            "provided without relative path references present. Please provide an absolute path.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -1378,8 +1380,9 @@ def _validate_source(source: str, run_id: str) -> None:
             INVALID_PARAMETER_VALUE,
         )
 
-    if is_http_uri(source) or is_mlflow_artifacts_uri(source) or is_local_uri(source):
-        _validate_non_local_source_contains_relative_paths(source)
+    # Checks if relative paths are present in the source (a security threat). If any are present,
+    # raises an Exception.
+    _validate_non_local_source_contains_relative_paths(source)
 
 
 @catch_mlflow_exception

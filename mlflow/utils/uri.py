@@ -55,11 +55,6 @@ def is_http_uri(uri):
     return scheme == "http" or scheme == "https"
 
 
-def is_mlflow_artifacts_uri(uri):
-    scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "mlflow-artifacts"
-
-
 def is_databricks_uri(uri):
     """
     Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'
