@@ -176,9 +176,9 @@ def _get_permission_from_store_or_default(store_permission_func: Callable[[], st
 
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
-    user = store.get_user(request.authorization.username)
+    username = request.authorization.username
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, user.id).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission
     )
 
 
@@ -188,17 +188,17 @@ def _get_permission_from_run_id() -> Permission:
     run_id = _get_request_param("run_id")
     run = get_run(run_id)
     experiment_id = run.info.experiment_id
-    user = store.get_user(request.authorization.username)
+    username = request.authorization.username
     return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, user.id).permission
+        lambda: store.get_experiment_permission(experiment_id, username).permission
     )
 
 
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
-    user = store.get_user(request.authorization.username)
+    username = request.authorization.username
     return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, user.id).permission
+        lambda: store.get_registered_model_permission(name, username).permission
     )
 
 

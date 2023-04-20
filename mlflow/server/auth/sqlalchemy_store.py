@@ -37,7 +37,6 @@ class SqlUser(Base):
 
     def to_mlflow_entity(self):
         return User(
-            id=self.id,
             username=self.username,
             password_hash=self.password_hash,
             is_admin=self.is_admin,
