@@ -269,7 +269,9 @@ class SqlAlchemyStore:
                 INVALID_STATE,
             )
 
-    def get_registered_model_permission(self, name: str, username: str) -> RegisteredModelPermission:
+    def get_registered_model_permission(
+        self, name: str, username: str
+    ) -> RegisteredModelPermission:
         with self.ManagedSessionMaker() as session:
             return self._get_registered_model_permission(session, name, username).to_mlflow_entity()
 
