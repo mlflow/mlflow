@@ -17,7 +17,6 @@ class Normalize(tf.Module):
         return (x - self.mean) / self.std
 
     def unnorm(self, x):
-        # Unnormalize the input
         return (x * self.std) + self.mean
 
 
