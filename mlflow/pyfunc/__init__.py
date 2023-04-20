@@ -954,7 +954,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
-    openai_env_vars = mlflow.openai.OpenAIEnvVar.read_environ()
+    openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
 
     _EnvManager.validate(env_manager)
 
