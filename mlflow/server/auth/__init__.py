@@ -444,19 +444,22 @@ def create_user():
     if content_type == "application/x-www-form-urlencoded":
         username = request.form["username"]
         password = request.form["password"]
+
+        if store.has_user(username):
+            flash(f"Username has already been taken: '{username}'", category="error")
+            return redirect(ROUTES.SIGNUP)
+
+        store.create_user(username, password)
+        flash(f"Successfully signed up user: '{username}'")
+        return redirect(ROUTES.HOME)
     elif content_type == "application/json":
         username = request.json["username"]
         password = request.json["password"]
+
+        user = store.create_user(username, password)
+        return make_response({"user": user.to_json()})
     else:
         return make_response(f"Invalid content type: '{content_type}'", 400)
-
-    if store.has_user(username):
-        flash(f"Username has already been taken: '{username}'", category="error")
-        return redirect(ROUTES.SIGNUP)
-
-    store.create_user(username, password)
-    flash(f"Successfully signed up user: '{username}'")
-    return redirect(ROUTES.HOME)
 
 
 @catch_mlflow_exception
