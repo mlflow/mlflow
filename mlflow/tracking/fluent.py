@@ -1344,6 +1344,7 @@ def search_runs(
     output_format: str = "pandas",
     search_all_experiments: bool = False,
     experiment_names: Optional[List[str]] = None,
+    run_info_only: bool = False,
 ) -> Union[List[Run], "pandas.DataFrame"]:
     """
     Search for Runs that fit the specified criteria.
@@ -1371,6 +1372,7 @@ def search_runs(
                              than ``None`` or ``[]`` will result in error if ``experiment_ids``
                              is also not ``None`` or ``[]``. ``None`` will default to the active
                              experiment if ``experiment_ids`` is ``None`` or ``[]``.
+    :param run_info_only: If True, do not return params, metrics or tags. The default is ``False``
     :return: If output_format is ``list``: a list of :py:class:`mlflow.entities.Run`. If
              output_format is ``pandas``: ``pandas.DataFrame`` of runs, where each metric,
              parameter, and tag is expanded into its own column named metrics.*, params.*, or
@@ -1463,6 +1465,7 @@ def search_runs(
                 number_to_get,
                 order_by,
                 next_page_token,
+                run_info_only,
             )
 
         runs = get_results_from_paginated_fn(

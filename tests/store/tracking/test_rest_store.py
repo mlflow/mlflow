@@ -288,6 +288,7 @@ class TestRestStore:
                 max_results=10,
                 order_by=["a"],
                 page_token="12345abcde",
+                run_info_only=False,
             )
 
             expected_message = SearchRuns(
@@ -297,6 +298,7 @@ class TestRestStore:
                 max_results=10,
                 order_by=["a"],
                 page_token="12345abcde",
+                run_info_only=False,
             )
             self._verify_requests(
                 mock_http, creds, "runs/search", "POST", message_to_json(expected_message)

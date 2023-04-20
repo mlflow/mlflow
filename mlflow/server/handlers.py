@@ -882,8 +882,17 @@ def _search_runs():
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
     page_token = request_message.page_token
+    run_info_only = False
+    if request_message.HasField("run_info_only"):
+        run_info_only = request_message.run_info_only
     run_entities = _get_tracking_store().search_runs(
-        experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        run_info_only,
     )
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:

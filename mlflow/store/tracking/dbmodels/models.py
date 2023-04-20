@@ -202,9 +202,11 @@ class SqlRun(Base):
             mlflow_attribute_name, mlflow_attribute_name
         )
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, run_info_only=False):
         """
         Convert DB model to corresponding MLflow entity.
+
+        :param run_info_only: If True, do not return params, metrics or tags. Defaults to ``False``.
 
         :return: :py:class:`mlflow.entities.Run`.
         """
@@ -221,16 +223,19 @@ class SqlRun(Base):
             artifact_uri=self.artifact_uri,
         )
 
-        tags = [t.to_mlflow_entity() for t in self.tags]
-        run_data = RunData(
-            metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
-            params=[p.to_mlflow_entity() for p in self.params],
-            tags=tags,
-        )
-        if not run_info.run_name:
-            run_name = _get_run_name_from_tags(tags)
-            if run_name:
-                run_info._set_run_name(run_name)
+        if run_info_only:
+            run_data = RunData()
+        else:
+            tags = [t.to_mlflow_entity() for t in self.tags]
+            run_data = RunData(
+                metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
+                params=[p.to_mlflow_entity() for p in self.params],
+                tags=tags,
+            )
+            if not run_info.run_name:
+                run_name = _get_run_name_from_tags(tags)
+                if run_name:
+                    run_info._set_run_name(run_name)
 
         return Run(run_info=run_info, run_data=run_data)
 

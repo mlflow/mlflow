@@ -1141,7 +1141,14 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(filtered_tags[0])
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        run_info_only,
     ):
         def compute_next_token(current_size):
             next_token = None
@@ -1195,7 +1202,7 @@ class SqlAlchemyStore(AbstractStore):
             )
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
-            runs = [run.to_mlflow_entity() for run in queried_runs]
+            runs = [run.to_mlflow_entity(run_info_only) for run in queried_runs]
             next_page_token = compute_next_token(len(runs))
 
         return runs, next_page_token

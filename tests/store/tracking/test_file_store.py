@@ -1315,6 +1315,25 @@ def test_search_runs_start_time_alias(store):
     assert result == []
 
 
+def test_search_runs_run_info_only(store):
+    exp = store.create_experiment("test_search_runs_run_info_only")
+    run_id = store.create_run(exp, "user", 1000, [RunTag("my-tag", "tag-val")], "name").info.run_id
+    store.log_param(run_id, Param("my-param", "param-val"))
+    store.log_metric(run_id, Metric("my-metric", 91.4, 0, 0))
+    # test returned run has run data when no run_info_only flag passed
+    run = store.search_runs([exp], None, ViewType.ALL)[0]
+    assert run.info.run_id == run_id
+    assert run.data.params["my-param"] == "param-val"
+    assert run.data.metrics["my-metric"] == 91.4
+    assert run.data.tags["my-tag"] == "tag-val"
+    # test returned run has no run data when run_info_only flag is True
+    run = store.search_runs([exp], None, ViewType.ALL, run_info_only=True)[0]
+    assert run.info.run_id == run_id
+    assert len(run.data.params) == 0
+    assert len(run.data.metrics) == 0
+    assert len(run.data.tags) == 0
+
+
 def test_weird_param_names(store):
     WEIRD_PARAM_NAME = "this is/a weird/but valid param"
     _, exp_data, _ = _create_root(store)
