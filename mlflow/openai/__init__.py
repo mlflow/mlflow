@@ -166,7 +166,7 @@ def get_openai_package_version():
 
 # See https://github.com/openai/openai-python/blob/cf03fe16a92cd01f2a8867537399c12e183ba58e/openai/__init__.py#L30-L38
 # for the list of environment variables that openai-python uses
-class OpenAIEnvVar(str, Enum):
+class _OpenAIEnvVar(str, Enum):
     OPENAI_API_TYPE = "OPENAI_API_TYPE"
     OPENAI_API_BASE = "OPENAI_API_BASE"
     OPENAI_API_KEY = "OPENAI_API_KEY"
@@ -180,7 +180,7 @@ class OpenAIEnvVar(str, Enum):
     @classmethod
     def read_environ(cls):
         env_vars = {}
-        for e in OpenAIEnvVar:
+        for e in _OpenAIEnvVar:
             if value := os.getenv(e.value):
                 env_vars[e.value] = value
         return env_vars
@@ -188,7 +188,7 @@ class OpenAIEnvVar(str, Enum):
 
 def _log_secrets_yaml(local_model_dir, scope):
     with open(os.path.join(local_model_dir, "openai.yaml"), "w") as f:
-        yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in OpenAIEnvVar}, f)
+        yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
 
 
 @experimental
@@ -470,7 +470,7 @@ class _OpenAIWrapper:
             }
             for message in messages
         ]
-        if OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
+        if _OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
             raise mlflow.MlflowException(
                 "OpenAI API key must be set in the OPENAI_API_KEY environment variable."
             )
