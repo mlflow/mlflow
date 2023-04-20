@@ -20,7 +20,6 @@ from mlflow.server.auth.permissions import (
 )
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
-    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
@@ -204,7 +203,7 @@ def test_create_experiment_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Experiment permission \(experiment_id={experiment_id1}, username={username1}\) already exists"
+        match=rf"Experiment permission \(experiment_id={experiment_id1}, username={username1}\) already exists",
     ) as exception_context:
         _ep_maker(store, experiment_id1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -336,7 +335,7 @@ def test_create_registered_model_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Registered model permission \(name={name1}, username={username1}\) already exists"
+        match=rf"Registered model permission \(name={name1}, username={username1}\) already exists",
     ) as exception_context:
         _rmp_maker(store, name1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
