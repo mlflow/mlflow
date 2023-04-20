@@ -401,7 +401,8 @@ def create_root_user(username, password):
         store.create_user(username, password, is_admin=True)
         _logger.info(
             f"Created root user '{username}'. "
-            "It is recommended that you set a new password as soon as possible."
+            "It is recommended that you set a new password as soon as possible "
+            f"on {ROUTES.UPDATE_USER_PASSWORD}."
         )
 
 
