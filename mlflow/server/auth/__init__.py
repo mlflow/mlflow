@@ -159,13 +159,13 @@ def _get_request_param(param: str) -> str:
     return args[param]
 
 
-def _get_permission_from_store_or_default(store_func: Callable[[], str]) -> Permission:
+def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
     """
     Attempts to get permission from store,
     and returns default permission if no record is found.
     """
     try:
-        perm = store_func()
+        perm = store_permission_func()
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
             perm = auth_config.default_permission
