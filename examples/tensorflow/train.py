@@ -75,8 +75,6 @@ if __name__ == "__main__":
     # Set a random seed for reproducible results
     tf.random.set_seed(42)
 
-    # Enable auto-logging to MLflow to capture TensorBoard metrics.
-    mlflow.tensorflow.autolog()
 
     # Dataset url
     url = "https://raw.githubusercontent.com/dheerajnbhat/datasets/main/ml/californiaHousing/californiaHousing.csv"
