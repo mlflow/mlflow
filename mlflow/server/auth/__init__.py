@@ -308,13 +308,13 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-        (ROUTES.CREATE_EXPERIMENT_PERMISSION, "PUT"): validate_can_manage_experiment,
+        (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
+        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-        (ROUTES.CREATE_REGISTERED_MODEL_PERMISSION, "PUT"): validate_can_manage_registered_model,
+        (ROUTES.CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (ROUTES.DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+        (ROUTES.DELETE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
     }
 )
 
@@ -338,6 +338,7 @@ def _before_request():
     # admins don't need to be authorized
     user = store.get_user(username)
     if user.is_admin:
+        _logger.debug(f"Admin (username={username}) authorization not required")
         return
 
     # authorization
@@ -346,6 +347,8 @@ def _before_request():
         _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
+    else:
+        _logger.debug(f"No validator found for {(request.path, request.method)}")
 
 
 def _after_request(resp):
