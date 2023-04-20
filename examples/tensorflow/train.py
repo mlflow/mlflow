@@ -1,14 +1,8 @@
 # tensorflow 2.x core api
-import logging
-from urllib.parse import urlparse
-
 import mlflow
 import pandas as pd
 
 import tensorflow as tf
-
-logging.basicConfig(level=logging.WARN)
-logger = logging.getLogger(__name__)
 
 
 class Normalize(tf.Module):
@@ -74,7 +68,6 @@ def mse_loss(y_pred, y):
 if __name__ == "__main__":
     # Set a random seed for reproducible results
     tf.random.set_seed(42)
-
 
     # Dataset url
     url = "https://raw.githubusercontent.com/dheerajnbhat/datasets/main/ml/californiaHousing/californiaHousing.csv"
