@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import pandas as pd
+import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
 import yaml
@@ -1454,8 +1455,8 @@ class _TransformersWrapper:
             self.inference_config.pop("include_prompt", True) if self.inference_config else True
         )
         # Optional stripping out of `\n` for specific generator pipelines.
-        remove_newlines = (
-            self.inference_config.pop("remove_newlines", False) if self.inference_config else False
+        shrink_newlines = (
+            self.inference_config.pop("shrink_newlines", False) if self.inference_config else False
         )
 
         # Generate inference data with the pipeline object
@@ -1478,7 +1479,7 @@ class _TransformersWrapper:
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data, raw_output, output_key, self.flavor_config, include_prompt, remove_newlines
+                data, raw_output, output_key, self.flavor_config, include_prompt, shrink_newlines
             )
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
@@ -1622,13 +1623,13 @@ class _TransformersWrapper:
         output_key,
         flavor_config,
         include_prompt=True,
-        remove_newlines=False,
+        shrink_newlines=False,
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
         pipeline types and remove line feed characters and other confusing outputs
         """
-        replacements = {"\n\n": " ", "\n": " "}
+        replacements = {"\n+": " ", "\\s+": " "}
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
@@ -1662,9 +1663,9 @@ class _TransformersWrapper:
                     data_out = data_out[len(data_in) :].lstrip()
                     if data_out.startswith("A:"):
                         data_out = data_out[2:].lstrip()
-                if remove_newlines:
+                if shrink_newlines:
                     for to_replace, replace in replacements.items():
-                        data_out = data_out.replace(to_replace, replace).strip()
+                        data_out = re.sub(to_replace, replace, data_out).strip()
                 return data_out
             else:
                 return data_out

@@ -1925,7 +1925,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 @pytest.mark.parametrize(
     "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
-    "remove_newlines",
+    "shrink_newlines",
     [
         (
             "What answers?",
@@ -2034,7 +2034,7 @@ def test_parse_input_from_instruction_pipeline(
     expected_output,
     flavor_config,
     include_prompt,
-    remove_newlines,
+    shrink_newlines,
 ):
     assert (
         mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
@@ -2043,7 +2043,7 @@ def test_parse_input_from_instruction_pipeline(
             "generated_text",
             flavor_config,
             include_prompt,
-            remove_newlines,
+            shrink_newlines,
         )
         == expected_output
     )
@@ -2099,7 +2099,7 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
         transformers_model=dolly,
         path=model_path,
         # Validate removal of prompt but inclusion of newlines by default
-        inference_config={"max_length": 100, "include_prompt": False, "remove_newlines": True},
+        inference_config={"max_length": 100, "include_prompt": False, "shrink_newlines": True},
         input_example="Hello, Dolly!",
     )
 
