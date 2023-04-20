@@ -4,4 +4,3 @@ build_dependencies:
 dependencies:
   - mlflow>=2.0
   - tensorflow>=2.8
-  - pandas
