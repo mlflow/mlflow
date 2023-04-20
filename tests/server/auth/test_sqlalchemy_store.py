@@ -203,7 +203,8 @@ def test_create_experiment_permission(store):
     # error on duplicate
     with pytest.raises(
         MlflowException,
-        match=rf"Experiment permission \(experiment_id={experiment_id1}, username={username1}\) already exists",
+        match=rf"Experiment permission \(experiment_id={experiment_id1}, "
+              rf"username={username1}\) already exists",
     ) as exception_context:
         _ep_maker(store, experiment_id1, username1, permission1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS)
@@ -249,7 +250,8 @@ def test_get_experiment_permission(store):
     experiment_id2 = random_str()
     with pytest.raises(
         MlflowException,
-        match=rf"Experiment permission with experiment_id={experiment_id2} and username={username1} not found",
+        match=rf"Experiment permission with experiment_id={experiment_id2} "
+              rf"and username={username1} not found",
     ) as exception_context:
         store.get_experiment_permission(experiment_id2, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -313,7 +315,8 @@ def test_delete_experiment_permission(store):
     store.delete_experiment_permission(experiment_id1, username1)
     with pytest.raises(
         MlflowException,
-        match=rf"Experiment permission with experiment_id={experiment_id1} and username={username1} not found",
+        match=rf"Experiment permission with experiment_id={experiment_id1} "
+              rf"and username={username1} not found",
     ) as exception_context:
         store.get_experiment_permission(experiment_id1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

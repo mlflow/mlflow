@@ -176,8 +176,8 @@ class SqlAlchemyStore:
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Experiment permission (experiment_id={experiment_id}, username={username}) already exists. "
-                    f"Error: {e}",
+                    f"Experiment permission (experiment_id={experiment_id}, username={username}) "
+                    f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -195,12 +195,14 @@ class SqlAlchemyStore:
             )
         except NoResultFound:
             raise MlflowException(
-                f"Experiment permission with experiment_id={experiment_id} and username={username} not found",
+                f"Experiment permission with experiment_id={experiment_id} and "
+                f"username={username} not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
         except MultipleResultsFound:
             raise MlflowException(
-                f"Found multiple experiment permissions with experiment_id={experiment_id} and username={username}",
+                f"Found multiple experiment permissions with experiment_id={experiment_id} "
+                f"and username={username}",
                 INVALID_STATE,
             )
 
@@ -249,8 +251,8 @@ class SqlAlchemyStore:
                 return perm.to_mlflow_entity()
             except IntegrityError as e:
                 raise MlflowException(
-                    f"Registered model permission (name={name}, username={username}) already exists. "
-                    f"Error: {e}",
+                    f"Registered model permission (name={name}, username={username}) "
+                    f"already exists. Error: {e}",
                     RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -273,7 +275,8 @@ class SqlAlchemyStore:
             )
         except MultipleResultsFound:
             raise MlflowException(
-                f"Found multiple registered model permissions with name={name} and username={username}",
+                f"Found multiple registered model permissions with name={name} "
+                f"and username={username}",
                 INVALID_STATE,
             )
 
