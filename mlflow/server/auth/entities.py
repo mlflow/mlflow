@@ -1,14 +1,14 @@
 class User:
     def __init__(
         self,
-        id,
+        _id,
         username,
         password_hash,
         is_admin,
         experiment_permissions=None,
         registered_model_permissions=None,
     ):
-        self._id = id
+        self._id = _id
         self._username = username
         self._password_hash = password_hash
         self._is_admin = is_admin

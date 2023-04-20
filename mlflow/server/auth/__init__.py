@@ -18,7 +18,7 @@ from flask import Flask, request, make_response, Response, redirect, flash, rend
 from mlflow import get_run, MlflowException
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
-from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
+from mlflow.server.auth.permissions import get_permission, Permission
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
     _get_rest_path,
