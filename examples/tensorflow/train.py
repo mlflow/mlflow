@@ -157,6 +157,4 @@ if __name__ == "__main__":
         # Export the tensorflow model
         lin_reg_export = ExportModule(model=lin_reg, norm_x=norm_x, norm_y=norm_y)
 
-        # Model registry does not work with file store
-        # I think we can just log the model.
         mlflow.tensorflow.log_model(lin_reg_export, "model")
