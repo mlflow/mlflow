@@ -1,3 +1,5 @@
+:orphan:
+
 .. _quickstart_drilldown:
 
 Quickstart options and troubleshooting

@@ -1,7 +1,7 @@
 .. _quickstart:
 
 Quickstart: Install MLflow, instrument code & view results in minutes
-==========
+======================================================================
 
 
 In 15-20 minutes, you will:
