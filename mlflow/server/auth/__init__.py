@@ -80,6 +80,7 @@ from mlflow.protos.model_registry_pb2 import (
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
 _logger = logging.getLogger(__name__)
+_logger.setLevel(logging.DEBUG)
 
 
 def _get_auth_config_path():
@@ -345,9 +346,6 @@ BEFORE_REQUEST_VALIDATORS.update(
         (ROUTES.UPDATE_USER_PASSWORD, "POST"): validate_can_update_user_password,
         (ROUTES.UPDATE_USER_ADMIN, "POST"): validate_can_update_user_admin,
         (ROUTES.DELETE_USER, "POST"): validate_can_delete_user,
-        (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
         (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
         (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
