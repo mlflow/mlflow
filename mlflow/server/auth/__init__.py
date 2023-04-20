@@ -80,7 +80,6 @@ from mlflow.protos.model_registry_pb2 import (
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.DEBUG)
 
 
 def _get_auth_config_path():
