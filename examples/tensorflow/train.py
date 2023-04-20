@@ -69,7 +69,7 @@ if __name__ == "__main__":
     tf.random.set_seed(42)
 
     # Load dataset
-    dataset = pd.DataFrame(data=fetch_california_housing(as_frame=True)["frame"])
+    dataset = fetch_california_housing(as_frame=True)["frame"]
     # Drop missing values
     dataset = dataset.dropna()
     # using only 1500
