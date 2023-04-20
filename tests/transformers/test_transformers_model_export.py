@@ -1924,14 +1924,24 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt",
+    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
+    "remove_newlines",
     [
+        (
+            "What answers?",
+            [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
+            "A collection of\n\nanswers",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            False,
+        ),
         (
             "What answers?",
             [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
             "A collection of answers",
             {"instance_type": "InstructionTextGenerationPipeline"},
             False,
+            True,
         ),
         (
             "Hello!",
@@ -1939,12 +1949,22 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             "How are you?",
             {"instance_type": "InstructionTextGenerationPipeline"},
             False,
+            False,
         ),
         (
             "Hello!",
-            [{"generated_text": "Hello!\n\nA: How are you?"}],
+            [{"generated_text": "Hello!\n\nA: How are you?\n\n"}],
             "How are you?",
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            True,
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nA: How\nare\nyou?\n\n"}],
+            "How\nare\nyou?\n\n",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
             False,
         ),
         (
@@ -1952,6 +1972,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             [[{"generated_text": "Hi!\n\nHello there"}, {"generated_text": "Not much, and you?"}]],
             ["Hello there", "Not much, and you?"],
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
             False,
         ),
         # Tests disabling parsing of newline characters
@@ -1966,6 +1987,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             ["Hi!\n\nHello there", "What's up?\n\nNot much, and you?"],
             {"instance_type": "InstructionTextGenerationPipeline"},
             True,
+            False,
         ),
         (
             "Hello!",
@@ -1973,6 +1995,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             "Hello!\n\nHow are you?",
             {"instance_type": "InstructionTextGenerationPipeline"},
             True,
+            False,
         ),
         # Tests a standard TextGenerationPipeline output
         (
@@ -1985,6 +2008,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             ],
             ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
             {"instance_type": "TextGenerationPipeline"},
+            True,
             True,
         ),
         # Tests a standard TextGenerationPipeline output with setting "include_prompt" (noop)
@@ -1999,6 +2023,7 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
             {"instance_type": "TextGenerationPipeline"},
             False,
+            False,
         ),
     ],
 )
@@ -2009,10 +2034,16 @@ def test_parse_input_from_instruction_pipeline(
     expected_output,
     flavor_config,
     include_prompt,
+    remove_newlines,
 ):
     assert (
         mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
-            pipeline_input, pipeline_output, "generated_text", flavor_config, include_prompt
+            pipeline_input,
+            pipeline_output,
+            "generated_text",
+            flavor_config,
+            include_prompt,
+            remove_newlines,
         )
         == expected_output
     )
@@ -2045,7 +2076,30 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
     mlflow.transformers.save_model(
         transformers_model=dolly,
         path=model_path,
+        # Validate removal of prompt but inclusion of newlines by default
         inference_config={"max_length": 100, "include_prompt": False},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert not inference.startswith("What is MLflow?")
+    assert "\n" in inference
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        # Validate removal of prompt but inclusion of newlines by default
+        inference_config={"max_length": 100, "include_prompt": False, "remove_newlines": True},
         input_example="Hello, Dolly!",
     )
 
@@ -2066,7 +2120,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
     mlflow.transformers.save_model(
         transformers_model=dolly,
         path=model_path,
-        inference_config={"max_length": 100},  # test default propagation of `include_prompt`=True
+        # test default propagation of `include_prompt`=True and `remove_newlines`=False
+        inference_config={"max_length": 100},
         input_example="Hello, Dolly!",
     )
 
