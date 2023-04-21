@@ -749,16 +749,22 @@ def autolog(
                     data = dtrain.get_data()
                     if isinstance(dtrain, pd.DataFrame):
                         dataset = from_pandas(df=data, source=source)
-                    else:
+                    elif issparse(data):
                         arr_data = data.toarray() if issparse(data) else data
                         dataset = from_numpy(features=arr_data, source=source)
-                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+                    elif isinstance(data, np.ndarray):
+                        dataset = from_numpy(features=data, source=source)
+                    else:
+                        _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+                        dataset = None
+                    if dataset:
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
-                    # log the dataset
-                    autologging_client.log_inputs(
-                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                    )
+                        # log the dataset
+                        autologging_client.log_inputs(
+                            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                        )
                     dataset_logging_operations = autologging_client.flush(synchronous=False)
                     dataset_logging_operations.await_completion()
                 else:

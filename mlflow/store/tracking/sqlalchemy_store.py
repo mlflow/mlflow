@@ -1418,6 +1418,7 @@ class SqlAlchemyStore(AbstractStore):
                                 value=input_tag.value,
                             )
                         )
+
             self._save_to_db(session, objs_to_write)
 
 
