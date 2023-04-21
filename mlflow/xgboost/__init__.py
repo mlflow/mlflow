@@ -427,8 +427,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
-                       If ``False``, datasets are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the XGBoost autologging integration. If ``False``,
                     enables the XGBoost autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -765,7 +765,9 @@ def autolog(
                     _logger.warning("Unable to log dataset. XGBoost version must be >= 1.7.0")
 
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: %s", e)
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
         param_logging_operations.await_completion()
         if early_stopping:

@@ -1197,8 +1197,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
-                       If ``False``, datasets are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1488,7 +1488,9 @@ def _autolog(
                     run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
                 )
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: %s", e)
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,

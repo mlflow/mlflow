@@ -879,8 +879,8 @@ def autolog(
                        newline-delimited list of fully-qualified estimator classnames, and set
                        the "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" Spark config
                        to the path of your allowlist file.
-    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
-                       If ``False``, datasets are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the pyspark ML autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1090,41 +1090,21 @@ def autolog(
 
         if log_datasets:
             try:
-                # if spark datasource already logged, then use as source
-                run_tags = mlflow.active_run().data.tags
-                if _SPARK_TABLE_INFO_TAG_NAME in run_tags:
-                    spark_datasource_tag = run_tags["sparkDatasourceInfo"]
-                    parsed_spark_datasource_tag = [
-                        {
-                            key_value.split("=")[0]: key_value.split("=")[1]
-                            for key_value in info.split(",")
-                        }
-                        for info in spark_datasource_tag.split("\n")
-                    ][0]
-                    dataset = from_spark(
-                        input_df,
-                        path=parsed_spark_datasource_tag["path"],
-                        version=(
-                            parsed_spark_datasource_tag["version"]
-                            if "version" in parsed_spark_datasource_tag
-                            else None
-                        ),
-                    )
-                    mlflow.log_input(dataset, "train")
-                else:
-                    # create a CodeDatasetSource
-                    context_tags = context_registry.resolve_tags()
-                    code_source = CodeDatasetSource(
-                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                    )
-                    dataset = SparkDataset(
-                        df=input_df,
-                        source=code_source,
-                    )
-                    mlflow.log_input(dataset, "train")
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                code_source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+                dataset = SparkDataset(
+                    df=input_df,
+                    source=code_source,
+                )
+                mlflow.log_input(dataset, "train")
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: %s", e)
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
     def fit_mlflow(original, self, *args, **kwargs):
         params = get_method_call_arg_value(1, "params", None, args, kwargs)

@@ -561,8 +561,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
-                       If ``False``, datasets are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
                     enables the LightGBM autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -864,9 +864,13 @@ def autolog(
                 # create a dataset
                 if isinstance(data, pd.DataFrame):
                     dataset = from_pandas(df=data, source=source)
-                else:
+                elif issparse(data):
                     arr_data = data.toarray() if issparse(data) else data
                     dataset = from_numpy(features=arr_data, targets=label, source=source)
+                elif isinstance(data, np.ndarray):
+                    dataset = from_numpy(features=data, targets=label, source=source)
+                else:
+                    _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
                 tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
                 dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
@@ -876,8 +880,41 @@ def autolog(
                 )
                 dataset_logging_operations = autologging_client.flush(synchronous=False)
                 dataset_logging_operations.await_completion()
+
+                valid_sets = kwargs.get("valid_sets")
+                if valid_sets is not None:
+                    valid_names = kwargs.get("valid_names")
+                    # if no valid names are provided, then create valid names for each set
+                    valid_names = (
+                        valid_names
+                        if valid_names is not None
+                        else [f"valid_{i}" for i in range(len(valid_sets))]
+                    )
+
+                    for valid_set, valid_name in zip(valid_sets, valid_names):
+                        data = valid_set.data
+                        label = valid_set.label
+                        if isinstance(data, pd.DataFrame):
+                            dataset = from_pandas(df=data, source=source)
+                        elif issparse(data):
+                            arr_data = data.toarray() if issparse(data) else data
+                            dataset = from_numpy(features=arr_data, targets=label, source=source)
+                        elif isinstance(data, np.ndarray):
+                            dataset = from_numpy(features=data, targets=label, source=source)
+                        else:
+                            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+                            continue
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=f"{valid_name}")]
+                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+                        autologging_client.log_inputs(
+                            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                        )
+                        dataset_logging_operations = autologging_client.flush(synchronous=False)
+                        dataset_logging_operations.await_completion()
             except Exception as e:
-                _logger.warning("Failed to log datasets. Reason: %s", e)
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
         param_logging_operations.await_completion()
         if early_stopping:

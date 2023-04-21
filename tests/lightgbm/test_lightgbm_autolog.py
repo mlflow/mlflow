@@ -51,6 +51,15 @@ def train_set():
     return lgb.Dataset(X, y, free_raw_data=False)
 
 
+@pytest.fixture(scope="module")
+def valid_set():
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2] * 2, columns=iris.feature_names[:2])
+    y = iris.target
+    # set free_raw_data False to use raw data later.
+    return lgb.Dataset(X, y, free_raw_data=False)
+
+
 def test_lgb_autolog_ends_auto_created_run(bst_params, train_set):
     mlflow.lightgbm.autolog()
     lgb.train(bst_params, train_set, num_boost_round=1)
@@ -774,3 +783,47 @@ def test_lgb_log_datasets(bst_params, train_set, log_datasets):
         assert len(dataset_inputs) == 1
     else:
         assert len(dataset_inputs) == 0
+
+
+def test_lgb_log_datasets_with_valid_set(bst_params, train_set, valid_set):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(bst_params, train_set, valid_sets=[valid_set], num_boost_round=1)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "valid_0"
+
+
+def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_set):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(
+            bst_params,
+            train_set,
+            valid_sets=[valid_set],
+            valid_names=["my_valid_set"],
+            num_boost_round=1,
+        )
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "my_valid_set"
+
+
+def test_lgb_log_datasets_with_same_train_valid_set(bst_params, train_set):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(bst_params, train_set, valid_sets=[train_set], num_boost_round=1)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].tags[0].value == "train"

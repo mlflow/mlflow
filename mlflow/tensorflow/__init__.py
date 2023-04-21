@@ -1032,8 +1032,8 @@ def autolog(
                          100 will log metrics at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
-    :param log_datasets: If ``True``, datasets are logged as MLflow datasets.
-                       If ``False``, datasets are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1286,7 +1286,10 @@ def autolog(
                             dataset = from_tensorflow(data=training_data, source=source)
                             mlflow.log_input(dataset, "train")
                     except Exception as e:
-                        _logger.warning("Failed to log datasets. Reason: %s", e)
+                        _logger.warning(
+                            "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                            e,
+                        )
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
