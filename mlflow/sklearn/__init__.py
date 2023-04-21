@@ -1663,7 +1663,14 @@ def _autolog(
 
                     # log the dataset
                     if dataset:
-                        mlflow.log_input(dataset, "validation")
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="validation")]
+                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                        # log the dataset
+                        client = mlflow.MlflowClient()
+                        client.log_inputs(
+                            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                        )
                 except Exception as e:
                     _logger.warning(
                         "Failed to log training dataset information to MLflow Tracking. Reason: %s",
