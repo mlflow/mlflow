@@ -28,7 +28,7 @@ class _SftpPool:
         self._cond = threading.Condition()
 
     @contextmanager
-    def get_sfp_connection(self):
+    def get_sftp_connection(self):
         with self._cond:
             self._cond.wait_for(lambda: bool(self._connections))
             connection = self._connections.pop(-1)
@@ -90,13 +90,13 @@ class SFTPArtifactRepository(ArtifactRepository):
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             sftp.makedirs(artifact_dir)
             sftp.put(local_file, posixpath.join(artifact_dir, os.path.basename(local_file)))
 
     def log_artifacts(self, local_dir, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             sftp.makedirs(artifact_dir)
             if sys.platform == "win32":
                 _put_r_for_windows(sftp, local_dir, artifact_dir)
@@ -106,13 +106,13 @@ class SFTPArtifactRepository(ArtifactRepository):
     def _is_directory(self, artifact_path):
         artifact_dir = self.path
         path = posixpath.join(artifact_dir, artifact_path) if artifact_path else artifact_dir
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             return sftp.isdir(path)
 
     def list_artifacts(self, path=None):
         artifact_dir = self.path
         list_dir = posixpath.join(artifact_dir, path) if path else artifact_dir
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             if not sftp.isdir(list_dir):
                 return []
             artifact_files = sftp.listdir(list_dir)
@@ -128,12 +128,12 @@ class SFTPArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.path, remote_file_path)
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             sftp.get(remote_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
-        with self.pool.get_sfp_connection() as sftp:
+        with self.pool.get_sftp_connection() as sftp:
             self._delete_inner(artifact_dir, sftp)
 
     def _delete_inner(self, artifact_path, sftp):
