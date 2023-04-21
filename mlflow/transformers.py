@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import pandas as pd
+import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
 import yaml
@@ -1446,9 +1447,18 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
-        # Optional input preservation for specific pipeline types
+        # Optional input preservation for specific pipeline types. This is True (include raw
+        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # option during model saving, excess newline characters and the fed-in prompt will be
+        # trimmed out from the start of the response.
         include_prompt = (
-            self.inference_config.pop("include_prompt", False) if self.inference_config else False
+            self.inference_config.pop("include_prompt", True) if self.inference_config else True
+        )
+        # Optional stripping out of `\n` for specific generator pipelines.
+        collapse_whitespace = (
+            self.inference_config.pop("collapse_whitespace", False)
+            if self.inference_config
+            else False
         )
 
         # Generate inference data with the pipeline object
@@ -1471,7 +1481,12 @@ class _TransformersWrapper:
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data, raw_output, output_key, self.flavor_config, include_prompt
+                data,
+                raw_output,
+                output_key,
+                self.flavor_config,
+                include_prompt,
+                collapse_whitespace,
             )
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
@@ -1609,13 +1624,19 @@ class _TransformersWrapper:
             return data
 
     def _strip_input_from_response_in_instruction_pipelines(
-        self, input_data, output, output_key, flavor_config, include_prompt
+        self,
+        input_data,
+        output,
+        output_key,
+        flavor_config,
+        include_prompt=True,
+        collapse_whitespace=False,
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
         pipeline types and remove line feed characters and other confusing outputs
         """
-        replacements = {"\n\n": " "}
+        replacements = {"\n+": " ", "\\s+": " "}
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
@@ -1635,20 +1656,27 @@ class _TransformersWrapper:
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
             # return statements, followed by the start of the response to the prompt. We only
-            # want to left-trim these types of pipelines output values if the user hasn't disabled
-            # the removal action of the input prompt in the returned str or List[str]
+            # want to left-trim these types of pipelines output values if the user has indicated
+            # the removal action of the input prompt in the returned str or List[str] by applying
+            # the optional inference_config entry of `{"include_prompt": False}`.
+            # By default, the prompt is included in the response.
+            # Stripping out additional carriage returns (\n) is another additional optional flag
+            # that can be set for these generator pipelines. It is off by default (False).
             if (
                 data_out.startswith(data_in + "\n\n")
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
             ):
-                # If the user has indicated to preserve the prompt input in the response, do not
-                # split the response output or trim any portions of the response string
+                # If the user has indicated to not preserve the prompt input in the response,
+                # split the response output and trim the input prompt from the response.
                 if not include_prompt:
                     data_out = data_out[len(data_in) :].lstrip()
                     if data_out.startswith("A:"):
                         data_out = data_out[2:].lstrip()
-                for to_replace, replace in replacements.items():
-                    data_out = data_out.replace(to_replace, replace)
+                # If the user has indicated to remove newlines and extra spaces from the generated
+                # text, replace them with a single space.
+                if collapse_whitespace:
+                    for to_replace, replace in replacements.items():
+                        data_out = re.sub(to_replace, replace, data_out).strip()
                 return data_out
             else:
                 return data_out
