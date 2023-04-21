@@ -425,7 +425,7 @@ sqlalchemy==1.4.44
     # via
     #   -r core-requirements.txt
     #   alembic
-sqlparse==0.4.3
+sqlparse==0.4.4
     # via -r skinny-requirements.txt
 stack-data==0.6.1
     # via ipython
