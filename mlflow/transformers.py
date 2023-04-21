@@ -1664,20 +1664,18 @@ class _TransformersWrapper:
             if (
                 data_out.startswith(data_in + "\n\n")
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+                and not include_prompt
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                if not include_prompt:
-                    data_out = data_out[len(data_in) :].lstrip()
-                    if data_out.startswith("A:"):
-                        data_out = data_out[2:].lstrip()
+                data_out = data_out[len(data_in) :].lstrip()
+                if data_out.startswith("A:"):
+                    data_out = data_out[2:].lstrip()
                 # If the user has indicated to remove newlines and extra spaces from the generated
                 # text, replace them with a single space.
-                if collapse_whitespace:
-                    data_out = re.sub(r"\s+", " ", data_out).strip()
-                return data_out
-            else:
-                return data_out
+            if collapse_whitespace:
+                data_out = re.sub(r"\s+", " ", data_out).strip()
+            return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
             return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
