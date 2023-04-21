@@ -1636,7 +1636,6 @@ class _TransformersWrapper:
         Parse the output from instruction pipelines to conform with other text generator
         pipeline types and remove line feed characters and other confusing outputs
         """
-        replacements = {"\n+": " ", "\\s+": " "}
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
@@ -1675,8 +1674,7 @@ class _TransformersWrapper:
                 # If the user has indicated to remove newlines and extra spaces from the generated
                 # text, replace them with a single space.
                 if collapse_whitespace:
-                    for to_replace, replace in replacements.items():
-                        data_out = re.sub(to_replace, replace, data_out).strip()
+                    data_out = re.sub(r"\s+", " ", data_out).strip()
                 return data_out
             else:
                 return data_out
