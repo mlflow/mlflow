@@ -1757,7 +1757,8 @@ Metric and Param keys.
      run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
      experiment_ids = NULL,
      order_by = list(),
-     client = NULL
+     client = NULL,
+     run_info_only = FALSE
    )
 
 .. _arguments-40:
@@ -1795,6 +1796,9 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``run_info_only``             | If TRUE, do not return params,       |
+|                               | metrics or tags.                     |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_server``
