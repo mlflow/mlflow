@@ -188,7 +188,7 @@ def test_no_variables(tmp_path):
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame(
         {
-            "message": ["b", "c"],
+            "content": ["b", "c"],
         }
     )
     expected_output = [
@@ -198,8 +198,8 @@ def test_no_variables(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
     data = [
-        {"message": "b"},
-        {"message": "c"},
+        {"content": "b"},
+        {"content": "c"},
     ]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
@@ -227,7 +227,7 @@ def test_no_messages(tmp_path):
     model = mlflow.pyfunc.load_model(tmp_path)
     data = pd.DataFrame(
         {
-            "message": ["b", "c"],
+            "content": ["b", "c"],
         }
     )
     expected_output = [
@@ -237,8 +237,8 @@ def test_no_messages(tmp_path):
     assert list(map(json.loads, model.predict(data))) == expected_output
 
     data = [
-        {"message": "b"},
-        {"message": "c"},
+        {"content": "b"},
+        {"content": "c"},
     ]
     assert list(map(json.loads, model.predict(data))) == expected_output
 
