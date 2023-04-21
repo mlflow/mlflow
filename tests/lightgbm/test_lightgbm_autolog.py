@@ -18,6 +18,7 @@ from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow import MlflowClient
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
@@ -781,6 +782,9 @@ def test_lgb_log_datasets(bst_params, train_set, log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
+        )
     else:
         assert len(dataset_inputs) == 0
 
@@ -795,7 +799,13 @@ def test_lgb_log_datasets_with_valid_set(bst_params, train_set, valid_set):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
+    )
     assert dataset_inputs[1].tags[0].value == "valid_0"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {"mlflow_colspec": _infer_schema(valid_set.data).to_dict()}
+    )
 
 
 def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_set):
@@ -827,3 +837,6 @@ def test_lgb_log_datasets_with_same_train_valid_set(bst_params, train_set):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
+    )

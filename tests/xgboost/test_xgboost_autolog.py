@@ -19,6 +19,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.types.utils import _infer_schema
 
 mpl.use("Agg")
 
@@ -736,5 +737,8 @@ def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_tensorspec": _infer_schema(dtrain.get_data().toarray()).to_dict()}
+        )
     else:
         assert len(dataset_inputs) == 0

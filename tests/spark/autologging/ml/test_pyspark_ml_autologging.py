@@ -46,6 +46,7 @@ from mlflow.pyspark.ml import (
     _get_tuning_param_maps,
 )
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils import _truncate_dict
 from mlflow.utils.validation import (

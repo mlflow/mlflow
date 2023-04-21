@@ -1278,12 +1278,15 @@ def autolog(
                         # create a dataset
                         if isinstance(training_data, np.ndarray):
                             dataset = from_numpy(features=training_data, source=source)
-                            mlflow.log_input(dataset, "train")
                         elif isinstance(training_data, tensorflow.Tensor):
                             dataset = from_tensorflow(data=training_data, source=source)
-                            mlflow.log_input(dataset, "train")
                         elif isinstance(training_data, tensorflow.data.Dataset):
                             dataset = from_tensorflow(data=training_data, source=source)
+                        else:
+                            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+                            dataset = None
+
+                        if dataset:
                             mlflow.log_input(dataset, "train")
                     except Exception as e:
                         _logger.warning(

@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 from unittest import mock
 import os
 import matplotlib.pyplot as plt
@@ -33,6 +34,7 @@ from mlflow.sklearn.utils import (
     _log_estimator_content,
     _is_estimator_html_repr_supported,
 )
+from mlflow.types.utils import _infer_schema
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -1101,6 +1103,9 @@ def test_sklearn_autolog_log_datasets_configuration(log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_tensorspec": _infer_schema(X).to_dict()}
+        )
     else:
         assert len(dataset_inputs) == 0
 
@@ -1121,7 +1126,13 @@ def test_sklearn_autolog_log_datasets_with_predict():
     assert len(dataset_inputs) == 2
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema(X).to_dict()}
+    )
     assert dataset_inputs[1].tags[0].value == "validation"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema(X).to_dict()}
+    )
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():

@@ -105,11 +105,14 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         import tensorflow as tf
 
         try:
-            return (
-                _infer_schema(next(self._data.as_numpy_iterator()))
-                if isinstance(self._data, tf.data.Dataset)
-                else _infer_schema(self._data.numpy())
-            )
+            if isinstance(self._data, tf.data.Dataset):
+                tensor = next(self._data.as_numpy_iterator())
+                if isinstance(tensor, tuple):
+                    return _infer_schema(tensor[0])
+                else:
+                    return _infer_schema(tensor)
+            else:
+                return _infer_schema(self._data.numpy())
         except Exception as e:
             _logger.warning("Failed to infer schema for Tensorflow dataset. Exception: %s", e)
             return None

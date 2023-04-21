@@ -13,6 +13,7 @@ import numpy as np
 import pytest
 import tensorflow as tf
 from packaging.version import Version
+from mlflow.types.utils import _infer_schema
 from tensorflow.keras import layers
 import yaml
 
@@ -207,6 +208,9 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_tensorspec": _infer_schema(data).to_dict()}
+        )
     else:
         assert len(dataset_inputs) == 0
 
@@ -228,6 +232,9 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tensor(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_tensorspec": _infer_schema(data_as_tensor.numpy()).to_dict()}
+        )
     else:
         assert len(dataset_inputs) == 0
 
@@ -244,6 +251,14 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        print(dataset_inputs[0].dataset.schema)
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": _infer_schema(
+                    next(fashion_mnist_tf_dataset.as_numpy_iterator())[0]
+                ).to_dict()
+            }
+        )
     else:
         assert len(dataset_inputs) == 0
 
