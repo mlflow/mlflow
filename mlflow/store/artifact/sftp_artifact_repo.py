@@ -32,8 +32,12 @@ class _SftpPool:
         with self._cond:
             self._cond.wait_for(lambda: bool(self._connections))
             connection = self._connections.pop(-1)
+
         yield connection
-        self._connections.append(connection)
+
+        with self._cond:
+            self._connections.append(connection)
+            self._cond.notify()
 
 
 class SFTPArtifactRepository(ArtifactRepository):
