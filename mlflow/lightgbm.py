@@ -561,8 +561,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                       If ``False``, dataset information is not logged.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
                     enables the LightGBM autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -852,8 +852,6 @@ def autolog(
         # Whether to automatically log the training dataset as a dataset artifact.
         if _log_datasets:
             try:
-                data = train_set.data
-                label = train_set.label
                 # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
                 source = CodeDatasetSource(
@@ -861,25 +859,7 @@ def autolog(
                     mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                 )
 
-                # create a dataset
-                if isinstance(data, pd.DataFrame):
-                    dataset = from_pandas(df=data, source=source)
-                elif issparse(data):
-                    arr_data = data.toarray() if issparse(data) else data
-                    dataset = from_numpy(features=arr_data, targets=label, source=source)
-                elif isinstance(data, np.ndarray):
-                    dataset = from_numpy(features=data, targets=label, source=source)
-                else:
-                    _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
-                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-                dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
-
-                # log the dataset
-                autologging_client.log_inputs(
-                    run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                )
-                dataset_logging_operations = autologging_client.flush(synchronous=False)
-                dataset_logging_operations.await_completion()
+                _log_lightgbm_dataset(train_set, source, "train", autologging_client)
 
                 valid_sets = kwargs.get("valid_sets")
                 if valid_sets is not None:
@@ -890,27 +870,8 @@ def autolog(
                         if valid_names is not None
                         else [f"valid_{i}" for i in range(len(valid_sets))]
                     )
-
                     for valid_set, valid_name in zip(valid_sets, valid_names):
-                        data = valid_set.data
-                        label = valid_set.label
-                        if isinstance(data, pd.DataFrame):
-                            dataset = from_pandas(df=data, source=source)
-                        elif issparse(data):
-                            arr_data = data.toarray() if issparse(data) else data
-                            dataset = from_numpy(features=arr_data, targets=label, source=source)
-                        elif isinstance(data, np.ndarray):
-                            dataset = from_numpy(features=data, targets=label, source=source)
-                        else:
-                            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
-                            continue
-                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=f"{valid_name}")]
-                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
-                        autologging_client.log_inputs(
-                            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                        )
-                        dataset_logging_operations = autologging_client.flush(synchronous=False)
-                        dataset_logging_operations.await_completion()
+                        _log_lightgbm_dataset(valid_set, source, valid_name, autologging_client)
             except Exception as e:
                 _logger.warning(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
@@ -967,3 +928,24 @@ def autolog(
         max_tuning_runs=None,
         log_post_training_metrics=True,
     )
+
+
+def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client):
+    data = lgb_dataset.data
+    label = lgb_dataset.label
+    if isinstance(data, pd.DataFrame):
+        dataset = from_pandas(df=data, source=source)
+    elif issparse(data):
+        arr_data = data.toarray() if issparse(data) else data
+        dataset = from_numpy(features=arr_data, targets=label, source=source)
+    elif isinstance(data, np.ndarray):
+        dataset = from_numpy(features=data, targets=label, source=source)
+    else:
+        _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context_name)]
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+    # log the dataset
+    autologging_client.log_inputs(run_id=mlflow.active_run().info.run_id, datasets=[dataset_input])
+    dataset_logging_operations = autologging_client.flush(synchronous=False)
+    dataset_logging_operations.await_completion()
