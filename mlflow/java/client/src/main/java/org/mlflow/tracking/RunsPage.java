@@ -17,6 +17,7 @@ public class RunsPage implements Page<Run> {
   private final ViewType runViewType;
   private final List<String> orderBy;
   private final int maxResults;
+  private final boolean runInfoOnly;
 
   /**
    * Creates a fixed size page of Runs.
@@ -28,6 +29,7 @@ public class RunsPage implements Page<Run> {
                   ViewType runViewType,
                   int maxResults,
                   List<String> orderBy,
+                  boolean runInfoOnly,
                   MlflowClient client) {
     this.runs = Collections.unmodifiableList(runs);
     this.token = token;
@@ -36,6 +38,7 @@ public class RunsPage implements Page<Run> {
     this.runViewType = runViewType;
     this.orderBy = orderBy;
     this.maxResults = maxResults;
+    this.runInfoOnly = runInfoOnly;
     this.client = client;
   }
 
@@ -76,6 +79,7 @@ public class RunsPage implements Page<Run> {
                                     this.runViewType,
                                     this.maxResults,
                                     this.orderBy,
+                                    this.runInfoOnly,
                                     this.token);
     } else {
       return new EmptyPage();
