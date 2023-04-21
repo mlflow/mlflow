@@ -481,8 +481,10 @@ class _Message:
         self.variables = _parse_format_fields(self.raw_content)
 
     def format(self, **params):
-        if diff := set(self.variables) - set(params):
-            raise mlflow.MlflowException.invalid_parameter_value(f"Missing parameters: {diff}")
+        if missing_params := set(self.variables) - set(params):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Missing parameters: {missing_params}"
+            )
         return {
             "role": self.role,
             "content": self.raw_content.format(**{v: params[v] for v in self.variables}),
