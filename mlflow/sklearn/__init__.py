@@ -1197,8 +1197,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
-    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                       If ``False``, dataset information is not logged.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1473,20 +1473,15 @@ def _autolog(
                     mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                 )
 
-                # create a dataset
-                if isinstance(X, pd.DataFrame):
-                    dataset = from_pandas(df=X, source=source)
-                else:
-                    arr_X = X.toarray() if issparse(X) else X
-                    arr_y = y.toarray() if issparse(y) else y
-                    dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
-                tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-                dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+                dataset = _create_dataset(X, source, y)
+                if dataset:
+                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
-                # log the dataset
-                autologging_client.log_inputs(
-                    run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                )
+                    # log the dataset
+                    autologging_client.log_inputs(
+                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                    )
             except Exception as e:
                 _logger.warning(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
@@ -1656,6 +1651,24 @@ def _autolog(
             _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
                 run_id, eval_dataset_name, predict_result
             )
+            if log_datasets:
+                try:
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(
+                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                    )
+
+                    dataset = _create_dataset(eval_dataset, source)
+
+                    # log the dataset
+                    if dataset:
+                        mlflow.log_input(dataset, "validation")
+                except Exception as e:
+                    _logger.warning(
+                        "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                        e,
+                    )
             return predict_result
         else:
             return original(self, *args, **kwargs)
@@ -1842,3 +1855,24 @@ def _autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
+
+    def _create_dataset(X, source, y=None):
+        # create a dataset
+        if isinstance(X, pd.DataFrame):
+            dataset = from_pandas(df=X, source=source)
+        elif issparse(X):
+            arr_X = X.toarray()
+            if y is not None:
+                arr_y = y.toarray()
+                dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
+            else:
+                dataset = from_numpy(features=arr_X, source=source)
+        elif isinstance(X, np.ndarray):
+            if y is not None:
+                dataset = from_numpy(features=X, targets=y, source=source)
+            else:
+                dataset = from_numpy(features=X, source=source)
+        else:
+            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+            return None
+        return dataset

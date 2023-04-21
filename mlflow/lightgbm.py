@@ -942,6 +942,7 @@ def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client)
         dataset = from_numpy(features=data, targets=label, source=source)
     else:
         _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+        return
     tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context_name)]
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
