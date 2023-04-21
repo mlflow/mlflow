@@ -220,10 +220,6 @@ def _get_input_schema(messages):
         return Schema([ColSpec(name=None, type="string")])
 
 
-def _has_role_and_content(d):
-    return "role" in d and "content" in d
-
-
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
@@ -298,7 +294,7 @@ def save_model(
     elif task == "chat.completions":
         messages = kwargs.get("messages", [])
         if messages and not (
-            all(isinstance(m, dict) for m in messages) and all(map(_has_role_and_content, messages))
+            all(isinstance(m, dict) for m in messages) and all(map(_has_content_and_role, messages))
         ):
             raise mlflow.MlflowException.invalid_parameter_value(
                 "If `messages` is provided, it must be a list of dictionaries with keys "
