@@ -1455,8 +1455,10 @@ class _TransformersWrapper:
             self.inference_config.pop("include_prompt", True) if self.inference_config else True
         )
         # Optional stripping out of `\n` for specific generator pipelines.
-        shrink_newlines = (
-            self.inference_config.pop("shrink_newlines", False) if self.inference_config else False
+        collapse_whitespace = (
+            self.inference_config.pop("collapse_whitespace", False)
+            if self.inference_config
+            else False
         )
 
         # Generate inference data with the pipeline object
@@ -1479,7 +1481,12 @@ class _TransformersWrapper:
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data, raw_output, output_key, self.flavor_config, include_prompt, shrink_newlines
+                data,
+                raw_output,
+                output_key,
+                self.flavor_config,
+                include_prompt,
+                collapse_whitespace,
             )
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
@@ -1623,7 +1630,7 @@ class _TransformersWrapper:
         output_key,
         flavor_config,
         include_prompt=True,
-        shrink_newlines=False,
+        collapse_whitespace=False,
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
@@ -1649,21 +1656,25 @@ class _TransformersWrapper:
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
             # return statements, followed by the start of the response to the prompt. We only
-            # want to left-trim these types of pipelines output values if the user hasn't disabled
-            # the removal action of the input prompt in the returned str or List[str]
+            # want to left-trim these types of pipelines output values if the user has indicated
+            # the removal action of the input prompt in the returned str or List[str] by applying
+            # the optional inference_config entry of `{"include_prompt": False}`.
+            # By default, the prompt is included in the response.
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
             if (
                 data_out.startswith(data_in + "\n\n")
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
             ):
-                # If the user has indicated to preserve the prompt input in the response, do not
-                # split the response output or trim any portions of the response string
+                # If the user has indicated to not preserve the prompt input in the response,
+                # split the response output and trim the input prompt from the response.
                 if not include_prompt:
                     data_out = data_out[len(data_in) :].lstrip()
                     if data_out.startswith("A:"):
                         data_out = data_out[2:].lstrip()
-                if shrink_newlines:
+                # If the user has indicated to remove newlines and extra spaces from the generated
+                # text, replace them with a single space.
+                if collapse_whitespace:
                     for to_replace, replace in replacements.items():
                         data_out = re.sub(to_replace, replace, data_out).strip()
                 return data_out

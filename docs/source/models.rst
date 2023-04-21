@@ -2005,7 +2005,7 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
     if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
     saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
-    of the generated text output, you can add the `"shrink_newlines": True` option to the `inference_config` dictionary.
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
     If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
     any modification to the output returned from pipeline inference.
 
