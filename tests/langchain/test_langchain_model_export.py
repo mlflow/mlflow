@@ -2,6 +2,7 @@ import langchain
 import mlflow
 import pytest
 import transformers
+import json
 
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
@@ -12,6 +13,7 @@ from langchain.llms.base import LLM
 from langchain.chains.base import Chain
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
+from tests.helper_functions import pyfunc_serve_and_score_model
 
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
@@ -235,20 +237,35 @@ def test_langchain_agent_model_predict():
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
+    model = create_model("openaiagent")
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    langchain_input = {
+        "input": "What was the high temperature in SF yesterday in Fahrenheit? "
+        "What is that number raised to the .023 power?"
+    }
     with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
-        model = create_model("openaiagent")
-        with mlflow.start_run():
-            logged_model = mlflow.langchain.log_model(model, "langchain_model")
-        loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-        result = loaded_model.predict(
-            [
-                {
-                    "input": "What was the high temperature in SF yesterday in Fahrenheit? "
-                    "What is that number raised to the .023 power?"
-                }
-            ]
-        )
+        result = loaded_model.predict([langchain_input])
         assert result == [TEST_CONTENT]
+
+    inference_payload = json.dumps({"inputs": langchain_input})
+    langchain_agent_output_serving = {"predictions": langchain_agent_output}
+    with _mock_request(return_value=_MockResponse(200, langchain_agent_output_serving)):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        from mlflow.deployments import PredictionsResponse
+
+        response = pyfunc_serve_and_score_model(
+            logged_model.model_uri,
+            data=inference_payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+
+        assert (
+            PredictionsResponse.from_json(response.content.decode("utf-8"))
+            == langchain_agent_output_serving
+        )
 
 
 def test_unsupported_chain_types():

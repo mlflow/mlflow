@@ -59,7 +59,7 @@ _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
 _AGENT_PRIMITIVES_DATA_KEY = "agent_primitive_data"
-_AGENT_DATA_FILE_NAME = "agent.json"
+_AGENT_DATA_FILE_NAME = "agent.yaml"
 _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
@@ -291,27 +291,35 @@ def log_model(
     """
     import langchain
 
-    if (
-        type(lc_model) != langchain.chains.llm.LLMChain
-        and type(lc_model) != langchain.agents.agent.AgentExecutor
+    if not isinstance(
+        lc_model, (langchain.chains.llm.LLMChain, langchain.agents.agent.AgentExecutor)
     ):
-        raise TypeError(
+        raise mlflow.MlflowException.invalid_parameter_value(
             "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
             + f"langchain.agents.agent.AgentExecutor instances, found {type(lc_model)}"
         )
+
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
     if (
-        type(lc_model) == langchain.chains.llm.LLMChain
+        isinstance(lc_model, langchain.chains.llm.LLMChain)
         and type(lc_model.llm) not in _SUPPORTED_LLMS
-    ) or (
-        type(lc_model) == langchain.agents.agent.AgentExecutor
+    ):
+        logger.warning(
+            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
+            "OpenAI, found %s",
+            type(lc_model.llm).__name__,
+        )
+
+    if (
+        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
         and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
     ):
         logger.warning(
             "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
             "OpenAI, found %s",
-            str(type(lc_model.llm)),
+            type(lc_model.agent.llm_chain.llm).__name__,
         )
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
@@ -343,31 +351,31 @@ def _save_model(model, path):
         if model.agent:
             agent_data_path = os.path.join(path, _AGENT_DATA_FILE_NAME)
             model.save_agent(agent_data_path)
-            model_data_kwargs = {**model_data_kwargs, _AGENT_DATA_KEY: _AGENT_DATA_FILE_NAME}
+            model_data_kwargs[_AGENT_DATA_KEY] = _AGENT_DATA_FILE_NAME
 
         if model.tools:
             tools_data_path = os.path.join(path, _TOOLS_DATA_FILE_NAME)
             with open(tools_data_path, "wb") as f:
                 cloudpickle.dump(model.tools, f)
-            model_data_kwargs = {**model_data_kwargs, _TOOLS_DATA_KEY: _TOOLS_DATA_FILE_NAME}
+            model_data_kwargs[_TOOLS_DATA_KEY] = _TOOLS_DATA_FILE_NAME
+        else:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "For initializing the AgentExecutor, tools must be provided."
+            )
 
         key_to_ignore = ["llm_chain", "agent", "tools", "callback_manager"]
-        temp_dict = {}
-        for k, v in model.__dict__.items():
-            if k not in key_to_ignore:
-                temp_dict[k] = v
+        temp_dict = {k: v for k, v in model.__dict__.items() if k not in key_to_ignore}
 
         agent_primitive_path = os.path.join(path, _AGENT_PRIMITIVES_FILE_NAME)
         with open(agent_primitive_path, "w") as config_file:
             json.dump(temp_dict, config_file, indent=4)
 
-        model_data_kwargs = {
-            **model_data_kwargs,
-            _AGENT_PRIMITIVES_DATA_KEY: _AGENT_PRIMITIVES_FILE_NAME,
-        }
+        model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
     else:
-        logger.error("Could not save model.")
-        pass
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
+            + f"langchain.agents.agent.AgentExecutor instances, found {type(model)}"
+        )
 
     return model_data_kwargs
 
@@ -383,12 +391,22 @@ def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=Non
         from langchain.agents import initialize_agent
 
         llm = load_chain(path)
-        with open(tools_path, "rb") as f:
-            tools = cloudpickle.load(f)
-        with open(agent_primitive_path, "r") as config_file:
-            args = json.load(config_file)
+        tools = []
+        kwargs = {}
 
-        model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **args)
+        if os.path.exists(tools_path):
+            with open(tools_path, "rb") as f:
+                tools = cloudpickle.load(f)
+        else:
+            raise mlflow.MlflowException(
+                "Missing file for tools which is required to build the AgentExecutor object."
+            )
+
+        if os.path.exists(agent_primitive_path):
+            with open(agent_primitive_path, "r") as config_file:
+                kwargs = json.load(config_file)
+
+        model = initialize_agent(tools=tools, llm=llm, agent_path=agent_path, **kwargs)
     return model
 
 
@@ -439,19 +457,16 @@ def _load_model_from_local_fs(local_model_path):
     lc_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
-    agent_model_path = None
-    if flavor_conf.get(_AGENT_DATA_KEY):
-        agent_model_path = os.path.join(local_model_path, flavor_conf.get(_AGENT_DATA_KEY))
 
-    tools_model_path = None
-    if flavor_conf.get(_TOOLS_DATA_KEY):
-        tools_model_path = os.path.join(local_model_path, flavor_conf.get(_TOOLS_DATA_KEY))
+    agent_model_path = tools_model_path = agent_primitive_path = None
+    if agent_path := flavor_conf.get(_AGENT_DATA_KEY):
+        agent_model_path = os.path.join(local_model_path, agent_path)
 
-    agent_primitive_path = None
-    if flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY):
-        agent_primitive_path = os.path.join(
-            local_model_path, flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY)
-        )
+    if tools_path := flavor_conf.get(_TOOLS_DATA_KEY):
+        tools_model_path = os.path.join(local_model_path, tools_path)
+
+    if primitive_path := flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY):
+        agent_primitive_path = os.path.join(local_model_path, primitive_path)
 
     return _load_model(lc_model_path, agent_model_path, tools_model_path, agent_primitive_path)
 
