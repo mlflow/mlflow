@@ -747,6 +747,8 @@ def autolog(
                 if evals is not None:
                     for d, name in evals:
                         _log_xgboost_dataset(d, source, name, autologging_client)
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
             except Exception as e:
                 _logger.warning(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
@@ -829,7 +831,5 @@ def _log_xgboost_dataset(xgb_dataset, source, context_name, autologging_client):
         autologging_client.log_inputs(
             run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
         )
-        dataset_logging_operations = autologging_client.flush(synchronous=False)
-        dataset_logging_operations.await_completion()
     else:
         _logger.warning("Unable to log dataset. XGBoost version must be >= 1.7.0")

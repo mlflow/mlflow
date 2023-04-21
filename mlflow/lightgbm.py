@@ -873,6 +873,9 @@ def autolog(
                     )
                     for valid_set, valid_name in zip(valid_sets, valid_names):
                         _log_lightgbm_dataset(valid_set, source, valid_name, autologging_client)
+
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
             except Exception as e:
                 _logger.warning(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
@@ -949,5 +952,3 @@ def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client)
 
     # log the dataset
     autologging_client.log_inputs(run_id=mlflow.active_run().info.run_id, datasets=[dataset_input])
-    dataset_logging_operations = autologging_client.flush(synchronous=False)
-    dataset_logging_operations.await_completion()
