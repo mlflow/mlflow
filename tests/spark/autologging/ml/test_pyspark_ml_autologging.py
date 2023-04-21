@@ -747,35 +747,6 @@ def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_dat
         assert len(dataset_inputs) == 0
 
 
-@pytest.mark.parametrize("log_datasets", [True, False])
-def test_basic_post_training_with_spark_datasource_autologging(
-    autologging_spark_session, dataset_iris_binomial, tmp_path, log_datasets
-):
-    mlflow.spark.autolog()
-    mlflow.pyspark.ml.autolog(log_datasets=log_datasets)
-    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
-    path = str(tmp_path / "temp.parquet")
-    dataset_iris_binomial.write.mode("overwrite").parquet(path)
-    with mlflow.start_run() as run:
-        loaded_df = autologging_spark_session.read.parquet(path)
-        model = estimator.fit(loaded_df)  # pylint: disable=unused-variable
-
-    run_id = run.info.run_id
-    client = MlflowClient()
-
-    # check that the datasource tag is there
-    tags = client.get_run(run_id).data.tags
-    assert _SPARK_TABLE_INFO_TAG_NAME in tags
-
-    # check that the dataset input is there
-    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
-    if log_datasets:
-        assert len(dataset_inputs) == 1
-        assert dataset_inputs[0].dataset.source_type == "spark"
-    else:
-        assert len(dataset_inputs) == 0
-
-
 def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog()
 

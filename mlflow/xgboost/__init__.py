@@ -747,7 +747,6 @@ def autolog(
                 if evals is not None:
                     for d, name in evals:
                         _log_xgboost_dataset(d, source, name, autologging_client)
-
             except Exception as e:
                 _logger.warning(
                     "Failed to log training dataset information to MLflow Tracking. Reason: %s", e

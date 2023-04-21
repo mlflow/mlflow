@@ -19,6 +19,7 @@ LightGBM (native) format
 """
 import os
 import pandas as pd
+import numpy as np
 from scipy.sparse import issparse
 import yaml
 import json
