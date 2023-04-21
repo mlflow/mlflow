@@ -476,7 +476,7 @@ def _has_content_and_role(d):
 
 class _Message:
     def __init__(self, message):
-        self.raw_content = message.get("content", "")
+        self.raw_content = message.get("content")
         self.role = message.get("role")
         self.variables = _parse_format_fields(self.raw_content)
 
