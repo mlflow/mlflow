@@ -43,7 +43,7 @@ def _models_retrieve_json_sample():
     }
 
 
-def _mock_chat_completion_response(content):
+def _mock_chat_completion_response(content=TEST_CONTENT):
     return _MockResponse(200, _chat_completion_json_sample(content))
 
 
