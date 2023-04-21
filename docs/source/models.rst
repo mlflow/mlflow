@@ -2000,6 +2000,15 @@ and standardizes both the inputs and outputs of pipeline inference. This conform
 and batch inference by coercing the data structures that are required for ``transformers`` inference pipelines
 to formats that are compatible with json serialization and casting to Pandas DataFrames.
 
+.. note::
+    Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
+    prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
+    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
+    any modification to the output returned from pipeline inference.
+
 .. attention::
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
