@@ -69,8 +69,6 @@ def _generate_dataset_name(digest: str) -> str:
         >= _GENERATOR_DATASET_DIGEST_MODULO_DIVISOR
     ), "Internal error: MLflow does not define enough unique dataset names."
 
-    # Use a prime number as the modulus when mapping the diges to a name index in order to reduce
-    # the likelihood of collisions
     md5_hash = hashlib.md5(digest.encode("utf-8"))
     int_hash = int(md5_hash.hexdigest(), 16)
     name_index = int_hash % _GENERATOR_DATASET_DIGEST_MODULO_DIVISOR
