@@ -93,11 +93,21 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
-        return {
-            "shape": self._features.shape,
-            "size": self._features.size,
-            "nbytes": self._features.nbytes,
+        profile = {
+            "features_shape": self._features.shape,
+            "features_size": self._features.size,
+            "features_nbytes": self._features.nbytes,
         }
+        if self._targets is not None:
+            profile.update(
+                {
+                    "targets_shape": self._targets.shape,
+                    "targets_size": self._targets.size,
+                    "targets_nbytes": self._targets.nbytes,
+                }
+            )
+
+        return profile
 
     @cached_property
     def schema(self) -> Optional[Schema]:
