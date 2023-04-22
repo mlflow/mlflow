@@ -58,11 +58,6 @@ pyarrow:
   minimum: "4.0.0"
   max_major_version: 11
 
-shap:
-  pip_release: shap
-  minimum: "0.40"
-  max_major_version: 0
-
 markdown:
   pip_release: markdown
   minimum: "3.3"

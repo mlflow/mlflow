@@ -157,7 +157,9 @@ def convert_to_dataset_feature_statistics(
             strs = current_column_value.dropna()
 
             feat_stats.avg_length = (
-                np.mean(np.vectorize(len)(strs)) if not is_current_column_boolean_type else 0
+                np.mean(np.vectorize(len)(strs))
+                if not is_current_column_boolean_type and not current_column_value.isnull().all()
+                else 0
             )
             vals, counts = np.unique(strs, return_counts=True)
             feat_stats.unique = pandas_describe_key.get("unique", len(vals))
