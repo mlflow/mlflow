@@ -129,6 +129,7 @@ def from_numpy(
     Constructs a NumpyDataset object from NumPy features, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
+
     :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
                     or dictionary of named np.ndarrays.
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
