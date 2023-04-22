@@ -64,13 +64,13 @@ class HTTPDatasetSource(DatasetSource):
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
 
-        local_path = os.path.join(dst_path, basename)
-        with open(local_path, "wb") as f:
+        dst_path = os.path.join(dst_path, basename)
+        with open(dst_path, "wb") as f:
             chunk_size = 1024 * 1024  # 1 MB
             for chunk in resp.iter_content(chunk_size=chunk_size):
                 f.write(chunk)
 
-        return local_path
+        return dst_path
 
     @staticmethod
     def _can_resolve(raw_source: Any) -> bool:
