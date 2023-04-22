@@ -7,8 +7,10 @@ import pandas as pd
 from collections import namedtuple
 from datetime import datetime, timedelta, date
 from unittest import mock
+from packaging.version import Version
 import json
 
+import prophet
 from prophet import Prophet
 
 import mlflow
@@ -386,7 +388,12 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 def test_pyfunc_serve_and_score(prophet_model):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.prophet.log_model(prophet_model.model, artifact_path)
+        extra_pip_requirements = (
+            ["pandas<2"] if Version(prophet.__version__) < Version("1.1") else []
+        )
+        mlflow.prophet.log_model(
+            prophet_model.model, artifact_path, extra_pip_requirements=extra_pip_requirements
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
     local_predict = prophet_model.model.predict(
         prophet_model.model.make_future_dataframe(FORECAST_HORIZON)
@@ -406,7 +413,6 @@ def test_pyfunc_serve_and_score(prophet_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-
     scores = pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
 
     # predictions are deterministic, but yhat_lower, yhat_upper are non-deterministic based on

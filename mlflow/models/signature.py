@@ -4,13 +4,18 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
-from typing import Dict, Any, Union, TYPE_CHECKING
+import re
+import inspect
+import logging
+from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
+
 
 import pandas as pd
 import numpy as np
 
+from mlflow.exceptions import MlflowException
 from mlflow.types.schema import Schema
-from mlflow.types.utils import _infer_schema
+from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
 
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -23,6 +28,8 @@ if TYPE_CHECKING:
         ]
     except ImportError:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
+
+_logger = logging.getLogger(__name__)
 
 
 class ModelSignature:
@@ -130,3 +137,104 @@ def infer_signature(
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
     return ModelSignature(inputs, outputs)
+
+
+# `t\w*\.` matches the `typing` module or its alias
+_LIST_OF_STRINGS_PATTERN = re.compile(r"^(t\w*\.)?list\[str\]$", re.IGNORECASE)
+
+
+def _is_list_str(hint_str):
+    return _LIST_OF_STRINGS_PATTERN.match(hint_str.replace(" ", "")) is not None
+
+
+_LIST_OF_STR_DICT_PATTERN = re.compile(
+    r"^(t\w*\.)?list\[(t\w*\.)?dict\[str,str\]\]$", re.IGNORECASE
+)
+
+
+def _is_list_of_string_dict(hint_str):
+    return _LIST_OF_STR_DICT_PATTERN.match(hint_str.replace(" ", "")) is not None
+
+
+def _infer_hint_from_str(hint_str):
+    if _is_list_str(hint_str):
+        return List[str]
+    elif _is_list_of_string_dict(hint_str):
+        return List[Dict[str, str]]
+    else:
+        return None
+
+
+def _get_arg_names(f):
+    return list(inspect.signature(f).parameters.keys())
+
+
+class _TypeHints:
+    def __init__(self, input_=None, output=None):
+        self.input = input_
+        self.output = output
+
+    def __repr__(self):
+        return "<input: {}, output: {}>".format(self.input, self.output)
+
+
+def _extract_type_hints(f, input_arg_index):
+    """
+    Extract type hints from a function.
+
+    :param f: Function to extract type hints from.
+    :param input_arg_index: Index of the function argument that corresponds to the model input.
+    :return: A `_TypeHints` object containing the input and output type hints.
+    """
+    if not hasattr(f, "__annotations__") and hasattr(f, "__call__"):
+        return _extract_type_hints(f.__call__, input_arg_index)
+
+    if f.__annotations__ == {}:
+        return _TypeHints()
+
+    arg_names = _get_arg_names(f)
+    if len(arg_names) - 1 < input_arg_index:
+        raise MlflowException.invalid_parameter_value(
+            f"The specified input argument index ({input_arg_index}) is out of range for the "
+            "function signature: {}".format(input_arg_index, arg_names)
+        )
+    arg_name = _get_arg_names(f)[input_arg_index]
+    try:
+        hints = get_type_hints(f)
+    except TypeError:
+        # ---
+        # from __future__ import annotations # postpones evaluation of 'list[str]'
+        #
+        # def f(x: list[str]) -> list[str]:
+        #          ^^^^^^^^^ Evaluating this expression ('list[str]') results in a TypeError in
+        #                    Python < 3.9 because the built-in list type is not subscriptable.
+        #     return x
+        # ---
+        # Best effort to infer type hints from strings
+        hints = {}
+        for arg in [arg_name, "return"]:
+            if hint_str := f.__annotations__.get(arg, None):
+                if hint := _infer_hint_from_str(hint_str):
+                    hints[arg] = hint
+                else:
+                    _logger.info("Unsupported type hint: %s, skipping schema inference", hint_str)
+    except Exception as e:
+        _logger.warning("Failed to extract type hints from function %s: %s", f.__name__, repr(e))
+        return _TypeHints()
+
+    return _TypeHints(hints.get(arg_name), hints.get("return"))
+
+
+def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
+    hints = _extract_type_hints(func, input_arg_index)
+    if hints.input is None:
+        return None
+
+    input_schema = _infer_schema_from_type_hint(hints.input, input_example) if hints.input else None
+    output_example = func(input_example) if input_example else None
+    output_schema = (
+        _infer_schema_from_type_hint(hints.output, output_example) if hints.output else None
+    )
+    if input_schema is None and output_schema is None:
+        return None
+    return ModelSignature(inputs=input_schema, outputs=output_schema)
