@@ -141,6 +141,7 @@ def from_pandas(
     Constructs a PandasDataset object from Pandas DataFrame, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
+
     :param df: A Pandas DataFrame
     :param source: The source from which the DataFrame was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
