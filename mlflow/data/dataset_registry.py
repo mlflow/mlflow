@@ -1,8 +1,7 @@
 import inspect
 import entrypoints
 import warnings
-from typing import Any, Dict
-from typing_extensions import Protocol
+from typing import Dict
 
 import mlflow.data
 from mlflow.exceptions import MlflowException
@@ -10,18 +9,11 @@ from mlflow.data.dataset import Dataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-class ConstructorFunction(Protocol):
-    def __call__(self, *args: Any) -> Dataset:
-        pass
-
-
 class DatasetRegistry:
     def __init__(self):
         self.constructors = {}
 
-    def register_constructor(
-        self, constructor_fn: ConstructorFunction, constructor_name: str = None
-    ) -> str:
+    def register_constructor(self, constructor_fn: callable, constructor_name: str = None) -> str:
         """
         Registers a dataset constructor.
 
@@ -64,7 +56,7 @@ class DatasetRegistry:
                 )
 
     @staticmethod
-    def _validate_constructor(constructor_fn: ConstructorFunction, constructor_name: str):
+    def _validate_constructor(constructor_fn: callable, constructor_name: str):
         if not constructor_name.startswith("load_") and not constructor_name.startswith("from_"):
             raise MlflowException(
                 f"Invalid dataset constructor name: {constructor_name}."
@@ -93,7 +85,7 @@ class DatasetRegistry:
             )
 
 
-def register_constructor(constructor_fn: ConstructorFunction, constructor_name: str = None) -> str:
+def register_constructor(constructor_fn: callable, constructor_name: str = None) -> str:
     """
     Registers a dataset constructor.
 
@@ -119,7 +111,7 @@ def register_constructor(constructor_fn: ConstructorFunction, constructor_name: 
     return registered_constructor_name
 
 
-def get_registered_constructors() -> Dict[str, ConstructorFunction]:
+def get_registered_constructors() -> Dict[str, callable]:
     """
     Obtains the registered dataset constructors.
 

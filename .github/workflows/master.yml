@@ -314,6 +314,8 @@ jobs:
           pip install mleap
           # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
           pip install datasets
+          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
+          pip install tensorflow
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
