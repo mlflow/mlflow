@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Optional, Any, Dict, Union
 
-import pandas as pd
+import tensorflow as tf
 from functools import cached_property
 
 from mlflow.data.dataset import Dataset
@@ -15,21 +15,21 @@ from mlflow.types.utils import _infer_schema
 _logger = logging.getLogger(__name__)
 
 
-class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
+class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
-    Represents a Tensorflow dataset for use with MLflow Tracking.
+    Represents a TensorFlow dataset for use with MLflow Tracking.
     """
 
     def __init__(
         self,
-        data,
+        data: Union[tf.data.Dataset, tf.Tensor],
         source: DatasetSource,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
-        :param data: A Tensorflow dataset or Tensorflow tensor.
-        :param source: The source of the Tensorflow dataset.
+        :param data: An instance of ``tf.data.Dataset`` or ``tf.Tensor``.
+        :param source: The source of the TensorFlow dataset.
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -43,8 +43,6 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        import tensorflow as tf
-
         return (
             compute_tensorflow_dataset_digest(self._data)
             if isinstance(self._data, tf.data.Dataset)
@@ -73,7 +71,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def data(self):
         """
-        The underlying Tensorflow data.
+        The underlying TensorFlow data.
         """
         return self._data
 
@@ -89,8 +87,6 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
-        import tensorflow as tf
-
         return {
             "num_rows": len(self._data),
             "num_elements": int(self._data.cardinality().numpy())
@@ -103,8 +99,6 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
-        import tensorflow as tf
-
         try:
             return (
                 _infer_schema(next(self._data.as_numpy_iterator()))
@@ -112,7 +106,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 else _infer_schema(self._data.numpy())
             )
         except Exception as e:
-            _logger.warning("Failed to infer schema for Tensorflow dataset. Exception: %s", e)
+            _logger.warning("Failed to infer schema for TensorFlow dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
@@ -124,16 +118,17 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def from_tensorflow(
-    data,
+    data: Union[tf.data.Dataset, tf.Tensor],
     source: Union[str, DatasetSource],
     name: Optional[str] = None,
     digest: Optional[str] = None,
-) -> TensorflowDataset:
+) -> TensorFlowDataset:
     """
-    Constructs a TensorflowDataset object from Tensorflow data, optional targets, and source.
+    Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
-    :param data: A Tensorflow dataset or Tensorflow tensor.
+
+    :param data: An instance of ``tf.data.Dataset`` or ``tf.Tensor``.
     :param source: The source from which the data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
@@ -150,4 +145,4 @@ def from_tensorflow(
         resolved_source = resolve_dataset_source(
             source,
         )
-    return TensorflowDataset(data=data, source=resolved_source, name=name, digest=digest)
+    return TensorFlowDataset(data=data, source=resolved_source, name=name, digest=digest)
