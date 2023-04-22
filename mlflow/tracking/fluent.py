@@ -34,6 +34,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env, get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -715,6 +716,7 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
+@experimental
 def log_input(
     dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
 ) -> None:

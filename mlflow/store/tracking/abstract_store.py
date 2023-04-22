@@ -4,7 +4,7 @@ from typing import List, Optional
 from mlflow.entities import ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, experimental
 
 
 @developer_stable
@@ -350,6 +350,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    @experimental
     def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
         """
         Log inputs, such as datasets, to the specified run.

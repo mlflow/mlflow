@@ -7,6 +7,7 @@ import mlflow.data
 from mlflow.exceptions import MlflowException
 from mlflow.data.dataset import Dataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
 class DatasetRegistry:
@@ -34,7 +35,7 @@ class DatasetRegistry:
         if constructor_name is None:
             constructor_name = constructor_fn.__name__
         DatasetRegistry._validate_constructor(constructor_fn, constructor_name)
-        self.constructors[constructor_name] = constructor_fn
+        self.constructors[constructor_name] = experimental(constructor_fn)
         return constructor_name
 
     def register_entrypoints(self):
