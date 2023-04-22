@@ -1,8 +1,6 @@
+import hashlib
 import json
 from typing import Any, Dict, List, Optional
-
-import numpy as np
-import pandas as pd
 
 from mlflow.data.dataset import Dataset
 from mlflow.types import Schema
@@ -27,7 +25,10 @@ class DummyDataset(Dataset):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
-        return pd.util.hash_array(np.ndarray(self._data_list))
+        md5 = hashlib.md5()
+        for item in self._data_list:
+            md5.update(item)
+        return md5.hexdigest()[:8]
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
         """
