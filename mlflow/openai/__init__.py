@@ -194,10 +194,18 @@ def _log_secrets_yaml(local_model_dir, scope):
 
 
 def _parse_format_fields(s):
+    """
+    Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
+    """
     return [fn for _, fn, _, _ in Formatter().parse(s) if fn is not None]
 
 
-def _collect_variables(messages):
+def _parse_variables(messages):
+    """
+    Parses variables from a list of messages for chat completion task. For example, if
+    messages = [{"content": "{x}", ...}, {"content": "{y}", ...}], then _parse_variables(messages)
+    returns ["x", "y"].
+    """
     return sorted(
         set(
             itertools.chain.from_iterable(
@@ -209,15 +217,15 @@ def _collect_variables(messages):
 
 def _get_input_schema(messages):
     if messages:
-        variables = _collect_variables(messages)
+        variables = _parse_variables(messages)
         if len(variables) == 1:
-            return Schema([ColSpec(name=None, type="string")])
+            return Schema([ColSpec(type="string")])
         elif len(variables) > 1:
-            return Schema([ColSpec(name=name, type="string") for name in variables])
+            return Schema([ColSpec(name=v, type="string") for v in variables])
         else:
-            return Schema([ColSpec(name=None, type="string")])
+            return Schema([ColSpec(type="string")])
     else:
-        return Schema([ColSpec(name=None, type="string")])
+        return Schema([ColSpec(type="string")])
 
 
 @experimental
@@ -480,7 +488,7 @@ class _Message:
         if missing_params := set(self.variables) - set(params):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Expected parameters {self.variables} to be provided, "
-                f"only got {set(params)}, {missing_params} are missing"
+                f"only got {set(params)}, {missing_params} are missing."
             )
         return {
             "role": self.role,
@@ -507,11 +515,7 @@ class _OpenAIWrapper:
                 return data[[variable]].to_dict(orient="records")
             else:
                 iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-                first_string_column = next(iter_string_columns, None)
-                if first_string_column is None:
-                    raise mlflow.MlflowException.invalid_parameter_value(
-                        "No string columns found in the input data"
-                    )
+                first_string_column = next(iter_string_columns)
                 return [{variable: s} for s in data[first_string_column]]
         else:
             return data[variables].to_dict(orient="records")
@@ -520,16 +524,12 @@ class _OpenAIWrapper:
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         messages = self.model.get("messages", [])
-        variables = _collect_variables(messages)
+        variables = _parse_variables(messages)
         if variables:
             messages_list = self.format_messages(messages, self.get_params_list(data, variables))
         else:
             iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
-            first_string_column = next(iter_string_columns, None)
-            if first_string_column is None:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "No string columns found in the input data"
-                )
+            first_string_column = next(iter_string_columns)
             messages_list = [
                 [*messages, {"role": "user", "content": s}] for s in data[first_string_column]
             ]
