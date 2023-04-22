@@ -4,6 +4,7 @@ from functools import cached_property
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
+from pyspark.sql import DataFrame
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -27,7 +28,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        df,
+        df: DataFrame,
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -205,7 +206,7 @@ def load_delta(
 
 
 def from_spark(
-    df,
+    df: DataFrame,
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,
