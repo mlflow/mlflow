@@ -62,11 +62,11 @@ def _generate_dataset_name(digest: str) -> str:
     user workflows may break.**
 
     :param digest: The dataset digest, e.g. "9ff17540".
-    :return: A dataset name of the form <predicate>-data-<integer>, e.g. "unique-data-954".
+    :return: A dataset name of the form <predicate>-data-<integer>, e.g. "unique-data-9054".
     """
     assert (
         _GENERATOR_DATASET_INTEGER_UPPER_BOUND * len(_GENERATOR_DATASET_PREDICATES)
-        > _GENERATOR_DATASET_DIGEST_MODULO_DIVISOR
+        >= _GENERATOR_DATASET_DIGEST_MODULO_DIVISOR
     ), "Internal error: MLflow does not define enough unique dataset names."
 
     # Use a prime number as the modulus when mapping the diges to a name index in order to reduce
@@ -373,10 +373,10 @@ _GENERATOR_PREDICATES = [
 # Unique dataset names are generated from dataset digests by mapping the digest to an integer
 # and applying the modulo operation with a prime divisor to obtain an index. A prime divisor
 # is used to reduce the likelihood of collisions. This index is then mapped to a predicate
-# (e.g. "unique") and an integer in the range [0, 10000) (e.g. 954). Finally, the dataset name
-# is constructed as <predicate>-data-<integer> (e.g. unique-data-954)
-_GENERATOR_DATASET_DIGEST_MODULO_DIVISOR = 2499997
-_GENERATOR_DATASET_INTEGER_UPPER_BOUND = 10**4
+# (e.g. "unique") and an integer in the range [0, 100000) (e.g. 9054). Finally, the dataset name
+# is constructed as <predicate>-data-<integer> (e.g. unique-data-9054)
+_GENERATOR_DATASET_DIGEST_MODULO_DIVISOR = 24999983
+_GENERATOR_DATASET_INTEGER_UPPER_BOUND = 10**5
 _GENERATOR_DATASET_PREDICATES = [
     "acute",
     "adept",

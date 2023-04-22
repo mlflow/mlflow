@@ -1,6 +1,6 @@
 import json
 from abc import abstractmethod
-from functools import cachedproperty
+from functools import cached_property
 from typing import Optional, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
@@ -63,7 +63,7 @@ class Dataset:
         }
         return json.dumps(self._to_dict(base_dict))
 
-    @cachedproperty
+    @cached_property
     def name(self) -> str:
         """
         The name of the dataset.
