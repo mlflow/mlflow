@@ -43,7 +43,6 @@ class DatasetRegistry:
         https://mlflow.org/docs/latest/plugins.html#defining-a-plugin.
         """
         for entrypoint in entrypoints.get_group_all("mlflow.dataset_constructor"):
-            entrypoint.load()
             try:
                 self.register_constructor(
                     constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
