@@ -1,7 +1,7 @@
 import inspect
 import entrypoints
 import warnings
-from typing import Any, Dict
+from typing import Dict
 
 import mlflow.data
 from mlflow.exceptions import MlflowException
@@ -13,9 +13,7 @@ class DatasetRegistry:
     def __init__(self):
         self.constructors = {}
 
-    def register_constructor(
-        self, constructor_fn: callable, constructor_name: str = None
-    ) -> str:
+    def register_constructor(self, constructor_fn: callable, constructor_name: str = None) -> str:
         """
         Registers a dataset constructor.
 

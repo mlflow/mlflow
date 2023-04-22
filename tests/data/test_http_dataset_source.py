@@ -46,7 +46,9 @@ def test_http_dataset_source_is_registered_and_resolvable():
 
 
 def test_source_load(tmp_path):
-    source1 = HTTPDatasetSource("https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv")
+    source1 = HTTPDatasetSource(
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+    )
 
     loaded1 = source1.load()
     parsed1 = pd.read_csv(loaded1, sep=";")
@@ -59,7 +61,9 @@ def test_source_load(tmp_path):
     assert "fixed acidity" in parsed2.columns
     assert len(parsed1) > 10
 
-    source2 = HTTPDatasetSource("https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv#foo?query=param")
+    source2 = HTTPDatasetSource(
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv#foo?query=param"
+    )
     loaded3 = source2.load(dst_path=tmp_path)
     assert loaded3 == str(tmp_path / "winequality-red.csv")
     parsed3 = pd.read_csv(loaded3, sep=";")
