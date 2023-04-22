@@ -479,7 +479,8 @@ class _Message:
     def format(self, **params):
         if missing_params := set(self.variables) - set(params):
             raise mlflow.MlflowException.invalid_parameter_value(
-                f"Missing parameters: {missing_params}"
+                f"Expected parameters {self.variables} to be provided, "
+                f"only got {set(params)}, {missing_params} are missing"
             )
         return {
             "role": self.role,
