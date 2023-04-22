@@ -1,9 +1,11 @@
 import json
 from abc import abstractmethod
+from functools import cachedproperty
 from typing import Optional, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.entities import Dataset as DatasetEntity
+from mlflow.utils.name_utils import _generate_dataset_name
 
 
 class Dataset:
@@ -61,7 +63,7 @@ class Dataset:
         }
         return json.dumps(self._to_dict(base_dict))
 
-    @property
+    @cachedproperty
     def name(self) -> str:
         """
         The name of the dataset.
@@ -71,8 +73,7 @@ class Dataset:
         if self._name is not None:
             return self._name
         else:
-            # TODO: Compute the name from the digest and source
-            return "placeholder_name"
+            return _generate_dataset_name(self.digest)
 
     @property
     def digest(self) -> str:
