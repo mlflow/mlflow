@@ -38,7 +38,7 @@ def _terminate_server(process, timeout=10):
     process.wait(timeout=timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri, extra_env=None):
+def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlflow.server"):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -51,7 +51,7 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None):
         [
             sys.executable,
             "-c",
-            f'from mlflow.server import app; app.run("{LOCALHOST}", {server_port})',
+            f'from {app_module} import app; app.run("{LOCALHOST}", {server_port})',
         ],
         env={
             **os.environ,

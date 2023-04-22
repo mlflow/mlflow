@@ -22,7 +22,7 @@ from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag, ViewType, DatasetInput, Dataset, InputTag
 from mlflow.models import Model
 import mlflow.pyfunc
 from mlflow.server.handlers import validate_path_is_safe
@@ -39,7 +39,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
-
+from mlflow.utils.proto_json_utils import message_to_json
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
     _terminate_server,
@@ -1199,3 +1199,75 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
         assert run.info.artifact_uri.startswith("file://")
         mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
+
+
+def test_log_inputs(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs test")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="source_type1",
+        source="source1",
+    )
+    dataset_inputs1 = [DatasetInput(dataset=dataset1, tags=[InputTag(key="tag1", value="value1")])]
+
+    mlflow_client.log_inputs(run_id, dataset_inputs1)
+    run = mlflow_client.get_run(run_id)
+    assert len(run.inputs.dataset_inputs) == 1
+    assert run.inputs.dataset_inputs[0].dataset.name == "name1"
+    assert run.inputs.dataset_inputs[0].dataset.digest == "digest1"
+    assert run.inputs.dataset_inputs[0].dataset.source_type == "source_type1"
+    assert run.inputs.dataset_inputs[0].dataset.source == "source1"
+    assert len(run.inputs.dataset_inputs[0].tags) == 1
+    assert run.inputs.dataset_inputs[0].tags[0].key == "tag1"
+    assert run.inputs.dataset_inputs[0].tags[0].value == "value1"
+
+
+def test_log_inputs_validation(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs validation")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    def assert_bad_request(payload, expected_error_message):
+        response = _send_rest_tracking_post_request(
+            mlflow_client.tracking_uri,
+            "/api/2.0/mlflow/runs/log-inputs",
+            payload,
+        )
+        assert response.status_code == 400
+        assert expected_error_message in response.text
+
+    dataset = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="source_type1",
+        source="source1",
+    )
+    tags = [InputTag(key="tag1", value="value1")]
+    dataset_inputs = [message_to_json(DatasetInput(dataset=dataset, tags=tags).to_proto())]
+    assert_bad_request(
+        {
+            "datasets": dataset_inputs,
+        },
+        "Missing value for required parameter 'run_id'",
+    )
+    assert_bad_request(
+        {
+            "run_id": run_id,
+        },
+        "Missing value for required parameter 'datasets'",
+    )
+
+
+def test_update_run_name_without_changing_status(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("update run name")
+    created_run = mlflow_client.create_run(experiment_id)
+    mlflow_client.set_terminated(created_run.info.run_id, "FINISHED")
+
+    mlflow_client.update_run(created_run.info.run_id, name="name_abc")
+    updated_run_info = mlflow_client.get_run(created_run.info.run_id).info
+    assert updated_run_info.run_name == "name_abc"
+    assert updated_run_info.status == "FINISHED"

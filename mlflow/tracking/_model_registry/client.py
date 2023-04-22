@@ -194,30 +194,23 @@ class ModelRegistryClient:
         mv = self.store.create_model_version(name, source, run_id, tags, run_link, description)
         if await_creation_for and await_creation_for > 0:
             _logger.info(
-                "Waiting up to %d seconds for model version to finish creation. \
-                    Model name: %s, version %s",
-                await_creation_for,
-                name,
-                mv.version,
+                f"Waiting up to {await_creation_for} seconds for model version to finish creation. "
+                f"Model name: {name}, version {mv.version}",
             )
             max_datetime = datetime.utcnow() + timedelta(seconds=await_creation_for)
             pending_status = ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION)
             while mv.status == pending_status:
                 if datetime.utcnow() > max_datetime:
                     raise MlflowException(
-                        "Exceeded max wait time for model name: {} version: {} to become READY. \
-                            Status: {} Wait Time: {}".format(
-                            mv.name, mv.version, mv.status, await_creation_for
-                        )
+                        f"Exceeded max wait time for model name: {mv.name} version: {mv.version} "
+                        f"to become READY. Status: {mv.status} Wait Time: {await_creation_for}"
                     )
                 mv = self.get_model_version(mv.name, mv.version)
                 sleep(AWAIT_MODEL_VERSION_CREATE_SLEEP_DURATION_SECONDS)
             if mv.status != ModelVersionStatus.to_string(ModelVersionStatus.READY):
                 raise MlflowException(
-                    "Model version creation failed for model name: {} version: {} with status: {} \
-                    and message: {}".format(
-                        mv.name, mv.version, mv.status, mv.status_message
-                    )
+                    f"Model version creation failed for model name: {mv.name} version: "
+                    f"{mv.version} with status: {mv.status} and message: {mv.status_message}"
                 )
         return mv
 

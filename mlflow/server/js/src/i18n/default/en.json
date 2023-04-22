@@ -79,6 +79,10 @@
     "defaultMessage": "Cancel",
     "description": "Text for the cancel button in an editable note in MLflow"
   },
+  "1ECve7": {
+    "defaultMessage": "You can now switch to the chart view to compare runs",
+    "description": "Tooltip to push users to use the chart view instead of compare view"
+  },
   "1Iq+NW": {
     "defaultMessage": "Copy",
     "description": "Button text for copy button"
@@ -102,6 +106,10 @@
   "2Exf7S": {
     "defaultMessage": "Supported formats: image, text, html, pdf, geojson files",
     "description": "Text to explain users which formats are supported to display the artifacts"
+  },
+  "2I27Yy": {
+    "defaultMessage": "(empty)",
+    "description": "Models table > tags column > no value"
   },
   "2K8tsp": {
     "defaultMessage": "10",
@@ -214,6 +222,10 @@
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
+  },
+  "6Nk5AH": {
+    "defaultMessage": "Filter registered models by name or tags",
+    "description": "Placeholder text inside model search bar"
   },
   "6b6fTN": {
     "defaultMessage": "Select a file to preview",
@@ -583,6 +595,10 @@
     "defaultMessage": "Active",
     "description": "Tab text to view active versions under details tab\n                               on the model view page"
   },
+  "KJbYrw": {
+    "defaultMessage": "Loaded {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
+    "description": "Experiment page > loaded more runs notification > loaded only child runs"
+  },
   "KwMekr": {
     "defaultMessage": "Download CSV",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
@@ -602,6 +618,10 @@
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
+  },
+  "Ll6vbT": {
+    "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
+    "description": "Tooltip text for transitioning existing model versions in stage to archived\n     in the model versions page"
   },
   "MatV9u": {
     "defaultMessage": "Create",
@@ -662,6 +682,10 @@
   "OimAJb": {
     "defaultMessage": "Scatter Plot",
     "description": "Tab pane title for scatterplots on the compare runs page"
+  },
+  "Oj2ENw": {
+    "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
+    "description": "Models table > no models present yet"
   },
   "OzyPl3": {
     "defaultMessage": "Please select parameters",
@@ -879,10 +903,6 @@
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
   },
-  "Ziqjve": {
-    "defaultMessage": "No models yet. Use the button below to create your first model.",
-    "description": "Models table > no models present yet"
-  },
   "ZvBSjw": {
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the params for the experiment run "
@@ -974,6 +994,10 @@
   "cI+F/q": {
     "defaultMessage": "Name",
     "description": "Column title for name column in editable tags table view in MLflow"
+  },
+  "cJo1zH": {
+    "defaultMessage": "{value} more",
+    "description": "Models table > tags column > show more toggle button"
   },
   "cK6riy": {
     "defaultMessage": "Schema",
@@ -1151,6 +1175,10 @@
     "defaultMessage": "Plot chart",
     "description": "Link to the view the plot chart for the experiment run"
   },
+  "khknxG": {
+    "defaultMessage": "Got it",
+    "description": "Button action text for chart switcher tooltip"
+  },
   "kjxsOJ": {
     "defaultMessage": "Search by model names or tags",
     "description": "Placeholder text inside model search bar"
@@ -1158,10 +1186,6 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
-  },
-  "lBZK7O": {
-    "defaultMessage": "Filter models",
-    "description": "Placeholder text inside model search bar"
   },
   "lISqyJ": {
     "defaultMessage": "Run details",
@@ -1199,6 +1223,10 @@
     "defaultMessage": "Size:",
     "description": "Label to display the size of the artifact of the experiment"
   },
+  "n/l2ft": {
+    "defaultMessage": "Reset filters",
+    "description": "Reset filters button in list"
+  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -1218,6 +1246,10 @@
   "nYKZy4": {
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search in an experiments run table"
+  },
+  "nddV+2": {
+    "defaultMessage": "Show less",
+    "description": "Models table > tags column > show less toggle button"
   },
   "nlXn2G": {
     "defaultMessage": "Absolute date and time",
@@ -1306,10 +1338,6 @@
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
-  },
-  "rkvRS7": {
-    "defaultMessage": "Reset filters",
-    "description": "Models table > filters > reset filters button"
   },
   "sByLVU": {
     "defaultMessage": "No runs logged",
@@ -1411,10 +1439,6 @@
     "defaultMessage": "Created by",
     "description": "Column title text for creator username in model version table"
   },
-  "xgLBAH": {
-    "defaultMessage": "Model versions in the `{currentStage}` stage will be moved to the `Archived` stage.",
-    "description": "Tooltip text for transitioning existing model versions in stage to archived\n       in the model versions page"
-  },
   "xmPKKq": {
     "defaultMessage": "Model Version:",
     "description": "Text for model version row header in the main table in the model\n                comparison page"
@@ -1482,6 +1506,10 @@
   "ze1m7Z": {
     "defaultMessage": "Run name cannot consist only of whitespace!",
     "description": "An error shown when user sets the run's name to whitespace characters only"
+  },
+  "ziIhFQ": {
+    "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
+    "description": "Experiment page > loaded more runs notification > loaded both parent and child runs"
   },
   "zwO8+l": {
     "defaultMessage": "20",
