@@ -15,10 +15,12 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a Spark dataset (e.g. data derived from a Spark Table / file directory or Delta
@@ -150,6 +152,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(inputs=df, outputs=None)
 
 
+@experimental
 def load_delta(
     path: Optional[str] = None,
     table_name: Optional[str] = None,
@@ -204,6 +207,7 @@ def load_delta(
     )
 
 
+@experimental
 def from_spark(
     df,
     path: Optional[str] = None,

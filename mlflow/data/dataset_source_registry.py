@@ -6,7 +6,6 @@ from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sourc
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.utils.annotations import experimental
 
 
 class DatasetSourceRegistry:
@@ -19,7 +18,7 @@ class DatasetSourceRegistry:
 
         :param source: The DatasetSource to register.
         """
-        self.sources.append(experimental(source))
+        self.sources.append(source)
 
     def register_entrypoints(self):
         """

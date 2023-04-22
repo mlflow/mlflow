@@ -10,10 +10,12 @@ from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_d
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a Tensorflow dataset for use with MLflow Tracking.
