@@ -478,21 +478,21 @@ def _has_content_and_role(d):
     return "content" in d and "role" in d
 
 
-class _Message:
+class _FormattableMessage:
     def __init__(self, message):
-        self.raw_content = message.get("content")
+        self.content = message.get("content")
         self.role = message.get("role")
-        self.variables = _parse_format_fields(self.raw_content)
+        self.variables = _parse_format_fields(self.content)
 
     def format(self, **params):
         if missing_params := set(self.variables) - set(params):
             raise mlflow.MlflowException.invalid_parameter_value(
                 f"Expected parameters {self.variables} to be provided, "
-                f"only got {set(params)}, {missing_params} are missing."
+                f"only got {list(params)}, {list(missing_params)} are missing."
             )
         return {
             "role": self.role,
-            "content": self.raw_content.format(**{v: params[v] for v in self.variables}),
+            "content": self.content.format(**{v: params[v] for v in self.variables}),
         }
 
 
@@ -503,14 +503,16 @@ class _OpenAIWrapper:
                 "Currently, only 'chat.completions' task is supported",
             )
         self.model = model
+        self.messages = self.model.get("messages", [])
+        self.variables = _parse_variables(self.messages)
+        self.formattable_messages = [_FormattableMessage(m) for m in self.messages]
 
-    def format_messages(self, messages, params_list):
-        messages = [_Message(m) for m in messages]
-        return [[m.format(**params) for m in messages] for params in params_list]
+    def format_messages(self, params_list):
+        return [[m.format(**params) for m in self.formattable_messages] for params in params_list]
 
-    def get_params_list(self, data, variables):
-        if len(variables) == 1:
-            variable = variables[0]
+    def get_params_list(self, data):
+        if len(self.variables) == 1:
+            variable = self.variables[0]
             if variable in data.columns:
                 return data[[variable]].to_dict(orient="records")
             else:
@@ -518,20 +520,18 @@ class _OpenAIWrapper:
                 first_string_column = next(iter_string_columns)
                 return [{variable: s} for s in data[first_string_column]]
         else:
-            return data[variables].to_dict(orient="records")
+            return data[self.variables].to_dict(orient="records")
 
     def predict(self, data):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        messages = self.model.get("messages", [])
-        variables = _parse_variables(messages)
-        if variables:
-            messages_list = self.format_messages(messages, self.get_params_list(data, variables))
+        if self.variables:
+            messages_list = self.format_messages(self.get_params_list(data))
         else:
             iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
             first_string_column = next(iter_string_columns)
             messages_list = [
-                [*messages, {"role": "user", "content": s}] for s in data[first_string_column]
+                [*self.messages, {"role": "user", "content": s}] for s in data[first_string_column]
             ]
 
         model_dict = self.model.copy()
