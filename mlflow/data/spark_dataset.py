@@ -190,7 +190,7 @@ def load_delta(
             version = _try_get_delta_table_latest_version_from_table_name(table_name)
 
     if name is None and table_name is not None:
-        name = table_name + (f"v{version}" if version is not None else "")
+        name = table_name + (f"@v{version}" if version is not None else "")
 
     source = DeltaDatasetSource(path=path, delta_table_name=table_name, delta_table_version=version)
     df = source.load()
