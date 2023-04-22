@@ -43,7 +43,7 @@ class ModelVersion(_ModelRegistryEntity):
         self._status = status
         self._status_message = status_message
         self._tags = {tag.key: tag.value for tag in (tags or [])}
-        self._aliases = aliases
+        self._aliases = aliases or []
 
     @property
     def name(self):

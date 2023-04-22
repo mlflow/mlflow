@@ -359,6 +359,7 @@ def _create_root(store):
             "experiment_id": exp,
             "name": random_str(),
             "artifact_location": exp_folder,
+            "lifecycle_stage": LifecycleStage.ACTIVE,
             "creation_time": current_time,
             "last_update_time": current_time,
         }
@@ -383,6 +384,7 @@ def _create_root(store):
                 "deleted_time": random_int(20, 30),
                 "tags": [],
                 "artifact_uri": os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
+                "lifecycle_stage": LifecycleStage.ACTIVE,
             }
             write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
             run_data[run_id] = run_info
@@ -595,39 +597,58 @@ def _extract_ids(experiments):
 
 
 def test_delete_restore_experiment(store):
-    exp_id = store.create_experiment("test_delete")
-    exp_name = store.get_experiment(exp_id).name
+    experiments, _, _ = _create_root(store)
+    exp1_id = experiments[random_int(0, len(experiments) - 2)]  # never select default experiment
+    exp1 = store.get_experiment(exp1_id)
 
-    exp1 = store.get_experiment(exp_id)
-    time.sleep(0.001)
-
-    # delete it
-    store.delete_experiment(exp_id)
-    assert exp_id not in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
-    assert store.get_experiment(exp_id).lifecycle_stage == LifecycleStage.DELETED
-
-    deleted_exp1 = store.get_experiment(exp_id)
+    # test deleting experiment
+    store.delete_experiment(exp1_id)
+    assert exp1_id not in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
+    deleted_exp1 = store.get_experiment(exp1_id)
     assert deleted_exp1.last_update_time > exp1.last_update_time
     assert deleted_exp1.lifecycle_stage == LifecycleStage.DELETED
 
-    # restore it
-    exp1 = store.get_experiment(exp_id)
-    time.sleep(0.01)
-    store.restore_experiment(exp_id)
-    restored_1 = store.get_experiment(exp_id)
-    assert restored_1.experiment_id == exp_id
-    assert restored_1.name == exp_name
-    assert restored_1.last_update_time > exp1.last_update_time
+    # test if setting lifecycle_stage is persisted correctly
+    deleted_exp1_dir = store._get_experiment_path(
+        experiment_id=exp1_id, view_type=ViewType.DELETED_ONLY
+    )
+    deleted_exp1_meta = FileStore._read_yaml(
+        root=deleted_exp1_dir, file_name=FileStore.META_DATA_FILE_NAME
+    )
+    assert deleted_exp1_meta["lifecycle_stage"] == LifecycleStage.DELETED
+    for run in store.search_runs(
+        experiment_ids=[exp1_id], filter_string="", run_view_type=ViewType.ALL
+    ):
+        assert run.info.lifecycle_stage == LifecycleStage.DELETED
 
-    restored_2 = store.get_experiment_by_name(exp_name)
-    assert restored_2.experiment_id == exp_id
-    assert restored_2.name == exp_name
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
-    assert exp_id not in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
-    assert exp_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
-    assert store.get_experiment(exp_id).lifecycle_stage == LifecycleStage.ACTIVE
+    # test restoring experiment
+    store.restore_experiment(exp1_id)
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ACTIVE_ONLY))
+    assert exp1_id not in _extract_ids(store.search_experiments(view_type=ViewType.DELETED_ONLY))
+    assert exp1_id in _extract_ids(store.search_experiments(view_type=ViewType.ALL))
+    restored1_exp1 = store.get_experiment(exp1_id)
+    assert restored1_exp1.experiment_id == exp1_id
+    assert restored1_exp1.name == exp1.name
+    assert restored1_exp1.last_update_time > exp1.last_update_time
+    assert restored1_exp1.lifecycle_stage == LifecycleStage.ACTIVE
+    restored2_exp1 = store.get_experiment_by_name(exp1.name)
+    assert restored2_exp1.experiment_id == exp1_id
+    assert restored2_exp1.name == exp1.name
+
+    # test if setting lifecycle_stage is persisted correctly
+    restored_exp1_dir = store._get_experiment_path(
+        experiment_id=exp1_id, view_type=ViewType.ACTIVE_ONLY
+    )
+    restored_exp1_meta = FileStore._read_yaml(
+        root=restored_exp1_dir, file_name=FileStore.META_DATA_FILE_NAME
+    )
+    assert restored_exp1_meta["lifecycle_stage"] == LifecycleStage.ACTIVE
+    for run in store.search_runs(
+        experiment_ids=[exp1_id], filter_string="", run_view_type=ViewType.ALL
+    ):
+        assert run.info.lifecycle_stage == LifecycleStage.ACTIVE
 
 
 def test_rename_experiment(store):

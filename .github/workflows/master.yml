@@ -121,11 +121,6 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
-      # TODO: Remove this step once pyspark 3.4 is released
-      - name: Run tests for pyspark 3.4.0
-        run: |
-          pip install https://dist.apache.org/repos/dist/dev/spark/v3.4.0-rc1-bin/pyspark-3.4.0.tar.gz
-          pytest tests/pyfunc/test_spark.py::test_spark_udf_array_of_structs
 
   database:
     runs-on: ubuntu-latest
@@ -335,4 +330,6 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
-          pytest tests/mleap
+          # MLeap is incompatible on Windows with PySpark3.4 release. 
+          # Reinstate tests when MLeap has released a fix. [ML-30491]
+          # pytest tests/mleap

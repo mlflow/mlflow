@@ -1,7 +1,5 @@
 from typing import TypeVar, Any, Optional, Dict
 
-from pyspark.sql import SparkSession, DataFrame
-
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -38,11 +36,13 @@ class DeltaDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "delta_table"
 
-    def load(self, **kwargs) -> DataFrame:
+    def load(self, **kwargs):
         """
         Loads the dataset source as a Delta Dataset Source.
         :return: An instance of `pyspark.sql.DataFrame`.
         """
+        from pyspark.sql import SparkSession
+
         spark = SparkSession.builder.getOrCreate()
 
         spark_read_op = spark.read.format("delta")

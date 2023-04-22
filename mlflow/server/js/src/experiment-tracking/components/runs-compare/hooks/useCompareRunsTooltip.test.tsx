@@ -45,6 +45,7 @@ const createWrapper = (
 };
 
 describe('useCompareRunsTooltip', () => {
+  // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
   let wrapper: ReactWrapper;
 
   beforeEach(() => {});
