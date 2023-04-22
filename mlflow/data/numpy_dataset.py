@@ -105,7 +105,12 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         An MLflow TensorSpec schema representing the tensor dataset
         """
         try:
-            return _infer_schema(self._features)
+            schema_dict = {
+                "features": self._features,
+            }
+            if self._targets is not None:
+                schema_dict["targets"] = self._targets
+            return _infer_schema(schema_dict)
         except Exception as e:
             _logger.warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
             return None
