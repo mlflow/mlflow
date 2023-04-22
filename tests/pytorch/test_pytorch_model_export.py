@@ -867,6 +867,7 @@ def test_pyfunc_serve_and_score(data):
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertModel, BertConfig  # pylint: disable=import-error
+    from mlflow.deployments import PredictionsResponse
 
     class MyBertModel(BertModel):
         def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
@@ -895,7 +896,6 @@ def test_pyfunc_serve_and_score_transformers():
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.deployments import PredictionsResponse
 
     scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
         predictions_format="ndarray"

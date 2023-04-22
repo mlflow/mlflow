@@ -46,7 +46,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
     :target: https://twitter.com/MLflow
     :alt: Account Twitter
 
-.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1b7gbsopj-ckYE002CMSDR4_Bioztv8g
+.. _Slack: https://join.slack.com/t/mlflow-users/shared_invite/zt-1iffrtbly-UNU8hV03aV8feUeGmqf_uA
 
 Job Statuses
 

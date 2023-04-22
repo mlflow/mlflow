@@ -440,7 +440,7 @@ def test_tensor_multi_named_schema_enforcement():
         MlflowException,
         match=re.escape(
             "The input pandas dataframe column 'a' contains scalar values, which requires the "
-            "shape to be (-1,), but got tensor spec shape of (-1, 5)"
+            "shape to be (-1,) or (-1, 1), but got tensor spec shape of (-1, 5)"
         ),
     ):
         pyfunc_model.predict(pdf)
@@ -547,7 +547,7 @@ def test_schema_enforcement_named_tensor_schema_1d():
         expected_exception=MlflowException,
         match=re.escape(
             "The input pandas dataframe column 'a' contains scalar "
-            "values, which requires the shape to be (-1,), but got tensor spec "
+            "values, which requires the shape to be (-1,) or (-1, 1), but got tensor spec "
             "shape of (-1, 2)."
         ),
     ):
@@ -928,3 +928,20 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
         )
         model_uri = mlflow.get_artifact_uri(pyfunc_artifact_path)
     _assert_pip_requirements(model_uri, mlflow.pyfunc.get_default_pip_requirements())
+
+
+def test_schema_enforcement_single_column_2d_array():
+    X = np.array([[1], [2], [3]])
+    y = np.array([1, 2, 3])
+    model = sklearn.linear_model.LinearRegression()
+    model.fit(X, y)
+    signature = infer_signature(X, y)
+    assert signature.inputs.inputs[0].shape == (-1, 1)
+    assert signature.outputs.inputs[0].shape == (-1,)
+
+    with mlflow.start_run():
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    pdf = pd.DataFrame(X)
+    np.testing.assert_almost_equal(loaded_model.predict(pdf), model.predict(pdf))
