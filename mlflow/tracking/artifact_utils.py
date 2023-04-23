@@ -4,6 +4,7 @@ Utilities for dealing with artifacts in the context of a Run.
 import os
 import pathlib
 import posixpath
+import requests
 import shutil
 import tempfile
 import urllib.parse
@@ -51,6 +52,33 @@ def get_artifact_uri(run_id, artifact_path=None, tracking_uri=None):
         return run.info.artifact_uri
     else:
         return append_to_uri_path(run.info.artifact_uri, artifact_path)
+
+
+def _download_http_file_artifact(artifact_uri, artifact_path, dst_path=None):
+    """
+    This downloads a single http(s) file from the given artifact uri.
+    Note that this is not an artifact repository store.
+    """
+    if dst_path is None:
+        dst_path = tempfile.mkdtemp()
+    dst_path = os.path.abspath(dst_path)
+    _, file_name = os.path.split(artifact_path)
+    fullpath = os.path.join(dst_path, file_name)
+
+    r = requests.get(artifact_uri)
+    if r.status_code != 200:
+        raise Exception(
+            "Status Code {status_code}. {text}".format(status_code=r.status_code, text=r.text)
+        )
+    open(fullpath, "wb").write(r.content)
+    return fullpath
+
+
+def _download_artifact(artifact_uri, output_path=None):
+    parsed_uri = urllib.parse.urlparse(artifact_uri)
+    if parsed_uri.scheme.startswith("http"):
+        return _download_http_file_artifact(artifact_uri, parsed_uri.path, output_path)
+    return _download_artifact_from_uri(artifact_uri, output_path)
 
 
 # TODO: This would be much simpler if artifact_repo.download_artifacts could take the absolute path

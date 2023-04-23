@@ -272,7 +272,7 @@ class Parameter:
         target_sub_dir = f"param_{key_position}"
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
-        return artifact_utils._download_artifact_from_uri(
+        return artifact_utils._download_artifact(
             artifact_uri=user_param_value, output_path=download_dir
         )
 
