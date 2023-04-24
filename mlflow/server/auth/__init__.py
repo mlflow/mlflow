@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Callable, Optional
 
-from flask import Flask, request, make_response, Response, redirect, flash, render_template_string
+from flask import Flask, request, make_response, Response, flash, render_template_string
 
 from mlflow import get_run, MlflowException
 from mlflow.server import app
