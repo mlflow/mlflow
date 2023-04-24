@@ -2,7 +2,6 @@ import json
 import logging
 from typing import Optional, Any, Dict, Union
 
-import pandas as pd
 from functools import cached_property
 
 from mlflow.data.dataset import Dataset
@@ -128,7 +127,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.sklearn.evalute().
         """
-        return EvaluationDataset(data=self._data)
+        raise NotImplementedError
 
 
 def from_tensorflow(
