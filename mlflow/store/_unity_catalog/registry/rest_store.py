@@ -30,6 +30,12 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SearchRegisteredModelsResponse,
     GenerateTemporaryModelVersionCredentialsRequest,
     GenerateTemporaryModelVersionCredentialsResponse,
+    SetRegisteredModelAliasRequest,
+    SetRegisteredModelAliasResponse,
+    DeleteRegisteredModelAliasRequest,
+    DeleteRegisteredModelAliasResponse,
+    GetModelVersionByAliasRequest,
+    GetModelVersionByAliasResponse,
     TemporaryCredentials,
     MODEL_VERSION_OPERATION_READ_WRITE,
 )
@@ -124,6 +130,9 @@ class UcModelRegistryStore(BaseRestStore):
             # pylint: disable=line-too-long
             GenerateTemporaryModelVersionCredentialsRequest: GenerateTemporaryModelVersionCredentialsResponse,
             GetRun: GetRun.Response,
+            SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
+            DeleteRegisteredModelAliasRequest: DeleteRegisteredModelAliasResponse,
+            GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
         }
         return method_to_response[method]()
 
@@ -514,7 +523,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version number.
         :return: None
         """
-        _raise_unsupported_method(method="set_registered_model_alias")
+        req_body = message_to_json(
+            SetRegisteredModelAliasRequest(name=name, alias=alias, version=str(version))
+        )
+        self._call_endpoint(SetRegisteredModelAliasRequest, req_body)
 
     def delete_registered_model_alias(self, name, alias):
         """
@@ -524,7 +536,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param alias: Name of the alias.
         :return: None
         """
-        _raise_unsupported_method(method="delete_registered_model_alias")
+        req_body = message_to_json(DeleteRegisteredModelAliasRequest(name=name, alias=alias))
+        self._call_endpoint(DeleteRegisteredModelAliasRequest, req_body)
 
     def get_model_version_by_alias(self, name, alias):
         """
@@ -534,4 +547,6 @@ class UcModelRegistryStore(BaseRestStore):
         :param alias: Name of the alias.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        _raise_unsupported_method(method="get_model_version_by_alias")
+        req_body = message_to_json(GetModelVersionByAliasRequest(name=name, alias=alias))
+        response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
+        return model_version_from_uc_proto(response_proto.model_version)

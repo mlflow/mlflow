@@ -1,4 +1,5 @@
 import yaml
+import json
 from unittest import mock
 
 from pyspark.sql import SparkSession
@@ -12,7 +13,6 @@ from mlflow.openai.utils import (
     _mock_request,
     _mock_chat_completion_response,
     _mock_models_retrieve_response,
-    TEST_CONTENT,
 )
 
 
@@ -37,14 +37,236 @@ def test_log_model():
     assert loaded_model["task"] == "chat.completions"
     assert loaded_model["temperature"] == 0.9
     assert loaded_model["messages"] == [{"role": "system", "content": "You are an MLflow expert."}]
-    with _mock_request(return_value=_mock_chat_completion_response()) as mock:
+    with _mock_request(return_value=_mock_chat_completion_response(content="foo")) as mock:
         completion = openai.ChatCompletion.create(
             model=loaded_model["model"],
             messages=loaded_model["messages"],
             temperature=loaded_model["temperature"],
         )
-        assert completion.choices[0].message.content == TEST_CONTENT
+        assert completion.choices[0].message.content == "foo"
         mock.assert_called_once()
+
+
+def test_single_variable(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+        messages=[{"role": "user", "content": "{x}"}],
+    )
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ]
+        }
+    )
+    expected_output = [
+        [{"content": "a", "role": "user"}],
+        [{"content": "b", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        {"x": "a"},
+        {"x": "b"},
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        "a",
+        "b",
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_multiple_variables(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+        messages=[{"role": "user", "content": "{x} {y}"}],
+    )
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "x", "type": "string"},
+        {"name": "y", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string"},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ],
+            "y": [
+                "c",
+                "d",
+            ],
+        }
+    )
+    expected_output = [
+        [{"content": "a c", "role": "user"}],
+        [{"content": "b d", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        {"x": "a", "y": "c"},
+        {"x": "b", "y": "d"},
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_multiple_prompts(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+        messages=[
+            {"role": "user", "content": "{x}"},
+            {"role": "user", "content": "{y}"},
+        ],
+    )
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "x", "type": "string"},
+        {"name": "y", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string"},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "x": [
+                "a",
+                "b",
+            ],
+            "y": [
+                "c",
+                "d",
+            ],
+        }
+    )
+    expected_output = [
+        [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
+        [{"content": "b", "role": "user"}, {"content": "d", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        {"x": "a", "y": "c"},
+        {"x": "b", "y": "d"},
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_no_variables(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+        messages=[{"role": "user", "content": "a"}],
+    )
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string"},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "content": ["b", "c"],
+        }
+    )
+    expected_output = [
+        [{"content": "a", "role": "user"}, {"content": "b", "role": "user"}],
+        [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        {"content": "b"},
+        {"content": "c"},
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        "b",
+        "c",
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_no_messages(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        path=tmp_path,
+    )
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string"},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "content": ["b", "c"],
+        }
+    )
+    expected_output = [
+        [{"content": "b", "role": "user"}],
+        [{"content": "c", "role": "user"}],
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        {"content": "b"},
+        {"content": "c"},
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+    data = [
+        "b",
+        "c",
+    ]
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+@pytest.mark.parametrize(
+    "messages",
+    [
+        ["a", "b"],
+        [{"k": "v"}],
+    ],
+)
+def test_invalid_messages(tmp_path, messages):
+    with pytest.raises(
+        mlflow.MlflowException,
+        match="it must be a list of dictionaries with keys 'role' and 'content'",
+    ):
+        mlflow.openai.save_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            path=tmp_path,
+            messages=messages,
+        )
 
 
 def test_task_argument_accepts_class(tmp_path):
@@ -60,15 +282,6 @@ def test_model_argument_accepts_retrieved_model(tmp_path):
     mlflow.openai.save_model(model=model, task=openai.ChatCompletion, path=tmp_path)
     loaded_model = mlflow.openai.load_model(tmp_path)
     assert loaded_model["model"] == "gpt-3.5-turbo"
-
-
-def test_signature_is_automatically_created_for_chat_completion(tmp_path):
-    mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
-    model = mlflow.models.Model.load(tmp_path)
-    assert model.signature.inputs.to_dict() == [
-        {"name": "role", "type": "string"},
-        {"name": "content", "type": "string"},
-    ]
 
 
 def test_pyfunc_flavor_is_only_added_for_chat_completion(tmp_path):
@@ -93,37 +306,29 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
         }
 
 
-@pytest.mark.parametrize(
-    "data",
-    [
-        pd.DataFrame({"role": ["user"], "content": ["What is MLflow?"]}),
-        [{"role": "user", "content": "What is MLflow?"}],
-    ],
-)
-def test_pyfunc_predict(tmp_path, data):
+def test_spark_udf(tmp_path, spark):
     mlflow.openai.save_model(
         model="gpt-3.5-turbo",
         task="chat.completions",
         path=tmp_path,
-        messages=[{"role": "system", "content": "You are an MLflow expert."}],
+        messages=[
+            {"role": "user", "content": "{x} {y}"},
+        ],
     )
-    loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    assert loaded_model.predict(data) == [TEST_CONTENT]
-
-
-def test_spark_udf(tmp_path, spark):
-    mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
     udf = mlflow.pyfunc.spark_udf(spark, tmp_path, result_type="string")
     df = spark.createDataFrame(
         [
-            ("user", "What is MLflow?"),
-            ("user", "What is Spark?"),
+            ("a", "b"),
+            ("c", "d"),
         ],
-        ["role", "content"],
+        ["x", "y"],
     )
-    df = df.withColumn("answer", udf())
+    df = df.withColumn("z", udf())
     pdf = df.toPandas()
-    assert pdf["answer"].tolist() == [TEST_CONTENT, TEST_CONTENT]
+    assert list(map(json.loads, pdf["z"])) == [
+        [{"content": "a b", "role": "user"}],
+        [{"content": "c d", "role": "user"}],
+    ]
 
 
 class ChatCompletionModel(mlflow.pyfunc.PythonModel):
@@ -148,10 +353,10 @@ class ChatCompletionModel(mlflow.pyfunc.PythonModel):
 def test_auto_request_retry(tmp_path, error):
     mlflow.pyfunc.save_model(tmp_path, python_model=ChatCompletionModel())
     loaded_model = mlflow.pyfunc.load_model(tmp_path)
-    resp = _mock_chat_completion_response()
+    resp = _mock_chat_completion_response(content="test")
     with _mock_request(side_effect=[error, resp]) as mock_request:
         text = loaded_model.predict(None)
-        assert text == TEST_CONTENT
+        assert text == "test"
         assert mock_request.call_count == 2
 
 

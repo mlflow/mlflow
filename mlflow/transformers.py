@@ -1323,7 +1323,7 @@ class _TransformersWrapper:
     def __init__(self, pipeline, flavor_config=None, inference_config=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.inference_config = inference_config
+        self.inference_config = inference_config or {}
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1451,30 +1451,18 @@ class _TransformersWrapper:
         # formatting output), but if `include_prompt` is set to False in the `inference_config`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
-        include_prompt = (
-            self.inference_config.pop("include_prompt", True) if self.inference_config else True
-        )
+        include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
-        collapse_whitespace = (
-            self.inference_config.pop("collapse_whitespace", False)
-            if self.inference_config
-            else False
-        )
+        collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
 
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         elif isinstance(data, dict):
-            if self.inference_config:
-                raw_output = self.pipeline(**data, **self.inference_config)
-            else:
-                raw_output = self.pipeline(**data)
+            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            if self.inference_config:
-                raw_output = self.pipeline(data, **self.inference_config)
-            else:
-                raw_output = self.pipeline(data)
+            raw_output = self.pipeline(data, **self.inference_config)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -1662,22 +1650,20 @@ class _TransformersWrapper:
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
             if (
-                data_out.startswith(data_in + "\n\n")
+                not include_prompt
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+                and data_out.startswith(data_in + "\n\n")
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                if not include_prompt:
-                    data_out = data_out[len(data_in) :].lstrip()
-                    if data_out.startswith("A:"):
-                        data_out = data_out[2:].lstrip()
+                data_out = data_out[len(data_in) :].lstrip()
+                if data_out.startswith("A:"):
+                    data_out = data_out[2:].lstrip()
                 # If the user has indicated to remove newlines and extra spaces from the generated
                 # text, replace them with a single space.
-                if collapse_whitespace:
-                    data_out = re.sub(r"\s+", " ", data_out).strip()
-                return data_out
-            else:
-                return data_out
+            if collapse_whitespace:
+                data_out = re.sub(r"\s+", " ", data_out).strip()
+            return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
             return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
