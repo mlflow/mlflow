@@ -5,6 +5,7 @@ force-exclude = '''
 /(
     mlflow/protos/
   | mlflow/ml_package_versions\.py$
+  | mlflow/pypi_package_index\.py$
   | tests/protos/
   | examples/recipes/
 )
