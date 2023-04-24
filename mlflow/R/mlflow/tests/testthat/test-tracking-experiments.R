@@ -8,7 +8,7 @@ test_that("mlflow_create/set/get_experiment() basic functionality (fluent)", {
   mlflow_clear_test_dir("mlruns")
   artifact_relative_path <- "art_loc"
   experiment_1_id <- mlflow_create_experiment("exp_name_1", artifact_relative_path)
-  experiment_2_id <- mlflow_set_experiment("exp_name_2", artifact_relative_path)
+  experiment_2_id <- mlflow_set_experiment(experiment_name = "exp_name_2", artifact_location = artifact_relative_path)
   experiment_1a <- mlflow_get_experiment(experiment_id = experiment_1_id)
   experiment_1b <- mlflow_get_experiment(name = "exp_name_1")
   experiment_2a <- mlflow_get_experiment(name = "exp_name_2")
