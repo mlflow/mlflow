@@ -1,9 +1,6 @@
 import json
 from typing import Any, Dict, List, Optional
 
-import numpy as np
-import pandas as pd
-
 from mlflow.data.dataset import Dataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -27,6 +24,9 @@ class DummyDataset(Dataset):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
+        import numpy as np
+        import pandas as pd
+
         return pd.util.hash_array(np.ndarray(self._data_list))
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
