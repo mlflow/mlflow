@@ -4,18 +4,29 @@ The ``mlflow.models`` module provides an API for saving machine learning models 
 
 The built-in flavors are:
 
-- :py:mod:`mlflow.pyfunc`
+- :py:mod:`mlflow.catboost`
+- :py:mod:`mlflow.diviner`
+- :py:mod:`mlflow.fastai`
+- :py:mod:`mlflow.gluon`
 - :py:mod:`mlflow.h2o`
+- :py:mod:`mlflow.langchain`
 - :py:mod:`mlflow.lightgbm`
+- :py:mod:`mlflow.mleap`
+- :py:mod:`mlflow.onnx`
+- :py:mod:`mlflow.openai`
+- :py:mod:`mlflow.paddle`
+- :py:mod:`mlflow.pmdarima`
+- :py:mod:`mlflow.prophet`
+- :py:mod:`mlflow.pyfunc`
+- :py:mod:`mlflow.pyspark.ml`
 - :py:mod:`mlflow.pytorch`
 - :py:mod:`mlflow.sklearn`
+- :py:mod:`mlflow.spacy`
 - :py:mod:`mlflow.spark`
 - :py:mod:`mlflow.statsmodels`
 - :py:mod:`mlflow.tensorflow`
+- :py:mod:`mlflow.transformers`
 - :py:mod:`mlflow.xgboost`
-- :py:mod:`mlflow.spacy`
-- :py:mod:`mlflow.fastai`
-- :py:mod:`mlflow.paddle`
 
 For details, see `MLflow Models <../models.html>`_.
 """
