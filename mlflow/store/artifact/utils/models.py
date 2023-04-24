@@ -11,7 +11,7 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 # This regex is used by _parse_model_uri and details for the regex match
 # can be found in _improper_model_uri_msg.
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \.\-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[\w \.\-|]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
