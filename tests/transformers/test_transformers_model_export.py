@@ -1961,6 +1961,14 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
         ),
         (
             "Hello!",
+            [{"generated_text": "Hello!\n\nA: How are you?\n\n"}],
+            "Hello! A: How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            True,
+            True,
+        ),
+        (
+            "Hello!",
             [{"generated_text": "Hello!\n\nA: How\nare\nyou?\n\n"}],
             "How\nare\nyou?\n\n",
             {"instance_type": "InstructionTextGenerationPipeline"},
@@ -2024,6 +2032,23 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             {"instance_type": "TextGenerationPipeline"},
             False,
             False,
+        ),
+        # Test TextGenerationPipeline removes whitespace
+        (
+            ["We like to", "Open the"],
+            [
+                [
+                    {"generated_text": "  We like   to    party"},
+                    {
+                        "generated_text": "Open the   door get on the floor   everybody    "
+                        "do\nthe dinosaur"
+                    },
+                ]
+            ],
+            ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
+            {"instance_type": "TextGenerationPipeline"},
+            False,
+            True,
         ),
     ],
 )
