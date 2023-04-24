@@ -99,7 +99,7 @@ This example demonstrates the use of these functions:
             log_param("config_value", randint(0, 100))
 
             # Log a dictionary of parameters
-            log_params({"param1": randint(0, 100), "param2": randint(0, 100)}
+            log_params({"param1": randint(0, 100), "param2": randint(0, 100)})
 
             # Log a metric; metrics can be updated throughout the run
             log_metric("accuracy", random() / 2.0)
@@ -168,7 +168,7 @@ For instance, if you've run the above command on a machine with IP address **192
     .. code-block:: python
 
         mlflow.set_tracking_uri("http://192.168.0.1:5000")
-        mlflow.autolog() # Or other tracking functions
+        mlflow.autolog()  # Or other tracking functions
 
 Or, on your development machine, you can set the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server:
 
