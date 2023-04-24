@@ -1330,7 +1330,8 @@ class SqlAlchemyStore(AbstractStore):
                     "Dataset input must have a dataset associated with it.", INTERNAL_ERROR
                 )
 
-        # dedup dataset_inputs list if two dataset inputs have the same name and digest, keeping the first
+        # dedup dataset_inputs list if two dataset inputs have the same name and digest
+        # keeping the first occurrence
         name_digest_keys = {}
         for dataset_input in dataset_inputs:
             key = (dataset_input.dataset.name, dataset_input.dataset.digest)

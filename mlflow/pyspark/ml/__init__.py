@@ -7,7 +7,7 @@ import weakref
 import sys
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.data.spark_dataset import SparkDataset, from_spark
+from mlflow.data.spark_dataset import SparkDataset
 from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
 from mlflow.exceptions import MlflowException
@@ -45,7 +45,6 @@ from mlflow.utils.autologging_utils import (
     INPUT_EXAMPLE_SAMPLE_ROWS,
 )
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 _logger = logging.getLogger(__name__)
 _SparkTrainingSession = _get_new_training_session_class()
@@ -1192,6 +1191,25 @@ def autolog(
                     _AUTOLOGGING_METRICS_MANAGER.log_post_training_metric(
                         run_id, metric_key, metric
                     )
+                    if log_datasets:
+                        try:
+                            # create a CodeDatasetSource
+                            context_tags = context_registry.resolve_tags()
+                            code_source = CodeDatasetSource(
+                                mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                                mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                            )
+                            dataset = SparkDataset(
+                                df=pred_result_dataset,
+                                source=code_source,
+                                name=dataset_name,
+                            )
+                            mlflow.log_input(dataset, "eval")
+                        except Exception as e:
+                            _logger.warning(
+                                "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                                e,
+                            )
             return metric
         else:
             return original(self, *args, **kwargs)

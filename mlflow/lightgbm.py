@@ -18,9 +18,6 @@ LightGBM (native) format
     https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api
 """
 import os
-import pandas as pd
-import numpy as np
-from scipy.sparse import issparse
 import yaml
 import json
 import tempfile
@@ -935,6 +932,10 @@ def autolog(
 
 
 def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client):
+    import pandas as pd
+    import numpy as np
+    from scipy.sparse import issparse
+
     data = lgb_dataset.data
     label = lgb_dataset.label
     if isinstance(data, pd.DataFrame):

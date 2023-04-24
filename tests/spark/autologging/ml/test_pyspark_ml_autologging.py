@@ -46,7 +46,6 @@ from mlflow.pyspark.ml import (
     _get_tuning_param_maps,
 )
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
-from mlflow.types.utils import _infer_schema
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_AUTOLOGGING
 from mlflow.utils import _truncate_dict
 from mlflow.utils.validation import (
@@ -55,11 +54,6 @@ from mlflow.utils.validation import (
 )
 
 from tests.helper_functions import AnyStringWith
-
-from tests.spark.autologging.utils import (
-    spark_session as autologging_spark_session,
-)  # pylint: disable=unused-import
-from mlflow._spark_autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 MODEL_DIR = "model"
@@ -745,6 +739,26 @@ def test_basic_post_training_datasets_autologging(dataset_iris_binomial, log_dat
         assert dataset_inputs[0].dataset.source_type == "code"
     else:
         assert len(dataset_inputs) == 0
+
+
+def test_post_training_datasets_with_evaluate_autologging(dataset_iris_binomial):
+    mlflow.pyspark.ml.autolog(log_datasets=True, log_post_training_metrics=True)
+    estimator = LogisticRegression(maxIter=1, family="binomial", regParam=5.0, fitIntercept=False)
+    eval_dataset = dataset_iris_binomial.sample(fraction=0.3, seed=1)
+
+    with mlflow.start_run() as run:
+        model = estimator.fit(dataset_iris_binomial)
+        mce = MulticlassClassificationEvaluator(metricName="logLoss")
+        pred_result = model.transform(eval_dataset)
+        logloss = mce.evaluate(pred_result)  # pylint: disable=unused-variable
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].dataset.name == "eval_dataset"
+    assert dataset_inputs[1].tags[0].value == "eval"
 
 
 def test_basic_post_training_metric_autologging(dataset_iris_binomial):

@@ -19,8 +19,6 @@ XGBoost (native) format
 import os
 import shutil
 import json
-import numpy as np
-import pandas as pd
 from scipy.sparse import issparse
 import yaml
 import tempfile
@@ -807,7 +805,8 @@ def autolog(
 
 
 def _log_xgboost_dataset(xgb_dataset, source, context_name, autologging_client):
-    # create a dataset
+    import numpy as np
+    import pandas as pd
     import xgboost as xgb
 
     # dmatrix has a get_data method added in 1.7. skip for earlier versions.
@@ -827,7 +826,6 @@ def _log_xgboost_dataset(xgb_dataset, source, context_name, autologging_client):
         tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context_name)]
         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
-        # log the dataset
         autologging_client.log_inputs(
             run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
         )

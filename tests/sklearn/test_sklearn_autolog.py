@@ -1117,7 +1117,7 @@ def test_sklearn_autolog_log_datasets_with_predict():
         mlflow.sklearn.autolog(log_datasets=True)
         model = sklearn.linear_model.LinearRegression()
         model.fit(X, y)
-        y_pred = model.predict(X)
+        y_pred = model.predict(X)  # pylint: disable=unused-variable
 
     run_id = run.info.run_id
     client = MlflowClient()
@@ -1277,8 +1277,6 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
 
 def load_json_artifact(artifact_path):
-    import json
-
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
     with open(fpath) as f:
         return json.load(f)

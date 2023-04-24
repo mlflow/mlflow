@@ -1663,7 +1663,7 @@ def _autolog(
 
                     # log the dataset
                     if dataset:
-                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="validation")]
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=eval_dataset_name)]
                         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
                         # log the dataset

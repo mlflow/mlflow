@@ -251,7 +251,6 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
-        print(dataset_inputs[0].dataset.schema)
         assert dataset_inputs[0].dataset.schema == json.dumps(
             {
                 "mlflow_tensorspec": _infer_schema(
