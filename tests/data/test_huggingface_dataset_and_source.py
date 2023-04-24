@@ -10,6 +10,7 @@ import mlflow.data.huggingface_dataset
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -226,3 +227,11 @@ def test_dataset_source_conversion_to_json():
 
     reloaded_source = HuggingFaceDatasetSource.from_json(source_json)
     assert json.loads(reloaded_source.to_json()) == parsed_source
+
+
+def test_to_evaluation_dataset():
+    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")
+
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)

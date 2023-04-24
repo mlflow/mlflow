@@ -1340,7 +1340,7 @@ def evaluate(
     from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
 
     if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-        dataset = data.to_evaluation_dataset()
+        dataset = data.to_evaluation_dataset(dataset_path, feature_names)
         if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
             context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
         else:

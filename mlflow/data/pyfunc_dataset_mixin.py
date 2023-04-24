@@ -21,7 +21,7 @@ class PyFuncConvertibleDatasetMixin:
         """
 
     @abstractmethod
-    def to_evaluation_dataset(self) -> EvaluationDataset:
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation.
         May not be implemented by all datasets.

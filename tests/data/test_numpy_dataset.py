@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+from mlflow.models.evaluation.base import EvaluationDataset
 
 from tests.resources.data.dataset_source import TestDatasetSource
 import mlflow.data
@@ -92,3 +93,13 @@ def test_from_numpy(tmp_path):
     }
 
     assert isinstance(mlflow_features.source, FileSystemDatasetSource)
+
+
+def test_to_evaluation_dataset():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    features = np.array([[1, 2], [3, 4]])
+    targets = np.array([0, 1])
+    dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)

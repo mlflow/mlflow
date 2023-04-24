@@ -158,7 +158,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         else:
             return PyFuncInputsOutputs(inputs=df, outputs=None)
 
-    def to_evaluation_dataset(self) -> EvaluationDataset:
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.sklearn.evalute().
@@ -166,6 +166,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return EvaluationDataset(
             data=self._ds.to_pandas(),
             targets=self._targets,
+            path=path,
+            feature_names=feature_names,
         )
 
 
