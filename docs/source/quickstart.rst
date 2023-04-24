@@ -29,7 +29,7 @@ MLflow is available for Python, R, and Java, but this quickstart shows Python on
 Install MLflow
 -----------------
 
-Install MLflow from PyPi using pip:
+Install MLflow from PyPI using pip:
 
 .. code-section::
 
