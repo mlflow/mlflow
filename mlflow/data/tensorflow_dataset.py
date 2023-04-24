@@ -9,6 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -121,6 +122,13 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         evaluation. Required for use with mlflow.evaluate().
         """
         return PyFuncInputsOutputs(self._data)
+
+    def to_evaluation_dataset(self) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
+        return EvaluationDataset(data=self._data)
 
 
 def from_tensorflow(

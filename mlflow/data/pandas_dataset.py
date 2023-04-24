@@ -131,6 +131,10 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(self._df)
 
     def to_evaluation_dataset(self) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
         return EvaluationDataset(
             data=self._df,
             targets=self._targets,

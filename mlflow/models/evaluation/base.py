@@ -1341,7 +1341,7 @@ def evaluate(
 
     if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
         dataset = data.to_evaluation_dataset()
-        mlflow.log_input(data, "evaluate")
+        mlflow.log_input(data, "eval")
     else:
         dataset = EvaluationDataset(
             data,

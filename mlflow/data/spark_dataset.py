@@ -12,6 +12,7 @@ from mlflow.data.digest_utils import get_normalized_md5_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -148,6 +149,16 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(inputs=inputs, outputs=outputs)
         else:
             return PyFuncInputsOutputs(inputs=df, outputs=None)
+
+    def to_evaluation_dataset(self) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
+        return EvaluationDataset(
+            data=self._df.limit(10000).toPandas(),
+            targets=self._targets,
+        )
 
 
 def load_delta(

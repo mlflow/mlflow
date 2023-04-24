@@ -119,7 +119,11 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return PyFuncInputsOutputs(self._features, self._targets)
 
     def to_evaluation_dataset(self) -> EvaluationDataset:
-        raise EvaluationDataset(
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
+        return EvaluationDataset(
             data=self._features,
             targets=self._targets,
         )
