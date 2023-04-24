@@ -646,6 +646,8 @@ Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflo
 
 For more information, see :py:mod:`mlflow.h2o`.
 
+.. _tf-keras-example:
+
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
@@ -952,16 +954,48 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
-to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
-:py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
-flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
-can be scored with both DataFrame input and numpy array input. Finally, you can use the
-:py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow Core models or Keras models.
+The simple example below shows how to log params and metrics in mlflow for a custom training loop
+using low-level TensorFlow API. See `tf-keras-example`_. for an example of mlflow and ``tf.keras`` models.
 
-For more information, see :py:mod:`mlflow.tensorflow`.
+
+.. code-block:: python
+
+    import numpy as np
+    import tensorflow as tf
+
+    import mlflow
+
+    x = np.linspace(-4, 4, num=512)
+    y = 3 * x + 10
+
+    # estimate w and b where y = w * x + b
+    learning_rate = 0.1
+    x_train = tf.Variable(x, trainable=False, dtype=tf.float32)
+    y_train = tf.Variable(y, trainable=False, dtype=tf.float32)
+
+    # initial values
+    w = tf.Variable(1.0)
+    b = tf.Variable(1.0)
+
+    with mlflow.start_run():
+        mlflow.log_param("learning_rate", learning_rate)
+
+        for i in range(1000):
+            with tf.GradientTape(persistent=True) as tape:
+                # calculate MSE = 0.5 * (y_predict - y_train)^2
+                y_predict = w * x_train + b
+                loss = 0.5 * tf.reduce_mean(tf.square(y_predict - y_train))
+                mlflow.log_metric("loss", value=loss.numpy(), step=i)
+
+            # Update the trainable variables
+            # w = w - learning_rate * gradient of loss function w.r.t. w
+            # b = b - learning_rate * gradient of loss function w.r.t. b
+            w.assign_sub(learning_rate * tape.gradient(loss, w))
+            b.assign_sub(learning_rate * tape.gradient(loss, b))
+
+    print(f"W = {w.numpy():.2f}, b = {b.numpy():.2f}")
+
+
 
 ONNX (``onnx``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -976,6 +1010,9 @@ evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method 
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
+.. code-block:: python
+
 
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
