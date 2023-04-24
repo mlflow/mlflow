@@ -473,10 +473,12 @@ public class MlflowClientTest {
     Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
 
     // Run info only
-    List<RunInfo> searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1, new ArrayList<>(), false);
-    Assert.assertEquals(searchResult.get(0).getParamsList().size(), 0);
-    Assert.assertEquals(searchResult.get(0).getMetricsList().size(), 0);
-    Assert.assertEquals(searchResult.get(0).getTagsList().size(), 0);
+    searchRuns = Lists.newArrayList(client.searchRuns(
+      experimentIds, "", ViewType.ACTIVE_ONLY, 1, new ArrayList<>(), true
+    ).getItems());
+    Assert.assertEquals(searchRuns.get(0).getData().getParamsList().size(), 0);
+    Assert.assertEquals(searchRuns.get(0).getData().getMetricsList().size(), 0);
+    Assert.assertEquals(searchRuns.get(0).getData().getTagsList().size(), 0);
   }
 
   @Test

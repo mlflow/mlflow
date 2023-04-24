@@ -198,8 +198,7 @@ public class MlflowClient implements Serializable, Closeable {
                               String searchFilter,
                               ViewType runViewType,
                               int maxResults) {
-    return searchRuns(experimentIds, searchFilter, runViewType, maxResults, new ArrayList<>(),
-                      null);
+    return searchRuns(experimentIds, searchFilter, runViewType, maxResults, new ArrayList<>());
   }
 
   /**
@@ -262,9 +261,9 @@ public class MlflowClient implements Serializable, Closeable {
    *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
    * @param maxResults Maximum number of runs desired in one page.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param runInfoOnly If true, do not return params, metrics or tags.
    * @param pageToken String token specifying the next page of results. It should be obtained from
    *             a call to {@link #searchRuns(List, String)}.
-   * @param runInfoOnly If true, do not return params, metrics or tags.
    *
    * @return A page of Runs that satisfy the search filter.
    */
@@ -286,9 +285,6 @@ public class MlflowClient implements Serializable, Closeable {
     }
     if (runViewType != null) {
       builder.setRunViewType(runViewType);
-    }
-    if (runInfoOnly != null) {
-      builder.setRunInfoOnly(runInfoOnly);
     }
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
