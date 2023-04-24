@@ -274,7 +274,7 @@ If you've not called ``set_tracking_uri`` or set the ``MLFLOW_TRACKING_URI`` env
 
 For more information, including a list of supported model flavors and storing your own flavor, see :ref:`models_built-in-model-flavors`.
 
-Run a model from a specific training run
+Load a model from a specific training run for inference
 --------------------------------------------
 
 To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
