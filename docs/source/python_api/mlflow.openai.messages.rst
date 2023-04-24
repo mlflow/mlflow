@@ -3,7 +3,7 @@
 Supported ``messages`` formats for OpenAI chat completion task
 ==============================================================
 
-This page covers the following:
+This document covers the following:
 
 - Supported ``messages`` formats for OpenAI chat completion task in the ``openai`` flavor.
 - Logged model signature for each format.
@@ -202,7 +202,7 @@ Payload sent to OpenAI chat completion API:
 No ``messages``
 ---------------
 
-The ``messages`` argument is optional and can be omitted. The provided prediction input will be
+The ``messages`` argument is optional and can be omitted. If omitted, the prediction input will be
 sent to the OpenAI chat completion API as-is with ``role = user``.
 
 .. code-block:: python
