@@ -1273,21 +1273,14 @@ def autolog(
                             mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
                             mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                         )
-
                         training_data = kwargs["x"] if "x" in kwargs else args[0]
-                        # create a dataset
-                        if isinstance(training_data, np.ndarray):
-                            dataset = from_numpy(features=training_data, source=source)
-                        elif isinstance(training_data, tensorflow.Tensor):
-                            dataset = from_tensorflow(data=training_data, source=source)
-                        elif isinstance(training_data, tensorflow.data.Dataset):
-                            dataset = from_tensorflow(data=training_data, source=source)
-                        else:
-                            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
-                            dataset = None
+                        validation_data = (
+                            kwargs["validation_data"] if "validation_data" in kwargs else None
+                        )
+                        _log_tensorflow_dataset(training_data, source, "train")
+                        if validation_data is not None:
+                            _log_tensorflow_dataset(validation_data, source, "eval")
 
-                        if dataset:
-                            mlflow.log_input(dataset, "train")
                     except Exception as e:
                         _logger.warning(
                             "Failed to log training dataset information to MLflow Tracking. "
@@ -1324,3 +1317,20 @@ def autolog(
 
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
+
+
+def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
+    import tensorflow
+
+    # create a dataset
+    if isinstance(tensorflow_dataset, np.ndarray):
+        dataset = from_numpy(features=tensorflow_dataset, source=source, name=name)
+    elif isinstance(tensorflow_dataset, tensorflow.Tensor):
+        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+    elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
+        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+    else:
+        _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+        return
+
+    mlflow.log_input(dataset, context)

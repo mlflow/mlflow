@@ -103,6 +103,17 @@ def fashion_mnist_tf_dataset():
     return fmnist_train_ds
 
 
+@pytest.fixture
+def fashion_mnist_tf_dataset_eval():
+    _, eval = tf.keras.datasets.fashion_mnist.load_data()
+    images, labels = eval
+    images = images / 255.0
+    labels = labels.astype(np.int32)
+    fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
+    return fmnist_train_ds
+
+
 def _create_fashion_mnist_model():
     model = tf.keras.Sequential([tf.keras.layers.Flatten(), tf.keras.layers.Dense(10)])
     model.compile(
@@ -260,6 +271,20 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
         )
     else:
         assert len(dataset_inputs) == 0
+
+
+def test_tf_keras_autolog_log_datasets_with_validation_data(
+    fashion_mnist_tf_dataset, fashion_mnist_tf_dataset_eval
+):
+    mlflow.tensorflow.autolog(log_datasets=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    fashion_mnist_model.fit(fashion_mnist_tf_dataset, validation_data=fashion_mnist_tf_dataset_eval)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
 
 
 def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
