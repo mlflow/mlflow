@@ -18,12 +18,12 @@ import re
 from typing import NamedTuple, Optional
 from pathlib import Path
 
-import mlflow
 from mlflow.environment_variables import MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.autologging_utils.versioning import _strip_dev_version_suffix
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow import pypi_package_index
 from packaging.version import Version, InvalidVersion
 
 _logger = logging.getLogger(__name__)
@@ -334,26 +334,6 @@ def _init_packages_to_modules_map():
             _PACKAGES_TO_MODULES[pkg_name] = module
 
 
-# Represents the PyPI package index at a particular date
-# :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
-# :param package_names: The set of package names in the index.
-_PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
-
-
-def _load_pypi_package_index():
-    pypi_index_path = pkg_resources.resource_filename(mlflow.__name__, "pypi_package_index.json")
-    with open(pypi_index_path) as f:
-        index_dict = json.load(f)
-
-    return _PyPIPackageIndex(
-        date=index_dict["index_date"],
-        package_names=set(index_dict["package_names"]),
-    )
-
-
-_PYPI_PACKAGE_INDEX = None
-
-
 def _infer_requirements(model_uri, flavor):
     """
     Infers the pip requirements of the specified model by creating a subprocess and loading
@@ -364,10 +344,6 @@ def _infer_requirements(model_uri, flavor):
     :return: A list of inferred pip requirements.
     """
     _init_modules_to_packages_map()
-    global _PYPI_PACKAGE_INDEX
-    if _PYPI_PACKAGE_INDEX is None:
-        _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
-
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
     packages = map(_normalize_package_name, packages)
@@ -384,13 +360,12 @@ def _infer_requirements(model_uri, flavor):
         *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
-    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names
-    if unrecognized_packages:
+    if unrecognized_packages := packages - pypi_package_index.get_package_names():
         _logger.warning(
             "The following packages were not found in the public PyPI package index as of"
             " %s; if these packages are not present in the public PyPI index, you must install"
             " them manually before loading your model: %s",
-            _PYPI_PACKAGE_INDEX.date,
+            pypi_package_index.get_date(),
             unrecognized_packages,
         )
     return sorted(map(_get_pinned_requirement, packages))
