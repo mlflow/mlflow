@@ -485,7 +485,8 @@ def update_user_admin():
         is_admin = False
     else:
         raise MlflowException(
-            f"Invalid parameter 'is_admin': '{is_admin_str}', must be either 'true' or 'false'.",
+            f"Invalid parameter 'is_admin': '{is_admin_str}', "
+            "must be either 'true' or 'false' (case insensitive).",
             INVALID_PARAMETER_VALUE,
         )
     store.update_user(username, is_admin=is_admin)

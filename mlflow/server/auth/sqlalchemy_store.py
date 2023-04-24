@@ -189,8 +189,10 @@ class SqlAlchemyStore:
             user = cls._get_user(session, username=username)
             return (
                 session.query(SqlExperimentPermission)
-                .filter(SqlExperimentPermission.experiment_id == experiment_id)
-                .filter(SqlExperimentPermission.user_id == user.id)
+                .filter(
+                    SqlExperimentPermission.experiment_id == experiment_id,
+                    SqlExperimentPermission.user_id == user.id,
+                )
                 .one()
             )
         except NoResultFound:
@@ -264,8 +266,10 @@ class SqlAlchemyStore:
             user = cls._get_user(session, username=username)
             return (
                 session.query(SqlRegisteredModelPermission)
-                .filter(SqlRegisteredModelPermission.name == name)
-                .filter(SqlRegisteredModelPermission.user_id == user.id)
+                .filter(
+                    SqlRegisteredModelPermission.name == name,
+                    SqlRegisteredModelPermission.user_id == user.id,
+                )
                 .one()
             )
         except NoResultFound:
