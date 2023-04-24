@@ -1,3 +1,5 @@
+:orphan:
+
 .. _mlflow.openai.messages:
 
 Supported ``messages`` formats for OpenAI chat completion task
