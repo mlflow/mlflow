@@ -44,6 +44,7 @@ from mlflow import models  # pylint: disable=unused-import
 from mlflow import artifacts  # pylint: disable=unused-import
 from mlflow import client  # pylint: disable=unused-import
 from mlflow import exceptions  # pylint: disable=unused-import
+from mlflow import data  # pylint: disable=unused-import
 
 # model flavors
 _model_flavors_supported = []
