@@ -1129,10 +1129,11 @@ def test_sklearn_autolog_log_datasets_with_predict():
     assert dataset_inputs[0].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema(X).to_dict()}
     )
-    assert dataset_inputs[1].tags[0].value == "validation"
-    assert dataset_inputs[0].dataset.schema == json.dumps(
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema(X).to_dict()}
     )
+    assert dataset_inputs[1].dataset.name == "X"
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():

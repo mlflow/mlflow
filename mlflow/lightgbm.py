@@ -869,7 +869,9 @@ def autolog(
                         else [f"valid_{i}" for i in range(len(valid_sets))]
                     )
                     for valid_set, valid_name in zip(valid_sets, valid_names):
-                        _log_lightgbm_dataset(valid_set, source, valid_name, autologging_client)
+                        _log_lightgbm_dataset(
+                            valid_set, source, "eval", autologging_client, name=valid_name
+                        )
 
                 dataset_logging_operations = autologging_client.flush(synchronous=False)
                 dataset_logging_operations.await_completion()
@@ -931,7 +933,7 @@ def autolog(
     )
 
 
-def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client):
+def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name=None):
     import pandas as pd
     import numpy as np
     from scipy.sparse import issparse
@@ -939,16 +941,16 @@ def _log_lightgbm_dataset(lgb_dataset, source, context_name, autologging_client)
     data = lgb_dataset.data
     label = lgb_dataset.label
     if isinstance(data, pd.DataFrame):
-        dataset = from_pandas(df=data, source=source)
+        dataset = from_pandas(df=data, source=source, name=name)
     elif issparse(data):
         arr_data = data.toarray() if issparse(data) else data
-        dataset = from_numpy(features=arr_data, targets=label, source=source)
+        dataset = from_numpy(features=arr_data, targets=label, source=source, name=name)
     elif isinstance(data, np.ndarray):
-        dataset = from_numpy(features=data, targets=label, source=source)
+        dataset = from_numpy(features=data, targets=label, source=source, name=name)
     else:
         _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
         return
-    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context_name)]
+    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
     # log the dataset

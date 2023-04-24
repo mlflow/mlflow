@@ -744,7 +744,7 @@ def autolog(
                 evals = kwargs.get("evals")
                 if evals is not None:
                     for d, name in evals:
-                        _log_xgboost_dataset(d, source, name, autologging_client)
+                        _log_xgboost_dataset(d, source, "eval", autologging_client, name)
                 dataset_logging_operations = autologging_client.flush(synchronous=False)
                 dataset_logging_operations.await_completion()
             except Exception as e:
@@ -804,7 +804,7 @@ def autolog(
     )
 
 
-def _log_xgboost_dataset(xgb_dataset, source, context_name, autologging_client):
+def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=None):
     import numpy as np
     import pandas as pd
     import xgboost as xgb
@@ -813,17 +813,17 @@ def _log_xgboost_dataset(xgb_dataset, source, context_name, autologging_client):
     if Version(xgb.__version__) >= Version("1.7.0"):
         data = xgb_dataset.get_data()
         if isinstance(xgb_dataset, pd.DataFrame):
-            dataset = from_pandas(df=data, source=source)
+            dataset = from_pandas(df=data, source=source, name=name)
         elif issparse(data):
             arr_data = data.toarray() if issparse(data) else data
-            dataset = from_numpy(features=arr_data, source=source)
+            dataset = from_numpy(features=arr_data, source=source, name=name)
         elif isinstance(data, np.ndarray):
-            dataset = from_numpy(features=data, source=source)
+            dataset = from_numpy(features=data, source=source, name=name)
         else:
             _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
             return
 
-        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context_name)]
+        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
         autologging_client.log_inputs(

@@ -755,33 +755,18 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
     deval = xgb.DMatrix(X, y)
     with mlflow.start_run() as run:
         mlflow.xgboost.autolog(log_datasets=True)
-        xgb.train(bst_params, dtrain, evals=[(deval, "eval")])
+        xgb.train(bst_params, dtrain, evals=[(deval, "eval_dataset")])
 
     run_id = run.info.run_id
     client = MlflowClient()
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[0].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema(dtrain.get_data().toarray()).to_dict()}
     )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.name == "eval_dataset"
     assert dataset_inputs[1].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema(deval.get_data().toarray()).to_dict()}
-    )
-
-
-@pytest.mark.skipif(
-    Version(xgb.__version__) < Version("1.7"),
-    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
-)
-def test_xgb_log_datasets_with_same_train_eval(bst_params, dtrain):
-    with mlflow.start_run() as run:
-        mlflow.xgboost.autolog(log_datasets=True)
-        xgb.train(bst_params, dtrain, evals=[(dtrain, "eval")])
-
-    run_id = run.info.run_id
-    client = MlflowClient()
-    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
-    assert len(dataset_inputs) == 1
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema(dtrain.get_data().toarray()).to_dict()}
     )

@@ -1659,11 +1659,11 @@ def _autolog(
                         mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                     )
 
-                    dataset = _create_dataset(eval_dataset, source)
+                    dataset = _create_dataset(eval_dataset, source, dataset_name=eval_dataset_name)
 
                     # log the dataset
                     if dataset:
-                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=eval_dataset_name)]
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
                         dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
 
                         # log the dataset
@@ -1863,7 +1863,7 @@ def _autolog(
             manage_run=False,
         )
 
-    def _create_dataset(X, source, y=None):
+    def _create_dataset(X, source, y=None, dataset_name=None):
         # create a dataset
         if isinstance(X, pd.DataFrame):
             dataset = from_pandas(df=X, source=source)
@@ -1871,14 +1871,16 @@ def _autolog(
             arr_X = X.toarray()
             if y is not None:
                 arr_y = y.toarray()
-                dataset = from_numpy(features=arr_X, targets=arr_y, source=source)
+                dataset = from_numpy(
+                    features=arr_X, targets=arr_y, source=source, name=dataset_name
+                )
             else:
-                dataset = from_numpy(features=arr_X, source=source)
+                dataset = from_numpy(features=arr_X, source=source, name=dataset_name)
         elif isinstance(X, np.ndarray):
             if y is not None:
-                dataset = from_numpy(features=X, targets=y, source=source)
+                dataset = from_numpy(features=X, targets=y, source=source, name=dataset_name)
             else:
-                dataset = from_numpy(features=X, source=source)
+                dataset = from_numpy(features=X, source=source, name=dataset_name)
         else:
             _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
             return None
