@@ -22,6 +22,7 @@ from mlflow.server.auth.permissions import get_permission, Permission
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
     _get_rest_path,
+    _get_tracking_store,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -186,6 +187,20 @@ def _get_permission_from_experiment_id() -> Permission:
     )
 
 
+def _get_permission_from_experiment_name() -> Permission:
+    experiment_name = _get_request_param("experiment_name")
+    store_exp = _get_tracking_store().get_experiment_by_name(experiment_name)
+    if store_exp is None:
+        raise MlflowException(
+            f"Could not find experiment with name {experiment_name}",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+    username = request.authorization.username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(store_exp.experiment_id, username).permission
+    )
+
+
 def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
@@ -208,6 +223,10 @@ def _get_permission_from_registered_model_name() -> Permission:
 
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
+
+
+def validate_can_read_experiment_by_name():
+    return _get_permission_from_experiment_name().can_read
 
 
 def validate_can_update_experiment():
@@ -288,7 +307,7 @@ def validate_can_delete_user():
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     GetExperiment: validate_can_read_experiment,
-    GetExperimentByName: validate_can_read_experiment,
+    GetExperimentByName: validate_can_read_experiment_by_name,
     DeleteExperiment: validate_can_delete_experiment,
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
