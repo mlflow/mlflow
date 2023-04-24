@@ -21,6 +21,7 @@ def spark_session():
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .getOrCreate()
     )
     yield session
