@@ -137,7 +137,26 @@ And then navigate to http://localhost:5000 in your browser. You will see a page 
     :alt: Screenshot of MLflow tracking UI
 ..
 
-You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. You can view the parameters, metrics, and artifacts of your run by clicking on the run name.
+You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. The MLflow UI opens to the **Table view**. The main portion of the window shows a table of runs, with each row representing a single run. The columns show the run name, how long ago it was created, its running time, and so forth. If you select a run name, you will open details for the run, which shows the parameters, metrics, and artifacts of the run.
+
+.. image:: _static/images/quickstart/quickstart_ui_detail_page.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI details page
+
+You can view the history of a metric by opening Metrics and selecting the metric name. For instance, the following image shows a run's Mean Average Precision over time:
+
+.. image:: _static/images/quickstart/quickstart_ui_metric_history.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI metric history
+
+From the main page, you can switch between **Table view** and **Chart view**. **Chart view** allows you to compare runs at a glance. For instance, the following image shows the Mean Average Precision of the highest-scoring runs in this experiment:
+
+.. image:: _static/images/quickstart/quickstart_ui_chart_view.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI chart view
 
 For more details on the tracking UI, see :ref:`tracking`.
 
