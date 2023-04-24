@@ -532,8 +532,8 @@ def create_user():
         flash(f"Successfully signed up user: {username}")
         return alert(href=ROUTES.HOME)
     elif content_type == "application/json":
-        username = request.json["username"]
-        password = request.json["password"]
+        username = _get_request_param("username")
+        password = _get_request_param("password")
 
         user = store.create_user(username, password)
         return make_response({"user": user.to_json()})
