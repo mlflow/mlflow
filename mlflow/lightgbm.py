@@ -862,16 +862,14 @@ def autolog(
                 valid_sets = kwargs.get("valid_sets")
                 if valid_sets is not None:
                     valid_names = kwargs.get("valid_names")
-                    # if no valid names are provided, then create valid names for each set
-                    valid_names = (
-                        valid_names
-                        if valid_names is not None
-                        else [f"valid_{i}" for i in range(len(valid_sets))]
-                    )
-                    for valid_set, valid_name in zip(valid_sets, valid_names):
-                        _log_lightgbm_dataset(
-                            valid_set, source, "eval", autologging_client, name=valid_name
-                        )
+                    if valid_names is None:
+                        for valid_set in valid_sets:
+                            _log_lightgbm_dataset(valid_set, source, "eval", autologging_client)
+                    else:
+                        for valid_set, valid_name in zip(valid_sets, valid_names):
+                            _log_lightgbm_dataset(
+                                valid_set, source, "eval", autologging_client, name=valid_name
+                            )
 
                 dataset_logging_operations = autologging_client.flush(synchronous=False)
                 dataset_logging_operations.await_completion()

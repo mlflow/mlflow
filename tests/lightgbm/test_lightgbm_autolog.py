@@ -803,7 +803,6 @@ def test_lgb_log_datasets_with_valid_set(bst_params, train_set, valid_set):
         {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
     )
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.name == "valid_0"
     assert dataset_inputs[1].dataset.schema == json.dumps(
         {"mlflow_colspec": _infer_schema(valid_set.data).to_dict()}
     )

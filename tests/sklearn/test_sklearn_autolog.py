@@ -1124,7 +1124,6 @@ def test_sklearn_autolog_log_datasets_with_predict():
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
 
     assert len(dataset_inputs) == 2
-    assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[0].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema(X).to_dict()}
