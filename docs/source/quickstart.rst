@@ -12,7 +12,7 @@ In 15-20 minutes, you will:
 - (Optional) Run a tracking server to share results with others
 - (Optional) Use Databricks to store your results
 - Store the models produced by your runs
-- Run a model from a previous run
+- Load a model from a previous run for inference
 
 As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team.
 
