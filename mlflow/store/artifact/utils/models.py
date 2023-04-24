@@ -11,7 +11,7 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 # This regex is used by _parse_model_uri and details for the regex match
 # can be found in _improper_model_uri_msg.
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \.\-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[\w \.\-_\+\#]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
@@ -63,6 +63,8 @@ def _parse_model_uri(uri):
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
+    if parsed.fragment:
+        path = f"{path}#{parsed.fragment}"
     m = _MODEL_URI_REGEX.match(path)
     if m is None:
         raise MlflowException(_improper_model_uri_msg(uri))

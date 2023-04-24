@@ -15,6 +15,7 @@ from mlflow.entities.model_registry import ModelVersion
         ("models:/12345/67890", "12345", "67890"),
         ("models://profile@databricks/12345/67890", "12345", "67890"),
         ("models:/catalog.schema.model/0", "catalog.schema.model", "0"),  # UC Model format
+        ("models:/model#2+_1/0", "model#2+_1", "0"),
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
@@ -33,6 +34,7 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
         ("models:/AdsModel1/pROduction", "AdsModel1", "pROduction"),  # case insensitive
         ("models:/Ads Model 1/None", "Ads Model 1", "None"),
         ("models://scope:key@databricks/Ads Model 1/None", "Ads Model 1", "None"),
+        ("models://host:port@myserver/model+_#34/prod", "model+_#34", "prod"),
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
@@ -71,6 +73,8 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ("models:/Ads Model 1@challenger", "Ads Model 1", "challenger"),
         ("models://scope:key/Ads Model 1@None", "Ads Model 1", "None"),
         ("models:/catalog.schema.model@None", "catalog.schema.model", "None"),  # UC Model format
+        ("models:/TYS_NVS_DAY_1+_MODEL#22@my_version", "TYS_NVS_DAY_1+_MODEL#22", "my_version"),
+        ("models:/#1#2#3++ver@test", "#1#2#3++ver", "test"),
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):

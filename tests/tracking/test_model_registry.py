@@ -666,3 +666,19 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
     assert model.aliases == {}
     mv = client.get_model_version(name, "1")
     assert mv.aliases == []
+
+
+def test_register_model_with_alias_and_special_characters(client):
+    model_name = "MyModel#4_+ver1"
+    alias = "My_3-test"
+    client.create_registered_model(model_name)
+    model_ver = client.create_model_version(model_name, "runs:/run_id/model", "run_id")
+    client.set_registered_model_alias(model_name, alias=alias, version=model_ver.version)
+    registered_details = client.get_registered_model(model_name)
+    assert registered_details.name == model_name
+    assert registered_details.aliases == {alias: "1"}
+
+    with pytest.raises(MlflowException, match="Invalid alias name: 'Invalid#3\\+version'. Names"):
+        client.set_registered_model_alias(
+            model_name, alias="Invalid#3+version", version=model_ver.version
+        )
