@@ -1650,9 +1650,9 @@ class _TransformersWrapper:
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
             if (
-                data_out.startswith(data_in + "\n\n")
+                not include_prompt
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
-                and not include_prompt
+                and data_out.startswith(data_in + "\n\n")
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
