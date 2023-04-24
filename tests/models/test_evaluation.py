@@ -583,6 +583,11 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
             targets="y",
             model_type="regressor",
             evaluators=["default"],
+            evaluator_config={
+                "default": {
+                    "metric_prefix": "eval",
+                }
+            },
         )
     _, saved_metrics, _, _ = get_run_data(run.info.run_id)
 
@@ -591,6 +596,7 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
 
     datasets = get_run_datasets(run.info.run_id)
     assert len(datasets) == 1
+    assert datasets[0].tags[0].value == "eval"
 
 
 def test_dataset_name():
