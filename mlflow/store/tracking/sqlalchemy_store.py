@@ -1168,8 +1168,8 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
 
         with self.ManagedSessionMaker() as session:
-            # Fetch the appropriate runs and eagerly load their summary metrics, params, and
-            # tags. These run attributes are referenced during the invocation of
+            # Fetch the appropriate runs and eagerly load their summary metrics, params, and tags
+            # if not run_info_only. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
@@ -1187,10 +1187,11 @@ class SqlAlchemyStore(AbstractStore):
             for j in sorting_joins:
                 stmt = stmt.outerjoin(j)
 
+            query_options = [] if run_info_only else self._get_eager_run_query_options()
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             stmt = (
                 stmt.distinct()
-                .options(*self._get_eager_run_query_options())
+                .options(*query_options)
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
