@@ -224,7 +224,7 @@ An MLflow Model is a directory that packages machine learning models and support
 - An **MLModel** file in YAML format specifying the model's **flavor** (or **flavors**), dependencies, signature (if supplied), and important metadata;
 - The various files required by the model's flavor(s) to instantiate the model. This will often be a serialized Python object;
 - Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file); and
-- Optionally, an input sample
+- Optionally, an input example
 
 When using autologging, MLflow will automatically log the run's model. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. In addition, if you wish to load the model soon, it may be convenient to output the run's ID directly to the console. For that, you'll need the object of type ``mlflow.ActiveRun`` for the current run. You get that object by wrapping all of your logging code in a ``with mlflow.start_run() as run:`` block. For example:
 
