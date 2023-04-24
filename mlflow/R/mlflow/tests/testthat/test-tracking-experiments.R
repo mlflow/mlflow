@@ -16,7 +16,9 @@ test_that("mlflow_create/set/get_experiment() basic functionality (fluent)", {
   expect_identical(experiment_1a, experiment_1b)
   expected_artifact_location <- sprintf("%s/%s", getwd(), artifact_relative_path)
   expect_identical(experiment_1a$artifact_location, expected_artifact_location)
-  expect_identical(experiment_1a$name, "exp_name")
+  expect_identical(experiment_1a$name, "exp_name_1")
+  expect_identical(experiment_2a$name, "exp_name_2")
+  expect_identical(experiment_2a$artifact_location, expected_artifact_location)
 })
 
 test_that("mlflow_create/get_experiment() basic functionality (client)", {
