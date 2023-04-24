@@ -478,6 +478,24 @@ def create_root_user(username, password):
         )
 
 
+def alert(href: str):
+    return render_template_string(
+        r"""
+<script type = "text/javascript">  
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    {% for message in messages %}
+      alert("{{ message }}"); 
+    {% endfor %}
+  {% endif %}
+{% endwith %}
+      window.location.href = "{{ href }}";
+</script>
+""",
+        href=href,
+    )
+
+
 def signup():
     # TODO: add css
     return render_template_string(
@@ -494,18 +512,6 @@ def signup():
   <br>
   <input type="submit" value="Signup">
 </form>
-<style>
-.alert.error {
-  color: red;
-}
-</style>
-{% with messages = get_flashed_messages(with_categories=true) %}
-  {% if messages %}
-    {% for category, message in messages %}
-      <p class="alert {{ category }}">{{ message }}</p>
-    {% endfor %}
-  {% endif %}
-{% endwith %}
 """,
         users_route=ROUTES.CREATE_USER,
     )
@@ -519,12 +525,12 @@ def create_user():
         password = request.form["password"]
 
         if store.has_user(username):
-            flash(f"Username has already been taken: '{username}'", category="error")
-            return redirect(ROUTES.SIGNUP)
+            flash(f"Username has already been taken: {username}")
+            return alert(href=ROUTES.SIGNUP)
 
         store.create_user(username, password)
-        flash(f"Successfully signed up user: '{username}'")
-        return redirect(ROUTES.HOME)
+        flash(f"Successfully signed up user: {username}")
+        return alert(href=ROUTES.HOME)
     elif content_type == "application/json":
         username = request.json["username"]
         password = request.json["password"]
