@@ -18,7 +18,7 @@ from flask import Flask, request, make_response, Response, redirect, flash, rend
 from mlflow import get_run, MlflowException
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
-from mlflow.server.auth.permissions import get_permission, Permission
+from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
     _get_rest_path,
@@ -34,6 +34,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import (
@@ -56,6 +57,7 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     GetExperimentByName,
     LogModel,
+    CreateExperiment,
 )
 from mlflow.protos.model_registry_pb2 import (
     GetRegisteredModel,
@@ -76,7 +78,9 @@ from mlflow.protos.model_registry_pb2 import (
     SetRegisteredModelAlias,
     DeleteRegisteredModelAlias,
     GetModelVersionByAlias,
+    CreateRegisteredModel,
 )
+from mlflow.utils.proto_json_utils import parse_dict
 
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
@@ -407,8 +411,60 @@ def _before_request():
         _logger.debug(f"No validator found for {(request.path, request.method)}")
 
 
-def _after_request(resp):
-    # TODO: Implement post-request logic
+def set_can_manage_experiment_permission(resp: Response):
+    response_message = CreateExperiment.Response()
+    parse_dict(resp.json, response_message)
+    experiment_id = response_message.experiment_id
+    username = request.authorization.username
+    try:
+        store.create_experiment_permission(experiment_id, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            store.update_experiment_permission(experiment_id, username, MANAGE.name)
+        else:
+            raise
+
+
+def set_can_manage_registered_model_permission(resp: Response):
+    response_message = CreateRegisteredModel.Response()
+    parse_dict(resp.json, response_message)
+    name = response_message.registered_model.name
+    username = request.authorization.username
+    try:
+        store.create_registered_model_permission(name, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            store.update_registered_model_permission(name, username, MANAGE.name)
+        else:
+            raise
+
+
+AFTER_REQUEST_PATH_HANDLERS = {
+    CreateExperiment: set_can_manage_experiment_permission,
+    CreateRegisteredModel: set_can_manage_registered_model_permission,
+}
+
+
+def get_after_request_handler(request_class):
+    return AFTER_REQUEST_PATH_HANDLERS.get(request_class)
+
+
+AFTER_REQUEST_HANDLERS = {
+    (http_path, method): handler
+    for http_path, handler, methods in get_endpoints(get_after_request_handler)
+    for method in methods
+}
+
+
+def _after_request(resp: Response):
+    _logger.debug(f"after_request: {request.method} {request.path}")
+    if 400 <= resp.status_code < 600:
+        return resp
+
+    handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
+    if handler:
+        _logger.debug(f"Calling after request handler: {handler.__name__}")
+        handler(resp)
     return resp
 
 
