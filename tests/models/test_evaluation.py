@@ -571,7 +571,9 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
         assert v == saved_metrics[k]
 
 
-def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_uri):
+def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
+    linear_regressor_model_uri,
+):
     data = sklearn.datasets.load_diabetes()
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
@@ -597,6 +599,29 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_ur
     datasets = get_run_datasets(run.info.run_id)
     assert len(datasets) == 1
     assert datasets[0].tags[0].value == "eval"
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src", targets="y")
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=mlflow_df,
+            targets="y",
+            model_type="regressor",
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert len(datasets[0].tags) == 0
 
 
 def test_dataset_name():
