@@ -336,3 +336,46 @@ message FinalizeModelVersionRequest {
 message FinalizeModelVersionResponse {
   optional ModelVersion model_version = 1;
 }
+
+message SetRegisteredModelAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[SetRegisteredModelAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+
+  // Model version number that alias will reference
+  optional string version = 3 [(validate_required) = true];
+}
+
+message SetRegisteredModelAliasResponse {
+}
+
+message DeleteRegisteredModelAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[DeleteRegisteredModelAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+}
+
+message DeleteRegisteredModelAliasResponse {
+}
+
+message GetModelVersionByAliasRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[GetModelVersionByAliasResponse]";
+
+  // Name of the registered model
+  optional string name = 1 [(validate_required) = true];
+
+  // Name of the registered model alias
+  optional string alias = 2 [(validate_required) = true];
+}
+
+message GetModelVersionByAliasResponse {
+  optional ModelVersion model_version = 1;
+}
