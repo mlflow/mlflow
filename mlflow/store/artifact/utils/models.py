@@ -11,7 +11,8 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 # This regex is used by _parse_model_uri and details for the regex match
 # can be found in _improper_model_uri_msg.
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \.\-_\+\#]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[\w \.\-_\+\#\?\;\:\!\%\|\"\<\>]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>["
+    r"\w\-]+))?$"
 )
 
 
@@ -64,7 +65,16 @@ def _parse_model_uri(uri):
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
     if parsed.fragment:
+        # NB: If the model name contains a hash (#) in the name (historically allowed), reconstruct
+        # the path by adding the fragment identifier back into the parsed path.
+        # Multiple fragments will be included in the parsed fragment element.
         path = f"{path}#{parsed.fragment}"
+    if parsed.query:
+        # If a query key (?) is included in the path, reconstitute the historically permitted
+        # character in a model name by adding the query identifier back into the parsed path.
+        # Multiple query identifiers (question marks) are included in the query; only the first
+        # query key in the path will be marked as the start of a query
+        path = f"{path}?{parsed.query}"
     m = _MODEL_URI_REGEX.match(path)
     if m is None:
         raise MlflowException(_improper_model_uri_msg(uri))
