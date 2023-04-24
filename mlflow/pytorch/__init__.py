@@ -922,6 +922,7 @@ def autolog(
     log_every_n_epoch=1,
     log_every_n_step=None,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -961,6 +962,8 @@ def autolog(
                        cause performance issues and is not recommended.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                       If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
                     If ``False``, enables the PyTorch Lightning autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

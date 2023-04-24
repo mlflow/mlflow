@@ -1207,7 +1207,8 @@ def autolog(
                             mlflow.log_input(dataset, "eval")
                         except Exception as e:
                             _logger.warning(
-                                "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                                "Failed to log training dataset information to MLflow Tracking. "
+                                "Reason: %s",
                                 e,
                             )
             return metric
