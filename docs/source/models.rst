@@ -646,6 +646,66 @@ Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflo
 
 For more information, see :py:mod:`mlflow.h2o`.
 
+h2o pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal h2o model, here is an example of the pyfunc predict() method in a classification scenario :
+
+.. code-block:: python
+
+    import mlflow
+    import h2o
+
+    h2o.init()
+    from h2o.estimators.glm import H2OGeneralizedLinearEstimator
+
+    # import the prostate data
+    df = h2o.import_file(
+        "http://s3.amazonaws.com/h2o-public-test-data/smalldata/prostate/prostate.csv.zip"
+    )
+
+    # convert the columns to factors
+    df["CAPSULE"] = df["CAPSULE"].asfactor()
+    df["RACE"] = df["RACE"].asfactor()
+    df["DCAPS"] = df["DCAPS"].asfactor()
+    df["DPROS"] = df["DPROS"].asfactor()
+
+    # split the data
+    train, test, valid = df.split_frame(ratios=[0.7, 0.15])
+
+    # generate a GLM model
+    glm_classifier = H2OGeneralizedLinearEstimator(
+        family="binomial", lambda_=0, alpha=0.5, nfolds=5, compute_p_values=True
+    )
+
+    with mlflow.start_run():
+        glm_classifier.train(
+            y="CAPSULE", x=["AGE", "RACE", "VOL", "GLEASON"], training_frame=train
+        )
+        metrics = glm_classifier.model_performance()
+        metrics_to_track = ["MSE", "RMSE", "r2", "logloss"]
+        metrics_to_log = {
+            key: value
+            for key, value in metrics._metric_json.items()
+            if key in metrics_to_track
+        }
+        params = glm_classifier.params
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics_to_log)
+        model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+
+    # load h2o model and make a prediction
+    h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    test_df = test.as_data_frame()
+    predictions = h2o_pyfunc.predict(test_df)
+    print(predictions)
+
+    # it is also possible to load the model and predict using h2o methods on the h2o frame
+
+    # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
+    # predictions = h2o_model.predict(test)
+
+
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
