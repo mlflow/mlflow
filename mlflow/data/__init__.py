@@ -1,5 +1,5 @@
 import sys
-from typing import Union, Any
+from typing import Union
 
 from mlflow.data import dataset_registry
 from mlflow.data.dataset import Dataset
@@ -11,18 +11,15 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
-def load_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> Any:
+def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetSource:
     """
-    Loads source files / objects for the specified dataset. The exact loading behavior and return
-    type is determined by the type of dataset source. For example, this may download source CSV
-    files for a :py:class:``mlflow.data.pandas_dataset.PandasDataset`` from S3 to the local
-    filesystem, or it might load a Delta Table source for a
-    :py:class:``mlflow.data.spark_dataset.SparkDataset`` as a Spark DataFrame.
+    Obtains a :py:class:`mlflow.data.DatasetSource` instance representing the source of the
+    specified dataset or dataset input.
 
     :param dataset: An instance of :py:class:`mlflow.data.Dataset`,
                     :py:class:`mlflow.entities.Dataset`, or
                     :py:class:`mlflow.entities.DatasetInput`.
-    :return: The downloaded source, e.g. a local filesystem path, a Spark DataFrame, etc.
+    :return: An instance of :py:class`mlflow.data.DatasetSource`.
     """
     if isinstance(dataset, DatasetInput):
         dataset: DatasetEntity = dataset.dataset
@@ -41,10 +38,10 @@ def load_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> Any:
             INVALID_PARAMETER_VALUE,
         )
 
-    return dataset_source.load()
+    return dataset_source
 
 
-__all__ = ["load_source"]
+__all__ = ["get_source"]
 
 
 def _define_dataset_constructors_in_current_module():
