@@ -6,9 +6,14 @@ from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
 from mlflow.exceptions import MlflowException
+from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
+from mlflow.utils.uri import (
+    get_databricks_profile_uri_from_artifact_uri,
+    get_db_info_from_uri,
+    is_databricks_uri,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -38,6 +43,13 @@ def _use_repl_context_if_available(name):
         return wrapper
 
     return decorator
+
+
+def get_mlflow_credential_context_by_run_id(run_id):
+    run_root_artifact_uri = get_artifact_uri(run_id=run_id)
+    return MlflowCredentialContext(
+        get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+    )
 
 
 class MlflowCredentialContext:
