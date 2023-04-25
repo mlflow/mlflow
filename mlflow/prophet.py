@@ -122,7 +122,6 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     """
-
     import prophet
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)

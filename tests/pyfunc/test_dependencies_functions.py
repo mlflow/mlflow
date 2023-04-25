@@ -243,3 +243,11 @@ def test_get_model_dependencies_with_model_version_uri():
 
     deps = get_model_dependencies("models:/linear/1", format="pip")
     assert f"scikit-learn=={sklearn.__version__}" in Path(deps).read_text()
+
+
+def test_warn_dependency_requirement_mismatches_ignores_file_path(tmp_path):
+    req_file = tmp_path / "requirements.txt"
+    req_file.write_text("/path/to/my.whl")
+    with mock.patch("mlflow.pyfunc._logger.warning") as mock_warning:
+        _warn_dependency_requirement_mismatches(model_path=tmp_path)
+        mock_warning.assert_not_called()

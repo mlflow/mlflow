@@ -19,20 +19,17 @@ from mlflow.recipes.utils.execution import (
 )
 from mlflow.recipes.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
-from mlflow.utils.annotations import experimental
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List, Union
+from typing import List
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-class _BaseRecipe:
+class BaseRecipe:
     """
     Base Recipe
     """
 
-    @experimental
     def __init__(self, recipe_root_path: str, profile: str) -> None:
         """
         Recipe base class.
@@ -55,13 +52,11 @@ class _BaseRecipe:
         self._steps = self._resolve_recipe_steps()
         self._recipe = get_recipe_config(self._recipe_root_path, self._profile).get("recipe")
 
-    @experimental
     @property
     def name(self) -> str:
         """Returns the name of the recipe."""
         return self._name
 
-    @experimental
     @property
     def profile(self) -> str:
         """
@@ -69,7 +64,6 @@ class _BaseRecipe:
         """
         return self._profile
 
-    @experimental
     def run(self, step: str = None) -> None:
         """
         Runs a step in the recipe, or the entire recipe if a step is not specified.
@@ -115,7 +109,6 @@ class _BaseRecipe:
                     error_code=BAD_REQUEST,
                 )
 
-    @experimental
     def inspect(self, step: str = None) -> None:
         """
         Displays main output from a step, or a recipe DAG if no step is specified.
@@ -131,13 +124,12 @@ class _BaseRecipe:
             output_directory = get_step_output_path(self._recipe_root_path, step, "")
             self._get_step(step).inspect(output_directory)
 
-    @experimental
     def clean(self, step: str = None) -> None:
         """
         Removes the outputs of the specified step from the cache, or removes the cached outputs
         of all steps if no particular step is specified. After cached outputs are cleaned
         for a particular step, the step will be re-executed in its entirety the next time it is
-        invoked via ``_BaseRecipe.run()``.
+        invoked via ``BaseRecipe.run()``.
 
         :param step: String name of the step to clean within the recipe. If not specified,
                      cached outputs are removed for all recipe steps.
@@ -155,7 +147,6 @@ class _BaseRecipe:
             )
         return self._steps[step_names.index(step_name)]
 
-    @experimental
     def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
@@ -169,7 +160,6 @@ class _BaseRecipe:
                 subgraph.append(step)
         return subgraph
 
-    @experimental
     @abc.abstractmethod
     def _get_default_step(self) -> BaseStep:
         """
@@ -179,7 +169,6 @@ class _BaseRecipe:
         """
         pass
 
-    @experimental
     @abc.abstractmethod
     def _get_step_classes(self):
         """
@@ -189,7 +178,6 @@ class _BaseRecipe:
         """
         pass
 
-    @experimental
     def _get_recipe_dag_file(self) -> str:
         """
         Returns absolute path to the recipe DAG representation HTML file.
@@ -329,7 +317,6 @@ class _BaseRecipe:
             for s in self._get_step_classes()
         ]
 
-    @experimental
     def get_artifact(self, artifact_name: str):
         """
         Read an artifact from recipe output. artifact names can be obtained from
@@ -340,7 +327,6 @@ class _BaseRecipe:
         """
         return self._get_artifact(artifact_name).load()
 
-    @experimental
     def _get_artifact(self, artifact_name: str) -> Artifact:
         """
         Read an Artifact object from recipe output. artifact names can be obtained
@@ -359,11 +345,6 @@ class _BaseRecipe:
         )
 
 
-from mlflow.recipes.classification.v1.recipe import ClassificationRecipe
-from mlflow.recipes.regression.v1.recipe import RegressionRecipe
-
-
-@experimental
 class Recipe:
     """
     A factory class that creates an instance of a recipe for a particular ML problem
@@ -381,8 +362,7 @@ class Recipe:
         regression_recipe.run(step="train")
     """
 
-    @experimental
-    def __new__(cls, profile: str) -> Union[RegressionRecipe, ClassificationRecipe]:
+    def __new__(cls, profile: str):
         """
         Creates an instance of an MLflow Recipe for a particular ML problem or MLOps task based
         on the current working directory and supplied configuration. The current working directory
@@ -394,8 +374,7 @@ class Recipe:
                         one or more recipe steps, and recipe executions with different profiles
                         often produce different results.
         :return: A recipe for a particular ML problem or MLOps task. For example, an instance of
-                 :py:class:`RegressionRecipe
-                 <mlflow.recipes.regression.v1.recipe.RegressionRecipe>`
+                 `RegressionRecipe <https://github.com/mlflow/recipes-regression-template>`_
                  for regression problems.
 
         .. code-block:: python

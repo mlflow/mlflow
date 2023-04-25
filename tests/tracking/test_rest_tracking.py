@@ -1045,7 +1045,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
 
 
 def test_create_model_version_with_path_source(mlflow_client):
-    name = "mode"
+    name = "model"
     mlflow_client.create_registered_model(name)
     exp_id = mlflow_client.create_experiment("test")
     run = mlflow_client.create_run(experiment_id=exp_id)
@@ -1082,6 +1082,100 @@ def test_create_model_version_with_path_source(mlflow_client):
     )
     assert response.status_code == 400
     assert "To use a local path as a model version" in response.json()["message"]
+
+
+def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
+    name = "model"
+    mlflow_client.create_registered_model(name)
+    exp_id = mlflow_client.create_experiment("test")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": run.info.artifact_uri[len("file://") :],
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Test that remote uri's supplied as a source with absolute paths work fine
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Test that invalid remote uri's cannot be created
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "http://host:9000/models/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "https://host/api/2.0/mlflow-artifacts/artifacts/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "s3a://my_bucket/api/2.0/mlflow-artifacts/artifacts/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "ftp://host:8888/api/2.0/mlflow-artifacts/artifacts/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
 
 
 def test_create_model_version_with_file_uri(mlflow_client):
