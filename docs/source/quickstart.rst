@@ -4,7 +4,7 @@ Quickstart: Install MLflow, instrument code & view results in minutes
 ======================================================================
 
 
-In 15-20 minutes, you will:
+In less than 15 minutes, you will:
 
 - Install MLflow
 - Add MLflow tracking to your code
@@ -202,7 +202,7 @@ Now, when you run your code, it will send tracking data to the tracking server. 
 There are many options available for the tracking backend. For more details, see :ref:`tracking_server`.
 
 Use MLflow with a Databricks workspace
-----------------------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
 
@@ -234,6 +234,8 @@ In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Dat
         mlflow.set_experiment(f"/Users/{user_name}/{experiment_name}")
 
 If the specified experiment does not exist, it will be created.
+
+For more on using MLflow with Databricks, see `Databricks' documentation on MLflow <https://docs.databricks.com/mlflow/index.html>`__.
 
 Store a model in MLflow
 -------------------------
@@ -319,7 +321,7 @@ To load and run a model stored in a previous run, you can use the ``mlflow.{libr
         predictions = model.predict(X_test)
         print(predictions)
 
-Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``.
+Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. If you serve your model with ``mlflow models serve`` or ``mlflow run``, MLflow will automatically recreate the environment. Those commands also accept an ``--env-manager`` option for even more control. (This is described in detail in :ref:`model-enviroment-management`.)
 
 To learn more about loading models for specific runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 

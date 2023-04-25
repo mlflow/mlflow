@@ -31,54 +31,60 @@ Rather than the default MLflow library, you can install the following variations
      - Lightweight MLflow package without SQL storage, server, UI, or data science dependencies.
    * - mlflow[extras]
      - ``pip install mlflow[extras]``
-     - MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in :doc:`https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt`
-
+     - MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in `this document <https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt>`__.
+   * - In-development version
+     - ``pip install git+https://github.com/mlflow/mlflow.git@master``
+     - This is the latest version of MLflow, which may be useful for getting hot-fixes or new features.
 
 
 Python and Mac OS X
 **********************
 
-We strongly recommend using a virtual environment manager on Macs. We always recommend using virtual environments, but they are especially important on Mac OS X because the system ``python`` version varies depending on the installation and whether you've installed the Xcode command line tools.
+We strongly recommend using a virtual environment manager on Macs. We always recommend using virtual environments, but they are especially important on Mac OS X because the system ``python`` version varies depending on the installation and whether you've installed the Xcode command line tools. The default environment manager for MLflow is ``virtualenv``. Other popular options are ``conda`` and ``venv``.
 
-Virtual environment managers
-****************************
+
+Python
+******
 
 We release MLflow on:
 
 - PyPI (``pip install mlflow``)
 - conda-forge (``conda install -c conda-forge mlflow``)
-- CRAN (``install.packages("mlflow")``)
-- Maven Central (``mlflow-client``, ``mlflow-parent``, ``mlflow-scoring``, ``mlflow-spark``)
+
 
 R and Java
 **********
 
-See :ref:`installing MLflow for R<R-api>` . For Java, we release to Maven Central. For more information, see :ref:`java_api`.
+We release MLflow on:
 
+- CRAN (``install.packages("mlflow")``)
+- Maven Central (``mlflow-client``, ``mlflow-parent``, ``mlflow-scoring``, ``mlflow-spark``)
+
+For R, see :ref:`installing MLflow for R<R-api>` . For Java, see :ref:`java_api`.
 
 .. _quickstart_drilldown_log_and_load_model:
 
 Save and serve models
 -------------------------
 
-MLflow includes a generic ``MLmodel`` format for saving *models* from a variety of tools in diverse
-*flavors*. For example, many models can be served as Python functions, so an ``MLmodel`` file can
+MLflow includes a generic ``MLmodel`` format for saving **models** from a variety of tools in diverse
+**flavors**. For example, many models can be served as Python functions, so an ``MLmodel`` file can
 declare how each model should be interpreted as a Python function in order to let various tools
 serve it. MLflow also includes tools for running such models locally and exporting them to Docker
 containers or commercial serving platforms.
 
 To illustrate this functionality, the ``mlflow.sklearn`` flavor can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``sklearn_logistic_regression/train.py`` that you can run as follows:
+`sklearn_logistic_regression/train.py <https://github.com/mlflow/mlflow/tree/master/examples/sklearn_logistic_regression>`__. To run it, switch to the MLflow repository root and run:
 
 .. code-block:: bash
 
-    python sklearn_logistic_regression/train.py
+    python examples/sklearn_logistic_regression/train.py
 
 When you run the example, it outputs an MLflow run ID for that experiment. If you look at the 
 ``mlflow ui``, you will also see that the run saved a **model** folder containing an ``MLmodel``
 description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
-within the artifacts directory (here "model") to various tools. For example, MLflow includes a
+within the artifacts directory (here **model/**) to various tools. For example, MLflow includes a
 simple REST server for python-based models:
 
 .. code-block:: bash
@@ -106,30 +112,4 @@ which returns::
     [1, 0]
 
 For more information, see :doc:`models`.
-
-Run MLflow projects
------------------------
-
-You can easily run existing projects with the ``mlflow run`` command, which runs a project from
-either a local directory or a GitHub URI:
-
-.. code-block:: bash
-
-    mlflow run sklearn_elasticnet_wine -P alpha=0.5
-
-    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
-
-There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
-projects log their Tracking API data in the local ``mlruns`` directory so you can see these
-runs using ``mlflow ui``.
-
-.. note::
-    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
-    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
-    ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
-    in your Python environment.
-
-For more information, see :doc:`projects`.
-
 

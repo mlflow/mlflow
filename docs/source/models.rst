@@ -3117,6 +3117,8 @@ For more info, see:
     mlflow models predict --help
     mlflow models build-docker --help
 
+.. _model-enviroment-management:
+
 Environment Management Tools
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
