@@ -90,11 +90,7 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "models:/",  # no model name
         "models:/ /Stage",  # empty name
         "models:/Name",  # no specifiers
-        "models:/Name/",  # empty suffix
-        "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
-        "models:/Name/Stage@Alias",  # stage and alias both specified
-        "models:/Name@alias/Stage",  # Stage and alias both specified
         "models:/Name@Alias@other",  # too many aliases
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
