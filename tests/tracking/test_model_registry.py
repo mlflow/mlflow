@@ -681,6 +681,12 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
         ('My"Model"', "8", "QuoteAlias", 'Quote"Alias'),
         ("My<Model>", "9", "CaretAlias", "Caret<>Alias"),
         ("My||Model|", "10", "PipeAlias", "Pipe||Alias"),
+        ("our(model)", "1", "ParenAlias", "Paren()alias"),
+        ("a*model", "2", "StarAlias", "star**alias"),
+        ("some&model", "3", "AmpAlias", "amp&alias"),
+        ("a=model", "4", "EqualAlias", "==Alias"),
+        ("some[cool]model", "5", "BracketAlias", "[Alias]"),
+        ("a'model'", "6", "QuoteAlias", "my'alias'"),
     ],
 )
 def test_register_model_with_alias_and_special_characters(

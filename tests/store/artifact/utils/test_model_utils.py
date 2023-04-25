@@ -28,6 +28,12 @@ from mlflow.entities.model_registry import ModelVersion
         ('models:/my"model"/1', 'my"model"', "1"),
         ("models:/your<model>/2", "your<model>", "2"),
         ("models:/our|model|/3", "our|model|", "3"),
+        ("models:/our(model)/1", "our(model)", "1"),
+        ("models:/a*model/1", "a*model", "1"),
+        ("models:/some&model/2", "some&model", "2"),
+        ("models:/a=model/3", "a=model", "3"),
+        ("models:/some[cool]model/2", "some[cool]model", "2"),
+        ("models:/a'model'/1", "a'model'", "1"),
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
@@ -59,6 +65,12 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
         ('models:/Some"Model"/dev', 'Some"Model"', "dev"),
         ("models:/Some<Model>/dev", "Some<Model>", "dev"),
         ("models:/Some|Model|/dev", "Some|Model|", "dev"),
+        ("models:/our(model)/prod", "our(model)", "prod"),
+        ("models:/a*model/prod", "a*model", "prod"),
+        ("models:/some&model/prod", "some&model", "prod"),
+        ("models:/a=model/stage", "a=model", "stage"),
+        ("models:/some[cool]model/stage", "some[cool]model", "stage"),
+        ("models:/a'model'/stage", "a'model'", "stage"),
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
@@ -109,6 +121,12 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ('models:/My"Model"@guess', 'My"Model"', "guess"),
         ("models:/<A>Model@3", "<A>Model", "3"),
         ("models:/A||Model||@9", "A||Model||", "9"),
+        ("models:/our(model)@1", "our(model)", "1"),
+        ("models:/a*model@1", "a*model", "1"),
+        ("models:/some&model@2", "some&model", "2"),
+        ("models:/a=model@3", "a=model", "3"),
+        ("models:/some[cool]model@2", "some[cool]model", "2"),
+        ("models:/a'model'@1", "a'model'", "1"),
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
