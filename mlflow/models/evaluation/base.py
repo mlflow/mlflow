@@ -1350,7 +1350,7 @@ def evaluate(
             else:
                 context = None
             client = MlflowClient()
-            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
             dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
             client.log_inputs(run_id, [dataset_input])
         else:
