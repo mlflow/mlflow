@@ -10,9 +10,10 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 
 # This regex is used by _parse_model_uri and details for the regex match
 # can be found in _improper_model_uri_msg.
+disallowed_characters = r"\\\/$@"
+
 _MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \.\-_\+\#\?\;\:\!\%\|\"\<\>\(\)\*\&\=\[\]\']+)(\/(?P<suffix>[\w]+))?"
-    r"(@(?P<alias>[\w\-]+))?$"
+    rf"^\/(?P<model_name>[^{disallowed_characters}]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
@@ -34,8 +35,8 @@ def _improper_model_uri_msg(uri):
 
 def _get_latest_model_version(client, name, stage):
     """
-    Returns the latest version of the stage if stage is not None. Otherwise return the latest of all
-    versions.
+    Returns the latest version of the stage if stage is not None. Otherwise, return the latest of
+    all versions.
     """
     latest = client.get_latest_versions(name, None if stage is None else [stage])
     if len(latest) == 0:
