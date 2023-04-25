@@ -672,33 +672,52 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
     "model_name, run_id, valid_alias, invalid_alias",
     [
         ("MyModel#4#6", "1", "HashAlias", "Alias#1#2"),
-        ("MyModel?42", "2", "QuestionAlias", "Alias?20"),
         ("My+Model+2", "3", "PlusAlias", "Plus++Alias"),
         ("My;Model;1", "4", "SemiColonAlias", "Semi;Alias;"),
-        ("My:Model:2:", "5", "ColonAlias", "Colon:Alias:"),
         ("My!Model!", "6", "ExclamationAlias", "Exclamation!Alias"),
         ("My%Model%", "7", "PercentAlias", "Percent%Alias"),
-        ('My"Model"', "8", "QuoteAlias", 'Quote"Alias'),
-        ("My<Model>", "9", "CaretAlias", "Caret<>Alias"),
-        ("My||Model|", "10", "PipeAlias", "Pipe||Alias"),
         ("our(model)", "1", "ParenAlias", "Paren()alias"),
-        ("a*model", "2", "StarAlias", "star**alias"),
         ("some&model", "3", "AmpAlias", "amp&alias"),
         ("a=model", "4", "EqualAlias", "==Alias"),
         ("some[cool]model", "5", "BracketAlias", "[Alias]"),
         ("a'model'", "6", "QuoteAlias", "my'alias'"),
+    ],
+)
+def test_register_model_with_alias_and_special_characters_universal(
+    client, model_name, run_id, valid_alias, invalid_alias
+):
+    client.create_registered_model(model_name)
+    model_ver = client.create_model_version(model_name, "runs:/run_id/model", run_id)
+    client.set_registered_model_alias(model_name, alias=valid_alias, version=model_ver.version)
+    registered_details = client.get_registered_model(model_name)
+    assert registered_details.name == model_name
+    assert registered_details.aliases == {valid_alias: "1"}
+
+    with pytest.raises(MlflowException, match="Invalid alias name"):
+        client.set_registered_model_alias(
+            model_name, alias=invalid_alias, version=model_ver.version
+        )
+
+
+@pytest.mark.skipif(is_windows(), reason="Illegal Windows character sets")
+@pytest.mark.parametrize(
+    "model_name, run_id, valid_alias, invalid_alias",
+    [
+        ("MyModel?42", "2", "QuestionAlias", "Alias?20"),
+        ("My:Model:2:", "5", "ColonAlias", "Colon:Alias:"),
+        ('My"Model"', "8", "QuoteAlias", 'Quote"Alias'),
+        ("My<Model>", "9", "CaretAlias", "Caret<>Alias"),
+        ("My||Model|", "10", "PipeAlias", "Pipe||Alias"),
+        ("a*model", "2", "StarAlias", "star**alias"),
         ("a#model?amodel", "7", "FragQuery", "Frag#?Query"),  # fragment before query
         ("a?model#amodel", "8", "QueryFrag", "Query?#Frag"),  # query before fragment
         ("a?mo#del?b#?model", "9", "QueryFrag", "?#model"),  # multiple queries and fragments
         ("a#mo?del?b#?model", "3", "FragQuery", "#?model"),  # multiple queries and fragments
     ],
 )
-def test_register_model_with_alias_and_special_characters(
+def test_register_model_with_alias_and_windows_unsafe_characters(
     client, model_name, run_id, valid_alias, invalid_alias
 ):
-    # NB: Not testing the uri-reserved `/` path designator as that will cause completely different
-    # issues. This test validates all other reserved keys for uri's within a path that have
-    # historically been supported model names in MLflow.
     client.create_registered_model(model_name)
     model_ver = client.create_model_version(model_name, "runs:/run_id/model", run_id)
     client.set_registered_model_alias(model_name, alias=valid_alias, version=model_ver.version)
