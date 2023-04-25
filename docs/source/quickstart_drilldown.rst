@@ -67,7 +67,7 @@ declare how each model should be interpreted as a Python function in order to le
 serve it. MLflow also includes tools for running such models locally and exporting them to Docker
 containers or commercial serving platforms.
 
-To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-learn models as
+To illustrate this functionality, the ``mlflow.sklearn`` flavor can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``sklearn_logistic_regression/train.py`` that you can run as follows:
 
