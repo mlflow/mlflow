@@ -31,7 +31,7 @@ Rather than the default MLflow library, you can install the following variations
      - Lightweight MLflow package without SQL storage, server, UI, or data science dependencies.
    * - mlflow[extras]
      - ``pip install mlflow[extras]``
-     - MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in doc:`https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt`
+     - MLflow package with all dependencies needed to run various MLflow flavors. These dependencies are listed in :doc:`https://github.com/mlflow/mlflow/blob/master/requirements/extra-ml-requirements.txt`
 
 
 

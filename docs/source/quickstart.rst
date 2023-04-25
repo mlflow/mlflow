@@ -165,14 +165,14 @@ For more details on the tracking UI, see :ref:`tracking`.
 Share MLflow runs and experiments
 -----------------------------------
 
-For getting started, the last example stored the tracking data locally. Generally, you will want to use shared storage. Locally, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. The tracking UI, when run locally, visualizes this. You can store your data remotely by:
+For getting started, the last example stored the tracking data locally. Generally, you will want to use shared storage. Locally, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. The tracking UI, when run locally, visualizes this. 
 
-- Calling ``mlflow.set_tracking_uri`` in your code; or
-- Setting the ``MLFLOW_TRACKING_URI`` environment variable
+You may also store your data remotely. You can track your runs with a tracking server, on a shared filesystem, with a SQLAlchemy-compatible database, or in a Databricks workspace. To do so:
 
-With either option, you can track your runs in a shared filesystem, a SQLAlchemy-compatible database, a tracking server, or a Databricks workspace.
+- Call ``mlflow.set_tracking_uri`` in your code; or
+- Set the ``MLFLOW_TRACKING_URI`` environment variable
 
-A tracking server is a lightweight HTTP server. You can run a tracking server on a network-accessible server by running:
+A tracking server is a lightweight HTTP server built in to MLflow. You can run a tracking server on a network-accessible server by running:
 
 .. code-section::
 
@@ -245,7 +245,7 @@ An MLflow Model is a directory that packages machine learning models and support
 - Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file); and
 - Optionally, an input example
 
-When using autologging, MLflow will automatically log the run's model. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. In addition, if you wish to load the model soon, it may be convenient to output the run's ID directly to the console. For that, you'll need the object of type ``mlflow.ActiveRun`` for the current run. You get that object by wrapping all of your logging code in a ``with mlflow.start_run() as run:`` block. For example:
+When using autologging, MLflow will automatically log whatever model or models the run creates. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. In addition, if you wish to load the model soon, it may be convenient to output the run's ID directly to the console. For that, you'll need the object of type ``mlflow.ActiveRun`` for the current run. You get that object by wrapping all of your logging code in a ``with mlflow.start_run() as run:`` block. (:py:func:`mlflow.start_run` API reference) For example:
 
 For example:
 
@@ -294,7 +294,7 @@ If you've not called ``set_tracking_uri`` or set the ``MLFLOW_TRACKING_URI`` env
 For more information, including a list of supported model flavors and storing your own flavor, see :ref:`models_built-in-model-flavors`.
 
 Load a model from a specific training run for inference
---------------------------------------------
+--------------------------------------------------------
 
 To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
 
@@ -331,7 +331,7 @@ Next steps
 - :ref:`MLflow tutorials and examples <tutorials-and-examples>`
 - Use the MLflow Registry to store and share versioned models, see :ref:`registry`
 - Use MLflow Projects for packaging your code in a reproducible and reusable way, see :ref:`projects`
-- Use MLflow Recipes (experimental) to create workflows for faster iterations and easier deployment, see :ref:`recipes`
+- Use MLflow Recipes to create workflows for faster iterations and easier deployment, see :ref:`recipes`
 - :ref:`MLflow concepts <concepts>`
 - :ref:`java_api`
 - :ref:`R-api`
