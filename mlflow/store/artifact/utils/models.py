@@ -10,10 +10,9 @@ _MODELS_URI_SUFFIX_LATEST = "latest"
 
 # This regex is used by _parse_model_uri and details for the regex match
 # can be found in _improper_model_uri_msg.
-_DISALLOWED_CHARACTERS = r"\\\/$@"
 
 _MODEL_URI_REGEX = re.compile(
-    rf"^\/(?P<model_name>[^{_DISALLOWED_CHARACTERS}]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
+    r"^\/(?P<model_name>[^\\\/$@]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
 )
 
 
