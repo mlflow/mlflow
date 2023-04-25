@@ -343,3 +343,36 @@ def test_serving_wheeled_model(sklearn_knn_model):
     )
     scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_data))
+
+
+def test_wheel_download_works(tmp_path):
+    simple_dependency = "cloudpickle"
+    requirements_file = os.path.join(tmp_path, "req.txt")
+    wheel_dir = os.path.join(tmp_path, "wheels")
+    with open(requirements_file, "w") as req_file:
+        req_file.write(simple_dependency)
+
+    WheeledModel._download_wheels(requirements_file, wheel_dir)
+    wheels = os.listdir(wheel_dir)
+    assert len(wheels) == 1  # Only a single wheel is downloaded
+    assert wheels[0].endswith(".whl")  # Type is wheel
+    assert simple_dependency in wheels[0]  # Cloudpickle wheel downloaded
+
+
+def test_wheel_download_override_option_works(tmp_path):
+    dependency = "pyspark"
+    requirements_file = os.path.join(tmp_path, "req.txt")
+    wheel_dir = os.path.join(tmp_path, "wheels")
+    with open(requirements_file, "w") as req_file:
+        req_file.write(dependency)
+
+    # Default option fails to download wheel
+    with pytest.raises(
+        MlflowException, match="An error occurred while downloading the dependency wheels"
+    ):
+        WheeledModel._download_wheels(requirements_file, wheel_dir)
+
+    # Set option override
+    os.environ["MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS"] = "--prefer-binary"
+    WheeledModel._download_wheels(requirements_file, wheel_dir)
+    assert len(os.listdir(wheel_dir))  # Wheel dir is not empty

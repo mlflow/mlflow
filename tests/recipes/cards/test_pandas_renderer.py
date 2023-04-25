@@ -102,6 +102,7 @@ def test_convert_to_proto():
         "Symbol": ["MSFT", "AAPL", "MSFT", "AAPL", "NFLX"],
         "Shares": [100, 170, 150, 200, None],
         "Access": [True, True, False, True, False],
+        "All_Null": [None, None, None, None, None],
     }
     df = pd.DataFrame(data)
 
@@ -314,6 +315,25 @@ def test_convert_to_proto():
             custom_stats {
               name: "data type"
               str: "bool"
+            }
+          },
+          features {
+            name: "All_Null"
+            type: STRING
+            string_stats {
+              common_stats {
+                num_non_missing: 0
+                num_missing: 5
+                min_num_values: 1
+                max_num_values: 1
+                avg_num_values: 1.0
+              }
+              unique: 0
+              avg_length: 0.0
+            }
+            custom_stats {
+              name: "data type"
+              str: "object"
             }
           }
         }

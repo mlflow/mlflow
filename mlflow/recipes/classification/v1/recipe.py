@@ -5,8 +5,8 @@ The MLflow Classification Recipe is an MLflow Recipe for developing binary class
 models. Multiclass classifiers are currently not supported.
 The classification recipe is designed for developing models using scikit-learn and
 frameworks that integrate with scikit-learn, such as the ``XGBClassifier`` API from XGBoost.
-The :py:class:`ClassificationRecipe API Documentation <ClassificationRecipe>` provides
-instructions for executing the recipe and inspecting its results.
+The `ClassificationRecipe API Documentation <https://github.com/mlflow/recipes-classification-template/blob/main/README.md>`
+provides instructions for executing the recipe and inspecting its results.
 
 The training recipe contains the following sequential steps:
 
@@ -122,7 +122,7 @@ The recipe steps are defined as follows:
 import logging
 from typing import Any, Optional
 
-from mlflow.recipes.recipe import _BaseRecipe
+from mlflow.recipes.recipe import BaseRecipe
 from mlflow.recipes.steps.ingest import IngestStep, IngestScoringStep
 from mlflow.recipes.steps.split import SplitStep
 from mlflow.recipes.steps.transform import TransformStep
@@ -131,13 +131,11 @@ from mlflow.recipes.steps.evaluate import EvaluateStep
 from mlflow.recipes.steps.predict import PredictStep
 from mlflow.recipes.steps.register import RegisterStep
 from mlflow.recipes.step import BaseStep
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental
-class ClassificationRecipe(_BaseRecipe):
+class ClassificationRecipe(BaseRecipe):
     """
     A recipe for developing high-quality classification models. The recipe is designed for
     developing models using scikit-learn and frameworks that integrate with scikit-learn,
@@ -266,7 +264,6 @@ class ClassificationRecipe(_BaseRecipe):
         """
         return super().run(step=step)
 
-    @experimental
     def get_artifact(self, artifact_name: str) -> Optional[Any]:
         """
         Reads an artifact from the recipe's outputs. Supported artifact names can be obtained by

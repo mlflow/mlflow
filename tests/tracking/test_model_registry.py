@@ -644,3 +644,25 @@ def test_set_model_version_tag_with_empty_string_as_value(client):
     client.create_model_version(name, "runs:/run_id/model", "run_id_1")
     client.set_model_version_tag(name, "1", "tag_key", "")
     assert {"tag_key": ""}.items() <= client.get_model_version(name, "1").tags.items()
+
+
+def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(client):
+    name = "SetDeleteGetRMAliasTest"
+    client.create_registered_model(name)
+    client.create_model_version(name, "runs:/run_id/model", "run_id_1")
+    model = client.get_registered_model(name)
+    assert model.aliases == {}
+    mv = client.get_model_version(name, "1")
+    assert mv.aliases == []
+    client.set_registered_model_alias(name, "test_alias", "1")
+    model = client.get_registered_model(name)
+    assert model.aliases == {"test_alias": "1"}
+    mv = client.get_model_version(name, "1")
+    assert mv.aliases == ["test_alias"]
+    mv_alias = client.get_model_version_by_alias(name, "test_alias")
+    assert mv == mv_alias
+    client.delete_registered_model_alias(name, "test_alias")
+    model = client.get_registered_model(name)
+    assert model.aliases == {}
+    mv = client.get_model_version(name, "1")
+    assert mv.aliases == []

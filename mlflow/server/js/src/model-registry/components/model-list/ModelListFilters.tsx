@@ -29,7 +29,7 @@ const ModelSearchInputHelpTooltip = () => {
             defaultMessage='<link>Learn more</link>'
             description='Learn more tooltip link to learn more on how to search models'
             values={{
-              link: (chunks) => (
+              link: (chunks: any) => (
                 <a
                   href={ExperimentSearchSyntaxDocUrl + '#syntax'}
                   target='_blank'
@@ -83,22 +83,25 @@ export const ModelListFilters = ({
     <TableFilterLayout>
       <TableFilterInput
         placeholder={intl.formatMessage({
-          defaultMessage: 'Filter models',
+          defaultMessage: 'Filter registered models by name or tags',
           description: 'Placeholder text inside model search bar',
         })}
         onSubmit={triggerSearch}
+        onClear={() => {
+          setInternalSearchFilter('');
+          onSearchFilterChange('');
+        }}
         onChange={(e) => setInternalSearchFilter(e.target.value)}
         data-testid='model-search-input'
-        allowClear={false}
         suffix={<ModelSearchInputHelpTooltip />}
         value={internalSearchFilter}
         showSearchButton
       />
       {isFiltered && (
-        <Button type='link' onClick={reset} data-testid='models-list-filters-reset'>
+        <Button type='tertiary' onClick={reset} data-testid='models-list-filters-reset'>
           <FormattedMessage
             defaultMessage='Reset filters'
-            description='Models table > filters > reset filters button'
+            description='Reset filters button in list'
           />
         </Button>
       )}

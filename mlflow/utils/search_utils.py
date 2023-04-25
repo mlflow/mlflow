@@ -13,6 +13,7 @@ from sqlparse.sql import (
     Statement,
     Parenthesis,
     IdentifierList,
+    TokenList,
 )
 from sqlparse.tokens import Token as TokenType
 from packaging.version import Version
@@ -40,6 +41,65 @@ def _like(string, pattern):
 
 def _ilike(string, pattern):
     return _convert_like_pattern_to_regex(pattern, flags=re.IGNORECASE).match(string) is not None
+
+
+def _join_in_comparison_tokens(tokens):
+    """
+    Find a sequence of tokens that matches the pattern of an IN comparison or a NOT IN comparison,
+    join the tokens into a single Comparison token. Otherwise, return the original list of tokens.
+    """
+    if Version(sqlparse.__version__) < Version("0.4.4"):
+        # In sqlparse < 0.4.4, IN is treated as a comparison, we don't need to join tokens
+        return tokens
+
+    non_whitespace_tokens = [t for t in tokens if not t.is_whitespace]
+    joined_tokens = []
+    num_tokens = len(non_whitespace_tokens)
+    iterator = enumerate(non_whitespace_tokens)
+    while elem := next(iterator, None):
+        index, first = elem
+        # We need at least 3 tokens to form an IN comparison or a NOT IN comparison
+        if num_tokens - index < 3:
+            joined_tokens.extend(non_whitespace_tokens[index:])
+            break
+
+        # Wait until we encounter an identifier token
+        if not isinstance(first, Identifier):
+            joined_tokens.append(first)
+            continue
+
+        (_, second) = next(iterator)
+        (_, third) = next(iterator)
+
+        # IN
+        if (
+            isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["IN"])
+            and isinstance(third, Parenthesis)
+        ):
+            joined_tokens.append(Comparison(TokenList([first, second, third])))
+            continue
+
+        (_, fourth) = next(iterator, (None, None))
+        if fourth is None:
+            joined_tokens.extend([first, second, third])
+            break
+
+        # NOT IN
+        if (
+            isinstance(first, Identifier)
+            and second.match(ttype=TokenType.Keyword, values=["NOT"])
+            and third.match(ttype=TokenType.Keyword, values=["IN"])
+            and isinstance(fourth, Parenthesis)
+        ):
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "NOT IN"), fourth]))
+            )
+            continue
+
+        joined_tokens.extend([first, second, third, fourth])
+
+    return joined_tokens
 
 
 class SearchUtils:
@@ -352,14 +412,15 @@ class SearchUtils:
     @classmethod
     def _process_statement(cls, statement):
         # check validity
-        invalids = list(filter(cls._invalid_statement_token_search_runs, statement.tokens))
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token_search_runs, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException(
                 "Invalid clause(s) in filter string: %s" % invalid_clauses,
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
+        return [cls._get_comparison(si) for si in tokens if isinstance(si, Comparison)]
 
     @classmethod
     def parse_search_filter(cls, filter_string):
@@ -749,7 +810,7 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):
-        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+        if isinstance(token, Comparison):
             return False
         elif token.is_whitespace:
             return False
@@ -760,13 +821,14 @@ class SearchExperimentsUtils(SearchUtils):
 
     @classmethod
     def _process_statement(cls, statement):
-        invalids = list(filter(cls._invalid_statement_token_search_experiments, statement.tokens))
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token_search_experiments, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
                 "Invalid clause(s) in filter string: %s" % invalid_clauses
             )
-        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
     @classmethod
     def _get_identifier(cls, identifier, valid_attributes):
@@ -993,15 +1055,14 @@ class SearchModelUtils(SearchUtils):
 
     @classmethod
     def _process_statement(cls, statement):
-        invalids = list(
-            filter(cls._invalid_statement_token_search_model_registry, statement.tokens)
-        )
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token_search_model_registry, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
                 "Invalid clause(s) in filter string: %s" % invalid_clauses
             )
-        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
     @classmethod
     def _get_model_search_identifier(cls, identifier, valid_attributes):
@@ -1077,11 +1138,11 @@ class SearchModelUtils(SearchUtils):
 
     @classmethod
     def _invalid_statement_token_search_model_registry(cls, token):
-        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+        if isinstance(token, Comparison):
             return False
         elif token.is_whitespace:
             return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
         else:
             return True
@@ -1264,21 +1325,22 @@ class SearchModelVersionUtils(SearchUtils):
 
     @classmethod
     def _process_statement(cls, statement):
-        invalids = list(filter(cls._invalid_statement_token_search_model_version, statement.tokens))
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token_search_model_version, tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join(map(str, invalids))
             raise MlflowException.invalid_parameter_value(
                 "Invalid clause(s) in filter string: %s" % invalid_clauses
             )
-        return [cls._get_comparison(t) for t in statement.tokens if isinstance(t, Comparison)]
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
 
     @classmethod
     def _invalid_statement_token_search_model_version(cls, token):
-        if isinstance(token, (Comparison, Identifier, Parenthesis)):
+        if isinstance(token, Comparison):
             return False
         elif token.is_whitespace:
             return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND", "IN"]):
+        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
             return False
         else:
             return True

@@ -2,9 +2,12 @@ import os
 import time
 import shutil
 import json
+import re
 
 import pytest
 import posixpath
+
+import requests
 from requests.models import Response
 from unittest import mock
 from unittest.mock import ANY
@@ -26,6 +29,7 @@ from mlflow.store.artifact.databricks_artifact_repo import (
     DatabricksArtifactRepository,
     _MAX_CREDENTIALS_REQUEST_SIZE,
 )
+from mlflow.utils.os import is_windows
 
 DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.databricks_artifact_repo"
 DATABRICKS_ARTIFACT_REPOSITORY = (
@@ -334,7 +338,7 @@ def test_log_artifact_adls_gen2_with_headers(
     ) as write_credential_infos_mock, mock.patch(
         "requests.Session.request", return_value=mock_response
     ) as request_mock, mock.patch(
-        "mlflow.store.artifact.databricks_artifact_repo._AZURE_MAX_BLOCK_CHUNK_SIZE",
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._MULTIPART_UPLOAD_CHUNK_SIZE",
         5,
     ):
         databricks_artifact_repo.log_artifact(test_file.strpath, artifact_path)
@@ -1105,6 +1109,38 @@ def test_artifact_logging(databricks_artifact_repo, tmpdir):
             assert f.read() == "file1"
 
 
+def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path):
+    """
+    Verifies that write credentials are fetched in chunks rather than all at once.
+    """
+    src_dir = tmp_path.joinpath("src")
+    src_dir.mkdir()
+    for i in range(10):
+        src_dir.joinpath(f"file_{i}.txt").write_text(f"file{i}")
+    dst_dir = tmp_path.joinpath("dst")
+    dst_dir.mkdir()
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_write_credential_infos",
+        return_value=[
+            ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            ),
+            ArtifactCredentialInfo(
+                signed_uri=MOCK_AZURE_SIGNED_URI, type=ArtifactCredentialType.AZURE_SAS_URI
+            ),
+        ],
+    ) as mock_get_write_creds, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._upload_to_cloud"
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}._ARTIFACT_UPLOAD_BATCH_SIZE", 2
+    ):
+        databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
+
+        assert mock_get_write_creds.call_count == 5
+        assert all((len(call[1]["paths"]) == 2 for call in mock_get_write_creds.call_args_list))
+
+
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
     with mock.patch(
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
@@ -1202,15 +1238,27 @@ def large_file(tmp_path, mock_chunk_size):
     yield path
 
 
-def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size):
-    mock_upload_part_responses = []
-    for index in range(2):
-        resp = Response()
-        resp.status_code = 200
-        resp.headers = {"ETag": f"etag-{index+1}"}
-        resp.close = lambda: None
-        mock_upload_part_responses.append(resp)
+def extract_part_number(url):
+    return int(re.search(r"partNumber=(\d+)", url).group(1))
 
+
+def mock_request(method, url, *args, **kwargs):
+    resp = Response()
+    resp.status_code = 200
+    resp.close = lambda: None
+    if method.lower() == "delete":
+        # Abort-multipart-upload request
+        return resp
+    elif method.lower() == "put":
+        # Upload-part request
+        part_number = extract_part_number(url)
+        resp.headers = {"ETag": f"etag-{part_number}"}
+        return resp
+    else:
+        raise Exception("Unreachable")
+
+
+def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size):
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
     )
@@ -1239,7 +1287,7 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, complete_mpu_response],
     ) as call_endpoint_mock, mock.patch(
-        "requests.Session.request", side_effect=mock_upload_part_responses
+        "requests.Session.request", side_effect=mock_request
     ) as http_request_mock:
         databricks_artifact_repo.log_artifact(large_file)
         with large_file.open("rb") as f:
@@ -1253,7 +1301,9 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
                 )
                 for i in range(2)
             ]
-        assert http_request_mock.call_args_list == expected_calls
+        # The upload-part requests are sent in parallel, so the order of the calls is not
+        # deterministic
+        assert sorted(http_request_mock.call_args_list, key=lambda c: c.args[1]) == expected_calls
         complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
@@ -1262,30 +1312,33 @@ def test_multipart_upload(databricks_artifact_repo, large_file, mock_chunk_size)
         ]
 
 
+# The first request will fail with a 403, and the second will succeed
+STATUS_CODE_GENERATOR = (s for s in (403, 200))
+
+
+def mock_request_retry(method, url, *args, **kwargs):
+    resp = Response()
+    resp.status_code = 200
+    resp.close = lambda: None
+    if method.lower() == "delete":
+        # Abort-multipart-upload request
+        return resp
+    elif method.lower() == "put":
+        # Upload-part request
+        part_number = extract_part_number(url)
+        resp.headers = {"ETag": f"etag-{part_number}"}
+        # To ensure the upload-part retry logic works correctly,
+        # make the first attempt of the second part upload fail by responding with a 403,
+        # then make the second attempt succeed by responding with a 200
+        if part_number == 2:
+            status_code = next(STATUS_CODE_GENERATOR)
+            resp.status_code = status_code
+        return resp
+    else:
+        raise Exception("Unreachable")
+
+
 def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file, mock_chunk_size):
-    mock_upload_part_responses = []
-    for index in range(2):
-        if index == 0:
-            resp = Response()
-            resp.status_code = 200
-            resp.headers = {"ETag": f"etag-{index + 1}"}
-            resp.close = lambda: None
-            mock_upload_part_responses.append(resp)
-        else:
-            # The second part upload fails
-            failed_resp = Response()
-            failed_resp.status_code = 403
-            failed_resp.headers = {"ETag": f"etag-{index + 1}"}
-            failed_resp.close = lambda: None
-            mock_upload_part_responses.append(failed_resp)
-
-            # The second part re-upload succeeds
-            successful_resp = Response()
-            successful_resp.status_code = 200
-            successful_resp.headers = {"ETag": f"etag-{index + 1}"}
-            successful_resp.close = lambda: None
-            mock_upload_part_responses.append(successful_resp)
-
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
     )
@@ -1322,7 +1375,7 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, part_upload_url_response, complete_mpu_response],
     ) as call_endpoint_mock, mock.patch(
-        "requests.Session.request", side_effect=mock_upload_part_responses
+        "requests.Session.request", side_effect=mock_request_retry
     ) as http_request_mock:
         databricks_artifact_repo.log_artifact(large_file)
 
@@ -1337,8 +1390,10 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
                 )
                 for i in range(2)
             ]
-        expected_calls += expected_calls[-1:]  # the second part re-upload
-        assert http_request_mock.call_args_list == expected_calls
+        expected_calls += expected_calls[-1:]  # Append the second part upload call
+        # The upload-part requests are sent in parallel, so the order of the calls is not
+        # deterministic
+        assert sorted(http_request_mock.call_args_list, key=lambda c: c.args[1]) == expected_calls
         complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
@@ -1348,20 +1403,6 @@ def test_multipart_upload_retry_part_upload(databricks_artifact_repo, large_file
 
 
 def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk_size):
-    mock_responses = []
-    for index in range(2):
-        resp = Response()
-        resp.status_code = 200
-        resp.headers = {"ETag": f"etag-{index+1}"}
-        resp.close = lambda: None
-        mock_responses.append(resp)
-
-    abort_mpu_response = Response()
-    abort_mpu_response.status_code = 200
-    abort_mpu_response.headers = {"ETag": f"etag-{index+1}"}
-    abort_mpu_response.close = lambda: None
-    mock_responses.append(resp)
-
     mock_credential_info = ArtifactCredentialInfo(
         signed_uri=MOCK_AWS_SIGNED_URI,
         type=ArtifactCredentialType.AWS_PRESIGNED_URL,
@@ -1390,7 +1431,7 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
         f"{DATABRICKS_ARTIFACT_REPOSITORY}._call_endpoint",
         side_effect=[create_mpu_response, Exception("Failed to complete multipart upload")],
     ) as call_endpoint_mock, mock.patch(
-        "requests.Session.request", side_effect=mock_responses
+        "requests.Session.request", side_effect=mock_request
     ) as http_request_mock:
         with pytest.raises(Exception, match="Failed to complete multipart upload"):
             databricks_artifact_repo.log_artifact(large_file)
@@ -1408,6 +1449,9 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
                 for i in range(2)
             ]
         assert part_upload_calls == expected_calls
+        # The upload-part requests are sent in parallel, so the order of the calls is not
+        # deterministic
+        assert sorted(part_upload_calls, key=lambda c: c.args[1]) == expected_calls
         complete_request_body = json.loads(call_endpoint_mock.call_args_list[-1].args[-1])
         assert complete_request_body["upload_id"] == mock_upload_id
         assert complete_request_body["part_etags"] == [
@@ -1420,3 +1464,64 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
             headers={"header": "abort"},
             timeout=None,
         )
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_retries_failed_chunks(
+    databricks_artifact_repo, large_file, mock_chunk_size
+):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    response = Response()
+    response.status_code = 401
+    failed_downloads = {
+        2: requests.HTTPError(response=response),
+        5: requests.HTTPError(response=response),
+    }
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+        return_value=[mock_credential_info],
+    ) as get_creds_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri",
+        return_value=failed_downloads,
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
+    ) as download_chunk_mock, mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]],
+    ):
+        databricks_artifact_repo.download_artifacts("a.txt")
+        assert get_creds_mock.call_count == 2  # Once for initial fetch, once for retries
+        assert {call.args[0] for call in download_chunk_mock.call_args_list} == {2, 5}
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+def test_parallelized_download_throws_for_other_errors(
+    databricks_artifact_repo, large_file, mock_chunk_size
+):
+    mock_credential_info = ArtifactCredentialInfo(
+        signed_uri=MOCK_AWS_SIGNED_URI, type=ArtifactCredentialType.AWS_PRESIGNED_URL
+    )
+    response = Response()
+    response.status_code = 500
+    failed_downloads = {
+        2: requests.HTTPError(response=response),
+        5: requests.HTTPError(response=response),
+    }
+
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}._get_read_credential_infos",
+        return_value=[mock_credential_info],
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.parallelized_download_file_using_http_uri",
+        return_value=failed_downloads,
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_PACKAGE}.download_chunk"
+    ), mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY}.list_artifacts",
+        side_effect=[[], [FileInfo(path="a.txt", is_dir=False, file_size=20_000_000)]],
+    ):
+        with pytest.raises(MlflowException, match="Failed to download artifact"):
+            databricks_artifact_repo.download_artifacts("a.txt")

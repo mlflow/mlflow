@@ -1,4 +1,7 @@
+import gc
+import json
 import os
+import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
@@ -7,13 +10,16 @@ from unittest import mock
 import yaml
 
 import transformers
-from huggingface_hub import ModelCard
+from huggingface_hub import ModelCard, scan_cache_dir
 from datasets import load_dataset
 
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.models.signature import infer_signature
+from mlflow.models.utils import _read_example
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -43,6 +49,7 @@ from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    pyfunc_serve_and_score_model,
 )
 
 pytestmark = pytest.mark.large
@@ -50,6 +57,52 @@ pytestmark = pytest.mark.large
 transformers_version = Version(transformers.__version__)
 _FEATURE_EXTRACTION_API_CHANGE_VERSION = "4.27.0"
 _IMAGE_PROCESSOR_API_CHANGE_VERSION = "4.26.0"
+
+# NB: Some pipelines under test in this suite come very close or outright exceed the
+# default runner containers specs of 7GB RAM. Due to this inability to run the suite without
+# generating a SIGTERM Error (143), some tests are marked as local only.
+# See: https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted- \
+# runners#supported-runners-and-hardware-resources for instance specs.
+RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
+
+# Test that can only be run locally:
+# - Summarization pipeline tests
+# - TextClassifier pipeline tests
+# - Text2TextGeneration pipeline tests
+# - Conversational pipeline tests
+
+
+@pytest.fixture(autouse=True)
+def force_gc():
+    # This reduces the memory pressure for the usage of the larger pipeline fixtures ~500MB - 1GB
+    gc.disable()
+    gc.collect()
+    gc.set_threshold(0)
+    gc.collect()
+    gc.enable()
+
+
+@pytest.fixture(autouse=True)
+def clean_cache(request):
+    # This function will clean the cache that HuggingFace uses to limit the number of fetches from
+    # the hub repository when instantiating components (tokenizers, models, etc.). Due to the
+    # runner limitations for CI (As of April 2023, the runner image ubuntu-22.04 has a maximum of
+    # 14GB of storage space on the provided SSDs and 7GB of RAM which are both insufficient to run
+    # all validations of this test suite due to the model sizes.
+    # This fixture will clear the cache iff the cache storage is > 2GB when called.
+    if "skipcacheclean" in request.keywords:
+        return
+    else:
+        full_cache = scan_cache_dir()
+        cache_size_in_gb = full_cache.size_on_disk / 1000**3
+
+        if cache_size_in_gb > 2:
+            commits_to_purge = [
+                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
+            ]
+            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
+            delete_strategy.execute()
 
 
 @pytest.fixture
@@ -64,47 +117,62 @@ def transformers_custom_env(tmp_path):
     return conda_env
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
+def mock_pyfunc_wrapper():
+    return mlflow.transformers._TransformersWrapper("mock")
+
+
+@pytest.fixture()
 def small_seq2seq_pipeline():
     # The return type of this model's language head is a List[Dict[str, Any]]
     architecture = "lordtt13/emo-mobilebert"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.TFMobileBertForSequenceClassification.from_pretrained(architecture)
+    model = transformers.TFAutoModelForSequenceClassification.from_pretrained(architecture)
     return transformers.pipeline(task="text-classification", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def small_qa_pipeline():
     # The return type of this model's language head is a Dict[str, Any]
     architecture = "csarron/mobilebert-uncased-squad-v2"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.MobileBertForQuestionAnswering.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture, low_cpu_mem_usage=True)
+    model = transformers.MobileBertForQuestionAnswering.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
     return transformers.pipeline(task="question-answering", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def small_vision_model():
     architecture = "google/mobilenet_v2_1.0_224"
-    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(architecture)
-    model = transformers.MobileNetV2ForImageClassification.from_pretrained(architecture)
+    feature_extractor = transformers.AutoFeatureExtractor.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
+    model = transformers.MobileNetV2ForImageClassification.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
     return transformers.pipeline(
         task="image-classification", model=model, feature_extractor=feature_extractor
     )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def small_multi_modal_pipeline():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
     return transformers.pipeline(model=architecture)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def component_multi_modal():
     architecture = "dandelin/vilt-b32-finetuned-vqa"
-    tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture)
-    processor = transformers.ViltProcessor.from_pretrained(architecture)
-    image_processor = transformers.ViltImageProcessor.from_pretrained(architecture)
-    model = transformers.ViltForQuestionAnswering.from_pretrained(architecture)
+    tokenizer = transformers.BertTokenizerFast.from_pretrained(architecture, low_cpu_mem_usage=True)
+    processor = transformers.ViltProcessor.from_pretrained(architecture, low_cpu_mem_usage=True)
+    image_processor = transformers.ViltImageProcessor.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
+    model = transformers.ViltForQuestionAnswering.from_pretrained(
+        architecture, low_cpu_mem_usage=True
+    )
     transformers_model = {"model": model, "tokenizer": tokenizer}
     if transformers_version >= Version(_FEATURE_EXTRACTION_API_CHANGE_VERSION):
         transformers_model["image_processor"] = image_processor
@@ -113,14 +181,133 @@ def component_multi_modal():
     return transformers_model
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def small_conversational_model():
-    tokenizer = transformers.AutoTokenizer.from_pretrained("microsoft/DialoGPT-small")
-    model = transformers.AutoModelWithLMHead.from_pretrained("satvikag/chatbot")
+    tokenizer = transformers.AutoTokenizer.from_pretrained(
+        "microsoft/DialoGPT-small", low_cpu_mem_usage=True
+    )
+    model = transformers.AutoModelWithLMHead.from_pretrained(
+        "satvikag/chatbot", low_cpu_mem_usage=True
+    )
     return transformers.pipeline(task="conversational", model=model, tokenizer=tokenizer)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
+def fill_mask_pipeline():
+    architecture = "distilroberta-base"
+    model = transformers.AutoModelForMaskedLM.from_pretrained(architecture, low_cpu_mem_usage=True)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    return transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
+
+
+@pytest.fixture()
+def text2text_generation_pipeline():
+    task = "text2text-generation"
+    architecture = "mrm8488/t5-base-finetuned-common_gen"
+    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+
+    return transformers.pipeline(
+        task=task,
+        tokenizer=tokenizer,
+        model=model,
+    )
+
+
+@pytest.fixture()
+def text_generation_pipeline():
+    task = "text-generation"
+    architecture = "distilgpt2"
+    model = transformers.AutoModelWithLMHead.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+
+    return transformers.pipeline(
+        task=task,
+        model=model,
+        tokenizer=tokenizer,
+    )
+
+
+@pytest.fixture()
+def translation_pipeline():
+    return transformers.pipeline(
+        task="translation_en_to_de",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+    )
+
+
+@pytest.fixture()
+def summarizer_pipeline():
+    task = "summarization"
+    architecture = "philschmid/distilbart-cnn-12-6-samsum"
+    model = transformers.BartForConditionalGeneration.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    return transformers.pipeline(
+        task=task,
+        tokenizer=tokenizer,
+        model=model,
+    )
+
+
+@pytest.fixture()
+def text_classification_pipeline():
+    task = "text-classification"
+    architecture = "distilbert-base-uncased-finetuned-sst-2-english"
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    return transformers.pipeline(
+        task=task,
+        tokenizer=tokenizer,
+        model=model,
+    )
+
+
+@pytest.fixture()
+def zero_shot_pipeline():
+    task = "zero-shot-classification"
+    architecture = "typeform/distilbert-base-uncased-mnli"
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+    return transformers.pipeline(
+        task=task,
+        tokenizer=tokenizer,
+        model=model,
+    )
+
+
+@pytest.fixture()
+def table_question_answering_pipeline():
+    return transformers.pipeline(
+        task="table-question-answering", model="microsoft/tapex-base-finetuned-wtq"
+    )
+
+
+@pytest.fixture()
+def ner_pipeline():
+    return transformers.pipeline(
+        task="token-classification", model="vblagoje/bert-english-uncased-finetuned-pos"
+    )
+
+
+@pytest.fixture()
+def ner_pipeline_aggregation():
+    # Modification to the default aggregation_strategy of `None` changes the output keys in each
+    # of the dictionaries. This fixture allows for testing that the correct data is extracted
+    # as a return value
+    return transformers.pipeline(
+        task="token-classification",
+        model="vblagoje/bert-english-uncased-finetuned-pos",
+        aggregation_strategy="average",
+    )
+
+
+@pytest.fixture()
+def conversational_pipeline():
+    return transformers.pipeline(model="microsoft/DialoGPT-medium")
+
+
+@pytest.fixture()
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
@@ -898,3 +1085,951 @@ def test_invalid_task_inference_raises_error(model_path):
             mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
         dummy_pipeline.task = "text-classification"
         mlflow.transformers.save_model(transformers_model=dummy_pipeline, path=model_path)
+
+
+def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi_modal):
+    with pytest.raises(MlflowException, match="The pipeline type submitted is not a valid"):
+        mlflow.transformers.generate_signature_output(component_multi_modal["model"], "bogus")
+
+
+@pytest.mark.parametrize(
+    "inference_payload",
+    [
+        ({"question": "Who's house?", "context": "The house is owned by a man named Run."}),
+        (
+            [
+                {
+                    "question": "What color is it?",
+                    "context": "Some people said it was green but I know that it's definitely blue",
+                },
+                {
+                    "question": "How do the wheels go?",
+                    "context": "The wheels on the bus go round and round. Round and round.",
+                },
+            ]
+        ),
+        (
+            [
+                {
+                    "question": "What color is it?",
+                    "context": "Some people said it was green but I know that it's pink.",
+                },
+                {
+                    "context": "The people on the bus go up and down. Up and down.",
+                    "question": "How do the people go?",
+                },
+            ]
+        ),
+    ],
+)
+def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, inference_payload):
+    signature = infer_signature(
+        inference_payload,
+        mlflow.transformers.generate_signature_output(small_qa_pipeline, inference_payload),
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=small_qa_pipeline,
+        path=model_path,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(inference_payload)
+
+    if isinstance(inference_payload, dict):
+        assert isinstance(inference, str)
+    else:
+        assert isinstance(inference, list)
+
+    if isinstance(inference_payload, dict):
+        pd_input = pd.DataFrame(inference_payload, index=[0])
+    else:
+        pd_input = pd.DataFrame(inference_payload)
+    pd_inference = pyfunc_loaded.predict(pd_input)
+
+    if isinstance(inference_payload, dict):
+        assert isinstance(pd_inference, str)
+    else:
+        assert isinstance(pd_inference, list)
+
+
+@pytest.mark.parametrize(
+    "data, result",
+    [
+        ("muppet keyboard type", "A muppet is typing on a keyboard."),
+        (
+            ["pencil draw paper", "pie apple eat"],
+            # NB: The result of this test case, without inference config overrides is:
+            # ["A man drawing on paper with pencil", "A man eating a pie with applies"]
+            # The inference config override forces additional insertion of more grammatically
+            # correct responses to validate that the inference config is being applied.
+            ["A man is drawing on paper with a pencil.", "A man is eating a pie with apples."],
+        ),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_text2text_generation_pipeline_with_inference_configs(
+    text2text_generation_pipeline, model_path, data, result
+):
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
+    )
+
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    mlflow.transformers.save_model(
+        text2text_generation_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+
+    assert inference == result
+
+    if isinstance(data, str):
+        pd_input = pd.DataFrame([data])
+    else:
+        pd_input = pd.DataFrame(data)
+    pd_inference = pyfunc_loaded.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "invalid_data",
+    [
+        ({"answer": "something", "context": ["nothing", "that", "makes", "sense"]}),
+        ([{"answer": ["42"], "context": "life"}, {"unmatched": "keys", "cause": "failure"}]),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_invalid_input_to_text2text_pipeline(text2text_generation_pipeline, invalid_data):
+    # Adding this validation test due to the fact that we're constructing the input to the
+    # Pipeline. The Pipeline requires a format of a pseudo-dict-like string. An example of
+    # a valid input string: "answer: green. context: grass is primarily green in color."
+    # We generate this string from a dict or generate a list of these strings from a list of
+    # dictionaries.
+    with pytest.raises(MlflowException, match="An invalid type has been supplied. Please supply"):
+        infer_signature(
+            invalid_data,
+            mlflow.transformers.generate_signature_output(
+                text2text_generation_pipeline, invalid_data
+            ),
+        )
+
+
+@pytest.mark.parametrize(
+    "data", ["Generative models are", (["Generative models are", "Computers are"])]
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(text_generation_pipeline, data)
+    )
+
+    inference_config = {
+        "prefix": "software",
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 30,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    mlflow.transformers.save_model(
+        text_generation_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+
+    if isinstance(data, list):
+        assert inference[0].startswith(data[0])
+        assert inference[1].startswith(data[1])
+    else:
+        assert inference.startswith(data)
+
+    if isinstance(data, str):
+        pd_input = pd.DataFrame([data], index=[0])
+    else:
+        pd_input = pd.DataFrame(data)
+    pd_inference = pyfunc_loaded.predict(pd_input)
+
+    if isinstance(data, list):
+        assert pd_inference[0].startswith(data[0])
+        assert pd_inference[1].startswith(data[1])
+    else:
+        assert pd_inference.startswith(data)
+
+
+@pytest.mark.parametrize(
+    "invalid_data",
+    [
+        ({"my_input": "something to predict"}),
+        ([{"bogus_input": "invalid"}, "not_valid"]),
+        (["tell me a story", {"of": "a properly configured pipeline input"}]),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, invalid_data):
+    if isinstance(invalid_data, list):
+        match = "If supplying a list, all values must be of string type"
+    else:
+        match = "The input data is of an incorrect type"
+    with pytest.raises(MlflowException, match=match):
+        infer_signature(
+            invalid_data,
+            mlflow.transformers.generate_signature_output(text_generation_pipeline, invalid_data),
+        )
+
+
+@pytest.mark.parametrize(
+    "inference_payload, result",
+    [
+        ("Riding a <mask> on the beach is fun!", "bike"),
+        (["If I had <mask>, I would fly to the top of a mountain"], "wings"),
+        (
+            ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
+            ["cash", "ate"],
+        ),
+    ],
+)
+def test_fill_mask_pipeline(fill_mask_pipeline, model_path, inference_payload, result):
+    signature = infer_signature(
+        inference_payload,
+        mlflow.transformers.generate_signature_output(fill_mask_pipeline, inference_payload),
+    )
+
+    mlflow.transformers.save_model(fill_mask_pipeline, path=model_path, signature=signature)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(inference_payload)
+    assert inference == result
+
+    if len(inference_payload) > 1 and isinstance(inference_payload, list):
+        pd_input = pd.DataFrame([{"inputs": v} for v in inference_payload])
+    elif isinstance(inference_payload, list) and len(inference_payload) == 1:
+        pd_input = pd.DataFrame([{"inputs": v} for v in inference_payload], index=[0])
+    else:
+        pd_input = pd.DataFrame({"inputs": inference_payload}, index=[0])
+
+    pd_inference = pyfunc_loaded.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "invalid_data",
+    [
+        ({"a": "b"}),
+        ([{"a": "b"}, [{"a": "c"}]]),
+    ],
+)
+def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
+    if isinstance(invalid_data, list):
+        match = "Invalid data submission. Ensure all"
+    else:
+        match = "The input data is of an incorrect type"
+    with pytest.raises(MlflowException, match=match):
+        infer_signature(
+            invalid_data,
+            mlflow.transformers.generate_signature_output(fill_mask_pipeline, invalid_data),
+        )
+
+
+@pytest.mark.parametrize(
+    "data, result",
+    [
+        (
+            {
+                "sequences": "I love the latest update to this IDE!",
+                "candidate_labels": ["happy", "sad"],
+            },
+            "happy",
+        ),
+        (
+            {
+                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
+                "candidate_labels": '["happy", "sad"]',
+                "hypothesis_template": "This example talks about how the dog is {}",
+            },
+            ["happy", "sad"],
+        ),
+    ],
+)
+def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data, result):
+    # NB: The list submission for this pipeline type can accept json-encoded lists or lists within
+    # the values of the dictionary.
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(zero_shot_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(zero_shot_pipeline, model_path, signature=signature)
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict(data)
+
+    assert inference == result
+
+    if all(isinstance(value, str) for value in data.values()):
+        pd_input = pd.DataFrame(data, index=[0])
+    else:
+        pd_input = pd.DataFrame(data)
+    pd_inference = loaded_pyfunc.predict(pd_input)
+
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "query, result",
+    [
+        ({"query": "What should we order more of?"}, "apples"),
+        (
+            {"query": ["What is our highest sales?", "What should we order more of?"]},
+            ["1230945.55", "apples"],
+        ),
+    ],
+)
+def test_table_question_answering_pipeline(
+    table_question_answering_pipeline, model_path, query, result
+):
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+    json_table = json.dumps(table)
+    data = {**query, "table": json_table}
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(table_question_answering_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(
+        table_question_answering_pipeline, model_path, signature=signature
+    )
+    loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = loaded.predict(data)
+    assert inference == result
+
+    if all(isinstance(value, str) for value in data.values()):
+        pd_input = pd.DataFrame(data, index=[0])
+    else:
+        pd_input = pd.DataFrame(data)
+    pd_inference = loaded.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "data, result",
+    [
+        ("I've got a lovely bunch of coconuts!", "Ich habe eine schöne Haufe von Kokos!"),
+        (
+            [
+                "I am the very model of a modern major general",
+                "Once upon a time, there was a little turtle",
+            ],
+            [
+                "Ich bin das Modell eines modernen Generals.",
+                "Einmal gab es eine kleine Schildkröte.",
+            ],
+        ),
+    ],
+)
+def test_translation_pipeline(translation_pipeline, model_path, data, result):
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(translation_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(translation_pipeline, path=model_path, signature=signature)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    inference = pyfunc_loaded.predict(data)
+    assert inference == result
+
+    if len(data) > 1 and isinstance(data, list):
+        pd_input = pd.DataFrame([{"inputs": v} for v in data])
+    elif isinstance(data, list) and len(data) == 1:
+        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
+    else:
+        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+
+    pd_inference = pyfunc_loaded.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        "There once was a boy",
+        ["Dolly isn't just a sheep anymore"],
+        ["Baking cookies is quite easy", "Writing unittests is good for"],
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_summarization_pipeline(summarizer_pipeline, model_path, data):
+    inference_config = {
+        "top_k": 2,
+        "num_beams": 5,
+        "max_length": 90,
+        "temperature": 0.62,
+        "top_p": 0.85,
+        "repetition_penalty": 1.15,
+    }
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(summarizer_pipeline, data)
+    )
+
+    mlflow.transformers.save_model(
+        summarizer_pipeline, path=model_path, inference_config=inference_config, signature=signature
+    )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict(data)
+    if isinstance(data, list) and len(data) > 1:
+        for i, entry in enumerate(data):
+            assert inference[i].strip().startswith(entry)
+    elif isinstance(data, list) and len(data) == 1:
+        assert inference.strip().startswith(data[0])
+    else:
+        assert inference.strip().startswith(data)
+
+    if len(data) > 1 and isinstance(data, list):
+        pd_input = pd.DataFrame([{"inputs": v} for v in data])
+    elif isinstance(data, list) and len(data) == 1:
+        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
+    else:
+        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+
+    pd_inference = pyfunc_loaded.predict(pd_input)
+    if isinstance(data, list) and len(data) > 1:
+        for i, entry in enumerate(data):
+            assert pd_inference[i].strip().startswith(entry)
+    elif isinstance(data, list) and len(data) == 1:
+        assert pd_inference.strip().startswith(data[0])
+    else:
+        assert pd_inference.strip().startswith(data)
+
+
+@pytest.mark.parametrize(
+    "data, result",
+    [
+        ("I'm telling you that Han shot first!", "POSITIVE"),
+        (
+            [
+                "I think this sushi might have gone off",
+                "That gym smells like feet, hot garbage, and sadness",
+                "I love that we have a moon",
+            ],
+            ["NEGATIVE", "NEGATIVE", "POSITIVE"],
+        ),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_classifier_pipeline(text_classification_pipeline, model_path, data, result):
+    signature = infer_signature(
+        data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
+    )
+    mlflow.transformers.save_model(
+        text_classification_pipeline, path=model_path, signature=signature
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    inference = pyfunc_loaded.predict(data)
+    assert inference == result
+
+    if len(data) > 1 and isinstance(data, list):
+        pd_input = pd.DataFrame([{"inputs": v} for v in data])
+    elif isinstance(data, list) and len(data) == 1:
+        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
+    else:
+        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+
+    pd_inference = pyfunc_loaded.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.parametrize(
+    "data, result",
+    [
+        (
+            "I have a dog and his name is Willy!",
+            "PRON,VERB,DET,NOUN,CCONJ,PRON,NOUN,AUX,PROPN,PUNCT",
+        ),
+        (["I like turtles"], "PRON,VERB,NOUN"),
+        (
+            ["We are the knights who say nee!", "Houston, we may have a problem."],
+            [
+                "PRON,AUX,DET,PROPN,PRON,VERB,INTJ,PUNCT",
+                "PROPN,PUNCT,PRON,AUX,VERB,DET,NOUN,PUNCT",
+            ],
+        ),
+    ],
+)
+@pytest.mark.parametrize("pipeline_name", ["ner_pipeline", "ner_pipeline_aggregation"])
+@pytest.mark.skipcacheclean
+def test_ner_pipeline(pipeline_name, model_path, data, result, request):
+    pipeline = request.getfixturevalue(pipeline_name)
+
+    signature = infer_signature(data, mlflow.transformers.generate_signature_output(pipeline, data))
+
+    mlflow.transformers.save_model(pipeline, model_path, signature=signature)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    inference = loaded_pyfunc.predict(data)
+
+    assert inference == result
+
+    if len(data) > 1 and isinstance(data, list):
+        pd_input = pd.DataFrame([{"inputs": v} for v in data])
+    elif isinstance(data, list) and len(data) == 1:
+        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
+    else:
+        pd_input = pd.DataFrame({"inputs": data}, index=[0])
+
+    pd_inference = loaded_pyfunc.predict(pd_input)
+    assert pd_inference == result
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_conversational_pipeline(conversational_pipeline, model_path):
+    signature = infer_signature(
+        "Hi there!",
+        mlflow.transformers.generate_signature_output(conversational_pipeline, "Hi there!"),
+    )
+
+    mlflow.transformers.save_model(conversational_pipeline, model_path, signature=signature)
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    first_response = loaded_pyfunc.predict("What is the best way to get to Antarctica?")
+
+    assert first_response == "I think you can get there by boat."
+
+    second_response = loaded_pyfunc.predict("What kind of boat should I use?")
+
+    assert second_response == "A boat that can go to Antarctica."
+
+    # Test that a new loaded instance has no context.
+    loaded_again_pyfunc = mlflow.pyfunc.load_model(model_path)
+    third_response = loaded_again_pyfunc.predict("What kind of boat should I use?")
+
+    assert third_response == "A boat that can't sink."
+
+    fourth_response = loaded_again_pyfunc.predict("Can I use it to go to the moon?")
+
+    assert fourth_response == "Only if you have a boat that can't sink."
+
+
+@pytest.mark.parametrize(
+    "pipeline_name, example, in_signature, out_signature",
+    [
+        (
+            "fill_mask_pipeline",
+            ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
+            [{"type": "string"}],
+            [{"type": "string"}],
+        ),
+        (
+            "zero_shot_pipeline",
+            {
+                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
+                "candidate_labels": ["happy", "sad"],
+                "hypothesis_template": "This example talks about how the dog is {}",
+            },
+            [
+                {"name": "sequences", "type": "string"},
+                {"name": "candidate_labels", "type": "string"},
+                {"name": "hypothesis_template", "type": "string"},
+            ],
+            [{"type": "string"}],
+        ),
+    ],
+)
+@pytest.mark.parametrize("provide_example", [True, False])
+@pytest.mark.skipcacheclean
+def test_infer_signature_from_example_only(
+    pipeline_name, model_path, example, request, provide_example, in_signature, out_signature
+):
+    pipeline = request.getfixturevalue(pipeline_name)
+
+    input_example = example if provide_example else None
+    mlflow.transformers.save_model(pipeline, model_path, input_example=input_example)
+
+    model = Model.load(model_path)
+
+    assert model.signature.inputs.to_dict() == in_signature
+    assert model.signature.outputs.to_dict() == out_signature
+
+    if provide_example:
+        saved_example = _read_example(model, model_path).to_dict(orient="records")
+        if isinstance(example, str):
+            assert next(iter(saved_example[0].values())) == example
+        elif isinstance(example, list):
+            assert list(saved_example[0].values()) == example
+        else:
+            assert set(saved_example[0].keys()).intersection(example.keys()) == set(
+                saved_example[0].keys()
+            )
+    else:
+        assert model.saved_input_example_info is None
+
+
+def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
+    artifact_path = "qa_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "question": "Who's house?",
+                "context": "The house is owned by a man named Run.",
+            }
+        }
+    )
+
+    from mlflow.deployments import PredictionsResponse
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "Run"}]
+
+
+def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
+    mlflow.transformers.save_model(small_multi_modal_pipeline, model_path)
+    with pytest.raises(MlflowException, match='Model does not have the "python_function" flavor'):
+        mlflow.pyfunc.load_model(model_path)
+
+
+def test_pyfunc_input_validations(mock_pyfunc_wrapper):
+    def ensure_raises(data, match):
+        with pytest.raises(MlflowException, match=match):
+            mock_pyfunc_wrapper._validate_str_or_list_str(data)
+
+    match1 = "The input data is of an incorrect type"
+    match2 = "If supplying a list, all values must"
+    ensure_raises({"a": "b"}, match1)
+    ensure_raises(("a", "b"), match1)
+    ensure_raises({"a", "b"}, match1)
+    ensure_raises(True, match1)
+    ensure_raises(12, match1)
+    ensure_raises([1, 2, 3], match2)
+    ensure_raises([{"a", "b"}], match2)
+    ensure_raises([["a", "b", "c'"]], match2)
+    ensure_raises([{"a": "b"}, {"a": "c"}], match2)
+    ensure_raises([[1], [2]], match2)
+
+
+def test_pyfunc_json_encoded_dict_parsing(mock_pyfunc_wrapper):
+    plain_dict = {"a": "b", "b": "c"}
+    list_dict = [plain_dict, plain_dict]
+
+    plain_input = {"in": json.dumps(plain_dict)}
+    list_input = {"in": json.dumps(list_dict)}
+
+    plain_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(plain_input, "in")
+    assert plain_parsed == {"in": plain_dict}
+
+    list_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(list_input, "in")
+    assert list_parsed == {"in": list_dict}
+
+    invalid_parsed = mock_pyfunc_wrapper._parse_json_encoded_dict_payload_to_dict(
+        plain_input, "invalid"
+    )
+    assert invalid_parsed != {"in": plain_dict}
+    assert invalid_parsed == plain_input
+
+
+def test_pyfunc_json_encoded_list_parsing(mock_pyfunc_wrapper):
+    plain_list = ["a", "b", "c"]
+    nested_list = [plain_list, plain_list]
+    list_dict = [{"a": "b"}, {"a": "c"}]
+
+    plain_input = {"in": json.dumps(plain_list)}
+    nested_input = {"in": json.dumps(nested_list)}
+    list_dict_input = {"in": json.dumps(list_dict)}
+
+    plain_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(plain_input, "in")
+    assert plain_parsed == {"in": plain_list}
+
+    nested_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(nested_input, "in")
+    assert nested_parsed == {"in": nested_list}
+
+    list_dict_parsed = mock_pyfunc_wrapper._parse_json_encoded_list(list_dict_input, "in")
+    assert list_dict_parsed == {"in": list_dict}
+
+    with pytest.raises(MlflowException, match="Invalid key in inference payload. The "):
+        mock_pyfunc_wrapper._parse_json_encoded_list(list_dict_input, "invalid")
+
+
+def test_pyfunc_text_to_text_input(mock_pyfunc_wrapper):
+    text2text_input = {"context": "a", "answer": "b"}
+    parsed_input = mock_pyfunc_wrapper._parse_text2text_input(text2text_input)
+    assert parsed_input == "context: a answer: b"
+
+    text2text_input_list = [text2text_input, text2text_input]
+    parsed_input_list = mock_pyfunc_wrapper._parse_text2text_input(text2text_input_list)
+    assert parsed_input_list == ["context: a answer: b", "context: a answer: b"]
+
+    parsed_with_inputs = mock_pyfunc_wrapper._parse_text2text_input({"inputs": "a"})
+    assert parsed_with_inputs == ["a"]
+
+    parsed_str = mock_pyfunc_wrapper._parse_text2text_input("a")
+    assert parsed_str == "a"
+
+    parsed_list_str = mock_pyfunc_wrapper._parse_text2text_input(["a", "b"])
+    assert parsed_list_str == ["a", "b"]
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_text2text_input([1, 2, 3])
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_text2text_input([{"a": [{"b": "c"}]}])
+
+
+def test_pyfunc_qa_input(mock_pyfunc_wrapper):
+    single_input = {"question": "a", "context": "b"}
+    parsed_single_input = mock_pyfunc_wrapper._parse_question_answer_input(single_input)
+    assert parsed_single_input == single_input
+
+    multi_input = [single_input, single_input]
+    parsed_multi_input = mock_pyfunc_wrapper._parse_question_answer_input(multi_input)
+    assert parsed_multi_input == multi_input
+
+    with pytest.raises(MlflowException, match="Invalid keys were submitted. Keys must"):
+        mock_pyfunc_wrapper._parse_question_answer_input({"q": "a", "c": "b"})
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_question_answer_input("a")
+
+    with pytest.raises(MlflowException, match="An invalid type has been supplied"):
+        mock_pyfunc_wrapper._parse_question_answer_input(["a", "b", "c"])
+
+
+def test_list_of_dict_to_list_of_str_parsing(mock_pyfunc_wrapper):
+    # Test with a single list of dictionaries
+    output_data = [{"a": "foo"}, {"a": "bar"}, {"a": "baz"}]
+    expected_output = ["foo", "bar", "baz"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+    # Test with a nested list of dictionaries
+    output_data = [
+        {"a": "foo", "b": [{"a": "bar"}]},
+        {"a": "baz", "b": [{"a": "qux"}]},
+    ]
+    expected_output = ["foo", "bar", "baz", "qux"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+    # Test with nested list with exclusion data
+    output_data = [
+        {"a": "valid", "b": [{"a": "another valid"}, {"b": "invalid"}]},
+        {"a": "valid 2", "b": [{"a": "another valid 2"}, {"c": "invalid"}]},
+    ]
+    expected_output = ["valid", "another valid", "valid 2", "another valid 2"]
+    assert (
+        mock_pyfunc_wrapper._parse_lists_of_dict_to_list_of_str(output_data, "a") == expected_output
+    )
+
+
+def test_parsing_tokenizer_output(mock_pyfunc_wrapper):
+    output_data = [{"a": "b"}, {"a": "c"}, {"a": "d"}]
+    expected_output = "b,c,d"
+    assert mock_pyfunc_wrapper._parse_tokenizer_output(output_data, {"a"}) == expected_output
+
+    output_data = [output_data, output_data]
+    expected_output = [expected_output, expected_output]
+    assert mock_pyfunc_wrapper._parse_tokenizer_output(output_data, {"a"}) == expected_output
+
+
+def test_parse_list_of_multiple_dicts(mock_pyfunc_wrapper):
+    output_data = [{"a": "b", "d": "f"}, {"a": "z", "d": "g"}]
+    target_dict_key = "a"
+    expected_output = ["b"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_of_multiple_dicts(output_data, target_dict_key)
+        == expected_output
+    )
+
+    output_data = [
+        [{"a": "c", "d": "q"}, {"a": "o", "d": "q"}, {"a": "d", "d": "q"}, {"a": "e", "d": "r"}],
+        [{"a": "m", "d": "s"}, {"a": "e", "d": "t"}],
+    ]
+    target_dict_key = "a"
+    expected_output = ["c", "m"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_of_multiple_dicts(output_data, target_dict_key)
+        == expected_output
+    )
+
+
+def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper):
+    # Test with a single candidate pipeline output
+    output_data = [["foo", "bar", "baz"]]
+    expected_output = ["foo"]
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
+
+    # Test with multiple candidate pipeline outputs
+    output_data = [
+        ["foo", "bar", "baz"],
+        ["qux", "quux"],
+        ["corge", "grault", "garply", "waldo"],
+    ]
+    expected_output = ["foo", "qux", "corge"]
+
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
+
+    # Test with an empty list
+    output_data = []
+    with pytest.raises(MlflowException, match="The output of the pipeline contains no"):
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+
+    # Test with a nested list
+    output_data = [["foo"]]
+    expected_output = ["foo"]
+    assert (
+        mock_pyfunc_wrapper._parse_list_output_for_multiple_candidate_pipelines(output_data)
+        == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    "pipeline_input, pipeline_output, expected_output, flavor_config",
+    [
+        (
+            "What answers?",
+            [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
+            "A collection of answers",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nHow are you?"}],
+            "How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nA: How are you?"}],
+            "How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
+        (
+            ["Hi!", "What's up?"],
+            [[{"generated_text": "Hi!\n\nHello there"}, {"generated_text": "Not much, and you?"}]],
+            ["Hello there", "Not much, and you?"],
+            {"instance_type": "InstructionTextGenerationPipeline"},
+        ),
+        # Tests a standard TextGenerationPipeline output
+        (
+            ["We like to", "Open the"],
+            [
+                [
+                    {"generated_text": "We like to party"},
+                    {"generated_text": "Open the door get on the floor everybody do the dinosaur"},
+                ]
+            ],
+            ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
+            {"instance_type": "TextGenerationPipeline"},
+        ),
+    ],
+)
+def test_parse_input_from_instruction_pipeline(
+    mock_pyfunc_wrapper, pipeline_input, pipeline_output, expected_output, flavor_config
+):
+    assert (
+        mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
+            pipeline_input, pipeline_output, "generated_text", flavor_config, False
+        )
+        == expected_output
+    )
+
+
+@pytest.mark.parametrize(
+    "flavor_config",
+    [
+        {"instance_type": "InstructionTextGenerationPipeline"},
+        {"instance_type": "TextGenerationPipeline"},
+    ],
+)
+def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config):
+    prompt = "What is your favorite boba flavor?"
+
+    bad_output = {"generated_text": ["Strawberry Milk Cap", "Honeydew with boba"]}
+
+    with pytest.raises(MlflowException, match="Unable to parse the pipeline output. Expected"):
+        mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
+            prompt, bad_output, "generated_text", flavor_config, True
+        )
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        inference_config={"max_length": 100},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert not inference.startswith("What is MLflow?")
+    assert "\n" not in inference
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline_with_prompt_in_output(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        inference_config={"max_length": 100, "include_prompt": True},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert inference.startswith("What is MLflow?")
+    assert "\n" not in inference

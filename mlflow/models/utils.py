@@ -26,18 +26,12 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix"]
+ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str]
 
 PyFuncInput = Union[
-    pd.DataFrame,
-    pd.Series,
-    np.ndarray,
-    "csc_matrix",
-    "csr_matrix",
-    List[Any],
-    Dict[str, Any],
+    pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
 ]
-PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list]
+PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
 
 
 class _Example:
@@ -127,6 +121,13 @@ class _Example:
             if isinstance(input_ex, dict):
                 if all(_is_scalar(x) for x in input_ex.values()):
                     input_ex = pd.DataFrame([input_ex])
+                elif all(isinstance(x, (str, list)) for x in input_ex.values()):
+                    for value in input_ex.values():
+                        if isinstance(value, list) and not all(_is_scalar(x) for x in value):
+                            raise TypeError(
+                                "List values within dictionaries must be of scalar type."
+                            )
+                    input_ex = pd.DataFrame(input_ex)
                 else:
                     raise TypeError(
                         "Data in the dictionary must be scalar or of type numpy.ndarray"
@@ -141,6 +142,8 @@ class _Example:
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
+            elif isinstance(input_ex, str):
+                input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
                     import pyspark.sql.dataframe
@@ -463,14 +466,17 @@ def _reshape_and_cast_pandas_column_values(name, pd_series, tensor_spec):
         )
 
     if np.isscalar(pd_series[0]):
-        if tensor_spec.shape != (-1,):
-            raise MlflowException(
-                f"The input pandas dataframe column '{name}' contains scalar "
-                "values, which requires the shape to be (-1,), but got tensor spec "
-                f"shape of {tensor_spec.shape}.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        return _enforce_tensor_spec(np.array(pd_series, dtype=tensor_spec.type), tensor_spec)
+        for shape in [(-1,), (-1, 1)]:
+            if tensor_spec.shape == shape:
+                return _enforce_tensor_spec(
+                    np.array(pd_series, dtype=tensor_spec.type).reshape(shape), tensor_spec
+                )
+        raise MlflowException(
+            f"The input pandas dataframe column '{name}' contains scalar "
+            "values, which requires the shape to be (-1,) or (-1, 1), but got tensor spec "
+            f"shape of {tensor_spec.shape}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
     elif isinstance(pd_series[0], list) and np.isscalar(pd_series[0][0]):
         # If the pandas column contains list type values,
         # in this case, the shape and type information is lost,
@@ -609,9 +615,16 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
-        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series)):
+        if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
             try:
-                pf_input = pd.DataFrame(pf_input)
+                if isinstance(pf_input, dict) and all(
+                    not isinstance(value, (dict, list)) for value in pf_input.values()
+                ):
+                    pf_input = pd.DataFrame(pf_input, index=[0])
+                elif isinstance(pf_input, str):
+                    pf_input = pd.DataFrame({"inputs": pf_input}, index=[0])
+                else:
+                    pf_input = pd.DataFrame(pf_input)
             except Exception as e:
                 raise MlflowException(
                     "This model contains a column-based signature, which suggests a DataFrame"
@@ -678,6 +691,7 @@ def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
                  - scipy.sparse.csr_matrix
                  - List[Any]
                  - Dict[str, Any]
+                 - str
     :param expected_schema: Expected :py:class:`Schema <mlflow.types.Schema>` of the input data.
     :raises: A :py:class:`mlflow.exceptions.MlflowException`. when the input data does
              not match the schema.

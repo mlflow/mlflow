@@ -2,6 +2,6 @@ python: "3.8"
 build_dependencies:
   - pip
 dependencies:
-  - scikit-learn==0.23.2
+  - scikit-learn==1.2.0
   - mlflow>=1.0
   - pandas
