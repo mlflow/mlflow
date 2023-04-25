@@ -33,6 +33,12 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
         ("models:/AdsModel1/pROduction", "AdsModel1", "pROduction"),  # case insensitive
         ("models:/Ads Model 1/None", "Ads Model 1", "None"),
         ("models://scope:key@databricks/Ads Model 1/None", "Ads Model 1", "None"),
+        (
+            "models:/Name/Stage@Alias",
+            "Name",
+            "Stage@Alias",
+        ),  # technically allowed, but the backend would throw
+        ("models:/Name@Alias/Stage", "Name@Alias", "Stage"),
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
@@ -90,6 +96,8 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "models:/",  # no model name
         "models:/ /Stage",  # empty name
         "models:/Name",  # no specifiers
+        "models:/Name/",  # empty suffix
+        "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
         "models:/Name@Alias@other",  # too many aliases
         "models:Name/Stage",  # missing slash

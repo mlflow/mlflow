@@ -61,10 +61,12 @@ def _parse_model_uri(uri):
         raise MlflowException(_improper_model_uri_msg(uri))
 
     parts = path[1:].split("/")
-    if len(parts) < 1 or len(parts) > 2 or parts[0].strip() == "":
+    if len(parts) > 2 or parts[0].strip() == "":
         raise MlflowException(_improper_model_uri_msg(uri))
 
     if len(parts) == 2:
+        if parts[1].strip() == "":
+            raise MlflowException(_improper_model_uri_msg(uri))
         # The URI is in the suffix format
         if parts[1].isdigit():
             # The suffix is a specific version, e.g. "models:/AdsModel1/123"
@@ -78,10 +80,9 @@ def _parse_model_uri(uri):
     else:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
         alias_parts = parts[0].split("@")
-        if len(alias_parts) == 2:
-            return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
-        else:
+        if len(alias_parts) != 2 or alias_parts[1].strip() == "":
             raise MlflowException(_improper_model_uri_msg(uri))
+        return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
 
 
 def get_model_name_and_version(client, models_uri):
