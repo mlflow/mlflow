@@ -125,7 +125,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
         Converts the dataset to an EvaluationDataset for model evaluation. Required
-        for use with mlflow.sklearn.evalute().
+        for use with mlflow.evaluate().
         """
         raise NotImplementedError
 

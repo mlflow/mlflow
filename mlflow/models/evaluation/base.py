@@ -4,6 +4,8 @@ import mlflow
 import hashlib
 import json
 import os
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
@@ -14,6 +16,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
 from mlflow.data.dataset import Dataset
@@ -1337,24 +1340,27 @@ def evaluate(
         evaluator_name_to_conf_map,
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
-    from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
-
-    if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
-        dataset = data.to_evaluation_dataset(dataset_path, feature_names)
-        if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
-            context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
-        else:
-            context = None
-        mlflow.log_input(data, context)
-    else:
-        dataset = EvaluationDataset(
-            data,
-            targets=targets,
-            path=dataset_path,
-            feature_names=feature_names,
-        )
-
     with _start_run_or_reuse_active_run() as run_id:
+        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
+            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+            if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
+                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
+            else:
+                context = None
+            client = MlflowClient()
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
+            dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
+            client.log_inputs(run_id, [dataset_input])
+        else:
+            dataset = EvaluationDataset(
+                data,
+                targets=targets,
+                path=dataset_path,
+                feature_names=feature_names,
+            )
+
         try:
             evaluate_result = _evaluate(
                 model=model,
