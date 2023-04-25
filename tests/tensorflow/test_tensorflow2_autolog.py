@@ -220,7 +220,7 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
     if log_datasets:
         assert len(dataset_inputs) == 1
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema(data).to_dict()}
+            {"mlflow_tensorspec": _infer_schema({"features": data}).to_dict()}
         )
     else:
         assert len(dataset_inputs) == 0

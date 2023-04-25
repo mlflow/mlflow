@@ -8,6 +8,8 @@ import sys
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.entities import Metric, Param
 from mlflow.exceptions import MlflowException
@@ -27,6 +29,7 @@ from mlflow.utils.autologging_utils import get_method_call_arg_value
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
+    MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_SOURCE_NAME,
     MLFLOW_SOURCE_TYPE,
@@ -1204,7 +1207,12 @@ def autolog(
                                 source=code_source,
                                 name=dataset_name,
                             )
-                            mlflow.log_input(dataset, "eval")
+                            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+                            dataset_input = DatasetInput(
+                                dataset=dataset._to_mlflow_entity(), tags=tags
+                            )
+                            client = MlflowClient()
+                            client.log_inputs(run_id, [dataset_input])
                         except Exception as e:
                             _logger.warning(
                                 "Failed to log training dataset information to MLflow Tracking. "

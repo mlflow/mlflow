@@ -738,7 +738,11 @@ def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     if log_datasets:
         assert len(dataset_inputs) == 1
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema(dtrain.get_data().toarray()).to_dict()}
+            {
+                "mlflow_tensorspec": _infer_schema(
+                    {"features": dtrain.get_data().toarray()}
+                ).to_dict()
+            }
         )
     else:
         assert len(dataset_inputs) == 0
@@ -763,10 +767,10 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema(dtrain.get_data().toarray()).to_dict()}
+        {"mlflow_tensorspec": _infer_schema({"features": dtrain.get_data().toarray()}).to_dict()}
     )
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.name == "eval_dataset"
     assert dataset_inputs[1].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema(deval.get_data().toarray()).to_dict()}
+        {"mlflow_tensorspec": _infer_schema({"features": deval.get_data().toarray()}).to_dict()}
     )
