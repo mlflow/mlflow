@@ -64,17 +64,23 @@ def _parse_model_uri(uri):
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
-    if parsed.fragment:
-        # NB: If the model name contains a hash (#) in the name (historically allowed), reconstruct
-        # the path by adding the fragment identifier back into the parsed path.
-        # Multiple fragments will be included in the parsed fragment element.
-        path = f"{path}#{parsed.fragment}"
-    if parsed.query:
-        # If a query key (?) is included in the path, reconstitute the historically permitted
-        # character in a model name by adding the query identifier back into the parsed path.
-        # Multiple query identifiers (question marks) are included in the query; only the first
-        # query key in the path will be marked as the start of a query
-        path = f"{path}?{parsed.query}"
+    # NB: If the model name contains a hash (#) in the name (historically allowed), reconstruct
+    # the path by adding the fragment identifier back into the parsed path.
+    # Multiple fragments will be included in the parsed fragment element.
+    fragment = f"#{parsed.fragment}" if parsed.fragment else ""
+    # If a query key (?) is included in the path, reconstitute the historically permitted
+    # character in a model name by adding the query identifier back into the parsed path.
+    # Multiple query identifiers (question marks) are included in the query; only the first
+    # query key in the path will be marked as the start of a query
+    query = f"?{parsed.query}" if parsed.query else ""
+    fragment_idx = uri.index(parsed.fragment) if parsed.fragment else len(uri)
+    query_idx = uri.index(parsed.query) if parsed.query else len(uri)
+    # Set the order in which the fragment and query appear in the rebuilt path
+    if fragment_idx < query_idx:
+        path = f"{path}{fragment}{query}"
+    else:
+        path = f"{path}{query}{fragment}"
+
     m = _MODEL_URI_REGEX.match(path)
     if m is None:
         raise MlflowException(_improper_model_uri_msg(uri))

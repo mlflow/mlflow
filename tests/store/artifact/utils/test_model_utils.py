@@ -34,6 +34,10 @@ from mlflow.entities.model_registry import ModelVersion
         ("models:/a=model/3", "a=model", "3"),
         ("models:/some[cool]model/2", "some[cool]model", "2"),
         ("models:/a'model'/1", "a'model'", "1"),
+        ("models:/a#model?amodel/1", "a#model?amodel", "1"),  # fragment before query
+        ("models:/a?model#amodel/1", "a?model#amodel", "1"),  # query before fragment
+        ("models:/a?mo#del?b#?model/2", "a?mo#del?b#?model", "2"),  # multiple queries and fragments
+        ("models:/a#mo?del?b#?model/2", "a#mo?del?b#?model", "2"),  # multiple queries and fragments
     ],
 )
 def test_parse_models_uri_with_version(uri, expected_name, expected_version):
@@ -71,6 +75,8 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
         ("models:/a=model/stage", "a=model", "stage"),
         ("models:/some[cool]model/stage", "some[cool]model", "stage"),
         ("models:/a'model'/stage", "a'model'", "stage"),
+        ("models:/a#model?amodel/prod", "a#model?amodel", "prod"),  # fragment before query
+        ("models:/a?model#amodel/dev", "a?model#amodel", "dev"),  # query before fragment
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
@@ -127,6 +133,12 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ("models:/a=model@3", "a=model", "3"),
         ("models:/some[cool]model@2", "some[cool]model", "2"),
         ("models:/a'model'@1", "a'model'", "1"),
+        ("models:/a#model?amodel@model", "a#model?amodel", "model"),  # fragment before query
+        (
+            "models:/a?model#amodel@coolmodel",
+            "a?model#amodel",
+            "coolmodel",
+        ),  # query before fragment
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):

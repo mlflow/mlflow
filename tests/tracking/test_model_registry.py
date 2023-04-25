@@ -687,6 +687,10 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
         ("a=model", "4", "EqualAlias", "==Alias"),
         ("some[cool]model", "5", "BracketAlias", "[Alias]"),
         ("a'model'", "6", "QuoteAlias", "my'alias'"),
+        ("a#model?amodel", "7", "FragQuery", "Frag#?Query"),  # fragment before query
+        ("a?model#amodel", "8", "QueryFrag", "Query?#Frag"),  # query before fragment
+        ("a?mo#del?b#?model", "9", "QueryFrag", "?#model"),  # multiple queries and fragments
+        ("a#mo?del?b#?model", "3", "FragQuery", "#?model"),  # multiple queries and fragments
     ],
 )
 def test_register_model_with_alias_and_special_characters(
