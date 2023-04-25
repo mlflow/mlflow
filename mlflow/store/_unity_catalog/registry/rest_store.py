@@ -387,9 +387,17 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_model_dir = mlflow.artifacts.download_artifacts(
-                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-            )
+            try:
+                local_model_dir = mlflow.artifacts.download_artifacts(
+                    artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to download model artifacts from source artifact location '{source}' in "
+                    "order to upload them to Unity Catalog. Please ensure the source artifact "
+                    f"location exists and that you can download from it via "
+                    f"mlflow.artifacts.download_artifacts()"
+                ) from e
             self._validate_model_signature(local_model_dir)
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
