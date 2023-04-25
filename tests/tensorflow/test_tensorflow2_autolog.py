@@ -105,8 +105,8 @@ def fashion_mnist_tf_dataset():
 
 @pytest.fixture
 def fashion_mnist_tf_dataset_eval():
-    _, eval = tf.keras.datasets.fashion_mnist.load_data()
-    images, labels = eval
+    _, eval_dataset = tf.keras.datasets.fashion_mnist.load_data()
+    images, labels = eval_dataset
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
