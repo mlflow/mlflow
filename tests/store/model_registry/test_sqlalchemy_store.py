@@ -766,6 +766,11 @@ def test_search_model_versions(store):
     # search IN operator is case sensitive
     assert set(search_versions(f"run_id IN ('{run_id_1.upper()}','{run_id_2}')")) == {2, 3}
 
+    # search IN operator with other conditions
+    assert set(
+        search_versions(f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')")
+    ) == {2}
+
     # search IN operator with right-hand side value containing whitespaces
     assert set(search_versions(f"run_id IN ('{run_id_1}', '{run_id_2}')")) == {1, 2, 3}
 

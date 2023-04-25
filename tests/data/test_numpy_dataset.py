@@ -76,7 +76,7 @@ def test_to_pyfunc():
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
-def test_from_numpy(tmp_path):
+def test_from_numpy_features_only(tmp_path):
     features = np.array([1, 2, 3])
     path = tmp_path / "temp.csv"
     pd.DataFrame(features).to_csv(path)
@@ -84,11 +84,39 @@ def test_from_numpy(tmp_path):
 
     assert isinstance(mlflow_features, NumpyDataset)
     assert np.array_equal(mlflow_features.features, features)
-    assert mlflow_features.schema == _infer_schema(features)
+    assert mlflow_features.schema == _infer_schema({"features": features})
     assert mlflow_features.profile == {
-        "shape": features.shape,
-        "size": features.size,
-        "nbytes": features.nbytes,
+        "features_shape": features.shape,
+        "features_size": features.size,
+        "features_nbytes": features.nbytes,
     }
 
     assert isinstance(mlflow_features.source, FileSystemDatasetSource)
+
+
+def test_from_numpy_features_and_targets(tmp_path):
+    features = np.array([[1, 2, 3], [3, 2, 1], [2, 3, 1]])
+    targets = np.array([4, 5, 6])
+    path = tmp_path / "temp.csv"
+    pd.DataFrame(features).to_csv(path)
+    mlflow_ds = mlflow.data.from_numpy(features, targets=targets, source=path)
+
+    assert isinstance(mlflow_ds, NumpyDataset)
+    assert np.array_equal(mlflow_ds.features, features)
+    assert np.array_equal(mlflow_ds.targets, targets)
+    assert mlflow_ds.schema == _infer_schema(
+        {
+            "features": features,
+            "targets": targets,
+        }
+    )
+    assert mlflow_ds.profile == {
+        "features_shape": features.shape,
+        "features_size": features.size,
+        "features_nbytes": features.nbytes,
+        "targets_shape": targets.shape,
+        "targets_size": targets.size,
+        "targets_nbytes": targets.nbytes,
+    }
+
+    assert isinstance(mlflow_ds.source, FileSystemDatasetSource)

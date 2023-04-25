@@ -1,5 +1,49 @@
 # CHANGELOG
 
+## 2.3.0 (2023-04-18)
+
+MLflow 2.3.0 includes several major features and improvements
+
+Features:
+
+- [Models] Introduce a new  `transformers`  named flavor (#8236, #8181, #8086, @BenWilson2)
+- [Models] Introduce a new `openai`  named flavor (#8191, #8155, @harupy)
+- [Models] Introduce a new `langchain`  named flavor (#8251, #8197, @liangz1, @sunishsheth2009)
+- [Models] Add support for `Pytorch` and `Lightning` 2.0 (#8072, @shrinath-suresh)
+- [Tracking] Add support for logging LLM input, output, and prompt artifacts (#8234, #8204, @sunishsheth2009)
+- [Tracking] Add support for HTTP Basic Auth in the MLflow tracking server (#8130, @gabrielfu)
+- [Tracking] Add `search_model_versions` to the fluent API (#8223, @mariusschlegel)
+- [Artifacts] Add support for parallelized artifact downloads (#8116, @apurva-koti)
+- [Artifacts] Add support for parallelized artifact uploads for AWS (#8003, @harupy)
+- [Artifacts] Add content type headers to artifact upload requests for the `HttpArtifactRepository` (#8048, @WillEngler)
+- [Model Registry] Add alias support for logged models within Model Registry (#8164, #8094, #8055 @arpitjasa-db)
+- [UI] Add support for custom domain git providers (#7933, @gusghrlrl101)
+- [Scoring]  Add plugin support for customization of MLflow serving endpoints (#7757, @jmahlik)
+- [Scoring] Add support to MLflow serving that allows configuration of multiple inference workers (#8035, @M4nouel)
+- [Sagemaker] Add support for asynchronous inference configuration on Sagemaker (#8009, @thomasbell1985)
+- [Build] Remove `shap` as a core dependency of MLflow (#8199, @jmahlik)
+
+Bug fixes:
+
+- [Models] Fix a bug with `tensorflow` autologging for models with multiple inputs (#8097, @jaume-ferrarons)
+- [Recipes] Fix a bug with `Pandas` 2.0 updates for profiler rendering of datetime types (#7925, @sunishsheth2009)
+- [Tracking] Prevent exceptions from being raised if a parameter is logged with an existing key whose value is identical to the logged parameter (#8038, @AdamStelmaszczyk)
+- [Tracking] Fix an issue with deleting experiments in the FileStore backend (#8178, @mariusschlegel)
+- [Tracking] Fix a UI bug where the "Source Run" field in the Model Version page points to an incorrect set of artifacts (#8156, @WeichenXu123)
+- [Tracking] Fix a bug wherein renaming a run reverts its current lifecycle status to `UNFINISHED` (#8154, @WeichenXu123)
+- [Tracking] Fix a bug where a file URI could be used as a model version source (#8126, @harupy)
+- [Projects] Fix an issue with MLflow projects that have submodules contained within a project (#8050, @kota-iizuka)
+- [Examples] Fix `lightning` hyperparameter tuning examples (#8039, @BenWilson2)
+- [Server-infra] Fix bug with Cache-Control headers for static server files (#8016, @jmahlik)
+
+Documentation updates:
+
+- [Examples] Add a new and thorough example for the creation of custom model flavors (#7867, @benjaminbluhm)
+
+Small bug fixes and documentation updates:
+
+#8262, #8252, #8250, #8228, #8221, #8203, #8134, #8040, #7994, #7934, @BenWilson2; #8258, #8255, #8253, #8248, #8247, #8245, #8243, #8246, #8244, #8242, #8240, #8229, #8198, #8192, #8112, #8165, #8158, #8152, #8148, #8144, #8143, #8120, #8107, #8105, #8102, #8088, #8089, #8096, #8075, #8073, #8076, #8063, #8064, #8033, #8024, #8023, #8021, #8015, #8005, #7982, #8002, #7987, #7981, #7968, #7931, #7930, #7929, #7917, #7918, #7916, #7914, #7913, @harupy; #7955, @arjundc-db; #8219, #8110, #8093, #8087, #8091, #8092, #8029, #8028, #8031, @jerrylian-db; #8187, @apurva-koti; #8210, #8001, #8000, @arpitjasa-db; #8161, #8127, #8095, #8090, #8068, #8043, #7940, #7924, #7923, @dbczumar; #8147, @morelen17; #8106, @WeichenXu123; #8117, @eltociear; #8100, @laerciop; #8080, @elado; #8070, @grofte; #8066, @yukimori; #8027, #7998, @liangz1; #7999, @martlaf; #7964, @viditjain99; #7928, @alekseyolg; #7909, #7901, #7844, @smurching; #7971, @n30111; #8012, @mingyu89; #8137, @lobrien; #7992, @robmarkcole; #8263, @sunishsheth2009
+
 ## 2.2.2 (2023-03-14)
 
 MLflow 2.2.2 is a patch release containing the following bug fixes:

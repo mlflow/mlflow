@@ -1,6 +1,8 @@
 import codecs
 import errno
 import gzip
+import math
+import multiprocessing
 import os
 import posixpath
 import shutil
@@ -12,11 +14,13 @@ import pathlib
 
 import urllib.parse
 import urllib.request
+from concurrent.futures import ProcessPoolExecutor
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import atexit
 
+import requests
 import yaml
 
 try:
@@ -24,6 +28,7 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
@@ -33,6 +38,7 @@ from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
 
 ENCODING = "utf-8"
+MAX_PARALLEL_DOWNLOAD_WORKERS = 32
 
 
 def is_directory(name):
@@ -586,6 +592,77 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 if not chunk:
                     break
                 output_file.write(chunk)
+
+
+def download_chunk(request_index, chunk_size, headers, download_path, http_uri):
+    range_start = chunk_size * request_index
+    range_end = range_start + chunk_size - 1
+    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
+    with cloud_storage_http_request(
+        "get", http_uri, stream=False, headers=combined_headers, cached_session=False
+    ) as response:
+        # File will have been created upstream. Use r+b to ensure chunks
+        # don't overwrite the entire file.
+        with open(download_path, "r+b") as f:
+            f.seek(range_start)
+            f.write(response.content)
+
+
+def parallelized_download_file_using_http_uri(
+    http_uri, download_path, file_size, uri_type, chunk_size, headers=None
+):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    sends multiple requests in parallel each specifying its own desired byte range as a header,
+    then reconstructs the file from the downloaded chunks. This allows for downloads of large files
+    without OOM risk.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    Returns a dict of chunk index : exception, if one was thrown for that index.
+    """
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    # Create file if it doesn't exist or erase the contents if it does. We should do this here
+    # before sending to the workers so they can each individually seek to their respective positions
+    # and write chunks without overwriting.
+    open(download_path, "w").close()
+    futures = {}
+    starting_index = 0
+    if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        # GCP files could be transcoded, in which case the range header is ignored.
+        # Test if this is the case by downloading one chunk and seeing if it's larger than the
+        # requested size. If yes, let that be the file; if not, continue downloading more chunks.
+        download_chunk(0, chunk_size, headers, download_path, http_uri)
+        downloaded_size = os.path.getsize(download_path)
+        # If downloaded size was equal to the chunk size it would have been downloaded serially,
+        # so we don't need to consider this here
+        if downloaded_size > chunk_size:
+            return {}
+        else:
+            starting_index = 1
+
+    failed_downloads = {}
+    with ProcessPoolExecutor(
+        max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS, mp_context=multiprocessing.get_context("fork")
+    ) as executor:
+        for i in range(starting_index, num_requests):
+            fut = executor.submit(
+                download_chunk,
+                request_index=i,
+                chunk_size=chunk_size,
+                headers=headers,
+                download_path=download_path,
+                http_uri=http_uri,
+            )
+            futures[i] = fut
+
+    for i, fut in futures.items():
+        try:
+            fut.result()
+        except requests.HTTPError as e:
+            failed_downloads[i] = e
+
+    return failed_downloads
 
 
 def _handle_readonly_on_windows(func, path, exc_info):

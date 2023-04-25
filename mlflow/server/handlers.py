@@ -712,9 +712,10 @@ def _update_run():
         },
     )
     run_id = request_message.run_id or request_message.run_uuid
-    updated_info = _get_tracking_store().update_run_info(
-        run_id, request_message.status, request_message.end_time, request_message.run_name
-    )
+    run_name = request_message.run_name if request_message.HasField("run_name") else None
+    end_time = request_message.end_time if request_message.HasField("end_time") else None
+    status = request_message.status if request_message.HasField("status") else None
+    updated_info = _get_tracking_store().update_run_info(run_id, status, end_time, run_name)
     response_message = UpdateRun.Response(run_info=updated_info.to_proto())
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
@@ -1346,6 +1347,36 @@ def _delete_registered_model_tag():
     return _wrap_response(DeleteRegisteredModelTag.Response())
 
 
+def _validate_non_local_source_contains_relative_paths(source: str):
+    """
+    Validation check to ensure that sources that are provided that conform to the schemes:
+    http, https, or mlflow-artifacts do not contain relative path designations that are intended
+    to access local file system paths on the tracking server.
+
+    Example paths that this validation function is intended to find and raise an Exception if
+    passed:
+    "mlflow-artifacts://host:port/../../../../"
+    "http://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
+    "https://host:port/api/2.0/mlflow-artifacts/artifacts/../../../../"
+    "/models/artifacts/../../../"
+    "s3:/my_bucket/models/path/../../other/path"
+    "file://path/to/../../../../some/where/you/should/not/be"
+    """
+    source_path = urllib.parse.urlparse(source).path
+    resolved_source = pathlib.Path(source_path).resolve().as_posix()
+    # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
+    # drive path of the pwd to a given path. We don't care about the drive here, though.
+    _, resolved_path = os.path.splitdrive(resolved_source)
+
+    if resolved_path != source_path:
+        raise MlflowException(
+            f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
+            "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
+            "provided without relative path references present. Please provide an absolute path.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
 def _validate_source(source: str, run_id: str) -> None:
     if is_local_uri(source):
         if run_id:
@@ -1374,6 +1405,10 @@ def _validate_source(source: str, run_id: str) -> None:
             "True.",
             INVALID_PARAMETER_VALUE,
         )
+
+    # Checks if relative paths are present in the source (a security threat). If any are present,
+    # raises an Exception.
+    _validate_non_local_source_contains_relative_paths(source)
 
 
 @catch_mlflow_exception
@@ -1727,6 +1762,14 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
     return response
 
 
+def _get_rest_path(base_path):
+    return f"/api/2.0{base_path}"
+
+
+def _get_ajax_path(base_path):
+    return _add_static_prefix(f"/ajax-api/2.0{base_path}")
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -1740,7 +1783,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/mlflow/experiment and
     /ajax-api/2.0/mlflow/experiment in the Flask router.
     """
-    return [f"/api/2.0{base_path}", _add_static_prefix(f"/ajax-api/2.0{base_path}")]
+    return [_get_rest_path(base_path), _get_ajax_path(base_path)]
 
 
 def get_handler(request_class):

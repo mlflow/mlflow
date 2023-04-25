@@ -84,7 +84,8 @@ def set_experiment(experiment_name: str = None, experiment_id: str = None) -> Ex
 
     :param experiment_name: Case sensitive name of the experiment to be activated. If an experiment
                             with this name does not exist, a new experiment wth this name is
-                            created.
+                            created. On certain platforms such as Databricks, the experiment name
+                            must an absolute path, e.g. ``"/Users/<username>/my-experiment"``.
     :param experiment_id: ID of the experiment to be activated. If an experiment with this ID
                           does not exist, an exception is thrown.
     :return: An instance of :py:class:`mlflow.entities.Experiment` representing the new active
