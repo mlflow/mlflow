@@ -44,7 +44,7 @@ def test_get_source_obtains_expected_source(tmp_path):
     source3 = mlflow.data.get_source(ds_entity)
     assert json.loads(source3.to_json()) == json.loads(pandas_ds.source.to_json())
 
-    assert source1.load() == source2.load() == source3.load() == str(tmp_path)
+    assert source1.load() == source2.load() == source3.load() == str(path)
 
 
 def test_get_source_throws_for_invalid_input(tmp_path):
