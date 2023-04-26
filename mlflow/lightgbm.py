@@ -752,8 +752,10 @@ def autolog(
         callbacks_index = all_arg_names.index("callbacks")
         run_id = mlflow.active_run().info.run_id
 
+        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
+
         # Whether to automatically log the training dataset as a dataset artifact.
-        if _log_datasets:
+        if _log_datasets and train_set:
             try:
                 # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
@@ -842,8 +844,6 @@ def autolog(
                 shutil.rmtree(tmpdir)
 
         # train_set must exist as the original train function already ran successfully
-        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
-
         # it is possible that the dataset was constructed before the patched
         #   constructor was applied, so we cannot assume the input_example_info exists
         input_example_info = getattr(train_set, "input_example_info", None)

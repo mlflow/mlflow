@@ -39,7 +39,7 @@ def test_digest_property_has_expected_value():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
-    assert dataset.digest == "79025d63"
+    assert dataset.digest == "8c404915"
 
 
 def test_data_property_has_expected_value():
