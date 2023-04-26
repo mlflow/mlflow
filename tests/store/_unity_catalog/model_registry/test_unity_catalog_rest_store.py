@@ -129,6 +129,46 @@ def local_model_dir(tmp_path):
     yield tmp_path
 
 
+def test_create_model_version_nonexistent_directory(store, tmp_path):
+    fake_directory = str(tmp_path.joinpath("myfakepath"))
+    with pytest.raises(
+        MlflowException,
+        match="Unable to download model artifacts from source artifact location",
+    ):
+        store.create_model_version(name="mymodel", source=fake_directory)
+
+
+def test_create_model_version_missing_python_deps(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.dict("sys.modules", {"boto3": None}), pytest.raises(
+        MlflowException,
+        match="Unable to import necessary dependencies to access model version files",
+    ):
+        store.create_model_version(name=model_name, source=str(local_model_dir))
+
+
 def test_create_model_version_missing_mlmodel(store, tmp_path):
     with pytest.raises(
         MlflowException,
