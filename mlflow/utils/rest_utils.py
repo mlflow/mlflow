@@ -48,17 +48,11 @@ def _cached_get_request_session(
     _pid,
 ):
     """
-    Returns a Requests.Session object for making HTTP request.
+    This function should not be called directly. Instead, use `_get_request_session` below.
 
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param _pid: To create a new Session object for each process, we use the process id as the
         cache key. This is to avoid sharing the same Session object across processes, which can
         lead to issues such as https://stackoverflow.com/q/3724900.
-    :return: requests.Session object.
     """
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
@@ -87,7 +81,14 @@ def _cached_get_request_session(
 
 def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
-    Wraps `_cached_get_request_session` to avoid sharing the same Session object across processes.
+    Returns a `Requests.Session` object for making an HTTP request.
+
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :return: requests.Session object.
     """
     return _cached_get_request_session(
         max_retries,
