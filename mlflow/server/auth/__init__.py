@@ -34,7 +34,6 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
     INVALID_PARAMETER_VALUE,
-    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import (
