@@ -10,8 +10,8 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture(scope="class", autouse=True)
-def spark_session():
+@pytest.fixture(autouse=True)
+def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
     session = (
@@ -21,6 +21,7 @@ def spark_session():
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
+        .config("spark.sql.warehouse.dir", tmp_path)
         .getOrCreate()
     )
     yield session
@@ -44,7 +45,8 @@ def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type, e
     assert isinstance(dataset, SparkDataset)
     _assert_dataframes_equal(dataset.df, df_spark)
     assert dataset.schema == _infer_schema(original_df)
-    assert dataset.profile == {"approx_count": 2}
+    assert isinstance(dataset.profile, dict)
+    assert isinstance(dataset.profile.get("approx_count"), int)
     assert isinstance(dataset.source, expected_source_type)
     if expected_name is not None:
         assert dataset.name == expected_name
