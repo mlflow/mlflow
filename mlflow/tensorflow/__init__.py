@@ -1331,6 +1331,15 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
         dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
     elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
         dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+    elif isinstance(tensorflow_dataset, tuple):
+        x = tensorflow_dataset[0]
+        y = tensorflow_dataset[1]
+        # check if x and y are tensors
+        if isinstance(x, tensorflow.Tensor) and isinstance(y, tensorflow.Tensor):
+            # TODO: update this to pass in y as targets once we support targets
+            dataset = from_tensorflow(data=x, source=source, name=name)
+        else:
+            dataset = from_numpy(features=x, targets=y, source=source, name=name)
     else:
         _logger.warning(
             "Unrecognized dataset type %s. Dataset logging skipped.", type(tensorflow_dataset)

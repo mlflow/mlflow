@@ -287,6 +287,21 @@ def test_tf_keras_autolog_log_datasets_with_validation_data(
     assert dataset_inputs[1].tags[0].value == "eval"
 
 
+def test_tf_keras_autolog_log_datasets_with_validation_data_as_tuple(
+    fashion_mnist_tf_dataset, fashion_mnist_tf_dataset_eval
+):
+    mlflow.tensorflow.autolog(log_datasets=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    X_eval, y_eval = next(fashion_mnist_tf_dataset_eval.as_numpy_iterator())
+    fashion_mnist_model.fit(fashion_mnist_tf_dataset, validation_data=(X_eval, y_eval))
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
+
+
 def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
