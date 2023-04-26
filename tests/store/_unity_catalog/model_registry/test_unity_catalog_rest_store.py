@@ -281,6 +281,22 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         assert store._get_workspace_id(run_id="some_run_id") is None
 
 
+def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
+    mock_databricks_host_creds, tmp_path
+):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        mock_response = mock.MagicMock(autospec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+        mock_response.text = str({})
+        with mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.http_request",
+            return_value=mock_response,
+        ):
+            assert store._get_workspace_id(run_id="some_run_id") is None
+
+
 def _get_workspace_id_for_run(run_id=None):
     return "123" if run_id is not None else None
 

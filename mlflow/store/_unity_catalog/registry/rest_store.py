@@ -58,7 +58,7 @@ from mlflow.store._unity_catalog.registry.utils import (
     registered_model_from_uc_proto,
 )
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
 
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
@@ -308,7 +308,7 @@ class UcModelRegistryStore(BaseRestStore):
         ).credentials
 
     def _get_workspace_id(self, run_id):
-        if run_id is None:
+        if run_id is None or not is_databricks_uri(self.tracking_uri):
             return None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
