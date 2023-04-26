@@ -393,10 +393,10 @@ class UcModelRegistryStore(BaseRestStore):
                 )
             except Exception as e:
                 raise MlflowException(
-                    f"Unable to download model artifacts from source artifact location '{source}' in "
-                    "order to upload them to Unity Catalog. Please ensure the source artifact "
-                    f"location exists and that you can download from it via "
-                    f"mlflow.artifacts.download_artifacts()"
+                    f"Unable to download model artifacts from source artifact location "
+                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                    f"the source artifact location exists and that you can download from "
+                    f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version

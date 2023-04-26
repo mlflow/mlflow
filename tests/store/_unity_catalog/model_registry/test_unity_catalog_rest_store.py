@@ -133,7 +133,8 @@ def test_create_model_version_nonexistent_directory(store, tmp_path):
     fake_directory = str(tmp_path.joinpath("myfakepath"))
     with pytest.raises(
         MlflowException,
-        match=f"Unable to download model artifacts from source artifact location '{fake_directory}'",
+        match=f"Unable to download model artifacts from "
+        f"source artifact location '{fake_directory}'",
     ):
         store.create_model_version(name="mymodel", source=fake_directory)
 
