@@ -973,7 +973,7 @@ def evaluate(
     model: str,
     data,
     *,
-    targets,
+    targets=None,
     model_type: str,
     dataset_path=None,
     feature_names: list = None,
@@ -1106,11 +1106,14 @@ def evaluate(
                    are regarded as feature columns. If it is Spark DataFrame, only the first 10000
                    rows in the Spark DataFrame will be used as evaluation data.
 
-                - A MLflow Dataset object, containing evaluation features and labels.
+                 - A :py:class`mlflow.data.Dataset` instance containing evaluation features and
+                   labels.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
-                    that contains evaluation labels.
+                    that contains evaluation labels. If ``data`` is a
+                    :py:class`mlflow.data.Dataset` that defines targets, then ``targets`` is
+                    optional.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports ``"regressor"`` and ``"classifier"`` as model types.
@@ -1334,6 +1337,22 @@ def evaluate(
             "are specified.",
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+    if isinstance(data, Dataset):
+        if hasattr(data, "targets") and data.targets is not None:
+            targets = data.targets
+        else:
+            raise MlflowException(
+                message="The target argument is required when data is a Dataset and does not "
+                "define targets.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
+        if targets is None:
+            raise MlflowException(
+                message="The target argument is required when data is not a Dataset.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     (
         evaluator_name_list,
