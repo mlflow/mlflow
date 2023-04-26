@@ -40,6 +40,15 @@ def _use_repl_context_if_available(name):
     return decorator
 
 
+def get_mlflow_credential_context_by_run_id(run_id):
+    from mlflow.tracking.artifact_utils import get_artifact_uri
+    from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+
+    run_root_artifact_uri = get_artifact_uri(run_id=run_id)
+    profile = get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+    return MlflowCredentialContext(profile)
+
+
 class MlflowCredentialContext:
     """Sets and clears credentials on a context using the provided profile URL."""
 
