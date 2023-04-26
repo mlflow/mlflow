@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -40,11 +41,12 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 
 
 @lru_cache(maxsize=64)
-def _get_request_session(max_retries, backoff_factor, retry_codes):
-    return _get_request_session_uncached(max_retries, backoff_factor, retry_codes)
-
-
-def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
+def _get_request_session(
+    max_retries,
+    backoff_factor,
+    retry_codes,
+    _pid,
+):
     """
     Returns a Requests.Session object for making HTTP request.
 
@@ -53,6 +55,9 @@ def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param _pid: To create a new Session object for each process, we use the process id as the
+        cache key. This is to avoid sharing the same Session object across processes, which can
+        lead to issues such as https://stackoverflow.com/q/3724900.
     :return: requests.Session object.
     """
     assert 0 <= max_retries < 10
@@ -81,7 +86,7 @@ def _get_request_session_uncached(max_retries, backoff_factor, retry_codes):
 
 
 def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, cached_session=True, **kwargs
+    method, url, max_retries, backoff_factor, retry_codes, **kwargs
 ):
     """
     Performs an HTTP request using Python's `requests` module with an automatic retry policy.
@@ -93,15 +98,11 @@ def _get_http_response_with_retries(
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return: requests.Response object.
     """
-    if cached_session:
-        session = _get_request_session(max_retries, backoff_factor, retry_codes)
-    else:
-        session = _get_request_session_uncached(max_retries, backoff_factor, retry_codes)
+    session = _get_request_session(max_retries, backoff_factor, retry_codes, _pid=os.getpid())
     return session.request(method, url, **kwargs)
 
 
@@ -311,7 +312,6 @@ def cloud_storage_http_request(
     backoff_factor=2,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
-    cached_session=True,
     **kwargs,
 ):
     """
@@ -326,7 +326,6 @@ def cloud_storage_http_request(
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request. Default to None owing to long duration operation in read / write.
-    :param cached_session: Whether to cache session object. False used for multiprocessing contexts.
     :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     :return requests.Response object.
@@ -340,7 +339,6 @@ def cloud_storage_http_request(
         backoff_factor,
         retry_codes,
         timeout=timeout,
-        cached_session=cached_session,
         **kwargs,
     )
 
