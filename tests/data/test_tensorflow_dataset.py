@@ -67,8 +67,8 @@ def test_profile_property_has_expected_value_dataset():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
-        "num_rows": len(tf_dataset),
-        "num_elements": tf_dataset.cardinality().numpy(),
+        "data_num_rows": len(tf_dataset),
+        "data_num_elements": tf_dataset.cardinality().numpy(),
     }
 
 
@@ -79,8 +79,8 @@ def test_profile_property_has_expected_value_tensors():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(data=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
-        "num_rows": len(tf_tensor),
-        "num_elements": tf.size(tf_tensor).numpy(),
+        "data_num_rows": len(tf_tensor),
+        "data_num_elements": tf.size(tf_tensor).numpy(),
     }
 
 
@@ -99,10 +99,33 @@ def test_from_tensorflow_dataset_constructs_expected_dataset():
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset, source="my_source")
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert mlflow_ds.data == tf_dataset
-    assert mlflow_ds.schema == _infer_schema(next(tf_dataset.as_numpy_iterator()))
+    assert mlflow_ds.schema == _infer_schema({"data": next(tf_dataset.as_numpy_iterator())})
     assert mlflow_ds.profile == {
-        "num_rows": len(tf_dataset),
-        "num_elements": tf_dataset.cardinality().numpy(),
+        "data_num_rows": len(tf_dataset),
+        "data_num_elements": tf_dataset.cardinality().numpy(),
+    }
+
+
+def test_from_tensorflow_dataset_with_targets_constructs_expected_dataset():
+    x = np.random.sample((100, 2))
+    y = np.random.sample((100, 1))
+    tf_dataset_x = tf.data.Dataset.from_tensors(x)
+    tf_dataset_y = tf.data.Dataset.from_tensors(y)
+    mlflow_ds = mlflow.data.from_tensorflow(tf_dataset_x, source="my_source", targets=tf_dataset_y)
+    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert mlflow_ds.data == tf_dataset_x
+    assert mlflow_ds.targets == tf_dataset_y
+    assert mlflow_ds.schema == _infer_schema(
+        {
+            "data": next(tf_dataset_x.as_numpy_iterator()),
+            "targets": next(tf_dataset_y.as_numpy_iterator()),
+        }
+    )
+    assert mlflow_ds.profile == {
+        "data_num_rows": len(tf_dataset_x),
+        "data_num_elements": tf_dataset_x.cardinality().numpy(),
+        "targets_num_rows": len(tf_dataset_y),
+        "targets_num_elements": tf_dataset_y.cardinality().numpy(),
     }
 
 
@@ -113,8 +136,28 @@ def test_from_tensorflow_tensor_constructs_expected_dataset():
     assert isinstance(mlflow_ds, TensorflowDataset)
     # compare if two tensors are equal using tensorflow utils
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor))
-    assert mlflow_ds.schema == _infer_schema(tf_tensor.numpy())
+    assert mlflow_ds.schema == _infer_schema({"data": tf_tensor.numpy()})
     assert mlflow_ds.profile == {
-        "num_rows": len(tf_tensor),
-        "num_elements": tf.size(tf_tensor).numpy(),
+        "data_num_rows": len(tf_tensor),
+        "data_num_elements": tf.size(tf_tensor).numpy(),
+    }
+
+
+def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
+    x = np.random.sample((100, 2))
+    y = np.random.sample((100, 1))
+    tf_tensor_x = tf.convert_to_tensor(x)
+    tf_tensor_y = tf.convert_to_tensor(y)
+    mlflow_ds = mlflow.data.from_tensorflow(tf_tensor_x, source="my_source", targets=tf_tensor_y)
+    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor_x))
+    assert tf.reduce_all(tf.math.equal(mlflow_ds.targets, tf_tensor_y))
+    assert mlflow_ds.schema == _infer_schema(
+        {"data": tf_tensor_x.numpy(), "targets": tf_tensor_y.numpy()}
+    )
+    assert mlflow_ds.profile == {
+        "data_num_rows": len(tf_tensor_x),
+        "data_num_elements": tf.size(tf_tensor_x).numpy(),
+        "targets_num_rows": len(tf_tensor_y),
+        "targets_num_elements": tf.size(tf_tensor_y).numpy(),
     }

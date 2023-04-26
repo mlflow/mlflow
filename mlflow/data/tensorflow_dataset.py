@@ -115,6 +115,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                     else tf.size(self._targets).numpy(),
                 }
             )
+        return profile
 
     @cached_property
     def schema(self) -> Optional[Schema]:
@@ -125,15 +126,15 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
         try:
             schema_dict = {
-                "data": _infer_schema(next(self._data.as_numpy_iterator()))
+                "data": next(self._data.as_numpy_iterator())
                 if isinstance(self._data, tf.data.Dataset)
-                else _infer_schema(self._data.numpy())
+                else self._data.numpy()
             }
             if self._targets is not None:
                 schema_dict["targets"] = (
-                    _infer_schema(next(self._targets.as_numpy_iterator()))
+                    next(self._targets.as_numpy_iterator())
                     if isinstance(self._targets, tf.data.Dataset)
-                    else _infer_schema(self._targets.numpy())
+                    else self._targets.numpy()
                 )
             return _infer_schema(schema_dict)
         except Exception as e:
@@ -151,7 +152,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 def from_tensorflow(
     data,
     source: Union[str, DatasetSource],
-    targets,
+    targets=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> TensorflowDataset:

@@ -111,7 +111,10 @@ def compute_tensor_digest(tensor_data, tensor_targets) -> str:
     :param tensor: A Tensorflow tensor.
     :return: A string digest.
     """
-    return compute_numpy_digest(tensor_data.numpy(), tensor_targets.numpy())
+    if tensor_targets is None:
+        return compute_numpy_digest(tensor_data.numpy())
+    else:
+        return compute_numpy_digest(tensor_data.numpy(), tensor_targets.numpy())
 
 
 def get_normalized_md5_digest(elements: List[Any]) -> str:
