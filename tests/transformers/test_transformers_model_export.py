@@ -1805,7 +1805,8 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
     inference_payload = json.dumps(
         {
             "inputs": {
-                "sequences": "My dog loves running through troughs of spaghetti with his mouth open",
+                "sequences": "My dog loves running through troughs of spaghetti "
+                "with his mouth open",
                 "candidate_labels": ["happy", "sad"],
                 "hypothesis_template": "This example talks about how the dog is {}",
             }

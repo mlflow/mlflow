@@ -726,3 +726,34 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
     pd.testing.assert_frame_equal(check, pd_data)
     pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, np.ndarray] where primitives are supplied
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "string"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    # simulates the structure that model serving will convert the data to when using
+    # a Dict[str, str] with a scalar singular value string
+    data = {"a": np.array("a"), "b": np.array("b")}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Assert that the Dict[str, np.ndarray] casing with primitive does not work on anything
+    # but a single string.
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "long"}, {"name": "b", "type": "long"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"a": np.array(1), "b": np.array(2)}
+    pd_data = pd.DataFrame([data])
+    # Schema enforcement explicitly only provides support for strings that meet primitives in
+    # np.arrays criteria. All other data types should fail.
+    with pytest.raises(MlflowException, match="This model contains a column-based"):
+        _enforce_schema(data, signature.inputs)
+    with pytest.raises(MlflowException, match="Incompatible input types for column a. Can not"):
+        _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)

@@ -627,6 +627,23 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     _is_scalar(value) for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and all(
+                    isinstance(value, np.ndarray)
+                    and value.dtype.type == np.str_
+                    and value.size == 1
+                    and value.shape == ()
+                    for value in pf_input.values()
+                ):
+                    # This check is specifically to handle the serving structural cast for
+                    # certain inputs for the transformers implementation. Due to the fact that
+                    # specific Pipeline types in transformers support passing input data
+                    # of the form Dict[str, str] in which the value is a scalar string, model
+                    # serving will cast this entry as a numpy array with shape () and size 1.
+                    # This is seen as a scalar input when attempting to create a Pandas DataFrame
+                    # from such a numpy structure and requires the array to be encapsulated in a
+                    # list in order to prevent a ValueError exception for requiring an index
+                    # if passing in all scalar values thrown by Pandas.
+                    pf_input = pd.DataFrame([pf_input])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
