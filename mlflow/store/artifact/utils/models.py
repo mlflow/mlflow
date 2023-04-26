@@ -1,4 +1,3 @@
-import re
 from typing import NamedTuple, Optional
 import urllib.parse
 
@@ -7,12 +6,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri, is_databricks_uri
 
 _MODELS_URI_SUFFIX_LATEST = "latest"
-
-# This regex is used by _parse_model_uri and details for the regex match
-# can be found in _improper_model_uri_msg.
-_MODEL_URI_REGEX = re.compile(
-    r"^\/(?P<model_name>[\w \.\-]+)(\/(?P<suffix>[\w]+))?(@(?P<alias>[\w\-]+))?$"
-)
 
 
 def is_using_databricks_registry(uri):
@@ -59,32 +52,37 @@ def _parse_model_uri(uri):
         - (name, None, None, None) to look for the latest of all versions.
         - (name, None, None, alias) to look for a registered model alias.
     """
-    parsed = urllib.parse.urlparse(uri)
+    parsed = urllib.parse.urlparse(uri, allow_fragments=False)
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
-    m = _MODEL_URI_REGEX.match(path)
-    if m is None:
-        raise MlflowException(_improper_model_uri_msg(uri))
-    gd = m.groupdict()
-    model_name = gd.get("model_name")
-    suffix = gd.get("suffix")
-    alias = gd.get("alias")
-    if (model_name.strip() == "") or (suffix and alias) or (suffix is None and alias is None):
+    if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(_improper_model_uri_msg(uri))
 
-    if alias:
-        # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
-        return ParsedModelUri(model_name, alias=alias)
-    elif suffix.isdigit():
-        # The suffix is a specific version, e.g. "models:/AdsModel1/123"
-        return ParsedModelUri(model_name, version=suffix)
-    elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
-        # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
-        return ParsedModelUri(model_name)
+    parts = path.lstrip("/").split("/")
+    if len(parts) > 2 or parts[0].strip() == "":
+        raise MlflowException(_improper_model_uri_msg(uri))
+
+    if len(parts) == 2:
+        name, suffix = parts
+        if suffix.strip() == "":
+            raise MlflowException(_improper_model_uri_msg(uri))
+        # The URI is in the suffix format
+        if suffix.isdigit():
+            # The suffix is a specific version, e.g. "models:/AdsModel1/123"
+            return ParsedModelUri(name, version=suffix)
+        elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+            # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
+            return ParsedModelUri(name)
+        else:
+            # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
+            return ParsedModelUri(name, stage=suffix)
     else:
-        # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
-        return ParsedModelUri(model_name, stage=suffix)
+        # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
+        alias_parts = parts[0].rsplit("@", 1)
+        if len(alias_parts) != 2 or alias_parts[1].strip() == "":
+            raise MlflowException(_improper_model_uri_msg(uri))
+        return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
 
 
 def get_model_name_and_version(client, models_uri):

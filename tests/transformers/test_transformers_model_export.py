@@ -15,6 +15,7 @@ from datasets import load_dataset
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -1396,8 +1397,14 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data,
     [
         ({"query": "What should we order more of?"}, "apples"),
         (
-            {"query": ["What is our highest sales?", "What should we order more of?"]},
-            ["1230945.55", "apples"],
+            {
+                "query": [
+                    "What is our highest sales?",
+                    "What should we order more of?",
+                    "Which fruit starts with 'W'?",
+                ]
+            },
+            ["1230945.55", "apples", "watermelon"],
         ),
     ],
 )
@@ -1695,13 +1702,38 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     inference_payload = json.dumps(
         {
             "inputs": {
+                "question": [
+                    "What color is it?",
+                    "How do the people go?",
+                    "What does the 'wolf' howl at?",
+                ],
+                "context": [
+                    "Some people said it was green but I know that it's pink.",
+                    "The people on the bus go up and down. Up and down.",
+                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+                    "the moon for hours.",
+                ],
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}, {0: "the moon"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
                 "question": "Who's house?",
                 "context": "The house is owned by a man named Run.",
             }
         }
     )
-
-    from mlflow.deployments import PredictionsResponse
 
     response = pyfunc_serve_and_score_model(
         model_uri,
@@ -1712,6 +1744,172 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert values.to_dict(orient="records") == [{0: "Run"}]
+
+
+def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
+    artifact_path = "text_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=text_classification_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [
+                "I think this sushi might have gone off",
+                "That gym smells like feet, hot garbage, and sadness",
+                "I love that we have a moon",
+                "I 'love' debugging subprocesses",
+            ]
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "NEGATIVE"},
+        {0: "NEGATIVE"},
+        {0: "POSITIVE"},
+        {0: "POSITIVE"},
+    ]
+
+    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "POSITIVE"}]
+
+
+def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
+    artifact_path = "zero_shot_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=zero_shot_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": "My dog loves running through troughs of spaghetti "
+                "with his mouth open",
+                "candidate_labels": ["happy", "sad"],
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": [
+                    "My dog loves to eat spaghetti",
+                    "My dog hates going to the vet",
+                    "My 'hamster' loves to play with my 'friendly' dog",
+                ],
+                "candidate_labels": '["happy", "sad"]',
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}, {0: "sad"}, {0: "happy"}]
+
+
+def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
+    artifact_path = "table_qa_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=table_question_answering_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon 'small'", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": "What should we order more of?",
+                "table": table,
+            }
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "apples"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": [
+                    "What is our highest sales?",
+                    "What should we order more of?",
+                    "Which 'fruit' has the 'highest' 'sales'?",
+                    "How many types of fruit do we have?",
+                    "Which fruit has a small designator??",
+                ],
+                "table": table,
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "1230945.55"},
+        {0: "apples"},
+        {0: "apples"},
+        {0: "5"},
+        {0: "watermelon'small'"},
+    ]
 
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
@@ -1924,31 +2122,86 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
 
 
 @pytest.mark.parametrize(
-    "pipeline_input, pipeline_output, expected_output, flavor_config",
+    "pipeline_input, pipeline_output, expected_output, flavor_config, include_prompt, "
+    "collapse_whitespace",
     [
+        (
+            "What answers?",
+            [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
+            "A collection of\n\nanswers",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            False,
+        ),
         (
             "What answers?",
             [{"generated_text": "What answers?\n\nA collection of\n\nanswers"}],
             "A collection of answers",
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            True,
         ),
         (
             "Hello!",
             [{"generated_text": "Hello!\n\nHow are you?"}],
             "How are you?",
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            False,
         ),
         (
             "Hello!",
-            [{"generated_text": "Hello!\n\nA: How are you?"}],
+            [{"generated_text": "Hello!\n\nA: How are you?\n\n"}],
             "How are you?",
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            True,
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nA: How are you?\n\n"}],
+            "Hello! A: How are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            True,
+            True,
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nA: How\nare\nyou?\n\n"}],
+            "How\nare\nyou?\n\n",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            False,
         ),
         (
             ["Hi!", "What's up?"],
             [[{"generated_text": "Hi!\n\nHello there"}, {"generated_text": "Not much, and you?"}]],
             ["Hello there", "Not much, and you?"],
             {"instance_type": "InstructionTextGenerationPipeline"},
+            False,
+            False,
+        ),
+        # Tests disabling parsing of newline characters
+        (
+            ["Hi!", "What's up?"],
+            [
+                [
+                    {"generated_text": "Hi!\n\nHello there"},
+                    {"generated_text": "What's up?\n\nNot much, and you?"},
+                ]
+            ],
+            ["Hi!\n\nHello there", "What's up?\n\nNot much, and you?"],
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            True,
+            False,
+        ),
+        (
+            "Hello!",
+            [{"generated_text": "Hello!\n\nHow are you?"}],
+            "Hello!\n\nHow are you?",
+            {"instance_type": "InstructionTextGenerationPipeline"},
+            True,
+            False,
         ),
         # Tests a standard TextGenerationPipeline output
         (
@@ -1961,15 +2214,59 @@ def test_parse_list_output_for_multiple_candidate_pipelines(mock_pyfunc_wrapper)
             ],
             ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
             {"instance_type": "TextGenerationPipeline"},
+            True,
+            True,
+        ),
+        # Tests a standard TextGenerationPipeline output with setting "include_prompt" (noop)
+        (
+            ["We like to", "Open the"],
+            [
+                [
+                    {"generated_text": "We like to party"},
+                    {"generated_text": "Open the door get on the floor everybody do the dinosaur"},
+                ]
+            ],
+            ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
+            {"instance_type": "TextGenerationPipeline"},
+            False,
+            False,
+        ),
+        # Test TextGenerationPipeline removes whitespace
+        (
+            ["We like to", "Open the"],
+            [
+                [
+                    {"generated_text": "  We like   to    party"},
+                    {
+                        "generated_text": "Open the   door get on the floor   everybody    "
+                        "do\nthe dinosaur"
+                    },
+                ]
+            ],
+            ["We like to party", "Open the door get on the floor everybody do the dinosaur"],
+            {"instance_type": "TextGenerationPipeline"},
+            False,
+            True,
         ),
     ],
 )
 def test_parse_input_from_instruction_pipeline(
-    mock_pyfunc_wrapper, pipeline_input, pipeline_output, expected_output, flavor_config
+    mock_pyfunc_wrapper,
+    pipeline_input,
+    pipeline_output,
+    expected_output,
+    flavor_config,
+    include_prompt,
+    collapse_whitespace,
 ):
     assert (
         mock_pyfunc_wrapper._strip_input_from_response_in_instruction_pipelines(
-            pipeline_input, pipeline_output, "generated_text", flavor_config, False
+            pipeline_input,
+            pipeline_output,
+            "generated_text",
+            flavor_config,
+            include_prompt,
+            collapse_whitespace,
         )
         == expected_output
     )
@@ -1995,14 +2292,37 @@ def test_invalid_instruction_pipeline_parsing(mock_pyfunc_wrapper, flavor_config
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 @pytest.mark.skipcacheclean
-def test_instructional_pipeline(model_path):
+def test_instructional_pipeline_no_prompt_in_output(model_path):
     architecture = "databricks/dolly-v2-3b"
     dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
 
     mlflow.transformers.save_model(
         transformers_model=dolly,
         path=model_path,
-        inference_config={"max_length": 100},
+        # Validate removal of prompt but inclusion of newlines by default
+        inference_config={"max_length": 100, "include_prompt": False},
+        input_example="Hello, Dolly!",
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+
+    inference = pyfunc_loaded.predict("What is MLflow?")
+
+    assert not inference.startswith("What is MLflow?")
+    assert "\n" in inference
+
+
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(model_path):
+    architecture = "databricks/dolly-v2-3b"
+    dolly = transformers.pipeline(model=architecture, trust_remote_code=True)
+
+    mlflow.transformers.save_model(
+        transformers_model=dolly,
+        path=model_path,
+        # Validate removal of prompt but inclusion of newlines by default
+        inference_config={"max_length": 100, "include_prompt": False, "collapse_whitespace": True},
         input_example="Hello, Dolly!",
     )
 
@@ -2023,7 +2343,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
     mlflow.transformers.save_model(
         transformers_model=dolly,
         path=model_path,
-        inference_config={"max_length": 100, "include_prompt": True},
+        # test default propagation of `include_prompt`=True and `collapse_whitespace`=False
+        inference_config={"max_length": 100},
         input_example="Hello, Dolly!",
     )
 
@@ -2032,4 +2353,4 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
     inference = pyfunc_loaded.predict("What is MLflow?")
 
     assert inference.startswith("What is MLflow?")
-    assert "\n" not in inference
+    assert "\n\n" in inference

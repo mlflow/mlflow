@@ -45,36 +45,61 @@ def _ilike(string, pattern):
 
 def _join_in_comparison_tokens(tokens):
     """
-    If a given list of tokens matches the pattern of an IN comparison or a NOT IN comparison,
+    Find a sequence of tokens that matches the pattern of an IN comparison or a NOT IN comparison,
     join the tokens into a single Comparison token. Otherwise, return the original list of tokens.
     """
     if Version(sqlparse.__version__) < Version("0.4.4"):
         # In sqlparse < 0.4.4, IN is treated as a comparison, we don't need to join tokens
         return tokens
 
-    tokens = [t for t in tokens if not t.is_whitespace]
-    num_tokens = len(tokens)
-    # IN
-    if num_tokens == 3:
-        first, second, third = tokens
+    non_whitespace_tokens = [t for t in tokens if not t.is_whitespace]
+    joined_tokens = []
+    num_tokens = len(non_whitespace_tokens)
+    iterator = enumerate(non_whitespace_tokens)
+    while elem := next(iterator, None):
+        index, first = elem
+        # We need at least 3 tokens to form an IN comparison or a NOT IN comparison
+        if num_tokens - index < 3:
+            joined_tokens.extend(non_whitespace_tokens[index:])
+            break
+
+        # Wait until we encounter an identifier token
+        if not isinstance(first, Identifier):
+            joined_tokens.append(first)
+            continue
+
+        (_, second) = next(iterator)
+        (_, third) = next(iterator)
+
+        # IN
         if (
             isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["IN"])
             and isinstance(third, Parenthesis)
         ):
-            return [Comparison(TokenList(tokens))]
-    # NOT IN
-    elif num_tokens == 4:
-        first, second, third, fourth = tokens
+            joined_tokens.append(Comparison(TokenList([first, second, third])))
+            continue
+
+        (_, fourth) = next(iterator, (None, None))
+        if fourth is None:
+            joined_tokens.extend([first, second, third])
+            break
+
+        # NOT IN
         if (
             isinstance(first, Identifier)
             and second.match(ttype=TokenType.Keyword, values=["NOT"])
             and third.match(ttype=TokenType.Keyword, values=["IN"])
             and isinstance(fourth, Parenthesis)
         ):
-            return [Comparison(TokenList([first, Token(TokenType.Keyword, "NOT IN"), fourth]))]
+            joined_tokens.append(
+                Comparison(TokenList([first, Token(TokenType.Keyword, "NOT IN"), fourth]))
+            )
+            continue
 
-    return tokens
+        joined_tokens.extend([first, second, third, fourth])
+
+    return joined_tokens
 
 
 class SearchUtils:

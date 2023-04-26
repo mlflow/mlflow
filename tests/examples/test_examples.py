@@ -86,6 +86,7 @@ def clean_up_mlflow_virtual_environments():
         ),
         ("pytorch/CaptumExample", ["-P", "max_epochs=50"]),
         ("supply_chain_security", []),
+        ("tensorflow", []),
     ],
 )
 def test_mlflow_run_example(directory, params, tmp_path):
@@ -163,6 +164,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("spark_udf", ["python", "spark_udf_datetime.py"]),
         ("pyfunc", ["python", "train.py"]),
         ("sktime", ["python", "train.py"]),
+        ("tensorflow", ["python", "train.py"]),
         ("transformers", ["python", "conversational.py"]),
         ("transformers", ["python", "load_components.py"]),
         ("transformers", ["python", "simple.py"]),

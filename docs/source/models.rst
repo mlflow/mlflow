@@ -646,6 +646,67 @@ Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflo
 
 For more information, see :py:mod:`mlflow.h2o`.
 
+h2o pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal h2o model, here is an example of the pyfunc predict() method in a classification scenario :
+
+.. code-block:: python
+
+    import mlflow
+    import h2o
+
+    h2o.init()
+    from h2o.estimators.glm import H2OGeneralizedLinearEstimator
+
+    # import the prostate data
+    df = h2o.import_file(
+        "http://s3.amazonaws.com/h2o-public-test-data/smalldata/prostate/prostate.csv.zip"
+    )
+
+    # convert the columns to factors
+    df["CAPSULE"] = df["CAPSULE"].asfactor()
+    df["RACE"] = df["RACE"].asfactor()
+    df["DCAPS"] = df["DCAPS"].asfactor()
+    df["DPROS"] = df["DPROS"].asfactor()
+
+    # split the data
+    train, test, valid = df.split_frame(ratios=[0.7, 0.15])
+
+    # generate a GLM model
+    glm_classifier = H2OGeneralizedLinearEstimator(
+        family="binomial", lambda_=0, alpha=0.5, nfolds=5, compute_p_values=True
+    )
+
+    with mlflow.start_run():
+        glm_classifier.train(
+            y="CAPSULE", x=["AGE", "RACE", "VOL", "GLEASON"], training_frame=train
+        )
+        metrics = glm_classifier.model_performance()
+        metrics_to_track = ["MSE", "RMSE", "r2", "logloss"]
+        metrics_to_log = {
+            key: value
+            for key, value in metrics._metric_json.items()
+            if key in metrics_to_track
+        }
+        params = glm_classifier.params
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics_to_log)
+        model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+
+    # load h2o model and make a prediction
+    h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    test_df = test.as_data_frame()
+    predictions = h2o_pyfunc.predict(test_df)
+    print(predictions)
+
+    # it is also possible to load the model and predict using h2o methods on the h2o frame
+
+    # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
+    # predictions = h2o_model.predict(test)
+
+.. _tf-keras-example:
+
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
@@ -952,16 +1013,47 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
-to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
-:py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
-flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
-can be scored with both DataFrame input and numpy array input. Finally, you can use the
-:py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow Core models or Keras models.
+The simple example below shows how to log params and metrics in mlflow for a custom training loop
+using low-level TensorFlow API. See `tf-keras-example`_. for an example of mlflow and ``tf.keras`` models.
 
-For more information, see :py:mod:`mlflow.tensorflow`.
+
+.. code-block:: python
+
+    import numpy as np
+    import tensorflow as tf
+
+    import mlflow
+
+    x = np.linspace(-4, 4, num=512)
+    y = 3 * x + 10
+
+    # estimate w and b where y = w * x + b
+    learning_rate = 0.1
+    x_train = tf.Variable(x, trainable=False, dtype=tf.float32)
+    y_train = tf.Variable(y, trainable=False, dtype=tf.float32)
+
+    # initial values
+    w = tf.Variable(1.0)
+    b = tf.Variable(1.0)
+
+    with mlflow.start_run():
+        mlflow.log_param("learning_rate", learning_rate)
+
+        for i in range(1000):
+            with tf.GradientTape(persistent=True) as tape:
+                # calculate MSE = 0.5 * (y_predict - y_train)^2
+                y_predict = w * x_train + b
+                loss = 0.5 * tf.reduce_mean(tf.square(y_predict - y_train))
+                mlflow.log_metric("loss", value=loss.numpy(), step=i)
+
+            # Update the trainable variables
+            # w = w - learning_rate * gradient of loss function w.r.t. w
+            # b = b - learning_rate * gradient of loss function w.r.t. b
+            w.assign_sub(learning_rate * tape.gradient(loss, w))
+            b.assign_sub(learning_rate * tape.gradient(loss, b))
+
+    print(f"W = {w.numpy():.2f}, b = {b.numpy():.2f}")
+
 
 ONNX (``onnx``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1999,6 +2091,15 @@ The ``transformers`` :ref:`python_function (pyfunc) model flavor <pyfunc-model-f
 and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
 and batch inference by coercing the data structures that are required for ``transformers`` inference pipelines
 to formats that are compatible with json serialization and casting to Pandas DataFrames.
+
+.. note::
+    Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
+    prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
+    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
+    any modification to the output returned from pipeline inference.
 
 .. attention::
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline

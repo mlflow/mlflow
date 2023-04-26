@@ -1,7 +1,10 @@
+import ast
 import json
 import logging
 import pathlib
 import pandas as pd
+import numpy as np
+import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
 import yaml
@@ -1322,7 +1325,7 @@ class _TransformersWrapper:
     def __init__(self, pipeline, flavor_config=None, inference_config=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.inference_config = inference_config
+        self.inference_config = inference_config or {}
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1446,32 +1449,36 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
-        # Optional input preservation for specific pipeline types
-        include_prompt = (
-            self.inference_config.pop("include_prompt", False) if self.inference_config else False
-        )
+        # Optional input preservation for specific pipeline types. This is True (include raw
+        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # option during model saving, excess newline characters and the fed-in prompt will be
+        # trimmed out from the start of the response.
+        include_prompt = self.inference_config.pop("include_prompt", True)
+        # Optional stripping out of `\n` for specific generator pipelines.
+        collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
+
+        data = self._convert_cast_lists_from_np_back_to_list(data)
 
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         elif isinstance(data, dict):
-            if self.inference_config:
-                raw_output = self.pipeline(**data, **self.inference_config)
-            else:
-                raw_output = self.pipeline(**data)
+            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            if self.inference_config:
-                raw_output = self.pipeline(data, **self.inference_config)
-            else:
-                raw_output = self.pipeline(data)
+            raw_output = self.pipeline(data, **self.inference_config)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
             self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
-                data, raw_output, output_key, self.flavor_config, include_prompt
+                data,
+                raw_output,
+                output_key,
+                self.flavor_config,
+                include_prompt,
+                collapse_whitespace,
             )
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
@@ -1601,7 +1608,19 @@ class _TransformersWrapper:
                         if value_type == str:
                             parsed[key] = [parsed[key], value]
                         elif value_type == list:
-                            parsed[key] = parsed[key].append(value)
+                            if all(len(entry) == 1 for entry in value):
+                                # This conversion is required solely for model serving.
+                                # In the parsing logic that occurs internally, strings that
+                                # contain single quotes `'` result in casting to a List[char]
+                                # instead of a str type. Attempting to append a List[char]
+                                # to a List[str] as would happen in the `else` block here
+                                # results in the entire List being overwritten as `None` without
+                                # an Exception being raised. By checking for single value entries
+                                # and subsequently converting to list and extracting the first
+                                # element reconstructs the original input string.
+                                parsed[key].append([str(value)][0])
+                            else:
+                                parsed[key] = parsed[key].append(value)
                         else:
                             parsed[key] = value
             return parsed
@@ -1609,13 +1628,18 @@ class _TransformersWrapper:
             return data
 
     def _strip_input_from_response_in_instruction_pipelines(
-        self, input_data, output, output_key, flavor_config, include_prompt
+        self,
+        input_data,
+        output,
+        output_key,
+        flavor_config,
+        include_prompt=True,
+        collapse_whitespace=False,
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
         pipeline types and remove line feed characters and other confusing outputs
         """
-        replacements = {"\n\n": " "}
 
         def extract_response_data(data_out):
             if all(isinstance(x, dict) for x in data_out):
@@ -1635,23 +1659,27 @@ class _TransformersWrapper:
             # types that have been loaded as a plain TextGenerator. The structure of these
             # pipelines will precisely repeat the input question immediately followed by 2 carriage
             # return statements, followed by the start of the response to the prompt. We only
-            # want to left-trim these types of pipelines output values if the user hasn't disabled
-            # the removal action of the input prompt in the returned str or List[str]
+            # want to left-trim these types of pipelines output values if the user has indicated
+            # the removal action of the input prompt in the returned str or List[str] by applying
+            # the optional inference_config entry of `{"include_prompt": False}`.
+            # By default, the prompt is included in the response.
+            # Stripping out additional carriage returns (\n) is another additional optional flag
+            # that can be set for these generator pipelines. It is off by default (False).
             if (
-                data_out.startswith(data_in + "\n\n")
+                not include_prompt
                 and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+                and data_out.startswith(data_in + "\n\n")
             ):
-                # If the user has indicated to preserve the prompt input in the response, do not
-                # split the response output or trim any portions of the response string
-                if not include_prompt:
-                    data_out = data_out[len(data_in) :].lstrip()
-                    if data_out.startswith("A:"):
-                        data_out = data_out[2:].lstrip()
-                for to_replace, replace in replacements.items():
-                    data_out = data_out.replace(to_replace, replace)
-                return data_out
-            else:
-                return data_out
+                # If the user has indicated to not preserve the prompt input in the response,
+                # split the response output and trim the input prompt from the response.
+                data_out = data_out[len(data_in) :].lstrip()
+                if data_out.startswith("A:"):
+                    data_out = data_out[2:].lstrip()
+                # If the user has indicated to remove newlines and extra spaces from the generated
+                # text, replace them with a single space.
+            if collapse_whitespace:
+                data_out = re.sub(r"\s+", " ", data_out).strip()
+            return data_out
 
         if isinstance(input_data, list) and isinstance(output, list):
             return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
@@ -1891,6 +1919,42 @@ class _TransformersWrapper:
                 }
                 for entry in data
             ]
+        elif isinstance(data, dict):
+            # This is to handle serving use cases as the DataFrame encapsulation converts
+            # collections within rows to np.array type. In order to process this data through
+            # the transformers.Pipeline API, we need to cast these arrays back to lists
+            # and replace the single quotes with double quotes after extracting the
+            # json-encoded `table` (a pandas DF) in order to convert it to a dict that
+            # the TableQuestionAnsweringPipeline can accept and cast to a Pandas DataFrame.
+            #
+            # An example casting that occurs for this case when input to model serving is the
+            # conversion of a user input of:
+            #   '{"inputs": {"query": "What is the longest distance?",
+            #                "table": {"Distance": ["1000", "10", "1"]}}}'
+            # is converted to:
+            #   [{'query': array('What is the longest distance?', dtype='<U29'),
+            #     'table': array('{\'Distance\': [\'1000\', \'10\', \'1\']}', dtype='U<204')}]
+            # which is an invalid input to the pipeline.
+            # this method converts the input to:
+            #   {'query': 'What is the longest distance?',
+            #    'table': {'Distance': ['1000', '10', '1']}}
+            # which is a valid input to the TableQuestionAnsweringPipeline.
+            output = {}
+            for key, value in data.items():
+                if key == key_to_unpack:
+                    if isinstance(value, np.ndarray):
+                        output[key] = ast.literal_eval(value.item())
+                    else:
+                        output[key] = ast.literal_eval(value)
+                else:
+                    if isinstance(value, np.ndarray):
+                        # This cast to np.ndarray occurs when more than one question is asked.
+                        output[key] = value.item()
+                    else:
+                        # Otherwise, the entry does not need casting from a np.ndarray type to
+                        # list as it is already a scalar string.
+                        output[key] = value
+            return output
         else:
             return {
                 key: (
@@ -1912,3 +1976,25 @@ class _TransformersWrapper:
                 "If supplying a list, all values must be of string type.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @staticmethod
+    def _convert_cast_lists_from_np_back_to_list(data):
+        """
+        This handles the casting of dicts within lists from Pandas DF conversion within model
+        serving back into the required Dict[str, List[str]] if this type matching occurs.
+        Otherwise, it's a noop.
+        """
+        if not isinstance(data, list):
+            # NB: applying a short-circuit return here to not incur runtime overhead with
+            # type validation if the input is not a list
+            return data
+        elif not all(isinstance(value, dict) for value in data):
+            return data
+        else:
+            parsed_data = []
+            for entry in data:
+                if all(isinstance(value, np.ndarray) for value in entry.values()):
+                    parsed_data.append({key: value.tolist() for key, value in entry.items()})
+                else:
+                    parsed_data.append(entry)
+            return parsed_data
