@@ -415,13 +415,7 @@ def set_can_manage_experiment_permission(resp: Response):
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
     username = request.authorization.username
-    try:
-        store.create_experiment_permission(experiment_id, username, MANAGE.name)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            store.update_experiment_permission(experiment_id, username, MANAGE.name)
-        else:
-            raise
+    store.create_experiment_permission(experiment_id, username, MANAGE.name)
 
 
 def set_can_manage_registered_model_permission(resp: Response):
@@ -429,13 +423,7 @@ def set_can_manage_registered_model_permission(resp: Response):
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
     username = request.authorization.username
-    try:
-        store.create_registered_model_permission(name, username, MANAGE.name)
-    except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            store.update_registered_model_permission(name, username, MANAGE.name)
-        else:
-            raise
+    store.create_registered_model_permission(name, username, MANAGE.name)
 
 
 AFTER_REQUEST_PATH_HANDLERS = {
