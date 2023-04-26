@@ -519,12 +519,12 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     with TempDir(chdr=True):
-        with mlflow.start_run() as run:
-            mlflow.pyfunc.log_model(
+        with mlflow.start_run():
+            model_info = mlflow.pyfunc.log_model(
                 "model", python_model=TestModel(), signature=ModelSignature(schema)
             )
         response = pyfunc_serve_and_score_model(
-            model_uri="runs:/{}/model".format(run.info.run_id),
+            model_uri=model_info.model_uri,
             data=json.dumps({"dataframe_split": df.to_dict(orient="split")}, cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             extra_args=["--env-manager", "local"],
@@ -535,11 +535,21 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
         expected_types = {**pandas_df_with_all_types.dtypes, "string": np.dtype(object)}
         assert response_json == [[k, str(v)] for k, v in expected_types.items()]
         response = pyfunc_serve_and_score_model(
-            model_uri="runs:/{}/model".format(run.info.run_id),
+            model_uri=model_info.model_uri,
             data=json.dumps(
                 {"dataframe_records": pandas_df_with_all_types.to_dict(orient="records")},
                 cls=NumpyEncoder,
             ),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+        response_json = json.loads(response.content)["predictions"]
+        assert response_json == [[k, str(v)] for k, v in expected_types.items()]
+
+        # Test 'inputs' format
+        response = pyfunc_serve_and_score_model(
+            model_uri=model_info.model_uri,
+            data=json.dumps({"inputs": df.to_dict(orient="list")}, cls=NumpyEncoder),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             extra_args=["--env-manager", "local"],
         )
