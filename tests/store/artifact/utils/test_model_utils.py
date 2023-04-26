@@ -81,7 +81,7 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ("models://scope:key/Ads Model 1@None", "Ads Model 1", "None"),
         ("models://////Ads Model 1@TestAlias", "Ads Model 1", "TestAlias"),  # many slashes
         ("models:/catalog.schema.model@None", "catalog.schema.model", "None"),  # UC Model format
-        ("models:/A!&$%;{}()[]CrazyName@Alias", "A!&$%;{}()[]CrazyName", "Alias"),
+        ("models:/A!&#$%;{}()[]CrazyName@Alias", "A!&#$%;{}()[]CrazyName", "Alias"),
         (
             "models:/NameWith@IntheMiddle@Alias",
             "NameWith@IntheMiddle",
@@ -111,7 +111,6 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "models:/Name/Stage/0",  # too many specifiers
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
-        "models://Name@te#ty;",  # invalid characters
     ],
 )
 def test_parse_models_uri_invalid_input(uri):

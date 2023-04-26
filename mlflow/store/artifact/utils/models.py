@@ -52,7 +52,7 @@ def _parse_model_uri(uri):
         - (name, None, None, None) to look for the latest of all versions.
         - (name, None, None, alias) to look for a registered model alias.
     """
-    parsed = urllib.parse.urlparse(uri)
+    parsed = urllib.parse.urlparse(uri, allow_fragments=False)
     if parsed.scheme != "models":
         raise MlflowException(_improper_model_uri_msg(uri))
     path = parsed.path
