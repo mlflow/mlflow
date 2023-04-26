@@ -1667,7 +1667,8 @@ def _autolog(
                         client.log_inputs(run_id=run_id, datasets=[dataset_input])
                 except Exception as e:
                     _logger.warning(
-                        "Failed to log evaluation dataset information to MLflow Tracking. Reason: %s",
+                        "Failed to log evaluation dataset information to "
+                        "MLflow Tracking. Reason: %s",
                         e,
                     )
             return predict_result
