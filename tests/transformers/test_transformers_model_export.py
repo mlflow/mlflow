@@ -1713,6 +1713,176 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
 
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "question": ["What color is it?", "How do the people go?"],
+                "context": [
+                    "Some people said it was green but I know that it's pink.",
+                    "The people on the bus go up and down. Up and down.",
+                ],
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}]
+
+
+def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
+    artifact_path = "text_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=text_classification_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [
+                "I think this sushi might have gone off",
+                "That gym smells like feet, hot garbage, and sadness",
+                "I love that we have a moon",
+            ]
+        }
+    )
+
+    from mlflow.deployments import PredictionsResponse
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "NEGATIVE"}, {0: "NEGATIVE"}, {0: "POSITIVE"}]
+
+    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "POSITIVE"}]
+
+
+def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
+    artifact_path = "zero_shot_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=zero_shot_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": "I love the latest update to this IDE!",
+                "candidate_labels": ["happy", "sad"],
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+
+    from mlflow.deployments import PredictionsResponse
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
+                "candidate_labels": '["happy", "sad"]',
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}, {0: "sad"}]
+
+
+def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
+    artifact_path = "table_qa_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=table_question_answering_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": "What should we order more of?",
+                "table": table,
+            }
+        }
+    )
+
+    from mlflow.deployments import PredictionsResponse
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "apples"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": ["What is our highest sales?", "What should we order more of?"],
+                "table": table,
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "1230945.55"}, {0: "apples"}]
+
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
     mlflow.transformers.save_model(small_multi_modal_pipeline, model_path)

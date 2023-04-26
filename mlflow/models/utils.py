@@ -612,17 +612,27 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
+
+    def _is_scalar(x):
+        return np.isscalar(x) or x is None
+
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
             try:
-                if isinstance(pf_input, dict) and all(
-                    not isinstance(value, (dict, list)) for value in pf_input.values()
+                if isinstance(pf_input, str):
+                    pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and all(
+                    _is_scalar(value) for value in pf_input.values()
                 ):
-                    pf_input = pd.DataFrame(pf_input, index=[0])
-                elif isinstance(pf_input, str):
-                    pf_input = pd.DataFrame({"inputs": pf_input}, index=[0])
+                    pf_input = pd.DataFrame([pf_input])
+                elif (
+                    isinstance(pf_input, dict)
+                    and all(isinstance(value, np.ndarray) for value in pf_input.values())
+                    and all(value.size == 1 for value in pf_input.values())
+                ):
+                    pf_input = pd.DataFrame([pf_input])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:

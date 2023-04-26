@@ -332,7 +332,7 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
             invalid_keys.append(key)
         if isinstance(value, list) and not all(isinstance(item, str) for item in value):
             invalid_values.append(key)
-        elif not isinstance(value, (list, str)):
+        elif not isinstance(value, (np.ndarray, list, str)):
             invalid_values.append(key)
     if invalid_values:
         raise MlflowException(

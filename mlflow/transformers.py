@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import pandas as pd
+import numpy as np
 import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
@@ -1455,6 +1456,8 @@ class _TransformersWrapper:
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
 
+        data = self._convert_cast_lists_from_np_back_to_list(data)
+
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
@@ -1903,6 +1906,29 @@ class _TransformersWrapper:
                 }
                 for entry in data
             ]
+        elif isinstance(data, dict):
+            # This is to handle serving use cases as the DataFrame encapsulation converts
+            # collections within rows to np.array type. In order to process this data through
+            # the transformers.Pipeline API, we need to cast these arrays back to lists
+            # and replace the single quotes with double quotes after extracting the
+            # json-encoded `table` (a pandas DF) in order to convert it to a dict that
+            # the TableQuestionAnsweringPipeline can accept and cast to a Pandas DataFrame.
+            output = {}
+            for key, value in data.items():
+                if key == key_to_unpack:
+                    if isinstance(value, np.ndarray):
+                        output[key] = json.loads(str(value.tolist()).replace("'", '"'))
+                    else:
+                        output[key] = json.loads(value.replace("'", '"'))
+                else:
+                    if isinstance(value, np.ndarray):
+                        # This cast to np.ndarray occurs when more than one question is asked.
+                        output[key] = value.tolist()
+                    else:
+                        # Otherwise, the entry does not need casting from a np.ndarray type to
+                        # list as it is already a scalar string.
+                        output[key] = value
+            return output
         else:
             return {
                 key: (
@@ -1924,3 +1950,25 @@ class _TransformersWrapper:
                 "If supplying a list, all values must be of string type.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @staticmethod
+    def _convert_cast_lists_from_np_back_to_list(data):
+        """
+        This handles the casting of dicts within lists from Pandas DF conversion within model
+        serving back into the required Dict[str, List[str]] if this type matching occurs.
+        Otherwise, it's a noop.
+        """
+        if not isinstance(data, list):
+            # NB: applying a short-circuit return here to not incur runtime overhead with
+            # type validation if the input is not a list
+            return data
+        elif not all(isinstance(value, dict) for value in data):
+            return data
+        else:
+            parsed_data = []
+            for entry in data:
+                if all(isinstance(value, np.ndarray) for value in entry.values()):
+                    parsed_data.append({key: value.tolist() for key, value in entry.items()})
+                else:
+                    parsed_data.append(entry)
+            return parsed_data
