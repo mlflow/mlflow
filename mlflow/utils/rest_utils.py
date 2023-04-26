@@ -87,7 +87,7 @@ def _cached_get_request_session(
 
 def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
-    Wraps _cached_get_request_session() to avoid sharing the same Session object across processes.
+    Wraps `_cached_get_request_session` to avoid sharing the same Session object across processes.
     """
     return _cached_get_request_session(
         max_retries,
