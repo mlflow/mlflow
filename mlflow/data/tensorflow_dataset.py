@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
-    Represents a Tensorflow dataset for use with MLflow Tracking.
+    Represents a TensorFlow dataset for use with MLflow Tracking.
     """
 
     def __init__(
@@ -28,9 +28,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         digest: Optional[str] = None,
     ):
         """
-        :param data: A Tensorflow dataset or tensor.
-        :param source: The source of the Tensorflow dataset.
-        :param targets: A Tensorflow dataset or tensor containing dataset targets. Optional
+        :param data: A TensorFlow dataset or tensor.
+        :param source: The source of the TensorFlow dataset.
+        :param targets: A TensorFlow dataset or tensor containing dataset targets. Optional
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -75,7 +75,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def data(self):
         """
-        The underlying Tensorflow data.
+        The underlying TensorFlow data.
         """
         return self._data
 
@@ -101,8 +101,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         import tensorflow as tf
 
         profile = {
-            "data_num_rows": len(self._data),
-            "data_num_elements": int(self._data.cardinality().numpy())
+            "features_num_rows": len(self._data),
+            "features_num_elements": int(self._data.cardinality().numpy())
             if isinstance(self._data, tf.data.Dataset)
             else tf.size(self._data).numpy(),
         }
@@ -126,7 +126,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
         try:
             schema_dict = {
-                "data": next(self._data.as_numpy_iterator())
+                "features": next(self._data.as_numpy_iterator())
                 if isinstance(self._data, tf.data.Dataset)
                 else self._data.numpy()
             }
@@ -138,7 +138,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 )
             return _infer_schema(schema_dict)
         except Exception as e:
-            _logger.warning("Failed to infer schema for Tensorflow dataset. Exception: %s", e)
+            _logger.warning("Failed to infer schema for TensorFlow dataset. Exception: %s", e)
             return None
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
@@ -157,15 +157,15 @@ def from_tensorflow(
     digest: Optional[str] = None,
 ) -> TensorflowDataset:
     """
-    Constructs a TensorflowDataset object from Tensorflow data, optional targets, and source.
+    Constructs a TensorflowDataset object from TensorFlow data, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
-    :param data: A Tensorflow dataset or Tensorflow tensor.
+    :param data: A TensorFlow dataset or TensorFlow tensor.
     :param source: The source from which the data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
                     pass in a DatasetSource object directly.
-    :param targets: A Tensorflow dataset or Tensorflow tensor containing dataset targets.
+    :param targets: A TensorFlow dataset or TensorFlow tensor containing dataset targets.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
