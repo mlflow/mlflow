@@ -646,6 +646,66 @@ Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflo
 
 For more information, see :py:mod:`mlflow.h2o`.
 
+h2o pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal h2o model, here is an example of the pyfunc predict() method in a classification scenario :
+
+.. code-block:: python
+
+    import mlflow
+    import h2o
+
+    h2o.init()
+    from h2o.estimators.glm import H2OGeneralizedLinearEstimator
+
+    # import the prostate data
+    df = h2o.import_file(
+        "http://s3.amazonaws.com/h2o-public-test-data/smalldata/prostate/prostate.csv.zip"
+    )
+
+    # convert the columns to factors
+    df["CAPSULE"] = df["CAPSULE"].asfactor()
+    df["RACE"] = df["RACE"].asfactor()
+    df["DCAPS"] = df["DCAPS"].asfactor()
+    df["DPROS"] = df["DPROS"].asfactor()
+
+    # split the data
+    train, test, valid = df.split_frame(ratios=[0.7, 0.15])
+
+    # generate a GLM model
+    glm_classifier = H2OGeneralizedLinearEstimator(
+        family="binomial", lambda_=0, alpha=0.5, nfolds=5, compute_p_values=True
+    )
+
+    with mlflow.start_run():
+        glm_classifier.train(
+            y="CAPSULE", x=["AGE", "RACE", "VOL", "GLEASON"], training_frame=train
+        )
+        metrics = glm_classifier.model_performance()
+        metrics_to_track = ["MSE", "RMSE", "r2", "logloss"]
+        metrics_to_log = {
+            key: value
+            for key, value in metrics._metric_json.items()
+            if key in metrics_to_track
+        }
+        params = glm_classifier.params
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics_to_log)
+        model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+
+    # load h2o model and make a prediction
+    h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    test_df = test.as_data_frame()
+    predictions = h2o_pyfunc.predict(test_df)
+    print(predictions)
+
+    # it is also possible to load the model and predict using h2o methods on the h2o frame
+
+    # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
+    # predictions = h2o_model.predict(test)
+
+
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
@@ -1745,6 +1805,45 @@ Index  yhat       yhat_lower yhat_upper
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
 
+OpenAI (``openai``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``openai`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``openi`` model flavor enables logging of `OpenAI models <https://github.com/openai/openai-python>`_ in MLflow format via
+the :py:func:`mlflow.openai.save_model()` and :py:func:`mlflow.openai.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.openai.load_model()` function to load a saved or logged MLflow
+Model with the ``openai`` flavor as a dictionary of the model's attributes.
+
+Example:
+
+.. literalinclude:: ../../examples/openai/pyfunc.py
+    :language: python
+
+
+LangChain (``langchain``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``langchain`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
+the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
+Model with the ``langchain`` flavor as a dictionary of the model's attributes.
+
+Example:
+
+.. literalinclude:: ../../examples/langchain/simple_chain.py
+    :language: python
+
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
@@ -1938,6 +2037,262 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * The value of ``n_periods`` or ``horizon`` is not an integer.
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
+
+Transformers (``transformers``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``transformers`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``transformers`` model flavor enables logging of
+`transformers models, components, and pipelines <https://huggingface.co/docs/transformers/index>`_ in MLflow format via
+the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.transformers.load_model()` function to load a saved or logged MLflow
+Model with the ``transformers`` flavor in the native transformers formats.
+
+Input and Output types for PyFunc
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``transformers`` :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` simplifies
+and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
+and batch inference by coercing the data structures that are required for ``transformers`` inference pipelines
+to formats that are compatible with json serialization and casting to Pandas DataFrames.
+
+.. note::
+    Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
+    prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
+    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
+    any modification to the output returned from pipeline inference.
+
+.. attention::
+    Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
+    types that can be loaded as ``pyfunc``.
+
+    In the current version, text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, audio, multi-modal, timeseries,
+    reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
+
+    Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
+
+The table below shows the mapping of ``transformers`` pipeline types to the :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>`
+data type inputs and outputs.
+
+.. important::
+    The inputs and outputs of the ``pyfunc`` implementation of these pipelines *are not guaranteed to match* the input types and output types that would
+    return from a native use of a given pipeline type. If your use case requires access to scores, top_k results, or other additional references within
+    the output from a pipeline inference call, please use the native implementation by loading via :py:func:`mlflow.transformers.load_model()` to
+    receive the full output.
+
+    Similarly, if your use case requires the use of raw tensor outputs or processing of outputs through an external ``processor`` module, load the
+    model components directly as a ``dict`` by calling :py:func:`mlflow.transformers.load_model()` and specify the ``return_type`` argument as 'components'.
+
+Supported transformers Pipeline types for Pyfunc
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+================================= ============================== =================
+Pipeline Type                     Input Type                     Output Type
+================================= ============================== =================
+Conversational                    str or List[str]               str or List[str]
+Summarization                     str or List[str]               str or List[str]
+Text Classification               str or List[str]               str or List[str]
+Text Generation                   str or List[str]               str or List[str]
+Text2Text Generation              str or List[str]               str or List[str]
+Token Classification              str or List[str]               str or List[str]
+Translation                       str or List[str]               str or List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str]
+Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
+Question Answering***             Dict[str, str]***              str or List[str]
+Fill Mask****                     str or List[str]****           str or List[str]
+================================= ============================== =================
+
+\* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
+Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
+
+\** A collection of these inputs can also be passed. The reference table must be a json encoded dict (i.e. {'query': 'what did we sell most of?', 'table': json.dumps(table_as_dict)})
+
+\*** A collection of these inputs can also be passed. The standard required key names are 'question' and 'context'. Verify the expected input key names match the
+expected input to the model to ensure your inference request can be read properly.
+
+\**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
+avoid failed inference requests.
+
+Example of loading a transformers model as a python function
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
+loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    # Read a pre-trained conversation pipeline from HuggingFace hub
+    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+
+    # Define the signature
+    signature = mlflow.models.infer_signature(
+        "Hi there, chatbot!",
+        mlflow.transformers.generate_signature_output(
+            conversational_pipeline, "Hi there, chatbot!"
+        ),
+    )
+
+    # Log the pipeline
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=conversational_pipeline,
+            artifact_path="chatbot",
+            task="conversational",
+            signature=signature,
+            input_example="A clever and witty question",
+        )
+
+    # Load the saved pipeline as pyfunc
+    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # Ask the chatbot a question
+    response = chatbot.predict("What is machine learning?")
+
+    print(response)
+
+    # >> It's a new thing that's been around for a while.
+
+
+Save and Load options for transformers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
+an easy to use interface that is optimized for inference.
+
+.. note::
+    For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
+
+Logging a components-based model
+""""""""""""""""""""""""""""""""
+The example below shows logging components of a ``transformers`` model via a dictionary mapping of specific named components. The names of the keys within the submitted dictionary
+must be in the set: ``{"model", "tokenizer", "feature_extractor", "image_processor"}``. Processor type objects (some image processors, audio processors, and multi-modal processors)
+must be saved explicitly with the ``processor`` argument in the :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs.
+
+After logging, the components are automatically inserted into the appropriate ``Pipeline`` type for the task being performed and are returned, ready for inference.
+
+.. note::
+    The components that are logged can be retrieved in their original structure (a dictionary) by setting the attribute ``return_type`` to "components" in the ``load_model()`` API.
+
+.. attention::
+    Not all model types are compatible with the pipeline API constructor via component elements. Incompatible models will raise an
+    ``MLflowException`` error stating that the model is missing the `name_or_path` attribute. In
+    the event that this occurs, please construct the model directly via the ``transformers.pipeline(<repo name>)`` API and save the pipeline object directly.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    task = "text-classification"
+    architecture = "distilbert-base-uncased-finetuned-sst-2-english"
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+
+    # Define the components of the model in a dictionary
+    transformers_model = {"model": model, "tokenizer": tokenizer}
+
+    # Log the model components
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=transformers_model,
+            artifact_path="text_classifier",
+            task=task,
+        )
+
+    # Load the components as a pipeline
+    loaded_pipeline = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="pipeline"
+    )
+
+    print(type(loaded_pipeline).__name__)
+    # >> TextClassificationPipeline
+
+    loaded_pipeline(["MLflow is awesome!", "Transformers is a great library!"])
+
+    # >> [{'label': 'POSITIVE', 'score': 0.9998478889465332},
+    # >>  {'label': 'POSITIVE', 'score': 0.9998030066490173}]
+
+
+Saving a pipeline and loading components
+""""""""""""""""""""""""""""""""""""""""
+Some use cases can benefit from the simplicity of defining a solution as a pipeline, but need the component-level access for performing a micro-services based deployment strategy
+where pre / post-processing is performed on containers that do not house the model itself. For this paradigm, a pipeline can be loaded as its constituent parts, as shown below.
+
+.. code-block:: python
+
+    import transformers
+    import mlflow
+
+    translation_pipeline = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=translation_pipeline,
+            artifact_path="french_translator",
+        )
+
+    translation_components = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="components"
+    )
+
+    for key, value in translation_components.items():
+        print(f"{key} -> {type(value).__name__}")
+
+    # >> task -> str
+    # >> model -> T5ForConditionalGeneration
+    # >> tokenizer -> T5TokenizerFast
+
+    response = translation_pipeline("MLflow is great!")
+
+    print(response)
+
+    # >> [{'translation_text': 'MLflow est formidable!'}]
+
+    reconstructed_pipeline = transformers.pipeline(**translation_components)
+
+    reconstructed_response = reconstructed_pipeline(
+        "transformers makes using Deep Learning models easy and fun!"
+    )
+
+    print(reconstructed_response)
+
+    # >> [{'translation_text': "Les transformateurs rendent l'utilisation de modèles Deep Learning facile et amusante!"}]
+
+
+Automatic Metadata and ModelCard logging
+""""""""""""""""""""""""""""""""""""""""
+In order to provide as much information as possible for saved models, the ``transformers`` flavor will automatically fetch the ``ModelCard`` for any model or pipeline that
+is saved that has a stored card on the HuggingFace hub. This card will be logged as part of the model artifact, viewable at the same directory level as the ``MLmodel`` file and
+the stored model object.
+
+In addition to the ``ModelCard``, the components that comprise any Pipeline (or the individual components if saving a dictionary of named components) will have their source types
+stored. The model type, pipeline type, task, and classes of any supplementary component (such as a ``Tokenizer`` or ``ImageProcessor``) will be stored in the ``MLmodel`` file as well.
+
+Automatic Signature inference
+"""""""""""""""""""""""""""""
+For pipelines that support ``pyfunc``, there are 3 means of attaching a model signature to the ``MLmodel`` file.
+
+* Provide a model signature explicitly via setting a valid ``ModelSignature`` to the ``signature`` attribute. This can be generated via the helper utility :py:func:`mlflow.transformers.generate_signature_output()`
+
+* Provide an ``input_example``. The signature will be inferred and validated that it matches the appropriate input type. The output type will be validated by performing inference automatically (if the model is a ``pyfunc`` supported type).
+
+* Do nothing. The ``transformers`` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
+
 
 .. _model-evaluation:
 

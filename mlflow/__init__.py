@@ -72,7 +72,9 @@ try:
     from mlflow import pmdarima
     from mlflow import diviner
     from mlflow import transformers
+    from mlflow import langchain
     from mlflow import llm
+    from mlflow import openai
 
     _model_flavors_supported = [
         "catboost",
@@ -97,6 +99,9 @@ try:
         "pmdarima",
         "diviner",
         "transformers",
+        "langchain",
+        "llm",
+        "openai",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
@@ -159,7 +164,11 @@ from mlflow.tracking.fluent import (
     autolog,
     last_active_run,
 )
-from mlflow.tracking._model_registry.fluent import register_model, search_registered_models
+from mlflow.tracking._model_registry.fluent import (
+    register_model,
+    search_registered_models,
+    search_model_versions,
+)
 from mlflow.tracking import (
     get_tracking_uri,
     set_tracking_uri,
@@ -202,6 +211,7 @@ __all__ = [
     "get_experiment_by_name",
     "search_experiments",
     "search_registered_models",
+    "search_model_versions",
     "create_experiment",
     "set_experiment",
     "delete_experiment",

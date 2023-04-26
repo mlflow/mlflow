@@ -1,5 +1,5 @@
 """
-The ``mlflow.llm`` module provides a utility for Large Language Models (LLMs).
+The ``mlflow.llm`` module provides utilities for Large Language Models (LLMs).
 """
 
 from mlflow.tracking.llm_utils import log_predictions

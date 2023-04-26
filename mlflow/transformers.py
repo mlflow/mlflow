@@ -2,6 +2,7 @@ import json
 import logging
 import pathlib
 import pandas as pd
+import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
 import yaml
@@ -1286,12 +1287,15 @@ def _load_pyfunc(path):
     """
     local_path = pathlib.Path(path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(local_path)
+    inference_config = _get_inference_config(local_path.joinpath(_COMPONENTS_BINARY_KEY))
     return _TransformersWrapper(
-        _load_model(str(local_path), flavor_configuration, "pipeline"), inference_config
+        _load_model(str(local_path), flavor_configuration, "pipeline"),
+        flavor_configuration,
+        inference_config,
     )
 
 
+@experimental
 def generate_signature_output(pipeline, data):
     """
     Utility for generating the response output for the purposes of extracting an output signature
@@ -1316,31 +1320,16 @@ def generate_signature_output(pipeline, data):
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, inference_config=None):
+    def __init__(self, pipeline, flavor_config=None, inference_config=None):
         self.pipeline = pipeline
-        self.inference_config = inference_config
-        if inference_config:
-            self._validate_inference_config_keys(pipeline, inference_config)
+        self.flavor_config = flavor_config
+        self.inference_config = inference_config or {}
         self._conversation = None
-
-    @staticmethod
-    def _validate_inference_config_keys(pipeline, inference_config):
-        """
-        Raise an Exception if invalid inference_config keys for the given Pipeline and
-        Model were provided during save.
-        """
-        invalid_keys = []
-        for key in inference_config:
-            if not hasattr(pipeline, key) and not hasattr(pipeline.model, key):
-                invalid_keys.append(key)
-        if invalid_keys:
-            raise MlflowException(
-                "The Inference Configuration overrides that were saved with "
-                "this model are not compatible as overrides to either the "
-                "Pipeline or the Model. Please re-save the model with valid "
-                f"inference configuration keys. Invalid keys: {invalid_keys}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        # NB: Current special-case custom pipeline types that have not been added to
+        # the native-supported transformers package but require custom parsing:
+        # InstructionTextGenerationPipeline [Dolly] https://huggingface.co/databricks/dolly-v2-12b
+        #   (and all variants)
+        self._supported_custom_generator_types = {"InstructionTextGenerationPipeline"}
 
     def _convert_pandas_to_dict(self, data):
         import transformers
@@ -1448,6 +1437,9 @@ class _TransformersWrapper:
             if not self._conversation:
                 self._conversation = transformers.Conversation()
             self._conversation.add_user_input(data)
+        elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
+            self._validate_str_or_list_str(data)
+            output_key = "generated_text"
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1455,17 +1447,36 @@ class _TransformersWrapper:
                 error_code=BAD_REQUEST,
             )
 
+        # Optional input preservation for specific pipeline types. This is True (include raw
+        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # option during model saving, excess newline characters and the fed-in prompt will be
+        # trimmed out from the start of the response.
+        include_prompt = self.inference_config.pop("include_prompt", True)
+        # Optional stripping out of `\n` for specific generator pipelines.
+        collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
+
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
         elif isinstance(data, dict):
-            raw_output = self.pipeline(**data)
+            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            raw_output = self.pipeline(data)
+            raw_output = self.pipeline(data, **self.inference_config)
 
         # Handle the pipeline outputs
-        if isinstance(self.pipeline, transformers.FillMaskPipeline):
+        if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
+            self.pipeline, transformers.TextGenerationPipeline
+        ):
+            output = self._strip_input_from_response_in_instruction_pipelines(
+                data,
+                raw_output,
+                output_key,
+                self.flavor_config,
+                include_prompt,
+                collapse_whitespace,
+            )
+        elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
             interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
@@ -1599,6 +1610,70 @@ class _TransformersWrapper:
             return parsed
         else:
             return data
+
+    def _strip_input_from_response_in_instruction_pipelines(
+        self,
+        input_data,
+        output,
+        output_key,
+        flavor_config,
+        include_prompt=True,
+        collapse_whitespace=False,
+    ):
+        """
+        Parse the output from instruction pipelines to conform with other text generator
+        pipeline types and remove line feed characters and other confusing outputs
+        """
+
+        def extract_response_data(data_out):
+            if all(isinstance(x, dict) for x in data_out):
+                return [elem[output_key] for elem in data_out][0]
+            elif all(isinstance(x, list) for x in data_out):
+                return [elem[output_key] for coll in data_out for elem in coll]
+            else:
+                raise MlflowException(
+                    "Unable to parse the pipeline output. Expected List[Dict[str,str]] or "
+                    f"List[List[Dict[str,str]]] but got {type(data_out)} instead."
+                )
+
+        output = extract_response_data(output)
+
+        def trim_input(data_in, data_out):
+            # NB: the '\n\n' pattern is exclusive to specific InstructionalTextGenerationPipeline
+            # types that have been loaded as a plain TextGenerator. The structure of these
+            # pipelines will precisely repeat the input question immediately followed by 2 carriage
+            # return statements, followed by the start of the response to the prompt. We only
+            # want to left-trim these types of pipelines output values if the user has indicated
+            # the removal action of the input prompt in the returned str or List[str] by applying
+            # the optional inference_config entry of `{"include_prompt": False}`.
+            # By default, the prompt is included in the response.
+            # Stripping out additional carriage returns (\n) is another additional optional flag
+            # that can be set for these generator pipelines. It is off by default (False).
+            if (
+                not include_prompt
+                and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+                and data_out.startswith(data_in + "\n\n")
+            ):
+                # If the user has indicated to not preserve the prompt input in the response,
+                # split the response output and trim the input prompt from the response.
+                data_out = data_out[len(data_in) :].lstrip()
+                if data_out.startswith("A:"):
+                    data_out = data_out[2:].lstrip()
+                # If the user has indicated to remove newlines and extra spaces from the generated
+                # text, replace them with a single space.
+            if collapse_whitespace:
+                data_out = re.sub(r"\s+", " ", data_out).strip()
+            return data_out
+
+        if isinstance(input_data, list) and isinstance(output, list):
+            return [trim_input(data_in, data_out) for data_in, data_out in zip(input_data, output)]
+        elif isinstance(input_data, str) and isinstance(output, str):
+            return trim_input(input_data, output)
+        else:
+            raise MlflowException(
+                "Unknown data structure after parsing output. Expected str or List[str]. "
+                f"Got {type(output)} instead."
+            )
 
     def _sanitize_output(self, output, input_data):
         # Some pipelines and their underlying models leave leading or trailing whitespace.

@@ -170,4 +170,39 @@ service UcModelRegistryService {
     };
   }
 
+  rpc SetRegisteredModelAlias (SetRegisteredModelAliasRequest) returns (SetRegisteredModelAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/registered-models/alias"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Set RegisteredModel Alias",
+    };
+  }
+
+  rpc DeleteRegisteredModelAlias (DeleteRegisteredModelAliasRequest) returns (DeleteRegisteredModelAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/registered-models/alias"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Delete RegisteredModel Alias",
+    };
+  }
+
+  rpc GetModelVersionByAlias (GetModelVersionByAliasRequest) returns (GetModelVersionByAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/registered-models/alias"
+        since {major: 2, minor: 0},
+      }],
+      visibility:PUBLIC_UNDOCUMENTED,
+      rpc_doc_title:"(Unity Catalog) Get ModelVersion By Alias",
+    };
+  }
 }

@@ -70,7 +70,7 @@ class PredictStep(BaseStep):
                 self.step_config["model_uri"] = f"models:/{model_name}/latest"
         self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.save_mode = self.step_config.get("save_mode", "default")
+        self.save_mode = self.step_config.get("save_mode", "overwrite")
         self.run_end_time = None
         self.execution_duration = None
 
