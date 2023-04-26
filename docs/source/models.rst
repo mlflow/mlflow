@@ -1072,7 +1072,6 @@ Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
 
-
 ONNX pyfunc usage example
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
