@@ -45,14 +45,13 @@ def _cached_get_request_session(
     max_retries,
     backoff_factor,
     retry_codes,
+    # To create a new Session object for each process, we use the process id as the cache key.
+    # This is to avoid sharing the same Session object across processes, which can lead to issues
+    # such as https://stackoverflow.com/q/3724900.
     _pid,
 ):
     """
     This function should not be called directly. Instead, use `_get_request_session` below.
-
-    :param _pid: To create a new Session object for each process, we use the process id as the
-        cache key. This is to avoid sharing the same Session object across processes, which can
-        lead to issues such as https://stackoverflow.com/q/3724900.
     """
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
