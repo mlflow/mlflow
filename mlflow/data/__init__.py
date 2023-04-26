@@ -9,8 +9,10 @@ from mlflow.entities import DatasetInput
 from mlflow.entities import Dataset as DatasetEntity
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetSource:
     """
     Obtains a :py:class:`mlflow.data.DatasetSource` instance representing the source of the
