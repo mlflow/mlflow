@@ -11,7 +11,7 @@ from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
 class DatasetSourceRegistry:
     def __init__(self):
-        self._sources = []
+        self.sources = []
 
     def register(self, source: DatasetSource):
         """
@@ -19,7 +19,7 @@ class DatasetSourceRegistry:
 
         :param source: The DatasetSource to register.
         """
-        self._sources.append(source)
+        self.sources.append(source)
 
     def register_entrypoints(self):
         """
@@ -53,13 +53,21 @@ class DatasetSourceRegistry:
         :return: The resolved DatasetSource.
         """
         matching_sources = []
-        for source in self._sources:
+        for source in self.sources:
             if candidate_sources and not any(
                 issubclass(source, candidate_src) for candidate_src in candidate_sources
             ):
                 continue
-            if source._can_resolve(raw_source):
-                matching_sources.append(source)
+            try:
+                if source._can_resolve(raw_source):
+                    matching_sources.append(source)
+            except Exception as e:
+                warnings.warn(
+                    f"Failed to determine whether {source.__name__} can resolve source"
+                    f" information for '{raw_source}'. Exception: {e}",
+                    stacklevel=2,
+                )
+                continue
 
         if len(matching_sources) > 1:
             source_class_names_str = ", ".join([source.__name__ for source in matching_sources])
@@ -70,14 +78,22 @@ class DatasetSourceRegistry:
                 stacklevel=2,
             )
 
-        if len(matching_sources) >= 1:
-            return matching_sources[-1]._resolve(raw_source)
-        else:
-            raise MlflowException(
-                f"Could not find a source information resolver for the specified"
-                f" dataset source: {raw_source}.",
-                RESOURCE_DOES_NOT_EXIST,
-            )
+        for matching_source in reversed(matching_sources):
+            try:
+                return matching_source._resolve(raw_source)
+            except Exception as e:
+                warnings.warn(
+                    f"Encountered an unexpected error while using {matching_source.__name__} to"
+                    f" resolve source information for '{raw_source}'. Exception: {e}",
+                    stacklevel=2,
+                )
+                continue
+
+        raise MlflowException(
+            f"Could not find a source information resolver for the specified"
+            f" dataset source: {raw_source}.",
+            RESOURCE_DOES_NOT_EXIST,
+        )
 
     def get_source_from_json(self, source_json: str, source_type: str) -> DatasetSource:
         """
@@ -87,7 +103,7 @@ class DatasetSourceRegistry:
         :param source_type: The string type of the DatasetSource, which indicates how to parse the
                             source JSON.
         """
-        for source in reversed(self._sources):
+        for source in reversed(self.sources):
             if source._get_source_type() == source_type:
                 return source.from_json(source_json)
 
@@ -139,6 +155,15 @@ def get_dataset_source_from_json(source_json: str, source_type: str) -> DatasetS
     return _dataset_source_registry.get_source_from_json(
         source_json=source_json, source_type=source_type
     )
+
+
+def get_registered_sources() -> List[DatasetSource]:
+    """
+    Obtains the registered dataset sources.
+
+    :return: A list of registered dataset sources.
+    """
+    return _dataset_source_registry.sources
 
 
 # NB: The ordering here is important. The last dataset source to be registered takes precedence

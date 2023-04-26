@@ -29,3 +29,14 @@ def test_digest_property_has_expected_value():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TestDataset(data_list=[1, 2, 3], source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
+
+
+def test_expected_name_is_used():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+
+    dataset_without_name = TestDataset(data_list=[1, 2, 3], source=source)
+    assert dataset_without_name.name == "dataset"
+
+    dataset_with_name = TestDataset(data_list=[1, 2, 3], source=source, name="testname")
+    assert dataset_with_name.name == "testname"
