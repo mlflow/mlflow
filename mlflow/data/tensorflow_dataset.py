@@ -154,7 +154,25 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Converts the dataset to an EvaluationDataset for model evaluation. Required
         for use with mlflow.evaluate().
         """
-        raise NotImplementedError
+        import tensorflow as tf
+
+        data_as_numpy = (
+            next(self._data.as_numpy_iterator())
+            if isinstance(self._data, tf.data.Dataset)
+            else self._data.numpy()
+        )
+        targets_as_numpy = (
+            next(self._targets.as_numpy_iterator())
+            if isinstance(self._targets, tf.data.Dataset)
+            else self._targets.numpy()
+        )
+
+        return EvaluationDataset(
+            data=data_as_numpy,
+            targets=targets_as_numpy,
+            path=path,
+            feature_names=feature_names,
+        )
 
 
 def from_tensorflow(

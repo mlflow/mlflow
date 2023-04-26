@@ -311,6 +311,8 @@ def test_load_delta_table_name_with_version(spark_session, tmp_path, df):
 
 
 def test_to_evaluation_dataset(spark_session, tmp_path, df):
+    import numpy as np
+
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")
     df_spark.write.parquet(path)
@@ -325,3 +327,5 @@ def test_to_evaluation_dataset(spark_session, tmp_path, df):
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df_spark.toPandas().drop(columns=["c"]))
+    assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)

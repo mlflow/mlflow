@@ -213,6 +213,8 @@ def test_from_pandas_delta_datasource(spark_session, tmp_path):
 
 
 def test_to_evaluation_dataset():
+    import numpy as np
+
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
     df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
@@ -224,3 +226,5 @@ def test_to_evaluation_dataset():
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df.drop("c", axis=1))
+    assert np.array_equal(evaluation_dataset.labels_data, df["c"].to_numpy())

@@ -230,8 +230,12 @@ def test_dataset_source_conversion_to_json():
 
 
 def test_to_evaluation_dataset():
+    import numpy as np
+
     ds = datasets.load_dataset("rotten_tomatoes", split="train")
     dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")
 
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(dataset.ds.to_pandas().drop("label", axis=1))
+    assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)

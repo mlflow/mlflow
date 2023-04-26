@@ -85,6 +85,8 @@ def test_to_evaluation_dataset():
     dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert np.array_equal(evaluation_dataset.features_data, features)
+    assert np.array_equal(evaluation_dataset.labels_data, targets)
 
 
 def test_from_numpy_features_only(tmp_path):
