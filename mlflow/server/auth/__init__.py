@@ -151,7 +151,7 @@ def make_forbidden_response() -> Response:
 def _get_request_param(param: str) -> Optional[str]:
     if request.method == "GET":
         args = request.args
-    elif request.method == "POST":
+    elif request.method in ("POST", "PATCH", "DELETE"):
         args = request.json
     else:
         raise MlflowException(
@@ -402,8 +402,7 @@ def _before_request():
         return
 
     # authorization
-    validator = BEFORE_REQUEST_VALIDATORS.get((request.path, request.method))
-    if validator:
+    if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
         _logger.debug(f"Calling validator: {validator.__name__}")
         if not validator():
             return make_forbidden_response()
@@ -461,8 +460,7 @@ def _after_request(resp: Response):
     if 400 <= resp.status_code < 600:
         return resp
 
-    handler = AFTER_REQUEST_HANDLERS.get((request.path, request.method))
-    if handler:
+    if handler := AFTER_REQUEST_HANDLERS.get((request.path, request.method)):
         _logger.debug(f"Calling after request handler: {handler.__name__}")
         handler(resp)
     return resp
@@ -559,10 +557,10 @@ def update_user_password():
 @catch_mlflow_exception
 def update_user_admin():
     username = _get_request_param("username")
-    is_admin_str = _get_request_param("is_admin")
-    if is_admin_str.lower() == "true":
+    is_admin_str = _get_request_param("is_admin").lower()
+    if is_admin_str == "true":
         is_admin = True
-    elif is_admin_str.lower() == "false":
+    elif is_admin_str == "false":
         is_admin = False
     else:
         raise MlflowException(

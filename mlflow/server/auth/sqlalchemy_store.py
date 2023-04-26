@@ -118,8 +118,8 @@ class SqlAlchemyStore:
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-    @classmethod
-    def _get_user(cls, session, username: str) -> SqlUser:
+    @staticmethod
+    def _get_user(session, username: str) -> SqlUser:
         try:
             return session.query(SqlUser).filter(SqlUser.username == username).one()
         except NoResultFound:
@@ -181,12 +181,11 @@ class SqlAlchemyStore:
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-    @classmethod
     def _get_experiment_permission(
-        cls, session, experiment_id: str, username: str
+        self, session, experiment_id: str, username: str
     ) -> SqlExperimentPermission:
         try:
-            user = cls._get_user(session, username=username)
+            user = self._get_user(session, username=username)
             return (
                 session.query(SqlExperimentPermission)
                 .filter(
@@ -258,12 +257,11 @@ class SqlAlchemyStore:
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-    @classmethod
     def _get_registered_model_permission(
-        cls, session, name: str, username: str
+        self, session, name: str, username: str
     ) -> SqlRegisteredModelPermission:
         try:
-            user = cls._get_user(session, username=username)
+            user = self._get_user(session, username=username)
             return (
                 session.query(SqlRegisteredModelPermission)
                 .filter(
