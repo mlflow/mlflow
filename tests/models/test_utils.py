@@ -1,7 +1,6 @@
 from collections import namedtuple
 from unittest import mock
 
-import pandas as pd
 import pytest
 from sklearn import datasets
 import sklearn.neighbors as knn
@@ -11,8 +10,7 @@ import random
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.models import add_libraries_to_model
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import get_model_version_from_model_uri, _enforce_schema
+from mlflow.models.utils import get_model_version_from_model_uri
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -163,21 +161,3 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
         assert wheeled_model_info.run_id is not None
         assert wheeled_model_info.run_id != original_run_id
         mlflow_client_mock.assert_called_once_with(model_name, "1")
-
-
-@pytest.mark.parametrize("orient", ["list", "records"])
-def test_schema_enforcement(orient):
-    # test inputs style signature
-    test_signature = {
-        "inputs": '[{"name": "a", "type": "long"}, {"name": "b", "type": "string"}]',
-        "outputs": '[{"name": "response", "type": "string"}]',
-    }
-    signature = ModelSignature.from_dict(test_signature)
-
-    data = {"a": [4, 5, 6], "b": ["a", "b", "c"]}
-
-    _enforce_schema(data, signature.inputs)
-
-    pd_data = pd.DataFrame(data)
-
-    _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)

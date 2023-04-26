@@ -325,7 +325,10 @@ def _is_spark_df(x) -> bool:
 def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) -> None:
     invalid_keys = []
     invalid_values = []
+    value_type = None
     for key, value in data.items():
+        if not value_type:
+            value_type = type(value)
         if isinstance(key, bool):
             invalid_keys.append(key)
         elif not isinstance(key, (str, int)):
@@ -334,6 +337,9 @@ def _validate_input_dictionary_contains_only_strings_and_lists_of_strings(data) 
             invalid_values.append(key)
         elif not isinstance(value, (np.ndarray, list, str)):
             invalid_values.append(key)
+        elif isinstance(value, np.ndarray) or value_type == np.ndarray:
+            if not isinstance(value, value_type):
+                invalid_values.append(key)
     if invalid_values:
         raise MlflowException(
             "Invalid values in dictionary. If passing a dictionary containing strings, all "

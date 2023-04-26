@@ -1,3 +1,4 @@
+import ast
 import json
 import logging
 import pathlib
@@ -1607,7 +1608,19 @@ class _TransformersWrapper:
                         if value_type == str:
                             parsed[key] = [parsed[key], value]
                         elif value_type == list:
-                            parsed[key] = parsed[key].append(value)
+                            if all(len(entry) == 1 for entry in value):
+                                # This conversion is required solely for model serving.
+                                # In the parsing logic that occurs internally, strings that
+                                # contain single quotes `'` result in casting to a List[char]
+                                # instead of a str type. Attempting to append a List[char]
+                                # to a List[str] as would happen in the `else` block here
+                                # results in the entire List being overwritten as `None` without
+                                # an Exception being raised. By checking for single value entries
+                                # and subsequently converting to list and extracting the first
+                                # element reconstructs the original input string.
+                                parsed[key].append([str(value)][0])
+                            else:
+                                parsed[key] = parsed[key].append(value)
                         else:
                             parsed[key] = value
             return parsed
@@ -1913,17 +1926,30 @@ class _TransformersWrapper:
             # and replace the single quotes with double quotes after extracting the
             # json-encoded `table` (a pandas DF) in order to convert it to a dict that
             # the TableQuestionAnsweringPipeline can accept and cast to a Pandas DataFrame.
+            #
+            # An example casting that occurs for this case when input to model serving is the
+            # conversion of a user input of:
+            #   '{"inputs": {"query": "What is the longest distance?",
+            #                "table": {"Distance": ["1000", "10", "1"]}}}'
+            # is converted to:
+            #   [{'query': array('What is the longest distance?', dtype='<U29'),
+            #     'table': array('{\'Distance\': [\'1000\', \'10\', \'1\']}', dtype='U<204')}]
+            # which is an invalid input to the pipeline.
+            # this method converts the input to:
+            #   {'query': 'What is the longest distance?',
+            #    'table': {'Distance': ['1000', '10', '1']}}
+            # which is a valid input to the TableQuestionAnsweringPipeline.
             output = {}
             for key, value in data.items():
                 if key == key_to_unpack:
                     if isinstance(value, np.ndarray):
-                        output[key] = json.loads(str(value.tolist()).replace("'", '"'))
+                        output[key] = ast.literal_eval(value.item())
                     else:
-                        output[key] = json.loads(value.replace("'", '"'))
+                        output[key] = ast.literal_eval(value)
                 else:
                     if isinstance(value, np.ndarray):
                         # This cast to np.ndarray occurs when more than one question is asked.
-                        output[key] = value.tolist()
+                        output[key] = value.item()
                     else:
                         # Otherwise, the entry does not need casting from a np.ndarray type to
                         # list as it is already a scalar string.

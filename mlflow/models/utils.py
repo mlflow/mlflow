@@ -627,12 +627,6 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     _is_scalar(value) for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])
-                elif (
-                    isinstance(pf_input, dict)
-                    and all(isinstance(value, np.ndarray) for value in pf_input.values())
-                    and all(value.size == 1 for value in pf_input.values())
-                ):
-                    pf_input = pd.DataFrame([pf_input])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
