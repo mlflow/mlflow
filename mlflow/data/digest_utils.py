@@ -62,7 +62,7 @@ def compute_numpy_digest(features, targets=None) -> str:
     return get_normalized_md5_digest(hashable_elements)
 
 
-def compute_tensorflow_dataset_digest(dataset) -> str:
+def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
     """
     Computes a digest for the given Tensorflow dataset.
 
@@ -95,17 +95,35 @@ def compute_tensorflow_dataset_digest(dataset) -> str:
             for x in array.shape:
                 hashable_elements.append(np.int64(x))
 
+    if targets:
+        for array in targets.as_numpy_iterator():
+            if array is None:
+                continue
+            flattened_array = array.flatten()
+            trimmed_array = flattened_array[0:MAX_ROWS]
+            try:
+                hashable_elements.append(pd.util.hash_array(trimmed_array))
+            except TypeError:
+                hashable_elements.append(np.int64(trimmed_array.size))
+
+            # hash full array dimensions
+            for x in array.shape:
+                hashable_elements.append(np.int64(x))
+
     return get_normalized_md5_digest(hashable_elements)
 
 
-def compute_tensor_digest(tensor) -> str:
+def compute_tensor_digest(tensor_data, tensor_targets) -> str:
     """
     Computes a digest for the given Tensorflow tensor.
 
     :param tensor: A Tensorflow tensor.
     :return: A string digest.
     """
-    return compute_numpy_digest(tensor.numpy())
+    if tensor_targets is None:
+        return compute_numpy_digest(tensor_data.numpy())
+    else:
+        return compute_numpy_digest(tensor_data.numpy(), tensor_targets.numpy())
 
 
 def compute_spark_df_digest(df) -> str:

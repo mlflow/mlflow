@@ -165,3 +165,17 @@ def test_resolve_dataset_source_warns_when_multiple_matching_sources_found(tmp_p
         assert (
             "MLflow will assume that this is a TestDatasetSourceCopy2 source" in multiple_match_msg
         )
+
+
+def test_dataset_sources_are_importable_from_sources_module(tmp_path):
+    from mlflow.data.sources import LocalArtifactDatasetSource
+
+    src = LocalArtifactDatasetSource(tmp_path)
+    assert src._get_source_type() == "local"
+    assert src.uri == tmp_path
+
+    from mlflow.data.sources import DeltaDatasetSource
+
+    src = DeltaDatasetSource(path=tmp_path)
+    assert src._get_source_type() == "delta_table"
+    assert src.path == tmp_path
