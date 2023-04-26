@@ -41,7 +41,7 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 
 
 @lru_cache(maxsize=64)
-def _get_request_session(
+def _cached_get_request_session(
     max_retries,
     backoff_factor,
     retry_codes,
@@ -85,6 +85,18 @@ def _get_request_session(
     return session
 
 
+def _get_request_session(max_retries, backoff_factor, retry_codes):
+    """
+    Wraps _cached_get_request_session() to avoid sharing the same Session object across processes.
+    """
+    return _cached_get_request_session(
+        max_retries,
+        backoff_factor,
+        retry_codes,
+        _pid=os.getpid(),
+    )
+
+
 def _get_http_response_with_retries(
     method, url, max_retries, backoff_factor, retry_codes, **kwargs
 ):
@@ -102,7 +114,7 @@ def _get_http_response_with_retries(
 
     :return: requests.Response object.
     """
-    session = _get_request_session(max_retries, backoff_factor, retry_codes, _pid=os.getpid())
+    session = _get_request_session(max_retries, backoff_factor, retry_codes)
     return session.request(method, url, **kwargs)
 
 
