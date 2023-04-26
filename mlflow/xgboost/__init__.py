@@ -629,6 +629,29 @@ def autolog(
         callbacks_index = all_arg_names.index("callbacks")
 
         run_id = mlflow.active_run().info.run_id
+
+        # Whether to automatically log the training dataset as a dataset artifact.
+        if _log_datasets:
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+
+                _log_xgboost_dataset(dtrain, source, "train", autologging_client)
+                evals = kwargs.get("evals")
+                if evals is not None:
+                    for d, name in evals:
+                        _log_xgboost_dataset(d, source, "eval", autologging_client, name)
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log dataset information to MLflow Tracking. Reason: %s", e
+                )
+
         with batch_metrics_logger(run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
@@ -730,28 +753,6 @@ def autolog(
                 model_format=model_format,
             )
 
-        # Whether to automatically log the training dataset as a dataset artifact.
-        if _log_datasets:
-            try:
-                # create a CodeDatasetSource
-                context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
-
-                _log_xgboost_dataset(dtrain, source, "train", autologging_client)
-                evals = kwargs.get("evals")
-                if evals is not None:
-                    for d, name in evals:
-                        _log_xgboost_dataset(d, source, "eval", autologging_client, name)
-                dataset_logging_operations = autologging_client.flush(synchronous=False)
-                dataset_logging_operations.await_completion()
-            except Exception as e:
-                _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
-                )
-
         param_logging_operations.await_completion()
         if early_stopping:
             early_stopping_logging_operations.await_completion()
@@ -820,7 +821,7 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
         elif isinstance(data, np.ndarray):
             dataset = from_numpy(features=data, source=source, name=name)
         else:
-            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+            _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
             return
 
         tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
@@ -830,4 +831,7 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
             run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
         )
     else:
-        _logger.warning("Unable to log dataset. XGBoost version must be >= 1.7.0")
+        _logger.warning(
+            "Unable to log dataset information to MLflow Tracking."
+            "XGBoost version must be >= 1.7.0"
+        )

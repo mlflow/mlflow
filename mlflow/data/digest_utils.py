@@ -87,8 +87,12 @@ def compute_tensorflow_dataset_digest(dataset) -> str:
             hashable_elements.append(np.int64(trimmed_array.size))
 
         # hash full array or tuple of arrays dimensions
-        for a in array:
-            for x in a.shape:
+        if isinstance(array, tuple):
+            for a in array:
+                for x in a.shape:
+                    hashable_elements.append(np.int64(x))
+        else:
+            for x in array.shape:
                 hashable_elements.append(np.int64(x))
 
     return get_normalized_md5_digest(hashable_elements)

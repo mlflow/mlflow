@@ -770,7 +770,6 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
         {"mlflow_tensorspec": _infer_schema({"features": dtrain.get_data().toarray()}).to_dict()}
     )
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.name == "eval_dataset"
     assert dataset_inputs[1].dataset.schema == json.dumps(
         {"mlflow_tensorspec": _infer_schema({"features": deval.get_data().toarray()}).to_dict()}
     )

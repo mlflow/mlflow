@@ -751,6 +751,38 @@ def autolog(
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
         run_id = mlflow.active_run().info.run_id
+
+        # Whether to automatically log the training dataset as a dataset artifact.
+        if _log_datasets:
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+
+                _log_lightgbm_dataset(train_set, source, "train", autologging_client)
+
+                valid_sets = kwargs.get("valid_sets")
+                if valid_sets is not None:
+                    valid_names = kwargs.get("valid_names")
+                    if valid_names is None:
+                        for valid_set in valid_sets:
+                            _log_lightgbm_dataset(valid_set, source, "eval", autologging_client)
+                    else:
+                        for valid_set, valid_name in zip(valid_sets, valid_names):
+                            _log_lightgbm_dataset(
+                                valid_set, source, "eval", autologging_client, name=valid_name
+                            )
+
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log dataset information to MLflow Tracking. Reason: %s", e
+                )
+
         with batch_metrics_logger(run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
@@ -847,37 +879,6 @@ def autolog(
                 registered_model_name=registered_model_name,
             )
 
-        # Whether to automatically log the training dataset as a dataset artifact.
-        if _log_datasets:
-            try:
-                # create a CodeDatasetSource
-                context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
-
-                _log_lightgbm_dataset(train_set, source, "train", autologging_client)
-
-                valid_sets = kwargs.get("valid_sets")
-                if valid_sets is not None:
-                    valid_names = kwargs.get("valid_names")
-                    if valid_names is None:
-                        for valid_set in valid_sets:
-                            _log_lightgbm_dataset(valid_set, source, "eval", autologging_client)
-                    else:
-                        for valid_set, valid_name in zip(valid_sets, valid_names):
-                            _log_lightgbm_dataset(
-                                valid_set, source, "eval", autologging_client, name=valid_name
-                            )
-
-                dataset_logging_operations = autologging_client.flush(synchronous=False)
-                dataset_logging_operations.await_completion()
-            except Exception as e:
-                _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
-                )
-
         param_logging_operations.await_completion()
         if early_stopping:
             early_stopping_logging_operations.await_completion()
@@ -946,7 +947,7 @@ def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name
     elif isinstance(data, np.ndarray):
         dataset = from_numpy(features=data, targets=label, source=source, name=name)
     else:
-        _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+        _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
         return
     tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
     dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)

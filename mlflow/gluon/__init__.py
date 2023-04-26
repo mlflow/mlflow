@@ -412,7 +412,7 @@ def autolog(
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                       If ``False``, dataset information is not logged.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the MXNet Gluon autologging integration. If ``False``,
                     enables the MXNet Gluon autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

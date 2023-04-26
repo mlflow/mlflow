@@ -1033,7 +1033,7 @@ def autolog(
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
     :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                       If ``False``, dataset information is not logged.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1260,11 +1260,6 @@ def autolog(
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
 
-                history = original(inst, *args, **kwargs)
-
-                if log_models:
-                    _log_keras_model(history, args)
-
                 if log_datasets:
                     try:
                         # create a CodeDatasetSource
@@ -1274,19 +1269,26 @@ def autolog(
                             mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
                         )
                         training_data = kwargs["x"] if "x" in kwargs else args[0]
-                        validation_data = (
-                            kwargs["validation_data"] if "validation_data" in kwargs else None
-                        )
+                        if "validation_data" in kwargs:
+                            validation_data = kwargs["validation_data"]
+                        elif len(args) >= 8:
+                            validation_data = args[7]
+                        else:
+                            validation_data = None
                         _log_tensorflow_dataset(training_data, source, "train")
                         if validation_data is not None:
                             _log_tensorflow_dataset(validation_data, source, "eval")
 
                     except Exception as e:
                         _logger.warning(
-                            "Failed to log training dataset information to MLflow Tracking. "
-                            "Reason: %s",
+                            "Failed to log training information to MLflow Tracking. " "Reason: %s",
                             e,
                         )
+
+                history = original(inst, *args, **kwargs)
+
+                if log_models:
+                    _log_keras_model(history, args)
 
                 _log_early_stop_callback_metrics(
                     callback=early_stop_callback,
@@ -1330,7 +1332,9 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
     elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
         dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
     else:
-        _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+        _logger.warning(
+            "Unrecognized dataset type %s. Dataset logging skipped.", type(tensorflow_dataset)
+        )
         return
 
     mlflow.log_input(dataset, context)

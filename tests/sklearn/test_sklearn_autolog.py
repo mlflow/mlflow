@@ -1135,6 +1135,30 @@ def test_sklearn_autolog_log_datasets_with_predict():
     assert dataset_inputs[1].dataset.name == "X"
 
 
+def test_sklearn_autolog_log_datasets_without_explicit_run():
+    X, y = get_iris()
+
+    mlflow.sklearn.autolog(log_datasets=True)
+    model = sklearn.linear_model.LinearRegression()
+    model.fit(X, y)
+    y_pred = model.predict(X)  # pylint: disable=unused-variable
+
+    run_id = getattr(model, "_mlflow_run_id")
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema({"features": X, "targets": y}).to_dict()}
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema({"features": X}).to_dict()}
+    )
+    assert dataset_inputs[1].dataset.name == "X"
+
+
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
     """
     Verifies that preprocessing and feature manipulation estimators, which represent data

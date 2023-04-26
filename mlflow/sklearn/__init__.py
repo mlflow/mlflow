@@ -1379,7 +1379,7 @@ def _autolog(
         # attempt to infer input examples on data that was mutated during training
         (X, y_true, sample_weight) = _get_X_y_and_sample_weight(self.fit, args, kwargs)
         autologging_client = MlflowAutologgingQueueingClient()
-        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        _log_pretraining_metadata(autologging_client, self, X, y_true, *args, **kwargs)
         params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
         _log_posttraining_metadata(autologging_client, self, X, y_true, sample_weight)
@@ -1388,7 +1388,7 @@ def _autolog(
         return fit_output
 
     def _log_pretraining_metadata(
-        autologging_client, estimator, *args, **kwargs
+        autologging_client, estimator, X, y, *args, **kwargs
     ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
@@ -1419,6 +1419,28 @@ def _autolog(
             run_id=run_id,
             tags=_get_estimator_info_tags(estimator),
         )
+
+        if log_datasets:
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+
+                dataset = _create_dataset(X, source, y)
+                if dataset:
+                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                    autologging_client.log_inputs(
+                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                    )
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
     def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
         """
@@ -1463,29 +1485,6 @@ def _autolog(
                 estimator.predict(deepcopy(input_example)),
             )
 
-        # log datasets during training
-        if log_datasets:
-            try:
-                # create a CodeDatasetSource
-                context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
-
-                dataset = _create_dataset(X, source, y)
-                if dataset:
-                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
-                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
-
-                    # log the dataset
-                    autologging_client.log_inputs(
-                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                    )
-            except Exception as e:
-                _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
-                )
         # log common metrics and artifacts for estimators (classifier, regressor)
         logged_metrics = _log_estimator_content(
             autologging_client=autologging_client,
@@ -1668,12 +1667,10 @@ def _autolog(
 
                         # log the dataset
                         client = mlflow.MlflowClient()
-                        client.log_inputs(
-                            run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
-                        )
+                        client.log_inputs(run_id=run_id, datasets=[dataset_input])
                 except Exception as e:
                     _logger.warning(
-                        "Failed to log training dataset information to MLflow Tracking. Reason: %s",
+                        "Failed to log evaluation dataset information to MLflow Tracking. Reason: %s",
                         e,
                     )
             return predict_result
@@ -1882,6 +1879,6 @@ def _autolog(
             else:
                 dataset = from_numpy(features=X, source=source, name=dataset_name)
         else:
-            _logger.warning("Unrecognized dataset type. Dataset logging skipped.")
+            _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(X))
             return None
         return dataset

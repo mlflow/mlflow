@@ -882,7 +882,7 @@ def autolog(
                        the "spark.mlflow.pysparkml.autolog.logModelAllowlistFile" Spark config
                        to the path of your allowlist file.
     :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
-                       If ``False``, dataset information is not logged.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the pyspark ML autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -933,7 +933,7 @@ def autolog(
     else:
         _log_model_allowlist = _read_log_model_allowlist()
 
-    def _log_pretraining_metadata(estimator, params):
+    def _log_pretraining_metadata(estimator, params, input_df):
         if params and isinstance(params, dict):
             estimator = estimator.copy(params)
 
@@ -971,6 +971,24 @@ def autolog(
         _log_estimator_params(param_map)
 
         mlflow.set_tags(_get_estimator_info_tags(estimator))
+
+        if log_datasets:
+            try:
+                # create a CodeDatasetSource
+                context_tags = context_registry.resolve_tags()
+                code_source = CodeDatasetSource(
+                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                )
+                dataset = SparkDataset(
+                    df=input_df,
+                    source=code_source,
+                )
+                mlflow.log_input(dataset, "train")
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
     def _log_posttraining_metadata(estimator, spark_model, params, input_df):
         if _is_parameter_search_estimator(estimator):
@@ -1090,24 +1108,6 @@ def autolog(
             else:
                 _logger.warning(_get_warning_msg_for_skip_log_model(spark_model))
 
-        if log_datasets:
-            try:
-                # create a CodeDatasetSource
-                context_tags = context_registry.resolve_tags()
-                code_source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
-                dataset = SparkDataset(
-                    df=input_df,
-                    source=code_source,
-                )
-                mlflow.log_input(dataset, "train")
-            except Exception as e:
-                _logger.warning(
-                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
-                )
-
     def fit_mlflow(original, self, *args, **kwargs):
         params = get_method_call_arg_value(1, "params", None, args, kwargs)
 
@@ -1126,8 +1126,8 @@ def autolog(
             from pyspark.storagelevel import StorageLevel
 
             estimator = self.copy(params) if params is not None else self
-            _log_pretraining_metadata(estimator, params)
             input_training_df = args[0].persist(StorageLevel.MEMORY_AND_DISK)
+            _log_pretraining_metadata(estimator, params, input_training_df)
             spark_model = original(self, *args, **kwargs)
             _log_posttraining_metadata(estimator, spark_model, params, input_training_df)
             input_training_df.unpersist()
@@ -1205,7 +1205,6 @@ def autolog(
                             dataset = SparkDataset(
                                 df=pred_result_dataset,
                                 source=code_source,
-                                name=dataset_name,
                             )
                             tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
                             dataset_input = DatasetInput(
@@ -1215,7 +1214,7 @@ def autolog(
                             client.log_inputs(run_id, [dataset_input])
                         except Exception as e:
                             _logger.warning(
-                                "Failed to log training dataset information to MLflow Tracking. "
+                                "Failed to log evaluation dataset information to MLflow Tracking. "
                                 "Reason: %s",
                                 e,
                             )
