@@ -23,18 +23,21 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         data,
         source: DatasetSource,
+        targets=None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
-        :param data: A Tensorflow dataset or Tensorflow tensor.
+        :param data: A Tensorflow dataset or tensor.
         :param source: The source of the Tensorflow dataset.
+        :param targets: A Tensorflow dataset or tensor containing dataset targets. Optional
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
         """
         self._data = data
+        self._targets = targets
         super().__init__(source=source, name=name, digest=digest)
 
     def _compute_digest(self) -> str:
@@ -45,9 +48,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         import tensorflow as tf
 
         return (
-            compute_tensorflow_dataset_digest(self._data)
+            compute_tensorflow_dataset_digest(self._data, self._targets)
             if isinstance(self._data, tf.data.Dataset)
-            else compute_tensor_digest(self._data)
+            else compute_tensor_digest(self._data, self._targets)
         )
 
     def _to_dict(self, base_dict: Dict[str, str]) -> Dict[str, str]:
@@ -84,18 +87,34 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
+    def targets(self):
+        """
+        The targets of the dataset.
+        """
+        return self._targets
+
+    @property
     def profile(self) -> Optional[Any]:
         """
         A profile of the dataset. May be None if no profile is available.
         """
         import tensorflow as tf
 
-        return {
-            "num_rows": len(self._data),
-            "num_elements": int(self._data.cardinality().numpy())
+        profile = {
+            "data_num_rows": len(self._data),
+            "data_num_elements": int(self._data.cardinality().numpy())
             if isinstance(self._data, tf.data.Dataset)
             else tf.size(self._data).numpy(),
         }
+        if self._targets is not None:
+            profile.update(
+                {
+                    "targets_num_rows": len(self._targets),
+                    "targets_num_elements": int(self._targets.cardinality().numpy())
+                    if isinstance(self._targets, tf.data.Dataset)
+                    else tf.size(self._targets).numpy(),
+                }
+            )
 
     @cached_property
     def schema(self) -> Optional[Schema]:
@@ -105,11 +124,18 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         import tensorflow as tf
 
         try:
-            return (
-                _infer_schema(next(self._data.as_numpy_iterator()))
+            schema_dict = {
+                "data": _infer_schema(next(self._data.as_numpy_iterator()))
                 if isinstance(self._data, tf.data.Dataset)
                 else _infer_schema(self._data.numpy())
-            )
+            }
+            if self._targets is not None:
+                schema_dict["targets"] = (
+                    _infer_schema(next(self._targets.as_numpy_iterator()))
+                    if isinstance(self._targets, tf.data.Dataset)
+                    else _infer_schema(self._targets.numpy())
+                )
+            return _infer_schema(schema_dict)
         except Exception as e:
             _logger.warning("Failed to infer schema for Tensorflow dataset. Exception: %s", e)
             return None
@@ -119,12 +145,13 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Converts the dataset to a collection of pyfunc inputs and outputs for model
         evaluation. Required for use with mlflow.evaluate().
         """
-        return PyFuncInputsOutputs(self._data)
+        return PyFuncInputsOutputs(self._data, self._targets)
 
 
 def from_tensorflow(
     data,
     source: Union[str, DatasetSource],
+    targets,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> TensorflowDataset:
@@ -137,6 +164,7 @@ def from_tensorflow(
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
                     pass in a DatasetSource object directly.
+    :param targets: A Tensorflow dataset or Tensorflow tensor containing dataset targets.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
@@ -149,4 +177,6 @@ def from_tensorflow(
         resolved_source = resolve_dataset_source(
             source,
         )
-    return TensorflowDataset(data=data, source=resolved_source, name=name, digest=digest)
+    return TensorflowDataset(
+        data=data, source=resolved_source, targets=targets, name=name, digest=digest
+    )
