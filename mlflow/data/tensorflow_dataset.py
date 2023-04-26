@@ -112,7 +112,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                     "targets_num_rows": len(self._targets),
                     "targets_num_elements": int(self._targets.cardinality().numpy())
                     if isinstance(self._targets, tf.data.Dataset)
-                    else tf.size(self._targets).numpy(),
+                    else int(tf.size(self._targets).numpy()),
                 }
             )
         return profile
@@ -135,7 +135,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             schema_dict = {"features": features_tensor}
             if self._targets is not None:
                 if isinstance(self._targets, tf.data.Dataset):
-                    targets_tensor = next(self._data_targets.as_numpy_iterator())
+                    targets_tensor = next(self._targets.as_numpy_iterator())
                     if isinstance(targets_tensor, tuple):
                         targets_tensor = targets_tensor[0]
                 else:

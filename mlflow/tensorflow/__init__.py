@@ -1337,8 +1337,7 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
         y = tensorflow_dataset[1]
         # check if x and y are tensors
         if isinstance(x, tensorflow.Tensor) and isinstance(y, tensorflow.Tensor):
-            # TODO: update this to pass in y as targets once we support targets
-            dataset = from_tensorflow(data=x, source=source, name=name)
+            dataset = from_tensorflow(data=x, source=source, targets=y, name=name)
         else:
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
     else:
