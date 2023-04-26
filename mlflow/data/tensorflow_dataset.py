@@ -8,6 +8,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -151,25 +152,19 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
         """
-        Converts the dataset to an EvaluationDataset for model evaluation. Required
-        for use with mlflow.evaluate().
+        Converts the dataset to an EvaluationDataset for model evaluation. Only supported if the
+        dataset is a Tensor. Required for use with mlflow.evaluate().
         """
         import tensorflow as tf
 
-        data_as_numpy = (
-            next(self._data.as_numpy_iterator())
-            if isinstance(self._data, tf.data.Dataset)
-            else self._data.numpy()
-        )
-        targets_as_numpy = (
-            next(self._targets.as_numpy_iterator())
-            if isinstance(self._targets, tf.data.Dataset)
-            else self._targets.numpy()
-        )
-
+        # check that data and targets are Tensors
+        if not isinstance(self._data, tf.Tensor):
+            raise MlflowException("Data must be a Tensor to convert to an EvaluationDataset.")
+        if self._targets is not None and not isinstance(self._targets, tf.Tensor):
+            raise MlflowException("Targets must be a Tensor to convert to an EvaluationDataset.")
         return EvaluationDataset(
-            data=data_as_numpy,
-            targets=targets_as_numpy,
+            data=self._data.numpy(),
+            targets=self._targets.numpy() if self._targets is not None else None,
             path=path,
             feature_names=feature_names,
         )

@@ -1,9 +1,11 @@
 import json
 import numpy as np
+import pytest
 
 import mlflow.data
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.tensorflow_dataset import TensorflowDataset
+from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
@@ -98,16 +100,28 @@ def test_to_evaluation_dataset():
     source_uri = "test:/my/test/uri"
     x = np.random.sample((2, 2))
     y = np.random.sample((2, 1))
-    tf_dataset_x = tf.data.Dataset.from_tensors(x)
-    tf_dataset_y = tf.data.Dataset.from_tensors(y)
+    x_tensors = tf.convert_to_tensor(x)
+    y_tensors = tf.convert_to_tensor(y)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(
-        data=tf_dataset_x, source=source, targets=tf_dataset_y, name="testname"
-    )
+    dataset = TensorflowDataset(data=x_tensors, source=source, targets=y_tensors, name="testname")
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
-    assert np.array_equal(evaluation_dataset.features_data, next(dataset.data.as_numpy_iterator()))
-    assert np.array_equal(evaluation_dataset.labels_data, next(dataset.targets.as_numpy_iterator()))
+    assert np.array_equal(evaluation_dataset.features_data, dataset.data.numpy())
+    assert np.array_equal(evaluation_dataset.labels_data, dataset.targets.numpy())
+
+
+def test_to_evaluation_dataset_with_tensorflow_dataset_data():
+    source_uri = "test:/my/test/uri"
+    x = np.random.sample((2, 2))
+    y = np.random.sample((2, 1))
+    x_tf_data = tf.data.Dataset.from_tensors(x)
+    y_tf_data = tf.data.Dataset.from_tensors(y)
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(data=x_tf_data, source=source, targets=y_tf_data, name="testname")
+    with pytest.raises(
+        MlflowException, match="Data must be a Tensor to convert to an EvaluationDataset"
+    ):
+        evaluation_dataset = dataset.to_evaluation_dataset()  # pylint: disable=unused-variable
 
 
 def test_from_tensorflow_dataset_constructs_expected_dataset():
