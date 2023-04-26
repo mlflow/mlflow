@@ -1,4 +1,3 @@
-import re
 from typing import NamedTuple, Optional
 import urllib.parse
 
@@ -60,26 +59,27 @@ def _parse_model_uri(uri):
     if not path.startswith("/") or len(path) <= 1:
         raise MlflowException(_improper_model_uri_msg(uri))
 
-    parts = path[1:].split("/")
+    parts = path.lstrip("/").split("/")
     if len(parts) > 2 or parts[0].strip() == "":
         raise MlflowException(_improper_model_uri_msg(uri))
 
     if len(parts) == 2:
-        if parts[1].strip() == "":
+        name, suffix = parts
+        if suffix.strip() == "":
             raise MlflowException(_improper_model_uri_msg(uri))
         # The URI is in the suffix format
-        if parts[1].isdigit():
+        if suffix.isdigit():
             # The suffix is a specific version, e.g. "models:/AdsModel1/123"
-            return ParsedModelUri(parts[0], version=parts[1])
-        elif parts[1].lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+            return ParsedModelUri(name, version=suffix)
+        elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
             # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
-            return ParsedModelUri(parts[0])
+            return ParsedModelUri(name)
         else:
             # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
-            return ParsedModelUri(parts[0], stage=parts[1])
+            return ParsedModelUri(name, stage=suffix)
     else:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
-        alias_parts = parts[0].split("@")
+        alias_parts = parts[0].rsplit("@", 1)
         if len(alias_parts) != 2 or alias_parts[1].strip() == "":
             raise MlflowException(_improper_model_uri_msg(uri))
         return ParsedModelUri(alias_parts[0], alias=alias_parts[1])
