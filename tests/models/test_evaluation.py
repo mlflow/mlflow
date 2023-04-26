@@ -574,7 +574,7 @@ def test_pandas_df_regressor_evaluation_without_targets(linear_regressor_model_u
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as run:  # pylint: disable=unused-variable
         with pytest.raises(
             MlflowException, match="The target argument is required when data is not a Dataset."
         ):
@@ -668,7 +668,7 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_re
     df = pd.DataFrame(data.data, columns=data.feature_names)
     df["y"] = data.target
     mlflow_df = from_pandas(df=df, source="my_src")
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as run:  # pylint: disable=unused-variable
         with pytest.raises(
             MlflowException,
             match="The target argument is required when data is a Dataset and does not define "
