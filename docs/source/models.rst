@@ -705,8 +705,6 @@ For a minimal h2o model, here is an example of the pyfunc predict() method in a 
     # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
     # predictions = h2o_model.predict(test)
 
-
-
 .. _tf-keras-example:
 
 Keras (``keras``)
