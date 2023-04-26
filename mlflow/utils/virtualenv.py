@@ -241,7 +241,7 @@ def _create_virtualenv(
         env_dir,
         onerror=lambda e: _logger.warning(
             "Encountered an unexpected error: %s while creating a virtualenv environment in %s, "
-            "cleaning up the directory...",
+            "removing the environment directory...",
             repr(e),
             env_dir,
         ),
