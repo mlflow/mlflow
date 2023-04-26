@@ -1261,7 +1261,7 @@ def test_log_input(tmp_path):
     dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
 
     assert len(dataset_inputs) == 1
-    assert dataset_inputs[0].dataset.name == "placeholder_name"
+    assert dataset_inputs[0].dataset.name == "dataset"
     assert dataset_inputs[0].dataset.digest == "f0f3e026"
     assert dataset_inputs[0].dataset.source_type == "local"
     assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}

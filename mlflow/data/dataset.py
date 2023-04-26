@@ -73,8 +73,7 @@ class Dataset:
         if self._name is not None:
             return self._name
         else:
-            # TODO: Compute the name from the digest and source
-            return "placeholder_name"
+            return "dataset"
 
     @property
     def digest(self) -> str:

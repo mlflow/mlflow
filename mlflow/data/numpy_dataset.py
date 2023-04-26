@@ -95,11 +95,21 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
-        return {
-            "shape": self._features.shape,
-            "size": self._features.size,
-            "nbytes": self._features.nbytes,
+        profile = {
+            "features_shape": self._features.shape,
+            "features_size": self._features.size,
+            "features_nbytes": self._features.nbytes,
         }
+        if self._targets is not None:
+            profile.update(
+                {
+                    "targets_shape": self._targets.shape,
+                    "targets_size": self._targets.size,
+                    "targets_nbytes": self._targets.nbytes,
+                }
+            )
+
+        return profile
 
     @cached_property
     def schema(self) -> Optional[Schema]:
@@ -107,7 +117,12 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         An MLflow TensorSpec schema representing the tensor dataset
         """
         try:
-            return _infer_schema(self._features)
+            schema_dict = {
+                "features": self._features,
+            }
+            if self._targets is not None:
+                schema_dict["targets"] = self._targets
+            return _infer_schema(schema_dict)
         except Exception as e:
             _logger.warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
             return None
