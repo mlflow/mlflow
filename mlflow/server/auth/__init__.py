@@ -365,17 +365,17 @@ BEFORE_REQUEST_VALIDATORS = {
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (ROUTES.GET_USER, "GET"): validate_can_read_user,
-        (ROUTES.UPDATE_USER_PASSWORD, "POST"): validate_can_update_user_password,
-        (ROUTES.UPDATE_USER_ADMIN, "POST"): validate_can_update_user_admin,
-        (ROUTES.DELETE_USER, "POST"): validate_can_delete_user,
+        (ROUTES.UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+        (ROUTES.UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+        (ROUTES.DELETE_USER, "DELETE"): validate_can_delete_user,
         (ROUTES.GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
         (ROUTES.CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+        (ROUTES.UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
+        (ROUTES.DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
         (ROUTES.GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
         (ROUTES.CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (ROUTES.DELETE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
+        (ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
+        (ROUTES.DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
     }
 )
 
@@ -670,17 +670,17 @@ def _enable_auth(app: Flask):
     app.add_url_rule(
         rule=ROUTES.UPDATE_USER_PASSWORD,
         view_func=update_user_password,
-        methods=["POST"],
+        methods=["PATCH"],
     )
     app.add_url_rule(
         rule=ROUTES.UPDATE_USER_ADMIN,
         view_func=update_user_admin,
-        methods=["POST"],
+        methods=["PATCH"],
     )
     app.add_url_rule(
         rule=ROUTES.DELETE_USER,
         view_func=delete_user,
-        methods=["POST"],
+        methods=["DELETE"],
     )
     app.add_url_rule(
         rule=ROUTES.CREATE_EXPERIMENT_PERMISSION,
@@ -695,12 +695,12 @@ def _enable_auth(app: Flask):
     app.add_url_rule(
         rule=ROUTES.UPDATE_EXPERIMENT_PERMISSION,
         view_func=update_experiment_permission,
-        methods=["POST"],
+        methods=["PATCH"],
     )
     app.add_url_rule(
         rule=ROUTES.DELETE_EXPERIMENT_PERMISSION,
         view_func=delete_experiment_permission,
-        methods=["POST"],
+        methods=["DELETE"],
     )
     app.add_url_rule(
         rule=ROUTES.CREATE_REGISTERED_MODEL_PERMISSION,
@@ -715,12 +715,12 @@ def _enable_auth(app: Flask):
     app.add_url_rule(
         rule=ROUTES.UPDATE_REGISTERED_MODEL_PERMISSION,
         view_func=update_registered_model_permission,
-        methods=["POST"],
+        methods=["PATCH"],
     )
     app.add_url_rule(
         rule=ROUTES.DELETE_REGISTERED_MODEL_PERMISSION,
         view_func=delete_registered_model_permission,
-        methods=["POST"],
+        methods=["DELETE"],
     )
 
     app.before_request(_before_request)
