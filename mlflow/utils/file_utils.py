@@ -11,6 +11,7 @@ import tarfile
 import tempfile
 import stat
 import pathlib
+from contextlib import contextmanager
 
 import urllib.parse
 import urllib.request
@@ -810,3 +811,26 @@ def read_chunk(path: os.PathLike, size: int, start_byte: int = 0) -> bytes:
         if start_byte > 0:
             f.seek(start_byte)
         return f.read(size)
+
+
+@contextmanager
+def remove_on_error(path: os.PathLike, onerror=None):
+    """
+    A context manager that removes a file or directory if an exception is raised during execution.
+
+    :param path: Path to the file or directory.
+    :param onerror: A callback function that will be called with the captured exception before
+                    the file or directory is removed. For example, you can use this callback to
+                    log the exception.
+    """
+    try:
+        yield
+    except Exception as e:
+        if onerror:
+            onerror(e)
+        if os.path.exists(path):
+            if os.path.isfile(path):
+                os.remove(path)
+            elif os.path.isdir(path):
+                shutil.rmtree(path)
+        raise
