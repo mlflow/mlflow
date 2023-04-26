@@ -1057,7 +1057,6 @@ using low-level TensorFlow API. See `tf-keras-example`_. for an example of mlflo
     print(f"W = {w.numpy():.2f}, b = {b.numpy():.2f}")
 
 
-
 ONNX (``onnx``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The ``onnx`` model flavor enables logging of `ONNX models <http://onnx.ai/>`_ in MLflow format via
