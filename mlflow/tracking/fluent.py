@@ -725,7 +725,7 @@ def log_input(
     """
     Log a dataset used in the current run.
 
-    :param dataset: :py:class:`Dataset` object to be logged.
+    :param dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
     :param context: Context in which the dataset is used. For example: "training", "testing".
                     This will be set as an input tag with key `mlflow.data.context`.
     :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
