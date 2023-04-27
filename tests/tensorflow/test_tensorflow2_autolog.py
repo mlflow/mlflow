@@ -244,7 +244,7 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tensor(
     if log_datasets:
         assert len(dataset_inputs) == 1
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema(data_as_tensor.numpy()).to_dict()}
+            {"mlflow_tensorspec": _infer_schema({"features": data_as_tensor.numpy()}).to_dict()}
         )
     else:
         assert len(dataset_inputs) == 0
@@ -265,7 +265,7 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
         assert dataset_inputs[0].dataset.schema == json.dumps(
             {
                 "mlflow_tensorspec": _infer_schema(
-                    next(fashion_mnist_tf_dataset.as_numpy_iterator())[0]
+                    {"features": next(fashion_mnist_tf_dataset.as_numpy_iterator())[0]}
                 ).to_dict()
             }
         )
