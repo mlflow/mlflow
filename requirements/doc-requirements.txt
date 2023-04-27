@@ -5,3 +5,5 @@ sphinx==3.5.4
 jinja2==3.0.3
 sphinx-autobuild
 sphinx-click
+tensorflow
+pyspark

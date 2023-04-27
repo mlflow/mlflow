@@ -47,7 +47,7 @@ class DatasetRegistry:
                 self.register_constructor(
                     constructor_fn=entrypoint.load(), constructor_name=entrypoint.name
                 )
-            except (AttributeError, ImportError) as exc:
+            except Exception as exc:
                 warnings.warn(
                     f"Failure attempting to register dataset constructor"
                     f' "{entrypoint.name}": {exc}.',
