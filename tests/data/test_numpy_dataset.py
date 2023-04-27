@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+from mlflow.models.evaluation.base import EvaluationDataset
 
 from tests.resources.data.dataset_source import TestDatasetSource
 import mlflow.data
@@ -74,6 +75,18 @@ def test_to_pyfunc():
     features = np.array([1, 2, 3])
     dataset = NumpyDataset(features=features, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
+
+
+def test_to_evaluation_dataset():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    features = np.array([[1, 2], [3, 4]])
+    targets = np.array([0, 1])
+    dataset = NumpyDataset(features=features, targets=targets, source=source, name="testname")
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert np.array_equal(evaluation_dataset.features_data, features)
+    assert np.array_equal(evaluation_dataset.labels_data, targets)
 
 
 def test_from_numpy_features_only(tmp_path):

@@ -6,12 +6,13 @@ from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture(scope="class", autouse=True)
-def spark_session():
+@pytest.fixture(autouse=True)
+def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
     session = (
@@ -21,6 +22,7 @@ def spark_session():
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
+        .config("spark.sql.warehouse.dir", tmp_path)
         .getOrCreate()
     )
     yield session
@@ -40,12 +42,15 @@ def _assert_dataframes_equal(df1, df2):
         assert False
 
 
-def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type):
+def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type, expected_name=None):
     assert isinstance(dataset, SparkDataset)
     _assert_dataframes_equal(dataset.df, df_spark)
     assert dataset.schema == _infer_schema(original_df)
-    assert dataset.profile == {"approx_count": 2}
+    assert isinstance(dataset.profile, dict)
+    assert isinstance(dataset.profile.get("approx_count"), int)
     assert isinstance(dataset.source, expected_source_type)
+    if expected_name is not None:
+        assert dataset.name == expected_name
 
 
 def test_conversion_to_json_spark_dataset_source(spark_session, tmp_path, df):
@@ -289,21 +294,49 @@ def test_load_delta_path_with_version(spark_session, tmp_path, df):
     _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
 
 
-def test_load_delta_table_name(spark_session, tmp_path, df):
+def test_load_delta_table_name(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
     # write to delta table
     df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
 
     mlflow_df = mlflow.data.load_delta(table_name="my_delta_table")
 
-    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource, "my_delta_table@v0")
 
 
-def test_load_delta_table_name_with_version(spark_session, tmp_path, df):
+def test_load_delta_table_name_with_version(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
-    # write to delta table
-    df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table")
+    df_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table_versioned")
 
-    mlflow_df = mlflow.data.load_delta(table_name="my_delta_table", version=1)
+    df2 = pd.DataFrame([[4, 5, 6], [4, 5, 6]], columns=["a", "b", "c"])
+    assert not df2.equals(df)
+    df2_spark = spark_session.createDataFrame(df2)
+    df2_spark.write.format("delta").mode("overwrite").saveAsTable("my_delta_table_versioned")
 
-    _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+    mlflow_df = mlflow.data.load_delta(table_name="my_delta_table_versioned", version=1)
+
+    _check_spark_dataset(
+        mlflow_df, df2, df2_spark, DeltaDatasetSource, "my_delta_table_versioned@v1"
+    )
+    pd.testing.assert_frame_equal(mlflow_df.df.toPandas(), df2)
+
+
+def test_to_evaluation_dataset(spark_session, tmp_path, df):
+    import numpy as np
+
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.parquet")
+    df_spark.write.parquet(path)
+
+    source = SparkDatasetSource(path=path)
+
+    dataset = SparkDataset(
+        df=df_spark,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df_spark.toPandas().drop(columns=["c"]))
+    assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)

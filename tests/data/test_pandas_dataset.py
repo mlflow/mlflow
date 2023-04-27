@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import pytest
+from mlflow.models.evaluation.base import EvaluationDataset
 
 from tests.resources.data.dataset_source import TestDatasetSource
 
@@ -209,3 +210,21 @@ def test_from_pandas_delta_datasource(spark_session, tmp_path):
     }
 
     assert isinstance(mlflow_df.source, DeltaDatasetSource)
+
+
+def test_to_evaluation_dataset():
+    import numpy as np
+
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    dataset = PandasDataset(
+        df=df,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df.drop("c", axis=1))
+    assert np.array_equal(evaluation_dataset.labels_data, df["c"].to_numpy())

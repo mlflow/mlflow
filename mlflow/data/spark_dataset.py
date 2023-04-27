@@ -10,6 +10,7 @@ from mlflow.data.digest_utils import compute_spark_df_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
@@ -104,12 +105,39 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
-        # use Spark RDD countApprox to get approximate count since count() may be expensive
-        approx_count = self.df.rdd.countApprox(timeout=1000, confidence=0.90)
+        try:
+            from pyspark.rdd import BoundedFloat
 
-        return {
-            "approx_count": approx_count,
-        }
+            # Use Spark RDD countApprox to get approximate count since count() may be expensive.
+            # Note that we call the Scala RDD API because the PySpark API does not respect the
+            # specified timeout. Reference code:
+            # https://spark.apache.org/docs/3.4.0/api/python/_modules/pyspark/rdd.html
+            # #RDD.countApprox. This is confirmed to work in all Spark 3.x versions
+            py_rdd = self.df.rdd
+            drdd = py_rdd.mapPartitions(lambda it: [float(sum(1 for i in it))])
+            jrdd = drdd.mapPartitions(lambda it: [float(sum(it))])._to_java_object_rdd()
+            jdrdd = drdd.ctx._jvm.JavaDoubleRDD.fromRDD(jrdd.rdd())
+            timeout_millis = 2000
+            confidence = 0.9
+            approx_count_operation = jdrdd.sumApprox(timeout_millis, confidence)
+            approx_count_result = approx_count_operation.initialValue()
+            approx_count_float = BoundedFloat(
+                mean=approx_count_result.mean(),
+                confidence=approx_count_result.confidence(),
+                low=approx_count_result.low(),
+                high=approx_count_result.high(),
+            )
+            approx_count = int(approx_count_float)
+
+            return {
+                "approx_count": approx_count,
+            }
+        except Exception as e:
+            _logger.warning(
+                "Encountered an unexpected exception while computing Spark dataset profile."
+                " Exception: %s",
+                e,
+            )
 
     @cached_property
     def schema(self) -> Optional[Schema]:
@@ -146,6 +174,18 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return PyFuncInputsOutputs(inputs=inputs, outputs=outputs)
         else:
             return PyFuncInputsOutputs(inputs=df, outputs=None)
+
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.evaluate().
+        """
+        return EvaluationDataset(
+            data=self._df.limit(10000).toPandas(),
+            targets=self._targets,
+            path=path,
+            feature_names=feature_names,
+        )
 
 
 def load_delta(
@@ -188,7 +228,7 @@ def load_delta(
             version = _try_get_delta_table_latest_version_from_table_name(table_name)
 
     if name is None and table_name is not None:
-        name = table_name + (f"v{version}" if version is not None else "")
+        name = table_name + (f"@v{version}" if version is not None else "")
 
     source = DeltaDatasetSource(path=path, delta_table_name=table_name, delta_table_version=version)
     df = source.load()
