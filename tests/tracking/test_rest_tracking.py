@@ -1111,6 +1111,39 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
     )
     assert response.status_code == 200
 
+    # A single trailing slash
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple trailing slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models///",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/foo///bar",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
