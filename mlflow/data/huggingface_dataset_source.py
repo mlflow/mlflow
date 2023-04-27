@@ -3,6 +3,7 @@ import datasets
 from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.utils.annotations import experimental
 
 
 HuggingFaceDatasetSourceType = TypeVar(
@@ -10,6 +11,7 @@ HuggingFaceDatasetSourceType = TypeVar(
 )
 
 
+@experimental
 class HuggingFaceDatasetSource(DatasetSource):
     """
     Represents the source of a Hugging Face dataset used in MLflow Tracking.

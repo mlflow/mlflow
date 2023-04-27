@@ -31,7 +31,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
@@ -122,9 +122,11 @@ class MlflowClient:
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
         as well as a collection of run parameters, tags, and metrics --
-        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
-        same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
-        the most recently logged value at the largest step for each metric.
+        :py:class:`RunData <mlflow.entities.RunData>`. It also contains a collection of run
+        inputs (experimental), including information about datasets used by the run --
+        :py:class:`RunInputs <mlflow.entities.RunInputs>`. In the case where multiple metrics with
+        the same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>`
+        contains the most recently logged value at the largest step for each metric.
 
         :param run_id: Unique identifier for the run.
 
@@ -990,6 +992,7 @@ class MlflowClient:
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
 
+    @experimental
     def log_inputs(
         self,
         run_id: str,

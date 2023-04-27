@@ -9,12 +9,15 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a NumPy dataset for use with MLflow Tracking.
@@ -132,7 +135,20 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return PyFuncInputsOutputs(self._features, self._targets)
 
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
+        return EvaluationDataset(
+            data=self._features,
+            targets=self._targets,
+            path=path,
+            feature_names=feature_names,
+        )
 
+
+@experimental
 def from_numpy(
     features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
     source: Union[str, DatasetSource],

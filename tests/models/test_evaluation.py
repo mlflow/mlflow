@@ -32,6 +32,7 @@ from pyspark.ml.regression import LinearRegression as SparkLinearRegression
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.data.pandas_dataset import from_pandas
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import (
     evaluate,
@@ -88,6 +89,12 @@ def get_run_data(run_id):
     data = client.get_run(run_id).data
     artifacts = [f.path for f in client.list_artifacts(run_id)]
     return RunData(params=data.params, metrics=data.metrics, tags=data.tags, artifacts=artifacts)
+
+
+def get_run_datasets(run_id):
+    client = MlflowClient()
+    datasets = client.get_run(run_id).inputs.dataset_inputs
+    return datasets
 
 
 def get_raw_tag(run_id, tag_name):
@@ -560,6 +567,119 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
 
     for k, v in eval_result.metrics.items():
         assert v == saved_metrics[k]
+
+
+def test_pandas_df_regressor_evaluation_without_targets(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+
+    with mlflow.start_run() as run:  # pylint: disable=unused-variable
+        with pytest.raises(
+            MlflowException, match="The target argument is required when data is not a Dataset."
+        ):
+            eval_result = evaluate(  # pylint: disable=unused-variable
+                linear_regressor_model_uri,
+                data=df,
+                model_type="regressor",
+                evaluators=["default"],
+            )
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
+    linear_regressor_model_uri,
+):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src", targets="y")
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=mlflow_df,
+            targets="y",
+            model_type="regressor",
+            evaluators=["default"],
+            evaluator_config={
+                "default": {
+                    "metric_prefix": "eval",
+                }
+            },
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert datasets[0].tags[0].value == "eval"
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src", targets="y")
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=mlflow_df,
+            targets="y",
+            model_type="regressor",
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert len(datasets[0].tags) == 0
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset_with_targets_from_dataset(
+    linear_regressor_model_uri,
+):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src", targets="y")
+    with mlflow.start_run() as run:
+        eval_result = evaluate(
+            linear_regressor_model_uri,
+            data=mlflow_df,
+            model_type="regressor",
+            evaluators=["default"],
+        )
+    _, saved_metrics, _, _ = get_run_data(run.info.run_id)
+
+    for k, v in eval_result.metrics.items():
+        assert v == saved_metrics[k]
+
+    datasets = get_run_datasets(run.info.run_id)
+    assert len(datasets) == 1
+    assert len(datasets[0].tags) == 0
+
+
+def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_regressor_model_uri):
+    data = sklearn.datasets.load_diabetes()
+    df = pd.DataFrame(data.data, columns=data.feature_names)
+    df["y"] = data.target
+    mlflow_df = from_pandas(df=df, source="my_src")
+    with mlflow.start_run() as run:  # pylint: disable=unused-variable
+        with pytest.raises(
+            MlflowException,
+            match="The target argument is required when data is a Dataset and does not define "
+            "targets.",
+        ):
+            eval_result = evaluate(  # pylint: disable=unused-variable
+                linear_regressor_model_uri,
+                data=mlflow_df,
+                model_type="regressor",
+                evaluators=["default"],
+            )
 
 
 def test_dataset_name():

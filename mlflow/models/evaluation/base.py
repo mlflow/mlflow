@@ -4,6 +4,8 @@ import mlflow
 import hashlib
 import json
 import os
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
@@ -14,8 +16,10 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.class_utils import _get_class_from_string
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 from mlflow.utils.proto_json_utils import NumpyEncoder
+from mlflow.data.dataset import Dataset
 from mlflow.models.evaluation.validation import (
     _MetricValidationResult,
     MetricThreshold,
@@ -969,7 +973,7 @@ def evaluate(
     model: str,
     data,
     *,
-    targets,
+    targets=None,
     model_type: str,
     dataset_path=None,
     feature_names: list = None,
@@ -1102,9 +1106,14 @@ def evaluate(
                    are regarded as feature columns. If it is Spark DataFrame, only the first 10000
                    rows in the Spark DataFrame will be used as evaluation data.
 
+                 - A :py:class`mlflow.data.Dataset` instance containing evaluation features and
+                   labels.
+
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
-                    that contains evaluation labels.
+                    that contains evaluation labels. If ``data`` is a
+                    :py:class`mlflow.data.Dataset` that defines targets, then ``targets`` is
+                    optional.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports ``"regressor"`` and ``"classifier"`` as model types.
@@ -1329,19 +1338,48 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    if isinstance(data, Dataset):
+        if hasattr(data, "targets") and data.targets is not None:
+            targets = data.targets
+        else:
+            raise MlflowException(
+                message="The target argument is required when data is a Dataset and does not "
+                "define targets.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
+        if targets is None:
+            raise MlflowException(
+                message="The target argument is required when data is not a Dataset.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     (
         evaluator_name_list,
         evaluator_name_to_conf_map,
     ) = _normalize_evaluators_and_evaluator_config_args(evaluators, evaluator_config)
 
-    dataset = EvaluationDataset(
-        data,
-        targets=targets,
-        path=dataset_path,
-        feature_names=feature_names,
-    )
-
     with _start_run_or_reuse_active_run() as run_id:
+        from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
+
+        if isinstance(data, Dataset) and issubclass(data.__class__, PyFuncConvertibleDatasetMixin):
+            dataset = data.to_evaluation_dataset(dataset_path, feature_names)
+            if evaluator_name_to_conf_map and "default" in evaluator_name_to_conf_map:
+                context = evaluator_name_to_conf_map["default"].get("metric_prefix", None)
+            else:
+                context = None
+            client = MlflowClient()
+            tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)] if context else []
+            dataset_input = DatasetInput(dataset=data._to_mlflow_entity(), tags=tags)
+            client.log_inputs(run_id, [dataset_input])
+        else:
+            dataset = EvaluationDataset(
+                data,
+                targets=targets,
+                path=dataset_path,
+                feature_names=feature_names,
+            )
+
         try:
             evaluate_result = _evaluate(
                 model=model,
