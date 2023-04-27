@@ -1,7 +1,6 @@
 # Define all the service endpoint handlers here.
 import json
 import os
-import re
 import tempfile
 import posixpath
 import urllib
