@@ -8,7 +8,7 @@ In less than 15 minutes, you will:
 
 - Install MLflow
 - Add MLflow tracking to your code
-- View run metrics in the MLflow tracking UI
+- View runs and experiments in the MLflow tracking UI
 - (Optional) Run a tracking server to share results with others
 - (Optional) Use Databricks to store your results
 - Store the models produced by your runs
@@ -204,7 +204,7 @@ There are many options available for the tracking backend. For more details, see
 Use MLflow with a Databricks workspace
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-You need to configure Mlflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
+You need to configure MLflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
 
 .. image:: _static/images/quickstart/quickstart_databricks_workspace_url.png
     :width: 800px
@@ -317,11 +317,11 @@ To load and run a model stored in a previous run, you can use the ``mlflow.{libr
         db = load_diabetes()
         X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
 
-        model = mlflow.sklearn.load_model("runs:/97fd7ade5106ee341e0b4c63a53a9776231")
+        model = mlflow.sklearn.load_model("runs:/d7ade5106ee341e0b4c63a53a9776231")
         predictions = model.predict(X_test)
         print(predictions)
 
-Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. If you serve your model with ``mlflow models serve`` or ``mlflow run``, MLflow will automatically recreate the environment. Those commands also accept an ``--env-manager`` option for even more control. (This is described in detail in :ref:`model-enviroment-management`.)
+Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. If you serve your model with ``mlflow models serve``, MLflow will automatically recreate the environment. Those commands also accept an ``--env-manager`` option for even more control. (This is described in detail in :ref:`model-enviroment-management`. In the case of ``mlflow.pyfunc.spark_udf()``, you can use the ``--env-manager`` flag to recreate the environment during Spark batch inference.)
 
 To learn more about loading models for specific runs, see :ref:`quickstart_drilldown_log_and_load_model`.
 
