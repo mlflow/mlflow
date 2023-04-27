@@ -19,6 +19,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.types.utils import _infer_schema
 
 mpl.use("Agg")
 
@@ -719,3 +720,56 @@ def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
     client = MlflowClient()
     artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
     assert f"model/model.{model_format}" in artifacts
+
+
+@pytest.mark.skipif(
+    Version(xgb.__version__) < Version("1.7"),
+    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
+)
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_datasets=log_datasets)
+        xgb.train(bst_params, dtrain)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": _infer_schema(
+                    {"features": dtrain.get_data().toarray()}
+                ).to_dict()
+            }
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+@pytest.mark.skipif(
+    Version(xgb.__version__) < Version("1.7"),
+    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
+)
+def test_xgb_log_datasets_with_evals(bst_params, dtrain):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2] * 2, columns=iris.feature_names[:2])
+    y = iris.target
+    deval = xgb.DMatrix(X, y)
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_datasets=True)
+        xgb.train(bst_params, dtrain, evals=[(deval, "eval_dataset")])
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema({"features": dtrain.get_data().toarray()}).to_dict()}
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {"mlflow_tensorspec": _infer_schema({"features": deval.get_data().toarray()}).to_dict()}
+    )

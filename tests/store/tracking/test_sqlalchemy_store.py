@@ -3126,6 +3126,35 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 ],
             )
 
+    def test_log_inputs_with_duplicates_in_single_request(self):
+        experiment_id = self._experiment_factory("test exp")
+        run1 = self._run_factory(config=self._get_run_configs(experiment_id, start_time=1))
+
+        dataset1 = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+            schema="schema1",
+            profile="profile1",
+        )
+
+        tags1 = [
+            entities.InputTag(key="key1", value="value1"),
+            entities.InputTag(key="key2", value="value2"),
+        ]
+
+        inputs_run1 = [
+            entities.DatasetInput(dataset1, tags1),
+            entities.DatasetInput(dataset1, tags1),
+        ]
+
+        self.store.log_inputs(run1.info.run_id, inputs_run1)
+        run1 = self.store.get_run(run1.info.run_id)
+        assert_dataset_inputs_equal(
+            run1.inputs.dataset_inputs, [entities.DatasetInput(dataset1, tags1)]
+        )
+
 
 def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SingletonThreadPool")

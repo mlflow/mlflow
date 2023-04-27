@@ -28,8 +28,10 @@ h2o
 onnx>=1.11.0
 onnxruntime
 tf2onnx
-# Required by mlflow.spark
-pyspark
+# Required by mlflow.spark and using Delta with MLflow Tracking datasets
+# NB: Delta is not currently compatible with PySpark 3.4. TODO: Unpin this once
+# Delta supports PySpark 3.4
+pyspark<3.4
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
@@ -45,7 +47,7 @@ shap>=0.40
 pmdarima
 # Required by mlflow.diviner
 diviner
-# Required for Hugging Face testing with MLflow Tracking datasets
+# Required for using Hugging Face datasets with MLflow Tracking
 datasets
 # Required by mlflow.transformers
 transformers

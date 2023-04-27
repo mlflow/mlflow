@@ -9,12 +9,15 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a NumPy dataset for use with MLflow Tracking.
@@ -93,11 +96,21 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
-        return {
-            "shape": self._features.shape,
-            "size": self._features.size,
-            "nbytes": self._features.nbytes,
+        profile = {
+            "features_shape": self._features.shape,
+            "features_size": self._features.size,
+            "features_nbytes": self._features.nbytes,
         }
+        if self._targets is not None:
+            profile.update(
+                {
+                    "targets_shape": self._targets.shape,
+                    "targets_size": self._targets.size,
+                    "targets_nbytes": self._targets.nbytes,
+                }
+            )
+
+        return profile
 
     @cached_property
     def schema(self) -> Optional[Schema]:
@@ -105,7 +118,12 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         An MLflow TensorSpec schema representing the tensor dataset
         """
         try:
-            return _infer_schema(self._features)
+            schema_dict = {
+                "features": self._features,
+            }
+            if self._targets is not None:
+                schema_dict["targets"] = self._targets
+            return _infer_schema(schema_dict)
         except Exception as e:
             _logger.warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
             return None
@@ -117,7 +135,20 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         return PyFuncInputsOutputs(self._features, self._targets)
 
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Required
+        for use with mlflow.sklearn.evalute().
+        """
+        return EvaluationDataset(
+            data=self._features,
+            targets=self._targets,
+            path=path,
+            feature_names=feature_names,
+        )
 
+
+@experimental
 def from_numpy(
     features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
     source: Union[str, DatasetSource],
@@ -143,7 +174,12 @@ def from_numpy(
     """
     from mlflow.data.dataset_source_registry import resolve_dataset_source
 
-    resolved_source = resolve_dataset_source(source)
+    if isinstance(source, DatasetSource):
+        resolved_source = source
+    else:
+        resolved_source = resolve_dataset_source(
+            source,
+        )
     return NumpyDataset(
         features=features, source=resolved_source, targets=targets, name=name, digest=digest
     )

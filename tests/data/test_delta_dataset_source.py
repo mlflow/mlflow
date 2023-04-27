@@ -1,6 +1,8 @@
+import json
 import pytest
 import pandas as pd
 
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
 
@@ -31,10 +33,18 @@ def test_delta_dataset_source_from_path(spark_session, tmp_path):
     delta_datasource = DeltaDatasetSource(path=path)
     loaded_df_spark = delta_datasource.load()
     assert loaded_df_spark.count() == df_spark.count()
-    delta_datasource_info = delta_datasource._to_dict()
-    assert delta_datasource_info == {
-        "path": path,
-    }
+    assert delta_datasource.to_json() == json.dumps(
+        {
+            "path": path,
+        }
+    )
+
+    reloaded_source = get_dataset_source_from_json(
+        delta_datasource.to_json(), source_type=delta_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, DeltaDatasetSource)
+    assert type(delta_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_from_table(spark_session, tmp_path):
@@ -47,10 +57,18 @@ def test_delta_dataset_source_from_table(spark_session, tmp_path):
     delta_datasource = DeltaDatasetSource(delta_table_name="temp_delta")
     loaded_df_spark = delta_datasource.load()
     assert loaded_df_spark.count() == df_spark.count()
-    delta_datasource_info = delta_datasource._to_dict()
-    assert delta_datasource_info == {
-        "delta_table_name": "temp_delta",
-    }
+    assert delta_datasource.to_json() == json.dumps(
+        {
+            "delta_table_name": "temp_delta",
+        }
+    )
+
+    reloaded_source = get_dataset_source_from_json(
+        delta_datasource.to_json(), source_type=delta_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, DeltaDatasetSource)
+    assert type(delta_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_from_table_versioned(spark_session, tmp_path):
@@ -71,11 +89,19 @@ def test_delta_dataset_source_from_table_versioned(spark_session, tmp_path):
     )
     loaded_df_spark = delta_datasource.load()
     assert loaded_df_spark.count() == df2_spark.count()
-    delta_datasource_info = delta_datasource._to_dict()
-    assert delta_datasource_info == {
-        "delta_table_name": "temp_delta_versioned",
-        "delta_table_version": 1,
-    }
+    assert delta_datasource.to_json() == json.dumps(
+        {
+            "delta_table_name": "temp_delta_versioned",
+            "delta_table_version": 1,
+        }
+    )
+
+    reloaded_source = get_dataset_source_from_json(
+        delta_datasource.to_json(), source_type=delta_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, DeltaDatasetSource)
+    assert type(delta_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == delta_datasource.to_json()
 
 
 def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
@@ -87,17 +113,3 @@ def test_delta_dataset_source_too_many_inputs(spark_session, tmp_path):
 
     with pytest.raises(MlflowException, match='Must specify exactly one of "path" or "table_name"'):
         DeltaDatasetSource(path=tmp_path, delta_table_name="temp_delta_too_many_inputs")
-
-
-def test_delta_dataset_source_to_and_from_dict(spark_session, tmp_path):
-    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
-    df_spark = spark_session.createDataFrame(df)
-    path = str(tmp_path / "temp_from_dict.delta")
-    df_spark.write.format("delta").mode("overwrite").save(path)
-
-    delta_datasource = DeltaDatasetSource(path=path)
-    loaded_df_spark = delta_datasource.load()
-    assert loaded_df_spark.count() == df_spark.count()
-    datasource_dict = delta_datasource._to_dict()
-    delta_datasource_from_dict = DeltaDatasetSource._from_dict(datasource_dict)
-    assert delta_datasource_from_dict.path == delta_datasource.path

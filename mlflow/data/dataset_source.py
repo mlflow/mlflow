@@ -3,10 +3,13 @@ import json
 from abc import abstractmethod
 from typing import TypeVar, Any, Dict
 
+from mlflow.utils.annotations import experimental
+
 
 DatasetSourceType = TypeVar("DatasetSourceType", bound="DatasetSource")
 
 
+@experimental
 class DatasetSource:
     """
     Represents the source of a dataset used in MLflow Tracking, providing information such as

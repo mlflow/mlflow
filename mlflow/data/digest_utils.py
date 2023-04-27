@@ -1,3 +1,4 @@
+from packaging.version import Version
 import hashlib
 from typing import List, Any
 
@@ -28,7 +29,7 @@ def compute_pandas_digest(df) -> str:
             pd.util.hash_pandas_object(trimmed_df).values,
             np.int64(len(df)),
         ]
-        + [x.encode() for x in df.columns]
+        + [str(x).encode() for x in df.columns]
     )
 
 
@@ -61,7 +62,7 @@ def compute_numpy_digest(features, targets=None) -> str:
     return get_normalized_md5_digest(hashable_elements)
 
 
-def compute_tensorflow_dataset_digest(dataset) -> str:
+def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
     """
     Computes a digest for the given Tensorflow dataset.
 
@@ -70,33 +71,80 @@ def compute_tensorflow_dataset_digest(dataset) -> str:
     """
     import numpy as np
     import pandas as pd
+    import tensorflow as tf
 
     hashable_elements = []
     for array in dataset.as_numpy_iterator():
         if array is None:
             continue
-        flattened_array = array.flatten()
+        # flatten array or tuple of arrays
+        flat_element = tf.nest.flatten(array)
+        flattened_array = np.concatenate([x.flatten() for x in flat_element])
         trimmed_array = flattened_array[0:MAX_ROWS]
         try:
             hashable_elements.append(pd.util.hash_array(trimmed_array))
         except TypeError:
             hashable_elements.append(np.int64(trimmed_array.size))
 
-        # hash full array dimensions
-        for x in array.shape:
-            hashable_elements.append(np.int64(x))
+        # hash full array or tuple of arrays dimensions
+        if isinstance(array, tuple):
+            for a in array:
+                for x in a.shape:
+                    hashable_elements.append(np.int64(x))
+        else:
+            for x in array.shape:
+                hashable_elements.append(np.int64(x))
+
+    if targets:
+        for array in targets.as_numpy_iterator():
+            if array is None:
+                continue
+            flattened_array = array.flatten()
+            trimmed_array = flattened_array[0:MAX_ROWS]
+            try:
+                hashable_elements.append(pd.util.hash_array(trimmed_array))
+            except TypeError:
+                hashable_elements.append(np.int64(trimmed_array.size))
+
+            # hash full array dimensions
+            for x in array.shape:
+                hashable_elements.append(np.int64(x))
 
     return get_normalized_md5_digest(hashable_elements)
 
 
-def compute_tensor_digest(tensor) -> str:
+def compute_tensor_digest(tensor_data, tensor_targets) -> str:
     """
     Computes a digest for the given Tensorflow tensor.
 
     :param tensor: A Tensorflow tensor.
     :return: A string digest.
     """
-    return compute_numpy_digest(tensor.numpy())
+    if tensor_targets is None:
+        return compute_numpy_digest(tensor_data.numpy())
+    else:
+        return compute_numpy_digest(tensor_data.numpy(), tensor_targets.numpy())
+
+
+def compute_spark_df_digest(df) -> str:
+    """
+    Computes a digest for the given Spark DataFrame. Retrieve a semantic hash of the
+    DataFrame's logical plan, which is much more efficient and deterministic than hashing
+    DataFrame records
+
+    :param df: A Spark DataFrame.
+    :return: A string digest.
+    """
+
+    import pyspark
+    import numpy as np
+
+    # Spark 3.1.0+ has a semanticHash() method on DataFrame
+    if Version(pyspark.__version__) >= Version("3.1.0"):
+        semantic_hash = df.semanticHash()
+    else:
+        semantic_hash = df._jdf.queryExecution().analyzed().semanticHash()
+    return get_normalized_md5_digest([np.int64(semantic_hash)])
 
 
 def get_normalized_md5_digest(elements: List[Any]) -> str:

@@ -7,9 +7,11 @@ import pytest
 
 import mlflow.data
 import mlflow.data.huggingface_dataset
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -226,3 +228,22 @@ def test_dataset_source_conversion_to_json():
 
     reloaded_source = HuggingFaceDatasetSource.from_json(source_json)
     assert json.loads(reloaded_source.to_json()) == parsed_source
+
+    reloaded_source = get_dataset_source_from_json(
+        source_json, source_type=source._get_source_type()
+    )
+    assert isinstance(reloaded_source, HuggingFaceDatasetSource)
+    assert type(source) == type(reloaded_source)
+    assert reloaded_source.to_json() == source.to_json()
+
+
+def test_to_evaluation_dataset():
+    import numpy as np
+
+    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")
+
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(dataset.ds.to_pandas().drop("label", axis=1))
+    assert np.array_equal(evaluation_dataset.labels_data, dataset.ds.to_pandas()["label"].values)

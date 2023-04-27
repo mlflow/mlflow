@@ -1,11 +1,13 @@
 from typing import TypeVar, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.utils.annotations import experimental
 
 
 CodeDatasetSourceType = TypeVar("CodeDatasetSourceType", bound="CodeDatasetSource")
 
 
+@experimental
 class CodeDatasetSource(DatasetSource):
     def __init__(
         self,

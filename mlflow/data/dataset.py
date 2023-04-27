@@ -4,8 +4,10 @@ from typing import Optional, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.entities import Dataset as DatasetEntity
+from mlflow.utils.annotations import experimental
 
 
+@experimental
 class Dataset:
     """
     Represents a dataset for use with MLflow Tracking, including the name, digest (hash),
@@ -71,8 +73,7 @@ class Dataset:
         if self._name is not None:
             return self._name
         else:
-            # TODO: Compute the name from the digest and source
-            return "placeholder_name"
+            return "dataset"
 
     @property
     def digest(self) -> str:
