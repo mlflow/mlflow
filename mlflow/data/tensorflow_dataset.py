@@ -8,6 +8,8 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -147,6 +149,25 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         evaluation. Required for use with mlflow.evaluate().
         """
         return PyFuncInputsOutputs(self._data, self._targets)
+
+    def to_evaluation_dataset(self, path=None, feature_names=None) -> EvaluationDataset:
+        """
+        Converts the dataset to an EvaluationDataset for model evaluation. Only supported if the
+        dataset is a Tensor. Required for use with mlflow.evaluate().
+        """
+        import tensorflow as tf
+
+        # check that data and targets are Tensors
+        if not isinstance(self._data, tf.Tensor):
+            raise MlflowException("Data must be a Tensor to convert to an EvaluationDataset.")
+        if self._targets is not None and not isinstance(self._targets, tf.Tensor):
+            raise MlflowException("Targets must be a Tensor to convert to an EvaluationDataset.")
+        return EvaluationDataset(
+            data=self._data.numpy(),
+            targets=self._targets.numpy() if self._targets is not None else None,
+            path=path,
+            feature_names=feature_names,
+        )
 
 
 def from_tensorflow(

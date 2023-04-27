@@ -6,6 +6,7 @@ from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -307,3 +308,24 @@ def test_load_delta_table_name_with_version(spark_session, tmp_path, df):
     mlflow_df = mlflow.data.load_delta(table_name="my_delta_table", version=1)
 
     _check_spark_dataset(mlflow_df, df, df_spark, DeltaDatasetSource)
+
+
+def test_to_evaluation_dataset(spark_session, tmp_path, df):
+    import numpy as np
+
+    df_spark = spark_session.createDataFrame(df)
+    path = str(tmp_path / "temp.parquet")
+    df_spark.write.parquet(path)
+
+    source = SparkDatasetSource(path=path)
+
+    dataset = SparkDataset(
+        df=df_spark,
+        source=source,
+        targets="c",
+        name="testname",
+    )
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert evaluation_dataset.features_data.equals(df_spark.toPandas().drop(columns=["c"]))
+    assert np.array_equal(evaluation_dataset.labels_data, df_spark.toPandas()["c"].values)
