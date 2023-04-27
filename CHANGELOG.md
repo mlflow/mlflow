@@ -2,28 +2,27 @@
 
 ## 2.3.1 (2023-04-27)
 
-MLflow 2.3.1 includes several major features and improvements
+MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
+
+Bug fixes:
+
+- [Scoring] Fix regression in schema enforcement for model serving when using the 'inputs' format for inference (#8326, @BenWilson2)
+- [Model Registry] Fix regression in model naming parsing where special characters were not accepted in model names (#8322, @arpitjasa-db)
+- [Server-infra] Fix critical CVE LFI attack vector by disabling the ability to provide relative paths in registered model sources (#8281, @BenWilson2)
+- [Recipes] Fix card rendering with the pandas profiler to handle columns containing all null values (#8263, @sunishsheth2009)
 
 Features:
 
 - [Model Registry] Add alias support to UC Model Registry REST Store (#8307, @arpitjasa-db)
 
-Bug fixes:
-
-- [Models / Scoring] Fix regression in schema enforcement (#8326, @BenWilson2)
-- [Model Registry / Models] Update parse model URI to prevent breaking old cases while supporting aliases (#8322, @arpitjasa-db)
-- [Server-infra] Disable ability to provide relative paths in sources (#8281, @BenWilson2)
-- [Recipes] fixing null columns profiling (#8263, @sunishsheth2009)
-
 Documentation updates:
 
-- [Docs] added a h2o pyfunc usage example (#8292, @ericvincent18)
-- [Examples] Add core tensorflow 2.x api example to mlflow/examples (#8235, @dheerajnbhat)
-- [] Improve set_experiment doc (#8271, @harupy)
+- [Docs] Add a h2o pyfunc usage example to the models documentation (#8292, @ericvincent18)
+- [Examples] Add a core tensorflow 2.x API usage example (#8235, @dheerajnbhat)
 
 Small bug fixes and documentation updates:
 
-#8324, #8325, @smurching; #8313, @dipanjank; #8323, @liangz1; #8319, #8316, #8308, #8293, #8289, #8283, #8284, #8285, #8282, #8241, #8270, #8272, #8268, @harupy; #8312, #8294, #8295, #8279, #8267, @BenWilson2; #8290, @jinzhang21; #8257, @WeichenXu123
+#8324, #8325, @smurching; #8313, @dipanjank; #8323, @liangz1; #8319, #8316, #8308, #8293, #8289, #8283, #8284, #8285, #8282, #8241, #8270, #8272, #8271, #8268, @harupy; #8312, #8294, #8295, #8279, #8267, @BenWilson2; #8290, @jinzhang21; #8257, @WeichenXu123
 
 ## 2.3.0 (2023-04-18)
 
