@@ -453,11 +453,11 @@ def _after_request(resp: Response):
     return resp
 
 
-def create_root_user(username, password):
+def create_admin_user(username, password):
     if not store.has_user(username):
         store.create_user(username, password, is_admin=True)
         _logger.info(
-            f"Created root user '{username}'. "
+            f"Created admin user '{username}'. "
             "It is recommended that you set a new password as soon as possible "
             f"on {ROUTES.UPDATE_USER_PASSWORD}."
         )
@@ -649,7 +649,7 @@ def _enable_auth(app: Flask):
 
     _logger.debug("Database URI: %s", auth_config.database_uri)
     store.init_db(auth_config.database_uri)
-    create_root_user(auth_config.root_username, auth_config.root_password)
+    create_admin_user(auth_config.admin_username, auth_config.admin_password)
 
     app.add_url_rule(
         rule=ROUTES.SIGNUP,
