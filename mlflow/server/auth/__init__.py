@@ -466,11 +466,11 @@ def create_admin_user(username, password):
 def alert(href: str):
     return render_template_string(
         r"""
-<script type = "text/javascript">  
+<script type = "text/javascript">
 {% with messages = get_flashed_messages() %}
   {% if messages %}
     {% for message in messages %}
-      alert("{{ message }}"); 
+      alert("{{ message }}");
     {% endfor %}
   {% endif %}
 {% endwith %}
@@ -485,17 +485,69 @@ def signup():
     # TODO: add css
     return render_template_string(
         r"""
+<style>
+  form {
+    background-color: #F5F5F5;
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    padding: 20px;
+    max-width: 400px;
+    margin: 0 auto;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  input[type=text], input[type=password] {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border: 1px solid #CCCCCC;
+    border-radius: 4px;
+    box-sizing: border-box;
+  }
+  input[type=submit] {
+    background-color: rgb(34, 114, 180);
+    color: #FFFFFF;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  input[type=submit]:hover {
+    background-color: rgb(14, 83, 139);
+  }
+
+  .logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .logo {
+    max-width: 150px;
+    margin-right: 10px;
+  }
+</style>
+
 <form action="{{ users_route }}" method="post">
-  Username:
+  <div class="logo-container">
+    <img class="logo" src="{{ url_for('static', filename='logo.svg') }}" alt="MLflow Logo">
+  </div>
+  <label for="username">Username:</label>
   <br>
-  <input type=text name=username>
+  <input type="text" id="username" name="username">
   <br>
-  Password:
+  <label for="password">Password:</label>
   <br>
-  <input type=password name=password>
+  <input type="password" id="password" name="password">
   <br>
   <br>
-  <input type="submit" value="Signup">
+  <input type="submit" value="Sign up">
 </form>
 """,
         users_route=ROUTES.CREATE_USER,
