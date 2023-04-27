@@ -4,6 +4,7 @@ from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.annotations import experimental
 
 
 DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
@@ -16,6 +17,7 @@ DATABRICKS_LOCAL_METASTORE_NAMES = [DATABRICKS_HIVE_METASTORE_NAME, "spark_catal
 DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 
+@experimental
 class DeltaDatasetSource(DatasetSource):
     def __init__(
         self,

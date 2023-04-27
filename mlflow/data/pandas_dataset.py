@@ -14,6 +14,7 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -143,6 +144,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
+@experimental
 def from_pandas(
     df: pd.DataFrame,
     source: Union[str, DatasetSource],

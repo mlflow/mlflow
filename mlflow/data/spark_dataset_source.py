@@ -3,11 +3,13 @@ from typing import TypeVar, Any, Optional, Dict
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import experimental
 
 
 SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSource")
 
 
+@experimental
 class SparkDatasetSource(DatasetSource):
     def __init__(
         self,

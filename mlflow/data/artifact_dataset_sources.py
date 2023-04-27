@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
+from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_local_uri
 
 
@@ -89,6 +90,7 @@ def _create_dataset_source_for_artifact_repo(
 
     DatasetForArtifactRepoSourceType = TypeVar(dataset_source_name)
 
+    @experimental
     class ArtifactRepoSource(FileSystemDatasetSource):
         def __init__(self, uri: str):
             self._uri = uri

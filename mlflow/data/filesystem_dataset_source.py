@@ -2,6 +2,7 @@ from abc import abstractmethod
 from typing import TypeVar, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.utils.annotations import experimental
 
 
 FileSystemDatasetSourceType = TypeVar(
@@ -9,6 +10,7 @@ FileSystemDatasetSourceType = TypeVar(
 )
 
 
+@experimental
 class FileSystemDatasetSource(DatasetSource):
     """
     Represents the source of a dataset stored on a filesystem, e.g. a local UNIX filesystem,

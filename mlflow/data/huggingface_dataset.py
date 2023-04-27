@@ -14,12 +14,14 @@ from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 _MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE = 10000
 
 
+@experimental
 class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a HuggingFace dataset for use with MLflow Tracking.
@@ -171,6 +173,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         )
 
 
+@experimental
 def from_huggingface(
     ds: datasets.Dataset,
     path: str,
