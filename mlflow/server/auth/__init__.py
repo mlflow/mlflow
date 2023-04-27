@@ -536,7 +536,7 @@ def signup():
 
 <form action="{{ users_route }}" method="post">
   <div class="logo-container">
-    <img class="logo" src="/assets/logo.svg" alt="MLflow Logo">
+    <img class="logo" src="{{ url_for('static', filename='logo.svg') }}" alt="MLflow Logo">
   </div>
   <label for="username">Username:</label>
   <br>
