@@ -38,11 +38,17 @@ class CodeDatasetSource(DatasetSource):
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
-        return {
-            "mlflow_source_type": self._mlflow_source_type,
-            "mlflow_source_name": self._mlflow_source_name,
-            "databricks_notebook_id": self._databricks_notebook_id,
-        }
+        if self._databricks_notebook_id is None:
+            return {
+                "mlflow_source_type": self._mlflow_source_type,
+                "mlflow_source_name": self._mlflow_source_name,
+            }
+        else:
+            return {
+                "mlflow_source_type": self._mlflow_source_type,
+                "mlflow_source_name": self._mlflow_source_name,
+                "databricks_notebook_id": self._databricks_notebook_id,
+            }
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> CodeDatasetSourceType:
