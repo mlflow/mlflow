@@ -1,6 +1,8 @@
+import json
 import pytest
 import pandas as pd
 
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.exceptions import MlflowException
 
@@ -29,9 +31,16 @@ def test_spark_dataset_source_from_path(spark_session, tmp_path):
     df_spark.write.parquet(path)
 
     spark_datasource = SparkDatasetSource(path=path)
-    assert spark_datasource._to_dict() == {"path": path}
+    assert spark_datasource.to_json() == json.dumps({"path": path})
     loaded_df_spark = spark_datasource.load()
     assert loaded_df_spark.count() == df_spark.count()
+
+    reloaded_source = get_dataset_source_from_json(
+        spark_datasource.to_json(), source_type=spark_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, SparkDatasetSource)
+    assert type(spark_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_from_table(spark_session, tmp_path):
@@ -40,9 +49,16 @@ def test_spark_dataset_source_from_table(spark_session, tmp_path):
     df_spark.write.mode("overwrite").saveAsTable("temp", path=tmp_path)
 
     spark_datasource = SparkDatasetSource(table_name="temp")
-    assert spark_datasource._to_dict() == {"table_name": "temp"}
+    assert spark_datasource.to_json() == json.dumps({"table_name": "temp"})
     loaded_df_spark = spark_datasource.load()
     assert loaded_df_spark.count() == df_spark.count()
+
+    reloaded_source = get_dataset_source_from_json(
+        spark_datasource.to_json(), source_type=spark_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, SparkDatasetSource)
+    assert type(spark_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_from_sql(spark_session, tmp_path):
@@ -51,9 +67,16 @@ def test_spark_dataset_source_from_sql(spark_session, tmp_path):
     df_spark.write.mode("overwrite").saveAsTable("temp_sql", path=tmp_path)
 
     spark_datasource = SparkDatasetSource(sql="SELECT * FROM temp_sql")
-    assert spark_datasource._to_dict() == {"sql": "SELECT * FROM temp_sql"}
+    assert spark_datasource.to_json() == json.dumps({"sql": "SELECT * FROM temp_sql"})
     loaded_df_spark = spark_datasource.load()
     assert loaded_df_spark.count() == df_spark.count()
+
+    reloaded_source = get_dataset_source_from_json(
+        spark_datasource.to_json(), source_type=spark_datasource._get_source_type()
+    )
+    assert isinstance(reloaded_source, SparkDatasetSource)
+    assert type(spark_datasource) == type(reloaded_source)
+    assert reloaded_source.to_json() == spark_datasource.to_json()
 
 
 def test_spark_dataset_source_too_many_inputs(spark_session, tmp_path):

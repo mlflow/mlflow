@@ -7,6 +7,7 @@ import pytest
 
 import mlflow.data
 import mlflow.data.huggingface_dataset
+from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
 from mlflow.data.huggingface_dataset_source import HuggingFaceDatasetSource
 from mlflow.exceptions import MlflowException
@@ -227,6 +228,13 @@ def test_dataset_source_conversion_to_json():
 
     reloaded_source = HuggingFaceDatasetSource.from_json(source_json)
     assert json.loads(reloaded_source.to_json()) == parsed_source
+
+    reloaded_source = get_dataset_source_from_json(
+        source_json, source_type=source._get_source_type()
+    )
+    assert isinstance(reloaded_source, HuggingFaceDatasetSource)
+    assert type(source) == type(reloaded_source)
+    assert reloaded_source.to_json() == source.to_json()
 
 
 def test_to_evaluation_dataset():

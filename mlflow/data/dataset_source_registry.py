@@ -4,6 +4,7 @@ from typing import Any, List
 
 from mlflow.data.artifact_dataset_sources import register_artifact_dataset_sources
 from mlflow.data.dataset_source import DatasetSource
+from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 
@@ -175,6 +176,7 @@ def get_registered_sources() -> List[DatasetSource]:
 # over any internally-defined generic behavior
 _dataset_source_registry = DatasetSourceRegistry()
 register_artifact_dataset_sources()
+_dataset_source_registry.register(HTTPDatasetSource)
 _dataset_source_registry.register_entrypoints()
 
 try:
