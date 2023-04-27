@@ -18,6 +18,7 @@ from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow import MlflowClient
+from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import picklable_exception_safe_function, BatchMetricsLogger
 from unittest.mock import patch
 
@@ -46,6 +47,15 @@ def bst_params():
 def train_set():
     iris = datasets.load_iris()
     X = pd.DataFrame(iris.data[:, :2], columns=iris.feature_names[:2])
+    y = iris.target
+    # set free_raw_data False to use raw data later.
+    return lgb.Dataset(X, y, free_raw_data=False)
+
+
+@pytest.fixture(scope="module")
+def valid_set():
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2] * 2, columns=iris.feature_names[:2])
     y = iris.target
     # set free_raw_data False to use raw data later.
     return lgb.Dataset(X, y, free_raw_data=False)
@@ -759,3 +769,60 @@ def test_lgb_api_autolog_registering_model(bst_params, train_set):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_lgb_log_datasets(bst_params, train_set, log_datasets):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=log_datasets)
+        lgb.train(bst_params, train_set, num_boost_round=1)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+def test_lgb_log_datasets_with_valid_set(bst_params, train_set, valid_set):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(bst_params, train_set, valid_sets=[valid_set], num_boost_round=1)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {"mlflow_colspec": _infer_schema(valid_set.data).to_dict()}
+    )
+
+
+def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_set):
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(
+            bst_params,
+            train_set,
+            valid_sets=[valid_set],
+            valid_names=["my_valid_set"],
+            num_boost_round=1,
+        )
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.name == "my_valid_set"

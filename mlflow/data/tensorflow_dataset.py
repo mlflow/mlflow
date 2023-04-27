@@ -108,7 +108,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "features_num_rows": len(self._data),
             "features_num_elements": int(self._data.cardinality().numpy())
             if isinstance(self._data, tf.data.Dataset)
-            else tf.size(self._data).numpy(),
+            else int(tf.size(self._data).numpy()),
         }
         if self._targets is not None:
             profile.update(
@@ -116,7 +116,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                     "targets_num_rows": len(self._targets),
                     "targets_num_elements": int(self._targets.cardinality().numpy())
                     if isinstance(self._targets, tf.data.Dataset)
-                    else tf.size(self._targets).numpy(),
+                    else int(tf.size(self._targets).numpy()),
                 }
             )
         return profile
@@ -129,17 +129,22 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         import tensorflow as tf
 
         try:
-            schema_dict = {
-                "features": next(self._data.as_numpy_iterator())
-                if isinstance(self._data, tf.data.Dataset)
-                else self._data.numpy()
-            }
+            if isinstance(self._data, tf.data.Dataset):
+                features_tensor = next(self._data.as_numpy_iterator())
+                if isinstance(features_tensor, tuple):
+                    features_tensor = features_tensor[0]
+            else:
+                features_tensor = self._data.numpy()
+
+            schema_dict = {"features": features_tensor}
             if self._targets is not None:
-                schema_dict["targets"] = (
-                    next(self._targets.as_numpy_iterator())
-                    if isinstance(self._targets, tf.data.Dataset)
-                    else self._targets.numpy()
-                )
+                if isinstance(self._targets, tf.data.Dataset):
+                    targets_tensor = next(self._targets.as_numpy_iterator())
+                    if isinstance(targets_tensor, tuple):
+                        targets_tensor = targets_tensor[0]
+                else:
+                    targets_tensor = self._targets.numpy()
+                schema_dict["targets"] = targets_tensor
             return _infer_schema(schema_dict)
         except Exception as e:
             _logger.warning("Failed to infer schema for TensorFlow dataset. Exception: %s", e)

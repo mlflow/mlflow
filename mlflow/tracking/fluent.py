@@ -1648,6 +1648,7 @@ def autolog(
     log_input_examples: bool = False,
     log_model_signatures: bool = True,
     log_models: bool = True,
+    log_datasets: bool = True,
     disable: bool = False,
     exclusive: bool = False,
     disable_for_unsupported_versions: bool = False,
@@ -1706,6 +1707,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
                     enables all supported autologging integrations.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
