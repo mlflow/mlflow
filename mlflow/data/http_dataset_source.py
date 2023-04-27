@@ -29,7 +29,7 @@ class HTTPDatasetSource(DatasetSource):
         """
         The HTTP/S URL referring to the dataset source location.
 
-        :return: The HTTP/S URL referring to the dataset source filesystem location.
+        :return: The HTTP/S URL referring to the dataset source location.
         """
         return self._url
 
