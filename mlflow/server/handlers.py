@@ -6,6 +6,7 @@ import tempfile
 import posixpath
 import urllib
 import pathlib
+import re
 
 import logging
 from functools import wraps
@@ -1338,7 +1339,8 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "s3:/my_bucket/models/path/../../other/path"
     "file://path/to/../../../../some/where/you/should/not/be"
     """
-    source_path = urllib.parse.urlparse(source).path
+    source_path = urllib.parse.urlparse(source).path.rstrip("/")
+    source_path = re.sub(r"/+", "/", source_path)
     resolved_source = pathlib.Path(source_path).resolve().as_posix()
     # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
     # drive path of the pwd to a given path. We don't care about the drive here, though.
