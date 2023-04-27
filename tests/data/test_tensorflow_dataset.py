@@ -1,9 +1,12 @@
 import json
 import numpy as np
+import pytest
 
 import mlflow.data
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.tensorflow_dataset import TensorflowDataset
+from mlflow.exceptions import MlflowException
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
@@ -67,8 +70,8 @@ def test_profile_property_has_expected_value_dataset():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
-        "num_rows": len(tf_dataset),
-        "num_elements": tf_dataset.cardinality().numpy(),
+        "features_num_rows": len(tf_dataset),
+        "features_num_elements": tf_dataset.cardinality().numpy(),
     }
 
 
@@ -79,8 +82,8 @@ def test_profile_property_has_expected_value_tensors():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(data=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
-        "num_rows": len(tf_tensor),
-        "num_elements": tf.size(tf_tensor).numpy(),
+        "features_num_rows": len(tf_tensor),
+        "features_num_elements": tf.size(tf_tensor).numpy(),
     }
 
 
@@ -93,16 +96,67 @@ def test_to_pyfunc():
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
+def test_to_evaluation_dataset():
+    source_uri = "test:/my/test/uri"
+    x = np.random.sample((2, 2))
+    y = np.random.sample((2, 1))
+    x_tensors = tf.convert_to_tensor(x)
+    y_tensors = tf.convert_to_tensor(y)
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(data=x_tensors, source=source, targets=y_tensors, name="testname")
+    evaluation_dataset = dataset.to_evaluation_dataset()
+    assert isinstance(evaluation_dataset, EvaluationDataset)
+    assert np.array_equal(evaluation_dataset.features_data, dataset.data.numpy())
+    assert np.array_equal(evaluation_dataset.labels_data, dataset.targets.numpy())
+
+
+def test_to_evaluation_dataset_with_tensorflow_dataset_data():
+    source_uri = "test:/my/test/uri"
+    x = np.random.sample((2, 2))
+    y = np.random.sample((2, 1))
+    x_tf_data = tf.data.Dataset.from_tensors(x)
+    y_tf_data = tf.data.Dataset.from_tensors(y)
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(data=x_tf_data, source=source, targets=y_tf_data, name="testname")
+    with pytest.raises(
+        MlflowException, match="Data must be a Tensor to convert to an EvaluationDataset"
+    ):
+        evaluation_dataset = dataset.to_evaluation_dataset()  # pylint: disable=unused-variable
+
+
 def test_from_tensorflow_dataset_constructs_expected_dataset():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset, source="my_source")
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert mlflow_ds.data == tf_dataset
-    assert mlflow_ds.schema == _infer_schema(next(tf_dataset.as_numpy_iterator()))
+    assert mlflow_ds.schema == _infer_schema({"features": next(tf_dataset.as_numpy_iterator())})
     assert mlflow_ds.profile == {
-        "num_rows": len(tf_dataset),
-        "num_elements": tf_dataset.cardinality().numpy(),
+        "features_num_rows": len(tf_dataset),
+        "features_num_elements": tf_dataset.cardinality().numpy(),
+    }
+
+
+def test_from_tensorflow_dataset_with_targets_constructs_expected_dataset():
+    x = np.random.sample((100, 2))
+    y = np.random.sample((100, 1))
+    tf_dataset_x = tf.data.Dataset.from_tensors(x)
+    tf_dataset_y = tf.data.Dataset.from_tensors(y)
+    mlflow_ds = mlflow.data.from_tensorflow(tf_dataset_x, source="my_source", targets=tf_dataset_y)
+    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert mlflow_ds.data == tf_dataset_x
+    assert mlflow_ds.targets == tf_dataset_y
+    assert mlflow_ds.schema == _infer_schema(
+        {
+            "features": next(tf_dataset_x.as_numpy_iterator()),
+            "targets": next(tf_dataset_y.as_numpy_iterator()),
+        }
+    )
+    assert mlflow_ds.profile == {
+        "features_num_rows": len(tf_dataset_x),
+        "features_num_elements": tf_dataset_x.cardinality().numpy(),
+        "targets_num_rows": len(tf_dataset_y),
+        "targets_num_elements": tf_dataset_y.cardinality().numpy(),
     }
 
 
@@ -113,8 +167,28 @@ def test_from_tensorflow_tensor_constructs_expected_dataset():
     assert isinstance(mlflow_ds, TensorflowDataset)
     # compare if two tensors are equal using tensorflow utils
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor))
-    assert mlflow_ds.schema == _infer_schema(tf_tensor.numpy())
+    assert mlflow_ds.schema == _infer_schema({"features": tf_tensor.numpy()})
     assert mlflow_ds.profile == {
-        "num_rows": len(tf_tensor),
-        "num_elements": tf.size(tf_tensor).numpy(),
+        "features_num_rows": len(tf_tensor),
+        "features_num_elements": tf.size(tf_tensor).numpy(),
+    }
+
+
+def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
+    x = np.random.sample((100, 2))
+    y = np.random.sample((100, 1))
+    tf_tensor_x = tf.convert_to_tensor(x)
+    tf_tensor_y = tf.convert_to_tensor(y)
+    mlflow_ds = mlflow.data.from_tensorflow(tf_tensor_x, source="my_source", targets=tf_tensor_y)
+    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor_x))
+    assert tf.reduce_all(tf.math.equal(mlflow_ds.targets, tf_tensor_y))
+    assert mlflow_ds.schema == _infer_schema(
+        {"features": tf_tensor_x.numpy(), "targets": tf_tensor_y.numpy()}
+    )
+    assert mlflow_ds.profile == {
+        "features_num_rows": len(tf_tensor_x),
+        "features_num_elements": tf.size(tf_tensor_x).numpy(),
+        "targets_num_rows": len(tf_tensor_y),
+        "targets_num_elements": tf.size(tf_tensor_y).numpy(),
     }
