@@ -11,9 +11,11 @@ class CodeDatasetSource(DatasetSource):
         self,
         mlflow_source_type: str,
         mlflow_source_name: str,
+        databricks_notebook_id: str = None,
     ):
         self._mlflow_source_type = mlflow_source_type
         self._mlflow_source_name = mlflow_source_name
+        self._databricks_notebook_id = databricks_notebook_id
 
     @staticmethod
     def _get_source_type() -> str:
@@ -37,6 +39,7 @@ class CodeDatasetSource(DatasetSource):
         return {
             "mlflow_source_type": self._mlflow_source_type,
             "mlflow_source_name": self._mlflow_source_name,
+            "databricks_notebook_id": self._databricks_notebook_id,
         }
 
     @classmethod
@@ -44,4 +47,5 @@ class CodeDatasetSource(DatasetSource):
         return cls(
             mlflow_source_type=source_dict.get("mlflow_source_type"),
             mlflow_source_name=source_dict.get("mlflow_source_name"),
+            databricks_notebook_id=source_dict.get("databricks_notebook_id"),
         )

@@ -51,7 +51,12 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.class_utils import _get_class_from_string
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_SOURCE_NAME,
+    MLFLOW_SOURCE_TYPE,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import (
@@ -637,10 +642,17 @@ def autolog(
             try:
                 # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
+                if MLFLOW_DATABRICKS_NOTEBOOK_ID in context_tags:
+                    source = CodeDatasetSource(
+                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                        databricks_notebook_id=context_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID],
+                    )
+                else:
+                    source = CodeDatasetSource(
+                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
+                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
+                    )
 
                 _log_xgboost_dataset(dtrain, source, "train", autologging_client)
                 evals = kwargs.get("evals")
