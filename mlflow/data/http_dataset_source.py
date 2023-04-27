@@ -1,5 +1,6 @@
 import os
 import posixpath
+import re
 import tempfile
 
 from typing import TypeVar, Any, Dict
@@ -54,8 +55,12 @@ class HTTPDatasetSource(DatasetSource):
 
         path = urlparse(self.url).path
         content_disposition = resp.headers.get("Content-Disposition")
-        if content_disposition is not None and len(content_disposition) > 0:
-            basename = content_disposition
+        if (
+            content_disposition is not None
+            and len(file_names := re.findall("filename=(.+)", content_disposition)) > 0
+        ):
+            # NB: If the filename is quoted, unquote it
+            basename = file_names[0].lstrip('"').rstrip('"').lstrip("'").rstrip("'")
         elif path is not None and len(posixpath.basename(path)) > 0:
             basename = posixpath.basename(path)
         else:

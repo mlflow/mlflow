@@ -1,12 +1,14 @@
 import json
 import os
 import pytest
+from unittest import mock
 
 import pandas as pd
 
 from mlflow.data.dataset_source_registry import resolve_dataset_source, get_dataset_source_from_json
 from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.exceptions import MlflowException
+from mlflow.utils.rest_utils import cloud_storage_http_request
 
 
 def test_source_to_and_from_json():
@@ -52,12 +54,16 @@ def test_source_load(tmp_path):
 
     loaded1 = source1.load()
     parsed1 = pd.read_csv(loaded1, sep=";")
+    # Verify that the expected data was downloaded by checking for an expected column and asserting
+    # that several rows are present
     assert "fixed acidity" in parsed1.columns
     assert len(parsed1) > 10
 
     loaded2 = source1.load(dst_path=tmp_path)
     assert loaded2 == str(tmp_path / "winequality-red.csv")
     parsed2 = pd.read_csv(loaded2, sep=";")
+    # Verify that the expected data was downloaded by checking for an expected column and asserting
+    # that several rows are present
     assert "fixed acidity" in parsed2.columns
     assert len(parsed1) > 10
 
@@ -79,3 +85,34 @@ def test_source_load(tmp_path):
     loaded5 = source4.load()
     assert os.path.exists(loaded5)
     assert os.path.basename(loaded5) == "dataset_source"
+
+
+@pytest.mark.parametrize(
+    ("attachment_filename", "expected_filename"),
+    [
+        ("testfile.txt", "testfile.txt"),
+        ('"testfile.txt"', "testfile.txt"),
+        ("'testfile.txt'", "testfile.txt"),
+        (None, "winequality-red.csv"),
+    ],
+)
+def test_source_load_with_content_disposition_header(attachment_filename, expected_filename):
+    def download_with_mock_content_disposition_headers(*args, **kwargs):
+        response = cloud_storage_http_request(*args, **kwargs)
+        if attachment_filename is not None:
+            response.headers["Content-Disposition"] = f"attachment; filename={attachment_filename}"
+        else:
+            response.headers["Content-Disposition"] = "attachment"
+        return response
+
+    with mock.patch(
+        "mlflow.data.http_dataset_source.cloud_storage_http_request",
+        side_effect=download_with_mock_content_disposition_headers,
+    ):
+        source = HTTPDatasetSource(
+            "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-red.csv"
+        )
+        source.load()
+        loaded = source.load()
+        assert os.path.exists(loaded)
+        assert os.path.basename(loaded) == expected_filename
