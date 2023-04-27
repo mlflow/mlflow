@@ -18,6 +18,7 @@ from flask import Flask, request, make_response, Response, flash, render_templat
 from mlflow import get_run, MlflowException
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
+from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
@@ -482,7 +483,6 @@ def alert(href: str):
 
 
 def signup():
-    # TODO: add css
     return render_template_string(
         r"""
 <style>
@@ -536,7 +536,9 @@ def signup():
 
 <form action="{{ users_route }}" method="post">
   <div class="logo-container">
-    <img class="logo" src="{{ url_for('static', filename='logo.svg') }}" alt="MLflow Logo">
+    {% autoescape false %}
+    {{ mlflow_logo }}
+    {% endautoescape %}
   </div>
   <label for="username">Username:</label>
   <br>
@@ -550,6 +552,7 @@ def signup():
   <input type="submit" value="Sign up">
 </form>
 """,
+        mlflow_logo=MLFLOW_LOGO,
         users_route=ROUTES.CREATE_USER,
     )
 
