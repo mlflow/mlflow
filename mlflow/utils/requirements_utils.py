@@ -370,7 +370,7 @@ def _infer_requirements(model_uri, flavor):
 
     modules = _capture_imported_modules(model_uri, flavor)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
-    packages = map(_normalize_package_name, packages)
+    packages = set(map(_normalize_package_name, packages))
     packages = _prune_packages(packages)
     excluded_packages = [
         # Certain packages (e.g. scikit-learn 0.24.2) imports `setuptools` or `pkg_resources`
