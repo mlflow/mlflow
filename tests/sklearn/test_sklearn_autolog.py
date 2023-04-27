@@ -1106,9 +1106,6 @@ def test_sklearn_autolog_log_datasets_configuration(log_datasets):
         assert dataset_inputs[0].dataset.schema == json.dumps(
             {"mlflow_tensorspec": _infer_schema({"features": X, "targets": y}).to_dict()}
         )
-        print(dataset_inputs[0].dataset.source)
-        assert False
-
     else:
         assert len(dataset_inputs) == 0
 
