@@ -11,13 +11,9 @@ CodeDatasetSourceType = TypeVar("CodeDatasetSourceType", bound="CodeDatasetSourc
 class CodeDatasetSource(DatasetSource):
     def __init__(
         self,
-        mlflow_source_type: str,
-        mlflow_source_name: str,
-        databricks_notebook_id: str = None,
+        tags: Dict[Any, Any],
     ):
-        self._mlflow_source_type = mlflow_source_type
-        self._mlflow_source_name = mlflow_source_name
-        self._databricks_notebook_id = databricks_notebook_id
+        self._tags = tags
 
     @staticmethod
     def _get_source_type() -> str:
@@ -38,22 +34,10 @@ class CodeDatasetSource(DatasetSource):
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
-        if self._databricks_notebook_id is None:
-            return {
-                "mlflow_source_type": self._mlflow_source_type,
-                "mlflow_source_name": self._mlflow_source_name,
-            }
-        else:
-            return {
-                "mlflow_source_type": self._mlflow_source_type,
-                "mlflow_source_name": self._mlflow_source_name,
-                "databricks_notebook_id": self._databricks_notebook_id,
-            }
+        return {"tags": self._tags}
 
     @classmethod
     def _from_dict(cls, source_dict: Dict[Any, Any]) -> CodeDatasetSourceType:
         return cls(
-            mlflow_source_type=source_dict.get("mlflow_source_type"),
-            mlflow_source_name=source_dict.get("mlflow_source_name"),
-            databricks_notebook_id=source_dict.get("databricks_notebook_id"),
+            tags=source_dict.get("tags"),
         )

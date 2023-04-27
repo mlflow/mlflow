@@ -56,10 +56,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
-    MLFLOW_DATABRICKS_NOTEBOOK_ID,
     MLFLOW_DATASET_CONTEXT,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
 )
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
@@ -1420,19 +1417,8 @@ def _autolog(
 
         if log_datasets:
             try:
-                # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
-                if MLFLOW_DATABRICKS_NOTEBOOK_ID in context_tags:
-                    source = CodeDatasetSource(
-                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                        databricks_notebook_id=context_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID],
-                    )
-                else:
-                    source = CodeDatasetSource(
-                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                    )
+                source = CodeDatasetSource(context_tags)
 
                 dataset = _create_dataset(X, source, y)
                 if dataset:
@@ -1658,10 +1644,7 @@ def _autolog(
             if log_datasets:
                 try:
                     context_tags = context_registry.resolve_tags()
-                    source = CodeDatasetSource(
-                        mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                        mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                    )
+                    source = CodeDatasetSource(context_tags)
 
                     dataset = _create_dataset(eval_dataset, source, dataset_name=eval_dataset_name)
 
