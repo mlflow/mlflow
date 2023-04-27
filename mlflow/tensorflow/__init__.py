@@ -49,7 +49,6 @@ from mlflow.utils.environment import (
     _mlflow_conda_env,
 )
 from mlflow.utils.file_utils import write_to
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.utils.model_utils import (
@@ -1262,12 +1261,9 @@ def autolog(
 
                 if log_datasets:
                     try:
-                        # create a CodeDatasetSource
                         context_tags = context_registry.resolve_tags()
-                        source = CodeDatasetSource(
-                            mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                            mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                        )
+                        source = CodeDatasetSource(tags=context_tags)
+
                         training_data = kwargs["x"] if "x" in kwargs else args[0]
                         if "validation_data" in kwargs:
                             validation_data = kwargs["validation_data"]

@@ -31,8 +31,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_AUTOLOGGING,
     MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
-    MLFLOW_SOURCE_NAME,
-    MLFLOW_SOURCE_TYPE,
 )
 from mlflow.utils.rest_utils import (
     augmented_raise_for_status,
@@ -974,12 +972,8 @@ def autolog(
 
         if log_datasets:
             try:
-                # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
-                code_source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
+                code_source = CodeDatasetSource(context_tags)
                 dataset = SparkDataset(
                     df=input_df,
                     source=code_source,
@@ -1196,12 +1190,9 @@ def autolog(
                     )
                     if log_datasets:
                         try:
-                            # create a CodeDatasetSource
                             context_tags = context_registry.resolve_tags()
-                            code_source = CodeDatasetSource(
-                                mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                                mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                            )
+                            code_source = CodeDatasetSource(context_tags)
+
                             dataset = SparkDataset(
                                 df=pred_result_dataset,
                                 source=code_source,
