@@ -1,8 +1,8 @@
 import codecs
 import errno
 import gzip
+import json
 import math
-import multiprocessing
 import os
 import posixpath
 import shutil
@@ -15,13 +15,11 @@ from contextlib import contextmanager
 
 import urllib.parse
 import urllib.request
-from concurrent.futures import ProcessPoolExecutor
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
 import atexit
 
-import requests
 import yaml
 
 try:
@@ -29,14 +27,15 @@ try:
 except ImportError:
     from yaml import SafeLoader as YamlSafeLoader, SafeDumper as YamlSafeDumper
 
-from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
-from mlflow.utils.process import cache_return_value_per_process
+from mlflow.utils.process import cache_return_value_per_process, _exec_cmd
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
+from mlflow.utils import download_cloud_file_chunk
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = 32
@@ -595,9 +594,7 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
-def download_chunk(request_index, chunk_size, headers, download_path, http_uri):
-    range_start = chunk_size * request_index
-    range_end = range_start + chunk_size - 1
+def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
     with cloud_storage_http_request(
         "get", http_uri, stream=False, headers=combined_headers
@@ -610,7 +607,7 @@ def download_chunk(request_index, chunk_size, headers, download_path, http_uri):
 
 
 def parallelized_download_file_using_http_uri(
-    http_uri, download_path, file_size, uri_type, chunk_size, headers=None
+    http_uri, download_path, file_size, uri_type, chunk_size, env, headers=None
 ):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
@@ -627,13 +624,18 @@ def parallelized_download_file_using_http_uri(
     # before sending to the workers so they can each individually seek to their respective positions
     # and write chunks without overwriting.
     open(download_path, "w").close()
-    futures = {}
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
         # GCP files could be transcoded, in which case the range header is ignored.
         # Test if this is the case by downloading one chunk and seeing if it's larger than the
         # requested size. If yes, let that be the file; if not, continue downloading more chunks.
-        download_chunk(0, chunk_size, headers, download_path, http_uri)
+        download_chunk(
+            range_start=0,
+            range_end=chunk_size - 1,
+            headers=headers,
+            download_path=download_path,
+            http_uri=http_uri
+        )
         downloaded_size = os.path.getsize(download_path)
         # If downloaded size was equal to the chunk size it would have been downloaded serially,
         # so we don't need to consider this here
@@ -643,25 +645,51 @@ def parallelized_download_file_using_http_uri(
             starting_index = 1
 
     failed_downloads = {}
-    with ProcessPoolExecutor(
-        max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS, mp_context=multiprocessing.get_context("fork")
-    ) as executor:
-        for i in range(starting_index, num_requests):
-            fut = executor.submit(
-                download_chunk,
-                request_index=i,
-                chunk_size=chunk_size,
-                headers=headers,
-                download_path=download_path,
-                http_uri=http_uri,
-            )
-            futures[i] = fut
+    download_procs = {}
 
-    for i, fut in futures.items():
-        try:
-            fut.result()
-        except requests.HTTPError as e:
-            failed_downloads[i] = e
+    def await_active_procs(max_active_procs, synchronous):
+        while len(download_procs) > max_active_procs:
+            completed_downloads_idxs = []
+            for idx, download_proc in download_procs.items():
+                return_code = download_proc.wait() if synchronous else download_proc.poll()
+                if return_code is not None:
+                    completed_downloads_idxs.append(idx)
+                    if return_code != 0:
+                        stdout, _ = download_proc.communicate()
+                        failed_downloads[i] = json.loads(stdout)
+
+            for completed_idx in completed_downloads_idxs:
+                del download_procs[completed_idx]
+
+    for i in range(starting_index, num_requests):
+        await_active_procs(max_active_procs=8, synchronous=False)
+        # await_active_procs(max_active_procs=MAX_PARALLEL_DOWNLOAD_WORKERS, synchronous=False)
+        range_start = i * chunk_size
+        range_end = range_start + chunk_size - 1
+        download_proc = _exec_cmd(
+            cmd = [
+                sys.executable,
+                download_cloud_file_chunk.__file__,
+                "--range-start",
+                range_start,
+                "--range-end",
+                range_end,
+                "--headers",
+                json.dumps(headers or {}),
+                "--download-path",
+                download_path,
+                "--http-uri",
+                http_uri,
+            ],
+            throw_on_error=True,
+            synchronous=False,
+            capture_output=True,
+            stream_output=False,
+            env=env,
+        )
+        download_procs[i] = download_proc
+
+    await_active_procs(max_active_procs=0, synchronous=True)
 
     return failed_downloads
 

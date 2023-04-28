@@ -425,17 +425,22 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
+        from mlflow.projects.utils import get_databricks_env_vars
+
         try:
+            parallel_download_subproc_env = os.environ.copy()
+            parallel_download_subproc_env.update(get_databricks_env_vars(self.databricks_profile_uri))
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=cloud_credential_info.signed_uri,
                 download_path=dst_local_file_path,
                 file_size=file_size,
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
-                e for e in failed_downloads.values() if e.response.status_code not in (401, 403)
+                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
             ]
             if download_errors:
                 raise MlflowException(
@@ -445,7 +450,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
             if failed_downloads:
                 new_cloud_creds = self._get_read_credential_infos(
-                    self.run_id, dst_run_relative_artifact_path
+                    self.run_id, [dst_run_relative_artifact_path]
                 )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
