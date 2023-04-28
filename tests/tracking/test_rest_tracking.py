@@ -675,25 +675,15 @@ def test_log_batch_validation(mlflow_client):
 
     ## Should 400 if missing timestamp
     assert_bad_request(
-        {
-            "run_id": run_id,
-            "metrics": [
-                {"key": "mae", "value": 2.5}
-            ]
-        },
-        'Invalid value [{"key": "mae", "value": 2.5}] for parameter \'metrics\' supplied'
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
+        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
     )
 
     ## Should 200 if timestamp provided but step is not
     response = _send_rest_tracking_post_request(
         mlflow_client.tracking_uri,
         "/api/2.0/mlflow/runs/log-batch",
-        {
-            "run_id": run_id,
-            "metrics": [
-                {"key": "mae", "value": 2.5, "timestamp": 123456789}
-            ]
-        }
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5, "timestamp": 123456789}]},
     )
 
     assert response.status_code == 200
