@@ -129,7 +129,13 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
+        from mlflow.projects.utils import get_databricks_env_vars
+
         try:
+            parallel_download_subproc_env = os.environ.copy()
+            parallel_download_subproc_env.update(
+                get_databricks_env_vars(self.databricks_profile_uri)
+            )
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=signed_uri,
                 download_path=dst_local_file_path,
@@ -137,6 +143,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 # URI type is not known in this context
                 uri_type=None,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
                 headers=headers,
             )
             download_errors = [
