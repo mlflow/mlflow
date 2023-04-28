@@ -596,14 +596,21 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-    with cloud_storage_http_request(
+    import time
+    a = time.time()
+    r = cloud_storage_http_request(
         "get", http_uri, stream=False, headers=combined_headers
-    ) as response:
+    )
+    b = time.time()
+    with r as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         with open(download_path, "r+b") as f:
             f.seek(range_start)
             f.write(response.content)
+    c = time.time()
+    print("DOWNLOAD TIME", (b - a))
+    print("WRITE TIME", (c - b))
 
 
 def parallelized_download_file_using_http_uri(
@@ -649,7 +656,7 @@ def parallelized_download_file_using_http_uri(
 
     def await_active_procs(max_active_procs, synchronous):
         while len(download_procs) > max_active_procs:
-            print("DOWNLOAD PROCS", download_procs)
+            # print("DOWNLOAD PROCS", download_procs)
             completed_downloads_idxs = []
             for idx, download_proc in download_procs.items():
                 return_code = download_proc.wait() if synchronous else download_proc.poll()
@@ -657,7 +664,7 @@ def parallelized_download_file_using_http_uri(
                     completed_downloads_idxs.append(idx)
                     if return_code != 0:
                         stdout, _ = download_proc.communicate()
-                        print("STDOUT", stdout)
+                        # print("STDOUT", stdout)
                         failed_downloads[i] = json.loads(stdout)
 
             for completed_idx in completed_downloads_idxs:

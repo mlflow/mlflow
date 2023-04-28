@@ -36,4 +36,8 @@ def main():
         }), file=sys.stdout)  
 
 if __name__ == "__main__":
+    import time
+    before = time.time()
     main()
+    after = time.time()
+    print("MAIN TIME", after - before)
