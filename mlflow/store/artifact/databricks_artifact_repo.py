@@ -150,6 +150,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
+        # Use an isolated thread pool executor for chunk uploads to avoid a deadlock
+        # caused by waiting for a chunk-upload task within a file-upload task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_upload_thread_pool = self._create_thread_pool()
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -264,7 +269,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             headers = self._extract_headers_from_credentials(credentials.headers)
             futures = {}
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
-            with self._create_thread_pool() as executor:
+            with self.chunk_upload_thread_pool as executor:
                 for index in range(num_chunks):
                     start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
                     future = executor.submit(
@@ -343,7 +348,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             file_size = os.path.getsize(local_file)
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             use_single_part_upload = num_chunks == 1
-            with self._create_thread_pool() as executor:
+            with self.chunk_upload_thread_pool as executor:
                 for index in range(num_chunks):
                     start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
                     future = executor.submit(
@@ -557,7 +562,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _upload_parts(self, local_file, create_mpu_resp):
         futures = {}
-        with self._create_thread_pool() as executor:
+        with self.chunk_upload_thread_pool as executor:
             for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
                 part_number = index + 1
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
