@@ -165,7 +165,8 @@ def from_numpy(
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL etc. If source is not a path like string,
                     pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used.
+                    a CodeDatasetSource is used, which will source information from the run
+                    context.
     :param targets: Optional NumPy targets, represented as an np.ndarray, list of
                     np.ndarrays or dictionary of named np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.

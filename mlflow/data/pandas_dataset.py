@@ -161,7 +161,8 @@ def from_pandas(
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
                     pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used.
+                    a CodeDatasetSource is used, which will source information from the run
+                    context.
     :param targets: An optional target column name for supervised training. This column
                     must be present in the dataframe (`df`).
     :param name: The name of the dataset. If unspecified, a name is generated.

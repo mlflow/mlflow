@@ -193,7 +193,8 @@ def from_tensorflow(
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
                     pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used.
+                    a CodeDatasetSource is used, which will source information from the run
+                    context.
     :param targets: A TensorFlow dataset or TensorFlow tensor containing dataset targets.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed

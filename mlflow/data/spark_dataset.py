@@ -265,12 +265,14 @@ def from_spark(
                  Note that the path does not have to match the DataFrame exactly, since the
                  DataFrame may have been modified by Spark operations. This is used to reload the
                  dataset upon request via `SparkDataset.source.load()`. If none of `path`,
-                 `table_name`, or `sql` are specified, a CodeDatasetSource is used.
+                 `table_name`, or `sql` are specified, a CodeDatasetSource is used, which will
+                 source information from the run context.
     :param table_name: The name of the Spark or Delta table that the DataFrame originally came from.
                        Note that the table does not have to match the DataFrame exactly, since the
                        DataFrame may have been modified by Spark operations. This is used to reload
                        the dataset upon request via `SparkDataset.source.load()`. If none of
-                       `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used.
+                       `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used,
+                       which will source information from the run context.
     :param version: If the DataFrame originally came from a Delta table, specifies the version
                     of the Delta table. This is used to reload the dataset upon request via
                     `SparkDataset.source.load()`. `version` cannot be specified if `sql` is
@@ -279,7 +281,8 @@ def from_spark(
                 Note that the Spark SQL statement does not have to match the DataFrame exactly,
                 since the DataFrame may have been modified by Spark operations. This is used to
                 reload the dataset upon request via `SparkDataset.source.load()`. If none of
-                `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used.
+                `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used, which
+                will source information from the run context.
     :param targets: Optional. The name of the Data Frame column containing targets (labels) for
                     supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is

@@ -194,7 +194,7 @@ def from_huggingface(
     :param path: The path of the Hugging Face dataset used to construct the source. This is used by
                  the `datasets.load_dataset()` function to reload the dataset upon request via
                  `HuggingFaceDataset.source.load()`. If no path is specified,
-                 a CodeDatasetSource is used.
+                 a CodeDatasetSource is used, which will source information from the run context.
     :param targets: The name of the Hugging Face `dataset.Dataset` column containing targets
                     (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
