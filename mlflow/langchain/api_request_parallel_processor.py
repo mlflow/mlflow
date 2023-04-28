@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import threading
 import queue
+import time
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
@@ -105,6 +106,7 @@ def process_api_requests(
     requests_iter = enumerate(requests)
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
+            time.sleep(0.001)
             # get next request (if one is not already waiting for capacity)
             if next_request is None:
                 if not retry_queue.empty():
