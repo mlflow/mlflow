@@ -609,6 +609,7 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
             f.write(response.content)
     c = time.time()
     import sys
+
     print("DOWNLOAD TIME", (b - a), file=sys.stdout)
     print("WRITE TIME", (c - b), file=sys.stdout)
 

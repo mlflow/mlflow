@@ -5,6 +5,8 @@ import argparse
 import json
 import requests
 import sys
+import time
+
 
 
 def parse_args():
@@ -18,9 +20,15 @@ def parse_args():
 
 
 def main():
-    from mlflow.utils.file_utils import download_chunk
-
+    before = time.time()
     args = parse_args()
+    after = time.time()
+    print("ARGPARSE TIME", (after - before))
+
+    before = time.time()
+    from mlflow.utils.file_utils import download_chunk
+    after = time.time()
+    print("MLFLOW IMPORT TIME", (after - before))
     try:
         download_chunk(
             range_start=args.range_start,
@@ -42,8 +50,6 @@ def main():
 
 
 if __name__ == "__main__":
-    import time
-
     before = time.time()
     main()
     after = time.time()
