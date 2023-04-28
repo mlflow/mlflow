@@ -1098,7 +1098,6 @@ def _log_batch():
             _assert_required(m.get("key"))
             _assert_required(m.get("value"))
             _assert_required(m.get("timestamp"))
-            _assert_required(m.get("step"))
 
     def _assert_params_tags_fields_present(params_or_tags):
         for param_or_tag in params_or_tags:
