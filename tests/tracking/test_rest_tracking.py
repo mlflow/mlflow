@@ -681,7 +681,7 @@ def test_log_batch_validation(mlflow_client):
                 {"key": "mae", "value": 2.5}
             ]
         },
-        "Missing value for required parameter 'timestamp'"
+        "Missing value for required parameter 'metrics'"
     )
 
     ## Should 200 if timestamp provided but step is not
