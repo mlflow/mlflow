@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import threading
 import queue
+import time
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 
@@ -131,6 +132,8 @@ def process_api_requests(
             # if all tasks are finished, break
             if status_tracker.num_tasks_in_progress == 0:
                 break
+
+            time.sleep(0.001)  # avoid busy waiting
 
         # after finishing, log final status
         if status_tracker.num_tasks_failed > 0:
