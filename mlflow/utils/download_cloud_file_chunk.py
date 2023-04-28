@@ -27,17 +27,24 @@ def main():
             range_end=args.range_end,
             headers=json.loads(args.headers),
             download_path=args.download_path,
-            http_uri=args.http_uri
+            http_uri=args.http_uri,
         )
     except requests.HTTPError as e:
-        print(json.dumps({  # pylint: disable=print-function
-            "error_status_code": e.response.status_code,
-            "error_text": str(e),
-        }), file=sys.stdout)  
+        print(
+            json.dumps(
+                {  # pylint: disable=print-function
+                    "error_status_code": e.response.status_code,
+                    "error_text": str(e),
+                }
+            ),
+            file=sys.stdout,
+        )
+
 
 if __name__ == "__main__":
     import time
+
     before = time.time()
     main()
     after = time.time()
-    print("MAIN TIME", after - before)
+    print("MAIN TIME", after - before, file=sys.stdout)

@@ -597,10 +597,9 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
     import time
+
     a = time.time()
-    r = cloud_storage_http_request(
-        "get", http_uri, stream=False, headers=combined_headers
-    )
+    r = cloud_storage_http_request("get", http_uri, stream=False, headers=combined_headers)
     b = time.time()
     with r as response:
         # File will have been created upstream. Use r+b to ensure chunks
@@ -609,8 +608,9 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
             f.seek(range_start)
             f.write(response.content)
     c = time.time()
-    print("DOWNLOAD TIME", (b - a))
-    print("WRITE TIME", (c - b))
+    import sys
+    print("DOWNLOAD TIME", (b - a), file=sys.stdout)
+    print("WRITE TIME", (c - b), file=sys.stdout)
 
 
 def parallelized_download_file_using_http_uri(
@@ -641,7 +641,7 @@ def parallelized_download_file_using_http_uri(
             range_end=chunk_size - 1,
             headers=headers,
             download_path=download_path,
-            http_uri=http_uri
+            http_uri=http_uri,
         )
         downloaded_size = os.path.getsize(download_path)
         # If downloaded size was equal to the chunk size it would have been downloaded serially,
@@ -675,7 +675,7 @@ def parallelized_download_file_using_http_uri(
         range_start = i * chunk_size
         range_end = range_start + chunk_size - 1
         download_proc = _exec_cmd(
-            cmd = [
+            cmd=[
                 sys.executable,
                 download_cloud_file_chunk.__file__,
                 "--range-start",
