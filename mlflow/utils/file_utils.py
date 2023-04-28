@@ -662,8 +662,7 @@ def parallelized_download_file_using_http_uri(
                 del download_procs[completed_idx]
 
     for i in range(starting_index, num_requests):
-        await_active_procs(max_active_procs=8, synchronous=False)
-        # await_active_procs(max_active_procs=MAX_PARALLEL_DOWNLOAD_WORKERS, synchronous=False)
+        await_active_procs(max_active_procs=MAX_PARALLEL_DOWNLOAD_WORKERS, synchronous=False)
         range_start = i * chunk_size
         range_end = range_start + chunk_size - 1
         download_proc = _exec_cmd(
