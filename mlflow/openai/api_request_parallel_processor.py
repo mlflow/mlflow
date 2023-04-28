@@ -212,7 +212,6 @@ def process_api_requests(
     requests_exhausted = False
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
-            time.sleep(0.001)
             # get next request (if one is not already waiting for capacity)
             if next_request is None:
                 if not retry_queue.empty():
@@ -286,6 +285,8 @@ def process_api_requests(
                 )
                 time.sleep(remaining_seconds_to_pause)
                 # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
+
+            time.sleep(0.001)  # avoid busy waiting
 
     # after finishing, log final status
     if status_tracker.num_tasks_failed > 0:
