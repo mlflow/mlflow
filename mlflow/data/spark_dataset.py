@@ -264,13 +264,13 @@ def from_spark(
     :param path: The path of the Spark or Delta source that the DataFrame originally came from.
                  Note that the path does not have to match the DataFrame exactly, since the
                  DataFrame may have been modified by Spark operations. This is used to reload the
-                 dataset upon request via `SparkDataset.source.load()`. Either `path`,
-                 `table_name`, or `sql` must be specified.
+                 dataset upon request via `SparkDataset.source.load()`. If none of `path`,
+                 `table_name`, or `sql` are specified, a CodeDatasetSource is used.
     :param table_name: The name of the Spark or Delta table that the DataFrame originally came from.
                        Note that the table does not have to match the DataFrame exactly, since the
                        DataFrame may have been modified by Spark operations. This is used to reload
-                       the dataset upon request via `SparkDataset.source.load()`. Either `path`,
-                       `table_name`, or `sql` must be specified.
+                       the dataset upon request via `SparkDataset.source.load()`. If none of
+                       `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used.
     :param version: If the DataFrame originally came from a Delta table, specifies the version
                     of the Delta table. This is used to reload the dataset upon request via
                     `SparkDataset.source.load()`. `version` cannot be specified if `sql` is
@@ -278,8 +278,8 @@ def from_spark(
     :param sql: The Spark SQL statement that was originally used to construct the DataFrame.
                 Note that the Spark SQL statement does not have to match the DataFrame exactly,
                 since the DataFrame may have been modified by Spark operations. This is used to
-                reload the dataset upon request via `SparkDataset.source.load()`. Either `path`,
-                `table_name`, or `sql` must be specified.
+                reload the dataset upon request via `SparkDataset.source.load()`. If none of
+                `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used.
     :param targets: Optional. The name of the Data Frame column containing targets (labels) for
                     supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
@@ -288,6 +288,8 @@ def from_spark(
                    is automatically computed.
     :return: An instance of :py:class:`SparkDataset`.
     """
+    from mlflow.data.code_dataset_source import CodeDatasetSource
+    from mlflow.tracking.context import registry
     from mlflow.data.spark_delta_utils import (
         _is_delta_table,
         _is_delta_table_path,
@@ -295,9 +297,9 @@ def from_spark(
         _try_get_delta_table_latest_version_from_table_name,
     )
 
-    if (path, table_name, sql).count(None) != 2:
+    if (path, table_name, sql).count(None) < 2:
         raise MlflowException(
-            "Must specify exactly one of `path`, `table_name`, or `sql`.",
+            "Must specify at most one of `path`, `table_name`, or `sql`.",
             INVALID_PARAMETER_VALUE,
         )
 
@@ -337,6 +339,9 @@ def from_spark(
                 f" '{table_name}'.",
                 INVALID_PARAMETER_VALUE,
             )
+    else:
+        context_tags = registry.resolve_tags()
+        source = CodeDatasetSource(tags=context_tags)
 
     return SparkDataset(
         df=df,

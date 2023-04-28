@@ -176,7 +176,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 @experimental
 def from_huggingface(
     ds: datasets.Dataset,
-    path: str,
+    path: str = None,
     targets: Optional[str] = None,
     data_dir: Optional[str] = None,
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
@@ -191,8 +191,10 @@ def from_huggingface(
 
     :param ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
                Other types, such as `datasets.DatasetDict`, are not supported.
-    :param path: The path of the Hugging Face dataset. This is used by the `datasets.load_dataset()`
-                 function to reload the dataset upon request via `HuggingFaceDataset.source.load()`.
+    :param path: The path of the Hugging Face dataset used to construct the source. This is used by
+                 the `datasets.load_dataset()` function to reload the dataset upon request via
+                 `HuggingFaceDataset.source.load()`. If no path is specified,
+                 a CodeDatasetSource is used.
     :param targets: The name of the Hugging Face `dataset.Dataset` column containing targets
                     (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
@@ -207,12 +209,14 @@ def from_huggingface(
     :param task: The task to prepare the Hugging Face dataset for during training and evaluation.
                  This is used by the `datasets.load_dataset()` function to reload the dataset
                  upon request via `HuggingFaceDataset.source.load()`.
-    :param source: The source of the Hugging Face dataset.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
     """
+    from mlflow.data.code_dataset_source import CodeDatasetSource
+    from mlflow.tracking.context import registry
+
     if not isinstance(ds, datasets.Dataset):
         raise MlflowException(
             f"The specified Hugging Face dataset must be an instance of `datasets.Dataset`."
@@ -220,13 +224,18 @@ def from_huggingface(
             INVALID_PARAMETER_VALUE,
         )
 
-    source = HuggingFaceDatasetSource(
-        path=path,
-        config_name=ds.config_name,
-        data_dir=data_dir,
-        data_files=data_files,
-        split=ds.split,
-        revision=revision,
-        task=task,
-    )
+    # if arguments for source are passed in directly, use them. otherwise construct a CodeDatasetSource
+    if path is not None:
+        source = HuggingFaceDatasetSource(
+            path=path,
+            config_name=ds.config_name,
+            data_dir=data_dir,
+            data_files=data_files,
+            split=ds.split,
+            revision=revision,
+            task=task,
+        )
+    else:
+        context_tags = registry.resolve_tags()
+        source = CodeDatasetSource(tags=context_tags)
     return HuggingFaceDataset(ds=ds, targets=targets, source=source, name=name, digest=digest)

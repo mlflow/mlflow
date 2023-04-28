@@ -147,7 +147,7 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
 @experimental
 def from_pandas(
     df: pd.DataFrame,
-    source: Union[str, DatasetSource],
+    source: Union[str, DatasetSource] = None,
     targets: Optional[str] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
@@ -160,19 +160,26 @@ def from_pandas(
     :param source: The source from which the DataFrame was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
-                    pass in a DatasetSource object directly.
+                    pass in a DatasetSource object directly. If no source is specified,
+                    a CodeDatasetSource is used.
     :param targets: An optional target column name for supervised training. This column
                     must be present in the dataframe (`df`).
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
     """
+    from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
+    from mlflow.tracking.context import registry
 
-    if isinstance(source, DatasetSource):
-        resolved_source = source
+    if source is not None:
+        if isinstance(source, DatasetSource):
+            resolved_source = source
+        else:
+            resolved_source = resolve_dataset_source(
+                source,
+            )
     else:
-        resolved_source = resolve_dataset_source(
-            source,
-        )
+        context_tags = registry.resolve_tags()
+        resolved_source = CodeDatasetSource(tags=context_tags)
     return PandasDataset(df=df, source=resolved_source, targets=targets, name=name, digest=digest)
