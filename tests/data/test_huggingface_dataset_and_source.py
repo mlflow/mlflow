@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 import mlflow.data
+from mlflow.data.code_dataset_source import CodeDatasetSource
 import mlflow.data.huggingface_dataset
 from mlflow.data.dataset_source_registry import get_dataset_source_from_json
 from mlflow.data.huggingface_dataset import HuggingFaceDataset
@@ -182,6 +183,16 @@ def test_from_huggingface_dataset_throws_for_dataset_dict():
         MlflowException, match="must be an instance of `datasets.Dataset`.*DatasetDict"
     ):
         mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
+
+
+def test_from_huggingface_dataset_no_source_specified():
+    ds = datasets.load_dataset("rotten_tomatoes", split="train")
+    mlflow_ds = mlflow.data.from_huggingface(ds)
+
+    assert isinstance(mlflow_ds, HuggingFaceDataset)
+
+    assert isinstance(mlflow_ds.source, CodeDatasetSource)
+    assert "mlflow.source.name" in mlflow_ds.source.to_json()
 
 
 def test_dataset_conversion_to_json():

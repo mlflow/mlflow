@@ -1,6 +1,7 @@
 import json
 import numpy as np
 import pandas as pd
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.models.evaluation.base import EvaluationDataset
 
 from tests.resources.data.dataset_source import TestDatasetSource
@@ -133,3 +134,13 @@ def test_from_numpy_features_and_targets(tmp_path):
     }
 
     assert isinstance(mlflow_ds.source, FileSystemDatasetSource)
+
+
+def test_from_numpy_no_source_specified():
+    features = np.array([1, 2, 3])
+    mlflow_features = mlflow.data.from_numpy(features)
+
+    assert isinstance(mlflow_features, NumpyDataset)
+
+    assert isinstance(mlflow_features.source, CodeDatasetSource)
+    assert "mlflow.source.name" in mlflow_features.source.to_json()

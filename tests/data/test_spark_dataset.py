@@ -2,6 +2,7 @@ import json
 import pytest
 import pandas as pd
 import mlflow.data
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
@@ -158,16 +159,14 @@ def test_targets_property(spark_session, tmp_path, df):
     assert dataset_with_targets.targets == "c"
 
 
-def test_from_spark_with_no_source_info(spark_session, tmp_path, df):
+def test_from_spark_no_source_specified(spark_session, df):
     df_spark = spark_session.createDataFrame(df)
-    path = str(tmp_path / "temp.parquet")
-    df_spark.write.parquet(path)
-    with pytest.raises(
-        MlflowException,
-        match="Must specify exactly one of `path`, `table_name`, or `sql`.",
-    ):
-        # pylint: disable=unused-variable
-        mlflow_df = mlflow.data.from_spark(df_spark)
+    mlflow_df = mlflow.data.from_spark(df_spark)
+
+    assert isinstance(mlflow_df, SparkDataset)
+
+    assert isinstance(mlflow_df.source, CodeDatasetSource)
+    assert "mlflow.source.name" in mlflow_df.source.to_json()
 
 
 def test_from_spark_with_sql_and_version(spark_session, tmp_path, df):
