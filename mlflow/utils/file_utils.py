@@ -11,12 +11,14 @@ import tarfile
 import tempfile
 import stat
 import pathlib
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 
 import urllib.parse
 import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
+
 
 import atexit
 
@@ -36,9 +38,10 @@ from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
 from mlflow.utils import download_cloud_file_chunk
+from mlflow.utils.download_cloud_file_chunk import download_chunk
 
 ENCODING = "utf-8"
-MAX_PARALLEL_DOWNLOAD_WORKERS = 32
+MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
 
 def is_directory(name):
@@ -262,8 +265,6 @@ def render_and_merge_yaml(root, template_name, context_name):
     )
 
     def from_json(input_var):
-        import json
-
         with open(input_var, encoding="utf-8") as f:
             return json.load(f)
 
@@ -594,26 +595,6 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
-def download_chunk(range_start, range_end, headers, download_path, http_uri):
-    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-    import time
-
-    a = time.time()
-    r = cloud_storage_http_request("get", http_uri, stream=False, headers=combined_headers)
-    b = time.time()
-    with r as response:
-        # File will have been created upstream. Use r+b to ensure chunks
-        # don't overwrite the entire file.
-        with open(download_path, "r+b") as f:
-            f.seek(range_start)
-            f.write(response.content)
-    c = time.time()
-    import sys
-
-    print("DOWNLOAD TIME", (b - a), file=sys.stdout)
-    print("WRITE TIME", (c - b), file=sys.stdout)
-
-
 def parallelized_download_file_using_http_uri(
     http_uri, download_path, file_size, uri_type, chunk_size, env, headers=None
 ):
@@ -653,28 +634,11 @@ def parallelized_download_file_using_http_uri(
             starting_index = 1
 
     failed_downloads = {}
-    download_procs = {}
 
-    def await_active_procs(max_active_procs, synchronous):
-        while len(download_procs) > max_active_procs:
-            # print("DOWNLOAD PROCS", download_procs)
-            completed_downloads_idxs = []
-            for idx, download_proc in download_procs.items():
-                return_code = download_proc.wait() if synchronous else download_proc.poll()
-                if return_code is not None:
-                    completed_downloads_idxs.append(idx)
-                    if return_code != 0:
-                        stdout, _ = download_proc.communicate()
-                        # print("STDOUT", stdout)
-                        failed_downloads[i] = json.loads(stdout)
-
-            for completed_idx in completed_downloads_idxs:
-                del download_procs[completed_idx]
-
-    for i in range(starting_index, num_requests):
-        await_active_procs(max_active_procs=MAX_PARALLEL_DOWNLOAD_WORKERS, synchronous=False)
+    def run_download(range_start, range_end):
         range_start = i * chunk_size
         range_end = range_start + chunk_size - 1
+
         download_proc = _exec_cmd(
             cmd=[
                 sys.executable,
@@ -696,9 +660,16 @@ def parallelized_download_file_using_http_uri(
             stream_output=False,
             env=env,
         )
-        download_procs[i] = download_proc
+        return_code = download_proc.wait()
+        if return_code != 0:
+            stdout, _ = download_proc.communicate()
+            failed_downloads[i] = json.loads(stdout)
 
-    await_active_procs(max_active_procs=0, synchronous=True)
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
+        for i in range(starting_index, num_requests):
+            range_start = i * chunk_size
+            range_end = range_start + chunk_size - 1
+            p.submit(run_download, range_start, range_end)
 
     return failed_downloads
 

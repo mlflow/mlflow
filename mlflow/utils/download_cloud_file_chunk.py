@@ -6,7 +6,6 @@ import json
 import os
 import requests
 import sys
-import time
 import urllib3
 
 from functools import lru_cache
@@ -17,22 +16,15 @@ from urllib3.util import Retry
 
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-    import time
 
-    a = time.time()
-    r = cloud_storage_http_request("get", http_uri, stream=False, headers=combined_headers)
-    b = time.time()
-    with r as response:
+    with cloud_storage_http_request(
+        "get", http_uri, stream=False, headers=combined_headers
+    ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         with open(download_path, "r+b") as f:
             f.seek(range_start)
             f.write(response.content)
-    c = time.time()
-    import sys
-
-    print("DOWNLOAD TIME", (b - a), file=sys.stdout)
-    print("WRITE TIME", (c - b), file=sys.stdout)
 
 
 _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
@@ -174,16 +166,8 @@ def parse_args():
 
 
 def main():
-    before = time.time()
     args = parse_args()
-    after = time.time()
-    print("ARGPARSE TIME", (after - before))
 
-    # before = time.time()
-    # from mlflow.utils.file_utils import download_chunk
-    #
-    # after = time.time()
-    # print("MLFLOW IMPORT TIME", (after - before))
     try:
         download_chunk(
             range_start=args.range_start,
@@ -193,9 +177,9 @@ def main():
             http_uri=args.http_uri,
         )
     except requests.HTTPError as e:
-        print(
+        print(  # pylint: disable=print-function
             json.dumps(
-                {  # pylint: disable=print-function
+                {
                     "error_status_code": e.response.status_code,
                     "error_text": str(e),
                 }
@@ -205,7 +189,4 @@ def main():
 
 
 if __name__ == "__main__":
-    before = time.time()
     main()
-    after = time.time()
-    print("MAIN TIME", after - before, file=sys.stdout)
