@@ -649,6 +649,7 @@ def parallelized_download_file_using_http_uri(
 
     def await_active_procs(max_active_procs, synchronous):
         while len(download_procs) > max_active_procs:
+            print("DOWNLOAD PROCS", download_procs)
             completed_downloads_idxs = []
             for idx, download_proc in download_procs.items():
                 return_code = download_proc.wait() if synchronous else download_proc.poll()
