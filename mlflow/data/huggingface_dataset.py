@@ -224,7 +224,8 @@ def from_huggingface(
             INVALID_PARAMETER_VALUE,
         )
 
-    # if arguments for source are passed in directly, use them. otherwise construct a CodeDatasetSource
+    # if arguments for source are passed in directly, use them.
+    # otherwise construct a CodeDatasetSource.
     if path is not None:
         source = HuggingFaceDatasetSource(
             path=path,
