@@ -15,6 +15,7 @@ from contextlib import contextmanager
 
 import urllib.parse
 import urllib.request
+from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -623,10 +624,10 @@ def parallelized_download_file_using_http_uri(
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
     num_requests = int(math.ceil(file_size / float(chunk_size)))
-    # Create file if it doesn't exist or erase the contents if it does. We should do this here
-    # before sending to the workers so they can each individually seek to their respective positions
-    # and write chunks without overwriting.
-    open(download_path, "w").close()
+    # Create file if it doesn't exist. We should do this here before sending to the workers
+    # so they can each individually seek to their respective positions and write chunks
+    # without overwriting.
+    Path(download_path).touch()
     futures = {}
     starting_index = 0
     if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
@@ -638,7 +639,7 @@ def parallelized_download_file_using_http_uri(
         # If downloaded size was equal to the chunk size it would have been downloaded serially,
         # so we don't need to consider this here
         if downloaded_size > chunk_size:
-            return {}
+            return
         else:
             starting_index = 1
 

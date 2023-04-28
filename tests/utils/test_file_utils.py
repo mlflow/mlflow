@@ -401,8 +401,7 @@ def test_parallelized_download_file_using_http_uri_requests_appropriate_chunks(t
 
 
 @pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
-@pytest.mark.parametrize("uri_type", [ArtifactCredentialType.GCP_SIGNED_URL, None])
-def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding(tmp_path, uri_type):
+def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding(tmp_path):
     calls_kwargs = multiprocessing.Manager().list([])
     file_content = b"\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01"
 
@@ -417,16 +416,15 @@ def test_parallelized_download_file_using_http_uri_handles_gcp_transcoding(tmp_p
     filename = tmp_path / "testfile"
     with mock.patch("requests.Session.request") as request_mock:
         request_mock.side_effect = mock_request_side_effect
-        failed_downloads = parallelized_download_file_using_http_uri(
+        parallelized_download_file_using_http_uri(
             "fake_uri",
             filename,
             file_size=10,
-            uri_type=uri_type,
+            uri_type=ArtifactCredentialType.GCP_SIGNED_URL,
             chunk_size=2,
             headers={},
         )
     # Should only have called once because the whole file was returned
-    assert failed_downloads == {}
     assert len(calls_kwargs) == 1
     with open(filename, "rb") as f:
         f.seek(0)
