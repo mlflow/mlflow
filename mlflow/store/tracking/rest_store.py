@@ -1,6 +1,8 @@
 from typing import List, Optional
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, DatasetInput
+from mlflow.entities.run_data import RunData
+from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -135,7 +137,11 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(GetRun(run_uuid=run_id, run_id=run_id))
         response_proto = self._call_endpoint(GetRun, req_body)
-        return Run.from_proto(response_proto.run)
+        return Run(
+            RunInfo.from_proto(response_proto.run_info),
+            RunData.from_proto(response_proto.run_data),
+            RunInputs.from_proto(response_proto.run_inputs),
+        )
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
         """Updates the metadata of the specified run."""
