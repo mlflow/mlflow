@@ -656,6 +656,7 @@ def parallelized_download_file_using_http_uri(
                     completed_downloads_idxs.append(idx)
                     if return_code != 0:
                         stdout, _ = download_proc.communicate()
+                        print("STDOUT", stdout)
                         failed_downloads[i] = json.loads(stdout)
 
             for completed_idx in completed_downloads_idxs:
