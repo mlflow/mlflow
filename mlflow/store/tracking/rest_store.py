@@ -1,8 +1,6 @@
 from typing import List, Optional
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, DatasetInput
-from mlflow.entities.run_data import RunData
-from mlflow.entities.run_inputs import RunInputs
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -137,11 +135,7 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(GetRun(run_uuid=run_id, run_id=run_id))
         response_proto = self._call_endpoint(GetRun, req_body)
-        return Run(
-            RunInfo.from_proto(response_proto.info),
-            RunData.from_proto(response_proto.data),
-            RunInputs.from_proto(response_proto.inputs),
-        )
+        return Run.from_proto(response_proto.run)
 
     def update_run_info(self, run_id, run_status, end_time, run_name):
         """Updates the metadata of the specified run."""
@@ -292,14 +286,7 @@ class RestStore(AbstractStore):
         )
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
-        runs = [
-            Run(
-                RunInfo.from_proto(proto_run.info),
-                RunData.from_proto(proto_run.data),
-                RunInputs.from_proto(proto_run.inputs),
-            )
-            for proto_run in response_proto.runs
-        ]
+        runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
         # If next_page_token is not set, we will see it as "". We need to convert this to None.
         next_page_token = None
         if response_proto.next_page_token:
