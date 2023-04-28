@@ -363,7 +363,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = index
 
-                _, errors = _complete_futures(futures)
+            _, errors = _complete_futures(futures)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
