@@ -326,12 +326,6 @@ def _assert_less_than_or_equal(x, max_value):
 def _assert_item_type_string(x):
     assert all(isinstance(item, str) for item in x)
 
-def _assert_metrics_fields_present(metrics):
-    for m in metrics:
-        _assert_required(m.get("key"))
-        _assert_required(m.get("value"))
-        _assert_required(m.get("timestamp"))
-
 _TYPE_VALIDATORS = {
     _assert_intlike,
     _assert_string,
@@ -369,7 +363,7 @@ def _validate_param_against_schema(schema, param, value, proto_parsing_succeeded
         try:
             f(value)
         except AssertionError:
-            if f == _assert_required or f == _assert_metrics_fields_present:
+            if f == _assert_required:
                 message = f"Missing value for required parameter '{param}'."
             else:
                 message = (
@@ -1098,6 +1092,11 @@ def _get_artifact_repo(run):
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _log_batch():
+    def _assert_metrics_fields_present(metrics):
+        for m in metrics:
+            _assert_required(m.get("key"))
+            _assert_required(m.get("value"))
+            _assert_required(m.get("timestamp"))
 
     def _assert_params_tags_fields_present(params_or_tags):
         for param_or_tag in params_or_tags:
