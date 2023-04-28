@@ -1646,7 +1646,7 @@ def _autolog(
                     context_tags = context_registry.resolve_tags()
                     source = CodeDatasetSource(context_tags)
 
-                    dataset = _create_dataset(eval_dataset, source, dataset_name=eval_dataset_name)
+                    dataset = _create_dataset(eval_dataset, source)
 
                     # log the dataset
                     if dataset:
