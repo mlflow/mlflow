@@ -264,18 +264,19 @@ class DatabricksArtifactRepository(ArtifactRepository):
             headers = self._extract_headers_from_credentials(credentials.headers)
             futures = {}
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
-            for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.thread_pool.submit(
-                    self._azure_upload_chunk,
-                    credentials=credentials,
-                    headers=headers,
-                    local_file=local_file,
-                    artifact_path=artifact_path,
-                    start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
-                )
-                futures[future] = index
+            with self._create_thread_pool() as executor:
+                for index in range(num_chunks):
+                    start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                    future = executor.submit(
+                        self._azure_upload_chunk,
+                        credentials=credentials,
+                        headers=headers,
+                        local_file=local_file,
+                        artifact_path=artifact_path,
+                        start_byte=start_byte,
+                        size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    )
+                    futures[future] = index
 
             results, errors = _complete_futures(futures)
             if errors:
@@ -342,23 +343,24 @@ class DatabricksArtifactRepository(ArtifactRepository):
             file_size = os.path.getsize(local_file)
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             use_single_part_upload = num_chunks == 1
-            for index in range(num_chunks):
-                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.thread_pool.submit(
-                    self._retryable_adls_function,
-                    func=patch_adls_file_upload,
-                    artifact_path=artifact_path,
-                    sas_url=credentials.signed_uri,
-                    local_file=local_file,
-                    start_byte=start_byte,
-                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
-                    position=start_byte,
-                    headers=headers,
-                    is_single=use_single_part_upload,
-                )
-                futures[future] = index
+            with self._create_thread_pool() as executor:
+                for index in range(num_chunks):
+                    start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                    future = executor.submit(
+                        self._retryable_adls_function,
+                        func=patch_adls_file_upload,
+                        artifact_path=artifact_path,
+                        sas_url=credentials.signed_uri,
+                        local_file=local_file,
+                        start_byte=start_byte,
+                        size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                        position=start_byte,
+                        headers=headers,
+                        is_single=use_single_part_upload,
+                    )
+                    futures[future] = index
 
-            _, errors = _complete_futures(futures)
+                _, errors = _complete_futures(futures)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -555,21 +557,22 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _upload_parts(self, local_file, create_mpu_resp):
         futures = {}
-        for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
-            part_number = index + 1
-            start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-            future = self.thread_pool.submit(
-                self._upload_part_retry,
-                cred_info=cred_info,
-                upload_id=create_mpu_resp.upload_id,
-                part_number=part_number,
-                local_file=local_file,
-                start_byte=start_byte,
-                size=_MULTIPART_UPLOAD_CHUNK_SIZE,
-            )
-            futures[future] = part_number
+        with self._create_thread_pool() as executor:
+            for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
+                part_number = index + 1
+                start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
+                future = executor.submit(
+                    self._upload_part_retry,
+                    cred_info=cred_info,
+                    upload_id=create_mpu_resp.upload_id,
+                    part_number=part_number,
+                    local_file=local_file,
+                    start_byte=start_byte,
+                    size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                )
+                futures[future] = part_number
 
-        results, errors = _complete_futures(futures)
+            results, errors = _complete_futures(futures)
         if errors:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
