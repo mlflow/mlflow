@@ -498,7 +498,7 @@ class UcModelRegistryStore(BaseRestStore):
                  page can be obtained via the ``token`` attribute of the object.
         """
         req_body = message_to_json(
-            SearchModelVersionsRequest(filter=filter_string, page_token=page_token)
+            SearchModelVersionsRequest(filter=filter_string, page_token=page_token, max_results=max_results)
         )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
         model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
