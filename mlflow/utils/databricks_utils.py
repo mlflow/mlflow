@@ -630,6 +630,19 @@ def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[Databr
         return None
 
 
+def check_databricks_secret_scope_access(scope_name):
+    dbutils = _get_dbutils()
+    if dbutils:
+        try:
+            dbutils.secrets.list(scope_name)
+        except Exception as e:
+            raise MlflowException(
+                "Unable to access Databricks secret scope '%s'. Please verify that the current"
+                " Databricks user has the 'read' permission for this scope. Error: %s"
+                % (scope_name, str(e))
+            )
+
+
 def _construct_databricks_run_url(
     host: str,
     experiment_id: str,
