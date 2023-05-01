@@ -1,4 +1,5 @@
 import json
+import os
 import pytest
 import pandas as pd
 import mlflow.data
@@ -50,6 +51,7 @@ def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type, e
     assert isinstance(dataset.profile, dict)
     assert isinstance(dataset.profile.get("approx_count"), int)
     assert isinstance(dataset.source, expected_source_type)
+    _assert_dataframes_equal(dataset.source.load(), df_spark)
     if expected_name is not None:
         assert dataset.name == expected_name
 
@@ -184,12 +186,19 @@ def test_from_spark_with_sql_and_version(spark_session, tmp_path, df):
 
 def test_from_spark_path(spark_session, tmp_path, df):
     df_spark = spark_session.createDataFrame(df)
-    path = str(tmp_path / "temp.parquet")
-    df_spark.write.parquet(path)
+    dir_path = str(tmp_path / "df_dir")
+    df_spark.write.parquet(dir_path)
+    assert os.path.isdir(dir_path)
 
-    mlflow_df = mlflow.data.from_spark(df_spark, path=path)
+    mlflow_df_from_dir = mlflow.data.from_spark(df_spark, path=dir_path)
+    _check_spark_dataset(mlflow_df_from_dir, df, df_spark, SparkDatasetSource)
 
-    _check_spark_dataset(mlflow_df, df, df_spark, SparkDatasetSource)
+    file_path = str(tmp_path / "df.parquet")
+    df_spark.toPandas().to_parquet(file_path)
+    assert not os.path.isdir(file_path)
+
+    mlflow_df_from_file = mlflow.data.from_spark(df_spark, path=file_path)
+    _check_spark_dataset(mlflow_df_from_file, df, df_spark, SparkDatasetSource)
 
 
 def test_from_spark_delta_path(spark_session, tmp_path, df):
