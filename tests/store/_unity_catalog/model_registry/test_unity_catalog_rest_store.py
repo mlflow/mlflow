@@ -671,6 +671,7 @@ def test_search_model_versions(mock_http, store):
         SearchModelVersionsRequest(filter="name='model_12'"),
     )
 
+
 @mock_http_200
 def test_search_model_versions_with_pagination(mock_http, store):
     store.search_model_versions(filter_string="name='model_12'", page_token="fake_page_token")
