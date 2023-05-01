@@ -497,8 +497,11 @@ class UcModelRegistryStore(BaseRestStore):
                  objects that satisfy the search expressions. The pagination token for the next
                  page can be obtained via the ``token`` attribute of the object.
         """
+        _require_arg_unspecified(arg_name="order_by", arg_value=order_by)
         req_body = message_to_json(
-            SearchModelVersionsRequest(filter=filter_string, page_token=page_token, max_results=max_results)
+            SearchModelVersionsRequest(
+                filter=filter_string, page_token=page_token, max_results=max_results
+            )
         )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
         model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
