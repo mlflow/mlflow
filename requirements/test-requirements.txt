@@ -17,7 +17,9 @@ kaleido
 # Required by tuning tests
 hyperopt
 # Required by recipes tests
-ipython
+# Pinned because ipython>=8.13 doesn't support Python 3.8,
+# which is MLflow's minimum supported Python version
+ipython<8.13.0
 # Required by automl tests
 # 1.1.0 contains this issue: https://github.com/microsoft/FLAML/issues/871
 flaml!=1.1.0
