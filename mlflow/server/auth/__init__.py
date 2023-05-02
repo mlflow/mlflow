@@ -380,6 +380,7 @@ BEFORE_REQUEST_VALIDATORS.update(
 )
 
 
+@catch_mlflow_exception
 def _before_request():
     if is_unprotected_route(request.path):
         return
@@ -443,6 +444,7 @@ AFTER_REQUEST_HANDLERS = {
 }
 
 
+@catch_mlflow_exception
 def _after_request(resp: Response):
     _logger.debug(f"after_request: {request.method} {request.path}")
     if 400 <= resp.status_code < 600:
