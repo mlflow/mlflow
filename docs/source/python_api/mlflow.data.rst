@@ -2,45 +2,49 @@ mlflow.data
 ============
 
 The ``mlflow.data`` module helps you record your model training and evaluation datasets to
-MLflow Runs with MLflow Tracking, as well as retrieve dataset information from MLflow Runs.
-It provides the following important interfaces:
+runs with MLflow Tracking, as well as retrieve dataset information from runs. It provides the
+following important interfaces:
 
 * :py:class:`Dataset <mlflow.data.dataset.Dataset>`: Represents a dataset used in model training or
   evaluation, including features, targets, and metadata such as the dataset's name, digest (hash)
-  schema, profile, and source. You can log this metadata to an MLflow Run using
+  schema, profile, and source. You can log this metadata to a run in MLflow Tracking using
   the :py:func:`mlflow.log_input()` API. ``mlflow.data`` provides APIs for constructing
   :py:class:`Datasets <mlflow.data.dataset.Dataset>` from a variety of Python data objects,
-  including Pandas DataFrames (:py:func:`mlflow.data.from_pandas() <mlflow.data.pandas_dataset.from_pandas()>`), NumPy arrays
-  (:py:func:`mlflow.data.from_numpy() <mlflow.data.numpy_dataset.from_numpy()>`), Spark DataFrames (:py:func:`mlflow.data.from_spark() <mlflow.data.spark_dataset.from_spark()>`
+  including Pandas DataFrames (:py:func:`mlflow.data.from_pandas() <mlflow.data.pandas_dataset.from_pandas()>`),
+  NumPy arrays (:py:func:`mlflow.data.from_numpy() <mlflow.data.numpy_dataset.from_numpy()>`),
+  Spark DataFrames (:py:func:`mlflow.data.from_spark() <mlflow.data.spark_dataset.from_spark()>`,
   and :py:func:`mlflow.data.load_delta() <mlflow.data.spark_dataset.load_delta()>`), and more.
 
 * :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`: Represents the source of a
   dataset. For example, this may be a directory of files stored in S3, a Delta Table, or a web URL.
   Each :py:class:`Dataset <mlflow.data.dataset.Dataset>` references the source from which it was
-  derived. The :py:class:`Dataset <mlflow.data.dataset.Dataset>`'s features and targets may differ
+  derived. A :py:class:`Dataset <mlflow.data.dataset.Dataset>`'s features and targets may differ
   from the source if transformations and filtering were applied. You can get the
-  :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>` of a dataset logged to an
-  MLflow Run using the :py:func:`mlflow.data.get_source()` API.
+  :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>` of a dataset logged to a
+  run in MLflow Tracking using the :py:func:`mlflow.data.get_source()` API.
 
-The following example demonstrates how to use ``mlflow.data`` to log a training dataset to an
-MLflow Run, retrieve information about the dataset from the MLflow Run, and reload the dataset's
-source.
+The following example demonstrates how to use ``mlflow.data`` to log a training dataset to a run,
+retrieve information about the dataset from the run, and load the dataset's source.
 
 .. code-block:: python
 
     import mlflow.data
     import pandas as pd
+    from mlflow.data.pandas_dataset import PandasDataset
 
+    # Construct a Pandas DataFrame using iris flower data from a web URL
     dataset_source_url = "http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
     df = pd.read_csv(dataset_source_url)
-    dataset = mlflow.data.from_pandas(df, source=dataset_source_url)
+    # Construct an MLflow PandasDataset from the Pandas DataFrame, and specify the web URL
+    # as the source
+    dataset: PandasDataset = mlflow.data.from_pandas(df, source=dataset_source_url)
 
     with mlflow.start_run():
         # Log the dataset to the MLflow Run. Specify the "training" context to indicate that the
         # dataset is used for model training
         mlflow.log_input(dataset, context="training")
 
-    # Reload the run and retrieve dataset information
+    # Retrieve the run, including dataset information
     run = mlflow.get_run(mlflow.last_active_run().info.run_id)
     dataset_info = run.inputs.dataset_inputs[0].dataset
     print(f"Dataset name: {dataset_info.name}")
@@ -72,9 +76,9 @@ source.
 pandas
 ~~~~~~
 
-.. autofunction:: mlflow.data.numpy_dataset.from_numpy
+.. autofunction:: mlflow.data.pandas_dataset.from_pandas
 
-.. autoclass:: mlflow.data.numpy_dataset.NumpyDataset()
+.. autoclass:: mlflow.data.pandas_dataset.PandasDataset()
     :members:
     :undoc-members:
     :exclude-members: to_pyfunc, to_evaluation_dataset
@@ -83,9 +87,9 @@ pandas
 NumPy
 ~~~~~
 
-.. autofunction:: mlflow.data.pandas_dataset.from_pandas
+.. autofunction:: mlflow.data.numpy_dataset.from_numpy
 
-.. autoclass:: mlflow.data.pandas_dataset.PandasDataset()
+.. autoclass:: mlflow.data.numpy_dataset.NumpyDataset()
     :members:
     :undoc-members:
     :exclude-members: to_pyfunc, to_evaluation_dataset
