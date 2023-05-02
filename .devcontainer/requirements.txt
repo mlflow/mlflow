@@ -109,7 +109,7 @@ filelock==3.8.0
     #   virtualenv
 flaml==1.0.13
     # via -r test-requirements.txt
-flask==2.2.2
+flask==2.3.2
     # via -r core-requirements.txt
 fonttools==4.38.0
     # via matplotlib
