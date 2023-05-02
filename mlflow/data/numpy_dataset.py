@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Optional, Any, Dict, Union
+from typing import Optional, Any, Dict, Union
 
 import numpy as np
 from functools import cached_property
@@ -25,16 +25,17 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
+        features: Union[np.ndarray, Dict[str, np.ndarray]],
         source: DatasetSource,
-        targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
+        targets: Union[np.ndarray, Dict[str, np.ndarray]] = None,
         name: Optional[str] = None,
         digest: Optional[str] = None,
     ):
         """
-        :param features: A numpy array or list/dict of arrays containing dataset features.
+        :param features: A numpy array or dictionary of numpy arrays containing dataset features.
         :param source: The source of the numpy dataset.
-        :param targets: A numpy array or list/dict of arrays containing dataset targets. Optional
+        :param targets: A numpy array or dictionary of numpy arrays containing dataset targets.
+                        Optional.
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -76,14 +77,14 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def features(self) -> Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]:
+    def features(self) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
         The features of the dataset.
         """
         return self._features
 
     @property
-    def targets(self) -> Optional[Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]]:
+    def targets(self) -> Optional[Union[np.ndarray, Dict[str, np.ndarray]]]:
         """
         The targets of the dataset. May be None if no targets are available.
         """
@@ -94,17 +95,24 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
+
+        def get_profile_attribute(numpy_data, attr_name):
+            if isinstance(numpy_data, dict):
+                return {key: getattr(array, attr_name) for key, array in numpy_data.items()}
+            else:
+                return getattr(numpy_data, attr_name)
+
         profile = {
-            "features_shape": self._features.shape,
-            "features_size": self._features.size,
-            "features_nbytes": self._features.nbytes,
+            "features_shape": get_profile_attribute(self._features, "shape"),
+            "features_size": get_profile_attribute(self._features, "size"),
+            "features_nbytes": get_profile_attribute(self._features, "nbytes"),
         }
         if self._targets is not None:
             profile.update(
                 {
-                    "targets_shape": self._targets.shape,
-                    "targets_size": self._targets.size,
-                    "targets_nbytes": self._targets.nbytes,
+                    "targets_shape": get_profile_attribute(self._targets, "shape"),
+                    "targets_size": get_profile_attribute(self._targets, "size"),
+                    "targets_nbytes": get_profile_attribute(self._targets, "nbytes"),
                 }
             )
 
@@ -147,9 +155,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 @experimental
 def from_numpy(
-    features: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]],
+    features: Union[np.ndarray, Dict[str, np.ndarray]],
     source: Union[str, DatasetSource] = None,
-    targets: Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]] = None,
+    targets: Union[np.ndarray, Dict[str, np.ndarray]] = None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> NumpyDataset:
@@ -157,15 +165,13 @@ def from_numpy(
     Constructs a NumpyDataset object from NumPy features, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
-    :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
-                    or dictionary of named np.ndarrays.
+    :param features: NumPy features, represented as an np.ndarray or dictionary of named np.ndarrays.
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL etc. If source is not a path like string,
                     pass in a DatasetSource object directly. If no source is specified,
                     a CodeDatasetSource is used, which will source information from the run
                     context.
-    :param targets: Optional NumPy targets, represented as an np.ndarray, list of
-                    np.ndarrays or dictionary of named np.ndarrays.
+    :param targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
