@@ -1,4 +1,4 @@
-# Pyfunc model example
+# Basic authentication example
 
 This example demonstrates the authentication and authorization feature of MLflow.
 
