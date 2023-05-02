@@ -51,7 +51,9 @@ from mlflow.utils.environment import (
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -757,12 +759,8 @@ def autolog(
         # Whether to automatically log the training dataset as a dataset artifact.
         if _log_datasets and train_set:
             try:
-                # create a CodeDatasetSource
                 context_tags = context_registry.resolve_tags()
-                source = CodeDatasetSource(
-                    mlflow_source_type=context_tags[MLFLOW_SOURCE_TYPE],
-                    mlflow_source_name=context_tags[MLFLOW_SOURCE_NAME],
-                )
+                source = CodeDatasetSource(tags=context_tags)
 
                 _log_lightgbm_dataset(train_set, source, "train", autologging_client)
 

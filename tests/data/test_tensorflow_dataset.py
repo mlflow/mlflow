@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 import mlflow.data
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.tensorflow_dataset import TensorFlowDataset
 from mlflow.exceptions import MlflowException
@@ -192,3 +193,14 @@ def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
         "targets_num_rows": len(tf_tensor_y),
         "targets_num_elements": tf.size(tf_tensor_y).numpy(),
     }
+
+
+def test_from_tensorflow_no_source_specified():
+    x = np.random.sample((100, 2))
+    tf_dataset = tf.data.Dataset.from_tensors(x)
+    mlflow_ds = mlflow.data.from_tensorflow(tf_dataset)
+
+    assert isinstance(mlflow_ds, TensorFlowDataset)
+
+    assert isinstance(mlflow_ds.source, CodeDatasetSource)
+    assert "mlflow.source.name" in mlflow_ds.source.to_json()

@@ -35,4 +35,7 @@ class RunInputs(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.dataset_inputs)
+        dataset_inputs = [
+            DatasetInput.from_proto(dataset_input) for dataset_input in proto.dataset_inputs
+        ]
+        return cls(dataset_inputs)

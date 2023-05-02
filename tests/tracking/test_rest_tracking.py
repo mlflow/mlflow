@@ -22,7 +22,16 @@ from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Metric, Param, RunTag, ViewType, DatasetInput, Dataset, InputTag
+from mlflow.entities import (
+    Metric,
+    Param,
+    RunTag,
+    ViewType,
+    DatasetInput,
+    Dataset,
+    InputTag,
+    RunInputs,
+)
 from mlflow.models import Model
 import mlflow.pyfunc
 from mlflow.server.handlers import validate_path_is_safe
@@ -1311,6 +1320,10 @@ def test_log_inputs(mlflow_client):
     mlflow_client.log_inputs(run_id, dataset_inputs1)
     run = mlflow_client.get_run(run_id)
     assert len(run.inputs.dataset_inputs) == 1
+
+    assert isinstance(run.inputs, RunInputs)
+    assert isinstance(run.inputs.dataset_inputs[0], DatasetInput)
+    assert isinstance(run.inputs.dataset_inputs[0].dataset, Dataset)
     assert run.inputs.dataset_inputs[0].dataset.name == "name1"
     assert run.inputs.dataset_inputs[0].dataset.digest == "digest1"
     assert run.inputs.dataset_inputs[0].dataset.source_type == "source_type1"

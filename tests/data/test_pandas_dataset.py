@@ -1,6 +1,7 @@
 import json
 import pandas as pd
 import pytest
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.models.evaluation.base import EvaluationDataset
 
 from tests.resources.data.dataset_source import TestDatasetSource
@@ -210,6 +211,16 @@ def test_from_pandas_delta_datasource(spark_session, tmp_path):
     }
 
     assert isinstance(mlflow_df.source, DeltaDatasetSource)
+
+
+def test_from_pandas_no_source_specified():
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    mlflow_df = mlflow.data.from_pandas(df)
+
+    assert isinstance(mlflow_df, PandasDataset)
+
+    assert isinstance(mlflow_df.source, CodeDatasetSource)
+    assert "mlflow.source.name" in mlflow_df.source.to_json()
 
 
 def test_to_evaluation_dataset():

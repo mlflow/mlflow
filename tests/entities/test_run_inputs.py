@@ -1,4 +1,5 @@
 from mlflow.entities import RunInputs
+from mlflow.entities.dataset_input import DatasetInput
 
 
 def _check_inputs(run_datasets, datasets):
@@ -27,3 +28,4 @@ def test_creation_and_hydration(run_inputs):
     proto = run_inputs.to_proto()
     run_inputs2 = RunInputs.from_proto(proto)
     _check(run_inputs2, datasets)
+    assert isinstance(run_inputs2.dataset_inputs[0], DatasetInput)

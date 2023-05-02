@@ -173,7 +173,7 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 def from_tensorflow(
     data: Union[tf.data.Dataset, tf.Tensor],
-    source: Union[str, DatasetSource],
+    source: Optional[Union[str, DatasetSource]] = None,
     targets=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
@@ -187,20 +187,28 @@ def from_tensorflow(
     :param source: The source from which the data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL, a delta table name with version, or
                     spark table etc. If source is not a path like string,
-                    pass in a DatasetSource object directly.
+                    pass in a DatasetSource object directly. If no source is specified,
+                    a CodeDatasetSource is used, which will source information from the run
+                    context.
     :param targets: A TensorFlow dataset or TensorFlow tensor containing dataset targets.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
     """
+    from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
+    from mlflow.tracking.context import registry
 
-    if isinstance(source, DatasetSource):
-        resolved_source = source
+    if source is not None:
+        if isinstance(source, DatasetSource):
+            resolved_source = source
+        else:
+            resolved_source = resolve_dataset_source(
+                source,
+            )
     else:
-        resolved_source = resolve_dataset_source(
-            source,
-        )
+        context_tags = registry.resolve_tags()
+        resolved_source = CodeDatasetSource(tags=context_tags)
     return TensorFlowDataset(
         data=data, source=resolved_source, targets=targets, name=name, digest=digest
     )

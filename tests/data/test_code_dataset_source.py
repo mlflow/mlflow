@@ -2,12 +2,13 @@ from mlflow.data.code_dataset_source import CodeDatasetSource
 
 
 def test_code_dataset_source_from_path():
-    mlflow_source_type = "NOTEBOOK"
-    mlflow_source_name = "some_random_notebook_path"
-    code_datasource = CodeDatasetSource(mlflow_source_type, mlflow_source_name)
+    tags = {
+        "mlflow_source_type": "NOTEBOOK",
+        "mlflow_source_name": "some_random_notebook_path",
+    }
+    code_datasource = CodeDatasetSource(tags)
     assert code_datasource._to_dict() == {
-        "mlflow_source_type": mlflow_source_type,
-        "mlflow_source_name": mlflow_source_name,
+        "tags": tags,
     }
 
 

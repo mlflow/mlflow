@@ -34,7 +34,7 @@ def _is_delta_table_path(path: str) -> bool:
 
     :return: True if the specified path is a Delta table. False otherwise.
     """
-    if os.path.exists(path) and "_delta_log" in os.listdir(path):
+    if os.path.exists(path) and os.path.isdir(path) and "_delta_log" in os.listdir(path):
         return True
     from mlflow.utils.uri import dbfs_hdfs_uri_to_fuse_path
 
