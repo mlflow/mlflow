@@ -6,11 +6,11 @@ import numpy as np
 from functools import cached_property
 
 from mlflow.data.dataset import Dataset
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_numpy_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
 
@@ -62,9 +62,7 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_tensorspec": self.schema.to_dict()})
-                if self.schema
-                else None,
+                "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
                 "profile": json.dumps(self.profile),
             }
         )
@@ -113,20 +111,24 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return profile
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Optional[TensorDatasetSchema]:
         """
-        An MLflow TensorSpec schema representing the tensor dataset
+        MLflow TensorSpec schema representing the dataset features and targets (optional).
         """
+        features_schema = None
         try:
-            schema_dict = {
-                "features": self._features,
-            }
-            if self._targets is not None:
-                schema_dict["targets"] = self._targets
-            return _infer_schema(schema_dict)
+            features_schema = _infer_schema(self._features)
         except Exception as e:
-            _logger.warning("Failed to infer schema for Numpy dataset. Exception: %s", e)
+            _logger.warning("Failed to infer schema for NumPy dataset features. Exception: %s", e)
             return None
+
+        targets_schema = None
+        try:
+            targets_schema = _infer_schema(self._targets)
+        except Exception as e:
+            _logger.warning("Failed to infer schema for NumPy dataset targets. Exception: %s", e)
+
+        return TensorDatasetSchema(features=features_schema, targets=targets_schema)
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """

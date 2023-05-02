@@ -9,7 +9,7 @@ import mlflow.data
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.numpy_dataset import NumpyDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
-from mlflow.types.schema import Schema
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.types.utils import _infer_schema
 
 
@@ -27,8 +27,8 @@ def test_conversion_to_json():
     assert parsed_json["source_type"] == dataset.source._get_source_type()
     assert parsed_json["profile"] == json.dumps(dataset.profile)
 
-    schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_tensorspec"])
-    assert Schema.from_json(schema_json) == dataset.schema
+    parsed_schema = json.loads(parsed_json["schema"])
+    assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
 
 
 def test_digest_property_has_expected_value():
@@ -98,7 +98,7 @@ def test_from_numpy_features_only(tmp_path):
 
     assert isinstance(mlflow_features, NumpyDataset)
     assert np.array_equal(mlflow_features.features, features)
-    assert mlflow_features.schema == _infer_schema({"features": features})
+    assert mlflow_features.schema == TensorDatasetSchema(_infer_schema(features))
     assert mlflow_features.profile == {
         "features_shape": features.shape,
         "features_size": features.size,
@@ -118,12 +118,7 @@ def test_from_numpy_features_and_targets(tmp_path):
     assert isinstance(mlflow_ds, NumpyDataset)
     assert np.array_equal(mlflow_ds.features, features)
     assert np.array_equal(mlflow_ds.targets, targets)
-    assert mlflow_ds.schema == _infer_schema(
-        {
-            "features": features,
-            "targets": targets,
-        }
-    )
+    assert mlflow_ds.schema == TensorDatasetSchema(_infer_schema(features), _infer_schema(targets))
     assert mlflow_ds.profile == {
         "features_shape": features.shape,
         "features_size": features.size,
