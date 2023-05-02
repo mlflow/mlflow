@@ -495,8 +495,12 @@ langchain:
     minimum: "0.0.139"
     maximum: "0.0.143"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "pinecone-client"]
     run: |
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test
+      export PINECONE_API_KEY=test
+      export PINECONE_ENVIRONMENT=test-region
+      export PINECONE_INDEX_NAME=test-index
+      export PINECONE_TEXT_KEY=text
       pytest tests/langchain/test_langchain_model_export.py
