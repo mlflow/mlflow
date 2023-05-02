@@ -16,13 +16,12 @@ from mlflow.utils.annotations import experimental
 @experimental
 def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetSource:
     """
-    Obtains a :py:class:`mlflow.data.dataset_source.DatasetSource` instance representing the source
-    of the specified dataset or dataset input.
+    Obtains the source of the specified dataset or dataset input.
 
-    :param dataset: An instance of :py:class:`mlflow.data.dataset.Dataset`,
+    :param dataset: An instance of :py:class:`mlflow.data.Dataset <mlflow.data.dataset.Dataset>`,
                     :py:class:`mlflow.entities.Dataset`, or
                     :py:class:`mlflow.entities.DatasetInput`.
-    :return: An instance of :py:class`mlflow.data.dataset_source.DatasetSource`.
+    :return: An instance of :py:class:`mlflow.data.dataset_source.DatasetSource`.
     """
     if isinstance(dataset, DatasetInput):
         dataset: DatasetEntity = dataset.dataset

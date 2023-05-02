@@ -202,7 +202,8 @@ def load_delta(
     digest: Optional[str] = None,
 ) -> SparkDataset:
     """
-    Loads a :py:class:`SparkDataset` from a Delta table for use with MLflow Tracking.
+    Loads a :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` from a Delta table
+    for use with MLflow Tracking.
 
     :param path: The path to the Delta table. Either `path` or `table_name` must be specified.
     :param table_name: The name of the Delta table. Either `path` or `table_name` must be specified.
@@ -213,7 +214,7 @@ def load_delta(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:`SparkDataset`.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.spark_delta_utils import (
         _try_get_delta_table_latest_version_from_path,
@@ -259,7 +260,8 @@ def from_spark(
     digest: Optional[str] = None,
 ) -> SparkDataset:
     """
-    Given a Spark DataFrame, constructs an MLflow :py:class:`SparkDataset` object for use with
+    Given a Spark DataFrame, constructs a
+    :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` object for use with
     MLflow Tracking.
 
     :param df: The Spark DataFrame from which to construct a SparkDataset.
@@ -291,7 +293,7 @@ def from_spark(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:`SparkDataset`.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.tracking.context import registry

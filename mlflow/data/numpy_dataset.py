@@ -87,14 +87,14 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def targets(self) -> Optional[Union[np.ndarray, List[np.ndarray], Dict[str, np.ndarray]]]:
         """
-        The targets of the dataset. May be None if no targets are available.
+        The targets of the dataset. May be ``None`` if no targets are available.
         """
         return self._targets
 
     @property
     def profile(self) -> Optional[Any]:
         """
-        A profile of the dataset. May be None if no profile is available.
+        A profile of the dataset. May be ``None`` if a profile cannot be computed.
         """
         profile = {
             "features_shape": self._features.shape,
@@ -115,7 +115,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @cached_property
     def schema(self) -> Optional[Schema]:
         """
-        An MLflow TensorSpec schema representing the tensor dataset
+        An instance of :py:class:`mlflow.types.Schema` representing the dataset features
+        and targets (if specified). May be ``None`` if the schema cannot be inferred from the
+        dataset.
         """
         try:
             schema_dict = {
@@ -161,18 +163,21 @@ def from_numpy(
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
 
-    :param features: NumPy features, represented as an np.ndarray, list of np.ndarrays
-                    or dictionary of named np.ndarrays.
-    :param source: The source from which the NumPy data was derived, e.g. a filesystem
-                    path, an S3 URI, an HTTPS URL etc. If source is not a path like string,
-                    pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used, which will source information from the run
-                    context.
-    :param targets: Optional NumPy targets, represented as an np.ndarray, list of
-                    np.ndarrays or dictionary of named np.ndarrays.
+    :param features: NumPy features, represented as an ``np.ndarray``, list of ``np.ndarray``s
+                     or dictionary of named ``np.ndarray``s.
+    :param source: The source from which the DataFrame was derived, e.g. a filesystem
+                   path, an S3 URI, an HTTPS URL, a delta table name with version, or
+                   spark table etc. ``source`` may be specified as a URI, a path-like string,
+                   or an instance of
+                   :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
+                   If unspecified, the source is assumed to be the code location
+                   (e.g. notebook cell, script, etc.) where
+                   :py:func:`from_numpy <mlflow.data.from_numpy>` is being called.
+    :param targets: Optional NumPy targets, represented as an ``np.ndarray``, list of
+                    ``np.ndarray``s or dictionary of named ``np.ndarray``s.
     :param name: The name of the dataset. If unspecified, a name is generated.
-    :param digest: A dataset digest (hash). If unspecified, a digest is computed
-                    automatically.
+    :param digest: The dataset digest (hash). If unspecified, a digest is computed
+                   automatically.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source
