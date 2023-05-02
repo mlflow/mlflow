@@ -98,7 +98,7 @@ def test_from_numpy_features_only(tmp_path):
 
     assert isinstance(mlflow_features, NumpyDataset)
     assert np.array_equal(mlflow_features.features, features)
-    assert mlflow_features.schema == TensorDatasetSchema(_infer_schema(features))
+    assert mlflow_features.schema == TensorDatasetSchema(features=_infer_schema(features))
     assert mlflow_features.profile == {
         "features_shape": features.shape,
         "features_size": features.size,
@@ -118,7 +118,9 @@ def test_from_numpy_features_and_targets(tmp_path):
     assert isinstance(mlflow_ds, NumpyDataset)
     assert np.array_equal(mlflow_ds.features, features)
     assert np.array_equal(mlflow_ds.targets, targets)
-    assert mlflow_ds.schema == TensorDatasetSchema(_infer_schema(features), _infer_schema(targets))
+    assert mlflow_ds.schema == TensorDatasetSchema(
+        features=_infer_schema(features), targets=_infer_schema(targets)
+    )
     assert mlflow_ds.profile == {
         "features_shape": features.shape,
         "features_size": features.size,

@@ -118,17 +118,12 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         features_schema = None
         try:
             features_schema = _infer_schema(self._features)
+            if self._targets is not None:
+                targets_schema = _infer_schema(self._targets)
+            return TensorDatasetSchema(features=features_schema, targets=targets_schema)
         except Exception as e:
-            _logger.warning("Failed to infer schema for NumPy dataset features. Exception: %s", e)
+            _logger.warning("Failed to infer schema for NumPy dataset. Exception: %s", e)
             return None
-
-        targets_schema = None
-        try:
-            targets_schema = _infer_schema(self._targets)
-        except Exception as e:
-            _logger.warning("Failed to infer schema for NumPy dataset targets. Exception: %s", e)
-
-        return TensorDatasetSchema(features=features_schema, targets=targets_schema)
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """

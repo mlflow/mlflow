@@ -8,9 +8,9 @@ from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_tensor_digest, compute_tensorflow_dataset_digest
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin, PyFuncInputsOutputs
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.types import Schema
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.annotations import experimental
 
@@ -68,9 +68,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         base_dict.update(
             {
-                "schema": json.dumps({"mlflow_tensorspec": self.schema.to_dict()})
-                if self.schema
-                else None,
+                "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
                 "profile": json.dumps(self.profile),
             }
         )
@@ -122,7 +120,7 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return profile
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Optional[TensorDatasetSchema]:
         """
         An MLflow TensorSpec schema representing the tensor dataset
         """
@@ -135,8 +133,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                     features_tensor = features_tensor[0]
             else:
                 features_tensor = self._data.numpy()
+            features_schema = _infer_schema(features_tensor)
 
-            schema_dict = {"features": features_tensor}
+            targets_schema = None
             if self._targets is not None:
                 if isinstance(self._targets, tf.data.Dataset):
                     targets_tensor = next(self._targets.as_numpy_iterator())
@@ -144,8 +143,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                         targets_tensor = targets_tensor[0]
                 else:
                     targets_tensor = self._targets.numpy()
-                schema_dict["targets"] = targets_tensor
-            return _infer_schema(schema_dict)
+                targets_schema = _infer_schema(targets_tensor)
+
+            return TensorDatasetSchema(features_schema, targets_schema)
         except Exception as e:
             _logger.warning("Failed to infer schema for TensorFlow dataset. Exception: %s", e)
             return None

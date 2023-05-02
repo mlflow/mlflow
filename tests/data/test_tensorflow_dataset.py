@@ -8,7 +8,7 @@ from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
 from mlflow.data.tensorflow_dataset import TensorflowDataset
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
-from mlflow.types.schema import Schema
+from mlflow.data.schema import TensorDatasetSchema
 from mlflow.types.utils import _infer_schema
 
 import tensorflow as tf
@@ -32,8 +32,8 @@ def test_conversion_to_json():
     assert parsed_json["source_type"] == dataset.source._get_source_type()
     assert parsed_json["profile"] == json.dumps(dataset.profile)
 
-    schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_tensorspec"])
-    assert Schema.from_json(schema_json) == dataset.schema
+    parsed_schema = json.loads(parsed_json["schema"])
+    assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
 
 
 def test_digest_property_has_expected_value():
@@ -131,7 +131,9 @@ def test_from_tensorflow_dataset_constructs_expected_dataset():
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset, source="my_source")
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert mlflow_ds.data == tf_dataset
-    assert mlflow_ds.schema == _infer_schema({"features": next(tf_dataset.as_numpy_iterator())})
+    assert mlflow_ds.schema == TensorDatasetSchema(
+        features=_infer_schema(next(tf_dataset.as_numpy_iterator()))
+    )
     assert mlflow_ds.profile == {
         "features_num_rows": len(tf_dataset),
         "features_num_elements": tf_dataset.cardinality().numpy(),
@@ -147,11 +149,9 @@ def test_from_tensorflow_dataset_with_targets_constructs_expected_dataset():
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert mlflow_ds.data == tf_dataset_x
     assert mlflow_ds.targets == tf_dataset_y
-    assert mlflow_ds.schema == _infer_schema(
-        {
-            "features": next(tf_dataset_x.as_numpy_iterator()),
-            "targets": next(tf_dataset_y.as_numpy_iterator()),
-        }
+    assert mlflow_ds.schema == TensorDatasetSchema(
+        features=_infer_schema(next(tf_dataset_x.as_numpy_iterator())),
+        targets=_infer_schema(next(tf_dataset_y.as_numpy_iterator())),
     )
     assert mlflow_ds.profile == {
         "features_num_rows": len(tf_dataset_x),
@@ -168,7 +168,7 @@ def test_from_tensorflow_tensor_constructs_expected_dataset():
     assert isinstance(mlflow_ds, TensorflowDataset)
     # compare if two tensors are equal using tensorflow utils
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor))
-    assert mlflow_ds.schema == _infer_schema({"features": tf_tensor.numpy()})
+    assert mlflow_ds.schema == TensorDatasetSchema(features=_infer_schema(tf_tensor.numpy()))
     assert mlflow_ds.profile == {
         "features_num_rows": len(tf_tensor),
         "features_num_elements": tf.size(tf_tensor).numpy(),
@@ -184,8 +184,9 @@ def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
     assert isinstance(mlflow_ds, TensorflowDataset)
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor_x))
     assert tf.reduce_all(tf.math.equal(mlflow_ds.targets, tf_tensor_y))
-    assert mlflow_ds.schema == _infer_schema(
-        {"features": tf_tensor_x.numpy(), "targets": tf_tensor_y.numpy()}
+    assert mlflow_ds.schema == TensorDatasetSchema(
+        features=_infer_schema(tf_tensor_x.numpy()),
+        targets=_infer_schema(tf_tensor_y.numpy()),
     )
     assert mlflow_ds.profile == {
         "features_num_rows": len(tf_tensor_x),
