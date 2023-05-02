@@ -165,13 +165,16 @@ def from_numpy(
     Constructs a NumpyDataset object from NumPy features, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
-    :param features: NumPy features, represented as an np.ndarray or dictionary of named np.ndarrays.
+
+    :param features: NumPy features, represented as an np.ndarray or dictionary of named
+                     np.ndarrays.
     :param source: The source from which the NumPy data was derived, e.g. a filesystem
                     path, an S3 URI, an HTTPS URL etc. If source is not a path like string,
                     pass in a DatasetSource object directly. If no source is specified,
                     a CodeDatasetSource is used, which will source information from the run
                     context.
-    :param targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named np.ndarrays.
+    :param targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named
+                    np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.
     :param digest: A dataset digest (hash). If unspecified, a digest is computed
                     automatically.
