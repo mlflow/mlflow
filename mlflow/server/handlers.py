@@ -326,6 +326,7 @@ def _assert_less_than_or_equal(x, max_value):
 def _assert_item_type_string(x):
     assert all(isinstance(item, str) for item in x)
 
+
 _TYPE_VALIDATORS = {
     _assert_intlike,
     _assert_string,
