@@ -260,7 +260,7 @@ def from_spark(
     Given a Spark DataFrame, constructs an MLflow :py:class:`SparkDataset` object for use with
     MLflow Tracking.
 
-    :param df: The Spark DataFrame to construct a SparkDataset from.
+    :param df: The Spark DataFrame from which to construct a SparkDataset.
     :param path: The path of the Spark or Delta source that the DataFrame originally came from.
                  Note that the path does not have to match the DataFrame exactly, since the
                  DataFrame may have been modified by Spark operations. This is used to reload the
