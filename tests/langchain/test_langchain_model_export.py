@@ -3,6 +3,7 @@ import langchain
 import mlflow
 import pytest
 import transformers
+import json
 
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
@@ -75,11 +76,11 @@ def create_openai_pinecone_qa_chain():
     from langchain.vectorstores import Pinecone
     from langchain.chains import VectorDBQAWithSourcesChain
 
+    embeddings = OpenAIEmbeddings()
     pinecone.init(
         api_key=os.environ["PINECONE_API_KEY"],
         environment=os.environ["PINECONE_ENVIRONMENT"]
     )
-    embeddings = OpenAIEmbeddings()
     vectorstore = Pinecone.from_existing_index(
         index_name=os.environ["PINECONE_INDEX_NAME"],
         embedding=embeddings,
@@ -249,29 +250,25 @@ def test_langchain_openai_pinecone_qa_chain_predict():
     # Load back the model
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     langchain_input = {
-        "input": "What was the high temperature in SF yesterday in Fahrenheit? "
-        "What is that number raised to the .023 power?"
+        "question": "What is full name of the NBA team San Antonio _?"
     }
-    langchain_agent_output = {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1677652288,
-        "choices": [
-            {
-                "index": 0,
-                "finish_reason": "stop",
-                "text": f"Final Answer: {TEST_CONTENT}",
-            }
-        ],
-        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    langchain_qa_output = {
+        "answer": "The full name is San Antonio Spurs",
+        "sources": "doc1, doc7"
     }
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output)):
+
+    with _mock_request(side_effect=[
+        _MockResponse(200, {}),
+        _MockResponse(200, langchain_qa_output)]
+    ):
         result = loaded_model.predict([langchain_input])
+        print(f"result: {result}")
         assert result == [TEST_CONTENT]
 
+    print("inference payload")
     inference_payload = json.dumps({"inputs": langchain_input})
-    langchain_agent_output_serving = {"predictions": langchain_agent_output}
-    with _mock_request(return_value=_MockResponse(200, langchain_agent_output_serving)):
+    langchain_qa_output_serving = {"predictions": langchain_qa_output}
+    with _mock_request(return_value=_MockResponse(200, langchain_qa_output_serving)):
         import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
         from mlflow.deployments import PredictionsResponse
 
@@ -284,5 +281,5 @@ def test_langchain_openai_pinecone_qa_chain_predict():
 
         assert (
             PredictionsResponse.from_json(response.content.decode("utf-8"))
-            == langchain_agent_output_serving
+            == langchain_qa_output_serving
         )
