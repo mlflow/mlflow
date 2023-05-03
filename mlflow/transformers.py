@@ -26,6 +26,7 @@ from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
 )
+from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -70,6 +71,7 @@ _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
+_TRANSFORMERS_DEFAULT_GPU_DEVICE_ID = 0
 _logger = logging.getLogger(__name__)
 
 
@@ -162,7 +164,7 @@ def get_default_conda_env(model):
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
              flavor, based on the model instance framework type of the model to be logged.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
+    return (additional_pip_deps=get_default_pip_requirements(model))
 
 
 @experimental
@@ -1362,7 +1364,7 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data):
+    def predict(self, data, device=None):
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1396,13 +1398,41 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data)
+        predictions = self._predict(input_data, device)
 
         return predictions
 
-    def _predict(self, data):
-        import transformers
+    # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
+    def is_gpu_available(self):
+        # try pytorch and if it fails, try tf
+        is_gpu = None
+        try:
+            import torch
+            is_gpu = torch.cuda.is_available()
+        except ImportError:
+            pass
+        if is_gpu is None:
+            try:
+                import tensorflow as tf
+                is_gpu = tf.test.is_gpu_available()
+            except ImportError:
+                pass
+        if is_gpu is None:
+            is_gpu = False
+        return is_gpu
 
+
+    def _predict(self, data, device):
+        import transformers
+        if device is None:
+            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
+            elif self.is_gpu_available():
+                device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
+            else:
+                device = None
+        if device:
+            self.inference_config['device'] = device
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
         # in which the return data structure from their __call__ implementation is modified.
