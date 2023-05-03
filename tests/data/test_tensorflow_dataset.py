@@ -21,7 +21,72 @@ def test_conversion_to_json():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+
+    dataset_json = dataset.to_json()
+    parsed_json = json.loads(dataset_json)
+    assert parsed_json.keys() <= {"name", "digest", "source", "source_type", "schema", "profile"}
+    assert parsed_json["name"] == dataset.name
+    assert parsed_json["digest"] == dataset.digest
+    assert parsed_json["source"] == dataset.source.to_json()
+    assert parsed_json["source_type"] == dataset.source._get_source_type()
+    assert parsed_json["profile"] == json.dumps(dataset.profile)
+
+    parsed_schema = json.loads(parsed_json["schema"])
+    assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
+
+
+@pytest.mark.parametrize(
+    ("features", "targets"),
+    [
+        (
+            tf.data.Dataset.from_tensors(
+                {"a": np.random.sample((100, 2)), "b": np.random.sample((100, 4))}
+            ),
+            tf.data.Dataset.from_tensors(
+                {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
+            ),
+        ),
+        (
+            tf.data.Dataset.from_tensors(
+                (
+                    np.random.sample((100, 2)),
+                    np.random.sample((100, 4)),
+                )
+            ),
+            tf.data.Dataset.from_tensors(
+                (
+                    np.random.sample((100, 1)),
+                    np.random.sample((100,)),
+                )
+            ),
+        ),
+        (
+            tf.data.Dataset.from_tensors(
+                (
+                    np.random.sample((100, 2)),
+                    np.random.sample((100, 4)),
+                )
+            ),
+            tf.data.Dataset.from_tensors(
+                {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
+            ),
+        ),
+        (
+            tf.data.Dataset.from_tensors(
+                (
+                    np.random.sample((100, 2)),
+                    np.random.sample((100, 4)),
+                )
+            ),
+            None,
+        ),
+    ],
+)
+def test_conversion_to_json_with_multi_tensor_datasets(features, targets):
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(features=features, targets=targets, source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -41,9 +106,9 @@ def test_digest_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
-    assert dataset.digest == "8c404915"
+    assert dataset.digest == "666a9820"
 
 
 def test_data_property_has_expected_value():
@@ -51,7 +116,7 @@ def test_data_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.data == tf_dataset
 
 
@@ -60,7 +125,7 @@ def test_source_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.source == source
 
 
@@ -69,7 +134,7 @@ def test_profile_property_has_expected_value_dataset():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
         "features_num_rows": len(tf_dataset),
         "features_num_elements": tf_dataset.cardinality().numpy(),
@@ -81,7 +146,7 @@ def test_profile_property_has_expected_value_tensors():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_tensor = tf.convert_to_tensor(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_tensor, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
         "features_num_rows": len(tf_tensor),
         "features_num_elements": tf.size(tf_tensor).numpy(),
@@ -93,7 +158,7 @@ def test_to_pyfunc():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=tf_dataset, source=source, name="testname")
+    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
@@ -104,7 +169,9 @@ def test_to_evaluation_dataset():
     x_tensors = tf.convert_to_tensor(x)
     y_tensors = tf.convert_to_tensor(y)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=x_tensors, source=source, targets=y_tensors, name="testname")
+    dataset = TensorflowDataset(
+        features=x_tensors, source=source, targets=y_tensors, name="testname"
+    )
     evaluation_dataset = dataset.to_evaluation_dataset()
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert np.array_equal(evaluation_dataset.features_data, dataset.data.numpy())
@@ -118,7 +185,9 @@ def test_to_evaluation_dataset_with_tensorflow_dataset_data():
     x_tf_data = tf.data.Dataset.from_tensors(x)
     y_tf_data = tf.data.Dataset.from_tensors(y)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(data=x_tf_data, source=source, targets=y_tf_data, name="testname")
+    dataset = TensorflowDataset(
+        features=x_tf_data, source=source, targets=y_tf_data, name="testname"
+    )
     with pytest.raises(
         MlflowException, match="Data must be a Tensor to convert to an EvaluationDataset"
     ):

@@ -85,11 +85,9 @@ def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
     import tensorflow as tf
 
     hashable_elements = []
-    for array in dataset.as_numpy_iterator():
-        if array is None:
-            continue
-        # flatten array or tuple of arrays
-        flat_element = tf.nest.flatten(array)
+
+    def hash_tf_dataset_iterator_element(element):
+        flat_element = tf.nest.flatten(element)
         flattened_array = np.concatenate([x.flatten() for x in flat_element])
         trimmed_array = flattened_array[0:MAX_ROWS]
         try:
@@ -97,29 +95,11 @@ def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
         except TypeError:
             hashable_elements.append(np.int64(trimmed_array.size))
 
-        # hash full array or tuple of arrays dimensions
-        if isinstance(array, tuple):
-            for a in array:
-                for x in a.shape:
-                    hashable_elements.append(np.int64(x))
-        else:
-            for x in array.shape:
-                hashable_elements.append(np.int64(x))
-
-    if targets:
-        for array in targets.as_numpy_iterator():
-            if array is None:
-                continue
-            flattened_array = array.flatten()
-            trimmed_array = flattened_array[0:MAX_ROWS]
-            try:
-                hashable_elements.append(pd.util.hash_array(trimmed_array))
-            except TypeError:
-                hashable_elements.append(np.int64(trimmed_array.size))
-
-            # hash full array dimensions
-            for x in array.shape:
-                hashable_elements.append(np.int64(x))
+    for element in dataset.as_numpy_iterator():
+        hash_tf_dataset_iterator_element(element)
+    if targets is not None:
+        for element in targets.as_numpy_iterator():
+            hash_tf_dataset_iterator_element(element)
 
     return get_normalized_md5_digest(hashable_elements)
 
