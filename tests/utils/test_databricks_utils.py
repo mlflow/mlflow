@@ -371,6 +371,8 @@ def test_check_databricks_secret_scope_access_error():
     ), mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning:
         check_databricks_secret_scope_access("scope")
         mock_warning.assert_called_once_with(
-            "Unable to access Databricks secret scope 'scope'. Please verify that the current Databricks user has the 'read' permission for this scope. Error: no scope access"
+            "Unable to access Databricks secret scope 'scope'. "
+            "Please verify that the current Databricks user has 'READ' permission for this scope. "
+            "Error: no scope access"
         )
         mock_dbutils.secrets.list.assert_called_once_with("scope")

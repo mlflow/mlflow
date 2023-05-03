@@ -347,9 +347,8 @@ def save_model(
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 
     if is_in_databricks_runtime():
-        if scope := MLFLOW_OPENAI_SECRET_SCOPE.get() and check_databricks_secret_scope_access(
-            scope
-        ):
+        if scope := MLFLOW_OPENAI_SECRET_SCOPE.get():
+            check_databricks_secret_scope_access(scope)
             _log_secrets_yaml(path, scope)
         else:
             _logger.info(
