@@ -123,9 +123,9 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         MLflow TensorSpec schema representing the dataset features and targets (optional).
         """
-        features_schema = None
         try:
             features_schema = _infer_schema(self._features)
+            targets_schema = None
             if self._targets is not None:
                 targets_schema = _infer_schema(self._targets)
             return TensorDatasetSchema(features=features_schema, targets=targets_schema)
