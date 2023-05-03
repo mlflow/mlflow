@@ -101,6 +101,80 @@ def test_conversion_to_json_with_multi_tensor_datasets(features, targets):
     assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
 
 
+def test_schema_and_profile_with_multi_tensor_tuple_datasets():
+    features_dataset = tf.data.Dataset.from_tensors(
+        (
+            np.random.sample((100, 2)),
+            np.random.sample((100, 4)),
+        )
+    )
+    targets_dataset = tf.data.Dataset.from_tensors(
+        (
+            np.random.sample((100, 1)),
+            np.random.sample((100,)),
+        )
+    )
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(
+        features=features_dataset, targets=targets_dataset, source=source, name="testname"
+    )
+    assert dataset.schema.features == _infer_schema(
+        {
+            "0": np.random.sample((100, 2)),
+            "1": np.random.sample((100, 4)),
+        }
+    )
+    assert dataset.schema.targets == _infer_schema(
+        {
+            "0": np.random.sample((100, 1)),
+            "1": np.random.sample((100,)),
+        }
+    )
+    assert dataset.profile == {
+        "features_cardinality": 1,
+        "targets_cardinality": 1,
+    }
+    assert dataset.profile == {
+        "features_cardinality": features_dataset.cardinality().numpy(),
+        "targets_cardinality": targets_dataset.cardinality().numpy(),
+    }
+
+
+def test_schema_and_profile_with_multi_tensor_dict_datasets():
+    features_dataset = tf.data.Dataset.from_tensors(
+        {"a": np.random.sample((100, 2)), "b": np.random.sample((100, 4))}
+    )
+    targets_dataset = tf.data.Dataset.from_tensors(
+        {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
+    )
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = TensorflowDataset(
+        features=features_dataset, targets=targets_dataset, source=source, name="testname"
+    )
+    assert dataset.schema.features == _infer_schema(
+        {
+            "a": np.random.sample((100, 2)),
+            "b": np.random.sample((100, 4)),
+        }
+    )
+    assert dataset.schema.targets == _infer_schema(
+        {
+            "c": np.random.sample((100, 1)),
+            "d": np.random.sample((100,)),
+        }
+    )
+    assert dataset.profile == {
+        "features_cardinality": 1,
+        "targets_cardinality": 1,
+    }
+    assert dataset.profile == {
+        "features_cardinality": features_dataset.cardinality().numpy(),
+        "targets_cardinality": targets_dataset.cardinality().numpy(),
+    }
+
+
 def test_digest_property_has_expected_value():
     source_uri = "test:/my/test/uri"
     x = [[1, 2, 3], [4, 5, 6]]
@@ -136,8 +210,7 @@ def test_profile_property_has_expected_value_dataset():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
-        "features_num_rows": len(tf_dataset),
-        "features_num_elements": tf_dataset.cardinality().numpy(),
+        "features_cardinality": tf_dataset.cardinality().numpy(),
     }
 
 
@@ -148,8 +221,7 @@ def test_profile_property_has_expected_value_tensors():
     source = TestDatasetSource._resolve(source_uri)
     dataset = TensorflowDataset(features=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
-        "features_num_rows": len(tf_tensor),
-        "features_num_elements": tf.size(tf_tensor).numpy(),
+        "features_cardinality": tf.size(tf_tensor).numpy(),
     }
 
 
@@ -204,8 +276,7 @@ def test_from_tensorflow_dataset_constructs_expected_dataset():
         features=_infer_schema(next(tf_dataset.as_numpy_iterator()))
     )
     assert mlflow_ds.profile == {
-        "features_num_rows": len(tf_dataset),
-        "features_num_elements": tf_dataset.cardinality().numpy(),
+        "features_cardinality": tf_dataset.cardinality().numpy(),
     }
 
 
@@ -223,10 +294,8 @@ def test_from_tensorflow_dataset_with_targets_constructs_expected_dataset():
         targets=_infer_schema(next(tf_dataset_y.as_numpy_iterator())),
     )
     assert mlflow_ds.profile == {
-        "features_num_rows": len(tf_dataset_x),
-        "features_num_elements": tf_dataset_x.cardinality().numpy(),
-        "targets_num_rows": len(tf_dataset_y),
-        "targets_num_elements": tf_dataset_y.cardinality().numpy(),
+        "features_cardinality": tf_dataset_x.cardinality().numpy(),
+        "targets_cardinality": tf_dataset_y.cardinality().numpy(),
     }
 
 
@@ -239,8 +308,7 @@ def test_from_tensorflow_tensor_constructs_expected_dataset():
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor))
     assert mlflow_ds.schema == TensorDatasetSchema(features=_infer_schema(tf_tensor.numpy()))
     assert mlflow_ds.profile == {
-        "features_num_rows": len(tf_tensor),
-        "features_num_elements": tf.size(tf_tensor).numpy(),
+        "features_cardinality": tf.size(tf_tensor).numpy(),
     }
 
 
@@ -258,10 +326,8 @@ def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
         targets=_infer_schema(tf_tensor_y.numpy()),
     )
     assert mlflow_ds.profile == {
-        "features_num_rows": len(tf_tensor_x),
-        "features_num_elements": tf.size(tf_tensor_x).numpy(),
-        "targets_num_rows": len(tf_tensor_y),
-        "targets_num_elements": tf.size(tf_tensor_y).numpy(),
+        "features_cardinality": tf.size(tf_tensor_x).numpy(),
+        "targets_cardinality": tf.size(tf_tensor_y).numpy(),
     }
 
 

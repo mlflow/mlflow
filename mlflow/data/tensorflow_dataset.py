@@ -128,16 +128,14 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         A profile of the dataset. May be None if no profile is available.
         """
         profile = {
-            "features_num_rows": len(self._features),
-            "features_num_elements": int(self._features.cardinality().numpy())
+            "features_cardinality": int(self._features.cardinality().numpy())
             if isinstance(self._features, tf.data.Dataset)
             else int(tf.size(self._features).numpy()),
         }
         if self._targets is not None:
             profile.update(
                 {
-                    "targets_num_rows": len(self._targets),
-                    "targets_num_elements": int(self._targets.cardinality().numpy())
+                    "targets_cardinality": int(self._targets.cardinality().numpy())
                     if isinstance(self._targets, tf.data.Dataset)
                     else int(tf.size(self._targets).numpy()),
                 }
