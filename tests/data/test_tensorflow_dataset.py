@@ -16,6 +16,66 @@ import tensorflow as tf
 from tests.resources.data.dataset_source import TestDatasetSource
 
 
+def test_dataset_construction_validates_features_and_targets():
+    x = np.random.sample((100, 2))
+    tf_dataset = tf.data.Dataset.from_tensors(x)
+    tf_tensor = tf.convert_to_tensor(x)
+
+    with pytest.raises(
+        MlflowException,
+        match="features' must be an instance of tf.data.Dataset or a TensorFlow Tensor.*NoneType",
+    ):
+        mlflow.data.from_tensorflow(features=None)
+    with pytest.raises(
+        MlflowException,
+        match="features' must be an instance of tf.data.Dataset or a TensorFlow Tensor.*str",
+    ):
+        mlflow.data.from_tensorflow(features="foo")
+    with pytest.raises(
+        MlflowException,
+        match="features' must be an instance of tf.data.Dataset or a TensorFlow Tensor.*str",
+    ):
+        mlflow.data.from_tensorflow(features="foo", targets=tf_tensor)
+
+    mlflow.data.from_tensorflow(features=tf_tensor, targets=tf_tensor)
+    mlflow.data.from_tensorflow(features=tf_tensor, targets=None)
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "If 'features' is a TensorFlow Tensor, then 'targets' must also be a TensorFlow"
+            " Tensor.*str"
+        ),
+    ):
+        mlflow.data.from_tensorflow(features=tf_tensor, targets="foo")
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "If 'features' is a TensorFlow Tensor, then 'targets' must also be a TensorFlow"
+            " Tensor.*Dataset"
+        ),
+    ):
+        mlflow.data.from_tensorflow(features=tf_tensor, targets=tf_dataset)
+
+    mlflow.data.from_tensorflow(features=tf_dataset, targets=tf_dataset)
+    mlflow.data.from_tensorflow(features=tf_dataset, targets=None)
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "If 'features' is an instance of tf.data.Dataset, then 'targets' must also be an"
+            " instance of tf.data.Dataset.*str"
+        ),
+    ):
+        mlflow.data.from_tensorflow(features=tf_dataset, targets="foo")
+    with pytest.raises(
+        MlflowException,
+        match=(
+            "If 'features' is an instance of tf.data.Dataset, then 'targets' must also be an"
+            " instance of tf.data.Dataset.*Tensor"
+        ),
+    ):
+        mlflow.data.from_tensorflow(features=tf_dataset, targets=tf_tensor)
+
+
 def test_conversion_to_json():
     source_uri = "test:/my/test/uri"
     x = np.random.sample((100, 2))
