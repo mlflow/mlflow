@@ -26,6 +26,17 @@ message RegisteredModel {
 
   // Description of this ``registered_model``.
   optional string description = 5;
+
+  // Registered Model Aliases on this model.
+  repeated RegisteredModelAlias aliases = 6;
+}
+
+message RegisteredModelAlias {
+  // Unique name for the alias.
+  optional string alias = 1;
+
+  // Model version number that the alias references.
+  optional string version = 2;
 }
 
 enum ModelVersionStatus {
@@ -82,6 +93,9 @@ message ModelVersion {
 
   // Current storage location of model version files, e.g. in blob storage
   optional string storage_location = 13;
+
+  // Registered Model Aliases on this model version.
+  repeated RegisteredModelAlias aliases = 14;
 }
 
 enum ModelVersionOperation {
