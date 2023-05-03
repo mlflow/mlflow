@@ -365,8 +365,12 @@ def test_check_databricks_secret_scope_access():
 
 def test_check_databricks_secret_scope_access_error():
     mock_dbutils = mock.MagicMock()
-    mock_dbutils.secrets.list.side_effect = Exception()
-    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
-        with pytest.raises(MlflowException):
-            check_databricks_secret_scope_access("scope")
+    mock_dbutils.secrets.list.side_effect = Exception("no scope access")
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils
+    ), mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning:
+        check_databricks_secret_scope_access("scope")
+        mock_warning.assert_called_once_with(
+            "Unable to access Databricks secret scope 'scope'. Please verify that the current Databricks user has the 'read' permission for this scope. Error: no scope access"
+        )
         mock_dbutils.secrets.list.assert_called_once_with("scope")

@@ -636,7 +636,7 @@ def check_databricks_secret_scope_access(scope_name):
         try:
             dbutils.secrets.list(scope_name)
         except Exception as e:
-            raise MlflowException(
+            _logger.warning(
                 "Unable to access Databricks secret scope '%s'. Please verify that the current"
                 " Databricks user has the 'read' permission for this scope. Error: %s"
                 % (scope_name, str(e))
