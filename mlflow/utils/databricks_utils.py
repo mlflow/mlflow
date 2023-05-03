@@ -637,8 +637,12 @@ def check_databricks_secret_scope_access(scope_name):
             dbutils.secrets.list(scope_name)
         except Exception as e:
             _logger.warning(
-                f"Unable to access Databricks secret scope '{scope_name}'. Please verify that the current"
-                f" Databricks user has 'READ' permission for this scope. Error: {str(e)}"
+                f"Unable to access Databricks secret scope '{scope_name}' for OpenAI credentials "
+                "that will be used to deploy the model to Databricks Model Serving. "
+                "Please verify that the current Databricks user has 'READ' permission for "
+                "this scope. For more information, see "
+                "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
+                f"Error: {str(e)}"
             )
 
 

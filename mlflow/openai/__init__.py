@@ -353,7 +353,7 @@ def save_model(
         else:
             _logger.info(
                 "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
-                "See https://mlflow.org/docs/latest/python_api/mlflow.openai.html#credential-management-for-openai-on-databricks "
+                "See https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks "
                 "for more information."
             )
 
