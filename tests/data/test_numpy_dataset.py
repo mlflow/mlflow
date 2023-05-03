@@ -75,9 +75,73 @@ def test_conversion_to_json_with_multi_tensor_features_and_targets(features, tar
     assert parsed_json["source"] == dataset.source.to_json()
     assert parsed_json["source_type"] == dataset.source._get_source_type()
     assert parsed_json["profile"] == json.dumps(dataset.profile)
-
     parsed_schema = json.loads(parsed_json["schema"])
     assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
+
+
+@pytest.mark.parametrize(
+    ("features", "targets"),
+    [
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            np.array([1, 2, 3]),
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            np.array([1, 2, 3]),
+        ),
+    ],
+)
+def test_schema_and_profile_with_multi_tensor_features_and_targets(features, targets):
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = NumpyDataset(features=features, targets=targets, source=source)
+
+    assert isinstance(dataset.schema, TensorDatasetSchema)
+    assert dataset.schema.features == _infer_schema(features)
+    assert dataset.schema.targets == _infer_schema(targets)
+
+    if isinstance(features, dict):
+        assert {
+            "features_shape": {key: array.shape for key, array in features.items()},
+            "features_size": {key: array.size for key, array in features.items()},
+            "features_nbytes": {key: array.nbytes for key, array in features.items()},
+        }.items() <= dataset.profile.items()
+    else:
+        assert {
+            "features_shape": features.shape,
+            "features_size": features.size,
+            "features_nbytes": features.nbytes,
+        }.items() <= dataset.profile.items()
+
+    if isinstance(targets, dict):
+        assert {
+            "targets_shape": {key: array.shape for key, array in targets.items()},
+            "targets_size": {key: array.size for key, array in targets.items()},
+            "targets_nbytes": {key: array.nbytes for key, array in targets.items()},
+        }.items() <= dataset.profile.items()
+    else:
+        assert {
+            "targets_shape": targets.shape,
+            "targets_size": targets.size,
+            "targets_nbytes": targets.nbytes,
+        }.items() <= dataset.profile.items()
 
 
 def test_digest_property_has_expected_value():
