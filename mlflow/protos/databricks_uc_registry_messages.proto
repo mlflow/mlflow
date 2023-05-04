@@ -32,7 +32,7 @@ message RegisteredModel {
 }
 
 message RegisteredModelAlias {
-  // Unique name for the alias.
+  // The name of the alias
   optional string alias = 1;
 
   // Model version number that the alias references.
