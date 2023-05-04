@@ -37,3 +37,7 @@ def test_creation_and_hydration(run_data):
     proto = rd.to_proto()
     rd2 = RunData.from_proto(proto)
     _check(rd2, metrics, params, tags)
+
+
+def test_random_test():
+    assert False
