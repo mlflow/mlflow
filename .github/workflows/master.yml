@@ -247,9 +247,8 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          pip install numpy<1.24.0
           source ./dev/install-common-deps.sh
-          pip install pyspark
+          pip install pyspark numpy<1.24.0
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
