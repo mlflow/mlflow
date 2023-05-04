@@ -165,7 +165,7 @@ def get_default_conda_env(model):
     :return: The default Conda environment for MLflow Models produced with the ``transformers``
              flavor, based on the model instance framework type of the model to be logged.
     """
-    return (additional_pip_deps=get_default_pip_requirements(model))
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(model))
 
 
 @experimental
