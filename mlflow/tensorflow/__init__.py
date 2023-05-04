@@ -1325,15 +1325,15 @@ def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
     if isinstance(tensorflow_dataset, np.ndarray):
         dataset = from_numpy(features=tensorflow_dataset, source=source, name=name)
     elif isinstance(tensorflow_dataset, tensorflow.Tensor):
-        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+        dataset = from_tensorflow(features=tensorflow_dataset, source=source, name=name)
     elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
-        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+        dataset = from_tensorflow(features=tensorflow_dataset, source=source, name=name)
     elif isinstance(tensorflow_dataset, tuple):
         x = tensorflow_dataset[0]
         y = tensorflow_dataset[1]
         # check if x and y are tensors
         if isinstance(x, tensorflow.Tensor) and isinstance(y, tensorflow.Tensor):
-            dataset = from_tensorflow(data=x, source=source, targets=y, name=name)
+            dataset = from_tensorflow(features=x, source=source, targets=y, name=name)
         else:
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
     else:
