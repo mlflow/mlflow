@@ -71,6 +71,7 @@ _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
+_TRANSFORMERS_DEFAULT_CPU_DEVICE_ID = -1
 _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID = 0
 _logger = logging.getLogger(__name__)
 
@@ -716,7 +717,7 @@ def log_model(
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **kwargs):
+def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", device=None, **kwargs):
     """
     Load a ``transformers`` object from a local file or a run.
 
@@ -755,6 +756,7 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
                         type defined by the ``task`` set by the model instance type. To override
                         this behavior, supply a valid ``task`` argument during model logging or
                         saving. Default is "pipeline".
+    :param device: The device on which to load the model. Default is None. Use 0 to load to the default GPU.
     :param kwargs: Optional configuration options for loading of a ``transformers`` object.
                    For information on parameters and their usage, see
                    `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
@@ -784,14 +786,42 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", **k
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
-    return _load_model(local_model_path, flavor_config, return_type, **kwargs)
+    return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
 
+# This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
+def is_gpu_available():
+    # try pytorch and if it fails, try tf
+    is_gpu = None
+    try:
+        import torch
+        is_gpu = torch.cuda.is_available()
+    except ImportError:
+        pass
+    if is_gpu is None:
+        try:
+            import tensorflow as tf
+            is_gpu = tf.test.is_gpu_available()
+        except ImportError:
+            pass
+    if is_gpu is None:
+        is_gpu = False
+    return is_gpu
 
-def _load_model(path: str, flavor_config, return_type: str, **kwargs):
+def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+    if device is None:
+        if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+            try:
+                device = int(MLFLOW_DEFAULT_PREDICTION_DEVICE.get())
+            except ValueError:
+                device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
+        elif is_gpu_available():
+            device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
+        else:
+            device = None
 
     local_path = pathlib.Path(path)
     pipeline_path = local_path.joinpath(
@@ -803,6 +833,8 @@ def _load_model(path: str, flavor_config, return_type: str, **kwargs):
         "task": flavor_config[_TASK_KEY],
         "model": model_instance.from_pretrained(pipeline_path),
     }
+    if device:
+        conf['device'] = device
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
@@ -1402,37 +1434,9 @@ class _TransformersWrapper:
 
         return predictions
 
-    # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
-    def is_gpu_available(self):
-        # try pytorch and if it fails, try tf
-        is_gpu = None
-        try:
-            import torch
-            is_gpu = torch.cuda.is_available()
-        except ImportError:
-            pass
-        if is_gpu is None:
-            try:
-                import tensorflow as tf
-                is_gpu = tf.test.is_gpu_available()
-            except ImportError:
-                pass
-        if is_gpu is None:
-            is_gpu = False
-        return is_gpu
-
 
     def _predict(self, data, device):
         import transformers
-        if device is None:
-            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
-                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
-            elif self.is_gpu_available():
-                device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
-            else:
-                device = None
-        if device:
-            self.inference_config['device'] = device
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
         # in which the return data structure from their __call__ implementation is modified.
@@ -1486,6 +1490,8 @@ class _TransformersWrapper:
         include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
+        if device is not None:
+            self.inference_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
