@@ -87,6 +87,8 @@ def compute_tensorflow_dataset_digest(dataset, targets=None) -> str:
     hashable_elements = []
 
     def hash_tf_dataset_iterator_element(element):
+        if element is None:
+            return
         flat_element = tf.nest.flatten(element)
         flattened_array = np.concatenate([x.flatten() for x in flat_element])
         trimmed_array = flattened_array[0:MAX_ROWS]
