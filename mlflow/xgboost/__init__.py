@@ -19,7 +19,6 @@ XGBoost (native) format
 import os
 import shutil
 import json
-from scipy.sparse import issparse
 import yaml
 import tempfile
 import logging
@@ -807,6 +806,7 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
     import numpy as np
     import pandas as pd
     import xgboost as xgb
+    from scipy.sparse import issparse
 
     # dmatrix has a get_data method added in 1.7. skip for earlier versions.
     if Version(xgb.__version__) >= Version("1.7.0"):
