@@ -17,7 +17,7 @@ from mlflow.store._unity_catalog.registry.utils import (
 
 
 def test_model_version_from_uc_proto():
-    expectedModelVersion = ModelVersion(
+    expected_model_version = ModelVersion(
         name="name",
         version="1",
         creation_timestamp=1,
@@ -46,12 +46,12 @@ def test_model_version_from_uc_proto():
             ProtoRegisteredModelAlias(alias="alias2", version="2"),
         ],
     )
-    actualModelVersion = model_version_from_uc_proto(uc_proto)
-    assert actualModelVersion == expectedModelVersion
+    actual_model_version = model_version_from_uc_proto(uc_proto)
+    assert actual_model_version == expected_model_version
 
 
 def test_registered_model_from_uc_proto():
-    expectedRegisteredModel = RegisteredModel(
+    expected_registered_model = RegisteredModel(
         name="name",
         creation_timestamp=1,
         last_updated_timestamp=2,
@@ -71,5 +71,5 @@ def test_registered_model_from_uc_proto():
             ProtoRegisteredModelAlias(alias="alias2", version="2"),
         ],
     )
-    actualRegisteredModel = registered_model_from_uc_proto(uc_proto)
-    assert actualRegisteredModel == expectedRegisteredModel
+    actual_registered_model = registered_model_from_uc_proto(uc_proto)
+    assert actual_registered_model == expected_registered_model
