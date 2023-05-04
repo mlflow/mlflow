@@ -420,15 +420,23 @@ class EvaluationDataset:
                     "`targets` argument must be a numpy array or list of evaluation labels.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
+
+            shape_message = (
+                "If the `data` argument is a numpy array, it must be a 2 dimension "
+                "array and second dimension represent the number of features. If the `data` "
+                "argument is a list, each of its element must be a feature array of "
+                "numpy array or list and all element must has the same length."
+            )
+
             if isinstance(data, list):
-                data = np.array(data)
+                try:
+                    data = np.array(data)
+                except ValueError:
+                    raise MlflowException(message=shape_message, error_code=INVALID_PARAMETER_VALUE)
 
             if len(data.shape) != 2:
                 raise MlflowException(
-                    message="If the `data` argument is a numpy array, it must be a 2 dimension"
-                    " array and second dimension represent the number of features. If the `data` "
-                    "argument is a list, each of its element must be a feature array of "
-                    "numpy array or list and all element must has the same length.",
+                    message=shape_message,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 

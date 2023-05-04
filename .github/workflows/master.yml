@@ -247,6 +247,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
+          pip install numpy<1.24.0
           source ./dev/install-common-deps.sh
           pip install pyspark
       - name: Run tests
