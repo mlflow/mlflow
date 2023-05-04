@@ -76,7 +76,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from scipy.sparse import issparse
 
 FLAVOR_NAME = "sklearn"
 
@@ -1851,6 +1850,8 @@ def _autolog(
 
     def _create_dataset(X, source, y=None, dataset_name=None):
         # create a dataset
+        from scipy.sparse import issparse
+
         if isinstance(X, pd.DataFrame):
             dataset = from_pandas(df=X, source=source)
         elif issparse(X):
