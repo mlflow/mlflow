@@ -1257,7 +1257,7 @@ def test_log_input(tmp_path):
     df.to_csv(path)
     dataset = from_pandas(df, source=path)
     with start_run() as run:
-        mlflow.log_input(dataset, "train")
+        mlflow.log_input(dataset, "train", {"foo": "baz"})
     dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
 
     assert len(dataset_inputs) == 1
@@ -1274,6 +1274,8 @@ def test_log_input(tmp_path):
     }
     assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
 
-    assert len(dataset_inputs[0].tags) == 1
-    assert dataset_inputs[0].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
-    assert dataset_inputs[0].tags[0].value == "train"
+    assert len(dataset_inputs[0].tags) == 2
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train"
