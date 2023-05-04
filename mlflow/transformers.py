@@ -820,8 +820,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
-        else:
-            device = None
 
     local_path = pathlib.Path(path)
     pipeline_path = local_path.joinpath(
@@ -833,7 +831,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         "task": flavor_config[_TASK_KEY],
         "model": model_instance.from_pretrained(pipeline_path),
     }
-    if device:
+    if device is not None:
         conf['device'] = device
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
