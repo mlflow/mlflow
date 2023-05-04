@@ -4,7 +4,6 @@ from functools import cached_property
 from typing import Optional, Any, Dict, Union, Tuple
 
 import numpy as np
-import tensorflow as tf
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -44,6 +43,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                        is automatically computed.
         """
+        import tensorflow as tf
+
         if not isinstance(features, tf.data.Dataset) and not tf.is_tensor(features):
             raise MlflowException(
                 f"'features' must be an instance of tf.data.Dataset or a TensorFlow Tensor."
@@ -78,6 +79,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Computes a digest for the dataset. Called if the user doesn't supply
         a digest when constructing the dataset.
         """
+        import tensorflow as tf
+
         return (
             compute_tensorflow_dataset_digest(self._features, self._targets)
             if isinstance(self._features, tf.data.Dataset)
@@ -127,6 +130,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         A profile of the dataset. May be None if no profile is available.
         """
+        import tensorflow as tf
+
         profile = {
             "features_cardinality": int(self._features.cardinality().numpy())
             if isinstance(self._features, tf.data.Dataset)
@@ -158,7 +163,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             return None
 
     @staticmethod
-    def _get_tf_object_schema(tf_object: Union[tf.Tensor, tf.data.Dataset]) -> Schema:
+    def _get_tf_object_schema(tf_object) -> Schema:
+        import tensorflow as tf
+
         if isinstance(tf_object, tf.data.Dataset):
             numpy_data = next(tf_object.as_numpy_iterator())
             if isinstance(numpy_data, np.ndarray):
@@ -226,6 +233,8 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         Converts the dataset to an EvaluationDataset for model evaluation. Only supported if the
         dataset is a Tensor. Required for use with mlflow.evaluate().
         """
+        import tensorflow as tf
+
         # check that data and targets are Tensors
         if not tf.is_tensor(self._features):
             raise MlflowException("Data must be a Tensor to convert to an EvaluationDataset.")
