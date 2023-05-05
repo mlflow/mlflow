@@ -156,6 +156,46 @@ def local_model_dir(tmp_path):
     yield tmp_path
 
 
+def test_create_model_version_nonexistent_directory(store, tmp_path):
+    fake_directory = str(tmp_path.joinpath("myfakepath"))
+    with pytest.raises(
+        MlflowException,
+        match="Unable to download model artifacts from source artifact location",
+    ):
+        store.create_model_version(name="mymodel", source=fake_directory)
+
+
+def test_create_model_version_missing_python_deps(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.dict("sys.modules", {"boto3": None}), pytest.raises(
+        MlflowException,
+        match="Unable to import necessary dependencies to access model version files",
+    ):
+        store.create_model_version(name=model_name, source=str(local_model_dir))
+
+
 def test_create_model_version_missing_mlmodel(store, tmp_path):
     with pytest.raises(
         MlflowException,
@@ -306,6 +346,22 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
         assert store._get_workspace_id(run_id="some_run_id") is None
+
+
+def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
+    mock_databricks_host_creds, tmp_path
+):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        mock_response = mock.MagicMock(autospec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+        mock_response.text = str({})
+        with mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.http_request",
+            return_value=mock_response,
+        ):
+            assert store._get_workspace_id(run_id="some_run_id") is None
 
 
 def _get_workspace_id_for_run(run_id=None):
@@ -641,6 +697,28 @@ def test_search_model_versions(mock_http, store):
         "GET",
         SearchModelVersionsRequest(filter="name='model_12'"),
     )
+
+
+@mock_http_200
+def test_search_model_versions_with_pagination(mock_http, store):
+    store.search_model_versions(
+        filter_string="name='model_12'", page_token="fake_page_token", max_results=123
+    )
+    _verify_requests(
+        mock_http,
+        "model-versions/search",
+        "GET",
+        SearchModelVersionsRequest(
+            filter="name='model_12'", page_token="fake_page_token", max_results=123
+        ),
+    )
+
+
+def test_search_model_versions_order_by_unsupported(store):
+    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("order_by")):
+        store.search_model_versions(
+            filter_string="name='model_12'", page_token="fake_page_token", order_by=["name ASC"]
+        )
 
 
 def test_set_model_version_tag_unsupported(store):

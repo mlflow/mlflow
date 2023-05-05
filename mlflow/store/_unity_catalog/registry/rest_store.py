@@ -59,7 +59,7 @@ from mlflow.store._unity_catalog.registry.utils import (
     get_full_name_from_sc,
 )
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
 from mlflow.utils._spark_utils import _get_active_spark_session
 
 
@@ -322,7 +322,7 @@ class UcModelRegistryStore(BaseRestStore):
         ).credentials
 
     def _get_workspace_id(self, run_id):
-        if run_id is None:
+        if run_id is None or not is_databricks_uri(self.tracking_uri):
             return None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
@@ -402,9 +402,17 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         with tempfile.TemporaryDirectory() as tmpdir:
-            local_model_dir = mlflow.artifacts.download_artifacts(
-                artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
-            )
+            try:
+                local_model_dir = mlflow.artifacts.download_artifacts(
+                    artifact_uri=source, dst_path=tmpdir, tracking_uri=self.tracking_uri
+                )
+            except Exception as e:
+                raise MlflowException(
+                    f"Unable to download model artifacts from source artifact location "
+                    f"'{source}' in order to upload them to Unity Catalog. Please ensure "
+                    f"the source artifact location exists and that you can download from "
+                    f"it via mlflow.artifacts.download_artifacts()"
+                ) from e
             self._validate_model_signature(local_model_dir)
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
@@ -508,7 +516,12 @@ class UcModelRegistryStore(BaseRestStore):
                  objects that satisfy the search expressions. The pagination token for the next
                  page can be obtained via the ``token`` attribute of the object.
         """
-        req_body = message_to_json(SearchModelVersionsRequest(filter=filter_string))
+        _require_arg_unspecified(arg_name="order_by", arg_value=order_by)
+        req_body = message_to_json(
+            SearchModelVersionsRequest(
+                filter=filter_string, page_token=page_token, max_results=max_results
+            )
+        )
         response_proto = self._call_endpoint(SearchModelVersionsRequest, req_body)
         model_versions = [model_version_from_uc_proto(mvd) for mvd in response_proto.model_versions]
         return PagedList(model_versions, response_proto.next_page_token)

@@ -1,4 +1,4 @@
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel, RegisteredModelAlias
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion as ProtoModelVersion,
     ModelVersionStatus as ProtoModelVersionStatus,
@@ -30,6 +30,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         run_id=uc_proto.run_id,
         status=uc_model_version_status_to_string(uc_proto.status),
         status_message=uc_proto.status_message,
+        aliases=[alias.alias for alias in (uc_proto.aliases or [])],
     )
 
 
@@ -39,6 +40,10 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
         creation_timestamp=uc_proto.creation_timestamp,
         last_updated_timestamp=uc_proto.last_updated_timestamp,
         description=uc_proto.description,
+        aliases=[
+            RegisteredModelAlias(alias=alias.alias, version=alias.version)
+            for alias in (uc_proto.aliases or [])
+        ],
     )
 
 
@@ -51,8 +56,26 @@ def get_artifact_repo_from_storage_info(
     :param storage_location: Storage location of the model version
     :param scoped_token: Protobuf scoped token to use to authenticate to blob storage
     """
+    try:
+        return _get_artifact_repo_from_storage_info(
+            storage_location=storage_location, scoped_token=scoped_token
+        )
+    except ImportError as e:
+        raise MlflowException(
+            "Unable to import necessary dependencies to access model version files in "
+            "Unity Catalog. Please ensure you have the necessary dependencies installed, "
+            "e.g. by running 'pip install mlflow[databricks]' or "
+            "'pip install mlflow-skinny[databricks]'"
+        ) from e
+
+
+def _get_artifact_repo_from_storage_info(
+    storage_location: str, scoped_token: TemporaryCredentials
+) -> ArtifactRepository:
     credential_type = scoped_token.WhichOneof("credentials")
     if credential_type == "aws_temp_credentials":
+        # Verify upfront that boto3 is importable
+        import boto3  # pylint: disable=unused-import
         from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 
         aws_creds = scoped_token.aws_temp_credentials

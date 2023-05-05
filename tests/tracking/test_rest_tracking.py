@@ -673,6 +673,21 @@ def test_log_batch_validation(mlflow_client):
             f"Invalid value foo for parameter '{request_parameter}' supplied",
         )
 
+    ## Should 400 if missing timestamp
+    assert_bad_request(
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
+        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
+    )
+
+    ## Should 200 if timestamp provided but step is not
+    response = _send_rest_tracking_post_request(
+        mlflow_client.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5, "timestamp": 123456789}]},
+    )
+
+    assert response.status_code == 200
+
 
 @pytest.mark.allow_infer_pip_requirements_fallback
 def test_log_model(mlflow_client):
@@ -1106,6 +1121,39 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
         json={
             "name": name,
             "source": "mlflow-artifacts:/models",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # A single trailing slash
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple trailing slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models///",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/foo///bar",
             "run_id": run.info.run_id,
         },
     )

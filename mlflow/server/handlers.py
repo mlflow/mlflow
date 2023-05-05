@@ -1,11 +1,11 @@
 # Define all the service endpoint handlers here.
 import json
 import os
-import re
 import tempfile
 import posixpath
 import urllib
 import pathlib
+import re
 
 import logging
 from functools import wraps
@@ -1095,14 +1095,13 @@ def _get_artifact_repo(run):
 def _log_batch():
     def _assert_metrics_fields_present(metrics):
         for m in metrics:
-            _assert_required(m["key"])
-            _assert_required(m["value"])
-            _assert_required(m["timestamp"])
-            _assert_required(m["step"])
+            _assert_required(m.get("key"))
+            _assert_required(m.get("value"))
+            _assert_required(m.get("timestamp"))
 
     def _assert_params_tags_fields_present(params_or_tags):
         for param_or_tag in params_or_tags:
-            _assert_required(param_or_tag["key"])
+            _assert_required(param_or_tag.get("key"))
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1338,7 +1337,7 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "s3:/my_bucket/models/path/../../other/path"
     "file://path/to/../../../../some/where/you/should/not/be"
     """
-    source_path = urllib.parse.urlparse(source).path
+    source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
     resolved_source = pathlib.Path(source_path).resolve().as_posix()
     # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
     # drive path of the pwd to a given path. We don't care about the drive here, though.
