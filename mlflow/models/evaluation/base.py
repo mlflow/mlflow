@@ -432,7 +432,9 @@ class EvaluationDataset:
                 try:
                     data = np.array(data)
                 except ValueError as e:
-                    raise MlflowException(message=shape_message, error_code=INVALID_PARAMETER_VALUE) from e
+                    raise MlflowException(
+                        message=shape_message, error_code=INVALID_PARAMETER_VALUE
+                    ) from e
 
             if len(data.shape) != 2:
                 raise MlflowException(

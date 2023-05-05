@@ -278,7 +278,6 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
-          
 
   pyfunc:
     runs-on: ubuntu-latest
@@ -332,11 +331,14 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install python dependencies
+        # NOTE: numpy is pinned below due to internal incompatibilities in shap with deprecated
+        # numpy dtypes. Once the cross version tests for shap are passing for the latest released
+        # version, remove this pin.
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install pyspark
+          pip install pyspark "numpy<1.24.0"
           pip install mleap
       - name: Download Hadoop winutils for Spark
         run: |
