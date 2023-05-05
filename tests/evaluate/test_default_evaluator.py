@@ -34,7 +34,6 @@ from mlflow.models.evaluation.default_evaluator import (
     _CustomMetric,
     _CustomArtifact,
 )
-from mlflow.models.utils import plot_lines  # pylint: disable=unused-import
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import FunctionTransformer
@@ -47,21 +46,8 @@ from PIL import Image, ImageChops
 import io
 
 # pylint: disable=unused-import
-from tests.models.test_evaluation import (
+from tests.evaluate.test_evaluation import (
     get_run_data,
-    baseline_model_uri,
-    diabetes_dataset,
-    multiclass_logistic_regressor_model_uri,
-    linear_regressor_model_uri,
-    iris_dataset,
-    iris_pandas_df_dataset,
-    iris_pandas_df_num_cols_dataset,
-    binary_logistic_regressor_model_uri,
-    breast_cancer_dataset,
-    spark_linear_regressor_model_uri,
-    diabetes_spark_dataset,
-    svm_model_uri,
-    pipeline_model_uri,
     get_pipeline_model_dataset,
 )
 
