@@ -15,6 +15,10 @@ from unittest import mock
 import pytest
 
 # pylint: disable=unused-import
+from tests.evaluate.test_evaluation import (
+    multiclass_logistic_regressor_model_uri,
+    iris_dataset,
+)
 
 message_separator = "\n"
 
