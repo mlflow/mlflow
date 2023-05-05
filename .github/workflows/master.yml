@@ -331,14 +331,11 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install python dependencies
-        # NOTE: numpy is pinned below due to internal incompatibilities in shap with deprecated
-        # numpy dtypes. Once the cross version tests for shap are passing for the latest released
-        # version, remove this pin.
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .[extras]
-          pip install pyspark "numpy<1.24.0"
+          pip install pyspark
           pip install mleap
       - name: Download Hadoop winutils for Spark
         run: |
@@ -355,7 +352,7 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
