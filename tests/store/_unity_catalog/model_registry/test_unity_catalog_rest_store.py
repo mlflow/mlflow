@@ -88,7 +88,6 @@ def spark_session(request):
     ) as spark_session_getter:
         spark = mock.MagicMock()
         spark_session_getter.return_value = spark
-        print(request.param)
 
         # Define a custom side effect function for spark sql queries
         def sql_side_effect(query):
