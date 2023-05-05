@@ -315,7 +315,13 @@ class UcModelRegistryStore(BaseRestStore):
         response = http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
         )
-        response = verify_rest_response(response, endpoint)
+        try:
+            verify_rest_response(response, endpoint)
+        except MlflowException:
+            _logger.exception(
+                "Unable to fetch model version's source run from tracking server. No run link "
+                "will be recorded for the model version. Exception: "
+            )
         if _DATABRICKS_ORG_ID_HEADER not in response.headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
