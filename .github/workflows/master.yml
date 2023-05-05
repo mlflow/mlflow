@@ -254,6 +254,31 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
+  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
+  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
+  # When the shap cross version tests are passing in a new release version of shap, this pin should
+  # be removed.
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install pyspark "numpy<1.24.0"
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/evaluate
+
   pyfunc:
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -327,7 +352,7 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
