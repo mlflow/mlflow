@@ -190,6 +190,8 @@ gluon:
   models:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      "<= 1.9.1": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -200,6 +202,8 @@ gluon:
   autologging:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      "<= 1.9.1": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py
@@ -253,6 +257,7 @@ onnx:
     maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
+      "< 1.11.0": ["numpy<1.24.0"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -362,6 +367,7 @@ mleap:
     minimum: "0.18.0"
     maximum: "0.22.0"
     requirements:
+      "< 0.22.0": ["numpy<1.24.0"]
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark<3.4"]
     run: |
@@ -440,6 +446,8 @@ shap:
   models:
     minimum: "0.41.0"
     maximum: "0.41.0"
+    requirements:
+      "<= 0.41.0": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
