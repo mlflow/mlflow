@@ -10,6 +10,8 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 
 _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k) for k in ProtoModelVersionStatus.keys()}
 _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
+_ACTIVE_CATALOG_QUERY = "SELECT current_catalog() AS catalog"
+_ACTIVE_SCHEMA_QUERY = "SELECT current_database() AS schema"
 
 
 def uc_model_version_status_to_string(status):
@@ -83,3 +85,20 @@ def get_artifact_repo_from_storage_info(
         raise MlflowException(
             f"Got unexpected token type {credential_type} for Unity Catalog managed file access"
         )
+
+
+def get_full_name_from_sc(name, spark) -> str:
+    """
+    Constructs the full name of a registered model using the active catalog and schema in a spark
+    session / context.
+    :param name: the model name provided by the user
+    :param spark: the active spark session
+    """
+    num_levels = len(name.split("."))
+    if num_levels >= 3 or spark == None:
+        return name
+    catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
+    if num_levels == 2:
+        return f"{catalog}.{name}"
+    schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]
+    return f"{catalog}.{schema}.{name}"
