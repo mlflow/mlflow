@@ -118,9 +118,12 @@ def get_full_name_from_sc(name, spark) -> str:
     :param spark: the active spark session
     """
     num_levels = len(name.split("."))
-    if num_levels >= 3 or spark == None:
+    if num_levels >= 3 or spark is None:
         return name
     catalog = spark.sql(_ACTIVE_CATALOG_QUERY).collect()[0]["catalog"]
+    # return the user provided name if the catalog is the hive metastore default
+    if catalog in {"spark_catalog", "hive_metastore"}:
+        return name
     if num_levels == 2:
         return f"{catalog}.{name}"
     schema = spark.sql(_ACTIVE_SCHEMA_QUERY).collect()[0]["schema"]

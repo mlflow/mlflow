@@ -82,18 +82,19 @@ def store(mock_databricks_host_creds):
 
 
 @pytest.fixture
-def spark_session():
+def spark_session(request):
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store._get_active_spark_session"
     ) as spark_session_getter:
         spark = mock.MagicMock()
         spark_session_getter.return_value = spark
+        print(request.param)
 
         # Define a custom side effect function for spark sql queries
         def sql_side_effect(query):
             if query == _ACTIVE_CATALOG_QUERY:
                 catalog_response_mock = mock.MagicMock()
-                catalog_response_mock.collect.return_value = [{"catalog": "main"}]
+                catalog_response_mock.collect.return_value = [{"catalog": request.param}]
                 return catalog_response_mock
             elif query == _ACTIVE_SCHEMA_QUERY:
                 schema_response_mock = mock.MagicMock()
@@ -787,6 +788,7 @@ def test_get_model_version_by_alias(mock_http, store):
 
 
 @mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)  # set the catalog name to "main"
 def test_store_uses_catalog_and_schema_from_spark_session(mock_http, spark_session, store):
     name = "model_1"
     full_name = "main.default.model_1"
@@ -800,6 +802,7 @@ def test_store_uses_catalog_and_schema_from_spark_session(mock_http, spark_sessi
 
 
 @mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)
 def test_store_uses_catalog_from_spark_session(mock_http, spark_session, store):
     name = "default.model_1"
     full_name = "main.default.model_1"
@@ -808,4 +811,16 @@ def test_store_uses_catalog_from_spark_session(mock_http, spark_session, store):
     assert spark_session.sql.call_count == 1
     _verify_requests(
         mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["hive_metastore", "spark_catalog"], indirect=True)
+def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spark_session, store):
+    name = "model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    assert spark_session.sql.call_count == 1
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
     )
