@@ -12,11 +12,19 @@ generation_pipeline = transformers.pipeline(
     model=model,
 )
 
+input_example = "keyboard engineer model data science"
+
+signature = mlflow.models.infer_signature(
+    input_example,
+    mlflow.transformers.generate_signature_output(generation_pipeline, input_example),
+)
+
 with mlflow.start_run() as run:
     model_info = mlflow.transformers.log_model(
         transformers_model=generation_pipeline,
         artifact_path="sentence_builder",
-        input_example="keyboard engineer model data science",
+        input_example=input_example,
+        signature=signature,
     )
 
 sentence_generator = mlflow.pyfunc.load_model(model_info.model_uri)

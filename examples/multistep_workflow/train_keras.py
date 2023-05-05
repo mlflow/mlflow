@@ -6,6 +6,7 @@ will use to supplement our input and train using.
 import click
 
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.spark
 
 from itertools import chain
@@ -107,9 +108,12 @@ def train_keras(ratings_data, als_model_uri, hidden_units):
     test_mse = model.evaluate(x_test, pandas_test_df["rating"], verbose=2)
     mlflow.log_metric("test_mse", test_mse)
     mlflow.log_metric("train_mse", train_mse)
+    input_examples = x_test.head()
+    predictions = model.predict(input_examples)
+    signature = infer_signature(input_examples, predictions)
 
     print("The model had a MSE on the test set of {}".format(test_mse))
-    mlflow.tensorflow.log_model(model, "keras-model")
+    mlflow.tensorflow.log_model(model, "keras-model", signature=signature)
 
 
 if __name__ == "__main__":

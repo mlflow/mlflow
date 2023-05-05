@@ -100,7 +100,7 @@ class KerasImageClassifierPyfunc:
                 return self._model.predict(x)
 
 
-def log_model(keras_model, artifact_path, image_dims, domain):
+def log_model(keras_model, signature, artifact_path, image_dims, domain):
     """
     Log a KerasImageClassifierPyfunc model as an MLflow artifact for the current run.
 
@@ -133,6 +133,7 @@ def log_model(keras_model, artifact_path, image_dims, domain):
 
         mlflow.pyfunc.log_model(
             artifact_path=artifact_path,
+            singature=signature,
             loader_module=__name__,
             code_path=[__file__],
             data_path=data_path,

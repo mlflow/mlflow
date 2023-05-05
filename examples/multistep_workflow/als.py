@@ -6,6 +6,7 @@ an mlflow artifact called 'als-model'.
 import click
 
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.spark
 
 import pyspark
@@ -53,16 +54,17 @@ def train_als(ratings_data, split_prop, max_iter, reg_param, rank, cold_start_st
 
     reg_eval = RegressionEvaluator(predictionCol="predictions", labelCol="rating", metricName="mse")
 
-    predicted_test_dF = als_model.transform(test_df)
+    predicted_test_df = als_model.transform(test_df)
 
-    test_mse = reg_eval.evaluate(predicted_test_dF)
+    test_mse = reg_eval.evaluate(predicted_test_df)
     train_mse = reg_eval.evaluate(als_model.transform(training_df))
 
     print("The model had a MSE on the test set of {}".format(test_mse))
     print("The model had a MSE on the (train) set of {}".format(train_mse))
     mlflow.log_metric("test_mse", test_mse)
     mlflow.log_metric("train_mse", train_mse)
-    mlflow.spark.log_model(als_model, "als-model")
+    signature = infer_signature(test_df, predicted_test_df)
+    mlflow.spark.log_model(als_model, "als-model", signature=signature)
 
 
 if __name__ == "__main__":

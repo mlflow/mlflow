@@ -11,6 +11,7 @@ from sktime.performance_metrics.forecasting import (
 )
 
 import mlflow
+from mlflow.models.signature import infer_signature
 
 ARTIFACT_PATH = "model"
 
@@ -41,6 +42,10 @@ with mlflow.start_run() as run:
     mlflow.log_params(parameters)
     mlflow.log_metrics(metrics)
 
+    # Infer model signature
+    predictions = forecaster.predict(X_train)
+    signature = infer_signature(X_train, predictions)
+
     # Log model using custom model flavor with pickle serialization (default).
     # Note that pickle serialization requires using the same python environment
     # (version) in whatever environment you're going to use this model for
@@ -50,6 +55,7 @@ with mlflow.start_run() as run:
         sktime_model=forecaster,
         artifact_path=ARTIFACT_PATH,
         serialization_format="pickle",
+        signature=signature,
     )
     model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
 

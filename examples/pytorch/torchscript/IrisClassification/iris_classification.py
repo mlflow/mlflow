@@ -8,6 +8,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 import mlflow.pytorch
+from mlflow.models.signature import infer_signature
 
 
 class IrisClassifier(nn.Module):
@@ -70,6 +71,7 @@ def test_model(model, X_test, y_test):
         _, predict_y = torch.max(predict_out, 1)
 
         print("\nprediction accuracy", float(accuracy_score(y_test.cpu(), predict_y.cpu())))
+        return infer_signature(X_test, predict_out)
 
 
 if __name__ == "__main__":
@@ -86,10 +88,12 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test, target_names = prepare_data()
     scripted_model = torch.jit.script(model)  # scripting the model
     scripted_model = train_model(scripted_model, args.epochs, X_train, y_train)
-    test_model(scripted_model, X_test, y_test)
+    signature = test_model(scripted_model, X_test, y_test)
 
     with mlflow.start_run() as run:
-        mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
+        mlflow.pytorch.log_model(
+            scripted_model, "model", signature=signature
+        )  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")
         loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
         model.eval()
