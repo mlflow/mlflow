@@ -1126,6 +1126,7 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 transformers.TextClassificationPipeline,
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
+                transformers.Text2TextGenerationPipeline,
             ),
         ):
             return ModelSignature(
@@ -1146,7 +1147,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             pipeline,
             (
                 transformers.TableQuestionAnsweringPipeline,
-                transformers.Text2TextGenerationPipeline,
                 transformers.QuestionAnsweringPipeline,
             ),
         ):
@@ -1155,9 +1155,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             if isinstance(pipeline, transformers.TableQuestionAnsweringPipeline):
                 column_1 = "query"
                 column_2 = "table"
-            elif isinstance(pipeline, transformers.Text2TextGenerationPipeline):
-                column_1 = "answer"
-                column_2 = "context"
             elif isinstance(pipeline, transformers.QuestionAnsweringPipeline):
                 column_1 = "question"
                 column_2 = "context"
