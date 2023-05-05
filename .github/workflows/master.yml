@@ -263,17 +263,17 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
-            - uses: ./.github/actions/setup-python
-            - uses: ./.github/actions/setup-pyenv
-            - uses: ./.github/actions/setup-java
-            - name: Install dependencies
-              run: |
-                source ./dev/install-common-deps.sh
-                pip install pyspark "numpy<1.24.0"
-            - name: Run tests
-              run: |
-                export MLFLOW_HOME=$(pwd)
-                pytest tests/evaluate
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install pyspark "numpy<1.24.0"
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/evaluate
           
 
   pyfunc:
