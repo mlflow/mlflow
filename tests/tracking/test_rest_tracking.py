@@ -14,12 +14,15 @@ import tempfile
 import time
 import urllib.parse
 import requests
+import pandas as pd
 from unittest import mock
 
 import pytest
 
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.utils import mlflow_tags
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import (
@@ -1302,6 +1305,40 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
         assert run.info.artifact_uri.startswith("file://")
         mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
+
+
+def test_log_input(mlflow_client, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = from_pandas(df, source=path)
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
+    with mlflow.start_run() as run:
+        mlflow.log_input(dataset, "train", {"foo": "baz"})
+
+    dataset_inputs = mlflow_client.get_run(run.info.run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {
+        "mlflow_colspec": [
+            {"name": "a", "type": "long"},
+            {"name": "b", "type": "long"},
+            {"name": "c", "type": "long"},
+        ]
+    }
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+
+    assert len(dataset_inputs[0].tags) == 2
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train"
 
 
 def test_log_inputs(mlflow_client):

@@ -746,7 +746,7 @@ def log_input(
     run_id = _get_or_start_run().info.run_id
     tags_to_log = []
     if tags:
-        tags_to_log.append([InputTag(key=key, value=value) for key, value in tags.items()])
+        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
