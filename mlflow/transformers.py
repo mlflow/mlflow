@@ -21,6 +21,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.docstring_utils import (
     format_docstring,
     LOG_MODEL_PARAM_DOCS,
@@ -1998,3 +1999,21 @@ class _TransformersWrapper:
                 else:
                     parsed_data.append(entry)
             return parsed_data
+
+
+@autologging_integration(FLAVOR_NAME)
+def autolog():
+
+    try:
+        import transformers
+    except ImportError:
+        pass
+
+    # patch Trainer
+
+    # patch the SetFitTrainer
+
+    # TODO: create the patched train functions
+
+    # TODO: investigate any other ways of initiating training and ensure that we patch those too!
+    pass

@@ -11,6 +11,8 @@ from setfit import SetFitModel, SetFitTrainer, sample_dataset
 def test_with_autolog():
     mlflow.autolog()
 
+    # mlflow.sklearn.autolog(disable=True)
+
     dataset = load_dataset("sst2")
 
     train_dataset = sample_dataset(dataset["train"], label_column="label", num_samples=8)
@@ -44,3 +46,6 @@ def test_with_autolog():
     print(preds)
 
 
+# TODO: just patch the Trainer object's .train() method and add it to the list of autologging
+#  entries. Within that patch, disable tensorflow, pytorch, and sklearn autologging so that we're
+#  not logging models that we don't care about.
