@@ -254,6 +254,10 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
+  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
+  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
+  # When the shap cross version tests are passing in a new release version of shap, this pin should
+  # be removed.
   evaluate:
     runs-on: ubuntu-latest
     timeout-minutes: 90
