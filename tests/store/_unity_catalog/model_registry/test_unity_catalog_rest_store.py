@@ -86,7 +86,6 @@ def spark_session():
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store._get_active_spark_session"
     ) as spark_session_getter:
-        # Create a MagicMock for the spark session
         spark = mock.MagicMock()
         spark_session_getter.return_value = spark
 
