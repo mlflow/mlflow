@@ -1688,10 +1688,10 @@ For a minimal statsmodels regression model, here is an example of the pyfunc pre
     X = pd.DataFrame(data=diabetes.data, columns=diabetes.feature_names)
     y = pd.DataFrame(data=diabetes.target, columns=["target"])
 
-    # Concatenate X and y dataframes
+    # concatenate X and y dataframes
     df = pd.concat([X, y], axis=1)
 
-    # Create the linear regression model (ordinary least squares)
+    # create the linear regression model (ordinary least squares)
     model = smf.ols(
         formula="target ~ age + sex + bmi + bp + s1 + s2 + s3 + s4 + s5 + s6", data=df
     )
@@ -1734,7 +1734,7 @@ For a minimal time series ARIMA model, here is an example of the pyfunc predict(
     # generate the seasonal component (weekly)
     seasonality = np.sin(np.arange(len(dates)) * (2 * np.pi / 365.25) * 7)
 
-    # gGenerate the trend component
+    # generate the trend component
     trend = np.linspace(-5, 5, len(dates)) + 2 * np.sin(
         np.arange(len(dates)) * (2 * np.pi / 365.25) * 0.1
     )
@@ -1750,6 +1750,7 @@ For a minimal time series ARIMA model, here is an example of the pyfunc predict(
     data.set_index("date", inplace=True)
 
     order = (1, 0, 0)
+    # create the ARIMA model
     model = ARIMA(data, order=order)
 
     mlflow.statsmodels.autolog(
@@ -1763,7 +1764,6 @@ For a minimal time series ARIMA model, here is an example of the pyfunc predict(
 
     with mlflow.start_run():
         res = model.fit()
-        # select params to log
         mlflow.log_params(
             {
                 "order": order,
@@ -1772,10 +1772,8 @@ For a minimal time series ARIMA model, here is an example of the pyfunc predict(
             }
         )
         mlflow.log_params(res.params)
-        # select metrics to log
         mlflow.log_metric("aic", res.aic)
         mlflow.log_metric("bic", res.bic)
-        # log the model
         model_info = mlflow.statsmodels.log_model(res, artifact_path="ARIMA_model")
 
     # load the pyfunc model
