@@ -167,14 +167,17 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
-      called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
+      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Virtualenv environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      called ``python_env.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
 
-      ``sklearn_elasticnet_wine/conda.yaml`` file lists the dependencies:
+      ``sklearn_elasticnet_wine/python_env.yaml`` file lists the dependencies:
 
-      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/conda.yaml
+      .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/python_env.yaml
+
+      Another option to specify dependencies are `conda environments`.
+      For more information checkout the `documentation <https://mlflow.org/docs/latest/projects.html#project-environments>`_ and the Conda environment file at ``sklearn_elasticnet_wine/conda.yaml``.
 
       To run this project, invoke ``mlflow run sklearn_elasticnet_wine -P alpha=0.42``. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
