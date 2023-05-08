@@ -256,6 +256,7 @@ For example:
     .. code-block:: python
 
         import mlflow
+        from mlflow.models.signature import infer_signature
 
         from sklearn.model_selection import train_test_split
         from sklearn.datasets import load_diabetes
@@ -274,7 +275,10 @@ For example:
             predictions = rf.predict(X_test)
             print(predictions)
 
-            mlflow.sklearn.log_model(rf, "model")
+            # Create a signature for the model
+            signature = infer_signature(X_test, predictions)
+
+            mlflow.sklearn.log_model(rf, "model", signature=signature)
 
             print("Run ID: {}".format(run.info.run_id))
 

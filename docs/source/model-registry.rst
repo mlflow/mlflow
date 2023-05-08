@@ -107,9 +107,10 @@ There are three programmatic ways to add a model to the registry. First, you can
     from mlflow.models.signature import infer_signature
 
     with mlflow.start_run() as run:
-
         X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
         params = {"max_depth": 2, "random_state": 42}
         model = RandomForestRegressor(**params)
         model.fit(X_train, y_train)

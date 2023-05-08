@@ -892,7 +892,9 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
         lr.fit(X, y)
         signature = infer_signature(X, lr.predict(X))
 
-        model_info = mlflow.sklearn.log_model(sk_model=lr, artifact_path="model", signature=signature)
+        model_info = mlflow.sklearn.log_model(
+            sk_model=lr, artifact_path="model", signature=signature
+        )
 
     sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -1189,7 +1191,9 @@ The example below
         clf_params = xgb_classifier.get_xgb_params()
         mlflow.log_params(clf_params)
         signature = infer_signature(X_train, xgb_classifier.predict(y_train))
-        model_info = mlflow.xgboost.log_model(xgb_classifier, "iris-classifier", signature=signature)
+        model_info = mlflow.xgboost.log_model(
+            xgb_classifier, "iris-classifier", signature=signature
+        )
 
     # Load saved model and make predictions
     xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1257,7 +1261,9 @@ The example below
         }
         mlflow.log_metrics(feature_importance_metrics)
         signature = infer_signature(X_train, lgb_classifier.predict(X_train))
-        model_info = mlflow.lightgbm.log_model(lgb_classifier, "iris-classifier", signature=signature)
+        model_info = mlflow.lightgbm.log_model(
+            lgb_classifier, "iris-classifier", signature=signature
+        )
 
     # Load saved model and make predictions
     lgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1299,7 +1305,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
         allow_writing_files=False,
     )
     model.fit(X, y)
-    
+
     # create model signature
     predictions = model.predict(X)
     signature = infer_signature(X, predictions)
@@ -1756,7 +1762,9 @@ ds            y
         predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
         signature = infer_signature(train, predictions)
 
-        model_info = mlflow.prophet.log_model(prophet_model, "prophet-model", signature=signature)
+        model_info = mlflow.prophet.log_model(
+            prophet_model, "prophet-model", signature=signature
+        )
 
     # Load saved model
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
