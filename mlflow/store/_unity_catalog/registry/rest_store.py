@@ -318,9 +318,9 @@ class UcModelRegistryStore(BaseRestStore):
         try:
             verify_rest_response(response, endpoint)
         except MlflowException:
-            _logger.exception(
+            _logger.warning(
                 "Unable to fetch model version's source run from tracking server. No run link "
-                "will be recorded for the model version. Exception: "
+                "will be recorded for the model version"
             )
         if _DATABRICKS_ORG_ID_HEADER not in response.headers:
             _logger.warning(
