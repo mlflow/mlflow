@@ -175,4 +175,7 @@ def test_command_example(directory, command):
     import os
 
     assert os.environ.get("MLFLOW_HOME") is not None
+    env = os.environ.copy()
+    if directory == "transformers":
+        env["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
