@@ -97,25 +97,36 @@ There are three programmatic ways to add a model to the registry. First, you can
 
 .. code-block:: python
 
-    from random import random, randint
+    from sklearn.datasets import make_regression
     from sklearn.ensemble import RandomForestRegressor
+    from sklearn.metrics import mean_squared_error
+    from sklearn.model_selection import train_test_split
 
     import mlflow
     import mlflow.sklearn
+    from mlflow.models.signature import infer_signature
 
-    with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
-        params = {"n_estimators": 5, "random_state": 42}
-        sk_learn_rfr = RandomForestRegressor(**params)
+    with mlflow.start_run() as run:
+
+        X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        params = {"max_depth": 2, "random_state": 42}
+        model = RandomForestRegressor(**params)
+        model.fit(X_train, y_train)
+
+        # Infer the model signature
+        y_pred = model.predict(X_test)
+        signature = infer_signature(X_test, y_pred)
 
         # Log parameters and metrics using the MLflow APIs
         mlflow.log_params(params)
-        mlflow.log_param("param_1", randint(0, 100))
-        mlflow.log_metrics({"metric_1": random(), "metric_2": random() + 1})
+        mlflow.log_metrics({"mse": mean_squared_error(y_test, y_pred)})
 
         # Log the sklearn model and register as version 1
         mlflow.sklearn.log_model(
-            sk_model=sk_learn_rfr,
+            sk_model=model,
             artifact_path="sklearn-model",
+            signature=signature,
             registered_model_name="sk-learn-random-forest-reg-model",
         )
 
@@ -144,7 +155,8 @@ this method will throw an :class:`~mlflow.exceptions.MlflowException` because cr
    client = MlflowClient()
    client.create_registered_model("sk-learn-random-forest-reg-model")
 
-While the method above creates an empty registered model with no version associated, the method below creates a new version of the model.
+The method above creates an empty registered model with no version associated. You can use :meth:`~mlflow.client.MlflowClient.create_model_version`
+as shown below to create a new version of the model.
 
 .. code-block:: python
 
@@ -353,8 +365,8 @@ in sklearn's pickled format, you want to register this model with the Model Regi
 an ML framework without a built-in MLflow model flavor support, for instance, `vaderSentiment,` and want to register the model.
 
 
-Registering a Saved Model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Registering a Model Saved Outside MLflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Not everyone will start their model training with MLflow. So you may have some models trained before the use of MLflow.
 Instead of retraining the models, all you want to do is register your saved models with the Model Registry.
 
@@ -427,9 +439,17 @@ register the loaded model with the Model Registry.
 .. code-block:: python
 
     import mlflow
+    from mlflow.models.signature import infer_signature
+    import numpy as np
+    from sklearn import datasets
 
     # load the model into memory
     loaded_model = pickle.load(open(filename, "rb"))
+
+    # create a signature for the model based on the input and output data
+    diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
+    diabetes_X = diabetes_X[:, np.newaxis, 2]
+    signature = infer_signature(diabetes_X, diabetes_y)
 
     # log and register the model using MLflow scikit-learn API
     mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -439,6 +459,7 @@ register the loaded model with the Model Registry.
         loaded_model,
         "sk_learn",
         serialization_format="cloudpickle",
+        signature=signature,
         registered_model_name=reg_model_name,
     )
 
