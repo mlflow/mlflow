@@ -133,7 +133,7 @@ def log_model(keras_model, signature, artifact_path, image_dims, domain):
 
         mlflow.pyfunc.log_model(
             artifact_path=artifact_path,
-            singature=signature,
+            signature=signature,
             loader_module=__name__,
             code_path=[__file__],
             data_path=data_path,

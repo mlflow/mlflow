@@ -2,7 +2,6 @@
 # https://catboost.ai/docs/concepts/python-usages-examples.html#regression
 
 import mlflow
-from mlflow.models.signature import infer_signature
 from catboost import CatBoostRegressor
 
 # Initialize data
@@ -22,14 +21,10 @@ model = CatBoostRegressor(**params)
 # Fit model
 model.fit(train_data, train_labels)
 
-# Infer model signature
-predictions = model.predict(train_data)
-signature = infer_signature(train_data, predictions)
-
 # Log parameters and fitted model
 with mlflow.start_run() as run:
     mlflow.log_params(params)
-    mlflow.catboost.log_model(model, signature=signature, artifact_path="model")
+    mlflow.catboost.log_model(model, artifact_path="model")
     model_uri = mlflow.get_artifact_uri("model")
 
 # Load model

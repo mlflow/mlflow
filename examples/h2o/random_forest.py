@@ -3,7 +3,6 @@ from h2o.estimators.random_forest import H2ORandomForestEstimator
 
 import mlflow
 import mlflow.h2o
-from mlflow.models.signature import infer_signature
 
 h2o.init()
 
@@ -18,8 +17,6 @@ def train_random_forest(ntrees):
         rf = H2ORandomForestEstimator(ntrees=ntrees)
         train_cols = [n for n in wine.col_names if n != "quality"]
         rf.train(train_cols, "quality", training_frame=train, validation_frame=test)
-        predictions = rf.predict(train)
-        signature = infer_signature(train, predictions)
 
         mlflow.log_param("ntrees", ntrees)
 
@@ -27,7 +24,7 @@ def train_random_forest(ntrees):
         mlflow.log_metric("r2", rf.r2())
         mlflow.log_metric("mae", rf.mae())
 
-        mlflow.h2o.log_model(rf, "model", signature=signature)
+        mlflow.h2o.log_model(rf, "model")
 
 
 if __name__ == "__main__":
