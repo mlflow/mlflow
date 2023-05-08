@@ -2002,10 +2002,39 @@ class _TransformersWrapper:
 
 
 @autologging_integration(FLAVOR_NAME)
-def autolog():
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+):
+    import functools
+
+    def train(original, *args, **kwargs):
+        with mlflow.utils.autologging_utils.disable_autologging():
+            print("DISABLING AUTOLOGGING!")
+            return original(*args, **kwargs)
+
+    try:
+        import setfit
+
+        print("PATCHING SETFIT TRAIN!")
+        safe_patch(
+            FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=True
+        )
+
+    except ImportError:
+        pass
 
     try:
         import transformers
+
+        safe_patch(
+            FLAVOR_NAME, transformers.Trainer, "train", functools.partial(train), manage_run=False
+        )
     except ImportError:
         pass
 
@@ -2016,4 +2045,3 @@ def autolog():
     # TODO: create the patched train functions
 
     # TODO: investigate any other ways of initiating training and ensure that we patch those too!
-    pass

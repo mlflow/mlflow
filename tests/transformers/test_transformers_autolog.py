@@ -7,7 +7,6 @@ from sentence_transformers.losses import CosineSimilarityLoss
 from setfit import SetFitModel, SetFitTrainer, sample_dataset
 
 
-
 def test_with_autolog():
     mlflow.autolog()
 

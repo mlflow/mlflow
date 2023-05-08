@@ -225,6 +225,10 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "4.25.1",
             "maximum": "4.28.1"
+        },
+        "autologging": {
+            "minimum": "4.25.1",
+            "maximum": "4.28.1"
         }
     },
     "openai": {
