@@ -347,6 +347,24 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         assert store._get_workspace_id(run_id="some_run_id") is None
 
 
+@pytest.mark.parametrize(
+    "status_code,response_text",
+    [
+        (403, str({})),
+        (500, "<html><div>Not real json</div></html>"),
+    ],
+)
+def test_get_workspace_id_returns_none_if_request_fails(store, status_code, response_text):
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = status_code
+    mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+    mock_response.text = response_text
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
+    ):
+        assert store._get_workspace_id(run_id="some_run_id") is None
+
+
 def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_host_creds, tmp_path
 ):
