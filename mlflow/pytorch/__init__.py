@@ -695,9 +695,11 @@ def load_model(model_uri, dst_path=None, **kwargs):
         import torch
         import mlflow.pytorch
 
+
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
+
 
         # Initialize our model, criterion and optimizer
         ...
