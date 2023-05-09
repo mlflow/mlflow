@@ -1205,6 +1205,20 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert pd_inference == result
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation_pipeline):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text2text_generation_pipeline, artifact_path="my_model"
+        )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert (
+        pyfunc_loaded.predict("muppet board nails hammer")
+        == "A muppet is hammering nails on a board."
+    )
+
+
 @pytest.mark.parametrize(
     "invalid_data",
     [
@@ -2354,3 +2368,97 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
     assert inference.startswith("What is MLflow?")
     assert "\n\n" in inference
+
+
+@pytest.mark.parametrize(
+    ["pipeline_name", "data", "result"],
+    [
+        (
+            "small_qa_pipeline",
+            {"question": "Who's house?", "context": "The house is owned by Run."},
+            {
+                "inputs": '[{"name": "question", "type": "string"}, {"name": "context", '
+                '"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "zero_shot_pipeline",
+            {
+                "sequences": "These pipelines are super cool!",
+                "candidate_labels": ["interesting", "uninteresting"],
+                "hypothesis_template": "This example talks about how pipelines are {}",
+            },
+            {
+                "inputs": '[{"name": "sequences", "type": "string"}, {"name": '
+                '"candidate_labels", "type": "string"}, {"name": '
+                '"hypothesis_template", "type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "text_classification_pipeline",
+            "We're just going to have to agree to disagree, then.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "table_question_answering_pipeline",
+            {
+                "query": "how many widgets?",
+                "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
+            },
+            {
+                "inputs": '[{"name": "query", "type": "string"}, {"name": "table", "type": '
+                '"string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "summarizer_pipeline",
+            "If you write enough tests, you can be sure that your code isn't broken.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "translation_pipeline",
+            "No, I am your father.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "text_generation_pipeline",
+            ["models are", "apples are"],
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "text2text_generation_pipeline",
+            ["man apple pie", "dog pizza eat"],
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "fill_mask_pipeline",
+            "Juggling <mask> is remarkably dangerous",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "conversational_pipeline",
+            "What's shaking, my robot homie?",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "ner_pipeline",
+            "Blue apples are not a thing",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_signature_inference(pipeline_name, data, result, request):
+    pipeline = request.getfixturevalue(pipeline_name)
+
+    default_signature = mlflow.transformers._get_default_pipeline_signature(pipeline)
+
+    assert default_signature.to_dict() == result
+
+    signature_with_input = mlflow.transformers._get_default_pipeline_signature(pipeline, data)
+
+    assert signature_with_input.to_dict() == result
