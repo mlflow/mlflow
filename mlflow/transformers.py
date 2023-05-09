@@ -791,18 +791,21 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", dev
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
 
+
 # This function attempts to determine if a GPU is available for the PyTorch and TensorFlow libraries
 def is_gpu_available():
     # try pytorch and if it fails, try tf
     is_gpu = None
     try:
         import torch
+
         is_gpu = torch.cuda.is_available()
     except ImportError:
         pass
     if is_gpu is None:
         try:
             import tensorflow as tf
+
             is_gpu = tf.test.is_gpu_available()
         except ImportError:
             pass
@@ -810,11 +813,13 @@ def is_gpu_available():
         is_gpu = False
     return is_gpu
 
+
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+
     if device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
             try:
@@ -835,7 +840,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         "model": model_instance.from_pretrained(pipeline_path),
     }
     if device is not None:
-        conf['device'] = device
+        conf["device"] = device
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
@@ -1432,9 +1437,9 @@ class _TransformersWrapper:
 
         return predictions
 
-
     def _predict(self, data, device):
         import transformers
+
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
         # in which the return data structure from their __call__ implementation is modified.
