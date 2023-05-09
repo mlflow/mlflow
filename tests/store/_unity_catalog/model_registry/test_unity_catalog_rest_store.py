@@ -328,7 +328,7 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         (500, "<html><div>Not real json</div></html>"),
     ],
 )
-def test_get_workspace_id_returns_none_if_request_fails(store, status_code, response_text):
+def test_get_workspace_id_returns_none_if_request_fails(store):
     mock_response = mock.MagicMock(autospec=Response)
     mock_response.status_code = 403
     mock_response.headers = {}

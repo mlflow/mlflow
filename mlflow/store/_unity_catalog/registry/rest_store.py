@@ -323,6 +323,7 @@ class UcModelRegistryStore(BaseRestStore):
                 "from tracking server. The source run may be deleted or inaccessible to the "
                 "current user. No run link will be recorded for the model version."
             )
+            return None
         if _DATABRICKS_ORG_ID_HEADER not in response.headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
