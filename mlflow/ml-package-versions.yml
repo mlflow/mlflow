@@ -143,7 +143,7 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      git clone --recursive https://github.com/microsoft/LightGBM --depth=1
+      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master
       cd LightGBM
       bash build-python.sh install
 
