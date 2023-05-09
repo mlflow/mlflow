@@ -105,7 +105,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, "model", signature=signature)
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -248,36 +248,21 @@ def log_model(
 
         import numpy as np
         import torch
-        import mlflow.pytorch
-
-
-        class LinearNNModel(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.linear = torch.nn.Linear(1, 1)  # One in and one out
-
-            def forward(self, x):
-                y_pred = self.linear(x)
-                return y_pred
-
-
-        def gen_data():
-            # Example linear model modified to use y = 2x
-            # from https://github.com/hunkim/PyTorchZeroToAll
-            # X training data, y labels
-            X = torch.arange(1.0, 25.0).view(-1, 1)
-            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-            return X, y
-
+        import mlflow
+        from mlflow import MlflowClient
+        from mlflow.models.signature import infer_signature
 
         # Define model, loss, and optimizer
-        model = LinearNNModel()
+        model = nn.Linear(1, 1)
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
+        # Create training data with relationship y = 2X
+        X = torch.arange(1.0, 26.0).reshape(-1, 1)
+        y = X * 2
+
         # Training loop
         epochs = 250
-        X, y = gen_data()
         for epoch in range(epochs):
             # Forward pass: Compute predicted y by passing X to the model
             y_pred = model(X)
@@ -289,6 +274,9 @@ def log_model(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+        # Create model signature
+        signature = infer_signature(X.numpy(), model(X).detach().numpy())
 
         # Log the model
         with mlflow.start_run() as run:
@@ -707,12 +695,6 @@ def load_model(model_uri, dst_path=None, **kwargs):
         import torch
         import mlflow.pytorch
 
-
-        # Class defined here
-        class LinearNNModel(torch.nn.Module):
-            ...
-
-
         # Initialize our model, criterion and optimizer
         ...
 
@@ -721,7 +703,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, "model", signature=signature)
 
         # Inference after loading the logged model
         model_uri = "runs:/{}/model".format(run.info.run_id)

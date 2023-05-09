@@ -779,7 +779,13 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
             clf = RandomForestClassifier(max_depth=7, random_state=0)
             clf.fit(iris_train, iris.target)
-            mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
+            signature = infer_signature(iris_train, clf.predict(iris_train))
+            mlflow.sklearn.log_model(
+                clf,
+                "iris_rf",
+                signature=signature,
+                registered_model_name="model-with-libs"
+            )
 
         # model uri for the above model
         model_uri = "models:/model-with-libs/1"
