@@ -38,7 +38,7 @@ def main():
     dtrain = xgb.DMatrix(iris.data, iris.target)
     model = xgb.train({}, dtrain)
     predictions = model.predict(dtrain)
-    signature = infer_signature(dtrain, predictions)
+    signature = infer_signature(dtrain.get_data(), predictions)
 
     xgb_req = f"xgboost=={xgb.__version__}"
     sklearn_req = f"scikit-learn=={sklearn.__version__}"
