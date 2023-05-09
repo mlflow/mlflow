@@ -475,7 +475,16 @@ transformers:
     maximum: "4.28.1"
     requirements:
       ">= 0.0.0":
-        ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate", "setfit"]
+        [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate",
+          "setfit",
+          "optuna",
+        ]
     run: |
       pytest tests/statsmodels/test_transformers_autolog.py
 

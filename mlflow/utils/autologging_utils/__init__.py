@@ -1,9 +1,10 @@
 # pylint: disable=unused-wildcard-import,wildcard-import
 
+import contextlib
 import inspect
 import logging
 import time
-import contextlib
+from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -473,6 +474,36 @@ def disable_autologging():
     _AUTOLOGGING_GLOBALLY_DISABLED = True
     yield None
     _AUTOLOGGING_GLOBALLY_DISABLED = False
+
+
+@contextlib.contextmanager
+def disable_discrete_autologging(flavors_to_disable: List[str]):
+    """
+    Context manager for disabling specific autologging integrations temporarily while another
+    flavor's autologging is activated. This context wrapper is useful in the event that, for
+    example, a particular library calls upon another library within a training API that has a
+    current MLflow autologging integration.
+    For instance, the transformers library's Trainer class, when running metric scoring,
+    builds an sklearn model and runs evaluations as part of its accuracy scoring. Without this
+    temporary autologging disabling, a new run will be generated that contains an sklearn model
+    that holds no use for tracking purposes as it is only used during the metric evaluation phase
+    of training.
+    :param flavors_to_disable: A list of flavors that need to be temporarily disabled while
+                               executing another flavor's autologging to prevent spurious run
+                               logging of unrelated models, metrics, and parameters.
+    """
+    existing_states = {
+        module: mlflow.utils.autologging_utils.get_autologging_config(module, "disable")
+        for module in flavors_to_disable
+    }
+    for flavor in flavors_to_disable:
+        autolog_func = getattr(mlflow, flavor)
+        autolog_func.autolog(disable=True)
+    yield None
+    for flavor, state in existing_states.items():
+        if state is not None and not state:
+            autolog_func = getattr(mlflow, flavor)
+            autolog_func.autolog(disable=False)
 
 
 def _get_new_training_session_class():

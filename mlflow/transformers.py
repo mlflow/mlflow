@@ -2001,6 +2001,7 @@ class _TransformersWrapper:
             return parsed_data
 
 
+@experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,
@@ -2010,38 +2011,41 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-):
+):  # pylint: disable=W0102,unused-argument
+    """
+    This autologging integration is solely used for disabling spurious autologging of irrelevant
+    sub-models that are created during the training and evaluation of transformers-based models.
+    Autologging functionality is not implemented fully for the transformers flavor.
+    """
     import functools
 
+    # A list of other flavors whose base autologging config would be automatically logged due to
+    # training a model that would otherwise create a run and be logged internally within the
+    # transformers-supported trainer calls.
+    DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn"]
+
     def train(original, *args, **kwargs):
-        with mlflow.utils.autologging_utils.disable_autologging():
-            print("DISABLING AUTOLOGGING!")
+        with mlflow.utils.autologging_utils.disable_discrete_autologging(
+            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
+        ):
             return original(*args, **kwargs)
 
     try:
         import setfit
 
-        print("PATCHING SETFIT TRAIN!")
         safe_patch(
-            FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=True
+            FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=False
         )
-
     except ImportError:
         pass
 
     try:
         import transformers
 
-        safe_patch(
-            FLAVOR_NAME, transformers.Trainer, "train", functools.partial(train), manage_run=False
-        )
+        classes = [transformers.Trainer, transformers.Seq2SeqTrainer]
+        methods = ["train", "hyperparameter_search"]
+        for clazz in classes:
+            for method in methods:
+                safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
     except ImportError:
         pass
-
-    # patch Trainer
-
-    # patch the SetFitTrainer
-
-    # TODO: create the patched train functions
-
-    # TODO: investigate any other ways of initiating training and ensure that we patch those too!
