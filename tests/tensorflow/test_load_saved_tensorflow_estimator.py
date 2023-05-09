@@ -89,8 +89,8 @@ def test_load_model_from_remote_uri_succeeds(tmp_path, model_path, mock_s3_bucke
 
     for col in pred_dict:
         np.testing.assert_allclose(
-            np.array(pred_dict[col], dtype=np.float),
-            np.array(model_data_info.raw_results[col], dtype=np.float),
+            np.array(pred_dict[col], dtype=float),
+            np.array(model_data_info.raw_results[col], dtype=float),
             rtol=1e-6,
         )
 

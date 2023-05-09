@@ -497,6 +497,8 @@ class has four key functions:
 * :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
 
+.. _models_built-in-model-flavors:
+
 Built-In Model Flavors
 ----------------------
 
@@ -705,6 +707,7 @@ For a minimal h2o model, here is an example of the pyfunc predict() method in a 
     # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
     # predictions = h2o_model.predict(test)
 
+.. _tf-keras-example:
 
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
@@ -1012,16 +1015,47 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
-to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
-:py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
-flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
-can be scored with both DataFrame input and numpy array input. Finally, you can use the
-:py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow Core models or Keras models.
+The simple example below shows how to log params and metrics in mlflow for a custom training loop
+using low-level TensorFlow API. See `tf-keras-example`_. for an example of mlflow and ``tf.keras`` models.
 
-For more information, see :py:mod:`mlflow.tensorflow`.
+
+.. code-block:: python
+
+    import numpy as np
+    import tensorflow as tf
+
+    import mlflow
+
+    x = np.linspace(-4, 4, num=512)
+    y = 3 * x + 10
+
+    # estimate w and b where y = w * x + b
+    learning_rate = 0.1
+    x_train = tf.Variable(x, trainable=False, dtype=tf.float32)
+    y_train = tf.Variable(y, trainable=False, dtype=tf.float32)
+
+    # initial values
+    w = tf.Variable(1.0)
+    b = tf.Variable(1.0)
+
+    with mlflow.start_run():
+        mlflow.log_param("learning_rate", learning_rate)
+
+        for i in range(1000):
+            with tf.GradientTape(persistent=True) as tape:
+                # calculate MSE = 0.5 * (y_predict - y_train)^2
+                y_predict = w * x_train + b
+                loss = 0.5 * tf.reduce_mean(tf.square(y_predict - y_train))
+                mlflow.log_metric("loss", value=loss.numpy(), step=i)
+
+            # Update the trainable variables
+            # w = w - learning_rate * gradient of loss function w.r.t. w
+            # b = b - learning_rate * gradient of loss function w.r.t. b
+            w.assign_sub(learning_rate * tape.gradient(loss, w))
+            b.assign_sub(learning_rate * tape.gradient(loss, b))
+
+    print(f"W = {w.numpy():.2f}, b = {b.numpy():.2f}")
+
 
 ONNX (``onnx``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3470,6 +3504,8 @@ For more info, see:
     mlflow models predict --help
     mlflow models build-docker --help
 
+.. _model-enviroment-management:
+
 Environment Management Tools
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -4065,7 +4101,7 @@ Install sktime with mlflow dependency:
 Usage example
 ~~~~~~~~~~~~~
 
-Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
+Refer to the `sktime mlflow documentation <https://www.sktime.net/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
 
 .. code-block:: python
 

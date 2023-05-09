@@ -293,7 +293,9 @@ def test_pyfunc_flavor_is_only_added_for_chat_completion(tmp_path):
 def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     scope = "test"
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
-    with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True):
+    with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True), mock.patch(
+        "mlflow.openai.check_databricks_secret_scope_access"
+    ):
         mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)

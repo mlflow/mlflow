@@ -64,7 +64,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import Schema, ColSpec
 from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    check_databricks_secret_scope_access,
+    is_in_databricks_runtime,
+)
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -345,11 +348,12 @@ def save_model(
 
     if is_in_databricks_runtime():
         if scope := MLFLOW_OPENAI_SECRET_SCOPE.get():
+            check_databricks_secret_scope_access(scope)
             _log_secrets_yaml(path, scope)
         else:
             _logger.info(
                 "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
-                "See https://mlflow.org/docs/latest/python_api/mlflow.openai.html#credential-management-for-openai-on-databricks "
+                "See https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks "
                 "for more information."
             )
 

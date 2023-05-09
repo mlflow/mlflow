@@ -48,6 +48,7 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
     _DATABRICKS_ORG_ID_HEADER,
 )
+from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -78,6 +79,31 @@ def mock_databricks_host_creds():
 def store(mock_databricks_host_creds):
     with mock.patch("databricks_cli.configure.provider.get_config"):
         yield UcModelRegistryStore(store_uri="databricks-uc", tracking_uri="databricks")
+
+
+@pytest.fixture
+def spark_session(request):
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store._get_active_spark_session"
+    ) as spark_session_getter:
+        spark = mock.MagicMock()
+        spark_session_getter.return_value = spark
+
+        # Define a custom side effect function for spark sql queries
+        def sql_side_effect(query):
+            if query == _ACTIVE_CATALOG_QUERY:
+                catalog_response_mock = mock.MagicMock()
+                catalog_response_mock.collect.return_value = [{"catalog": request.param}]
+                return catalog_response_mock
+            elif query == _ACTIVE_SCHEMA_QUERY:
+                schema_response_mock = mock.MagicMock()
+                schema_response_mock.collect.return_value = [{"schema": "default"}]
+                return schema_response_mock
+            else:
+                raise ValueError(f"Unexpected query: {query}")
+
+        spark.sql.side_effect = sql_side_effect
+        yield spark
 
 
 def _args(endpoint, method, json_body, host_creds):
@@ -127,6 +153,46 @@ def local_model_dir(tmp_path):
     with open(tmp_path.joinpath(MLMODEL_FILE_NAME), "w") as handle:
         yaml.dump(fake_mlmodel_contents, handle)
     yield tmp_path
+
+
+def test_create_model_version_nonexistent_directory(store, tmp_path):
+    fake_directory = str(tmp_path.joinpath("myfakepath"))
+    with pytest.raises(
+        MlflowException,
+        match="Unable to download model artifacts from source artifact location",
+    ):
+        store.create_model_version(name="mymodel", source=fake_directory)
+
+
+def test_create_model_version_missing_python_deps(store, local_model_dir):
+    access_key_id = "fake-key"
+    secret_access_key = "secret-key"
+    session_token = "session-token"
+    aws_temp_creds = TemporaryCredentials(
+        aws_temp_credentials=AwsCredentials(
+            access_key_id=access_key_id,
+            secret_access_key=secret_access_key,
+            session_token=session_token,
+        )
+    )
+    storage_location = "s3://blah"
+    source = str(local_model_dir)
+    model_name = "model_1"
+    version = "1"
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=get_request_mock(
+            name=model_name,
+            version=version,
+            temp_credentials=aws_temp_creds,
+            storage_location=storage_location,
+            source=source,
+        ),
+    ), mock.patch.dict("sys.modules", {"boto3": None}), pytest.raises(
+        MlflowException,
+        match="Unable to import necessary dependencies to access model version files",
+    ):
+        store.create_model_version(name=model_name, source=str(local_model_dir))
 
 
 def test_create_model_version_missing_mlmodel(store, tmp_path):
@@ -279,6 +345,22 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
         assert store._get_workspace_id(run_id="some_run_id") is None
+
+
+def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
+    mock_databricks_host_creds, tmp_path
+):
+    with mock.patch("databricks_cli.configure.provider.get_config"):
+        store = UcModelRegistryStore(store_uri="databricks-uc", tracking_uri=str(tmp_path))
+        mock_response = mock.MagicMock(autospec=Response)
+        mock_response.status_code = 200
+        mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
+        mock_response.text = str({})
+        with mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.http_request",
+            return_value=mock_response,
+        ):
+            assert store._get_workspace_id(run_id="some_run_id") is None
 
 
 def _get_workspace_id_for_run(run_id=None):
@@ -616,6 +698,28 @@ def test_search_model_versions(mock_http, store):
     )
 
 
+@mock_http_200
+def test_search_model_versions_with_pagination(mock_http, store):
+    store.search_model_versions(
+        filter_string="name='model_12'", page_token="fake_page_token", max_results=123
+    )
+    _verify_requests(
+        mock_http,
+        "model-versions/search",
+        "GET",
+        SearchModelVersionsRequest(
+            filter="name='model_12'", page_token="fake_page_token", max_results=123
+        ),
+    )
+
+
+def test_search_model_versions_order_by_unsupported(store):
+    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("order_by")):
+        store.search_model_versions(
+            filter_string="name='model_12'", page_token="fake_page_token", order_by=["name ASC"]
+        )
+
+
 def test_set_model_version_tag_unsupported(store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
@@ -679,4 +783,43 @@ def test_get_model_version_by_alias(mock_http, store):
         "registered-models/alias",
         "GET",
         GetModelVersionByAliasRequest(name=name, alias=alias),
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)  # set the catalog name to "main"
+def test_store_uses_catalog_and_schema_from_spark_session(mock_http, spark_session, store):
+    name = "model_1"
+    full_name = "main.default.model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    spark_session.sql.assert_any_call(_ACTIVE_SCHEMA_QUERY)
+    assert spark_session.sql.call_count == 2
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["main"], indirect=True)
+def test_store_uses_catalog_from_spark_session(mock_http, spark_session, store):
+    name = "default.model_1"
+    full_name = "main.default.model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    assert spark_session.sql.call_count == 1
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=full_name)
+    )
+
+
+@mock_http_200
+@pytest.mark.parametrize("spark_session", ["hive_metastore", "spark_catalog"], indirect=True)
+def test_store_ignores_hive_metastore_default_from_spark_session(mock_http, spark_session, store):
+    name = "model_1"
+    store.get_registered_model(name=name)
+    spark_session.sql.assert_any_call(_ACTIVE_CATALOG_QUERY)
+    assert spark_session.sql.call_count == 1
+    _verify_requests(
+        mock_http, "registered-models/get", "GET", GetRegisteredModelRequest(name=name)
     )

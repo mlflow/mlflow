@@ -1,7 +1,9 @@
+import ast
 import json
 import logging
 import pathlib
 import pandas as pd
+import numpy as np
 import re
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
@@ -1124,6 +1126,7 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 transformers.TextClassificationPipeline,
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
+                transformers.Text2TextGenerationPipeline,
             ),
         ):
             return ModelSignature(
@@ -1144,7 +1147,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             pipeline,
             (
                 transformers.TableQuestionAnsweringPipeline,
-                transformers.Text2TextGenerationPipeline,
                 transformers.QuestionAnsweringPipeline,
             ),
         ):
@@ -1153,9 +1155,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             if isinstance(pipeline, transformers.TableQuestionAnsweringPipeline):
                 column_1 = "query"
                 column_2 = "table"
-            elif isinstance(pipeline, transformers.Text2TextGenerationPipeline):
-                column_1 = "answer"
-                column_2 = "context"
             elif isinstance(pipeline, transformers.QuestionAnsweringPipeline):
                 column_1 = "question"
                 column_2 = "context"
@@ -1455,6 +1454,8 @@ class _TransformersWrapper:
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
 
+        data = self._convert_cast_lists_from_np_back_to_list(data)
+
         # Generate inference data with the pipeline object
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
@@ -1604,7 +1605,19 @@ class _TransformersWrapper:
                         if value_type == str:
                             parsed[key] = [parsed[key], value]
                         elif value_type == list:
-                            parsed[key] = parsed[key].append(value)
+                            if all(len(entry) == 1 for entry in value):
+                                # This conversion is required solely for model serving.
+                                # In the parsing logic that occurs internally, strings that
+                                # contain single quotes `'` result in casting to a List[char]
+                                # instead of a str type. Attempting to append a List[char]
+                                # to a List[str] as would happen in the `else` block here
+                                # results in the entire List being overwritten as `None` without
+                                # an Exception being raised. By checking for single value entries
+                                # and subsequently converting to list and extracting the first
+                                # element reconstructs the original input string.
+                                parsed[key].append([str(value)][0])
+                            else:
+                                parsed[key] = parsed[key].append(value)
                         else:
                             parsed[key] = value
             return parsed
@@ -1903,6 +1916,42 @@ class _TransformersWrapper:
                 }
                 for entry in data
             ]
+        elif isinstance(data, dict):
+            # This is to handle serving use cases as the DataFrame encapsulation converts
+            # collections within rows to np.array type. In order to process this data through
+            # the transformers.Pipeline API, we need to cast these arrays back to lists
+            # and replace the single quotes with double quotes after extracting the
+            # json-encoded `table` (a pandas DF) in order to convert it to a dict that
+            # the TableQuestionAnsweringPipeline can accept and cast to a Pandas DataFrame.
+            #
+            # An example casting that occurs for this case when input to model serving is the
+            # conversion of a user input of:
+            #   '{"inputs": {"query": "What is the longest distance?",
+            #                "table": {"Distance": ["1000", "10", "1"]}}}'
+            # is converted to:
+            #   [{'query': array('What is the longest distance?', dtype='<U29'),
+            #     'table': array('{\'Distance\': [\'1000\', \'10\', \'1\']}', dtype='U<204')}]
+            # which is an invalid input to the pipeline.
+            # this method converts the input to:
+            #   {'query': 'What is the longest distance?',
+            #    'table': {'Distance': ['1000', '10', '1']}}
+            # which is a valid input to the TableQuestionAnsweringPipeline.
+            output = {}
+            for key, value in data.items():
+                if key == key_to_unpack:
+                    if isinstance(value, np.ndarray):
+                        output[key] = ast.literal_eval(value.item())
+                    else:
+                        output[key] = ast.literal_eval(value)
+                else:
+                    if isinstance(value, np.ndarray):
+                        # This cast to np.ndarray occurs when more than one question is asked.
+                        output[key] = value.item()
+                    else:
+                        # Otherwise, the entry does not need casting from a np.ndarray type to
+                        # list as it is already a scalar string.
+                        output[key] = value
+            return output
         else:
             return {
                 key: (
@@ -1924,3 +1973,25 @@ class _TransformersWrapper:
                 "If supplying a list, all values must be of string type.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+    @staticmethod
+    def _convert_cast_lists_from_np_back_to_list(data):
+        """
+        This handles the casting of dicts within lists from Pandas DF conversion within model
+        serving back into the required Dict[str, List[str]] if this type matching occurs.
+        Otherwise, it's a noop.
+        """
+        if not isinstance(data, list):
+            # NB: applying a short-circuit return here to not incur runtime overhead with
+            # type validation if the input is not a list
+            return data
+        elif not all(isinstance(value, dict) for value in data):
+            return data
+        else:
+            parsed_data = []
+            for entry in data:
+                if all(isinstance(value, np.ndarray) for value in entry.values()):
+                    parsed_data.append({key: value.tolist() for key, value in entry.items()})
+                else:
+                    parsed_data.append(entry)
+            return parsed_data

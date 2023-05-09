@@ -1,5 +1,28 @@
 # CHANGELOG
 
+## 2.3.1 (2023-04-27)
+
+MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
+
+Bug fixes:
+
+- [Security] Fix critical LFI attack vulnerability by disabling the ability to provide relative paths in registered model sources (#8281, @BenWilson2)
+    * __If you  are using ``mlflow server`` or ``mlflow ui``, we recommend upgrading to MLflow 2.3.1 as soon as possible.__ For more details, see https://github.com/mlflow/mlflow/security/advisories/GHSA-xg73-94fp-g449.
+- [Tracking] Fix an issue causing file and model uploads to hang on Databricks (#8348, @harupy)
+- [Tracking / Model Registry] Fix an issue causing file and model downloads to hang on Databricks (#8350, @dbczumar)
+- [Scoring] Fix regression in schema enforcement for model serving when using the ``inputs`` format for inference (#8326, @BenWilson2)
+- [Model Registry] Fix regression in model naming parsing where special characters were not accepted in model names (#8322, @arpitjasa-db)
+- [Recipes] Fix card rendering with the pandas profiler to handle columns containing all null values (#8263, @sunishsheth2009)
+
+Documentation updates:
+
+- [Docs] Add an H2O pyfunc usage example to the models documentation (#8292, @ericvincent18)
+- [Examples] Add a TensorFlow Core 2.x API usage example (#8235, @dheerajnbhat)
+
+Small bug fixes and documentation updates:
+
+#8324, #8325, @smurching; #8313, @dipanjank; #8323, @liangz1; #8331, #8328, #8319, #8316, #8308, #8293, #8289, #8283, #8284, #8285, #8282, #8241, #8270, #8272, #8271, #8268, @harupy; #8312, #8294, #8295, #8279, #8267, @BenWilson2; #8290, @jinzhang21; #8257, @WeichenXu123; #8307, @arpitjasa-db
+
 ## 2.3.0 (2023-04-18)
 
 MLflow 2.3.0 includes several major features and improvements
