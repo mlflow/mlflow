@@ -477,15 +477,15 @@ def disable_autologging():
 
 
 @contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]):
+def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for
     example, a particular library calls upon another library within a training API that has a
     current MLflow autologging integration.
     For instance, the transformers library's Trainer class, when running metric scoring,
-    builds an sklearn model and runs evaluations as part of its accuracy scoring. Without this
-    temporary autologging disabling, a new run will be generated that contains an sklearn model
+    builds a sklearn model and runs evaluations as part of its accuracy scoring. Without this
+    temporary autologging disabling, a new run will be generated that contains a sklearn model
     that holds no use for tracking purposes as it is only used during the metric evaluation phase
     of training.
     :param flavors_to_disable: A list of flavors that need to be temporarily disabled while

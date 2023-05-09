@@ -59,7 +59,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "2.0.2"
+    maximum: "2.0.1.post0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -175,7 +175,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.2"
+    maximum: "1.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
@@ -250,7 +250,7 @@ onnx:
 
   models:
     minimum: "1.7.0"
-    maximum: "1.14.0"
+    maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
     run: |
@@ -279,7 +279,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.14.0"
+    maximum: "0.13.5"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -287,7 +287,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.14.0"
+    maximum: "0.13.5"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -430,7 +430,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.40.0.4"
+    maximum: "3.40.0.3"
     run: |
       pytest tests/h2o
 
@@ -495,7 +495,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "0.27.6"
+    maximum: "0.27.4"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -510,7 +510,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain
   models:
     minimum: "0.0.139"
-    maximum: "0.0.159"
+    maximum: "0.0.143"
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
     run: |
