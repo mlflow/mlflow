@@ -71,6 +71,8 @@ _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
 _SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
+# The default device id for CPU is -1 and GPU IDs are ordinal starting at 0, as documented here:
+# https://huggingface.co/transformers/v4.7.0/main_classes/pipelines.html
 _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID = -1
 _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID = 0
 _logger = logging.getLogger(__name__)
@@ -756,7 +758,8 @@ def load_model(model_uri: str, dst_path: str = None, return_type="pipeline", dev
                         type defined by the ``task`` set by the model instance type. To override
                         this behavior, supply a valid ``task`` argument during model logging or
                         saving. Default is "pipeline".
-    :param device: The device on which to load the model. Default is None. Use 0 to load to the default GPU.
+    :param device: The device on which to load the model. Default is None. Use 0 to
+                   load to the default GPU.
     :param kwargs: Optional configuration options for loading of a ``transformers`` object.
                    For information on parameters and their usage, see
                    `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
