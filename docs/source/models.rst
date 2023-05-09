@@ -1190,7 +1190,7 @@ The example below
         xgb_classifier.fit(X_train, y_train)
         clf_params = xgb_classifier.get_xgb_params()
         mlflow.log_params(clf_params)
-        signature = infer_signature(X_train, xgb_classifier.predict(y_train))
+        signature = infer_signature(X_train, xgb_classifier.predict(X_train))
         model_info = mlflow.xgboost.log_model(
             xgb_classifier, "iris-classifier", signature=signature
         )
