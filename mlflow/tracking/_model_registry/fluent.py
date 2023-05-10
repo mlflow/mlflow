@@ -44,6 +44,8 @@ def register_model(
         :caption: Example
 
         import mlflow.sklearn
+        from mlflow.models.signature import infer_signature
+        from sklearn.datasets import make_regression
         from sklearn.ensemble import RandomForestRegressor
 
         mlflow.set_tracking_uri("sqlite:////tmp/mlruns.db")
@@ -51,9 +53,10 @@ def register_model(
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
         model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
