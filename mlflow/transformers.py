@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import json
 import logging
 import pathlib
@@ -2030,22 +2031,18 @@ def autolog(
         ):
             return original(*args, **kwargs)
 
-    try:
+    with contextlib.suppress(ImportError):
         import setfit
 
         safe_patch(
             FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=False
         )
-    except ImportError:
-        pass
 
-    try:
+    with contextlib.suppress(ImportError):
         import transformers
 
         classes = [transformers.Trainer, transformers.Seq2SeqTrainer]
-        methods = ["train", "hyperparameter_search"]
+        methods = ["train"]
         for clazz in classes:
             for method in methods:
                 safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
-    except ImportError:
-        pass

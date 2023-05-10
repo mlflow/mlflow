@@ -492,18 +492,16 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
                                executing another flavor's autologging to prevent spurious run
                                logging of unrelated models, metrics, and parameters.
     """
-    existing_states = {
-        module: mlflow.utils.autologging_utils.get_autologging_config(module, "disable")
-        for module in flavors_to_disable
-    }
+    enabled_flavors = []
     for flavor in flavors_to_disable:
-        autolog_func = getattr(mlflow, flavor)
-        autolog_func.autolog(disable=True)
-    yield None
-    for flavor, state in existing_states.items():
-        if state is not None and not state:
+        if not autologging_is_disabled(flavor):
+            enabled_flavors.append(flavor)
             autolog_func = getattr(mlflow, flavor)
-            autolog_func.autolog(disable=False)
+            autolog_func.autolog(disable=True)
+    yield None
+    for flavor in enabled_flavors:
+        autolog_func = getattr(mlflow, flavor)
+        autolog_func.autolog(disable=False)
 
 
 def _get_new_training_session_class():
