@@ -747,6 +747,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pyspark"},
         "autologging": {"minimum": "3.0.1", "maximum": "3.1.1"},
     },
+    "transformers": {
+        "package_info": {"pip_release": "transformers"},
+        "autologging": {"minimum": "1.25.1", "maximum": "1.28.1"}
+    }
 }
 
 
@@ -777,6 +781,8 @@ _module_version_info_dict_patch = {
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
+        ("transformers", "1.28.1", True),
+        ("transformers", "1.1.1", False),
     ],
 )
 @mock.patch(
