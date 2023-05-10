@@ -498,7 +498,7 @@ def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
             enabled_flavors.append(flavor)
             autolog_func = getattr(mlflow, flavor)
             autolog_func.autolog(disable=True)
-    yield None
+    yield
     for flavor in enabled_flavors:
         autolog_func = getattr(mlflow, flavor)
         autolog_func.autolog(disable=False)
