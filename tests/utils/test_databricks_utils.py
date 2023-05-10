@@ -6,10 +6,12 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
+    get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_dbutils,
     get_workspace_info_from_databricks_secrets,
     is_databricks_default_tracking_uri,
     is_running_in_ipython_environment,
+    check_databricks_secret_scope_access,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
 
@@ -336,3 +338,43 @@ def test_is_running_in_ipython_environment_works(get_ipython):
 
         with mock.patch("IPython.get_ipython", return_value=get_ipython):
             assert is_running_in_ipython_environment() == (get_ipython is not None)
+
+
+def test_get_mlflow_credential_context_by_run_id():
+    with mock.patch(
+        "mlflow.tracking.artifact_utils.get_artifact_uri", return_value="dbfs:/path/to/artifact"
+    ) as mock_get_artifact_uri, mock.patch(
+        "mlflow.utils.uri.get_databricks_profile_uri_from_artifact_uri",
+        return_value="databricks://path/to/profile",
+    ) as mock_get_databricks_profile, mock.patch(
+        "mlflow.utils.databricks_utils.MlflowCredentialContext"
+    ) as mock_credential_context:
+        get_mlflow_credential_context_by_run_id(run_id="abc")
+        mock_get_artifact_uri.assert_called_once_with(run_id="abc")
+        mock_get_databricks_profile.assert_called_once_with("dbfs:/path/to/artifact")
+        mock_credential_context.assert_called_once_with("databricks://path/to/profile")
+
+
+def test_check_databricks_secret_scope_access():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.list.return_value = "random"
+    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        check_databricks_secret_scope_access("scope")
+        mock_dbutils.secrets.list.assert_called_once_with("scope")
+
+
+def test_check_databricks_secret_scope_access_error():
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.secrets.list.side_effect = Exception("no scope access")
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils
+    ), mock.patch("mlflow.utils.databricks_utils._logger.warning") as mock_warning:
+        check_databricks_secret_scope_access("scope")
+        mock_warning.assert_called_once_with(
+            "Unable to access Databricks secret scope 'scope' for OpenAI credentials that will be "
+            "used to deploy the model to Databricks Model Serving. Please verify that the current "
+            "Databricks user has 'READ' permission for this scope. For more information, see "
+            "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
+            "Error: no scope access"
+        )
+        mock_dbutils.secrets.list.assert_called_once_with("scope")

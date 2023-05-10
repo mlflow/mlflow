@@ -15,6 +15,7 @@ from datasets import load_dataset
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.signature import infer_signature
@@ -1204,6 +1205,20 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert pd_inference == result
 
 
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation_pipeline):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=text2text_generation_pipeline, artifact_path="my_model"
+        )
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    assert (
+        pyfunc_loaded.predict("muppet board nails hammer")
+        == "A muppet is hammering nails on a board."
+    )
+
+
 @pytest.mark.parametrize(
     "invalid_data",
     [
@@ -1396,8 +1411,14 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data,
     [
         ({"query": "What should we order more of?"}, "apples"),
         (
-            {"query": ["What is our highest sales?", "What should we order more of?"]},
-            ["1230945.55", "apples"],
+            {
+                "query": [
+                    "What is our highest sales?",
+                    "What should we order more of?",
+                    "Which fruit starts with 'W'?",
+                ]
+            },
+            ["1230945.55", "apples", "watermelon"],
         ),
     ],
 )
@@ -1695,13 +1716,38 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     inference_payload = json.dumps(
         {
             "inputs": {
+                "question": [
+                    "What color is it?",
+                    "How do the people go?",
+                    "What does the 'wolf' howl at?",
+                ],
+                "context": [
+                    "Some people said it was green but I know that it's pink.",
+                    "The people on the bus go up and down. Up and down.",
+                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+                    "the moon for hours.",
+                ],
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}, {0: "the moon"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
                 "question": "Who's house?",
                 "context": "The house is owned by a man named Run.",
             }
         }
     )
-
-    from mlflow.deployments import PredictionsResponse
 
     response = pyfunc_serve_and_score_model(
         model_uri,
@@ -1712,6 +1758,172 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
     assert values.to_dict(orient="records") == [{0: "Run"}]
+
+
+def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
+    artifact_path = "text_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=text_classification_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": [
+                "I think this sushi might have gone off",
+                "That gym smells like feet, hot garbage, and sadness",
+                "I love that we have a moon",
+                "I 'love' debugging subprocesses",
+            ]
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "NEGATIVE"},
+        {0: "NEGATIVE"},
+        {0: "POSITIVE"},
+        {0: "POSITIVE"},
+    ]
+
+    inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "POSITIVE"}]
+
+
+def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
+    artifact_path = "zero_shot_classifier_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=zero_shot_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": "My dog loves running through troughs of spaghetti "
+                "with his mouth open",
+                "candidate_labels": ["happy", "sad"],
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "sequences": [
+                    "My dog loves to eat spaghetti",
+                    "My dog hates going to the vet",
+                    "My 'hamster' loves to play with my 'friendly' dog",
+                ],
+                "candidate_labels": '["happy", "sad"]',
+                "hypothesis_template": "This example talks about how the dog is {}",
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "happy"}, {0: "sad"}, {0: "happy"}]
+
+
+def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
+    artifact_path = "table_qa_model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=table_question_answering_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    table = {
+        "Fruit": ["Apples", "Bananas", "Oranges", "Watermelon 'small'", "Blueberries"],
+        "Sales": ["1230945.55", "86453.12", "11459.23", "8341.23", "2325.88"],
+        "Inventory": ["910", "4589", "11200", "80", "3459"],
+    }
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": "What should we order more of?",
+                "table": table,
+            }
+        }
+    )
+
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [{0: "apples"}]
+
+    inference_payload = json.dumps(
+        {
+            "inputs": {
+                "query": [
+                    "What is our highest sales?",
+                    "What should we order more of?",
+                    "Which 'fruit' has the 'highest' 'sales'?",
+                    "How many types of fruit do we have?",
+                    "Which fruit has a small designator??",
+                ],
+                "table": table,
+            }
+        }
+    )
+    response = pyfunc_serve_and_score_model(
+        model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.to_dict(orient="records") == [
+        {0: "1230945.55"},
+        {0: "apples"},
+        {0: "apples"},
+        {0: "5"},
+        {0: "watermelon'small'"},
+    ]
 
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
@@ -2156,3 +2368,97 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
     assert inference.startswith("What is MLflow?")
     assert "\n\n" in inference
+
+
+@pytest.mark.parametrize(
+    ["pipeline_name", "data", "result"],
+    [
+        (
+            "small_qa_pipeline",
+            {"question": "Who's house?", "context": "The house is owned by Run."},
+            {
+                "inputs": '[{"name": "question", "type": "string"}, {"name": "context", '
+                '"type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "zero_shot_pipeline",
+            {
+                "sequences": "These pipelines are super cool!",
+                "candidate_labels": ["interesting", "uninteresting"],
+                "hypothesis_template": "This example talks about how pipelines are {}",
+            },
+            {
+                "inputs": '[{"name": "sequences", "type": "string"}, {"name": '
+                '"candidate_labels", "type": "string"}, {"name": '
+                '"hypothesis_template", "type": "string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "text_classification_pipeline",
+            "We're just going to have to agree to disagree, then.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "table_question_answering_pipeline",
+            {
+                "query": "how many widgets?",
+                "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
+            },
+            {
+                "inputs": '[{"name": "query", "type": "string"}, {"name": "table", "type": '
+                '"string"}]',
+                "outputs": '[{"type": "string"}]',
+            },
+        ),
+        (
+            "summarizer_pipeline",
+            "If you write enough tests, you can be sure that your code isn't broken.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "translation_pipeline",
+            "No, I am your father.",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "text_generation_pipeline",
+            ["models are", "apples are"],
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "text2text_generation_pipeline",
+            ["man apple pie", "dog pizza eat"],
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "fill_mask_pipeline",
+            "Juggling <mask> is remarkably dangerous",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "conversational_pipeline",
+            "What's shaking, my robot homie?",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+        (
+            "ner_pipeline",
+            "Blue apples are not a thing",
+            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+        ),
+    ],
+)
+@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
+@pytest.mark.skipcacheclean
+def test_signature_inference(pipeline_name, data, result, request):
+    pipeline = request.getfixturevalue(pipeline_name)
+
+    default_signature = mlflow.transformers._get_default_pipeline_signature(pipeline)
+
+    assert default_signature.to_dict() == result
+
+    signature_with_input = mlflow.transformers._get_default_pipeline_signature(pipeline, data)
+
+    assert signature_with_input.to_dict() == result

@@ -4,6 +4,7 @@ import argparse
 from functools import partial
 
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.sklearn
 
 from cuml.metrics.accuracy import accuracy_score
@@ -58,7 +59,10 @@ def _train(params, fpath, hyperopt=False):
 
     mlflow.log_metric("accuracy", acc)
 
-    mlflow.sklearn.log_model(mod, "saved_models")
+    predictions = mod.predict(X_train)
+    signature = infer_signature(X_train, predictions)
+
+    mlflow.sklearn.log_model(mod, "saved_models", signature=signature)
 
     if not hyperopt:
         return mod

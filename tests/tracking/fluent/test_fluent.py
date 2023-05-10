@@ -4,7 +4,6 @@ from itertools import zip_longest
 
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
-    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
@@ -476,54 +475,60 @@ def test_search_registered_models(tmp_path):
 def test_search_model_versions(tmp_path):
     sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
     mlflow.set_tracking_uri(sqlite_uri)
+    max_results_default = 100
+    with mock.patch(
+        "mlflow.store.model_registry.SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT",
+        max_results_default,
+    ):
+        num_all_model_versions = max_results_default + 1
+        num_a_model_versions = num_all_model_versions // 4
+        num_b_model_versions = num_all_model_versions - num_a_model_versions
 
-    num_all_model_versions = SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT + 1
-    num_a_model_versions = num_all_model_versions // 4
-    num_b_model_versions = num_all_model_versions - num_a_model_versions
+        a_model_version_names = ["AModel" for i in range(num_a_model_versions)]
+        b_model_version_names = ["BModel" for i in range(num_b_model_versions)]
+        model_version_names = b_model_version_names + a_model_version_names
 
-    a_model_version_names = ["AModel" for i in range(num_a_model_versions)]
-    b_model_version_names = ["BModel" for i in range(num_b_model_versions)]
-    model_version_names = b_model_version_names + a_model_version_names
+        MlflowClient().create_registered_model(name="AModel")
+        MlflowClient().create_registered_model(name="BModel")
 
-    MlflowClient().create_registered_model(name="AModel")
-    MlflowClient().create_registered_model(name="BModel")
+        tag_values = ["x", "x", "y"]
+        for tag, model_name in zip_longest(tag_values, model_version_names):
+            MlflowClient().create_model_version(
+                name=model_name, source="foo/bar", tags={"tag": tag} if tag else None
+            )
 
-    tag_values = ["x", "x", "y"]
-    for tag, model_name in zip_longest(tag_values, model_version_names):
-        MlflowClient().create_model_version(
-            name=model_name, source="foo/bar", tags={"tag": tag} if tag else None
+        # max_results is unspecified
+        model_versions = mlflow.search_model_versions()
+        assert len(model_versions) == num_all_model_versions
+
+        # max_results is larger than the number of model versions in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions + 1)
+        assert len(model_versions) == num_all_model_versions
+
+        # max_results is equal to the number of model versions in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions)
+        assert len(model_versions) == num_all_model_versions
+        # max_results is smaller than the number of models in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions - 1)
+        assert len(model_versions) == num_all_model_versions - 1
+
+        # Filter by name
+        model_versions = mlflow.search_model_versions(filter_string="name = 'AModel'")
+        assert [m.name for m in model_versions] == a_model_version_names
+        model_versions = mlflow.search_model_versions(filter_string="name ILIKE 'bmodel'")
+        assert len(model_versions) == num_b_model_versions
+
+        # Filter by tags
+        model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'x'")
+        assert [m.name for m in model_versions] == model_version_names[:2]
+        model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'y'")
+        assert [m.name for m in model_versions] == [model_version_names[2]]
+
+        # Order by version_number
+        model_versions = mlflow.search_model_versions(
+            order_by=["version_number ASC"], max_results=5
         )
-
-    # max_results is unspecified
-    model_versions = mlflow.search_model_versions()
-    assert len(model_versions) == num_all_model_versions
-
-    # max_results is larger than the number of model versions in the database
-    model_versions = mlflow.search_model_versions(max_results=num_all_model_versions + 1)
-    assert len(model_versions) == num_all_model_versions
-
-    # max_results is equal to the number of model versions in the database
-    model_versions = mlflow.search_model_versions(max_results=num_all_model_versions)
-    assert len(model_versions) == num_all_model_versions
-    # max_results is smaller than the number of models in the database
-    model_versions = mlflow.search_model_versions(max_results=num_all_model_versions - 1)
-    assert len(model_versions) == num_all_model_versions - 1
-
-    # Filter by name
-    model_versions = mlflow.search_model_versions(filter_string="name = 'AModel'")
-    assert [m.name for m in model_versions] == a_model_version_names
-    model_versions = mlflow.search_model_versions(filter_string="name ILIKE 'bmodel'")
-    assert len(model_versions) == num_b_model_versions
-
-    # Filter by tags
-    model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'x'")
-    assert [m.name for m in model_versions] == model_version_names[:2]
-    model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'y'")
-    assert [m.name for m in model_versions] == [model_version_names[2]]
-
-    # Order by version_number
-    model_versions = mlflow.search_model_versions(order_by=["version_number ASC"], max_results=5)
-    assert [m.version for m in model_versions] == [1, 1, 2, 2, 3]
+        assert [m.version for m in model_versions] == [1, 1, 2, 2, 3]
 
 
 @pytest.fixture

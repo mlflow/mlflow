@@ -135,6 +135,27 @@ def test_differenet_requirements_create_different_environments(temp_mlflow_env_r
 
 
 @use_temp_mlflow_env_root
+def test_environment_directory_is_cleaned_up_when_unexpected_error_occurs(
+    temp_mlflow_env_root, sklearn_model
+):
+    sklearn_req = "scikit-learn==999.999.999"
+    with mlflow.start_run():
+        model_info1 = mlflow.sklearn.log_model(
+            sklearn_model.model,
+            artifact_path="model",
+            pip_requirements=[sklearn_req],
+        )
+
+    try:
+        serve_and_score(model_info1.model_uri, sklearn_model.X_pred)
+    except Exception:
+        pass
+    else:
+        assert False, "Should have raised an exception"
+    assert len(list(temp_mlflow_env_root.iterdir())) == 0
+
+
+@use_temp_mlflow_env_root
 def test_python_env_file_does_not_exist(sklearn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_model.model, artifact_path="model")
