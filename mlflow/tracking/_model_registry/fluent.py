@@ -50,6 +50,7 @@ def register_model(
 
         mlflow.set_tracking_uri("sqlite:////tmp/mlruns.db")
         params = {"n_estimators": 3, "random_state": 42}
+        X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
         # Log MLflow entities
         with mlflow.start_run() as run:
