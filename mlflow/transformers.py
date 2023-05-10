@@ -2022,7 +2022,7 @@ def autolog(
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
     # transformers-supported trainer calls.
-    DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn"]
+    DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
 
     def train(original, *args, **kwargs):
         with mlflow.utils.autologging_utils.disable_discrete_autologging(
