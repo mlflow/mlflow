@@ -486,7 +486,7 @@ transformers:
           "optuna",
         ]
     run: |
-      pytest tests/statsmodels/test_transformers_autolog.py
+      pytest tests/transformers/test_transformers_autolog.py
 
 openai:
   package_info:
