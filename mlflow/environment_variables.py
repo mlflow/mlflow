@@ -198,7 +198,8 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
-#: variable is only supported for the MLflow PyTorch flavor.
+#: variable is only supported for the MLflow PyTorch and HuggingFace flavors.
+#: For the HuggingFace flavor, note that device must be parseable as an integer.
 MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
 )
