@@ -275,9 +275,7 @@ For example:
             predictions = rf.predict(X_test)
             print(predictions)
 
-            # Create a signature for the model
             signature = infer_signature(X_test, predictions)
-
             mlflow.sklearn.log_model(rf, "model", signature=signature)
 
             print("Run ID: {}".format(run.info.run_id))
