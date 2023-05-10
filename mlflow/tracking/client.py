@@ -2658,7 +2658,7 @@ class MlflowClient:
             client.create_registered_model(name)
 
             # Create a new version of the rfr model under the registered model name
-            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             artifact_uri = client.get_model_version_download_uri(name, mv.version)
             print("Download URI: {}".format(artifact_uri))
@@ -2666,7 +2666,7 @@ class MlflowClient:
         .. code-block:: text
             :caption: Output
 
-            Download URI: runs:/44e04097ac364cd895f2039eaccca9ac/models/sklearn-model
+            Download URI: runs:/027d7bbe81924c5a82b3e4ce979fcab7/sklearn-model
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
