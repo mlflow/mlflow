@@ -44,6 +44,7 @@ data = pd.DataFrame(d, columns=cols)
 
 # Import mlflow
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.sklearn
 
 
@@ -83,13 +84,17 @@ if __name__ == "__main__":
     print("  MAE: %s" % mae)
     print("  R2: %s" % r2)
 
+    # Infer model signature
+    predictions = lr.predict(train_x)
+    signature = infer_signature(train_x, predictions)
+
     # Log mlflow attributes for mlflow UI
     mlflow.log_param("alpha", alpha)
     mlflow.log_param("l1_ratio", l1_ratio)
     mlflow.log_metric("rmse", rmse)
     mlflow.log_metric("r2", r2)
     mlflow.log_metric("mae", mae)
-    mlflow.sklearn.log_model(lr, "model")
+    mlflow.sklearn.log_model(lr, "model", signature=signature)
 
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
