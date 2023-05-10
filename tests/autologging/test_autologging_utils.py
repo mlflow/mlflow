@@ -749,8 +749,8 @@ _module_version_info_dict_patch = {
     },
     "transformers": {
         "package_info": {"pip_release": "transformers"},
-        "autologging": {"minimum": "1.25.1", "maximum": "1.28.1"}
-    }
+        "autologging": {"minimum": "1.25.1", "maximum": "1.28.1"},
+    },
 }
 
 
