@@ -152,7 +152,7 @@ The following shows an example of saving a model with a manually specified conda
         "pip": ["mlflow", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
         "name": "mlflow-env",
     }
-    mlflow.sklearn.log_model(model, "my_model", conda_env=conda_env)
+    mlflow.sklearn.log_model(..., conda_env=conda_env)
 
 The written ``conda.yaml`` file:
 
@@ -721,7 +721,7 @@ model persistence functions. You can use
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
 
@@ -735,24 +735,23 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
     mlflow.tensorflow.autolog()
 
-    with mlflow.start_run():
-        X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
-        y = np.array([0, 0, 1, 1, 1, 0])
-        model = keras.Sequential(
-            [
-                keras.Input(shape=(1,)),
-                keras.layers.Dense(1, activation="sigmoid"),
-            ]
-        )
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-        model_info = mlflow.tensorflow.log_model(model=model, artifact_path="model")
+    X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+    y = np.array([0, 0, 1, 1, 1, 0])
+    model = keras.Sequential(
+        [
+            keras.Input(shape=(1,)),
+            keras.layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
 
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
 
+    model_uri = f"runs:/{mlflow.last_active_run().info.run_id}/model"
     keras_pyfunc = mlflow.pyfunc.load_model(
-        model_uri=model_info.model_uri, dst_path=local_artifact_dir
+        model_uri=model_uri, dst_path=local_artifact_dir
     )
 
     data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
@@ -827,6 +826,7 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
 
     import numpy as np
     import mlflow
+    from mlflow.models.signature import infer_signature
     import torch
     from torch import nn
 
@@ -849,7 +849,8 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
         optimizer.step()
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pytorch.log_model(net, "model")
+        signature = infer_signature(X.numpy(), net(X).detach().numpy())
+        model_info = mlflow.pytorch.log_model(net, "model", signature=signature)
 
     pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -880,6 +881,7 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 .. code-block:: python
 
     import mlflow
+    from mlflow.models.signature import infer_signature
     import numpy as np
     from sklearn.linear_model import LogisticRegression
 
@@ -888,8 +890,11 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression()
         lr.fit(X, y)
+        signature = infer_signature(X, lr.predict(X))
 
-        model_info = mlflow.sklearn.log_model(sk_model=lr, artifact_path="model")
+        model_info = mlflow.sklearn.log_model(
+            sk_model=lr, artifact_path="model", signature=signature
+        )
 
     sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -1081,6 +1086,7 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     import numpy as np
     import mlflow
+    from mlflow.models.signature import infer_signature
     import onnx
     import torch
     from torch import nn
@@ -1110,7 +1116,8 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     # log the model into a mlflow run
     with mlflow.start_run():
-        model_info = mlflow.onnx.log_model(onnx_model, "model")
+        signature = infer_signature(X.numpy(), net(X).detach().numpy())
+        model_info = mlflow.onnx.log_model(onnx_model, "model", signature=signature)
 
     # load the logged model and make a prediction
     onnx_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1299,6 +1306,7 @@ The example below
     from sklearn.model_selection import train_test_split
     from xgboost import XGBClassifier
     import mlflow
+    from mlflow.models.signature import infer_signature
 
     data = load_iris()
     X_train, X_test, y_train, y_test = train_test_split(
@@ -1318,7 +1326,10 @@ The example below
         xgb_classifier.fit(X_train, y_train)
         clf_params = xgb_classifier.get_xgb_params()
         mlflow.log_params(clf_params)
-        model_info = mlflow.xgboost.log_model(xgb_classifier, "iris-classifier")
+        signature = infer_signature(X_train, xgb_classifier.predict(X_train))
+        model_info = mlflow.xgboost.log_model(
+            xgb_classifier, "iris-classifier", signature=signature
+        )
 
     # Load saved model and make predictions
     xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1355,6 +1366,7 @@ The example below
     from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
     import mlflow
+    from mlflow.models.signature import infer_signature
 
     data = load_iris()
 
@@ -1384,7 +1396,10 @@ The example below
             for feature_name, imp_value in feature_importances.items()
         }
         mlflow.log_metrics(feature_importance_metrics)
-        model_info = mlflow.lightgbm.log_model(lgb_classifier, "iris-classifier")
+        signature = infer_signature(X_train, lgb_classifier.predict(X_train))
+        model_info = mlflow.lightgbm.log_model(
+            lgb_classifier, "iris-classifier", signature=signature
+        )
 
     # Load saved model and make predictions
     lgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1412,6 +1427,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 .. code-block:: python
 
     import mlflow
+    from mlflow.models.signature import infer_signature
     from catboost import CatBoostClassifier
     from sklearn import datasets
 
@@ -1426,9 +1442,13 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
     )
     model.fit(X, y)
 
+    # create model signature
+    predictions = model.predict(X)
+    signature = infer_signature(X, predictions)
+
     # log the model into a mlflow run
     with mlflow.start_run():
-        model_info = mlflow.catboost.log_model(model, "model")
+        model_info = mlflow.catboost.log_model(model, "model", signature=signature)
 
     # load the logged model and make a prediction
     catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1960,6 +1980,7 @@ ds            y
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
+    from mlflow.models.signature import infer_signature
 
     # starts on 2007-12-10, ends on 2016-01-20
     train_df = pd.read_csv(
@@ -1992,7 +2013,15 @@ ds            y
         metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
         average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
         mlflow.log_metrics(average_metrics)
-        model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
+
+        # Calculate model signature
+        train = prophet_model.history
+        predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
+        signature = infer_signature(train, predictions)
+
+        model_info = mlflow.prophet.log_model(
+            prophet_model, "prophet-model", signature=signature
+        )
 
     # Load saved model
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -2608,6 +2637,7 @@ and behavior:
     import xgboost
     import shap
     import mlflow
+    from mlflow.models.signature import infer_signature
     from sklearn.model_selection import train_test_split
 
     # Load the UCI Adult Dataset
@@ -2621,13 +2651,16 @@ and behavior:
     # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
+    # Create a model signature
+    signature = infer_signature(X_test, model.predict(X_test))
+
     # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
         # Log the baseline model to MLflow
-        mlflow.sklearn.log_model(model, "model")
+        mlflow.sklearn.log_model(model, "model", signature=signature)
         model_uri = mlflow.get_artifact_uri("model")
 
         # Evaluate the logged model
@@ -2684,6 +2717,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
+    from mlflow.models.signature import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
@@ -2697,6 +2731,9 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
 
     # train a baseline dummy model
     baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+
+    # create signature that is shared by the two models
+    signature = infer_signature(X_test, y_test)
 
     # construct an evaluation dataset from the test set
     eval_data = X_test
@@ -2714,10 +2751,10 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
 
     with mlflow.start_run() as run:
         candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model"
+            candidate_model, "candidate_model", signature=signature
         ).model_uri
         baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model"
+            baseline_model, "baseline_model", signature=signature
         ).model_uri
 
         mlflow.evaluate(
