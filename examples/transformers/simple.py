@@ -8,12 +8,20 @@ generation_pipeline = transformers.pipeline(
     model="declare-lab/flan-alpaca-base",
 )
 
+input_example = ["prompt 1", "prompt 2", "prompt 3"]
+
+signature = mlflow.models.infer_signature(
+    input_example,
+    mlflow.transformers.generate_signature_output(generation_pipeline, input_example),
+)
+
 with mlflow.start_run() as run:
     model_info = mlflow.transformers.log_model(
         transformers_model=generation_pipeline,
         artifact_path="text_generator",
         inference_config={"max_length": 512, "do_sample": True},
         input_example=["prompt 1", "prompt 2", "prompt 3"],
+        signature=signature,
     )
 
 sentence_generator = mlflow.pyfunc.load_model(model_info.model_uri)
