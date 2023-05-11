@@ -523,8 +523,8 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain
   models:
-    minimum: "0.0.140"
-    maximum: "0.0.143"
+    minimum: "0.0.166"
+    maximum: "0.0.166"
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
