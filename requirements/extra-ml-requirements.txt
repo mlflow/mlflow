@@ -48,6 +48,7 @@ diviner
 # Required by mlflow.transformers
 transformers
 sentencepiece
+setfit
 # Required by mlflow.openai
 openai
 tiktoken

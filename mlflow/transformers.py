@@ -1,4 +1,5 @@
 import ast
+import contextlib
 import json
 import logging
 import pathlib
@@ -21,6 +22,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 from mlflow.utils.docstring_utils import (
     format_docstring,
     LOG_MODEL_PARAM_DOCS,
@@ -2037,3 +2039,49 @@ class _TransformersWrapper:
                 else:
                     parsed_data.append(entry)
             return parsed_data
+
+
+@experimental
+@autologging_integration(FLAVOR_NAME)
+def autolog(
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
+):  # pylint: disable=W0102,unused-argument
+    """
+    This autologging integration is solely used for disabling spurious autologging of irrelevant
+    sub-models that are created during the training and evaluation of transformers-based models.
+    Autologging functionality is not implemented fully for the transformers flavor.
+    """
+    import functools
+
+    # A list of other flavors whose base autologging config would be automatically logged due to
+    # training a model that would otherwise create a run and be logged internally within the
+    # transformers-supported trainer calls.
+    DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING = ["sklearn", "tensorflow", "pytorch"]
+
+    def train(original, *args, **kwargs):
+        with mlflow.utils.autologging_utils.disable_discrete_autologging(
+            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
+        ):
+            return original(*args, **kwargs)
+
+    with contextlib.suppress(ImportError):
+        import setfit
+
+        safe_patch(
+            FLAVOR_NAME, setfit.SetFitTrainer, "train", functools.partial(train), manage_run=False
+        )
+
+    with contextlib.suppress(ImportError):
+        import transformers
+
+        classes = [transformers.Trainer, transformers.Seq2SeqTrainer]
+        methods = ["train"]
+        for clazz in classes:
+            for method in methods:
+                safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
