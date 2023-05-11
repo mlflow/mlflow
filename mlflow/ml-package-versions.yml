@@ -194,7 +194,7 @@ gluon:
     maximum: "1.9.1"
     requirements:
       # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
-      # which is unlikely to happen.
+      # which is unlikely to happen given the fact it's been open for 4 months.
       ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
@@ -208,7 +208,7 @@ gluon:
     maximum: "1.9.1"
     requirements:
       # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
-      # which is unlikely to happen.
+      # which is unlikely to happen given the fact it's been open for 4 months.
       ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
