@@ -51,15 +51,17 @@ Governance of MLflow is conducted by the Technical Steering Committee
 - Reynold Xin (<reynoldx@gmail.com>)
 - Matei Zaharia (<matei@cs.stanford.edu>)
 
-## Committers
-
-- @dbczumar
-- @BenWilson2
-- @WeichenXu123
-- @harupy
-
 The founding technical charter can be found
 [here](https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf).
+
+## Maintainers
+
+MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
+
+- Harutaka Kawamura (@harupy)
+- Weichen Xu (@WeichenXu123)
+- Corey Zumar (@dbczumar)
+- Ben Wilson (@BenWilson2)
 
 ## Contribution process
 
