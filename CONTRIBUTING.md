@@ -5,6 +5,7 @@ We welcome community contributions to MLflow. This page provides useful informat
 **Table of Contents**
 
 - [Governance](#governance)
+- [Committers](#committers)
 - [Contribution process](#contribution-process)
 - [Contribution guidelines](#contribution-guidelines)
   - [Write designs for significant changes](#write-designs-for-significant-changes)
@@ -49,6 +50,13 @@ Governance of MLflow is conducted by the Technical Steering Committee
 - Patrick Wendell (<pwendell@gmail.com>)
 - Reynold Xin (<reynoldx@gmail.com>)
 - Matei Zaharia (<matei@cs.stanford.edu>)
+
+## Committers
+
+- @dbczumar
+- @BenWilson2
+- @WeichenXu123
+- @harupy
 
 The founding technical charter can be found
 [here](https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf).
