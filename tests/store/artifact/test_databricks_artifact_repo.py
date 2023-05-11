@@ -1445,7 +1445,6 @@ def test_multipart_upload_abort(databricks_artifact_repo, large_file, mock_chunk
                 )
                 for i in range(2)
             ]
-        assert part_upload_calls == expected_calls
         # The upload-part requests are sent in parallel, so the order of the calls is not
         # deterministic
         assert sorted(part_upload_calls, key=lambda c: c.args[1]) == expected_calls
