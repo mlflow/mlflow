@@ -5,7 +5,7 @@ We welcome community contributions to MLflow. This page provides useful informat
 **Table of Contents**
 
 - [Governance](#governance)
-- [Maintaiers](#maintainers)
+- [Maintainers](#maintainers)
 - [Contribution process](#contribution-process)
 - [Contribution guidelines](#contribution-guidelines)
   - [Write designs for significant changes](#write-designs-for-significant-changes)
