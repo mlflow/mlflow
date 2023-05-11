@@ -2621,6 +2621,8 @@ A common configuration for lowering the total memory pressure for pytorch models
 processing data type. This is achieved through setting the ``torch_dtype`` argument when creating a ``Pipeline``.
 For a full reference of these tunable arguments for configuration of pipelines, see the `training docs <https://huggingface.co/docs/transformers/v4.28.1/en/perf_train_gpu_one#floating-data-types>`_ .
 
+.. note:: This feature does not exist in versions of ``transformers`` < 4.26.x
+
 In order to apply these configurations to a saved or logged run, there are two options:
 
 * Save a pipeline with the `torch_dtype` argument set to the encoding type of your choice.
