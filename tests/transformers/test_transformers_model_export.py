@@ -42,9 +42,10 @@ from mlflow.transformers import (
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
+    _FRAMEWORK_KEY,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-
+import torch
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
@@ -405,12 +406,14 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _INSTANCE_TYPE_KEY: "TextClassificationPipeline",
         _PIPELINE_MODEL_TYPE_KEY: "TFMobileBertForSequenceClassification",
         _MODEL_PATH_OR_NAME_KEY: "lordtt13/emo-mobilebert",
+        _FRAMEWORK_KEY: "tf",
     }
     expected_qa_pipeline_conf = {
         _TASK_KEY: "question-answering",
         _INSTANCE_TYPE_KEY: "QuestionAnsweringPipeline",
         _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
+        _FRAMEWORK_KEY: "pt",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
         small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)
@@ -2462,3 +2465,128 @@ def test_signature_inference(pipeline_name, data, result, request):
     signature_with_input = mlflow.transformers._get_default_pipeline_signature(pipeline, data)
 
     assert signature_with_input.to_dict() == result
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+)
+@pytest.mark.skipcacheclean
+def test_extraction_of_torch_dtype_from_pipeline(dtype):
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=dtype,
+    )
+
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+
+    assert parsed == str(dtype)
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+)
+@pytest.mark.skipcacheclean
+def test_deserialization_of_configuration_torch_dtype_entry(dtype):
+    flavor_config = {"torch_dtype": str(dtype), "framework": "pt"}
+
+    parsed = mlflow.transformers._deserialize_torch_dtype_if_exists(flavor_config)
+    assert isinstance(parsed, torch.dtype)
+    assert parsed == dtype
+
+
+@pytest.mark.skipcacheclean
+def test_extraction_of_base_flavor_config():
+    task = "translation_en_to_fr"
+
+    # Many of the 'full configuration' arguments specified are not stored as instance arguments
+    # for a pipeline; rather, they are only used when acquiring the pipeline components from
+    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
+    # irrelevant to store these.
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+        use_auth_token=True,
+        trust_remote_code=True,
+        revision="main",
+        use_fast=True,
+    )
+
+    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline, task)
+
+    assert parsed == {
+        "task": "translation_en_to_fr",
+        "instance_type": "TranslationPipeline",
+        "source_model_name": "t5-small",
+        "pipeline_model_type": "T5ForConditionalGeneration",
+        "framework": "pt",
+        "torch_dtype": "torch.bfloat16",
+    }
+
+
+@pytest.mark.skipcacheclean
+def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
+    task = "translation_en_to_fr"
+
+    # Many of the 'full configuration' arguments specified are not stored as instance arguments
+    # for a pipeline; rather, they are only used when acquiring the pipeline components from
+    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
+    # irrelevant to store these.
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=full_config_pipeline,
+        path=model_path,
+    )
+
+    base_loaded = mlflow.transformers.load_model(model_path)
+    assert base_loaded.torch_dtype == torch.bfloat16
+    assert base_loaded.framework == "pt"
+
+    loaded_pipeline = mlflow.transformers.load_model(model_path, torch_dtype=torch.float64)
+
+    assert loaded_pipeline.torch_dtype == torch.float64
+    assert loaded_pipeline.framework == "pt"
+
+    prediction = loaded_pipeline.predict("Hello there. How are you today?")
+    assert prediction == [{"translation_text": "Bonjour, comment êtes-vous aujourd'hui ?"}]
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
+@pytest.mark.skipcacheclean
+def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
+    task = "translation_en_to_fr"
+
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=dtype,
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=full_config_pipeline,
+        path=model_path,
+    )
+
+    # Since we can't directly access the underlying wrapped model instance, evaluate the
+    # ability to generate an inference with a specific dtype to ensure that there are no
+    # complications with setting different types within pyfunc.
+    loaded_pipeline = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_pipeline.predict("Hello there. How are you today?")
+
+    assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
