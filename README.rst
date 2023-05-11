@@ -175,7 +175,7 @@ Maintainers
 
 MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
 
-- Harutaka Kawamura (@harupy)
-- Weichen Xu (@WeichenXu123)
-- Corey Zumar (@dbczumar)
-- Ben Wilson (@BenWilson2)
+- `Harutaka Kawamura <https://github.com/harupy>`_
+- `Weichen Xu <https://github.com/WeichenXu123>`_
+- `Corey Zumar <https://github.com/dbczumar>`_
+- `Ben Wilson <https://github.com/BenWilson2>`_

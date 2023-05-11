@@ -58,10 +58,10 @@ The founding technical charter can be found
 
 MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
 
-- Harutaka Kawamura (@harupy)
-- Weichen Xu (@WeichenXu123)
-- Corey Zumar (@dbczumar)
-- Ben Wilson (@BenWilson2)
+- [Harutaka Kawamura](https://github.com/harupy)
+- [Weichen Xu](https://github.com/WeichenXu123)
+- [Corey Zumar](https://github.com/dbczumar)
+- [Ben Wilson](https://github.com/BenWilson2)
 
 ## Contribution process
 
