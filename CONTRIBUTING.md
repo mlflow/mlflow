@@ -190,7 +190,7 @@ git clone --recurse-submodules git@github.com:<username>/mlflow.git
 
 # Add the upstream repository
 cd mlflow
-git remote add upstream git@github.com/mlflow/mlflow.git
+git remote add upstream git@github.com:mlflow/mlflow.git
 ```
 
 If you cloned the repository before without `--recurse-submodules`, run
