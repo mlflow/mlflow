@@ -28,7 +28,7 @@ MLflow has five components:
 
 - `MLflow Projects <projects>`_: A standard format for packaging reusable data science code that can be run with different parameters to train models, visualize data, or perform any other data science task.
 
-- `MLflow Recipes <recipes>`_: Predefined templates for developing high-quality models for a variety of commont tasks, including classification and regression.
+- `MLflow Recipes <recipes>`_: Predefined templates for developing high-quality models for a variety of common tasks, including classification and regression.
 
 What is MLflow used for?
 ------------------------
