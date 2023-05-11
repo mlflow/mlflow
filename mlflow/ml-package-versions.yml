@@ -193,7 +193,7 @@ gluon:
     minimum: "1.5.1"
     maximum: "1.9.1"
     requirements:
-      "<= 1.9.1": ["numpy<1.24.0"]
+      "0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -205,7 +205,7 @@ gluon:
     minimum: "1.5.1"
     maximum: "1.9.1"
     requirements:
-      "<= 1.9.1": ["numpy<1.24.0"]
+      "0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py
