@@ -1,5 +1,6 @@
 import ast
 import contextlib
+from functools import lru_cache
 import json
 import logging
 import pathlib
@@ -873,28 +874,35 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         return conf
 
 
+@lru_cache
+def _torch_dype_mapping():
+    """
+    Memoized torch data type mapping from the torch primary datatypes for use in deserializing the
+    saved pipeline parameter `torch_dtype`
+    """
+    try:
+        import torch
+
+        return {
+            str(dtype): dtype
+            for name, dtype in torch.__dict__.items()
+            if isinstance(dtype, torch.dtype)
+        }
+    except ImportError as e:
+        raise MlflowException(
+            "Unable to determine if the value supplied by the argument "
+            "torch_dtype is valid since torch is not installed.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+
 def _deserialize_torch_dtype_if_exists(flavor_config):
     """
     Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
     instance value for applying to a loaded pipeline instance.
     """
 
-    try:
-        import torch
-
-        dtype_mapping = {
-            str(dtype): dtype
-            for name, dtype in torch.__dict__.items()
-            if isinstance(dtype, torch.dtype)
-        }
-        return dtype_mapping[flavor_config["torch_dtype"]]
-    except ImportError as e:
-        raise MlflowException(
-            "The pipeline being loaded was saved with pytorch specific "
-            "properties but the current environment does not have pytorch "
-            "installed. Please run 'pip install torch' before loading "
-            "this model."
-        ) from e
+    return _torch_dype_mapping()[flavor_config["torch_dtype"]]
 
 
 def _fetch_model_card(model_or_pipeline):
@@ -1026,13 +1034,11 @@ def _generate_base_flavor_configuration(
 
     # Extract and add to the configuration the scalar serializable arguments for pipeline args
     for arg_key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
-        entry = _get_scalar_argument_from_pipeline(pipeline, arg_key)
-        if entry:
+        if entry := _get_scalar_argument_from_pipeline(pipeline, arg_key):
             flavor_configuration[arg_key] = entry
 
     # Extract a serialized representation of torch_dtype if provided
-    torch_dtype = _extract_torch_dtype_if_set(pipeline)
-    if torch_dtype:
+    if torch_dtype := _extract_torch_dtype_if_set(pipeline):
         flavor_configuration[_TORCH_DTYPE_KEY] = torch_dtype
 
     return flavor_configuration

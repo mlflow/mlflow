@@ -2500,11 +2500,14 @@ def test_deserialization_of_configuration_torch_dtype_entry(dtype):
     assert parsed == dtype
 
 
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
+)
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
-def test_extraction_of_base_flavor_config():
+def test_extraction_of_base_flavor_config(dtype):
     task = "translation_en_to_fr"
 
     # Many of the 'full configuration' arguments specified are not stored as instance arguments
@@ -2516,7 +2519,7 @@ def test_extraction_of_base_flavor_config():
         model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
         tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
         framework="pt",
-        torch_dtype=torch.bfloat16,
+        torch_dtype=dtype,
         device_map="auto",
         use_auth_token=True,
         trust_remote_code=True,
@@ -2532,7 +2535,7 @@ def test_extraction_of_base_flavor_config():
         "source_model_name": "t5-small",
         "pipeline_model_type": "T5ForConditionalGeneration",
         "framework": "pt",
-        "torch_dtype": "torch.bfloat16",
+        "torch_dtype": str(dtype),
     }
 
 
