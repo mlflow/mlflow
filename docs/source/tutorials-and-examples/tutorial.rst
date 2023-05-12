@@ -167,7 +167,7 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Virtualenv environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`../projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a Virtualenv environment file
       called ``python_env.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. literalinclude:: ../../../examples/sklearn_elasticnet_wine/MLproject
