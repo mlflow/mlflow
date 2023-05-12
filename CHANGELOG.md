@@ -2,15 +2,34 @@
 
 ## 2.3.2 (2023-05-12)
 
-MLflow 2.3.2 includes several major features and improvements
+MLflow 2.3.2 is a patch release containing the following features, bug fixes and changes:
+
+Features:
+
+- [Models] Add GPU support for `transformers` models `pyfunc` inference and serving (#8375, @ankit-db)
+- [Models] Disable autologging functionality for non-relevant models when training a `transformers` model (#8405, @BenWilson2)
+- [Models] Add support for preserving and overriding `torch_dtype` values in `transformers` pipelines (#8421, @BenWilson2)
+- [Models] Add support for `Feature Extraction` pipelines in the `transformers` flavor (#8423, @BenWilson2)
+- [Tracking] Add basic HTTP auth support for users, registered models, and experiments permissions (#8286, @gabrielfu)
+
+Bug Fixes:
+
+- [Models] Fix inferred schema issue with `Text2TextGeneration` pipelines in the `transformers` flavor (#8391, @BenWilson2)
+- [Models] Change MLflow dependency pinning in logged models from a range value to an exact major and minor version (#8422, @harupy) 
 
 Documentation updates:
 
-- [Docs] Quickstart (#8171, @lobrien)
+- [Examples] Add `signature` logging to all examples and documentation (#8410, #8401, #8400, #8387 @jerrylian-db)
+- [Examples] Add `sentence-transformers` examples to the `transformers` examples suite (#8425, @BenWilson2)
+- [Docs] Add a new MLflow Quickstart documentation page (#8171, @lobrien)
+- [Docs] Add a new introduction to MLflow page (#8365, @lobrien)
+- [Docs] Add a community model pluging example and documentation for `trubrics` (#8371, @jeffkayne)
+- [Docs] Add `gluon` pyfunc example to Model flavor documentation (#8403, @ericvincent18)
+- [Docs] Add `statsmodels` pyfunc example to `Models` flavor documentation (#8394, @ericvincent18)
 
 Small bug fixes and documentation updates:
 
-
+#8415, #8412, #8411, #8355, #8354, #8353, #8348, @harupy; #8374, #8367, #8350, @dbczumar; #8358 @mrkaye97; #8392, #8362, @smurching; #8427, #8408, #8399, #8381, @BenWilson2; #8395, #8390, @jerrylian-db; #8402, #8398, @WeichenXu123; #8377, #8363, @arpitjasa-db; #8385, @prithvikannan; #8418, @Jeukoh;
 
 ## 2.3.1 (2023-04-27)
 
