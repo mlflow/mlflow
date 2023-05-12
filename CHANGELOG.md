@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2.3.2 (2023-05-12)
+
+MLflow 2.3.2 includes several major features and improvements
+
+Documentation updates:
+
+- [Docs] Quickstart (#8171, @lobrien)
+
+Small bug fixes and documentation updates:
+
+
+
 ## 2.3.1 (2023-04-27)
 
 MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
