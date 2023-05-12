@@ -2429,6 +2429,7 @@ ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str
 Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
+Feature Extraction                str or List[str]               np.ndarray
 ================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
