@@ -213,7 +213,7 @@ class __MLflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         ]
         self._step_metrics.update(name for (name, _) in metric_items)
         step = trainer.global_step
-        if (step + 1) % self.log_every_n_step == 0:
+        if step > 0 and step % self.log_every_n_step == 0:
             self._log_metrics(trainer, step, metric_items)
 
     @rank_zero_only
