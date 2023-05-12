@@ -1,5 +1,6 @@
 import gc
 import json
+import numpy as np
 import os
 import pandas as pd
 from packaging.version import Version
@@ -312,6 +313,15 @@ def conversational_pipeline():
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
+
+
+@pytest.fixture()
+def feature_extraction_pipeline():
+    st_arch = "sentence-transformers/all-MiniLM-L6-v2"
+    model = transformers.AutoModel.from_pretrained(st_arch)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
+
+    return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
 
 
 def test_dependencies_pytorch(small_qa_pipeline):
@@ -1039,8 +1049,6 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
 
 
 def test_invalid_task_inference_raises_error(model_path):
-    import numpy as np
-
     from transformers import Pipeline
 
     def softmax(outputs):
@@ -1924,6 +1932,84 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
         {0: "5"},
         {0: "watermelon'small'"},
     ]
+
+
+def test_feature_extraction_pipeline(feature_extraction_pipeline):
+    sentences = ["hi", "hello"]
+    signature = infer_signature(
+        sentences,
+        mlflow.transformers.generate_signature_output(feature_extraction_pipeline, sentences),
+    )
+
+    artifact_path = "feature_extraction_pipeline"
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=["A sentence", "Another sentence"],
+        )
+
+    # Load as native
+    loaded_pipeline = mlflow.transformers.load_model(model_info.model_uri)
+
+    inference_single = "Testing"
+    inference_mult = ["Testing something", "Testing something else"]
+
+    pred = loaded_pipeline(inference_single)
+    assert len(pred[0][0]) > 10
+    assert isinstance(pred[0][0][0], float)
+
+    pred_multiple = loaded_pipeline(inference_mult)
+    assert len(pred_multiple[0][0]) > 2
+    assert isinstance(pred_multiple[0][0][0][0], float)
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    pyfunc_pred = loaded_pyfunc.predict(inference_single)
+
+    assert isinstance(pyfunc_pred, np.ndarray)
+
+    assert np.array_equal(np.array(pred[0]), pyfunc_pred)
+
+    pyfunc_pred_multiple = loaded_pyfunc.predict(inference_mult)
+
+    assert np.array_equal(np.array(pred_multiple[0][0]), pyfunc_pred_multiple)
+
+
+def test_feature_extraction_pipeline_pyfunc_predict(feature_extraction_pipeline):
+    artifact_path = "feature_extraction"
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    inference_payload = json.dumps({"inputs": ["sentence one", "sentence two"]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert len(values.columns) == 384
+    assert len(values) == 4
+
+    inference_payload = json.dumps({"inputs": "sentence three"})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    # A single string input is an invalid input to serving. Verify that this throws.
+    with pytest.raises(MlflowException, match="Invalid response. Predictions response contents"):
+        PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
 
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):

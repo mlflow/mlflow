@@ -19,7 +19,7 @@ from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -1209,7 +1209,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 ),
                 outputs=Schema([ColSpec("string")]),
             )
-
+        elif isinstance(pipeline, transformers.FeatureExtractionPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("string")]),
+                outputs=Schema([TensorSpec(np.dtype("float64"), [-1], "double")]),
+            )
         else:
             _logger.warning(
                 "An unsupported Pipeline type was supplied for signature inference. "
@@ -1473,6 +1477,9 @@ class _TransformersWrapper:
             data = self._parse_json_encoded_dict_payload_to_dict(data, "table")
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output_key = {"entity_group", "entity"}
+        elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
+            output_key = None
+            data = self._parse_feature_extraction_input(data)
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -1521,6 +1528,8 @@ class _TransformersWrapper:
                 include_prompt,
                 collapse_whitespace,
             )
+        elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
+            return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
@@ -1794,6 +1803,31 @@ class _TransformersWrapper:
             return output_coll
         else:
             return output_data[target_dict_key]
+
+    @staticmethod
+    def _parse_feature_extraction_input(input_data):
+        if isinstance(input_data, list) and isinstance(input_data[0], dict):
+            return [list(data.values())[0] for data in input_data]
+        else:
+            return input_data
+
+    @staticmethod
+    def _parse_feature_extraction_output(output_data):
+        """
+        Parse the return type from a FeatureExtractionPipeline output.
+        Examples:
+
+        Input: [[[0.11, 0.98, 0.76]]] or np.ndarray(0.11, 0.98, 0.76)
+        Output: np.ndarray(0.11, 0.98, 0.76)
+
+        Input: [[[[0.1, 0.2], [0.3, 0.4]]]] or
+            np.ndarray(np.ndarray(0.1, 0.2), np.ndarray(0.3, 0.4))
+        Output: np.ndarray(np.ndarray(0.1, 0.2), np.ndarray(0.3, 0.4))
+        """
+        if isinstance(output_data, np.ndarray):
+            return output_data
+        else:
+            return np.array(output_data[0][0])
 
     def _parse_tokenizer_output(self, output_data, target_set):
         """
