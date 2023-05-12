@@ -1814,15 +1814,20 @@ class _TransformersWrapper:
     @staticmethod
     def _parse_feature_extraction_output(output_data):
         """
-        Parse the return type from a FeatureExtractionPipeline output.
+        Parse the return type from a FeatureExtractionPipeline output. The mixed types for
+        input are present depending on how the pyfunc is instantiated. For model serving usage,
+        the returned type from MLServer will be a numpy.ndarray type, otherwise, the return
+        within a manually executed pyfunc (i.e., for udf usage), the return will be a collection
+        of nested lists.
+
         Examples:
 
-        Input: [[[0.11, 0.98, 0.76]]] or np.ndarray(0.11, 0.98, 0.76)
-        Output: np.ndarray(0.11, 0.98, 0.76)
+        Input: [[[0.11, 0.98, 0.76]]] or np.array([0.11, 0.98, 0.76])
+        Output: np.array([0.11, 0.98, 0.76])
 
         Input: [[[[0.1, 0.2], [0.3, 0.4]]]] or
-            np.ndarray(np.ndarray(0.1, 0.2), np.ndarray(0.3, 0.4))
-        Output: np.ndarray(np.ndarray(0.1, 0.2), np.ndarray(0.3, 0.4))
+            np.array([np.array([0.1, 0.2]), np.array([0.3, 0.4])])
+        Output: np.array([np.array([0.1, 0.2]), np.array([0.3, 0.4])])
         """
         if isinstance(output_data, np.ndarray):
             return output_data
