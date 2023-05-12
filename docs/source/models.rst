@@ -2654,24 +2654,24 @@ Example:
         )
 
     # Illustrate that the torch data type is recorded in the flavor configuration
-    model_info.flavors["transformers"]
+    print(model_info.flavors["transformers"])
 
 
 Result:
 
 .. code-block:: bash
 
-    $ {'transformers_version': '4.28.1',
-       'code': None,
-       'task': 'translation_en_to_fr',
-       'instance_type': 'TranslationPipeline',
-       'source_model_name': 't5-small',
-       'pipeline_model_type': 'T5ForConditionalGeneration',
-       'framework': 'pt',
-       'torch_dtype': 'torch.bfloat16',
-       'tokenizer_type': 'T5TokenizerFast',
-       'components': ['tokenizer'],
-       'pipeline': 'pipeline'}
+    {'transformers_version': '4.28.1',
+     'code': None,
+     'task': 'translation_en_to_fr',
+     'instance_type': 'TranslationPipeline',
+     'source_model_name': 't5-small',
+     'pipeline_model_type': 'T5ForConditionalGeneration',
+     'framework': 'pt',
+     'torch_dtype': 'torch.bfloat16',
+     'tokenizer_type': 'T5TokenizerFast',
+     'components': ['tokenizer'],
+     'pipeline': 'pipeline'}
 
 
 * Specify the `torch_dtype` argument when loading the model to override any values set during logging or saving.
@@ -2706,14 +2706,14 @@ Example:
         model_info.model_uri, return_type="pipeline", torch_dtype=torch.float64
     )
 
-    loaded_pipeline.torch_dtype
+    print(loaded_pipeline.torch_dtype)
 
 
 Result:
 
 .. code-block:: bash
 
-    $ torch.float64
+    torch.float64
 
 
 .. note:: Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.

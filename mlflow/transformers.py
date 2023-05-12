@@ -892,7 +892,7 @@ def _deserialize_torch_dtype_if_exists(flavor_config):
         raise MlflowException(
             "The pipeline being loaded was saved with pytorch specific "
             "properties but the current environment does not have pytorch "
-            "installed. Please run 'pip install torch' before loading"
+            "installed. Please run 'pip install torch' before loading "
             "this model."
         ) from e
 
@@ -1051,9 +1051,7 @@ def _extract_torch_dtype_if_set(pipeline):
     """
     Extract the torch datatype argument if set and return as a string encoded value.
     """
-    torch_dtype = getattr(pipeline, _TORCH_DTYPE_KEY, None)
-
-    if torch_dtype:
+    if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
         return str(torch_dtype)
 
 

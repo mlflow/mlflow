@@ -2472,7 +2472,7 @@ def test_signature_inference(pipeline_name, data, result, request):
 )
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
-    "Version(transformers.__version__) < Version('4.26.1')", reason="Feature does not exist"
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
 def test_extraction_of_torch_dtype_from_pipeline(dtype):
     pipe = transformers.pipeline(
@@ -2502,7 +2502,7 @@ def test_deserialization_of_configuration_torch_dtype_entry(dtype):
 
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
-    "Version(transformers.__version__) < Version('4.26.1')", reason="Feature does not exist"
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
 def test_extraction_of_base_flavor_config():
     task = "translation_en_to_fr"
@@ -2538,7 +2538,7 @@ def test_extraction_of_base_flavor_config():
 
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
-    "Version(transformers.__version__) < Version('4.26.1')", reason="Feature does not exist"
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
 def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     task = "translation_en_to_fr"
@@ -2576,7 +2576,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
-    "Version(transformers.__version__) < Version('4.26.1')", reason="Feature does not exist"
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
 def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     task = "translation_en_to_fr"
