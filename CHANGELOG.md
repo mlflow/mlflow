@@ -23,7 +23,7 @@ Documentation updates:
 - [Examples] Add `sentence-transformers` examples to the `transformers` examples suite (#8425, @BenWilson2)
 - [Docs] Add a new MLflow Quickstart documentation page (#8171, @lobrien)
 - [Docs] Add a new introduction to MLflow page (#8365, @lobrien)
-- [Docs] Add a community model pluging example and documentation for `trubrics` (#8371, @jeffkayne)
+- [Docs] Add a community model plugin example and documentation for `trubrics` (#8371, @jeffkayne)
 - [Docs] Add `gluon` pyfunc example to Model flavor documentation (#8403, @ericvincent18)
 - [Docs] Add `statsmodels` pyfunc example to `Models` flavor documentation (#8394, @ericvincent18)
 
