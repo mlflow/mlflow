@@ -1,5 +1,6 @@
 # tensorflow 2.x core api
 import mlflow
+from mlflow.models.signature import infer_signature
 import pandas as pd
 
 import tensorflow as tf
@@ -157,4 +158,8 @@ if __name__ == "__main__":
         # Export the tensorflow model
         lin_reg_export = ExportModule(model=lin_reg, norm_x=norm_x, norm_y=norm_y)
 
-        mlflow.tensorflow.log_model(lin_reg_export, "model")
+        # Infer model signature
+        predictions = lin_reg_export(x_test)
+        signature = infer_signature(x_test.numpy(), predictions.numpy())
+
+        mlflow.tensorflow.log_model(lin_reg_export, "model", signature=signature)

@@ -143,7 +143,9 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
+      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master
+      cd LightGBM
+      bash build-python.sh install
 
   models:
     minimum: "2.3.1"
@@ -190,6 +192,10 @@ gluon:
   models:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
+      # which is unlikely to happen given the fact it's been open for 4 months.
+      ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -200,6 +206,10 @@ gluon:
   autologging:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
+      # which is unlikely to happen given the fact it's been open for 4 months.
+      ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py
@@ -253,6 +263,7 @@ onnx:
     maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
+      "< 1.11.0": ["numpy<1.24.0"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -362,6 +373,7 @@ mleap:
     minimum: "0.18.0"
     maximum: "0.22.0"
     requirements:
+      "< 0.22.0": ["numpy<1.24.0"]
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark<3.4"]
     run: |
@@ -440,6 +452,8 @@ shap:
   models:
     minimum: "0.41.0"
     maximum: "0.41.0"
+    requirements:
+      "<= 0.41.0": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
@@ -470,6 +484,23 @@ transformers:
         ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+  autologging:
+    minimum: "4.25.1"
+    maximum: "4.28.1"
+    requirements:
+      ">= 0.0.0":
+        [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate",
+          "setfit",
+          "optuna",
+        ]
+    run: |
+      pytest tests/transformers/test_transformers_autolog.py
 
 openai:
   package_info:

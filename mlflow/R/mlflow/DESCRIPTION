@@ -1,8 +1,8 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 2.3.1
-Authors@R:
+Version: 2.3.2
+Authors@R: 
     c(person(given = "Matei",
              family = "Zaharia",
              role = c("aut", "cre"),
