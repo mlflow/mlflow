@@ -4501,7 +4501,7 @@ This example trains a `PyOD <https://github.com/yzhao062/pyod>`_ KNN outlier det
 model using a synthetic dataset. A new MLflow experiment is created to log the evaluation
 metrics and the trained model as an artifact and anomaly scores are computed loading the
 trained model in native flavor and ``pyfunc`` flavor. Finally, the model is served
-for real-time inference to a local endpoint.
+for real-time inference using a local endpoint.
 
 Saving the model as an MLflow artifact
 """"""""""""""""""""""""""""""""""""""
