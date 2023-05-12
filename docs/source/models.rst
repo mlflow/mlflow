@@ -122,7 +122,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
         - python=3.8.8
         - pip
         - pip:
-            - mlflow
+            - mlflow==2.3
             - scikit-learn==0.23.2
             - cloudpickle==1.6.0
 
@@ -149,7 +149,7 @@ The following shows an example of saving a model with a manually specified conda
     conda_env = {
         "channels": ["conda-forge"],
         "dependencies": ["python=3.8.8", "pip"],
-        "pip": ["mlflow", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
+        "pip": ["mlflow==2.3", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
         "name": "mlflow-env",
     }
     mlflow.sklearn.log_model(..., conda_env=conda_env)
@@ -165,7 +165,7 @@ The written ``conda.yaml`` file:
     - python=3.8.8
     - pip
     - pip:
-      - mlflow
+      - mlflow==2.3
       - scikit-learn==0.23.2
       - cloudpickle==1.6.0
 
@@ -185,7 +185,7 @@ The written ``requirements.txt`` file:
 
 .. code-block:: text
 
-    mlflow
+    mlflow==2.3
     scikit-learn==0.23.2
     cloudpickle==1.6.0
 
@@ -3064,7 +3064,7 @@ evaluate test data.
             "pip",
             {
                 "pip": [
-                    "mlflow",
+                    "mlflow=={}".format(mlflow.__version__),
                     "xgboost=={}".format(xgb.__version__),
                     "cloudpickle=={}".format(cloudpickle.__version__),
                 ],
