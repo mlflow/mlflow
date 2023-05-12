@@ -545,7 +545,7 @@ def _mlflow_major_version_string():
     ver = Version(mlflow.version.VERSION)
     major = ver.major
     minor = ver.minor
-    return f"mlflow<{major + 1},>={major}.{minor}"
+    return f"mlflow=={major}.{minor}"
 
 
 @contextmanager
