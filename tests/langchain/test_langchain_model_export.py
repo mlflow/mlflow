@@ -1,7 +1,9 @@
+import os
 import langchain
 import mlflow
 import pytest
 import transformers
+import json
 
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
@@ -13,8 +15,13 @@ from langchain.chains.base import Chain
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 
-from mlflow.openai.utils import _mock_chat_completion_response, _mock_request, TEST_CONTENT
-
+from tests.helper_functions import pyfunc_serve_and_score_model
+from mlflow.openai.utils import (
+    _mock_chat_completion_response,
+    _mock_request,
+    _MockResponse,
+    TEST_CONTENT,
+)
 
 @contextmanager
 def _mock_async_request():
@@ -62,11 +69,38 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
+def create_openai_pinecone_qa_chain():
+    import pinecone
+    from langchain.embeddings.openai import OpenAIEmbeddings
+    from langchain.llms import OpenAI
+    from langchain.vectorstores import Pinecone
+    from langchain.chains import VectorDBQAWithSourcesChain
+
+    embeddings = OpenAIEmbeddings()
+    pinecone.init(
+        api_key=os.environ["PINECONE_API_KEY"],
+        environment=os.environ["PINECONE_ENVIRONMENT"]
+    )
+    vectorstore = Pinecone.from_existing_index(
+        index_name=os.environ["PINECONE_INDEX_NAME"],
+        embedding=embeddings,
+        text_key=os.getenv("PINECONE_TEXT_KEY", "text"),
+        namespace=os.getenv("PINECONE_NAMESPACE"),
+    )
+
+    llm = OpenAI(temperature=0)
+    qa_chain = VectorDBQAWithSourcesChain.from_llm(llm=llm, vectorstore=vectorstore)
+
+    return qa_chain
+
+
 def create_model(llm_type, model_path=None):
     if llm_type == "openai":
         return create_openai_llmchain()
     if llm_type == "huggingfacehub":
         return create_huggingface_model(model_path)
+    if llm_type == "openai_pinecone_qa_chain":
+        return create_openai_pinecone_qa_chain()
     if llm_type == "fake":
         return FakeLLM()
     raise NotImplementedError("This model is not supported yet.")
@@ -207,3 +241,47 @@ def test_unsupported_chain_types():
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(chain, "fake_chain_model")
+
+
+def test_langchain_openai_pinecone_qa_chain_predict():
+    # Log QA chain as MLFlow model
+    model = create_model("openai_pinecone_qa_chain")
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    # Load back the model
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
+    langchain_input = {
+        "question": "What is full name of the NBA team San Antonio _?"
+    }
+    langchain_qa_output = {
+        "answer": "The full name is San Antonio Spurs",
+        "sources": "doc1, doc7"
+    }
+
+    with _mock_request(side_effect=[
+        _MockResponse(200, {}),
+        _MockResponse(200, langchain_qa_output)]
+    ):
+        result = loaded_model.predict([langchain_input])
+        print(f"result: {result}")
+        assert result == [TEST_CONTENT]
+
+    print("inference payload")
+    inference_payload = json.dumps({"inputs": langchain_input})
+    langchain_qa_output_serving = {"predictions": langchain_qa_output}
+    with _mock_request(return_value=_MockResponse(200, langchain_qa_output_serving)):
+        import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+        from mlflow.deployments import PredictionsResponse
+
+        response = pyfunc_serve_and_score_model(
+            logged_model.model_uri,
+            data=inference_payload,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            extra_args=["--env-manager", "local"],
+        )
+
+        assert (
+            PredictionsResponse.from_json(response.content.decode("utf-8"))
+            == langchain_qa_output_serving
+        )

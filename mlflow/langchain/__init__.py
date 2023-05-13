@@ -57,6 +57,9 @@ _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _MODEL_TYPE_KEY = "model_type"
 
+_VECTORSTORE_DATA_FILE_NAME = "vectorstore.pkl"
+_VECTORSTORE_DATA_KEY = "vectorstore_data"
+
 
 def get_default_pip_requirements():
     """
@@ -161,10 +164,8 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
-    _save_model(lc_model, model_data_path)
+    model_data_kwargs = _save_model(lc_model, path)
 
-    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.langchain",
@@ -285,18 +286,67 @@ def log_model(
     """
     import langchain
 
-    if type(lc_model) != langchain.chains.llm.LLMChain:
-        raise TypeError(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain "
-            + f"instances, found {type(lc_model)}"
+    if not isinstance(
+        lc_model,
+        (
+            langchain.chains.llm.LLMChain,
+            langchain.chains.retrieval_qa.base.VectorDBQA,
+            langchain.chains.qa_with_sources.vector_db.VectorDBQAWithSourcesChain,
+        ),
+    ):
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "MLflow langchain flavor only supports logging the following chain instances: LLMChain, "
+            + f"VectorDBQA and VectorDBQAWithSourcesChain. Found {type(lc_model)}"
         )
+
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
-    if type(lc_model.llm) not in _SUPPORTED_LLMS:
+
+    if (
+        isinstance(lc_model, langchain.chains.llm.LLMChain)
+        and type(lc_model.llm) not in _SUPPORTED_LLMS
+    ):
         logger.warning(
             "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
             "OpenAI, found %s",
-            str(type(lc_model.llm)),
+            type(lc_model.llm).__name__,
         )
+
+    if isinstance(
+        lc_model,
+        (
+            langchain.chains.retrieval_qa.base.VectorDBQA,
+            langchain.chains.qa_with_sources.vector_db.VectorDBQAWithSourcesChain,
+        ),
+    ):
+        if type(lc_model.combine_documents_chain.llm_chain.llm) not in _SUPPORTED_LLMS:
+            logger.warning(
+                "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
+                "OpenAI, found %s",
+                type(
+                    (lc_model.combine_documents_chain.llm_chain.llm).__name__,
+                ),
+            )
+
+        _SUPPORTED_VECTORSTORES = {
+            langchain.vectorstores.pinecone.Pinecone,
+            langchain.vectorstores.faiss.FAISS,
+        }
+        if type(lc_model.vectorstore) not in _SUPPORTED_VECTORSTORES:
+            logger.warning(
+                "MLflow does not guarantee support for Vectorstores outside of Pinecone and "
+                "FAISS for VectorDBQA chains, found %s",
+                type(
+                    (lc_model.vectorstore).__name__,
+                ),
+            )
+
+        # TODO:
+        # We cannot test for the Embeddings class because the vectorstore only
+        # has reference to the function in `lc_model.vectorstore._embedding_function`
+        # Maybe we can use `metadata` dict to specify the embedding class & kwargs
+        # and use that to assert that the class is supported - OpenAI or HuggingFace
+
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
@@ -314,13 +364,72 @@ def log_model(
 
 
 def _save_model(model, path):
-    model.save(path)
+    import langchain
+
+    model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
+    model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
+
+    if isinstance(model, langchain.chains.llm.LLMChain):
+        model.save(model_data_path)
+
+    if isinstance(
+        model,
+        (
+            langchain.chains.retrieval_qa.base.VectorDBQA,
+            langchain.chains.qa_with_sources.vector_db.VectorDBQAWithSourcesChain,
+        ),
+    ):
+        # TODO:
+        # Maybe we can use `metadata` dict to specify the embedding class & kwargs
+        # and use that to assert that the class is supported - OpenAI or HuggingFace
+        # or we will need to introduce an embedding/vector-store config
+        # that is provided with the model
+
+        # Save vectorstore
+        # For Pinecone, there is nothing to save because it's all based on env variables
+        if isinstance(model.vectorstore, langchain.vectorstores.pinecone.Pinecone):
+            pass
+        elif isinstance(model.vectorstore, langchain.vectorstores.faiss.FAISS):
+            vectorstore_data_path = os.path.join(path, _VECTORSTORE_DATA_FILE_NAME)
+            model.vectorstore.save_local(vectorstore_data_path)
+            model_data_kwargs[_VECTORSTORE_DATA_KEY] = _VECTORSTORE_DATA_FILE_NAME
+
+        # Save LLM QA chain
+        model.save(model_data_path)
+
+    return model_data_kwargs
 
 
-def _load_model(path):
+def _load_model(path, vectorstore_path=None):
+    import pinecone
     from langchain.chains.loading import load_chain
+    from langchain.embeddings import OpenAIEmbeddings
+    from langchain.vectorstores import Pinecone, FAISS
 
-    model = load_chain(path)
+    # TODO: read from chain_type from metadata and then branch
+    # model_configuration_path = os.path.join(path, MLMODEL_FILE_NAME)
+    # model_conf = Model.load(model_configuration_path)
+    # model_conf.metadata
+
+    try:
+        model = load_chain(path)
+    except ValueError:
+        # QA chains raise "ValueError: `vectorstore` must be present."
+        embeddings = OpenAIEmbeddings()
+
+        pinecone.init(
+            api_key=os.environ["PINECONE_API_KEY"],
+            environment=os.environ["PINECONE_ENVIRONMENT"]
+        )
+        vectorstore = Pinecone.from_existing_index(
+            index_name=os.environ["PINECONE_INDEX_NAME"],
+            embedding=embeddings,
+            text_key=os.getenv("PINECONE_TEXT_KEY", "text"),
+            namespace=os.getenv("PINECONE_NAMESPACE"),
+        )
+        # vectorstore = FAISS.load_local(vectorstore_path, embeddings=embeddings)
+        model = load_chain(path, vectorstore=vectorstore)
+
     return model
 
 
@@ -371,7 +480,12 @@ def _load_model_from_local_fs(local_model_path):
     lc_model_path = os.path.join(
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
-    return _load_model(lc_model_path)
+
+    vectorstore_path = None
+    if vectorstore_path := flavor_conf.get(_VECTORSTORE_DATA_KEY):
+        vectorstore_path = os.path.join(local_model_path, vectorstore_path)
+
+    return _load_model(lc_model_path, vectorstore_path)
 
 
 @experimental
