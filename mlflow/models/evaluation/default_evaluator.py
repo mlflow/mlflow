@@ -1319,10 +1319,6 @@ class DefaultEvaluator(ModelEvaluator):
 
 
 class TextGenerationEvaluator(ModelEvaluator):
-    """
-    Defaulte evaluator for text-generation models
-    """
-
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
         return True
 
@@ -1339,6 +1335,47 @@ class TextGenerationEvaluator(ModelEvaluator):
         baseline_model=None,
         **kwargs,
     ):
+        import evaluate
+
+        t = evaluate.load("toxicity")
         df = dataset.features_data
-        outputs = model.predict(df)
-        mlflow.llm.log_predictions(inputs=df.squeeze().tolist(), outputs=outputs, prompts=outputs)
+        preds = model.predict(df)
+        metrics = t.compute(predictions=preds)
+        # `metrics` looks like {'toxicity': [0.1, 0.2]}
+        # How to handle non-scalar metrics?
+        print(preds, metrics)
+        # Should llm_predictions.csv contain metrics as well?
+        mlflow.llm.log_predictions(
+            inputs=df.to_dict("records"),
+            outputs=preds,
+            # How to get the prompts?
+            prompts=preds,
+        )
+
+
+class QuestionAnsweringEvaluator(ModelEvaluator):
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+        return True
+
+    def evaluate(
+        self,
+        *,
+        model,
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        custom_metrics=None,
+        custom_artifacts=None,
+        baseline_model=None,
+        **kwargs,
+    ):
+        import evaluate
+
+        em = evaluate.load("exact_match")
+        df = dataset.features_data
+        preds = model.predict(df)
+        metrics = em.compute(references=dataset.labels_data, predictions=preds)
+        print(preds, metrics)
+        mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
+        mlflow.log_metrics(metrics)
