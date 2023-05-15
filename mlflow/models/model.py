@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.databricks_utils import get_databricks_runtime, is_in_databricks_runtime
 
 _logger = logging.getLogger(__name__)
 
@@ -25,6 +25,9 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
+)
+_LOG_MODEL_MISSING_SIGNATURE_WARNING = (
+    "Missing model signature. Please add signature with `mlflow.models.add_signature`."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
@@ -497,6 +500,7 @@ class Model:
         artifact_path,
         flavor,
         registered_model_name=None,
+        signature=None,
         await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
         metadata=None,
         **kwargs,
@@ -550,7 +554,11 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
-            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            if is_in_databricks_runtime() and signature == None:
+                _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
+            flavor.save_model(
+                path=local_path, mlflow_model=mlflow_model, signature=signature, **kwargs
+            )
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
