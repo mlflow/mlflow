@@ -14,7 +14,7 @@ from langchain.chains.base import Chain
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
-
+from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_request,
@@ -24,8 +24,8 @@ from mlflow.openai.utils import (
 
 
 @contextmanager
-def _mock_async_request():
-    with _mock_request(return_value=_mock_chat_completion_response()) as m:
+def _mock_async_request(content=TEST_CONTENT):
+    with _mock_request(return_value=_mock_chat_completion_response(content)) as m:
         yield m
 
 
@@ -271,7 +271,7 @@ def test_langchain_agent_model_predict():
 def test_unsupported_chain_types():
     chain = FakeChain()
     with pytest.raises(
-        TypeError,
+        MlflowException,
         match="MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain",
     ):
         with mlflow.start_run():

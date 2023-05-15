@@ -51,6 +51,7 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
+from mlflow.openai.utils import TEST_CONTENT
 
 logger = logging.getLogger(mlflow.__name__)
 
@@ -436,9 +437,15 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     """
 
     def predict(self, data):
+        import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 
-        with _mock_async_request():
+        if isinstance(self.lc_model, langchain.chains.llm.LLMChain):
+            mockContent = TEST_CONTENT
+        elif isinstance(self.lc_model, langchain.agents.agent.AgentExecutor):
+            mockContent = f"Final Answer: {TEST_CONTENT}"
+
+        with _mock_async_request(mockContent):
             return super().predict(data)
 
 
