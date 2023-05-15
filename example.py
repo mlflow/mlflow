@@ -42,7 +42,3 @@ with mlflow.start_run():
         model_type="text-generation",
         evaluators=["text-generation"],
     )
-    # This should logs the following using `mlflow.llm.log_predictions`:
-    # - Inputs
-    # - Outputs
-    # - Metrics (e.g. toxicity for text-generation)
