@@ -241,7 +241,7 @@ class _OnnxModelWrapper:
         # If not, then default to the predefined list.
         else:
             providers = ONNX_EXECUTION_PROVIDERS
-        
+
         sess_options = onnxruntime.SessionOptions()
         if "options" in model_meta.flavors.get(FLAVOR_NAME).keys():
             options = model_meta.flavors.get(FLAVOR_NAME)["options"]
@@ -260,7 +260,9 @@ class _OnnxModelWrapper:
                 elif execution_mode == 1:
                     sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_PARALLEL
             if graph_optimization_level:
-                sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(graph_optimization_level)
+                sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(
+                    graph_optimization_level
+                )
             if extra_session_config:
                 for key, value in extra_session_config.items():
                     sess_options.add_session_config_entry(key, value)
@@ -290,7 +292,9 @@ class _OnnxModelWrapper:
         try:
             self.rt = onnxruntime.InferenceSession(path, sess_options=sess_options)
         except ValueError:
-            self.rt = onnxruntime.InferenceSession(path, providers=providers, sess_options=sess_options)
+            self.rt = onnxruntime.InferenceSession(
+                path, providers=providers, sess_options=sess_options
+            )
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
