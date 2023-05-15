@@ -178,7 +178,7 @@ def save_model(
         onnx_version=onnx.__version__,
         data=model_data_subpath,
         providers=onnx_execution_providers,
-        options=onnx_session_options,
+        onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -243,8 +243,8 @@ class _OnnxModelWrapper:
             providers = ONNX_EXECUTION_PROVIDERS
 
         sess_options = onnxruntime.SessionOptions()
-        if "options" in model_meta.flavors.get(FLAVOR_NAME).keys():
-            options = model_meta.flavors.get(FLAVOR_NAME)["options"]
+        options = model_meta.flavors.get(FLAVOR_NAME)["onnx_session_options"]
+        if options:
             inter_op_num_threads = options.get("inter_op_num_threads")
             intra_op_num_threads = options.get("intra_op_num_threads")
             execution_mode = options.get("execution_mode")
@@ -255,9 +255,9 @@ class _OnnxModelWrapper:
             if intra_op_num_threads:
                 sess_options.intra_op_num_threads = intra_op_num_threads
             if execution_mode:
-                if execution_mode == 0:
+                if execution_mode.upper() == "SEQUENTIAL":
                     sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
-                elif execution_mode == 1:
+                elif execution_mode.upper() == "PARALLEL":
                     sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_PARALLEL
             if graph_optimization_level:
                 sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(
