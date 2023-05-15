@@ -1340,9 +1340,8 @@ class TextGenerationEvaluator(ModelEvaluator):
         t = evaluate.load("toxicity")
         df = dataset.features_data
         preds = model.predict(df)
-        metrics = t.compute(predictions=preds)
-        # `metrics` looks like {'toxicity': [0.1, 0.2]}
-        # How to handle non-scalar metrics?
+        # How to log non-scalar metrics?
+        metrics = t.compute(predictions=preds)  # e.g. {'toxicity': [0.1, 0.2]}
         print(preds, metrics)
         # Should llm_predictions.csv contain metrics as well?
         mlflow.llm.log_predictions(
