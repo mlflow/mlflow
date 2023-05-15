@@ -48,9 +48,10 @@ _model_evaluation_registry = ModelEvaluatorRegistry()
 
 
 def register_evaluators(module):
-    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator
+    from mlflow.models.evaluation.default_evaluator import DefaultEvaluator, TextGenerationEvaluator
 
     module._model_evaluation_registry.register("default", DefaultEvaluator)
+    module._model_evaluation_registry.register("text-generation", TextGenerationEvaluator)
     module._model_evaluation_registry.register_entrypoints()
 
 

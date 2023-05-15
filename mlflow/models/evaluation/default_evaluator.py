@@ -1316,3 +1316,29 @@ class DefaultEvaluator(ModelEvaluator):
             :return: The original data object.
             """
             return self._data
+
+
+class TextGenerationEvaluator(ModelEvaluator):
+    """
+    Defaulte evaluator for text-generation models
+    """
+
+    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
+        return True
+
+    def evaluate(
+        self,
+        *,
+        model,
+        model_type,
+        dataset,
+        run_id,
+        evaluator_config,
+        custom_metrics=None,
+        custom_artifacts=None,
+        baseline_model=None,
+        **kwargs,
+    ):
+        df = dataset.features_data
+        outputs = model.predict(df)
+        mlflow.llm.log_predictions(inputs=df.squeeze().tolist(), outputs=outputs, prompts=outputs)
