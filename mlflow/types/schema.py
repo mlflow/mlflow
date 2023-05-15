@@ -72,8 +72,10 @@ class ColSpec:
         self,
         type: Union[DataType, str],  # pylint: disable=redefined-builtin
         name: Optional[str] = None,
+        optional: bool = False,
     ):
         self._name = name
+        self._optional = optional
         try:
             self._type = DataType[type] if isinstance(type, str) else type
         except KeyError:
@@ -97,16 +99,21 @@ class ColSpec:
         """The column name or None if the columns is unnamed."""
         return self._name
 
+    @property
+    def optional(self) -> bool:
+        """Whether this column is optional."""
+        return self._optional
+
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
-            return {"type": self.type.name}
+            return {"type": self.type.name, "optional": self.optional}
         else:
-            return {"name": self.name, "type": self.type.name}
+            return {"name": self.name, "type": self.type.name, "optional": self.optional}
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ColSpec):
             names_eq = (self.name is None and other.name is None) or self.name == other.name
-            return names_eq and self.type == other.type
+            return names_eq and self.type == other.type and self.optional == other.optional
         return False
 
     def __repr__(self) -> str:
@@ -282,6 +289,11 @@ class Schema:
                 "Creating Schema with multiple unnamed TensorSpecs is not supported. "
                 "Please provide names for each TensorSpec."
             )
+        if all(x.name is None for x in inputs) and any(x.optional is True for x in inputs):
+            raise MlflowException(
+                "Creating Schema with unnamed optional inputs is not supported. "
+                "Please name all inputs or make all inputs required."
+            )
         self._inputs = inputs
 
     def __len__(self):
@@ -303,13 +315,27 @@ class Schema:
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
+    def required_input_names(self) -> List[Union[str, int]]:
+        """Get list of required data names or range of indices if schema has no names."""
+        return [x.name or i for i, x in enumerate(self.inputs) if not x.optional]
+
+    def optional_input_names(self) -> list[Union[str, int]]:
+        """Get list of optional data names or range of indices if schema has no names."""
+        return [x.name or i for i, x in enumerate(self.inputs) if x.optional]
+
     def has_input_names(self) -> bool:
         """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
     def input_types(self) -> List[Union[DataType, np.dtype]]:
-        """Get types of the represented dataset."""
+        """Get types for each column in the schema."""
         return [x.type for x in self.inputs]
+
+    def input_types_dict(self) -> Dict[str, Union[DataType, np.dtype]]:
+        """Maps column names to types, iff this schema declares names."""
+        if not self.has_input_names():
+            raise MlflowException("Cannot get input types as a dict for schema without names.")
+        return {x.name: x.type for x in self.inputs}
 
     def numpy_types(self) -> List[np.dtype]:
         """Convenience shortcut to get the datatypes as numpy types."""
