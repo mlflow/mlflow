@@ -4272,3 +4272,10 @@ For more info, see:
     mlflow deployments get --help
     mlflow deployments run-local --help
     mlflow deployments help --help
+
+Community Model Flavors
+-----------------------
+
+Go to the `Community Model Flavors <https://mlflow.org/docs/latest/community-model-flavors.html#>`_
+page to get an overview of other useful MLflow flavors, which are developed and
+maintained by the MLflow community.
