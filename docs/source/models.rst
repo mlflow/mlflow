@@ -2159,9 +2159,14 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
 Model with the ``langchain`` flavor as a dictionary of the model's attributes.
 
-Example:
+Example: Log a LangChain LLMChain
 
 .. literalinclude:: ../../examples/langchain/simple_chain.py
+    :language: python
+
+Example: Log a LangChain Agent
+
+.. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
 Diviner (``diviner``)
