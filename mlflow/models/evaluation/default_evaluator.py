@@ -1392,23 +1392,26 @@ def _evaluate_text_generation(
 ):
     import evaluate
 
-    t = evaluate.load("toxicity")
+    t = evaluate.load("bleu")
     df = dataset.features_data
     preds = model.predict(df)
-    # How to log non-scalar metrics?
-    metrics = t.compute(predictions=preds)  # e.g. {'toxicity': [0.1, 0.2]}
-    print(preds, metrics)
-    metadata = [{"toxicity": val} for val in metrics["toxicity"]]
+    metadata = []
+    for actual, expected in zip(preds, dataset.labels_data):
+        bleu = t.compute(predictions=[actual], references=[[expected]])
+        metadata.append(bleu)
+
     # Should llm_predictions.csv contain metrics as well?
     mlflow.llm.log_predictions(
         inputs=df.to_dict("records"),
         outputs=preds,
         # How to get the prompts?
-        prompts=preds,
+        prompts=dataset.labels_data,
         # Add a new argument that takes List[Dict[str, any]]?
         # The main use case is to log extra data (e.g. metrics) for each prediction
-        # metadata=metadata,
+        metadata=metadata,
     )
+    avg_bleu = sum(m["bleu"] for m in metadata) / len(metadata)
+    mlflow.log_metrics({"avg_bleu": avg_bleu})
 
 
 def _evaluate_question_answering(
@@ -1430,7 +1433,6 @@ def _evaluate_question_answering(
         m = evaluate.load(metric)
         preds = model.predict(df)
         metrics = m.compute(references=dataset.labels_data, predictions=preds)
-        print(preds, metrics)
         mlflow.log_metrics(metrics)
     mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
 
@@ -1453,7 +1455,6 @@ def _evaluate_text_summarization(
     df = dataset.features_data
     preds = model.predict(df)
     metrics = rouge.compute(references=dataset.labels_data, predictions=preds)
-    print(preds, metrics)
     mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
     mlflow.log_metrics(metrics)
 

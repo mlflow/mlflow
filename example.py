@@ -1,4 +1,3 @@
-import os
 import sys
 import mlflow
 import datasets
@@ -9,29 +8,28 @@ import pandas as pd
 
 
 def text_generation():
+    data = datasets.load_dataset("opus_books", "en-fr", split="train[:10]")
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             model="gpt-3.5-turbo",
             task=openai.ChatCompletion,
             artifact_path="model",
-            messages=[{"role": "user", "content": "Tell me a funny joke about {animal}."}],
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Translate the following text to French: {en}",
+                }
+            ],
         )
-        df = pd.DataFrame(
-            {
-                "animal": [
-                    "cats",
-                    "dogs",
-                ],
-                "target": [
-                    "cats",
-                    "dogs",
-                ],
-            }
-        )
+        df = data.to_pandas()
+        df = df.drop(["id"], axis=1)
+        translation = df.pop("translation")
+        df["en"] = translation.apply(lambda x: x["en"])
+        df["fr"] = translation.apply(lambda x: x["fr"])
         mlflow.evaluate(
             model=model_info.model_uri,
             data=df,
-            targets="target",
+            targets="fr",
             model_type="text-generation",
         )
 

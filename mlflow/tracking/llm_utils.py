@@ -1,3 +1,4 @@
+from __future__ import annotations
 import csv
 import logging
 import mlflow
@@ -6,7 +7,7 @@ import tempfile
 
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Any
 
 _logger = logging.getLogger(__name__)
 
@@ -16,6 +17,7 @@ def log_predictions(
     inputs: List[Union[str, Dict[str, str]]],
     outputs: List[str],
     prompts: List[Union[str, Dict[str, str]]],
+    metadata: List[Dict[str, Any]] | None = None,
 ) -> None:
     """
     Log a batch of inputs, outputs and prompts for the current evaluation run.
@@ -61,7 +63,11 @@ def log_predictions(
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     LLM_ARTIFACT_NAME = "llm_predictions.csv"
 
-    for row in zip(inputs, outputs, prompts):
+    for row in (
+        zip(inputs, outputs, prompts)
+        if metadata is None
+        else zip(inputs, outputs, prompts, metadata)
+    ):
         predictions.append(row)
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -76,7 +82,12 @@ def log_predictions(
             )
         else:
             # If the artifact doesn't exist, we need to write the header.
-            predictions.insert(0, ["inputs", "outputs", "prompts"])
+            predictions.insert(
+                0,
+                ["inputs", "outputs", "prompts"]
+                if metadata is None
+                else ["inputs", "outputs", "prompts", "metadata"],
+            )
             artifact_path = os.path.join(tmpdir, LLM_ARTIFACT_NAME)
             _logger.info(f"Creating a new {LLM_ARTIFACT_NAME} for run {run_id}.")
 
