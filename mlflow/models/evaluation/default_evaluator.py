@@ -1343,12 +1343,16 @@ class TextGenerationEvaluator(ModelEvaluator):
         # How to log non-scalar metrics?
         metrics = t.compute(predictions=preds)  # e.g. {'toxicity': [0.1, 0.2]}
         print(preds, metrics)
+        metadata = [{"toxicity": val} for val in metrics["toxicity"]]
         # Should llm_predictions.csv contain metrics as well?
         mlflow.llm.log_predictions(
             inputs=df.to_dict("records"),
             outputs=preds,
             # How to get the prompts?
             prompts=preds,
+            # Add a new argument that takes List[Dict[str, any]]?
+            # The main use case is to log extra data (e.g. metrics) for each prediction
+            metadata=metadata,
         )
 
 
