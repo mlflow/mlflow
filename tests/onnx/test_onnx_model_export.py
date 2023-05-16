@@ -321,7 +321,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
 
 def test_model_save_load_pyfunc_format_with_session_options(onnx_model, model_path):
     onnx_session_options = {
-        "execution_mode": 0,
+        "execution_mode": "sequential",
         "graph_optimization_level": 99,
         "intra_op_num_threads": 19,
     }
