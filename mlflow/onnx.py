@@ -131,7 +131,17 @@ def save_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
-    :param onnx_session_options: Dictionary of options to be passed to the onnxruntime
+    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+                                 For example:
+                                 ``{
+                                    'graph_optimization_level': 99,
+                                    'intra_op_num_threads': 1,
+                                    'inter_op_num_threads': 1,
+                                    'execution_mode': 'sequential'
+                                    }``
+                                 'execution_mode' can be set ot 'sequential' or 'parallel'.
+                                 See onnxruntime API for further descriptions:
+                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -484,7 +494,17 @@ def log_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
-    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession
+    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+                                 For example:
+                                 ``{
+                                    'graph_optimization_level': 99,
+                                    'intra_op_num_threads': 1,
+                                    'inter_op_num_threads': 1,
+                                    'execution_mode': 'sequential'
+                                    }``
+                                 'execution_mode' can be set ot 'sequential' or 'parallel'.
+                                 See onnxruntime API for further descriptions:
+                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
