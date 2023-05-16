@@ -134,11 +134,11 @@ def save_model(
     :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
                                  For example:
                                  ``{
-                                    'graph_optimization_level': 99,
-                                    'intra_op_num_threads': 1,
-                                    'inter_op_num_threads': 1,
-                                    'execution_mode': 'sequential'
-                                    }``
+                                 'graph_optimization_level': 99,
+                                 'intra_op_num_threads': 1,
+                                 'inter_op_num_threads': 1,
+                                 'execution_mode': 'sequential'
+                                 }``
                                  'execution_mode' can be set ot 'sequential' or 'parallel'.
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
@@ -497,11 +497,11 @@ def log_model(
     :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
                                  For example:
                                  ``{
-                                    'graph_optimization_level': 99,
-                                    'intra_op_num_threads': 1,
-                                    'inter_op_num_threads': 1,
-                                    'execution_mode': 'sequential'
-                                    }``
+                                 'graph_optimization_level': 99,
+                                 'intra_op_num_threads': 1,
+                                 'inter_op_num_threads': 1,
+                                 'execution_mode': 'sequential'
+                                 }``
                                  'execution_mode' can be set ot 'sequential' or 'parallel'.
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
