@@ -139,7 +139,7 @@ def save_model(
                                  'inter_op_num_threads': 1,
                                  'execution_mode': 'sequential'
                                  }``
-                                 'execution_mode' can be set ot 'sequential' or 'parallel'.
+                                 'execution_mode' can be set to 'sequential' or 'parallel'.
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -502,7 +502,7 @@ def log_model(
                                  'inter_op_num_threads': 1,
                                  'execution_mode': 'sequential'
                                  }``
-                                 'execution_mode' can be set ot 'sequential' or 'parallel'.
+                                 'execution_mode' can be set to 'sequential' or 'parallel'.
                                  See onnxruntime API for further descriptions:
                                  https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
