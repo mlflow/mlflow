@@ -1,87 +1,105 @@
 import os
+import sys
 import mlflow
+import datasets
 
-# os.environ["MLFLOW_OPENAI_TESTING"] = "true"
-# os.environ["OPENAI_API_KEY"] = "test"
 
 import openai
 import pandas as pd
 
 
-with mlflow.start_run():
-    model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
-        artifact_path="model",
-        messages=[{"role": "user", "content": "Tell me a funny joke about {animal}."}],
-    )
-
-    model = mlflow.pyfunc.load_model(model_info.model_uri)
-    df = pd.DataFrame(
-        {
-            "animal": [
-                "cats",
-                "dogs",
-            ],
-            "target": [
-                "cats",
-                "dogs",
-            ],
-        }
-    )
-    mlflow.evaluate(
-        model=model_info.model_uri,
-        data=df,
-        targets="target",
-        # New model types:
-        # - 'summarization'
-        # - 'qa'
-        # - 'retrieval'
-        # - 'text-generation'
-        model_type="text-generation",
-        evaluators=["text-generation"],
-    )
-
-
-with mlflow.start_run():
-    model_info = mlflow.openai.log_model(
-        model="gpt-3.5-turbo",
-        task=openai.ChatCompletion,
-        artifact_path="model",
-        messages=[
+def text_generation():
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            artifact_path="model",
+            messages=[{"role": "user", "content": "Tell me a funny joke about {animal}."}],
+        )
+        df = pd.DataFrame(
             {
-                "role": "system",
-                "content": "You're a calculator. Please only give me the answer, which means the response should only contain numbers.",
-            },
-            {"role": "user", "content": "{x} + {y} ="},
-        ],
-    )
-    model = mlflow.pyfunc.load_model(model_info.model_uri)
-    df = pd.DataFrame(
-        {
-            "x": [
-                "1",
-                "2",
+                "animal": [
+                    "cats",
+                    "dogs",
+                ],
+                "target": [
+                    "cats",
+                    "dogs",
+                ],
+            }
+        )
+        mlflow.evaluate(
+            model=model_info.model_uri,
+            data=df,
+            targets="target",
+            model_type="text-generation",
+        )
+
+
+def qa():
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            artifact_path="model",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You're a calculator. Please only give me the answer, which means the response should only contain numbers.",
+                },
+                {"role": "user", "content": "{x} + {y} ="},
             ],
-            "y": [
-                "3",
-                "4",
+        )
+        df = pd.DataFrame(
+            {
+                "x": ["1", "2"],
+                "y": ["3", "4"],
+                "target": ["4", "6"],
+            }
+        )
+        mlflow.evaluate(
+            model=model_info.model_uri,
+            data=df,
+            targets="target",
+            model_type="qa",
+        )
+
+
+def summarization():
+    dt = datasets.load_dataset("billsum", split="train[:10]")
+    print(dt)
+
+    with mlflow.start_run():
+        model_info = mlflow.openai.log_model(
+            model="gpt-3.5-turbo",
+            task=openai.ChatCompletion,
+            artifact_path="model",
+            messages=[
+                {"role": "user", "content": "Summarize the following text:\n\n---\n\n{text}"},
             ],
-            "target": [
-                "4",
-                "6",
-            ],
-        }
-    )
-    mlflow.evaluate(
-        model=model_info.model_uri,
-        data=df,
-        targets="target",
-        # New model types:
-        # - 'summarization'
-        # - 'qa'
-        # - 'retrieval'
-        # - 'text-generation'
-        model_type="qa",
-        evaluators=["qa"],
-    )
+        )
+        df = dt.to_pandas()
+        mlflow.evaluate(
+            model=model_info.model_uri,
+            data=df,
+            targets="summary",
+            model_type="summarization",
+        )
+
+
+def retrieval():
+    raise NotImplemented
+
+
+if __name__ == "__main__":
+    task = sys.argv[1]
+    if task == "qa":
+        qa()
+    elif task == "summarization":
+        summarization()
+    elif task == "text-generation":
+        text_generation()
+    elif task == "retrieval":
+        retrieval()
+    else:
+        raise ValueError(f"Invalid task: {task}")

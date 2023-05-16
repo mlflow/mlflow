@@ -548,7 +548,14 @@ def _shap_predict_fn(x, predict_fn, feature_names):
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in ["classifier", "regressor"]
+        return model_type in [
+            "classifier",
+            "regressor",
+            "qa",
+            "text-generation",
+            "summarization",
+            "retrieval",
+        ]
 
     def _log_metrics(self):
         """
@@ -1233,6 +1240,59 @@ class DefaultEvaluator(ModelEvaluator):
         baseline_model=None,
         **kwargs,
     ):
+        if model_type == "text-generation":
+            _evaluate_text_generation(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=run_id,
+                evaluator_config=evaluator_config,
+                custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
+                baseline_model=baseline_model,
+                **kwargs,
+            )
+            return
+        elif model_type == "qa":
+            _evaluate_qa(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=run_id,
+                evaluator_config=evaluator_config,
+                custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
+                baseline_model=baseline_model,
+                **kwargs,
+            )
+            return
+        elif model_type == "summarization":
+            _evaluate_summarization(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=run_id,
+                evaluator_config=evaluator_config,
+                custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
+                baseline_model=baseline_model,
+                **kwargs,
+            )
+            return
+        elif model_type == "retrieval":
+            _evaluate_retrieval(
+                model=model,
+                model_type=model_type,
+                dataset=dataset,
+                run_id=run_id,
+                evaluator_config=evaluator_config,
+                custom_metrics=custom_metrics,
+                custom_artifacts=custom_artifacts,
+                baseline_model=baseline_model,
+                **kwargs,
+            )
+            return
+
         self.dataset = dataset
         self.run_id = run_id
         self.model_type = model_type
@@ -1318,67 +1378,95 @@ class DefaultEvaluator(ModelEvaluator):
             return self._data
 
 
-class TextGenerationEvaluator(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return True
+def _evaluate_text_generation(
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_config,
+    custom_metrics=None,
+    custom_artifacts=None,
+    baseline_model=None,
+    **kwargs,
+):
+    import evaluate
 
-    def evaluate(
-        self,
-        *,
-        model,
-        model_type,
-        dataset,
-        run_id,
-        evaluator_config,
-        custom_metrics=None,
-        custom_artifacts=None,
-        baseline_model=None,
-        **kwargs,
-    ):
-        import evaluate
-
-        t = evaluate.load("toxicity")
-        df = dataset.features_data
-        preds = model.predict(df)
-        # How to log non-scalar metrics?
-        metrics = t.compute(predictions=preds)  # e.g. {'toxicity': [0.1, 0.2]}
-        print(preds, metrics)
-        metadata = [{"toxicity": val} for val in metrics["toxicity"]]
-        # Should llm_predictions.csv contain metrics as well?
-        mlflow.llm.log_predictions(
-            inputs=df.to_dict("records"),
-            outputs=preds,
-            # How to get the prompts?
-            prompts=preds,
-            # Add a new argument that takes List[Dict[str, any]]?
-            # The main use case is to log extra data (e.g. metrics) for each prediction
-            metadata=metadata,
-        )
+    t = evaluate.load("toxicity")
+    df = dataset.features_data
+    preds = model.predict(df)
+    # How to log non-scalar metrics?
+    metrics = t.compute(predictions=preds)  # e.g. {'toxicity': [0.1, 0.2]}
+    print(preds, metrics)
+    metadata = [{"toxicity": val} for val in metrics["toxicity"]]
+    # Should llm_predictions.csv contain metrics as well?
+    mlflow.llm.log_predictions(
+        inputs=df.to_dict("records"),
+        outputs=preds,
+        # How to get the prompts?
+        prompts=preds,
+        # Add a new argument that takes List[Dict[str, any]]?
+        # The main use case is to log extra data (e.g. metrics) for each prediction
+        # metadata=metadata,
+    )
 
 
-class QuestionAnsweringEvaluator(ModelEvaluator):
-    def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return True
+def _evaluate_qa(
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_config,
+    custom_metrics=None,
+    custom_artifacts=None,
+    baseline_model=None,
+    **kwargs,
+):
+    import evaluate
 
-    def evaluate(
-        self,
-        *,
-        model,
-        model_type,
-        dataset,
-        run_id,
-        evaluator_config,
-        custom_metrics=None,
-        custom_artifacts=None,
-        baseline_model=None,
-        **kwargs,
-    ):
-        import evaluate
+    em = evaluate.load("exact_match")
+    df = dataset.features_data
+    preds = model.predict(df)
+    metrics = em.compute(references=dataset.labels_data, predictions=preds)
+    print(preds, metrics)
+    mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
+    mlflow.log_metrics(metrics)
 
-        em = evaluate.load("exact_match")
-        df = dataset.features_data
-        preds = model.predict(df)
-        metrics = em.compute(references=dataset.labels_data, predictions=preds)
-        print(preds, metrics)
-        mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
-        mlflow.log_metrics(metrics)
+
+def _evaluate_summarization(
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_config,
+    custom_metrics=None,
+    custom_artifacts=None,
+    baseline_model=None,
+    **kwargs,
+):
+    import evaluate
+
+    rouge = evaluate.load("rouge")
+    df = dataset.features_data
+    preds = model.predict(df)
+    metrics = rouge.compute(references=dataset.labels_data, predictions=preds)
+    print(preds, metrics)
+    mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
+    mlflow.log_metrics(metrics)
+
+
+def _evaluate_retrieval(
+    *,
+    model,
+    model_type,
+    dataset,
+    run_id,
+    evaluator_config,
+    custom_metrics=None,
+    custom_artifacts=None,
+    baseline_model=None,
+    **kwargs,
+):
+    pass
