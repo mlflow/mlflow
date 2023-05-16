@@ -1,11 +1,14 @@
 import gc
 import json
+import librosa
 import numpy as np
 import os
 import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
+import requests
+import tempfile
 import textwrap
 from unittest import mock
 import yaml
@@ -314,6 +317,21 @@ def conversational_pipeline():
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
+
+
+@pytest.fixture()
+def sound_file_for_test():
+    url = "https://www.nasa.gov/62282main_countdown_launch.wav"
+    response = requests.get(url)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_audio:
+        tmp_audio.write(response.content)
+    audio, _ = librosa.load(tmp_audio.name, sr=16000)
+    return audio
+
+
+@pytest.fixture()
+def whisper_pipeline():
+    return transformers.pipeline(model="openai/whisper-small")
 
 
 @pytest.fixture()
@@ -2691,3 +2709,60 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
 
     assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_for_test):
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+
+    mlflow.transformers.save_model(
+        transformers_model=whisper_pipeline, path=model_path, inference_config=inference_config
+    )
+
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+
+    transcription = loaded_pipeline(sound_file_for_test, **inference_config)
+    assert transcription["text"].startswith(" 30 seconds and counting. Astronauts")
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    pyfunc_transcription = json.loads(loaded_pyfunc.predict(sound_file_for_test))
+
+    assert transcription["text"] == pyfunc_transcription["text"]
+    # Due to the choice of using tuples within the return type, equivalency validation for the
+    # "chunks" values is not explicitly equivalent since tuples are cast to lists when json
+    # serialized.
+    assert transcription["chunks"][0]["text"] == pyfunc_transcription["chunks"][0]["text"]
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test):
+    signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, sound_file_for_test),
+    )
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    complex_signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(
+            whisper_pipeline, sound_file_for_test, inference_config
+        ),
+    )
+
+    assert signature == complex_signature
+
+
+def test_whisper_model_serve_and_score():
+    pass
+
+
+# TODO: Test non-bitrate matching and ensure we throw.

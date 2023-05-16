@@ -1,4 +1,5 @@
 import ast
+import base64
 import contextlib
 from functools import lru_cache
 import json
@@ -1164,9 +1165,8 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
     """
     Discriminator for determining whether a particular task type and model instance from within
     a ``Pipeline`` is currently supported for the pyfunc flavor.
-    Currently, the only tasks that are supported are NLP-based tasks wherein a Pipeline consists
-    solely of a ``Tokenizer`` and a pre-trained model.
-    Audio, Image, and Video pipelines can still be logged and used, but are not available for
+
+    Image and Video pipelines can still be logged and used, but are not available for
     loading as pyfunc.
     Similarly, esoteric model types (Graph Models, Timeseries Models, and Reinforcement Learning
     Models) are not permitted for loading as pyfunc.
@@ -1179,7 +1179,7 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "TimeSeriesTransformerPreTrainedModel",
         "DecisionTransformerPreTrainedModel",
     }
-    impermissible_attrs = {"feature_extractor", "image_processor"}
+    impermissible_attrs = {"image_processor"}
 
     for attr in impermissible_attrs:
         if getattr(pipeline, attr, None) is not None:
@@ -1253,6 +1253,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                         ColSpec("string", name="hypothesis_template"),
                     ]
                 ),
+                outputs=Schema([ColSpec("string")]),
+            )
+        elif isinstance(pipeline, transformers.AutomaticSpeechRecognitionPipeline):
+            return ModelSignature(
+                inputs=Schema([TensorSpec(np.dtype("float32"), [-1])]),
                 outputs=Schema([ColSpec("string")]),
             )
         elif isinstance(
@@ -1411,7 +1416,7 @@ def _load_pyfunc(path):
 
 
 @experimental
-def generate_signature_output(pipeline, data):
+def generate_signature_output(pipeline, data, inference_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1420,6 +1425,8 @@ def generate_signature_output(pipeline, data):
     :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
                      inputs are not permitted for extracting an output example.
     :param data: An example input that is compatible with the given pipeline
+    :param inference_config: Any additional inference configuration, provided as kwargs, to inform
+                             the format of the output type from a pipeline inference call.
     :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
     import transformers
@@ -1431,7 +1438,7 @@ def generate_signature_output(pipeline, data):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline).predict(data)
+    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(data)
 
 
 class _TransformersWrapper:
@@ -1490,6 +1497,10 @@ class _TransformersWrapper:
                 )
             input_data = data
         elif isinstance(data, str):
+            input_data = data
+        elif isinstance(data, bytes):
+            input_data = np.frombuffer(base64.b64decode(data), dtype=float)
+        elif isinstance(data, np.ndarray):
             input_data = data
         else:
             raise MlflowException(
@@ -1558,6 +1569,11 @@ class _TransformersWrapper:
         elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
+        elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
+            if self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+                output_key = None
+            else:
+                output_key = "text"
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1607,6 +1623,10 @@ class _TransformersWrapper:
             output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output = self._parse_tokenizer_output(raw_output, output_key)
+        elif isinstance(
+            self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
+        ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+            output = json.dumps(raw_output)
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
@@ -1871,8 +1891,10 @@ class _TransformersWrapper:
                         self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
                     )
             return output_coll
-        else:
+        elif target_dict_key:
             return output_data[target_dict_key]
+        else:
+            return output_data
 
     @staticmethod
     def _parse_feature_extraction_input(input_data):

@@ -49,6 +49,8 @@ diviner
 transformers
 sentencepiece
 setfit
+librosa
+ffmpeg
 # Required by mlflow.openai
 openai
 tiktoken
