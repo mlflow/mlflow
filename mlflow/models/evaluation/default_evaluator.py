@@ -551,10 +551,10 @@ class DefaultEvaluator(ModelEvaluator):
         return model_type in [
             "classifier",
             "regressor",
-            "qa",
+            "question-answering",
             "text-generation",
-            "summarization",
-            "retrieval",
+            "text-summarization",
+            "information-retrieval",
         ]
 
     def _log_metrics(self):
@@ -1253,8 +1253,8 @@ class DefaultEvaluator(ModelEvaluator):
                 **kwargs,
             )
             return
-        elif model_type == "qa":
-            _evaluate_qa(
+        elif model_type == "question-answering":
+            _evaluate_question_answering(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1266,8 +1266,8 @@ class DefaultEvaluator(ModelEvaluator):
                 **kwargs,
             )
             return
-        elif model_type == "summarization":
-            _evaluate_summarization(
+        elif model_type == "text-summarization":
+            _evaluate_text_summarization(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1279,8 +1279,8 @@ class DefaultEvaluator(ModelEvaluator):
                 **kwargs,
             )
             return
-        elif model_type == "retrieval":
-            _evaluate_retrieval(
+        elif model_type == "information-retrieval":
+            _evaluate_information_retrieval(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1411,7 +1411,7 @@ def _evaluate_text_generation(
     )
 
 
-def _evaluate_qa(
+def _evaluate_question_answering(
     *,
     model,
     model_type,
@@ -1425,16 +1425,17 @@ def _evaluate_qa(
 ):
     import evaluate
 
-    em = evaluate.load("exact_match")
     df = dataset.features_data
-    preds = model.predict(df)
-    metrics = em.compute(references=dataset.labels_data, predictions=preds)
-    print(preds, metrics)
+    for metric in ["exact_match", "accuracy"]:
+        m = evaluate.load(metric)
+        preds = model.predict(df)
+        metrics = m.compute(references=dataset.labels_data, predictions=preds)
+        print(preds, metrics)
+        mlflow.log_metrics(metrics)
     mlflow.llm.log_predictions(inputs=df.to_dict("records"), outputs=preds, prompts=preds)
-    mlflow.log_metrics(metrics)
 
 
-def _evaluate_summarization(
+def _evaluate_text_summarization(
     *,
     model,
     model_type,
@@ -1457,7 +1458,7 @@ def _evaluate_summarization(
     mlflow.log_metrics(metrics)
 
 
-def _evaluate_retrieval(
+def _evaluate_information_retrieval(
     *,
     model,
     model_type,

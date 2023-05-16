@@ -36,7 +36,7 @@ def text_generation():
         )
 
 
-def qa():
+def question_answering():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
             model="gpt-3.5-turbo",
@@ -61,11 +61,11 @@ def qa():
             model=model_info.model_uri,
             data=df,
             targets="target",
-            model_type="qa",
+            model_type="question-answering",
         )
 
 
-def summarization():
+def text_summarization():
     dt = datasets.load_dataset("billsum", split="train[:10]")
     print(dt)
 
@@ -83,23 +83,23 @@ def summarization():
             model=model_info.model_uri,
             data=df,
             targets="summary",
-            model_type="summarization",
+            model_type="text-summarization",
         )
 
 
-def retrieval():
+def information_retrieval():
     raise NotImplemented
 
 
 if __name__ == "__main__":
     task = sys.argv[1]
-    if task == "qa":
-        qa()
-    elif task == "summarization":
-        summarization()
+    if task == "question-answering":
+        question_answering()
+    elif task == "text-summarization":
+        text_summarization()
     elif task == "text-generation":
         text_generation()
     elif task == "retrieval":
-        retrieval()
+        information_retrieval()
     else:
         raise ValueError(f"Invalid task: {task}")
