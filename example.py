@@ -85,8 +85,8 @@ def text_summarization():
         )
 
 
-def information_retrieval():
-    raise NotImplemented
+def document_retrieval():
+    raise NotImplemented("TODO")
 
 
 if __name__ == "__main__":
@@ -95,9 +95,9 @@ if __name__ == "__main__":
         question_answering()
     elif task == "text-summarization":
         text_summarization()
-    elif task == "text-generation":
+    elif task == "text":
         text_generation()
-    elif task == "retrieval":
-        information_retrieval()
+    elif task == "document-retrieval":
+        document_retrieval()
     else:
         raise ValueError(f"Invalid task: {task}")

@@ -552,9 +552,9 @@ class DefaultEvaluator(ModelEvaluator):
             "classifier",
             "regressor",
             "question-answering",
-            "text-generation",
+            "text",
             "text-summarization",
-            "information-retrieval",
+            "document-retrieval",
         ]
 
     def _log_metrics(self):
@@ -1240,8 +1240,8 @@ class DefaultEvaluator(ModelEvaluator):
         baseline_model=None,
         **kwargs,
     ):
-        if model_type == "text-generation":
-            _evaluate_text_generation(
+        if model_type == "text":
+            _evaluate_text(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1279,8 +1279,8 @@ class DefaultEvaluator(ModelEvaluator):
                 **kwargs,
             )
             return
-        elif model_type == "information-retrieval":
-            _evaluate_information_retrieval(
+        elif model_type == "document-retrieval":
+            _evaluate_document_retrieval(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1378,7 +1378,7 @@ class DefaultEvaluator(ModelEvaluator):
             return self._data
 
 
-def _evaluate_text_generation(
+def _evaluate_text(
     *,
     model,
     model_type,
@@ -1392,26 +1392,18 @@ def _evaluate_text_generation(
 ):
     import evaluate
 
-    t = evaluate.load("bleu")
-    df = dataset.features_data
-    preds = model.predict(df)
-    metadata = []
-    for actual, expected in zip(preds, dataset.labels_data):
-        bleu = t.compute(predictions=[actual], references=[[expected]])
-        metadata.append(bleu)
+    inputs = dataset.features_data
+    outputs = model.predict(inputs)
 
     # Should llm_predictions.csv contain metrics as well?
     mlflow.llm.log_predictions(
-        inputs=df.to_dict("records"),
-        outputs=preds,
+        inputs=inputs,
+        outputs=outputs,
         # How to get the prompts?
-        prompts=dataset.labels_data,
+        prompts=inputs,
         # Add a new argument that takes List[Dict[str, any]]?
         # The main use case is to log extra data (e.g. metrics) for each prediction
-        metadata=metadata,
     )
-    avg_bleu = sum(m["bleu"] for m in metadata) / len(metadata)
-    mlflow.log_metrics({"avg_bleu": avg_bleu})
 
 
 def _evaluate_question_answering(
@@ -1459,7 +1451,7 @@ def _evaluate_text_summarization(
     mlflow.log_metrics(metrics)
 
 
-def _evaluate_information_retrieval(
+def _evaluate_document_retrieval(
     *,
     model,
     model_type,
