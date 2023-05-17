@@ -1,0 +1,15 @@
+- route: huggingface/v1/translator/en_to_fr
+  function: translator_en_to_fr
+  name: English to French Translation
+  description: This endpoint will translate a sentence in English to its corresponding translation in French using the t5-large model
+  limits_per_minute: 10
+
+- route: huggingface/v1/translator/en_to_de
+  function: translator_en_to_de
+  name: English to German Translation
+  description: This endpoint will translate a sentence in English to its corresponding translation in German using the t5-large model
+
+- route: huggingface/v1/classifier/intent
+  function: classifier
+  name: Intention Classifier
+  description: This endpoint will classify the content of submitted text as either positive or negative
