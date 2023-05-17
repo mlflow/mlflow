@@ -204,6 +204,36 @@ MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
 )
 
+#: Specifies to Huggingface whether to use the automatic device placement logic of
+# HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
+# set to True and device_map will not be set to "auto".
+MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES = _EnvironmentVariable(
+    "MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES", bool, False
+)
+
+#: Specifies to Huggingface whether to use the automatic device placement logic of
+# HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
+# set to True and device_map will not be set to "auto".
+MLFLOW_HUGGINGFACE_USE_DEVICE_MAP = _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", bool, True
+)
+
+#: Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.
+#: This can be set to values supported by the version of HuggingFace Accelerate being installed.
+MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY = _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY", str, "auto"
+)
+
+#: Specifies to Huggingface to use the low_cpu_mem_usage flag powered by HuggingFace accelerate.
+#: If it's set to false, the low_cpu_mem_usage flag will be set to False.
+MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE= _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE", bool, True
+)
+
+MLFLOW_HUGGINGFACE_DEFAULT_WEIGHT_SHARD_SIZE = _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_DEFAULT_WEIGHT_SHARD_SIZE", str, "500MB"
+)
+
 #: Specifies whether or not to allow using a file URI as a model version source.
 #: Please be aware that setting this environment variable to True is potentially risky
 #: because it can allow access to arbitrary files on the specified filesystem
