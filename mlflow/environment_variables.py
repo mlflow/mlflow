@@ -24,7 +24,7 @@ class _EnvironmentVariable:
         type. Otherwise, returns the default value.
         """
         val = os.getenv(self.name)
-        if val:
+        if val is not None:
             try:
                 return self.type(val)
             except Exception as e:
