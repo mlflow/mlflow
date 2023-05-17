@@ -1265,13 +1265,13 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
         if isinstance(
             pipeline,
             (
-                    transformers.TokenClassificationPipeline,
-                    transformers.ConversationalPipeline,
-                    transformers.TranslationPipeline,
-                    transformers.TextClassificationPipeline,
-                    transformers.FillMaskPipeline,
-                    transformers.TextGenerationPipeline,
-                    transformers.Text2TextGenerationPipeline,
+                transformers.TokenClassificationPipeline,
+                transformers.ConversationalPipeline,
+                transformers.TranslationPipeline,
+                transformers.TextClassificationPipeline,
+                transformers.FillMaskPipeline,
+                transformers.TextGenerationPipeline,
+                transformers.Text2TextGenerationPipeline,
             ),
         ):
             return ModelSignature(
@@ -1291,8 +1291,8 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
         elif isinstance(
             pipeline,
             (
-                    transformers.TableQuestionAnsweringPipeline,
-                    transformers.QuestionAnsweringPipeline,
+                transformers.TableQuestionAnsweringPipeline,
+                transformers.QuestionAnsweringPipeline,
             ),
         ):
             column_1 = None
@@ -1663,12 +1663,12 @@ class _TransformersWrapper:
             isinstance(
                 self.pipeline,
                 (
-                        transformers.FillMaskPipeline,
-                        transformers.TextGenerationPipeline,
-                        transformers.TranslationPipeline,
-                        transformers.TextClassificationPipeline,
-                        transformers.SummarizationPipeline,
-                        transformers.TokenClassificationPipeline,
+                    transformers.FillMaskPipeline,
+                    transformers.TextGenerationPipeline,
+                    transformers.TranslationPipeline,
+                    transformers.TextClassificationPipeline,
+                    transformers.SummarizationPipeline,
+                    transformers.TokenClassificationPipeline,
                 ),
             )
             and isinstance(data, list)
@@ -1894,7 +1894,7 @@ class _TransformersWrapper:
                         if key == target_dict_key:
                             output_coll.append(output[target_dict_key])
                         elif isinstance(value, list) and all(
-                                isinstance(elem, dict) for elem in value
+                            isinstance(elem, dict) for elem in value
                         ):
                             output_coll.append(
                                 self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
