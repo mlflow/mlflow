@@ -649,6 +649,7 @@ should use this model version to make predictions on production traffic:
 
     # Set alias on model version
     from mlflow import MlflowClient
+
     client = MlflowClient()
     client.set_registered_model_alias("example-model", "Champion", 1)
 
@@ -663,6 +664,7 @@ batch inference workloads.
 .. code-block:: python
 
     import mlflow.pyfunc
+
     model_version_uri = "models:/example-model@Champion"
     champion_version = mlflow.pyfunc.load_model(model_version_uri)
     champion_version.predict(test_x)
