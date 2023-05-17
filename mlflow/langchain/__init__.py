@@ -343,9 +343,9 @@ def _save_model(model, path):
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
     model_data_kwargs = {_MODEL_DATA_KEY: _MODEL_DATA_FILE_NAME}
 
-    if type(model) == langchain.chains.llm.LLMChain:
+    if isinstance(model, langchain.chains.llm.LLMChain):
         model.save(model_data_path)
-    elif type(model) == langchain.agents.agent.AgentExecutor:
+    elif isinstance(model, langchain.agents.agent.AgentExecutor):
         if model.agent and model.agent.llm_chain:
             model.agent.llm_chain.save(model_data_path)
 
