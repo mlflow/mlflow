@@ -217,6 +217,11 @@ class TensorSpec:
         """The tensor shape"""
         return self._tensorInfo.shape
 
+    @property
+    def optional(self) -> bool:
+        """Whether this column is optional."""
+        return False
+
     def to_dict(self) -> Dict[str, Any]:
         if self.name is None:
             return {"type": "tensor", "tensor-spec": self._tensorInfo.to_dict()}

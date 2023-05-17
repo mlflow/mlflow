@@ -472,7 +472,7 @@ def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
         supplied_optional_inputs = [col for col in pf_input.keys() if col in optional_input_names]
     else:
         supplied_optional_inputs = []
-    # Iterate over supplied optional inputs rather than all optional inputs for efficiency.
+    # Iterate over supplied optional inputs rather than all optional inputs.
     for x in supplied_optional_inputs:
         new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
     return new_pf_input
