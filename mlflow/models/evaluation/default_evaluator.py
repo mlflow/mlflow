@@ -554,7 +554,7 @@ class DefaultEvaluator(ModelEvaluator):
             "question-answering",
             "text",
             "text-summarization",
-            "document-retrieval",
+            "information-retrieval",
         ]
 
     def _log_metrics(self):
@@ -1279,8 +1279,8 @@ class DefaultEvaluator(ModelEvaluator):
                 **kwargs,
             )
             return
-        elif model_type == "document-retrieval":
-            _evaluate_document_retrieval(
+        elif model_type == "information-retrieval":
+            _evaluate_information_retrieval(
                 model=model,
                 model_type=model_type,
                 dataset=dataset,
@@ -1451,7 +1451,7 @@ def _evaluate_text_summarization(
     mlflow.log_metrics(metrics)
 
 
-def _evaluate_document_retrieval(
+def _evaluate_information_retrieval(
     *,
     model,
     model_type,
