@@ -854,30 +854,29 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
     # Note that we don't set the device in the conf yet because device is
     # incompatible with device_map.
-    model_conf = {}
+    accelerate_model_conf = {}
     if MLFLOW_HUGGINGFACE_USE_DEVICE_MAP.get():
         device_map_strategy = MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY.get()
         conf["device_map"] = device_map_strategy
-        model_conf["device_map"] = device_map_strategy
+        accelerate_model_conf["device_map"] = device_map_strategy
         # Cannot use device with device_map
         device = None
 
     if device is not None:
         conf["device"] = device
-        model_conf["device"] = device
+        accelerate_model_conf["device"] = device
 
     if _TORCH_DTYPE_KEY in flavor_config:
         dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
         conf[_TORCH_DTYPE_KEY] = dtype_val
-        model_conf[_TORCH_DTYPE_KEY] = dtype_val
+        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
 
-    model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
+    accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
     if not MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES.get():
         try:
             model = model_instance.from_pretrained(pipeline_path,
-                                                   low_cpu_mem_usage=MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get(),
-                                                   **model_conf)
+                                                   **accelerate_model_conf)
         except ValueError:
             model = model_instance.from_pretrained(pipeline_path, device=device)
     else:
