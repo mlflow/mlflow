@@ -42,5 +42,5 @@ def test_boolean_environment_variable_invalid_value(monkeypatch, value):
 
 
 def test_empty_value(monkeypatch):
-    monkeypatch.setenv("TEST_BOOLEAN_ENV_VAR", "")
-    assert _EnvironmentVariable("TEST_BOOLEAN_ENV_VAR", str, None).get() == ""
+    monkeypatch.setenv("TEST_ENV_VAR", "")
+    assert _EnvironmentVariable("TEST_ENV_VAR", str, None).get() == ""
