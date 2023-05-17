@@ -13,9 +13,16 @@ from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
 import pandas as pd
 import numpy as np
 
+import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
+from mlflow.utils.uri import append_to_uri_path
 
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -238,3 +245,64 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if input_schema is None and output_schema is None:
         return None
     return ModelSignature(inputs=input_schema, outputs=output_schema)
+
+
+def add_signature(
+    run_id: str,
+    artifact_path: str,
+    signature: ModelSignature,
+    overwrite: bool = False,
+):
+    """
+    Add a model signature to logged model artifacts.
+
+    :param run_id: ID of the MLflow Run containing the model artifacts.
+    :param artifact_path: Run-relative artifact path to the logged model.
+    :param signature: ModelSignature to add to the model.
+    :param overwrite: If True, will overwrite existing model signatures.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from mlflow.models import add_signature, infer_signature
+
+        # load model from run artifacts
+        run_id = "96771d893a5e46159d9f3b49bf9013e2"
+        artifact_path = "models"
+        model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+        model = mlflow.pyfunc.load_model(model_uri)
+
+        # determine model signature
+        test_df = ...
+        predictions = model.predict(test_df)
+        signature = infer_signature(test_df, predictions)
+
+        # add signature to logged model
+        add_signature(run_id, artifact_path, signature)
+    """
+    assert isinstance(
+        signature, ModelSignature
+    ), "The signature argument must be a ModelSignature object"
+    runs_uri = "runs:/{}/{}".format(run_id, artifact_path)
+    try:
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(runs_uri)
+        ml_model_file = _download_artifact_from_uri(
+            artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
+        )
+    except Exception as ex:
+        raise MlflowException(
+            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from artifact_path '
+            + f'"{artifact_path}" in MLflow Run {run_id}',
+            RESOURCE_DOES_NOT_EXIST,
+        ) from ex
+    model_meta = Model.load(ml_model_file)
+    if model_meta.signature is not None and not overwrite:
+        raise MlflowException(
+            "The logged model already has a signature. Set `overwrite` to `True` to overwrite "
+            + "the existing signature.",
+            RESOURCE_ALREADY_EXISTS,
+        )
+    model_meta.signature = signature
+    model_meta.save(ml_model_file)
+    mlflow.client.MlflowClient().log_artifact(run_id, ml_model_file, artifact_path)

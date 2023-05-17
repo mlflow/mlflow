@@ -106,7 +106,11 @@ __all__ = [
 # Under skinny-mlflow requirements, the following packages cannot be imported
 # because of lack of numpy/pandas library, so wrap them with try...except block
 try:
-    from .signature import ModelSignature, infer_signature  # pylint: disable=unused-import
+    from .signature import (
+        ModelSignature,
+        infer_signature,
+        add_signature,
+    )  # pylint: disable=unused-import
     from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
     from .utils import add_libraries_to_model  # pylint: disable=unused-import
 
@@ -116,6 +120,7 @@ try:
         "infer_signature",
         "validate_schema",
         "add_libraries_to_model",
+        "add_signature",
     ]
 except ImportError:
     pass
