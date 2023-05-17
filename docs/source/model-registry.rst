@@ -34,7 +34,6 @@ Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
 Model Alias
-    **Experimental**
     
     You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``Champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@Champion``.
 
@@ -607,9 +606,6 @@ save, log, register, and load from the Model Registry and score.
 
 Using Registered Model Aliases
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. note::
-    Registered model aliases are experimental and subject to change.
-
 Model aliases in the MLflow Model Registry allow you to assign a mutable, named reference to a particular version within a
 registered model. You can use aliases to specify which model versions are deployed in a given environment in your model
 training workflows (e.g. specify the current ``Champion`` model version that should serve the majority of production traffic),
