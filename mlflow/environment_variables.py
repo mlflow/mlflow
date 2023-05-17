@@ -230,10 +230,6 @@ MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE= _EnvironmentVariable(
     "MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE", bool, True
 )
 
-MLFLOW_HUGGINGFACE_DEFAULT_WEIGHT_SHARD_SIZE = _EnvironmentVariable(
-    "MLFLOW_HUGGINGFACE_DEFAULT_WEIGHT_SHARD_SIZE", str, "500MB"
-)
-
 #: Specifies whether or not to allow using a file URI as a model version source.
 #: Please be aware that setting this environment variable to True is potentially risky
 #: because it can allow access to arbitrary files on the specified filesystem

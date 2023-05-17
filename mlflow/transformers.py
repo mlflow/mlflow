@@ -190,21 +190,21 @@ def get_default_conda_env(model):
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
-        transformers_model,
-        path: str,
-        processor=None,
-        task: Optional[str] = None,
-        model_card=None,
-        inference_config: Optional[Dict[str, Any]] = None,
-        code_paths: Optional[List[str]] = None,
-        mlflow_model: Optional[Model] = None,
-        signature: Optional[ModelSignature] = None,
-        input_example: Optional[ModelInputExample] = None,
-        pip_requirements: Optional[Union[List[str], str]] = None,
-        extra_pip_requirements: Optional[Union[List[str], str]] = None,
-        conda_env=None,
-        metadata: Dict[str, Any] = None,
-        **kwargs,
+    transformers_model,
+    path: str,
+    processor=None,
+    task: Optional[str] = None,
+    model_card=None,
+    inference_config: Optional[Dict[str, Any]] = None,
+    code_paths: Optional[List[str]] = None,
+    mlflow_model: Optional[Model] = None,
+    signature: Optional[ModelSignature] = None,
+    input_example: Optional[ModelInputExample] = None,
+    pip_requirements: Optional[Union[List[str], str]] = None,
+    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    conda_env=None,
+    metadata: Dict[str, Any] = None,
+    **kwargs,
 ) -> None:
     """
     Save a trained transformers model to a path on the local file system.
@@ -422,10 +422,8 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    max_shard_size = MLFLOW_HUGGINGFACE_DEFAULT_WEIGHT_SHARD_SIZE.get()
     # Save the pipeline object
-    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME),
-                                   max_shard_size=max_shard_size)
+    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
 
     # Save the components explicitly to the components directory
     if components:
@@ -514,22 +512,22 @@ def save_model(
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
-        transformers_model,
-        artifact_path: str,
-        processor=None,
-        task: Optional[str] = None,
-        model_card=None,
-        inference_config: Optional[Dict[str, Any]] = None,
-        code_paths: Optional[List[str]] = None,
-        registered_model_name: str = None,
-        signature: Optional[ModelSignature] = None,
-        input_example: Optional[ModelInputExample] = None,
-        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        pip_requirements: Optional[Union[List[str], str]] = None,
-        extra_pip_requirements: Optional[Union[List[str], str]] = None,
-        conda_env=None,
-        metadata: Dict[str, Any] = None,
-        **kwargs,
+    transformers_model,
+    artifact_path: str,
+    processor=None,
+    task: Optional[str] = None,
+    model_card=None,
+    inference_config: Optional[Dict[str, Any]] = None,
+    code_paths: Optional[List[str]] = None,
+    registered_model_name: str = None,
+    signature: Optional[ModelSignature] = None,
+    input_example: Optional[ModelInputExample] = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements: Optional[Union[List[str], str]] = None,
+    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    conda_env=None,
+    metadata: Dict[str, Any] = None,
+    **kwargs,
 ):
     """
     Log a ``transformers`` object as an MLflow artifact for the current run.
@@ -855,7 +853,8 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
-    # Note that we don't set the device in the conf yet because device is incompatible with device_map.
+    # Note that we don't set the device in the conf yet because device is
+    # incompatible with device_map.
     model_conf = {}
     if MLFLOW_HUGGINGFACE_USE_DEVICE_MAP.get():
         device_map_strategy = MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY.get()
@@ -1013,7 +1012,7 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-        root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
+    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
 ):
     """
     Saves non-model pipeline components explicitly to a separate directory path for compatibility
@@ -1045,8 +1044,8 @@ def _load_component(root_path: pathlib.Path, component_key: str, component_type)
 
 
 def _generate_base_flavor_configuration(
-        pipeline,
-        task: str,
+    pipeline,
+    task: str,
 ) -> Dict[str, str]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
@@ -1234,9 +1233,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     import transformers
 
     if (
-            isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
-            and isinstance(input_example, dict)
-            and isinstance(input_example["candidate_labels"], list)
+        isinstance(pipeline, transformers.ZeroShotClassificationPipeline)
+        and isinstance(input_example, dict)
+        and isinstance(input_example["candidate_labels"], list)
     ):
         input_example["candidate_labels"] = json.dumps(input_example["candidate_labels"])
     return input_example
@@ -1264,16 +1263,16 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             )
     else:
         if isinstance(
-                pipeline,
-                (
-                        transformers.TokenClassificationPipeline,
-                        transformers.ConversationalPipeline,
-                        transformers.TranslationPipeline,
-                        transformers.TextClassificationPipeline,
-                        transformers.FillMaskPipeline,
-                        transformers.TextGenerationPipeline,
-                        transformers.Text2TextGenerationPipeline,
-                ),
+            pipeline,
+            (
+                    transformers.TokenClassificationPipeline,
+                    transformers.ConversationalPipeline,
+                    transformers.TranslationPipeline,
+                    transformers.TextClassificationPipeline,
+                    transformers.FillMaskPipeline,
+                    transformers.TextGenerationPipeline,
+                    transformers.Text2TextGenerationPipeline,
+            ),
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
@@ -1290,11 +1289,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 outputs=Schema([ColSpec("string")]),
             )
         elif isinstance(
-                pipeline,
-                (
-                        transformers.TableQuestionAnsweringPipeline,
-                        transformers.QuestionAnsweringPipeline,
-                ),
+            pipeline,
+            (
+                    transformers.TableQuestionAnsweringPipeline,
+                    transformers.QuestionAnsweringPipeline,
+            ),
         ):
             column_1 = None
             column_2 = None
@@ -1366,7 +1365,7 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def _validate_submitted_types(
-            cls, model, tokenizer, feature_extractor, image_processor, processor
+        cls, model, tokenizer, feature_extractor, image_processor, processor
     ):
         from transformers import (
             PreTrainedModel,
@@ -1405,13 +1404,13 @@ class _TransformersModel(NamedTuple):
 
     @classmethod
     def from_dict(
-            cls,
-            model,
-            tokenizer=None,
-            feature_extractor=None,
-            image_processor=None,
-            processor=None,
-            **kwargs,
+        cls,
+        model,
+        tokenizer=None,
+        feature_extractor=None,
+        image_processor=None,
+        processor=None,
+        **kwargs,
     ):
         cls._validate_submitted_types(
             model, tokenizer, feature_extractor, image_processor, processor
@@ -1622,7 +1621,7 @@ class _TransformersWrapper:
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
-                self.pipeline, transformers.TextGenerationPipeline
+            self.pipeline, transformers.TextGenerationPipeline
         ):
             output = self._strip_input_from_response_in_instruction_pipelines(
                 data,
@@ -1661,19 +1660,19 @@ class _TransformersWrapper:
         data = self._parse_input_for_table_question_answering(data)
         data = self._parse_conversation_input(data)
         if (
-                isinstance(
-                    self.pipeline,
-                    (
-                            transformers.FillMaskPipeline,
-                            transformers.TextGenerationPipeline,
-                            transformers.TranslationPipeline,
-                            transformers.TextClassificationPipeline,
-                            transformers.SummarizationPipeline,
-                            transformers.TokenClassificationPipeline,
-                    ),
-                )
-                and isinstance(data, list)
-                and all(isinstance(entry, dict) for entry in data)
+            isinstance(
+                self.pipeline,
+                (
+                        transformers.FillMaskPipeline,
+                        transformers.TextGenerationPipeline,
+                        transformers.TranslationPipeline,
+                        transformers.TextClassificationPipeline,
+                        transformers.SummarizationPipeline,
+                        transformers.TokenClassificationPipeline,
+                ),
+            )
+            and isinstance(data, list)
+            and all(isinstance(entry, dict) for entry in data)
         ):
             return [list(entry.values())[0] for entry in data]
         else:
@@ -1738,11 +1737,11 @@ class _TransformersWrapper:
         import transformers
 
         if not isinstance(
-                self.pipeline,
-                (
-                        transformers.ZeroShotClassificationPipeline,
-                        transformers.TableQuestionAnsweringPipeline,
-                ),
+            self.pipeline,
+            (
+                transformers.ZeroShotClassificationPipeline,
+                transformers.TableQuestionAnsweringPipeline,
+            ),
         ):
             return data
         elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
@@ -1782,13 +1781,13 @@ class _TransformersWrapper:
             return data
 
     def _strip_input_from_response_in_instruction_pipelines(
-            self,
-            input_data,
-            output,
-            output_key,
-            flavor_config,
-            include_prompt=True,
-            collapse_whitespace=False,
+        self,
+        input_data,
+        output,
+        output_key,
+        flavor_config,
+        include_prompt=True,
+        collapse_whitespace=False,
     ):
         """
         Parse the output from instruction pipelines to conform with other text generator
@@ -1820,9 +1819,9 @@ class _TransformersWrapper:
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
             if (
-                    not include_prompt
-                    and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
-                    and data_out.startswith(data_in + "\n\n")
+                not include_prompt
+                and flavor_config[_INSTANCE_TYPE_KEY] in self._supported_custom_generator_types
+                and data_out.startswith(data_in + "\n\n")
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
@@ -1851,9 +1850,9 @@ class _TransformersWrapper:
         import transformers
 
         if (
-                not isinstance(self.pipeline, transformers.TokenClassificationPipeline)
-                and isinstance(input_data, str)
-                and isinstance(output, list)
+            not isinstance(self.pipeline, transformers.TokenClassificationPipeline)
+            and isinstance(input_data, str)
+            and isinstance(output, list)
         ):
             # Retrieve the first output for return types that are List[str] of only a single
             # element.
@@ -1868,7 +1867,7 @@ class _TransformersWrapper:
             else:
                 return [self._sanitize_output(coll, input_data) for coll in output]
         elif isinstance(output, dict) and all(
-                isinstance(key, str) and isinstance(value, str) for key, value in output.items()
+            isinstance(key, str) and isinstance(value, str) for key, value in output.items()
         ):
             return {k: v.strip() for k, v in output.items()}
         else:
@@ -2187,13 +2186,13 @@ class _TransformersWrapper:
 @experimental
 @autologging_integration(FLAVOR_NAME)
 def autolog(
-        log_input_examples=False,
-        log_model_signatures=False,
-        log_models=False,
-        disable=False,
-        exclusive=False,
-        disable_for_unsupported_versions=False,
-        silent=False,
+    log_input_examples=False,
+    log_model_signatures=False,
+    log_models=False,
+    disable=False,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    silent=False,
 ):  # pylint: disable=W0102,unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
@@ -2209,7 +2208,7 @@ def autolog(
 
     def train(original, *args, **kwargs):
         with mlflow.utils.autologging_utils.disable_discrete_autologging(
-                DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
+            DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING
         ):
             return original(*args, **kwargs)
 
