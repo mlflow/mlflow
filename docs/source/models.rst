@@ -3000,7 +3000,7 @@ contents of the model directory and the flavor's attributes. A detailed example 
 custom model flavor and its usage is shown below. New custom flavors not considered for official
 inclusion into MLflow should be introduced as separate GitHub repositories with documentation
 provided in the
-`Community Model Flavors <https://mlflow.org/docs/latest/community-model-flavors.html#>`_
+`Community Model Flavors <community-model-flavors.html>`_
 page.
 
 Example: Creating a custom "sktime" flavor
@@ -4276,6 +4276,6 @@ For more info, see:
 Community Model Flavors
 -----------------------
 
-Go to the `Community Model Flavors <https://mlflow.org/docs/latest/community-model-flavors.html#>`_
+Go to the `Community Model Flavors <community-model-flavors.html>`_
 page to get an overview of other useful MLflow flavors, which are developed and
 maintained by the MLflow community.
