@@ -2,8 +2,13 @@ import json
 import numpy as np
 import pandas as pd
 import pyspark
+import pytest
+from sklearn.ensemble import RandomForestRegressor
 
-from mlflow.models.signature import ModelSignature, infer_signature
+import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.models.model import get_model_info
+from mlflow.models.signature import ModelSignature, infer_signature, add_signature
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -144,3 +149,44 @@ def test_signature_inference_infers_datime_types_as_expected():
     assert signature.inputs == Schema(
         [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
     )
+
+
+def test_add_signature_to_logged_model():
+    artifact_path = "regr-model"
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+    signature = infer_signature(np.array([1]))
+    run_id = run.info.run_id
+    add_signature(run_id, artifact_path, signature)
+    model_info = get_model_info("runs:/{}/{}".format(run_id, artifact_path))
+    assert model_info.signature == signature
+
+
+def test_add_signature_cannot_overwrite():
+    artifact_path = "regr-model"
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(
+            sk_model=RandomForestRegressor(),
+            artifact_path=artifact_path,
+            signature=infer_signature(np.array([1])),
+        )
+    with pytest.raises(
+        MlflowException,
+        match="The logged model already has a signature",
+    ):
+        add_signature(run.info.run_id, artifact_path, infer_signature(np.array([1]), np.array([1])))
+
+
+def test_add_signature_overwrite():
+    artifact_path = "regr-model"
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(
+            sk_model=RandomForestRegressor(),
+            artifact_path=artifact_path,
+            signature=infer_signature(np.array([1])),
+        )
+    new_signature = infer_signature(np.array([1]), np.array([1]))
+    run_id = run.info.run_id
+    add_signature(run_id, artifact_path, new_signature, overwrite=True)
+    model_info = get_model_info("runs:/{}/{}".format(run_id, artifact_path))
+    assert model_info.signature == new_signature

@@ -35,7 +35,9 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
+        dest_file_path = os.path.join(artifact_dir, os.path.basename(local_file))
+        if not os.path.samefile(local_file, dest_file_path):
+            shutil.copyfile(local_file, dest_file_path)
 
     def _is_directory(self, artifact_path):
         # NOTE: The path is expected to be in posix format.
