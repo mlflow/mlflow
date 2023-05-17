@@ -34,7 +34,6 @@ Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
 Model Alias
-    
     You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``Champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@Champion``.
 
 Model Registry Workflows
