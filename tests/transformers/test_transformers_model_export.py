@@ -978,18 +978,22 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
+@pytest.mark.parametrize("test_model", ["small_seq2seq_pipeline", "small_qa_pipeline"])
 def test_transformers_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_seq2seq_pipeline, model_path
+    test_model, model_path, request
 ):
-    mlflow.transformers.save_model(small_seq2seq_pipeline, model_path)
+    test_model = request.getfixturevalue(test_model)
+    mlflow.transformers.save_model(test_model, model_path)
     _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
+        model_path, mlflow.transformers.get_default_pip_requirements(test_model.model)
     )
 
 
+@pytest.mark.parametrize("test_model", ["small_seq2seq_pipeline", "small_qa_pipeline"])
 def test_transformers_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_seq2seq_pipeline,
+    test_model, request
 ):
+    test_model = request.getfixturevalue(test_model)
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.transformers.log_model(small_seq2seq_pipeline, artifact_path)

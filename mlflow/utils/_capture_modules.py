@@ -95,6 +95,27 @@ class _CaptureImportedModules:
         importlib.import_module = self.original_import_module
 
 
+class _CaptureImportedModulesForHF(_CaptureImportedModules):
+    """
+    A context manager to capture imported modules by temporarily applying a patch to
+    `builtins.__import__` and `importlib.import_module`.
+    Used for 'transformers' flavor only.
+    """
+
+    def __init__(self, disable_tf=False):
+        super().__init__()
+        self.disable_tf = disable_tf
+        self.disable_torch = not self.disable_tf
+
+    def _wrap_package(self, name):
+        if (self.disable_tf and name == "tensorflow") or (self.disable_torch and name == "torch"):
+            raise ImportError
+
+    def _record_imported_module(self, full_module_name):
+        self._wrap_package(full_module_name)
+        return super()._record_imported_module(full_module_name)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", required=True)
@@ -118,36 +139,55 @@ def main():
         _prepare_subprocess_environ_for_creating_local_spark_session()
         _create_local_spark_session_for_loading_spark_model()
 
-    cap_cm = _CaptureImportedModules()
+    def store_imported_module(cap_cm):
+        # If `model_path` refers to an MLflow model directory, load the model using
+        # `mlflow.pyfunc.load_model`
+        if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
+            mlflow_model = Model.load(model_path)
+            pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
+            input_example = mlflow_model.load_input_example(model_path)
+            loader_module = importlib.import_module(pyfunc_conf[MAIN])
+            original = loader_module._load_pyfunc
 
-    # If `model_path` refers to an MLflow model directory, load the model using
-    # `mlflow.pyfunc.load_model`
-    if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
-        mlflow_model = Model.load(model_path)
-        pyfunc_conf = mlflow_model.flavors.get(mlflow.pyfunc.FLAVOR_NAME)
-        input_example = mlflow_model.load_input_example(model_path)
-        loader_module = importlib.import_module(pyfunc_conf[MAIN])
-        original = loader_module._load_pyfunc
+            @functools.wraps(original)
+            def _load_pyfunc_patch(*args, **kwargs):
+                with cap_cm:
+                    model = original(*args, **kwargs)
+                    if input_example is not None:
+                        model.predict(input_example)
+                    return model
 
-        @functools.wraps(original)
-        def _load_pyfunc_patch(*args, **kwargs):
+            loader_module._load_pyfunc = _load_pyfunc_patch
+            mlflow.pyfunc.load_model(model_path)
+        # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`.
+        # For models that don't contain pyfunc flavor (e.g. scikit-learn estimator
+        # that doesn't implement a `predict` method),
+        # we need to directly pass a model data path to this script.
+        else:
             with cap_cm:
-                model = original(*args, **kwargs)
-                if input_example is not None:
-                    model.predict(input_example)
-                return model
+                importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
-        loader_module._load_pyfunc = _load_pyfunc_patch
-        mlflow.pyfunc.load_model(model_path)
-    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
-    # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),
-    # we need to directly pass a model data path to this script.
+        # Store the imported modules in `output_file`
+        write_to(args.output_file, "\n".join(cap_cm.imported_modules))
+
+    if flavor == mlflow.transformers.FLAVOR_NAME:
+        for cap_cm in [
+            _CaptureImportedModulesForHF(),
+            _CaptureImportedModulesForHF(True),
+            _CaptureImportedModules(),
+        ]:
+            try:
+                store_imported_module(cap_cm)
+                break
+            # TO BE VERIFIED
+            except RuntimeError as e:
+                if "Failed to import" in e.args[0]:
+                    continue
+                else:
+                    raise
     else:
-        with cap_cm:
-            importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
-
-    # Store the imported modules in `output_file`
-    write_to(args.output_file, "\n".join(cap_cm.imported_modules))
+        cap_cm = _CaptureImportedModules()
+        store_imported_module(cap_cm)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:
