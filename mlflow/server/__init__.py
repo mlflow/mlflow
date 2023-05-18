@@ -1,22 +1,23 @@
+import importlib.metadata
 import os
 import shlex
 import sys
 import textwrap
-import importlib.metadata
 
-from flask import Flask, send_from_directory, Response
-
+from flask import __version__ as flask_version
+from flask import Flask, Response, send_from_directory
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
+    _add_static_prefix,
     get_artifact_handler,
     get_metric_history_bulk_handler,
-    STATIC_PREFIX_ENV_VAR,
-    _add_static_prefix,
     get_model_version_artifact_handler,
+    STATIC_PREFIX_ENV_VAR,
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
+from packaging.version import Version
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -81,7 +82,10 @@ def serve_get_metric_history_bulk():
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    return send_from_directory(STATIC_DIR, path, max_age=2419200)
+    if Version(flask_version) >= Version("2.0"):
+        return send_from_directory(STATIC_DIR, path, max_age=2419200)
+    else:
+        return send_from_directory(STATIC_DIR, path, cache_timeout=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
