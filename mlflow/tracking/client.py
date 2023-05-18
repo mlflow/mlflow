@@ -2074,6 +2074,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2086,19 +2088,22 @@ class MlflowClient:
 
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -2261,16 +2266,21 @@ class MlflowClient:
             import mlflow.sklearn
             from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
+
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2355,6 +2365,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2367,12 +2379,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2427,6 +2441,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2441,12 +2457,14 @@ class MlflowClient:
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
             desc = "A new version of the model using ensemble trees"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2491,6 +2509,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2503,19 +2523,22 @@ class MlflowClient:
 
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
             # Create two runs and log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -2571,20 +2594,26 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
+
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
             # Create two runs Log MLflow entities
             with mlflow.start_run() as run1:
                 params = {"n_estimators": 3, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             with mlflow.start_run() as run2:
                 params = {"n_estimators": 6, "random_state": 42}
-                rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+                rfr = RandomForestRegressor(**params).fit(X, y)
+                signature = infer_signature(X, rfr.predict(X))
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             name = "RandomForestRegression"
@@ -2600,7 +2629,8 @@ class MlflowClient:
 
             # Fetch the last version; this will be version 2
             mv = client.get_model_version(name, mv.version)
-            print_model_version_info(mv)
+            print("Name: {}".format(mv.name))
+            print("Version: {}".format(mv.version))
 
         .. code-block:: text
             :caption: Output
@@ -2626,24 +2656,28 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
             client.create_registered_model(name)
 
             # Create a new version of the rfr model under the registered model name
-            model_uri = "runs:/{}/models/sklearn-model".format(run.info.run_id)
+            model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
             mv = client.create_model_version(name, model_uri, run.info.run_id)
             artifact_uri = client.get_model_version_download_uri(name, mv.version)
             print("Download URI: {}".format(artifact_uri))
@@ -2651,7 +2685,7 @@ class MlflowClient:
         .. code-block:: text
             :caption: Output
 
-            Download URI: runs:/44e04097ac364cd895f2039eaccca9ac/models/sklearn-model
+            Download URI: runs:/027d7bbe81924c5a82b3e4ce979fcab7/sklearn-model
         """
         return self._get_registry_client().get_model_version_download_uri(name, version)
 
@@ -2744,17 +2778,21 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="models/sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2794,6 +2832,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2806,12 +2846,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2872,6 +2914,8 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
 
@@ -2884,12 +2928,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -2943,6 +2989,8 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_info(rm):
@@ -2959,12 +3007,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -3020,6 +3070,8 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_info(rm):
@@ -3036,12 +3088,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()
@@ -3110,6 +3164,8 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
+            from mlflow.models.signature import infer_signature
+            from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
             def print_model_info(rm):
@@ -3126,12 +3182,14 @@ class MlflowClient:
             mlflow.set_tracking_uri("sqlite:///mlruns.db")
             params = {"n_estimators": 3, "random_state": 42}
             name = "RandomForestRegression"
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
 
             # Log MLflow entities
             with mlflow.start_run() as run:
                 mlflow.log_params(params)
-                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+                mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
             # Register model name in the model registry
             client = MlflowClient()

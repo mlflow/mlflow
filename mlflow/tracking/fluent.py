@@ -1781,6 +1781,7 @@ def autolog(
         sklearn,
         fastai,
         pytorch,
+        transformers,
     )
 
     locals_copy = locals().items()
@@ -1800,6 +1801,8 @@ def autolog(
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
+        "setfit": transformers.autolog,
+        "transformers": transformers.autolog,
     }
 
     def get_autologging_params(autolog_fn):

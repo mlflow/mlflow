@@ -7,10 +7,16 @@ translation_pipeline = transformers.pipeline(
     tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
 )
 
+signature = mlflow.models.infer_signature(
+    "Hi there, chatbot!",
+    mlflow.transformers.generate_signature_output(translation_pipeline, "Hi there, chatbot!"),
+)
+
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=translation_pipeline,
         artifact_path="french_translator",
+        signature=signature,
     )
 
 translation_components = mlflow.transformers.load_model(

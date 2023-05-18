@@ -169,3 +169,13 @@ Contributing
 We happily welcome contributions to MLflow. We are also seeking contributions to items on the
 `MLflow Roadmap <https://github.com/mlflow/mlflow/milestone/3>`_. Please see our
 `contribution guide <CONTRIBUTING.md>`_ to learn more about contributing to MLflow.
+
+Maintainers
+-----------
+
+MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
+
+- `Harutaka Kawamura <https://github.com/harupy>`_
+- `Weichen Xu <https://github.com/WeichenXu123>`_
+- `Corey Zumar <https://github.com/dbczumar>`_
+- `Ben Wilson <https://github.com/BenWilson2>`_

@@ -18,6 +18,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
 import mlflow
+from mlflow.models.signature import infer_signature
 
 from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 
@@ -135,7 +136,8 @@ class MLflowLogger(Callback):
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
             mlflow.log_metric("valid_{}".format(name), value)
-        log_model(model=self._model, **self._pyfunc_params)
+        signature = infer_signature(x, y)
+        log_model(keras_model=self._model, signature=signature, **self._pyfunc_params)
 
 
 def _imagenet_preprocess_tf(x):

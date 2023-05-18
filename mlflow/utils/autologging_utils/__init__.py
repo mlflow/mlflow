@@ -1,9 +1,10 @@
 # pylint: disable=unused-wildcard-import,wildcard-import
 
+import contextlib
 import inspect
 import logging
 import time
-import contextlib
+from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -473,6 +474,34 @@ def disable_autologging():
     _AUTOLOGGING_GLOBALLY_DISABLED = True
     yield None
     _AUTOLOGGING_GLOBALLY_DISABLED = False
+
+
+@contextlib.contextmanager
+def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+    """
+    Context manager for disabling specific autologging integrations temporarily while another
+    flavor's autologging is activated. This context wrapper is useful in the event that, for
+    example, a particular library calls upon another library within a training API that has a
+    current MLflow autologging integration.
+    For instance, the transformers library's Trainer class, when running metric scoring,
+    builds a sklearn model and runs evaluations as part of its accuracy scoring. Without this
+    temporary autologging disabling, a new run will be generated that contains a sklearn model
+    that holds no use for tracking purposes as it is only used during the metric evaluation phase
+    of training.
+    :param flavors_to_disable: A list of flavors that need to be temporarily disabled while
+                               executing another flavor's autologging to prevent spurious run
+                               logging of unrelated models, metrics, and parameters.
+    """
+    enabled_flavors = []
+    for flavor in flavors_to_disable:
+        if not autologging_is_disabled(flavor):
+            enabled_flavors.append(flavor)
+            autolog_func = getattr(mlflow, flavor)
+            autolog_func.autolog(disable=True)
+    yield
+    for flavor in enabled_flavors:
+        autolog_func = getattr(mlflow, flavor)
+        autolog_func.autolog(disable=False)
 
 
 def _get_new_training_session_class():

@@ -345,6 +345,7 @@ def log_model(
         from lightgbm import LGBMClassifier
         from sklearn import datasets
         import mlflow
+        from mlflow.models.signature import infer_signature
 
         # Load iris dataset
         X, y = datasets.load_iris(return_X_y=True, as_frame=True)
@@ -355,10 +356,14 @@ def log_model(
         # Train the model
         model.fit(X, y)
 
+        # Create model signature
+        predictions = model.predict(X)
+        signature = infer_signature(X, predictions)
+
         # Log the model
         artifact_path = "model"
         with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(model, artifact_path)
+            model_info = mlflow.lightgbm.log_model(model, artifact_path, signature=signature)
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -457,6 +462,9 @@ def load_model(model_uri, dst_path=None):
         from sklearn import datasets
         import mlflow
 
+        # Auto log all MLflow entities
+        mlflow.lightgbm.autolog()
+
         # Load iris dataset
         X, y = datasets.load_iris(return_X_y=True, as_frame=True)
 
@@ -466,12 +474,9 @@ def load_model(model_uri, dst_path=None):
         # Train the model
         model.fit(X, y)
 
-        # Log the model
-        with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(model, artifact_path="model")
-
         # Load model for inference
-        loaded_model = mlflow.lightgbm.load_model(model_info.model_uri)
+        model_uri = f"runs:/{mlflow.last_active_run().info.run_id}/model"
+        loaded_model = mlflow.lightgbm.load_model(model_uri)
         print(loaded_model.predict(X[:5]))
 
     .. code-block:: text
