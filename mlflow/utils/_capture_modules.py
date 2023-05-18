@@ -102,14 +102,13 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
     Used for 'transformers' flavor only.
     """
 
-    def __init__(self, disable_tf=False):
+    def __init__(self, module_to_throw):
         super().__init__()
-        self.disable_tf = disable_tf
-        self.disable_torch = not self.disable_tf
+        self.module_to_throw = module_to_throw
 
     def _wrap_package(self, name):
-        if (self.disable_tf and name == "tensorflow") or (self.disable_torch and name == "torch"):
-            raise ImportError()
+        if name == self.module_to_throw or name.startswith(f"{self.module_to_throw}."):
+            raise ImportError(f"Disabled package {name}")
 
     def _record_imported_module(self, full_module_name):
         self._wrap_package(full_module_name)
@@ -171,12 +170,9 @@ def main():
         write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
     if flavor == mlflow.transformers.FLAVOR_NAME:
-        package = ["tensorflow", "torch"]
-        for cap_cm, disabled_package in [
-            (_CaptureImportedModulesForHF(True), "tensorflow"),
-            (_CaptureImportedModulesForHF(False), "torch"),
-            (_CaptureImportedModules(), None),
-        ]:
+        throw_packages = ["tensorflow", "torch", ""]
+        for package in throw_packages:
+            cap_cm = _CaptureImportedModulesForHF(package)
             try:
                 store_imported_module(cap_cm)
                 break
@@ -184,13 +180,15 @@ def main():
                 import traceback
 
                 tracebacks = traceback.format_exc()
-                if package is not None:
-                    if f"import {disabled_package}" in tracebacks and "ImportError" in tracebacks:
+                if package:
+                    if f"Disabled package {package}" in tracebacks and "ImportError" in tracebacks:
                         continue
                     else:
                         raise e
                 else:
                     raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
+            except Exception as e:
+                raise e
     else:
         cap_cm = _CaptureImportedModules()
         store_imported_module(cap_cm)
