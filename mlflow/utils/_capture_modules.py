@@ -87,12 +87,14 @@ class _CaptureImportedModules:
         self.original_import_module = importlib.import_module
         builtins.__import__ = self._wrap_import(self.original_import)
         importlib.import_module = self._wrap_import_module(self.original_import_module)
+        # print(f"ENTERING____________{len(self.imported_modules)}")
         return self
 
     def __exit__(self, *_, **__):
         # Revert the patches
         builtins.__import__ = self.original_import
         importlib.import_module = self.original_import_module
+        # print(f"EXITING____________{len(self.imported_modules)}")
 
 
 class _CaptureImportedModulesForHF(_CaptureImportedModules):
@@ -110,9 +112,32 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         if name == self.module_to_throw or name.startswith(f"{self.module_to_throw}."):
             raise ImportError(f"Disabled package {name}")
 
+    def _wrap_importlib_util_find_spec(self, original):
+        @functools.wraps(original)
+        def wrapper(name, package=None):
+            if name == self.module_to_throw:
+                return None
+            return original(name, package)
+
+        return wrapper
+
     def _record_imported_module(self, full_module_name):
         self._wrap_package(full_module_name)
         return super()._record_imported_module(full_module_name)
+
+    def __enter__(self):
+        # Patch `importlib.util.find_spec`
+        self.original_importlib_util_find_spec = importlib.util.find_spec
+        importlib.util.find_spec = self._wrap_importlib_util_find_spec(
+            self.original_importlib_util_find_spec
+        )
+        return super().__enter__()
+
+    def __exit__(self, *_, **__):
+        # Revert the patches
+        importlib.util.find_spec = self.original_importlib_util_find_spec
+
+        super().__exit__()
 
 
 def parse_args():
@@ -177,16 +202,26 @@ def main():
                 store_imported_module(cap_cm)
                 break
             except RuntimeError as e:
+                import traceback
+
+                # print(traceback.format_exc())
                 if package:
-                    if f"Disabled package {package}" == e.__cause__:
+                    if (
+                        type(e.__cause__) == ImportError
+                        and e.__cause__.msg == f"Disabled package {package}"
+                    ):
                         continue
-                    else:
-                        raise e
+                    raise e
                 else:
                     import traceback
 
                     raise RuntimeError(f"{e} with stacktrace: {traceback.format_exc()}")
-            except Exception as e:
+            except ImportError as e:
+                import traceback
+
+                # print(traceback.format_exc())
+                if package in e.msg.lower():
+                    continue
                 raise e
     else:
         cap_cm = _CaptureImportedModules()
