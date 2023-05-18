@@ -177,16 +177,15 @@ def main():
                 store_imported_module(cap_cm)
                 break
             except RuntimeError as e:
-                import traceback
-
-                tracebacks = traceback.format_exc()
                 if package:
-                    if f"Disabled package {package}" in tracebacks and "ImportError" in tracebacks:
+                    if f"Disabled package {package}" == e.__cause__:
                         continue
                     else:
                         raise e
                 else:
-                    raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
+                    import traceback
+
+                    raise RuntimeError(f"{e} with stacktrace: {traceback.format_exc()}")
             except Exception as e:
                 raise e
     else:
