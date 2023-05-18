@@ -109,7 +109,7 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
 
     def _wrap_package(self, name):
         if (self.disable_tf and name == "tensorflow") or (self.disable_torch and name == "torch"):
-            raise ImportError
+            raise ImportError()
 
     def _record_imported_module(self, full_module_name):
         self._wrap_package(full_module_name)
@@ -171,20 +171,26 @@ def main():
         write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
     if flavor == mlflow.transformers.FLAVOR_NAME:
-        for cap_cm in [
-            _CaptureImportedModulesForHF(),
-            _CaptureImportedModulesForHF(True),
-            _CaptureImportedModules(),
+        package = ["tensorflow", "torch"]
+        for cap_cm, disabled_package in [
+            (_CaptureImportedModulesForHF(True), "tensorflow"),
+            (_CaptureImportedModulesForHF(False), "torch"),
+            (_CaptureImportedModules(), None),
         ]:
             try:
                 store_imported_module(cap_cm)
                 break
-            # TO BE VERIFIED
             except RuntimeError as e:
-                if "Failed to import" in e.args[0]:
-                    continue
+                import traceback
+
+                tracebacks = traceback.format_exc()
+                if package is not None:
+                    if f"import {disabled_package}" in tracebacks and "ImportError" in tracebacks:
+                        continue
+                    else:
+                        raise e
                 else:
-                    raise
+                    raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
     else:
         cap_cm = _CaptureImportedModules()
         store_imported_module(cap_cm)

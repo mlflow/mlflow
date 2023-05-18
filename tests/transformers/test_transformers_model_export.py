@@ -996,10 +996,10 @@ def test_transformers_model_log_without_conda_env_uses_default_env_with_expected
     test_model = request.getfixturevalue(test_model)
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(small_seq2seq_pipeline, artifact_path)
+        mlflow.transformers.log_model(test_model, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(
-        model_uri, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
+        model_uri, mlflow.transformers.get_default_pip_requirements(test_model.model)
     )
 
 
