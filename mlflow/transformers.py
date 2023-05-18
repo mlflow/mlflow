@@ -1,5 +1,6 @@
 import ast
 import base64
+import binascii
 import contextlib
 from functools import lru_cache
 import json
@@ -1257,7 +1258,7 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             )
         elif isinstance(pipeline, transformers.AutomaticSpeechRecognitionPipeline):
             return ModelSignature(
-                inputs=Schema([TensorSpec(np.dtype("float32"), [-1])]),
+                inputs=Schema([ColSpec("binary")]),
                 outputs=Schema([ColSpec("string")]),
             )
         elif isinstance(
@@ -1499,7 +1500,7 @@ class _TransformersWrapper:
         elif isinstance(data, str):
             input_data = data
         elif isinstance(data, bytes):
-            input_data = np.frombuffer(base64.b64decode(data), dtype=float)
+            input_data = data
         elif isinstance(data, np.ndarray):
             input_data = data
         else:
@@ -1574,6 +1575,7 @@ class _TransformersWrapper:
                 output_key = None
             else:
                 output_key = "text"
+            data = self._convert_automatic_speech_recognition_input(data)
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -2170,6 +2172,71 @@ class _TransformersWrapper:
                 else:
                     parsed_data.append(entry)
             return parsed_data
+
+    @staticmethod
+    def _convert_automatic_speech_recognition_input(data):
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
+
+        For reference, the expected encoding for input to Model Serving will be:
+
+        import requests
+        import base64
+
+        response = requests.get("https://www.my.sound/a/sound/file.wav")
+        encoded_audio = base64.b64encode(response.content).decode("ascii")
+
+        inference_data = json.dumps({"inputs": [encoded_audio]})
+
+        or
+
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_audio], name="audio_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
+
+        or
+
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
+
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the AutomaticSpeechRecognitionPipeline for inference.
+        """
+
+        def is_base64(s):
+            try:
+                return base64.b64encode(base64.b64decode(s)) == s
+            except binascii.Error:
+                return False
+
+        def decode_sound_file(encoded):
+            if isinstance(encoded, bytes):
+                # For input types 'dataframe_split' and 'dataframe_records', the encoding
+                # conversion to bytes is handled.
+                if not is_base64(encoded):
+                    return encoded
+                else:
+                    # For input type 'inputs', explicit decoding of the b64encoded audio is needed.
+                    return base64.b64decode(encoded)
+            else:
+                try:
+                    return base64.b64decode(encoded)
+                except binascii.Error as e:
+                    raise MlflowException(
+                        "The encoded soundfile that was passed has not been properly base64 "
+                        "encoded. Please ensure that the raw sound bytes have been processed with "
+                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
+                    ) from e
+
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            encoded_sound_file = list(data[0].values())[0]
+            return decode_sound_file(encoded_sound_file)
+        else:
+            return data
 
 
 @experimental

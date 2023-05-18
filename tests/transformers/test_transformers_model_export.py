@@ -1,3 +1,4 @@
+import base64
 import gc
 import json
 import librosa
@@ -327,6 +328,13 @@ def sound_file_for_test():
         tmp_audio.write(response.content)
     audio, _ = librosa.load(tmp_audio.name, sr=16000)
     return audio
+
+
+@pytest.fixture()
+def raw_audio_file():
+    url = "https://www.nasa.gov/62282main_countdown_launch.wav"
+    response = requests.get(url)
+    return response.content
 
 
 @pytest.fixture()
@@ -2713,14 +2721,26 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
 
 @pytest.mark.skipcacheclean
 def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_for_test):
+    # NB: This test validates pre-processing via converting the sounds file into the
+    # appropriate bitrate encoding rate and casting to a numpy array. Other tests validate
+    # the 'raw' file input of bytes.
+
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
     }
 
+    signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, sound_file_for_test),
+    )
+
     mlflow.transformers.save_model(
-        transformers_model=whisper_pipeline, path=model_path, inference_config=inference_config
+        transformers_model=whisper_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
     )
 
     loaded_pipeline = mlflow.transformers.load_model(model_path)
@@ -2761,8 +2781,127 @@ def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test
     assert signature == complex_signature
 
 
-def test_whisper_model_serve_and_score():
-    pass
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path
+        )
+
+    # Test inputs format
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
 
 
-# TODO: Test non-bitrate matching and ensure we throw.
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path, signature=signature
+        )
+
+    # Test inputs format
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+    # Test split format
+    inference_df = pd.DataFrame(
+        pd.Series([base64.b64encode(raw_audio_file).decode("ascii")], name="audio_file")
+    )
+    split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+    split_json = json.dumps(split_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=split_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+    # Test records format
+    records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+    records_json = json.dumps(records_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=records_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper_timestamps"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+    )
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            inference_config=inference_config,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
