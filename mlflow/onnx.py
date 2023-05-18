@@ -42,6 +42,7 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
+    _validate_onnx_session_options,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -183,6 +184,9 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+
+    _validate_onnx_session_options(onnx_session_options)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,

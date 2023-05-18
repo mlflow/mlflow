@@ -149,3 +149,54 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+
+def _validate_onnx_session_options(onnx_session_options):
+    """
+    Validates that the specified onnx_session_options dict is valid.
+
+    :param ort_session_options: The onnx_session_options dict to validate.
+    """
+    import onnxruntime as ort
+
+    if onnx_session_options is not None:
+        if not isinstance(onnx_session_options, dict):
+            raise TypeError(
+                "Argument onnx_session_options should be a dict, not {}".format(
+                    type(onnx_session_options)
+                )
+            )
+        for key, value in onnx_session_options.items():
+            if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):
+                raise ValueError(
+                    "Key {} in onnx_session_options is not a valid ONNX Runtime session options key".format(
+                        key
+                    )
+                )
+            elif key == "extra_session_config" and not isinstance(value, dict):
+                raise TypeError(
+                    "Value for key {} in onnx_session_options should be a dict, not {}".format(
+                        key, type(value)
+                    )
+                )
+            elif key == "execution_mode":
+                if value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
+                    raise ValueError(
+                        "Value for key {} in onnx_session_options should be 'parallel' or 'sequential', not {}".format(
+                            key, value
+                        )
+                    )
+            elif key == "graph_optimization_level":
+                if value not in [0, 1, 2, 99]:
+                    raise ValueError(
+                        "Value for key {} in onnx_session_options should be 0, 1, 2, or 99, not {}".format(
+                            key, value
+                        )
+                    )
+            elif key in ["intra_op_num_threads", "intra_op_num_threads"]:
+                if value < 0:
+                    raise ValueError(
+                        "Value for key {} in onnx_session_options should be >= 0, not {}".format(
+                            key, value
+                        )
+                    )
