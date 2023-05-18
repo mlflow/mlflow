@@ -209,14 +209,17 @@ class ModelInfo:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
+            from mlflow.models.signature import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
+                signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
                     "iris_rf",
+                    signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
                 )
@@ -328,14 +331,17 @@ class Model:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
+            from mlflow.models.signature import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
+                signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
                     "iris_rf",
+                    signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
                 )

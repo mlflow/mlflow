@@ -47,7 +47,7 @@ from PIL import Image, ImageChops
 import io
 
 # pylint: disable=unused-import
-from tests.models.test_evaluation import (
+from tests.evaluate.test_evaluation import (
     get_run_data,
     baseline_model_uri,
     diabetes_dataset,

@@ -668,6 +668,8 @@ class FileStore(AbstractStore):
         model_version.last_updated_timestamp = updated_time
         self._save_model_version_as_meta_file(model_version)
         self._update_registered_model_last_updated_time(name, updated_time)
+        for alias in model_version.aliases:
+            self.delete_registered_model_alias(name, alias)
 
     def _fetch_model_version_if_exists(self, name, version):
         registered_model_version_dir = self._get_model_version_dir(name, version)
