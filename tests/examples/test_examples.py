@@ -168,6 +168,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", ["python", "conversational.py"]),
         ("transformers", ["python", "load_components.py"]),
         ("transformers", ["python", "simple.py"]),
+        ("transformers", ["python", "sentence_transformer.py"]),
     ],
 )
 def test_command_example(directory, command):

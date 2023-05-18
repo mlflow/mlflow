@@ -12,6 +12,7 @@ from mlflow.entities.model_registry import ModelVersion
     [
         ("models:/AdsModel1/0", "AdsModel1", "0"),
         ("models:/Ads Model 1/12345", "Ads Model 1", "12345"),
+        ("models://////Ads Model 1/12345", "Ads Model 1", "12345"),  # many slashes
         ("models:/12345/67890", "12345", "67890"),
         ("models://profile@databricks/12345/67890", "12345", "67890"),
         ("models:/catalog.schema.model/0", "catalog.schema.model", "0"),  # UC Model format
@@ -32,7 +33,14 @@ def test_parse_models_uri_with_version(uri, expected_name, expected_version):
         ("models:/AdsModel1/production", "AdsModel1", "production"),  # case insensitive
         ("models:/AdsModel1/pROduction", "AdsModel1", "pROduction"),  # case insensitive
         ("models:/Ads Model 1/None", "Ads Model 1", "None"),
+        ("models://////Ads Model 1/Staging", "Ads Model 1", "Staging"),  # many slashes
         ("models://scope:key@databricks/Ads Model 1/None", "Ads Model 1", "None"),
+        (
+            "models:/Name/Stage@Alias",
+            "Name",
+            "Stage@Alias",
+        ),  # technically allowed, but the backend would throw
+        ("models:/Name@Alias/Stage", "Name@Alias", "Stage"),
     ],
 )
 def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
@@ -50,6 +58,7 @@ def test_parse_models_uri_with_stage(uri, expected_name, expected_stage):
         ("models:/AdsModel1/Latest", "AdsModel1"),  # case insensitive
         ("models:/AdsModel1/LATEST", "AdsModel1"),  # case insensitive
         ("models:/Ads Model 1/latest", "Ads Model 1"),
+        ("models://////Ads Model 1/latest", "Ads Model 1"),  # many slashes
         ("models://scope:key@databricks/Ads Model 1/latest", "Ads Model 1"),
         ("models:/catalog.schema.model/latest", "catalog.schema.model"),  # UC Model format
     ],
@@ -70,7 +79,14 @@ def test_parse_models_uri_with_latest(uri, expected_name):
         ("models:/AdsModel1@cHAmpion", "AdsModel1", "cHAmpion"),  # case insensitive
         ("models:/Ads Model 1@challenger", "Ads Model 1", "challenger"),
         ("models://scope:key/Ads Model 1@None", "Ads Model 1", "None"),
+        ("models://////Ads Model 1@TestAlias", "Ads Model 1", "TestAlias"),  # many slashes
         ("models:/catalog.schema.model@None", "catalog.schema.model", "None"),  # UC Model format
+        ("models:/A!&#$%;{}()[]CrazyName@Alias", "A!&#$%;{}()[]CrazyName", "Alias"),
+        (
+            "models:/NameWith@IntheMiddle@Alias",
+            "NameWith@IntheMiddle",
+            "Alias",
+        ),  # check for model name with alias
     ],
 )
 def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
@@ -93,12 +109,8 @@ def test_parse_models_uri_with_alias(uri, expected_name, expected_alias):
         "models:/Name/",  # empty suffix
         "models:/Name@",  # empty alias
         "models:/Name/Stage/0",  # too many specifiers
-        "models:/Name/Stage@Alias",  # stage and alias both specified
-        "models:/Name@alias/Stage",  # Stage and alias both specified
-        "models:/Name@Alias@other",  # too many aliases
         "models:Name/Stage",  # missing slash
         "models://Name/Stage",  # hostnames are ignored, path too short
-        "models://Name@te#ty;",  # invalid characters
     ],
 )
 def test_parse_models_uri_invalid_input(uri):

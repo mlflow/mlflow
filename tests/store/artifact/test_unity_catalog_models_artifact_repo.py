@@ -17,6 +17,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
+from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
 MODELS_ARTIFACT_REPOSITORY = (
@@ -233,3 +234,25 @@ def test_uc_models_artifact_repo_download_artifacts_uses_temporary_creds_gcp(
             method="POST",
             json={"name": "MyModel", "version": "12", "operation": "MODEL_VERSION_OPERATION_READ"},
         )
+
+
+def test_uc_models_artifact_repo_uses_active_catalog_and_schema(
+    mock_get_databricks_unity_catalog_store,
+):
+    with mock.patch(
+        "mlflow.store.artifact.unity_catalog_models_artifact_repo._get_active_spark_session"
+    ) as spark_session_getter:
+        spark = mock.MagicMock()
+        spark_session_getter.return_value = spark
+        sql_mock = mock.MagicMock()
+        spark.sql.return_value = sql_mock
+        # returns catalog and schema name in order
+        sql_mock.collect.side_effect = [[{"catalog": "main"}], [{"schema": "default"}]]
+
+        uri_with_profile = "models:/MyModel/12"
+        models_repo = UnityCatalogModelsArtifactRepository(
+            uri_with_profile, _DATABRICKS_UNITY_CATALOG_SCHEME
+        )
+        spark.sql.assert_has_calls(sql_mock(_ACTIVE_CATALOG_QUERY), sql_mock(_ACTIVE_SCHEMA_QUERY))
+        assert spark.sql.call_count == 2
+        assert models_repo.model_name == "main.default.MyModel"
