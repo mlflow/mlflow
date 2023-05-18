@@ -182,7 +182,10 @@ def main():
                     return model
 
             loader_module._load_pyfunc = _load_pyfunc_patch
-            mlflow.pyfunc.load_model(model_path)
+            try:
+                mlflow.pyfunc.load_model(model_path)
+            finally:
+                loader_module._load_pyfunc = original
         # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`.
         # For models that don't contain pyfunc flavor (e.g. scikit-learn estimator
         # that doesn't implement a `predict` method),
