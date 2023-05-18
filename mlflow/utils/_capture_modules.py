@@ -87,14 +87,12 @@ class _CaptureImportedModules:
         self.original_import_module = importlib.import_module
         builtins.__import__ = self._wrap_import(self.original_import)
         importlib.import_module = self._wrap_import_module(self.original_import_module)
-        # print(f"ENTERING____________{len(self.imported_modules)}")
         return self
 
     def __exit__(self, *_, **__):
         # Revert the patches
         builtins.__import__ = self.original_import
         importlib.import_module = self.original_import_module
-        # print(f"EXITING____________{len(self.imported_modules)}")
 
 
 class _CaptureImportedModulesForHF(_CaptureImportedModules):
@@ -200,32 +198,23 @@ def main():
     if flavor == mlflow.transformers.FLAVOR_NAME:
         throw_packages = ["tensorflow", "torch", ""]
         for package in throw_packages:
-            cap_cm = _CaptureImportedModulesForHF(package)
+            cap_cm = _CaptureImportedModulesForHF(package) if package else _CaptureImportedModules()
             try:
+                import transformers
+
+                importlib.reload(transformers.utils.import_utils)
                 store_imported_module(cap_cm)
                 break
-            except RuntimeError as e:
+            except (RuntimeError, ImportError) as e:
                 import traceback
 
-                # print(traceback.format_exc())
+                tracebacks = traceback.format_exc()
                 if package:
-                    if (
-                        type(e.__cause__) == ImportError
-                        and e.__cause__.msg == f"Disabled package {package}"
-                    ):
+                    if f"ImportError: Disabled package {package}" in tracebacks:
                         continue
                     raise e
                 else:
-                    import traceback
-
-                    raise RuntimeError(f"{e} with stacktrace: {traceback.format_exc()}")
-            except ImportError as e:
-                import traceback
-
-                # print(traceback.format_exc())
-                if package in e.msg.lower():
-                    continue
-                raise e
+                    raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
     else:
         cap_cm = _CaptureImportedModules()
         store_imported_module(cap_cm)
