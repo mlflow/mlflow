@@ -2444,8 +2444,7 @@ expected input to the model to ensure your inference request can be read properl
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
 
-\***** For pyfunc through MLServer, if submitting a raw audio file in bytes format, the audio data must be
-base64 encoded prior to submitting to the endpoint.
+\***** If using MLServer for realtime inference, a raw audio file in bytes format must be base64 encoded prior to submitting to the endpoint.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2731,17 +2730,22 @@ Input data types for audio pipelines
 """"""""""""""""""""""""""""""""""""
 The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
 
-* "raw" `bytes`. This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
-Pipeline implementations will autonomously convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format).
-When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
-modification. When used through serving, the `bytes` data must be base64 encoded.
+* `bytes`
 
-* `np.ndarray`. This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
+This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
+modification. When used through serving, the `bytes` data *must be* base64 encoded.
+
+* `np.ndarray`
+
+This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
 `librosa` or `pydub`) and that the model has been saved with a signature that uses the `np.ndarray` format for the input.
 
-.. note:: It is very important for audio models that if you are using a model for serving and intend to pass pre-formatted audio as `np.ndarray` that
-    the model has been saved with this signature configuration. Failure to do so will result in type casting errors due to the default signature for
-    audio transformers pipelines being set as expecting `binary` (`bytes`) data.
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in `np.ndarray` format
+    must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
+    audio transformers pipelines being set as expecting `binary` (`bytes`) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    or the other as an allowed input type.
 
 
 .. _model-evaluation:
