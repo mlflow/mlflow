@@ -208,6 +208,8 @@ def process_api_requests(
     last_update_time = time.time()
     results: list[tuple[int, OpenAIObject]] = []
     requests_iter = enumerate(requests)
+    last_index = len(requests) - 1
+    requests_exhausted = False
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
@@ -228,6 +230,7 @@ def process_api_requests(
                         results=results,
                     )
                     status_tracker.start_task()
+                    requests_exhausted = index == last_index
 
             # update available capacity
             current_time = time.time()
@@ -265,7 +268,7 @@ def process_api_requests(
                     next_request = None  # reset next_request to empty
 
             # if all tasks are finished, break
-            if status_tracker.num_tasks_in_progress == 0:
+            if requests_exhausted and status_tracker.num_tasks_in_progress == 0:
                 break
 
             # if a rate limit error was hit recently, pause to cool down
@@ -283,15 +286,17 @@ def process_api_requests(
                 time.sleep(remaining_seconds_to_pause)
                 # ^e.g., if pause is 15 seconds and final limit was hit 5 seconds ago
 
-        # after finishing, log final status
-        if status_tracker.num_tasks_failed > 0:
-            raise mlflow.MlflowException(
-                f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
-            )
-        if status_tracker.num_rate_limit_errors > 0:
-            _logger.warning(
-                f"{status_tracker.num_rate_limit_errors} rate limit errors received. "
-                "Consider running at a lower rate."
-            )
+            time.sleep(0.001)  # avoid busy waiting
 
-        return [res for _, res in sorted(results)]
+    # after finishing, log final status
+    if status_tracker.num_tasks_failed > 0:
+        raise mlflow.MlflowException(
+            f"{status_tracker.num_tasks_failed} tasks failed. See logs for details."
+        )
+    if status_tracker.num_rate_limit_errors > 0:
+        _logger.warning(
+            f"{status_tracker.num_rate_limit_errors} rate limit errors received. "
+            "Consider running at a lower rate."
+        )
+
+    return [res for _, res in sorted(results)]

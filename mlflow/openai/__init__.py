@@ -29,6 +29,8 @@ import os
 import yaml
 import logging
 from enum import Enum
+from string import Formatter
+import itertools
 
 import mlflow
 from mlflow import pyfunc
@@ -62,7 +64,10 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import Schema, ColSpec
 from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING, MLFLOW_OPENAI_SECRET_SCOPE
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.databricks_utils import (
+    check_databricks_secret_scope_access,
+    is_in_databricks_runtime,
+)
 
 FLAVOR_NAME = "openai"
 MODEL_FILENAME = "model.yaml"
@@ -154,7 +159,7 @@ def _get_task_name(task):
         )
 
 
-def get_openai_package_version():
+def _get_openai_package_version():
     import openai
 
     try:
@@ -189,6 +194,41 @@ class _OpenAIEnvVar(str, Enum):
 def _log_secrets_yaml(local_model_dir, scope):
     with open(os.path.join(local_model_dir, "openai.yaml"), "w") as f:
         yaml.safe_dump({e.value: f"{scope}:{e.secret_key}" for e in _OpenAIEnvVar}, f)
+
+
+def _parse_format_fields(s):
+    """
+    Parses format fields from a given string, e.g. "Hello {name}" -> ["name"].
+    """
+    return [fn for _, fn, _, _ in Formatter().parse(s) if fn is not None]
+
+
+def _parse_variables(messages):
+    """
+    Parses variables from a list of messages for chat completion task. For example, if
+    messages = [{"content": "{x}", ...}, {"content": "{y}", ...}], then _parse_variables(messages)
+    returns ["x", "y"].
+    """
+    return sorted(
+        set(
+            itertools.chain.from_iterable(
+                _parse_format_fields(message.get("content")) for message in messages
+            )
+        )
+    )
+
+
+def _get_input_schema(messages):
+    if messages:
+        variables = _parse_variables(messages)
+        if len(variables) == 1:
+            return Schema([ColSpec(type="string")])
+        elif len(variables) > 1:
+            return Schema([ColSpec(name=v, type="string") for v in variables])
+        else:
+            return Schema([ColSpec(type="string")])
+    else:
+        return Schema([ColSpec(type="string")])
 
 
 @experimental
@@ -246,8 +286,10 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param  kwargs: Keyword arguments specific to the OpenAI task, such as the ``temperature`` or
-                    or ``top_p`` value to use for chat completion.
+    :param  kwargs:
+        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+        :ref:`mlflow.openai.messages` for more details on this parameter)
+        or ``top_p`` value to use for chat completion.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     path = os.path.abspath(path)
@@ -257,13 +299,21 @@ def save_model(
 
     if mlflow_model is None:
         mlflow_model = Model()
+
     if signature is not None:
         mlflow_model.signature = signature
     elif task == "chat.completions":
+        messages = kwargs.get("messages", [])
+        if messages and not (
+            all(isinstance(m, dict) for m in messages) and all(map(_has_content_and_role, messages))
+        ):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "If `messages` is provided, it must be a list of dictionaries with keys "
+                "'role' and 'content'."
+            )
+
         mlflow_model.signature = ModelSignature(
-            inputs=Schema(
-                [ColSpec(type="string", name="role"), ColSpec(type="string", name="content")],
-            ),
+            inputs=_get_input_schema(messages),
             outputs=Schema([ColSpec(type="string", name=None)]),
         )
     if input_example is not None:
@@ -290,7 +340,7 @@ def save_model(
         )
     mlflow_model.add_flavor(
         FLAVOR_NAME,
-        openai_version=get_openai_package_version(),
+        openai_version=_get_openai_package_version(),
         data=MODEL_FILENAME,
         code=code_dir_subpath,
     )
@@ -298,11 +348,12 @@ def save_model(
 
     if is_in_databricks_runtime():
         if scope := MLFLOW_OPENAI_SECRET_SCOPE.get():
+            check_databricks_secret_scope_access(scope)
             _log_secrets_yaml(path, scope)
         else:
             _logger.info(
                 "No secret scope specified, skipping logging of secrets for OpenAI credentials. "
-                "See https://mlflow.org/docs/latest/python_api/mlflow.openai.html#credential-management-for-openai-on-databricks "
+                "See https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks "
                 "for more information."
             )
 
@@ -397,8 +448,10 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
-    :param  kwargs: Keyword arguments specific to the OpenAI task, such as the ``temperature`` or
-                    or ``top_p`` value to use for chat completion.
+    :param  kwargs:
+        Keyword arguments specific to the OpenAI task, such as the ``messages`` (see
+        :ref:`mlflow.openai.messages` for more details on this parameter)
+        or ``top_p`` value to use for chat completion.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -429,6 +482,24 @@ def _has_content_and_role(d):
     return "content" in d and "role" in d
 
 
+class _FormattableMessage:
+    def __init__(self, message):
+        self.content = message.get("content")
+        self.role = message.get("role")
+        self.variables = _parse_format_fields(self.content)
+
+    def format(self, **params):
+        if missing_params := set(self.variables) - set(params):
+            raise mlflow.MlflowException.invalid_parameter_value(
+                f"Expected parameters {self.variables} to be provided, "
+                f"only got {list(params)}, {list(missing_params)} are missing."
+            )
+        return {
+            "role": self.role,
+            "content": self.content.format(**{v: params[v] for v in self.variables}),
+        }
+
+
 class _OpenAIWrapper:
     def __init__(self, model):
         if model["task"] != "chat.completions":
@@ -436,38 +507,45 @@ class _OpenAIWrapper:
                 "Currently, only 'chat.completions' task is supported",
             )
         self.model = model
+        self.messages = self.model.get("messages", [])
+        self.variables = _parse_variables(self.messages)
+        self.formattable_messages = [_FormattableMessage(m) for m in self.messages]
+
+    def format_messages(self, params_list):
+        return [[m.format(**params) for m in self.formattable_messages] for params in params_list]
+
+    def get_params_list(self, data):
+        if len(self.variables) == 1:
+            variable = self.variables[0]
+            if variable in data.columns:
+                return data[[variable]].to_dict(orient="records")
+            else:
+                iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
+                first_string_column = next(iter_string_columns)
+                return [{variable: s} for s in data[first_string_column]]
+        else:
+            return data[self.variables].to_dict(orient="records")
 
     def predict(self, data):
-        import pandas as pd
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
-        if isinstance(data, pd.DataFrame):
-            if "content" not in data or "role" not in data:
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "Input dataframe must contain columns 'content' and 'role'",
-                )
-            messages = data.to_dict(orient="records")
-        elif isinstance(data, list) and all(isinstance(d, dict) for d in data):
-            if not all(map(_has_content_and_role, data)):
-                raise mlflow.MlflowException.invalid_parameter_value(
-                    "Input list of dictionaries must contain keys 'content' and 'role'",
-                )
-            messages = data
+        if self.variables:
+            messages_list = self.format_messages(self.get_params_list(data))
         else:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "Input must be a pandas DataFrame or a list of dictionaries with keys "
-                "'content' and 'role'",
-            )
+            iter_string_columns = (c for c, v in data.iloc[0].items() if isinstance(v, str))
+            first_string_column = next(iter_string_columns)
+            messages_list = [
+                [*self.messages, {"role": "user", "content": s}] for s in data[first_string_column]
+            ]
 
         model_dict = self.model.copy()
         model_dict.pop("task", None)
-        prompt_messages = model_dict.pop("messages", [])
         requests = [
             {
                 **model_dict,
-                "messages": [*prompt_messages, message],
+                "messages": messages,
             }
-            for message in messages
+            for messages in messages_list
         ]
         if _OpenAIEnvVar.OPENAI_API_KEY.value not in os.environ:
             raise mlflow.MlflowException(

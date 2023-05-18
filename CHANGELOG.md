@@ -1,5 +1,59 @@
 # CHANGELOG
 
+## 2.3.2 (2023-05-12)
+
+MLflow 2.3.2 is a patch release containing the following features, bug fixes and changes:
+
+Features:
+
+- [Models] Add GPU support for `transformers` models `pyfunc` inference and serving (#8375, @ankit-db)
+- [Models] Disable autologging functionality for non-relevant models when training a `transformers` model (#8405, @BenWilson2)
+- [Models] Add support for preserving and overriding `torch_dtype` values in `transformers` pipelines (#8421, @BenWilson2)
+- [Models] Add support for `Feature Extraction` pipelines in the `transformers` flavor (#8423, @BenWilson2)
+- [Tracking] Add basic HTTP auth support for users, registered models, and experiments permissions (#8286, @gabrielfu)
+
+Bug Fixes:
+
+- [Models] Fix inferred schema issue with `Text2TextGeneration` pipelines in the `transformers` flavor (#8391, @BenWilson2)
+- [Models] Change MLflow dependency pinning in logged models from a range value to an exact major and minor version (#8422, @harupy) 
+
+Documentation updates:
+
+- [Examples] Add `signature` logging to all examples and documentation (#8410, #8401, #8400, #8387 @jerrylian-db)
+- [Examples] Add `sentence-transformers` examples to the `transformers` examples suite (#8425, @BenWilson2)
+- [Docs] Add a new MLflow Quickstart documentation page (#8171, @lobrien)
+- [Docs] Add a new introduction to MLflow page (#8365, @lobrien)
+- [Docs] Add a community model plugin example and documentation for `trubrics` (#8371, @jeffkayne)
+- [Docs] Add `gluon` pyfunc example to Model flavor documentation (#8403, @ericvincent18)
+- [Docs] Add `statsmodels` pyfunc example to `Models` flavor documentation (#8394, @ericvincent18)
+
+Small bug fixes and documentation updates:
+
+#8415, #8412, #8411, #8355, #8354, #8353, #8348, @harupy; #8374, #8367, #8350, @dbczumar; #8358 @mrkaye97; #8392, #8362, @smurching; #8427, #8408, #8399, #8381, @BenWilson2; #8395, #8390, @jerrylian-db; #8402, #8398, @WeichenXu123; #8377, #8363, @arpitjasa-db; #8385, @prithvikannan; #8418, @Jeukoh;
+
+## 2.3.1 (2023-04-27)
+
+MLflow 2.3.1 is a patch release containing the following bug fixes and changes:
+
+Bug fixes:
+
+- [Security] Fix critical LFI attack vulnerability by disabling the ability to provide relative paths in registered model sources (#8281, @BenWilson2)
+    * __If you  are using ``mlflow server`` or ``mlflow ui``, we recommend upgrading to MLflow 2.3.1 as soon as possible.__ For more details, see https://github.com/mlflow/mlflow/security/advisories/GHSA-xg73-94fp-g449.
+- [Tracking] Fix an issue causing file and model uploads to hang on Databricks (#8348, @harupy)
+- [Tracking / Model Registry] Fix an issue causing file and model downloads to hang on Databricks (#8350, @dbczumar)
+- [Scoring] Fix regression in schema enforcement for model serving when using the ``inputs`` format for inference (#8326, @BenWilson2)
+- [Model Registry] Fix regression in model naming parsing where special characters were not accepted in model names (#8322, @arpitjasa-db)
+- [Recipes] Fix card rendering with the pandas profiler to handle columns containing all null values (#8263, @sunishsheth2009)
+
+Documentation updates:
+
+- [Docs] Add an H2O pyfunc usage example to the models documentation (#8292, @ericvincent18)
+- [Examples] Add a TensorFlow Core 2.x API usage example (#8235, @dheerajnbhat)
+
+Small bug fixes and documentation updates:
+
+#8324, #8325, @smurching; #8313, @dipanjank; #8323, @liangz1; #8331, #8328, #8319, #8316, #8308, #8293, #8289, #8283, #8284, #8285, #8282, #8241, #8270, #8272, #8271, #8268, @harupy; #8312, #8294, #8295, #8279, #8267, @BenWilson2; #8290, @jinzhang21; #8257, @WeichenXu123; #8307, @arpitjasa-db
+
 ## 2.3.0 (2023-04-18)
 
 MLflow 2.3.0 includes several major features and improvements

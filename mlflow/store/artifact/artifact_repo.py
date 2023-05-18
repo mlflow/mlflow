@@ -36,7 +36,10 @@ class ArtifactRepository:
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
-        self.thread_pool = ThreadPoolExecutor(max_workers=self.max_workers)
+        self.thread_pool = self._create_thread_pool()
+
+    def _create_thread_pool(self):
+        return ThreadPoolExecutor(max_workers=self.max_workers)
 
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):

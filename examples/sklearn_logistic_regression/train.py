@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.sklearn
 
 if __name__ == "__main__":
@@ -12,5 +13,7 @@ if __name__ == "__main__":
     score = lr.score(X, y)
     print("Score: %s" % score)
     mlflow.log_metric("score", score)
-    mlflow.sklearn.log_model(lr, "model")
+    predictions = lr.predict(X)
+    signature = infer_signature(X, predictions)
+    mlflow.sklearn.log_model(lr, "model", signature=signature)
     print("Model saved in run %s" % mlflow.active_run().info.run_uuid)

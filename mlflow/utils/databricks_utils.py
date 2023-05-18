@@ -40,6 +40,15 @@ def _use_repl_context_if_available(name):
     return decorator
 
 
+def get_mlflow_credential_context_by_run_id(run_id):
+    from mlflow.tracking.artifact_utils import get_artifact_uri
+    from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+
+    run_root_artifact_uri = get_artifact_uri(run_id=run_id)
+    profile = get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+    return MlflowCredentialContext(profile)
+
+
 class MlflowCredentialContext:
     """Sets and clears credentials on a context using the provided profile URL."""
 
@@ -619,6 +628,22 @@ def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[Databr
         return DatabricksWorkspaceInfo(host=workspace_host, workspace_id=workspace_id)
     else:
         return None
+
+
+def check_databricks_secret_scope_access(scope_name):
+    dbutils = _get_dbutils()
+    if dbutils:
+        try:
+            dbutils.secrets.list(scope_name)
+        except Exception as e:
+            _logger.warning(
+                f"Unable to access Databricks secret scope '{scope_name}' for OpenAI credentials "
+                "that will be used to deploy the model to Databricks Model Serving. "
+                "Please verify that the current Databricks user has 'READ' permission for "
+                "this scope. For more information, see "
+                "https://mlflow.org/docs/latest/python_api/openai/index.html#credential-management-for-openai-on-databricks. "  # pylint: disable=line-too-long
+                f"Error: {str(e)}"
+            )
 
 
 def _construct_databricks_run_url(

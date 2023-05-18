@@ -36,10 +36,8 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: r-lib/actions/setup-r@v2
-        # Note: the version of R released on 4/21/23, 4.3.0, has build issues with devtools.
-        # Remove this version pin once issues on dependent packages have been fixed.
         with:
-          r-version: "4.2.3"
+          r-version: "4.3.0"
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies

@@ -1644,18 +1644,67 @@ def log_model(
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: {{ conda_env }}
-    :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
-                         serialized using the CloudPickle library. Any dependencies of the class
-                         should be included in one of the following locations:
+    :param python_model:
+        An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+        argument (see the examples below). The passed-in object is serialized using the CloudPickle
+        library. Any dependencies of the class should be included in one of the following locations:
 
-                            - The MLflow library.
-                            - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+        - The MLflow library.
+        - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
+          parameter.
+        - One or more of the files specified by the ``code_path`` parameter.
 
-                         Note: If the class is imported from another module, as opposed to being
-                         defined in the ``__main__`` scope, the defining module should also be
-                         included in one of the listed locations.
+        Note: If the class is imported from another module, as opposed to being defined in the
+        ``__main__`` scope, the defining module should also be included in one of the listed
+        locations.
+
+        **Examples**
+
+        Class model
+
+        .. code-block:: python
+
+            from typing import List, Dict
+            import mlflow
+
+
+            class MyModel(mlflow.pyfunc.PythonModel):
+                def predict(self, context, model_input: List[str]) -> List[str]:
+                    return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        Functional model
+
+        .. note::
+            Experimental: Functional model support is experimental and may change or be removed in
+            a future release without warning.
+
+        .. code-block:: python
+
+            from typing import List
+            import mlflow
+
+
+            def predict(model_input: List[str]) -> List[str]:
+                return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        If the `predict` method or function has type annotations, MLflow automatically constructs
+        a model signature based on the type annotations (unless the ``signature`` argument is
+        explicitly specified), and converts the input value to the specified type before passing
+        it to the function. Currently, the following type annotations are supported:
+
+            - ``List[str]``
+            - ``List[Dict[str, str]]``
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
