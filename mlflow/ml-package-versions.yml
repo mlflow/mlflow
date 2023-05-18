@@ -400,6 +400,9 @@ prophet:
   models:
     minimum: "1.0.1"
     maximum: "1.1.2"
+    requirements:
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0.0": ["holidays!=0.25"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -417,7 +420,8 @@ pmdarima:
     minimum: "1.8.0"
     maximum: "2.0.3"
     requirements:
-      ">= 0.0.0": ["prophet"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0.0": ["prophet", "holidays!=0.25"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -432,7 +436,8 @@ diviner:
     maximum: "0.1.1"
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
-      ">= 0.0": ["cmdstanpy!=1.0.2"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
@@ -523,11 +528,12 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain
   models:
-    minimum: "0.0.139"
-    maximum: "0.0.143"
+    minimum: "0.0.169"
+    maximum: "0.0.169"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
+      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
       export MLFLOW_OPENAI_TESTING=true
       export OPENAI_API_KEY=test
+      export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py

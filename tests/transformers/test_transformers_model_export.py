@@ -1,5 +1,6 @@
 import gc
 import json
+import numpy as np
 import os
 import pandas as pd
 from packaging.version import Version
@@ -42,9 +43,10 @@ from mlflow.transformers import (
     _record_pipeline_components,
     _should_add_pyfunc_to_model,
     _TransformersModel,
+    _FRAMEWORK_KEY,
 )
 from mlflow.utils.environment import _mlflow_conda_env
-
+import torch
 from tests.helper_functions import (
     _compare_conda_env_requirements,
     _assert_pip_requirements,
@@ -314,6 +316,15 @@ def image_for_test():
     return dataset["test"]["image"][0]
 
 
+@pytest.fixture()
+def feature_extraction_pipeline():
+    st_arch = "sentence-transformers/all-MiniLM-L6-v2"
+    model = transformers.AutoModel.from_pretrained(st_arch)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(st_arch)
+
+    return transformers.pipeline(model=model, tokenizer=tokenizer, task="feature-extraction")
+
+
 def test_dependencies_pytorch(small_qa_pipeline):
     pip_requirements = get_default_pip_requirements(small_qa_pipeline.model)
     expected_requirments = {"transformers", "torch", "torchvision"}
@@ -405,12 +416,14 @@ def test_base_flavor_configuration_generation(small_seq2seq_pipeline, small_qa_p
         _INSTANCE_TYPE_KEY: "TextClassificationPipeline",
         _PIPELINE_MODEL_TYPE_KEY: "TFMobileBertForSequenceClassification",
         _MODEL_PATH_OR_NAME_KEY: "lordtt13/emo-mobilebert",
+        _FRAMEWORK_KEY: "tf",
     }
     expected_qa_pipeline_conf = {
         _TASK_KEY: "question-answering",
         _INSTANCE_TYPE_KEY: "QuestionAnsweringPipeline",
         _PIPELINE_MODEL_TYPE_KEY: "MobileBertForQuestionAnswering",
         _MODEL_PATH_OR_NAME_KEY: "csarron/mobilebert-uncased-squad-v2",
+        _FRAMEWORK_KEY: "pt",
     }
     seq_conf_infer_task = _generate_base_flavor_configuration(
         small_seq2seq_pipeline, _get_or_infer_task_type(small_seq2seq_pipeline)
@@ -1039,8 +1052,6 @@ def test_invalid_model_type_without_registered_name_does_not_save(model_path):
 
 
 def test_invalid_task_inference_raises_error(model_path):
-    import numpy as np
-
     from transformers import Pipeline
 
     def softmax(outputs):
@@ -1926,6 +1937,84 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
     ]
 
 
+def test_feature_extraction_pipeline(feature_extraction_pipeline):
+    sentences = ["hi", "hello"]
+    signature = infer_signature(
+        sentences,
+        mlflow.transformers.generate_signature_output(feature_extraction_pipeline, sentences),
+    )
+
+    artifact_path = "feature_extraction_pipeline"
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=["A sentence", "Another sentence"],
+        )
+
+    # Load as native
+    loaded_pipeline = mlflow.transformers.load_model(model_info.model_uri)
+
+    inference_single = "Testing"
+    inference_mult = ["Testing something", "Testing something else"]
+
+    pred = loaded_pipeline(inference_single)
+    assert len(pred[0][0]) > 10
+    assert isinstance(pred[0][0][0], float)
+
+    pred_multiple = loaded_pipeline(inference_mult)
+    assert len(pred_multiple[0][0]) > 2
+    assert isinstance(pred_multiple[0][0][0][0], float)
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    pyfunc_pred = loaded_pyfunc.predict(inference_single)
+
+    assert isinstance(pyfunc_pred, np.ndarray)
+
+    assert np.array_equal(np.array(pred[0]), pyfunc_pred)
+
+    pyfunc_pred_multiple = loaded_pyfunc.predict(inference_mult)
+
+    assert np.array_equal(np.array(pred_multiple[0][0]), pyfunc_pred_multiple)
+
+
+def test_feature_extraction_pipeline_pyfunc_predict(feature_extraction_pipeline):
+    artifact_path = "feature_extraction"
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=feature_extraction_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    inference_payload = json.dumps({"inputs": ["sentence one", "sentence two"]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert len(values.columns) == 384
+    assert len(values) == 4
+
+    inference_payload = json.dumps({"inputs": "sentence three"})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    # A single string input is an invalid input to serving. Verify that this throws.
+    with pytest.raises(MlflowException, match="Invalid response. Predictions response contents"):
+        PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+
 def test_loading_unsupported_pipeline_type_as_pyfunc(small_multi_modal_pipeline, model_path):
     mlflow.transformers.save_model(small_multi_modal_pipeline, model_path)
     with pytest.raises(MlflowException, match='Model does not have the "python_function" flavor'):
@@ -2462,3 +2551,143 @@ def test_signature_inference(pipeline_name, data, result, request):
     signature_with_input = mlflow.transformers._get_default_pipeline_signature(pipeline, data)
 
     assert signature_with_input.to_dict() == result
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+)
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_extraction_of_torch_dtype_from_pipeline(dtype):
+    pipe = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=dtype,
+    )
+
+    parsed = mlflow.transformers._extract_torch_dtype_if_set(pipe)
+
+    assert parsed == str(dtype)
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.float16, torch.bfloat16, torch.float32, torch.float64, torch.int32, torch.int64]
+)
+@pytest.mark.skipcacheclean
+def test_deserialization_of_configuration_torch_dtype_entry(dtype):
+    flavor_config = {"torch_dtype": str(dtype), "framework": "pt"}
+
+    parsed = mlflow.transformers._deserialize_torch_dtype_if_exists(flavor_config)
+    assert isinstance(parsed, torch.dtype)
+    assert parsed == dtype
+
+
+@pytest.mark.parametrize(
+    "dtype", [torch.bfloat16, torch.float16, torch.float64, torch.float, torch.cfloat]
+)
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_extraction_of_base_flavor_config(dtype):
+    task = "translation_en_to_fr"
+
+    # Many of the 'full configuration' arguments specified are not stored as instance arguments
+    # for a pipeline; rather, they are only used when acquiring the pipeline components from
+    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
+    # irrelevant to store these.
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=dtype,
+        device_map="auto",
+        use_auth_token=True,
+        trust_remote_code=True,
+        revision="main",
+        use_fast=True,
+    )
+
+    parsed = mlflow.transformers._generate_base_flavor_configuration(full_config_pipeline, task)
+
+    assert parsed == {
+        "task": "translation_en_to_fr",
+        "instance_type": "TranslationPipeline",
+        "source_model_name": "t5-small",
+        "pipeline_model_type": "T5ForConditionalGeneration",
+        "framework": "pt",
+        "torch_dtype": str(dtype),
+    }
+
+
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
+    task = "translation_en_to_fr"
+
+    # Many of the 'full configuration' arguments specified are not stored as instance arguments
+    # for a pipeline; rather, they are only used when acquiring the pipeline components from
+    # the huggingface hub at initial pipeline creation. If a pipeline is specified, it is
+    # irrelevant to store these.
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=full_config_pipeline,
+        path=model_path,
+    )
+
+    base_loaded = mlflow.transformers.load_model(model_path)
+    assert base_loaded.torch_dtype == torch.bfloat16
+    assert base_loaded.framework == "pt"
+
+    loaded_pipeline = mlflow.transformers.load_model(model_path, torch_dtype=torch.float64)
+
+    assert loaded_pipeline.torch_dtype == torch.float64
+    assert loaded_pipeline.framework == "pt"
+
+    prediction = loaded_pipeline.predict("Hello there. How are you today?")
+    assert prediction == [{"translation_text": "Bonjour, comment êtes-vous aujourd'hui ?"}]
+
+
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
+@pytest.mark.skipcacheclean
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
+)
+def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
+    task = "translation_en_to_fr"
+
+    full_config_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained("t5-small", model_max_length=100),
+        framework="pt",
+        torch_dtype=dtype,
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=full_config_pipeline,
+        path=model_path,
+    )
+
+    # Since we can't directly access the underlying wrapped model instance, evaluate the
+    # ability to generate an inference with a specific dtype to ensure that there are no
+    # complications with setting different types within pyfunc.
+    loaded_pipeline = mlflow.pyfunc.load_model(model_path)
+
+    prediction = loaded_pipeline.predict("Hello there. How are you today?")
+
+    assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"

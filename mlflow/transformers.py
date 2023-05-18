@@ -1,5 +1,6 @@
 import ast
 import contextlib
+from functools import lru_cache
 import json
 import logging
 import pathlib
@@ -19,7 +20,7 @@ from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, ColSpec
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
@@ -52,31 +53,36 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "transformers"
-_PIPELINE_BINARY_KEY = "pipeline"
-_PIPELINE_BINARY_FILE_NAME = "pipeline"
-_COMPONENTS_BINARY_KEY = "components"
-_INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
-_MODEL_KEY = "model"
-_TOKENIZER_KEY = "tokenizer"
-_FEATURE_EXTRACTOR_KEY = "feature_extractor"
-_IMAGE_PROCESSOR_KEY = "image_processor"
-_PROCESSOR_KEY = "processor"
-_TOKENIZER_TYPE_KEY = "tokenizer_type"
-_FEATURE_EXTRACTOR_TYPE_KEY = "feature_extractor_type"
-_IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
-_PROCESSOR_TYPE_KEY = "processor_type"
+
 _CARD_TEXT_FILE_NAME = "model_card.md"
 _CARD_DATA_FILE_NAME = "model_card_data.yaml"
-_TASK_KEY = "task"
+_COMPONENTS_BINARY_KEY = "components"
+_FEATURE_EXTRACTOR_KEY = "feature_extractor"
+_FEATURE_EXTRACTOR_TYPE_KEY = "feature_extractor_type"
+_FRAMEWORK_KEY = "framework"
+_IMAGE_PROCESSOR_KEY = "image_processor"
+_IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
+_INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
-_PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
+_MODEL_KEY = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
-_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+_PIPELINE_BINARY_KEY = "pipeline"
+_PIPELINE_BINARY_FILE_NAME = "pipeline"
+_PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
+_PROCESSOR_KEY = "processor"
+_PROCESSOR_TYPE_KEY = "processor_type"
 _SUPPORTED_RETURN_TYPES = {"pipeline", "components"}
 # The default device id for CPU is -1 and GPU IDs are ordinal starting at 0, as documented here:
 # https://huggingface.co/transformers/v4.7.0/main_classes/pipelines.html
 _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID = -1
 _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID = 0
+_TASK_KEY = "task"
+_TOKENIZER_KEY = "tokenizer"
+_TOKENIZER_TYPE_KEY = "tokenizer_type"
+_TORCH_DTYPE_KEY = "torch_dtype"
+_METADATA_PIPELINE_SCALAR_CONFIG_KEYS = {_FRAMEWORK_KEY}
+_SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMAGE_PROCESSOR_KEY}
+
 _logger = logging.getLogger(__name__)
 
 
@@ -854,11 +860,49 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         component_type = flavor_config[component_type_key]
         conf[component_key] = _load_component(local_path, component_key, component_type)
 
+    if _TORCH_DTYPE_KEY in flavor_config:
+        conf[_TORCH_DTYPE_KEY] = _deserialize_torch_dtype_if_exists(flavor_config)
+
+    for key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
+        if key in flavor_config:
+            conf[key] = flavor_config[key]
+
     if return_type == "pipeline":
         conf.update(**kwargs)
         return transformers.pipeline(**conf)
     elif return_type == "components":
         return conf
+
+
+@lru_cache
+def _torch_dype_mapping():
+    """
+    Memoized torch data type mapping from the torch primary datatypes for use in deserializing the
+    saved pipeline parameter `torch_dtype`
+    """
+    try:
+        import torch
+
+        return {
+            str(dtype): dtype
+            for name, dtype in torch.__dict__.items()
+            if isinstance(dtype, torch.dtype)
+        }
+    except ImportError as e:
+        raise MlflowException(
+            "Unable to determine if the value supplied by the argument "
+            "torch_dtype is valid since torch is not installed.",
+            error_code=INVALID_PARAMETER_VALUE,
+        ) from e
+
+
+def _deserialize_torch_dtype_if_exists(flavor_config):
+    """
+    Convert the string-encoded `torch_dtype` pipeline argument back to the correct `torch.dtype`
+    instance value for applying to a loaded pipeline instance.
+    """
+
+    return _torch_dype_mapping()[flavor_config["torch_dtype"]]
 
 
 def _fetch_model_card(model_or_pipeline):
@@ -967,7 +1011,7 @@ def _load_component(root_path: pathlib.Path, component_key: str, component_type)
 
 
 def _generate_base_flavor_configuration(
-    model,
+    pipeline,
     task: str,
 ) -> Dict[str, str]:
     """
@@ -983,12 +1027,38 @@ def _generate_base_flavor_configuration(
 
     flavor_configuration = {
         _TASK_KEY: task,
-        _INSTANCE_TYPE_KEY: _get_instance_type(model),
-        _MODEL_PATH_OR_NAME_KEY: _get_base_model_architecture(model),
-        _PIPELINE_MODEL_TYPE_KEY: _get_instance_type(model.model),
+        _INSTANCE_TYPE_KEY: _get_instance_type(pipeline),
+        _MODEL_PATH_OR_NAME_KEY: _get_base_model_architecture(pipeline),
+        _PIPELINE_MODEL_TYPE_KEY: _get_instance_type(pipeline.model),
     }
 
+    # Extract and add to the configuration the scalar serializable arguments for pipeline args
+    for arg_key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
+        if entry := _get_scalar_argument_from_pipeline(pipeline, arg_key):
+            flavor_configuration[arg_key] = entry
+
+    # Extract a serialized representation of torch_dtype if provided
+    if torch_dtype := _extract_torch_dtype_if_set(pipeline):
+        flavor_configuration[_TORCH_DTYPE_KEY] = torch_dtype
+
     return flavor_configuration
+
+
+def _get_scalar_argument_from_pipeline(pipeline, arg_key):
+    """
+    Retrieve provided pipeline arguments for the purposes of instantiating a pipeline object upon
+    loading.
+    """
+
+    return getattr(pipeline, arg_key, None)
+
+
+def _extract_torch_dtype_if_set(pipeline):
+    """
+    Extract the torch datatype argument if set and return as a string encoded value.
+    """
+    if torch_dtype := getattr(pipeline, _TORCH_DTYPE_KEY, None):
+        return str(torch_dtype)
 
 
 def _get_or_infer_task_type(model, task: Optional[str] = None) -> str:
@@ -1209,7 +1279,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 ),
                 outputs=Schema([ColSpec("string")]),
             )
-
+        elif isinstance(pipeline, transformers.FeatureExtractionPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("string")]),
+                outputs=Schema([TensorSpec(np.dtype("float64"), [-1], "double")]),
+            )
         else:
             _logger.warning(
                 "An unsupported Pipeline type was supplied for signature inference. "
@@ -1473,6 +1547,9 @@ class _TransformersWrapper:
             data = self._parse_json_encoded_dict_payload_to_dict(data, "table")
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output_key = {"entity_group", "entity"}
+        elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
+            output_key = None
+            data = self._parse_feature_extraction_input(data)
         elif isinstance(self.pipeline, transformers.ConversationalPipeline):
             output_key = None
             if not self._conversation:
@@ -1521,6 +1598,8 @@ class _TransformersWrapper:
                 include_prompt,
                 collapse_whitespace,
             )
+        elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
+            return self._parse_feature_extraction_output(raw_output)
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
@@ -1794,6 +1873,36 @@ class _TransformersWrapper:
             return output_coll
         else:
             return output_data[target_dict_key]
+
+    @staticmethod
+    def _parse_feature_extraction_input(input_data):
+        if isinstance(input_data, list) and isinstance(input_data[0], dict):
+            return [list(data.values())[0] for data in input_data]
+        else:
+            return input_data
+
+    @staticmethod
+    def _parse_feature_extraction_output(output_data):
+        """
+        Parse the return type from a FeatureExtractionPipeline output. The mixed types for
+        input are present depending on how the pyfunc is instantiated. For model serving usage,
+        the returned type from MLServer will be a numpy.ndarray type, otherwise, the return
+        within a manually executed pyfunc (i.e., for udf usage), the return will be a collection
+        of nested lists.
+
+        Examples:
+
+        Input: [[[0.11, 0.98, 0.76]]] or np.array([0.11, 0.98, 0.76])
+        Output: np.array([0.11, 0.98, 0.76])
+
+        Input: [[[[0.1, 0.2], [0.3, 0.4]]]] or
+            np.array([np.array([0.1, 0.2]), np.array([0.3, 0.4])])
+        Output: np.array([np.array([0.1, 0.2]), np.array([0.3, 0.4])])
+        """
+        if isinstance(output_data, np.ndarray):
+            return output_data
+        else:
+            return np.array(output_data[0][0])
 
     def _parse_tokenizer_output(self, output_data, target_set):
         """

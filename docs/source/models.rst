@@ -122,7 +122,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
         - python=3.8.8
         - pip
         - pip:
-            - mlflow
+            - mlflow==2.3
             - scikit-learn==0.23.2
             - cloudpickle==1.6.0
 
@@ -149,7 +149,7 @@ The following shows an example of saving a model with a manually specified conda
     conda_env = {
         "channels": ["conda-forge"],
         "dependencies": ["python=3.8.8", "pip"],
-        "pip": ["mlflow", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
+        "pip": ["mlflow==2.3", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
         "name": "mlflow-env",
     }
     mlflow.sklearn.log_model(..., conda_env=conda_env)
@@ -165,7 +165,7 @@ The written ``conda.yaml`` file:
     - python=3.8.8
     - pip
     - pip:
-      - mlflow
+      - mlflow==2.3
       - scikit-learn==0.23.2
       - cloudpickle==1.6.0
 
@@ -185,7 +185,7 @@ The written ``requirements.txt`` file:
 
 .. code-block:: text
 
-    mlflow
+    mlflow==2.3
     scikit-learn==0.23.2
     cloudpickle==1.6.0
 
@@ -2159,9 +2159,14 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
 Model with the ``langchain`` flavor as a dictionary of the model's attributes.
 
-Example:
+Example: Log a LangChain LLMChain
 
 .. literalinclude:: ../../examples/langchain/simple_chain.py
+    :language: python
+
+Example: Log a LangChain Agent
+
+.. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
 Diviner (``diviner``)
@@ -2417,6 +2422,7 @@ Supported transformers Pipeline types for Pyfunc
 ================================= ============================== =================
 Pipeline Type                     Input Type                     Output Type
 ================================= ============================== =================
+Instructional Text Generation     str or List[str]               str or List[str]
 Conversational                    str or List[str]               str or List[str]
 Summarization                     str or List[str]               str or List[str]
 Text Classification               str or List[str]               str or List[str]
@@ -2428,6 +2434,7 @@ ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str
 Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
+Feature Extraction                str or List[str]               np.ndarray
 ================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
@@ -2613,6 +2620,113 @@ For pipelines that support ``pyfunc``, there are 3 means of attaching a model si
 
 * Do nothing. The ``transformers`` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
 
+
+Scalability for inference
+"""""""""""""""""""""""""
+A common configuration for lowering the total memory pressure for pytorch models within ``transformers`` pipelines is to modify the
+processing data type. This is achieved through setting the ``torch_dtype`` argument when creating a ``Pipeline``.
+For a full reference of these tunable arguments for configuration of pipelines, see the `training docs <https://huggingface.co/docs/transformers/v4.28.1/en/perf_train_gpu_one#floating-data-types>`_ .
+
+.. note:: This feature does not exist in versions of ``transformers`` < 4.26.x
+
+In order to apply these configurations to a saved or logged run, there are two options:
+
+* Save a pipeline with the `torch_dtype` argument set to the encoding type of your choice.
+
+Example:
+
+.. code-block:: python
+
+    import transformers
+    import torch
+    import mlflow
+
+    task = "translation_en_to_fr"
+
+    my_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=my_pipeline,
+            artifact_path="my_pipeline",
+        )
+
+    # Illustrate that the torch data type is recorded in the flavor configuration
+    print(model_info.flavors["transformers"])
+
+
+Result:
+
+.. code-block:: bash
+
+    {'transformers_version': '4.28.1',
+     'code': None,
+     'task': 'translation_en_to_fr',
+     'instance_type': 'TranslationPipeline',
+     'source_model_name': 't5-small',
+     'pipeline_model_type': 'T5ForConditionalGeneration',
+     'framework': 'pt',
+     'torch_dtype': 'torch.bfloat16',
+     'tokenizer_type': 'T5TokenizerFast',
+     'components': ['tokenizer'],
+     'pipeline': 'pipeline'}
+
+
+* Specify the `torch_dtype` argument when loading the model to override any values set during logging or saving.
+
+Example:
+
+.. code-block:: python
+
+    import transformers
+    import torch
+    import mlflow
+
+    task = "translation_en_to_fr"
+
+    my_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=my_pipeline,
+            artifact_path="my_pipeline",
+        )
+
+    loaded_pipeline = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="pipeline", torch_dtype=torch.float64
+    )
+
+    print(loaded_pipeline.torch_dtype)
+
+
+Result:
+
+.. code-block:: bash
+
+    torch.float64
+
+
+.. note:: Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.
+    If you need to override the default behavior of how data is encoded, please save or log a `pipeline` object.
+
+.. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
+    The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
 
 .. _model-evaluation:
 
@@ -2955,7 +3069,7 @@ evaluate test data.
             "pip",
             {
                 "pip": [
-                    "mlflow",
+                    "mlflow=={}".format(mlflow.__version__),
                     "xgboost=={}".format(xgb.__version__),
                     "cloudpickle=={}".format(cloudpickle.__version__),
                 ],
