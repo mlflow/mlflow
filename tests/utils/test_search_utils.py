@@ -259,8 +259,10 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("tags.tag1 != 'D'", [1]),
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
         ("datasets.name = 'name1'", [0, 1]),
+        ("datasets.name IN ('name1', 'name2')", [0, 1, 2]),
         ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
         ("datasets.context = 'train'", [0]),
+        ("datasets.name = 'name1' AND datasets.context = 'train'", [0]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):

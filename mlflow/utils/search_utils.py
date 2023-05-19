@@ -335,11 +335,7 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
-        elif (
-            identifier_type == cls._PARAM_IDENTIFIER
-            or identifier_type == cls._TAG_IDENTIFIER
-            or identifier_type == cls._DATASET_IDENTIFIER
-        ):
+        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
@@ -363,6 +359,31 @@ class SearchUtils:
                 if key != "run_id":
                     raise MlflowException(
                         "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "string values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return cls._parse_run_ids(token)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for attributes. "
+                    "Got value {value}".format(value=token.value),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._DATASET_IDENTIFIER:
+            if key in cls.NUMERIC_ATTRIBUTES:
+                if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+                    raise MlflowException(
+                        "Expected numeric value type for numeric attribute: {}. "
+                        "Found {}".format(key, token.value),
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return token.value
+            elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                if key != "name":
+                    raise MlflowException(
+                        "Only the dataset 'name' and 'digest' supports comparison with a list of quoted "
                         "string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
