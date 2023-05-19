@@ -110,31 +110,28 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         if name == self.module_to_throw or name.startswith(f"{self.module_to_throw}."):
             raise ImportError(f"Disabled package {name}")
 
-    def _wrap_importlib_util_find_spec(self, original):
-        @functools.wraps(original)
-        def wrapper(name, package=None):
-            if name == self.module_to_throw:
-                return None
-            return original(name, package)
-
-        return wrapper
-
     def _record_imported_module(self, full_module_name):
         self._wrap_package(full_module_name)
         return super()._record_imported_module(full_module_name)
 
     def __enter__(self):
-        # Patch `importlib.util.find_spec`
-        self.original_importlib_util_find_spec = importlib.util.find_spec
-        importlib.util.find_spec = self._wrap_importlib_util_find_spec(
-            self.original_importlib_util_find_spec
-        )
+        import transformers
+
+        self.original_tf_available = transformers.utils.import_utils._tf_available
+        self.original_torch_available = transformers.utils.import_utils._torch_available
+        if self.module_to_throw == "tensorflow":
+            transformers.utils.import_utils._tf_available = False
+        elif self.module_to_throw == "torch":
+            transformers.utils.import_utils._torch_available = False
+
         return super().__enter__()
 
     def __exit__(self, *_, **__):
         # Revert the patches
-        importlib.util.find_spec = self.original_importlib_util_find_spec
+        import transformers
 
+        transformers.utils.import_utils._tf_available = self.original_tf_available
+        transformers.utils.import_utils._torch_available = self.original_torch_available
         super().__exit__()
 
 
@@ -196,25 +193,53 @@ def main():
         write_to(args.output_file, "\n".join(cap_cm.imported_modules))
 
     if flavor == mlflow.transformers.FLAVOR_NAME:
-        throw_packages = ["tensorflow", "torch", ""]
-        for package in throw_packages:
-            cap_cm = _CaptureImportedModulesForHF(package) if package else _CaptureImportedModules()
-            try:
-                import transformers
+        try:
+            for package in ["tensorflow", "torch"]:
+                cap_cm = _CaptureImportedModulesForHF(package)
+                try:
+                    store_imported_module(cap_cm)
+                    break
+                except (RuntimeError, ImportError) as e:
+                    import traceback
 
-                importlib.reload(transformers.utils.import_utils)
-                store_imported_module(cap_cm)
-                break
-            except (RuntimeError, ImportError) as e:
-                import traceback
+                    tracebacks = traceback.format_exc()
+                    if package:
+                        if f"Disabled package {package}" in tracebacks:
+                            continue
+                        # To catch exceptions happening here
+                        # https://github.com/huggingface/transformers/blob/v4.29.2/src/transformers/utils/import_utils.py#L1083
+                        if (
+                            package == "tensorflow"
+                            and "ImportError(TF_IMPORT_ERROR_WITH_PYTORCH.format(name))"
+                            in tracebacks
+                        ):
+                            continue
+                        if (
+                            package == "torch"
+                            and "ImportError(PYTORCH_IMPORT_ERROR_WITH_TF.format(name))"
+                            in tracebacks
+                        ):
+                            continue
+                        raise e
+                    else:
+                        raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
+                except AttributeError as e:
+                    import traceback
 
-                tracebacks = traceback.format_exc()
-                if package:
-                    if f"ImportError: Disabled package {package}" in tracebacks:
+                    tracebacks = traceback.format_exc()
+                    # To catch exceptions happening when tf/torch is not available,
+                    # the model is not imported
+                    # https://github.com/huggingface/transformers/blob/v4.29.2/src/transformers/models/mobilebert/__init__.py#L44
+                    if (
+                        "getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])"
+                        in tracebacks
+                    ):
                         continue
                     raise e
-                else:
-                    raise RuntimeError(f"{e} with stacktrace: {tracebacks}")
+        except Exception:
+            # Fallback to use _CaptureImportedModules if there're exceptions we didn't catch
+            cap_cm = _CaptureImportedModules()
+            store_imported_module(cap_cm)
     else:
         cap_cm = _CaptureImportedModules()
         store_imported_module(cap_cm)

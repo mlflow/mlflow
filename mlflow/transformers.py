@@ -1,6 +1,7 @@
 import ast
 import contextlib
 from functools import lru_cache
+import importlib
 import json
 import logging
 import pathlib
@@ -827,6 +828,18 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+    import types
+
+    importlib.reload(transformers)
+    import transformers  # pylint: disable=W0404
+
+    for module_name in transformers.__all__:
+        module = getattr(transformers, module_name)
+        if isinstance(module, types.ModuleType):
+            try:
+                importlib.reload(module)
+            except ImportError:
+                pass
 
     if device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
