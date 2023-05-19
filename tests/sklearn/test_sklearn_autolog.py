@@ -1291,9 +1291,7 @@ def test_basic_post_training_metric_autologging():
     }
 
     lor_score_3_cmd = "LogisticRegression.score(X=<ndarray>, y=<ndarray>)"
-    recall_score4_eval2_X_cmd = (
-        "recall_score(y_true=eval2_y, y_pred=y_pred, pos_label=None, average='macro')"
-    )
+    recall_score4_eval2_X_cmd = "recall_score(y_true=eval2_y, y_pred=y_pred, average='macro')"
     assert metric_info == {
         "LogisticRegression_score-2_eval1_X-2": "LogisticRegression.score(X=eval1_X, y=eval1_y)",
         "LogisticRegression_score-3_unknown_dataset": lor_score_3_cmd,
