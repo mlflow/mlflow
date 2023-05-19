@@ -13,7 +13,6 @@ import numpy as np
 import pytest
 import tensorflow as tf
 from packaging.version import Version
-from mlflow.data.schema import TensorDatasetSchema
 from mlflow.types.utils import _infer_schema
 from tensorflow.keras import layers
 import yaml

@@ -403,8 +403,8 @@ def test_from_tensorflow_no_source_specified():
 
 
 def test_digest_computation_succeeds_with_none_element_in_numpy_iterator():
-    x = np.random.sample((100, 2))
+    x = np.array([[0, 1], [1, 2]])
     tf_dataset = tf.data.Dataset.from_tensors(x)
     tf_dataset.as_numpy_iterator = lambda: [None, x]
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset)
-    assert mlflow_ds.digest == "18e4b6cd"
+    assert mlflow_ds.digest == "bc8ef018"
