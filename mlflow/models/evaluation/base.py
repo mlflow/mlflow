@@ -35,6 +35,18 @@ from decimal import Decimal
 _logger = logging.getLogger(__name__)
 
 
+class MODEL_TYPE:
+    REGRESSOR = "regressor"
+    CLASSIFIER = "classifier"
+
+    def __init__(self) -> None:
+        raise NotImplementedError("This class is not meant to be instantiated.")
+
+    @classmethod
+    def get_all(cls):
+        return (cls.REGRESSOR, cls.CLASSIFIER)
+
+
 class EvaluationMetric:
     '''
     A model evaluation metric.
