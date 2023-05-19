@@ -39,7 +39,7 @@ class MODEL_TYPE:
     REGRESSOR = "regressor"
     CLASSIFIER = "classifier"
 
-    def __init__(self) -> None:
+    def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
 
     @classmethod
