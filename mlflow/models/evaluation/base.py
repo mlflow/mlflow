@@ -1311,6 +1311,12 @@ def evaluate(
 
     _EnvManager.validate(env_manager)
 
+    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER] and targets is None:
+        raise MlflowException(
+            f"The targets argument must be specified for {model_type} models.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
     elif env_manager != _EnvManager.LOCAL:
@@ -1325,12 +1331,6 @@ def evaluate(
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
-    if model_type in ["regressor", "classifier"] and targets is None:
-        raise MlflowException(
-            "The targets argument must be specified for regressor and classifier models.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 
