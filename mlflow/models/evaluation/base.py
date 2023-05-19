@@ -462,12 +462,12 @@ class EvaluationDataset:
                     targets if isinstance(targets, np.ndarray) else np.array(targets)
                 )
 
-            if len(self._features_data) != len(self._labels_data):
-                raise MlflowException(
-                    message="The input features example rows must be the same length "
-                    "with labels array.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                if len(self._features_data) != len(self._labels_data):
+                    raise MlflowException(
+                        message="The input features example rows must be the same length "
+                        "with labels array.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
             num_features = data.shape[1]
 
@@ -524,7 +524,8 @@ class EvaluationDataset:
         # generate dataset hash
         md5_gen = hashlib.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
-        _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
+        if self._labels_data is not None:
+            _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
