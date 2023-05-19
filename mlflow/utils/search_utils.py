@@ -113,7 +113,7 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
-    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
+    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
     _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
@@ -294,6 +294,8 @@ class SearchUtils:
             return cls._TAG_IDENTIFIER
         elif entity_type in cls._ALTERNATE_ATTRIBUTE_IDENTIFIERS:
             return cls._ATTRIBUTE_IDENTIFIER
+        elif entity_type in cls._ALTERNATE_DATASET_IDENTIFIERS:
+            return cls._DATASET_IDENTIFIER
         else:
             # one of ("metric", "parameter", "tag", or "attribute") since it a valid type
             return entity_type
@@ -331,7 +333,11 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
-        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
+        elif (
+            identifier_type == cls._PARAM_IDENTIFIER
+            or identifier_type == cls._TAG_IDENTIFIER
+            or identifier_type == cls._DATASET_IDENTIFIER
+        ):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
@@ -545,7 +551,13 @@ class SearchUtils:
             lhs = getattr(run.info, key)
             value = int(value)
         elif cls.is_dataset(key_type, comparator):
-            lhs = run.inputs.dataset_inputs.get(key)
+            return any(
+                SearchUtils.get_comparison_func(comparator)(
+                    getattr(dataset_input.dataset, key), value
+                )
+                for dataset_input in run.inputs.dataset_inputs
+            )
+            # TODO: handle context tag
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
