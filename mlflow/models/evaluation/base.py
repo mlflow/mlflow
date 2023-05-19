@@ -35,7 +35,7 @@ from decimal import Decimal
 _logger = logging.getLogger(__name__)
 
 
-class ModelType:
+class _ModelType:
     REGRESSOR = "regressor"
     CLASSIFIER = "classifier"
 
