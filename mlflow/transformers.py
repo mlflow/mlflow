@@ -1180,6 +1180,20 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "TimeSeriesTransformerPreTrainedModel",
         "DecisionTransformerPreTrainedModel",
     }
+    exclusion_pipeline_types = (
+        transformers.DocumentQuestionAnsweringPipeline,
+        transformers.ImageToTextPipeline,
+        transformers.VisualQuestionAnsweringPipeline,
+        transformers.ImageClassificationPipeline,
+        transformers.ImageSegmentationPipeline,
+        transformers.DepthEstimationPipeline,
+        transformers.ObjectDetectionPipeline,
+        transformers.VideoClassificationPipeline,
+        transformers.ZeroShotImageClassificationPipeline,
+        transformers.ZeroShotObjectDetectionPipeline,
+        transformers.ZeroShotAudioClassificationPipeline,
+        transformers.AudioClassificationPipeline,
+    )
     impermissible_attrs = {"image_processor"}
 
     for attr in impermissible_attrs:
@@ -1189,6 +1203,8 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
                 return False
+    if isinstance(pipeline, exclusion_pipeline_types):
+        return False
     return True
 
 

@@ -2714,6 +2714,9 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
 @pytest.mark.skipcacheclean
 def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_for_test):
     # NB: This test validates pre-processing via converting the sounds file into the
@@ -2754,6 +2757,9 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
     assert transcription["chunks"][0]["text"] == pyfunc_transcription["chunks"][0]["text"]
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
 @pytest.mark.skipcacheclean
 def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test):
     signature = infer_signature(
@@ -2860,6 +2866,9 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
     assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
 @pytest.mark.skipcacheclean
 def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_audio_file):
     artifact_path = "whisper_timestamps"
