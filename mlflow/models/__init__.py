@@ -109,7 +109,7 @@ try:
     from .signature import (
         ModelSignature,
         infer_signature,
-        add_signature,
+        set_signature,
     )  # pylint: disable=unused-import
     from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
     from .utils import add_libraries_to_model  # pylint: disable=unused-import
@@ -120,7 +120,7 @@ try:
         "infer_signature",
         "validate_schema",
         "add_libraries_to_model",
-        "add_signature",
+        "set_signature",
     ]
 except ImportError:
     pass

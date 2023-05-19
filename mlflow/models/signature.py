@@ -17,9 +17,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
@@ -247,25 +248,41 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     return ModelSignature(inputs=input_schema, outputs=output_schema)
 
 
-def add_signature(
-    run_id: str,
-    artifact_path: str,
+def set_signature(
+    model_uri: str,
     signature: ModelSignature,
-    overwrite: bool = False,
 ):
     """
-    Add a model signature to logged model artifacts.
+    Set the model signature for your model artifacts.
 
-    :param run_id: ID of the MLflow Run containing the model artifacts.
-    :param artifact_path: Run-relative artifact path to the logged model.
-    :param signature: ModelSignature to add to the model.
-    :param overwrite: If True, will overwrite existing model signatures.
+    This is accomplished by downloading (if non-local) the MLmodel file in the model artifacts,
+    settings its model signature, and re-logging the MLmodel file to overwrite. If artifact
+    overwriting is not allowed by the artifact repository corresponding to your run, the function
+    will fail. Also because model registry artifacts do not support logging or modifying artifacts,
+    model artifacts in the model registry and denoted by ``models:/`` URI schemes are not supported
+    by this API.
+
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``mlflow-artifacts:/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+                      Note that ``models:/`` scheme URIs are not supported.
+
+    :param signature: ModelSignature to set on the model.
 
     .. code-block:: python
         :caption: Example
 
         import mlflow
-        from mlflow.models import add_signature, infer_signature
+        from mlflow.models import set_signature, infer_signature
 
         # load model from run artifacts
         run_id = "96771d893a5e46159d9f3b49bf9013e2"
@@ -278,31 +295,28 @@ def add_signature(
         predictions = model.predict(test_df)
         signature = infer_signature(test_df, predictions)
 
-        # add signature to logged model
-        add_signature(run_id, artifact_path, signature)
+        # set the signature for the logged model
+        set_signature(model_uri, signature)
     """
     assert isinstance(
         signature, ModelSignature
     ), "The signature argument must be a ModelSignature object"
-    runs_uri = "runs:/{}/{}".format(run_id, artifact_path)
+    assert not ModelsArtifactRepository.is_models_uri(
+        model_uri
+    ), "The model URIs of scheme `models:/` are not supported."
     try:
-        resolved_uri = RunsArtifactRepository.get_underlying_uri(runs_uri)
+        resolved_uri = model_uri
+        if RunsArtifactRepository.is_runs_uri(model_uri):
+            resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
         ml_model_file = _download_artifact_from_uri(
             artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
         )
     except Exception as ex:
         raise MlflowException(
-            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from artifact_path '
-            + f'"{artifact_path}" in MLflow Run {run_id}',
+            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}"',
             RESOURCE_DOES_NOT_EXIST,
         ) from ex
     model_meta = Model.load(ml_model_file)
-    if model_meta.signature is not None and not overwrite:
-        raise MlflowException(
-            "The logged model already has a signature. Set `overwrite` to `True` to overwrite "
-            + "the existing signature.",
-            RESOURCE_ALREADY_EXISTS,
-        )
     model_meta.signature = signature
     model_meta.save(ml_model_file)
-    mlflow.client.MlflowClient().log_artifact(run_id, ml_model_file, artifact_path)
+    _upload_artifact_to_uri(ml_model_file, resolved_uri)
