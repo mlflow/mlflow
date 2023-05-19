@@ -112,8 +112,8 @@ try:
         infer_signature,
         set_signature,
     )
-    from .utils import ModelInputExample, validate_schema  # pylint: disable=unused-import
-    from .utils import add_libraries_to_model  # pylint: disable=unused-import
+    from .utils import ModelInputExample, validate_schema
+    from .utils import add_libraries_to_model
 
     __all__ += [
         "ModelSignature",
