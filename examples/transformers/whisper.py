@@ -2,10 +2,7 @@ import base64
 import mlflow
 import transformers
 import requests
-import subprocess
-import sys
 
-subprocess.check_call([sys.executable, "-m", "pip", "install", "ffmpeg"])
 
 # Acquire an audio file
 audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content
