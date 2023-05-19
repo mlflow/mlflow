@@ -2213,7 +2213,7 @@ class _TransformersWrapper:
             except binascii.Error:
                 return False
 
-        def decode_sound_file(encoded):
+        def decode_audio(encoded):
             if isinstance(encoded, bytes):
                 # For input types 'dataframe_split' and 'dataframe_records', the encoding
                 # conversion to bytes is handled.
@@ -2233,8 +2233,8 @@ class _TransformersWrapper:
                     ) from e
 
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
-            encoded_sound_file = list(data[0].values())[0]
-            return decode_sound_file(encoded_sound_file)
+            encoded_audio = list(data[0].values())[0]
+            return decode_audio(encoded_audio)
         else:
             return data
 

@@ -8,8 +8,6 @@ import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
-import requests
-import tempfile
 import textwrap
 from unittest import mock
 import yaml
@@ -322,19 +320,16 @@ def image_for_test():
 
 @pytest.fixture()
 def sound_file_for_test():
-    url = "https://www.nasa.gov/62282main_countdown_launch.wav"
-    response = requests.get(url)
-    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_audio:
-        tmp_audio.write(response.content)
-    audio, _ = librosa.load(tmp_audio.name, sr=16000)
+    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
+    audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
     return audio
 
 
 @pytest.fixture()
 def raw_audio_file():
-    url = "https://www.nasa.gov/62282main_countdown_launch.wav"
-    response = requests.get(url)
-    return response.content
+    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
+
+    return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
 
 
 @pytest.fixture()
