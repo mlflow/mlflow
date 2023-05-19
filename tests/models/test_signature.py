@@ -2,11 +2,10 @@ import json
 import numpy as np
 import pandas as pd
 import pyspark
-import pytest
 from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
-from mlflow.exceptions import MlflowException
+from mlflow.models import Model
 from mlflow.models.model import get_model_info
 from mlflow.models.signature import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
@@ -161,6 +160,18 @@ def test_set_signature_to_logged_model():
     set_signature(model_uri, signature)
     model_info = get_model_info(model_uri)
     assert model_info.signature == signature
+
+
+def test_set_signature_to_saved_model(tmpdir):
+    model_path = str(tmpdir)
+    mlflow.sklearn.save_model(
+        RandomForestRegressor(),
+        model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+    )
+    signature = infer_signature(np.array([1]))
+    set_signature(model_path, signature)
+    assert Model.load(model_path).signature == signature
 
 
 def test_set_signature_overwrite():

@@ -13,7 +13,6 @@ from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
 import pandas as pd
 import numpy as np
 
-import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -255,10 +254,10 @@ def set_signature(
     """
     Sets the model signature for specified model artifacts.
 
-    The process involves downloading the MLmodel file in the model artifacts (if it's non-local), 
-    updating its model signature, and then overwriting the existing MLmodel file. Should the 
+    The process involves downloading the MLmodel file in the model artifacts (if it's non-local),
+    updating its model signature, and then overwriting the existing MLmodel file. Should the
     artifact repository associated with the model artifacts disallow overwriting, this function will
-    fail. Furthermore, as model registry artifacts are read-only, model artifacts located in the 
+    fail. Furthermore, as model registry artifacts are read-only, model artifacts located in the
     model registry and represented by ``models:/`` URI schemes are not compatible with this API.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
