@@ -5,14 +5,14 @@ import transformers
 import json
 
 from contextlib import contextmanager
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain.chains import LLMChain, ConversationChain
+from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
-from langchain.llms import OpenAI
-from langchain.llms import HuggingFacePipeline
+from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
-from langchain.chains.base import Chain
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -283,6 +283,7 @@ def test_langchain_agent_model_predict():
 
 
 def test_langchain_native_log_and_load_qaevalchain():
+    # QAEvalChain is a subclass of LLMChain
     model = create_model("qaevalchain")
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
@@ -292,12 +293,23 @@ def test_langchain_native_log_and_load_qaevalchain():
 
 
 def test_langchain_native_log_and_load_qa_with_sources_chain():
+    # StuffDocumentsChain is a subclass of Chain
     model = create_model("qa_with_sources_chain")
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert model == loaded_model
+
+
+def test_saving_not_implemented_for_memory():
+    conversation = ConversationChain(llm=OpenAI(temperature=0), memory=ConversationBufferMemory())
+    with pytest.raises(
+        ValueError,
+        match="Saving of memory is not yet supported.",
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(conversation, "conversation_model")
 
 
 def test_saving_not_implemented_chain_type():
