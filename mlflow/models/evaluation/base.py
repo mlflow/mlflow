@@ -384,7 +384,7 @@ class EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, *, targets, name=None, path=None, feature_names=None):
+    def __init__(self, data, *, targets=None, name=None, path=None, feature_names=None):
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
@@ -407,6 +407,7 @@ class EvaluationDataset:
         self._hash = None
         self._supported_dataframe_types = (pd.DataFrame,)
         self._spark_df_type = None
+        self._labels_data = None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -426,7 +427,7 @@ class EvaluationDataset:
             )
 
         if isinstance(data, (np.ndarray, list)):
-            if not isinstance(targets, (np.ndarray, list)):
+            if targets is not None and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
                     message="If data is a numpy array or list of evaluation features, "
                     "`targets` argument must be a numpy array or list of evaluation labels.",
@@ -455,7 +456,10 @@ class EvaluationDataset:
                 )
 
             self._features_data = data
-            self._labels_data = targets if isinstance(targets, np.ndarray) else np.array(targets)
+            if targets is not None:
+                self._labels_data = (
+                    targets if isinstance(targets, np.ndarray) else np.array(targets)
+                )
 
             if len(self._features_data) != len(self._labels_data):
                 raise MlflowException(
@@ -480,7 +484,7 @@ class EvaluationDataset:
                     for i in range(num_features)
                 ]
         elif isinstance(data, self._supported_dataframe_types):
-            if not isinstance(targets, str):
+            if targets is not None and not isinstance(targets, str):
                 raise MlflowException(
                     message="If data is a Pandas DataFrame or Spark DataFrame, `targets` argument "
                     "must be the name of the column which contains evaluation labels in the `data` "
@@ -497,13 +501,15 @@ class EvaluationDataset:
                     )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
-            self._labels_data = data[targets].to_numpy()
+            if targets is not None:
+                self._labels_data = data[targets].to_numpy()
 
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
             else:
-                self._features_data = data.drop(targets, axis=1, inplace=False)
+                if targets is not None:
+                    self._features_data = data.drop(targets, axis=1, inplace=False)
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -991,8 +997,8 @@ def evaluate(
     model: str,
     data,
     *,
-    targets,
     model_type: str,
+    targets=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
