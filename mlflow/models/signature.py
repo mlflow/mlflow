@@ -16,7 +16,7 @@ import numpy as np
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
@@ -257,8 +257,12 @@ def set_signature(
     The process involves downloading the MLmodel file in the model artifacts (if it's non-local),
     updating its model signature, and then overwriting the existing MLmodel file. Should the
     artifact repository associated with the model artifacts disallow overwriting, this function will
-    fail. Furthermore, as model registry artifacts are read-only, model artifacts located in the
-    model registry and represented by ``models:/`` URI schemes are not compatible with this API.
+    fail.
+
+    Furthermore, as model registry artifacts are read-only, model artifacts located in the
+    model registry and represented by ``models:/`` URI schemes are not compatible with this API. To
+    set the signature of a model version, set the signature on its source model artifacts and then
+    create a new model version from the updated source.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
@@ -299,9 +303,12 @@ def set_signature(
     assert isinstance(
         signature, ModelSignature
     ), "The signature argument must be a ModelSignature object"
-    assert not ModelsArtifactRepository.is_models_uri(
-        model_uri
-    ), "Model URIs with the `models:/` scheme are not supported."
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        raise MlflowException(
+            f'Failed to set signature on "{model_uri}". '
+            + "Model URIs with the `models:/` scheme are not supported.",
+            INVALID_PARAMETER_VALUE,
+        )
     try:
         resolved_uri = model_uri
         if RunsArtifactRepository.is_runs_uri(model_uri):

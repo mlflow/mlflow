@@ -2,9 +2,11 @@ import json
 import numpy as np
 import pandas as pd
 import pyspark
+import pytest
 from sklearn.ensemble import RandomForestRegressor
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import get_model_info
 from mlflow.models.signature import ModelSignature, infer_signature, set_signature
@@ -156,7 +158,7 @@ def test_set_signature_to_logged_model():
         mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
     signature = infer_signature(np.array([1]))
     run_id = run.info.run_id
-    model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+    model_uri = f"runs:/{run_id}/{artifact_path}"
     set_signature(model_uri, signature)
     model_info = get_model_info(model_uri)
     assert model_info.signature == signature
@@ -184,7 +186,15 @@ def test_set_signature_overwrite():
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
     run_id = run.info.run_id
-    model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+    model_uri = f"runs:/{run_id}/{artifact_path}"
     set_signature(model_uri, new_signature)
     model_info = get_model_info(model_uri)
     assert model_info.signature == new_signature
+
+
+def test_cannot_set_signature_on_models_scheme_uris():
+    signature = infer_signature(np.array([1]))
+    with pytest.raises(
+        MlflowException, match="Model URIs with the `models:/` scheme are not supported."
+    ):
+        set_signature("models:/dummy_model@champion", signature)
