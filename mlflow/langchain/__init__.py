@@ -65,6 +65,18 @@ _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
+_UNSUPPORTED_MODEL_ERROR_MESSAGE = (
+    "MLflow langchain flavor only supports logging "
+    + "subclasses of langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor "
+    + "instances, found {instance_type}"
+)
+_UNSUPPORTED_LLM_WARNING_MESSAGE = (
+    "MLflow does not guarantee support for LLMs outside " + "of HuggingFaceHub and OpenAI, found %s"
+)
+_UNSUPPORTED_MODEL_WARNING_MESSAGE = (
+    "MLflow does not guarantee support for Chains outside "
+    + "of the subclasses of LLMChain, found %s"
+)
 
 
 def get_default_pip_requirements():
@@ -292,12 +304,9 @@ def log_model(
     """
     import langchain
 
-    if not isinstance(
-        lc_model, (langchain.chains.llm.LLMChain, langchain.agents.agent.AgentExecutor)
-    ):
+    if not isinstance(lc_model, (langchain.chains.Chain, langchain.agents.agent.AgentExecutor)):
         raise mlflow.MlflowException.invalid_parameter_value(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
-            + f"langchain.agents.agent.AgentExecutor instances, found {type(lc_model)}"
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(lc_model)))
         )
 
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
@@ -306,8 +315,7 @@ def log_model(
         and type(lc_model.llm) not in _SUPPORTED_LLMS
     ):
         logger.warning(
-            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
-            "OpenAI, found %s",
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.llm).__name__,
         )
 
@@ -316,8 +324,7 @@ def log_model(
         and type(lc_model.agent.llm_chain.llm) not in _SUPPORTED_LLMS
     ):
         logger.warning(
-            "MLflow does not guarantee support for LLMChains outside of HuggingFaceHub and "
-            "OpenAI, found %s",
+            _UNSUPPORTED_LLM_WARNING_MESSAGE,
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
@@ -374,8 +381,7 @@ def _save_model(model, path):
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
-            "MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain and "
-            + f"langchain.agents.agent.AgentExecutor instances, found {type(model)}"
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(model)))
         )
 
     return model_data_kwargs

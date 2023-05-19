@@ -7,6 +7,8 @@ import json
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
+from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import OpenAI
 from langchain.llms import HuggingFacePipeline
 from langchain.llms.base import LLM
@@ -69,6 +71,15 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
+def create_qa_eval_chain():
+    llm = OpenAI(temperature=0)
+    return QAEvalChain.from_llm(llm)
+
+
+def create_qa_with_sources_chain():
+    return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
+
+
 def create_openai_llmagent():
     from langchain.agents import load_tools
     from langchain.agents import initialize_agent
@@ -84,14 +95,18 @@ def create_openai_llmagent():
     return initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
 
 
-def create_model(llm_type, model_path=None):
-    if llm_type == "openai":
+def create_model(model_type, model_path=None):
+    if model_type == "openai":
         return create_openai_llmchain()
-    if llm_type == "huggingfacehub":
+    if model_type == "huggingfacehub":
         return create_huggingface_model(model_path)
-    if llm_type == "openaiagent":
+    if model_type == "qaevalchain":
+        return create_qa_eval_chain()
+    if model_type == "qa_with_sources_chain":
+        return create_qa_with_sources_chain()
+    if model_type == "openaiagent":
         return create_openai_llmagent()
-    if llm_type == "fake":
+    if model_type == "fake":
         return FakeLLM()
     raise NotImplementedError("This model is not supported yet.")
 
@@ -268,11 +283,31 @@ def test_langchain_agent_model_predict():
         )
 
 
+def test_langchain_native_log_and_load_qaevalchain():
+    model = create_model("qaevalchain")
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert model == loaded_model
+
+
+def test_langchain_native_log_and_load_qa_with_sources_chain():
+    model = create_model("qa_with_sources_chain")  # StuffDocumentsChain
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")  # works
+
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)  # works
+    assert model == loaded_model
+    # TODO: this fails, loaded_model is LLMChain instead of StuffDocumentsChain
+
+
 def test_unsupported_chain_types():
     chain = FakeChain()
     with pytest.raises(
         MlflowException,
-        match="MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain",
+        match="MLflow langchain flavor only supports logging subclasses of "
+        + "langchain.chains.base.Chain",
     ):
         with mlflow.start_run():
             mlflow.langchain.log_model(chain, "fake_chain_model")
