@@ -1328,6 +1328,12 @@ def evaluate(
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    if model_type in ["regressor", "classifier"] and targets is None:
+        raise MlflowException(
+            "The targets argument must be specified for regressor and classifier models.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     if validation_thresholds:
         try:
             assert type(validation_thresholds) is dict
