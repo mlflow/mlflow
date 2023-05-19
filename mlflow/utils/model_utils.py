@@ -169,23 +169,23 @@ def _validate_onnx_session_options(onnx_session_options):
         for key, value in onnx_session_options.items():
             if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):
                 raise ValueError(
-                    f"Key {key} in onnx_session_options is not a valid \
-                        ONNX Runtime session options key"
+                    f"Key {key} in onnx_session_options is not a valid "
+                    "ONNX Runtime session options key"
                 )
             elif key == "extra_session_config" and not isinstance(value, dict):
                 raise TypeError(
-                    f"Value for key {key} in onnx_session_options should be a dict, \
-                        not {type(value)}"
+                    f"Value for key {key} in onnx_session_options should be a dict, "
+                    "not {type(value)}"
                 )
             elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
                 raise ValueError(
-                    f"Value for key {key} in onnx_session_options should be \
-                        'parallel' or 'sequential', not {value}"
+                    f"Value for key {key} in onnx_session_options should be "
+                    "'parallel' or 'sequential', not {value}"
                 )
             elif key == "graph_optimization_level" and value not in [0, 1, 2, 99]:
                 raise ValueError(
-                    f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99,\
-                        not {value}"
+                    f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, "
+                    "not {value}"
                 )
             elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value < 0:
                 raise ValueError(
