@@ -107,8 +107,6 @@ def create_model(model_type, model_path=None):
         return create_qa_with_sources_chain()
     if model_type == "openaiagent":
         return create_openai_llmagent()
-    if model_type == "fake":
-        return FakeLLM()
     raise NotImplementedError("This model is not supported yet.")
 
 
