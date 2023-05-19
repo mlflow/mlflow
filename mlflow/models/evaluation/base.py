@@ -449,7 +449,7 @@ class EvaluationDataset:
                 raise MlflowException(
                     message="The input features example rows must be the same length "
                     "with labels array.",
-                    erorr_code=INVALID_PARAMETER_VALUE,
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
             num_features = data.shape[1]
@@ -764,7 +764,7 @@ def _normalize_evaluators_and_evaluator_config_args(
         raise MlflowException(
             message="`evaluators` argument must be None, an evaluator name string, or a list of "
             "evaluator names.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     return evaluator_name_list, evaluator_name_to_conf_map
@@ -959,7 +959,7 @@ def _evaluate(
         raise MlflowException(
             message="The model could not be evaluated by any of the registered evaluators, please "
             "verify that the model type and other configs are set correctly.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     merged_eval_result = EvaluationResult({}, {}, {})
@@ -1306,7 +1306,7 @@ def evaluate(
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     if validation_thresholds:

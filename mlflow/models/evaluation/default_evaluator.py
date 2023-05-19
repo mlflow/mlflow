@@ -1202,7 +1202,7 @@ class DefaultEvaluator(ModelEvaluator):
             if self.model_type not in ["classifier", "regressor"]:
                 raise MlflowException(
                     message=f"Unsupported model type {self.model_type}",
-                    erorr_code=INVALID_PARAMETER_VALUE,
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
