@@ -23,7 +23,9 @@ from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_IN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
-
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+)
 import math
 
 
@@ -551,13 +553,20 @@ class SearchUtils:
             lhs = getattr(run.info, key)
             value = int(value)
         elif cls.is_dataset(key_type, comparator):
-            return any(
-                SearchUtils.get_comparison_func(comparator)(
-                    getattr(dataset_input.dataset, key), value
+            if key == "context":
+                return any(
+                    SearchUtils.get_comparison_func(comparator)(tag.value if tag else None, value)
+                    for dataset_input in run.inputs.dataset_inputs
+                    for tag in dataset_input.tags
+                    if tag.key == MLFLOW_DATASET_CONTEXT
                 )
-                for dataset_input in run.inputs.dataset_inputs
-            )
-            # TODO: handle context tag
+            else:
+                return any(
+                    SearchUtils.get_comparison_func(comparator)(
+                        getattr(dataset_input.dataset, key), value
+                    )
+                    for dataset_input in run.inputs.dataset_inputs
+                )
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE

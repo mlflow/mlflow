@@ -18,6 +18,7 @@ from mlflow.entities import (
     InputTag,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import SearchUtils
 
 
@@ -259,6 +260,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
         ("datasets.name = 'name1'", [0, 1]),
         ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
+        ("datasets.context = 'train'", [0]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):
@@ -286,7 +288,7 @@ def test_correct_filtering(filter_string, matching_runs):
                             source_type="my_source_type",
                             source="source",
                         ),
-                        tags=[],
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "train")],
                     )
                 ]
             ),
