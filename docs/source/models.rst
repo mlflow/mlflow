@@ -2444,7 +2444,7 @@ expected input to the model to ensure your inference request can be read properl
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
 
-\***** If using MLServer for realtime inference, a raw audio file in bytes format must be base64 encoded prior to submitting to the endpoint.
+\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2728,6 +2728,11 @@ Result:
 
 Input data types for audio pipelines
 """"""""""""""""""""""""""""""""""""
+Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
+In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
+Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
+Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
+
 The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
 
 * `bytes`

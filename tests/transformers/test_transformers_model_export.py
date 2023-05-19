@@ -2684,7 +2684,6 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
@@ -2717,7 +2716,6 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipcacheclean
 def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_for_test):
     # NB: This test validates pre-processing via converting the sounds file into the
     # appropriate bitrate encoding rate and casting to a numpy array. Other tests validate

@@ -1170,7 +1170,9 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
     Image and Video pipelines can still be logged and used, but are not available for
     loading as pyfunc.
     Similarly, esoteric model types (Graph Models, Timeseries Models, and Reinforcement Learning
-    Models) are not permitted for loading as pyfunc.
+    Models) are not permitted for loading as pyfunc due to the complex input types that, in
+    order to support, will require significant modifications (breaking changes) to the pyfunc
+    contract.
     """
     import transformers
 
@@ -1180,20 +1182,24 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "TimeSeriesTransformerPreTrainedModel",
         "DecisionTransformerPreTrainedModel",
     }
-    exclusion_pipeline_types = (
-        transformers.DocumentQuestionAnsweringPipeline,
-        transformers.ImageToTextPipeline,
-        transformers.VisualQuestionAnsweringPipeline,
-        transformers.ImageClassificationPipeline,
-        transformers.ImageSegmentationPipeline,
-        transformers.DepthEstimationPipeline,
-        transformers.ObjectDetectionPipeline,
-        transformers.VideoClassificationPipeline,
-        transformers.ZeroShotImageClassificationPipeline,
-        transformers.ZeroShotObjectDetectionPipeline,
-        transformers.ZeroShotAudioClassificationPipeline,
-        transformers.AudioClassificationPipeline,
-    )
+
+    # NB: When pyfunc functionality is added for these pipeline types over time, remove the
+    # entries from the following list.
+    exclusion_pipeline_types = [
+        "DocumentQuestionAnsweringPipeline",
+        "ImageToTextPipeline",
+        "VisualQuestionAnsweringPipeline",
+        "ImageClassificationPipeline",
+        "ImageSegmentationPipeline",
+        "DepthEstimationPipeline",
+        "ObjectDetectionPipeline",
+        "VideoClassificationPipeline",
+        "ZeroShotImageClassificationPipeline",
+        "ZeroShotObjectDetectionPipeline",
+        "ZeroShotAudioClassificationPipeline",
+        "AudioClassificationPipeline",
+    ]
+
     impermissible_attrs = {"image_processor"}
 
     for attr in impermissible_attrs:
@@ -1203,7 +1209,7 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
                 return False
-    if isinstance(pipeline, exclusion_pipeline_types):
+    if type(pipeline).__name__ in exclusion_pipeline_types:
         return False
     return True
 
@@ -2247,6 +2253,20 @@ class _TransformersWrapper:
                         "encoded. Please ensure that the raw sound bytes have been processed with "
                         "`base64.b64encode(<audio data bytes>).decode('ascii')`"
                     ) from e
+
+        # The example input data that is processed by this logic is from the pd.DataFrame
+        # conversion that happens within serving wherein the bytes input data is cast to
+        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
+        # format:
+        # {[0]: [{[0]: <audio data>}]}
+        # In the inputs format, due to the modification of how types are not enforced, the
+        # logic that is present in processing `records` and `split` format orientation when casting
+        # back to dictionary does not do the automatic decoding of the data from base64 encoded
+        # back to bytes. This is the reason for the conditional logic within `decode_audio` based
+        # on whether the bytes data is base64 encoded or standard bytes format.
+        # The output of the conversion present in the conditional structural validation below is
+        # to return the only input format that the audio transcription pipeline permits:
+        # a bytes input of a single element.
 
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
             encoded_audio = list(data[0].values())[0]

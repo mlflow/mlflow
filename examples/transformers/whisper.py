@@ -41,7 +41,7 @@ loaded_transcriber = mlflow.transformers.load_model(model_uri=model_info.model_u
 
 transcription = loaded_transcriber(audio, **inference_config)
 
-print(transcription)
+print(f"\nWhisper native output transcription:\n{transcription}")
 
 # Load the pipeline as a pyfunc with the audio file being encoded as base64
 pyfunc_transcriber = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -49,4 +49,4 @@ pyfunc_transcriber = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 pyfunc_transcription = pyfunc_transcriber.predict(base64.b64encode(audio).decode("ascii"))
 
 # Note: the pyfunc return type if `return_timestamps` is set is a JSON encoded string.
-print(pyfunc_transcription)
+print(f"\nPyfunc output transcription:\n{pyfunc_transcription}")
