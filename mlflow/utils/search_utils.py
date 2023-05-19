@@ -113,6 +113,7 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
     _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
@@ -135,13 +136,22 @@ class SearchUtils:
     _ALTERNATE_TAG_IDENTIFIERS = {"tags"}
     _ATTRIBUTE_IDENTIFIER = "attribute"
     _ALTERNATE_ATTRIBUTE_IDENTIFIERS = {"attr", "attributes", "run"}
-    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
+    _DATASET_IDENTIFIER = "dataset"
+    _ALTERNATE_DATASET_IDENTIFIERS = {"datasets"}
+    _IDENTIFIERS = [
+        _METRIC_IDENTIFIER,
+        _PARAM_IDENTIFIER,
+        _TAG_IDENTIFIER,
+        _ATTRIBUTE_IDENTIFIER,
+        _DATASET_IDENTIFIER,
+    ]
     _VALID_IDENTIFIERS = set(
         _IDENTIFIERS
         + list(_ALTERNATE_METRIC_IDENTIFIERS)
         + list(_ALTERNATE_PARAM_IDENTIFIERS)
         + list(_ALTERNATE_TAG_IDENTIFIERS)
         + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS)
+        + list(_ALTERNATE_DATASET_IDENTIFIERS)
     )
     STRING_VALUE_TYPES = {TokenType.Literal.String.Single}
     DELIMITER_VALUE_TYPES = {TokenType.Punctuation}
@@ -503,6 +513,17 @@ class SearchUtils:
         return False
 
     @classmethod
+    def is_dataset(cls, key_type, comparator):
+        if key_type == cls._DATASET_IDENTIFIER:
+            if comparator not in cls.VALID_DATASET_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '%s' "
+                    "not one of '%s" % (comparator, cls.VALID_DATASET_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -523,6 +544,8 @@ class SearchUtils:
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
             value = int(value)
+        elif cls.is_dataset(key_type, comparator):
+            lhs = run.inputs.dataset_inputs.get(key)
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE
