@@ -77,6 +77,7 @@ def create_qa_eval_chain():
 
 
 def create_qa_with_sources_chain():
+    # StuffDocumentsChain
     return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
 
 
@@ -293,13 +294,12 @@ def test_langchain_native_log_and_load_qaevalchain():
 
 
 def test_langchain_native_log_and_load_qa_with_sources_chain():
-    model = create_model("qa_with_sources_chain")  # StuffDocumentsChain
+    model = create_model("qa_with_sources_chain")
     with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")  # works
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
-    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)  # works
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert model == loaded_model
-    # TODO: this fails, loaded_model is LLMChain instead of StuffDocumentsChain
 
 
 def test_unsupported_chain_types():

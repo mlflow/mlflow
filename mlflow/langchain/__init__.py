@@ -304,7 +304,9 @@ def log_model(
     """
     import langchain
 
-    if not isinstance(lc_model, (langchain.chains.Chain, langchain.agents.agent.AgentExecutor)):
+    if not isinstance(
+        lc_model, (langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor)
+    ):
         raise mlflow.MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(lc_model)))
         )
@@ -379,6 +381,12 @@ def _save_model(model, path):
             json.dump(temp_dict, config_file, indent=4)
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
+    elif isinstance(model, langchain.chains.base.Chain):
+        logger.warning(
+            _UNSUPPORTED_MODEL_WARNING_MESSAGE,
+            type(model).__name__,
+        )
+        model.save(model_data_path)
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
             _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(model)))
