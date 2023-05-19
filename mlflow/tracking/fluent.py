@@ -41,6 +41,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.annotations import experimental
 
 
 if TYPE_CHECKING:
@@ -986,6 +987,56 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_image(run_id, image, artifact_file)
+
+
+@experimental
+def log_table(
+    data: Union[Dict[str, Any], "pandas.DataFrame"],
+    artifact_file: str,
+) -> None:
+    """
+    Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
+    in the run, the data would be appended to the existing artifact_file.
+
+    :param data: Dictionary or pandas.DataFrame to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the table is saved (e.g. "dir/file.json").
+    :return: None
+
+    .. test-code-block:: python
+        :caption: Dictionary Example
+
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run():
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+
+    .. test-code-block:: python
+        :caption: Pandas DF Example
+
+        import mlflow
+        import pandas as pd
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+        df = pd.DataFrame.from_dict(table_dict)
+
+        with mlflow.start_run():
+            # Log the df as a table
+            mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_table(run_id, data, artifact_file)
 
 
 def _record_logged_model(mlflow_model):
