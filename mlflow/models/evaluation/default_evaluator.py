@@ -549,7 +549,7 @@ def _shap_predict_fn(x, predict_fn, feature_names):
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in ModelType.get_all()
+        return model_type in ModelType.values()
 
     def _log_metrics(self):
         """
@@ -1200,7 +1200,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.baseline_metrics = {}
             self.artifacts = {}
 
-            if self.model_type not in ModelType.get_all():
+            if self.model_type not in ModelType.values():
                 raise MlflowException(
                     message=f"Unsupported model type {self.model_type}",
                     erorr_code=INVALID_PARAMETER_VALUE,

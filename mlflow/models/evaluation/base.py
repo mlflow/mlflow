@@ -43,7 +43,7 @@ class ModelType:
         raise NotImplementedError("This class is not meant to be instantiated.")
 
     @classmethod
-    def get_all(cls):
+    def values(cls):
         return (cls.REGRESSOR, cls.CLASSIFIER)
 
 
