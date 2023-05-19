@@ -260,9 +260,9 @@ def set_signature(
     fail.
 
     Furthermore, as model registry artifacts are read-only, model artifacts located in the
-    model registry and represented by ``models:/`` URI schemes are not compatible with this API. To
-    set the signature of a model version, set the signature on its source model artifacts and then
-    create a new model version from the updated source.
+    model registry and represented by ``models:/`` URI schemes are not compatible with this API.
+    To assign a signature to a model version, first set the signature on the source model
+    artifacts. Following this, generate a new model version using the updated model artifacts.
 
     :param model_uri: The location, in URI format, of the MLflow model. For example:
 
