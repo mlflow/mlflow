@@ -33,6 +33,7 @@ REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
+IS_FLASK_V1 = Version(flask_version) < Version("2.0")
 
 
 for http_path, handler, methods in handlers.get_endpoints():
@@ -82,10 +83,10 @@ def serve_get_metric_history_bulk():
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    if Version(flask_version) >= Version("2.0"):
-        return send_from_directory(STATIC_DIR, path, max_age=2419200)
-    else:
+    if IS_FLASK_V1:
         return send_from_directory(STATIC_DIR, path, cache_timeout=2419200)
+    else:
+        return send_from_directory(STATIC_DIR, path, max_age=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
