@@ -302,12 +302,22 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
     assert model == loaded_model
 
 
-def test_unsupported_chain_types():
+def test_saving_not_implemented_chain_type():
     chain = FakeChain()
+    with pytest.raises(
+        NotImplementedError,
+        match="Saving not supported for this chain type",
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(chain, "fake_chain")
+
+
+def test_unsupported_class():
+    llm = FakeLLM()
     with pytest.raises(
         MlflowException,
         match="MLflow langchain flavor only supports logging subclasses of "
         + "langchain.chains.base.Chain",
     ):
         with mlflow.start_run():
-            mlflow.langchain.log_model(chain, "fake_chain_model")
+            mlflow.langchain.log_model(llm, "fake_llm")

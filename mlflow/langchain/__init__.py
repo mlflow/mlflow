@@ -66,16 +66,15 @@ _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
-    "MLflow langchain flavor only supports logging "
-    + "subclasses of langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor "
-    + "instances, found {instance_type}"
+    "MLflow langchain flavor only supports logging subclasses of "
+    "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
+    "found {instance_type}"
 )
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for LLMs outside " + "of HuggingFaceHub and OpenAI, found %s"
+    "MLflow does not guarantee support for LLMs outside of HuggingFaceHub and OpenAI, found %s"
 )
 _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
-    "MLflow does not guarantee support for Chains outside "
-    + "of the subclasses of LLMChain, found %s"
+    "MLflow does not guarantee support for Chains outside of the subclasses of LLMChain, found %s"
 )
 
 
@@ -308,7 +307,7 @@ def log_model(
         lc_model, (langchain.chains.base.Chain, langchain.agents.agent.AgentExecutor)
     ):
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(lc_model)))
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(lc_model).__name__)
         )
 
     _SUPPORTED_LLMS = {langchain.llms.openai.OpenAI, langchain.llms.huggingface_hub.HuggingFaceHub}
@@ -389,7 +388,7 @@ def _save_model(model, path):
         model.save(model_data_path)
     else:
         raise mlflow.MlflowException.invalid_parameter_value(
-            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=str(type(model)))
+            _UNSUPPORTED_MODEL_ERROR_MESSAGE.format(instance_type=type(model).__name__)
         )
 
     return model_data_kwargs
