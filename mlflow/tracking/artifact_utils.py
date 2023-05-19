@@ -104,8 +104,10 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
 
 def _upload_artifact_to_uri(local_path, artifact_uri):
     """
-    :param local_path: The local path of the file to upload
-    :param artifact_uri: The *absolute* URI of the path to upload the artifacts to.
+    Uploads a local artifact (file) to a specified URI.
+
+    :param local_path: The local path of the file to upload.
+    :param artifact_uri: The *absolute* URI of the path to upload the artifact to.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
     get_artifact_repository(artifact_uri=root_uri).log_artifact(local_path, artifact_path)
