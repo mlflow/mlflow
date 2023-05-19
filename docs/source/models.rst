@@ -2159,9 +2159,14 @@ interpreted as a generic Python function for inference via :py:func:`mlflow.pyfu
 You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
 Model with the ``langchain`` flavor as a dictionary of the model's attributes.
 
-Example:
+Example: Log a LangChain LLMChain
 
 .. literalinclude:: ../../examples/langchain/simple_chain.py
+    :language: python
+
+Example: Log a LangChain Agent
+
+.. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
 Diviner (``diviner``)
@@ -3109,8 +3114,8 @@ contents of the model directory and the flavor's attributes. A detailed example 
 custom model flavor and its usage is shown below. New custom flavors not considered for official
 inclusion into MLflow should be introduced as separate GitHub repositories with documentation
 provided in the
-`Community Model Flavors <https://mlflow.org/docs/latest/models.html#community-model-flavors>`_
-section.
+`Community Model Flavors <community-model-flavors.html>`_
+page.
 
 Example: Creating a custom "sktime" flavor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -4382,170 +4387,9 @@ For more info, see:
     mlflow deployments run-local --help
     mlflow deployments help --help
 
-
 Community Model Flavors
 -----------------------
 
-Other useful MLflow flavors are developed and maintained by the
-MLflow community, enabling you to use MLflow Models with an
-even broader ecosystem of machine learning libraries. For more information,
-check out the description of each community-developed flavor below.
-
-.. contents::
-  :local:
-  :depth: 1
-
-
-MLflow VizMod
-^^^^^^^^^^^^^
-
-The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
-to be more productive with their visualizations. We treat visualizations as models - just like ML
-models - thus being able to use the same infrastructure as MLflow to track, create projects,
-register, and deploy visualizations.
-
-Installation:
-
-.. code-block:: bash
-
-    pip install mlflow-vizmod
-
-Example:
-
-.. code-block:: python
-
-    from sklearn.datasets import load_iris
-    import altair as alt
-    import mlflow_vismod
-
-    df_iris = load_iris(as_frame=True)
-
-    viz_iris = (
-        alt.Chart(df_iris)
-        .mark_circle(size=60)
-        .encode(x="x", y="y", color="z:N")
-        .properties(height=375, width=575)
-        .interactive()
-    )
-
-    mlflow_vismod.log_model(
-        model=viz_iris,
-        artifact_path="viz",
-        style="vegalite",
-        input_example=df_iris.head(5),
-    )
-
-BigML (``bigmlflow``)
-^^^^^^^^^^^^^^^^^^^^^
-
-The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
-the ``bigml`` model flavor. It enables using
-`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
-
-Installing bigmlflow
-~~~~~~~~~~~~~~~~~~~~
-
-BigMLFlow can be installed from PyPI as follows:
-
-
-.. code-block:: bash
-
-    pip install bigmlflow
-
-BigMLFlow usage
-~~~~~~~~~~~~~~~
-
-The ``bigmlflow`` module defines the flavor that implements the
-``save_model()`` and ``log_model()`` methods. They can be used
-to save BigML models and their related information in MLflow Model format.
-
-.. code-block:: python
-
-    import json
-    import mlflow
-    import bigmlflow
-
-    MODEL_FILE = "logistic_regression.json"
-    with mlflow.start_run():
-        with open(MODEL_FILE) as handler:
-            model = json.load(handler)
-            bigmlflow.log_model(
-                model, artifact_path="model", registered_model_name="my_model"
-            )
-
-These methods also add the ``python_function`` flavor to the MLflow Models
-that they produce, allowing the models to be interpreted as generic Python
-functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame inputs.
-
-.. code-block:: python
-
-    # saving the model
-    save_model(model, path=model_path)
-    # retrieving model
-    pyfunc_model = pyfunc.load_model(model_path)
-    pyfunc_predictions = pyfunc_model.predict(dataframe)
-
-You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
-with the ``bigmlflow`` model flavor as a BigML
-`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
-
-For more information, see the
-`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
-and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
-
-Sktime
-^^^^^^
-
-The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
-format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
-model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
-model flavor in native sktime formats.
-
-Installing Sktime
-~~~~~~~~~~~~~~~~~
-
-Install sktime with mlflow dependency:
-
-.. code-block:: bash
-
-    pip install sktime[mlflow]
-
-Usage example
-~~~~~~~~~~~~~
-
-Refer to the `sktime mlflow documentation <https://www.sktime.net/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
-
-.. code-block:: python
-
-    import pandas as pd
-
-    from sktime.datasets import load_airline
-    from sktime.forecasting.arima import AutoARIMA
-    from sktime.utils import mlflow_sktime
-
-    airline = load_airline()
-    model_path = "model"
-
-
-    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
-        airline, fh=[1, 2, 3]
-    )
-
-    mlflow_sktime.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-
-    loaded_model = mlflow_sktime.load_model(
-        model_uri=model_path,
-    )
-    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
-        model_uri=model_path,
-    )
-
-    print(loaded_model.predict())
-    print(loaded_pyfunc.predict(pd.DataFrame()))
+Go to the `Community Model Flavors <community-model-flavors.html>`_
+page to get an overview of other useful MLflow flavors, which are developed and
+maintained by the MLflow community.

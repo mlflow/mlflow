@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
+    _ModelType,
 )
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -66,9 +67,9 @@ def _infer_model_type_by_labels(labels):
     Infer model type by target values.
     """
     if _is_categorical(labels):
-        return "classifier"
+        return _ModelType.CLASSIFIER
     elif _is_continuous(labels):
-        return "regressor"
+        return _ModelType.REGRESSOR
     else:
         return None  # Unknown
 
@@ -548,7 +549,7 @@ def _shap_predict_fn(x, predict_fn, feature_names):
 class DefaultEvaluator(ModelEvaluator):
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in ["classifier", "regressor"]
+        return model_type in _ModelType.values()
 
     def _log_metrics(self):
         """
@@ -671,7 +672,9 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        is_multinomial_classifier = self.model_type == "classifier" and self.num_classes > 2
+        is_multinomial_classifier = (
+            self.model_type == _ModelType.CLASSIFIER and self.num_classes > 2
+        )
 
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
@@ -1087,7 +1090,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
-        if self.model_type == "classifier":
+        if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
@@ -1121,7 +1124,7 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
                 self.y_prob = None
-        elif self.model_type == "regressor":
+        elif self.model_type == _ModelType.REGRESSOR:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
     def _compute_builtin_metrics(self):
@@ -1129,7 +1132,7 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == "classifier":
+        if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
                 self.metrics.update(
                     _get_binary_classifier_metrics(
@@ -1154,14 +1157,14 @@ class DefaultEvaluator(ModelEvaluator):
                         sample_weights=self.sample_weights,
                     )
                 )
-        elif self.model_type == "regressor":
+        elif self.model_type == _ModelType.REGRESSOR:
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
     def _log_metrics_and_artifacts(self):
         """
         Helper method for generating artifacts, logging metrics and artifacts.
         """
-        if self.model_type == "classifier":
+        if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
                 self._log_binary_classifier_artifacts()
             else:
@@ -1199,10 +1202,10 @@ class DefaultEvaluator(ModelEvaluator):
             self.baseline_metrics = {}
             self.artifacts = {}
 
-            if self.model_type not in ["classifier", "regressor"]:
+            if self.model_type not in _ModelType.values():
                 raise MlflowException(
                     message=f"Unsupported model type {self.model_type}",
-                    erorr_code=INVALID_PARAMETER_VALUE,
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
