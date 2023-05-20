@@ -108,7 +108,7 @@ __all__ = [
 try:
     # pylint: disable=unused-import
     from .signature import (
-        ModelSignature,  
+        ModelSignature,
         infer_signature,
         set_signature,
     )
