@@ -1,4 +1,6 @@
 import ast
+import base64
+import binascii
 import contextlib
 from functools import lru_cache
 import json
@@ -1164,12 +1166,13 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
     """
     Discriminator for determining whether a particular task type and model instance from within
     a ``Pipeline`` is currently supported for the pyfunc flavor.
-    Currently, the only tasks that are supported are NLP-based tasks wherein a Pipeline consists
-    solely of a ``Tokenizer`` and a pre-trained model.
-    Audio, Image, and Video pipelines can still be logged and used, but are not available for
+
+    Image and Video pipelines can still be logged and used, but are not available for
     loading as pyfunc.
     Similarly, esoteric model types (Graph Models, Timeseries Models, and Reinforcement Learning
-    Models) are not permitted for loading as pyfunc.
+    Models) are not permitted for loading as pyfunc due to the complex input types that, in
+    order to support, will require significant modifications (breaking changes) to the pyfunc
+    contract.
     """
     import transformers
 
@@ -1179,7 +1182,25 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "TimeSeriesTransformerPreTrainedModel",
         "DecisionTransformerPreTrainedModel",
     }
-    impermissible_attrs = {"feature_extractor", "image_processor"}
+
+    # NB: When pyfunc functionality is added for these pipeline types over time, remove the
+    # entries from the following list.
+    exclusion_pipeline_types = [
+        "DocumentQuestionAnsweringPipeline",
+        "ImageToTextPipeline",
+        "VisualQuestionAnsweringPipeline",
+        "ImageClassificationPipeline",
+        "ImageSegmentationPipeline",
+        "DepthEstimationPipeline",
+        "ObjectDetectionPipeline",
+        "VideoClassificationPipeline",
+        "ZeroShotImageClassificationPipeline",
+        "ZeroShotObjectDetectionPipeline",
+        "ZeroShotAudioClassificationPipeline",
+        "AudioClassificationPipeline",
+    ]
+
+    impermissible_attrs = {"image_processor"}
 
     for attr in impermissible_attrs:
         if getattr(pipeline, attr, None) is not None:
@@ -1188,6 +1209,8 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         if hasattr(transformers, model_type):
             if isinstance(pipeline.model, getattr(transformers, model_type)):
                 return False
+    if type(pipeline).__name__ in exclusion_pipeline_types:
+        return False
     return True
 
 
@@ -1253,6 +1276,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                         ColSpec("string", name="hypothesis_template"),
                     ]
                 ),
+                outputs=Schema([ColSpec("string")]),
+            )
+        elif isinstance(pipeline, transformers.AutomaticSpeechRecognitionPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("binary")]),
                 outputs=Schema([ColSpec("string")]),
             )
         elif isinstance(
@@ -1411,7 +1439,7 @@ def _load_pyfunc(path):
 
 
 @experimental
-def generate_signature_output(pipeline, data):
+def generate_signature_output(pipeline, data, inference_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1420,6 +1448,8 @@ def generate_signature_output(pipeline, data):
     :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
                      inputs are not permitted for extracting an output example.
     :param data: An example input that is compatible with the given pipeline
+    :param inference_config: Any additional inference configuration, provided as kwargs, to inform
+                             the format of the output type from a pipeline inference call.
     :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
     import transformers
@@ -1431,7 +1461,7 @@ def generate_signature_output(pipeline, data):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline).predict(data)
+    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(data)
 
 
 class _TransformersWrapper:
@@ -1490,6 +1520,10 @@ class _TransformersWrapper:
                 )
             input_data = data
         elif isinstance(data, str):
+            input_data = data
+        elif isinstance(data, bytes):
+            input_data = data
+        elif isinstance(data, np.ndarray):
             input_data = data
         else:
             raise MlflowException(
@@ -1558,6 +1592,12 @@ class _TransformersWrapper:
         elif type(self.pipeline).__name__ in self._supported_custom_generator_types:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
+        elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
+            if self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+                output_key = None
+            else:
+                output_key = "text"
+            data = self._convert_automatic_speech_recognition_input(data)
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1607,6 +1647,10 @@ class _TransformersWrapper:
             output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output = self._parse_tokenizer_output(raw_output, output_key)
+        elif isinstance(
+            self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
+        ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+            output = json.dumps(raw_output)
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
@@ -1871,8 +1915,10 @@ class _TransformersWrapper:
                         self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
                     )
             return output_coll
-        else:
+        elif target_dict_key:
             return output_data[target_dict_key]
+        else:
+            return output_data
 
     @staticmethod
     def _parse_feature_extraction_input(input_data):
@@ -2148,6 +2194,85 @@ class _TransformersWrapper:
                 else:
                     parsed_data.append(entry)
             return parsed_data
+
+    @staticmethod
+    def _convert_automatic_speech_recognition_input(data):
+        """
+        Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
+        parsed through model serving, if applicable. Direct usage of the pyfunc implementation
+        outside of model serving will treat this utility as a noop.
+
+        For reference, the expected encoding for input to Model Serving will be:
+
+        import requests
+        import base64
+
+        response = requests.get("https://www.my.sound/a/sound/file.wav")
+        encoded_audio = base64.b64encode(response.content).decode("ascii")
+
+        inference_data = json.dumps({"inputs": [encoded_audio]})
+
+        or
+
+        inference_df = pd.DataFrame(
+        pd.Series([encoded_audio], name="audio_file")
+        )
+        split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+        split_json = json.dumps(split_dict)
+
+        or
+
+        records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+        records_json = json.dumps(records_dict)
+
+        This utility will convert this JSON encoded, base64 encoded text back into bytes for
+        input into the AutomaticSpeechRecognitionPipeline for inference.
+        """
+
+        def is_base64(s):
+            try:
+                return base64.b64encode(base64.b64decode(s)) == s
+            except binascii.Error:
+                return False
+
+        def decode_audio(encoded):
+            if isinstance(encoded, bytes):
+                # For input types 'dataframe_split' and 'dataframe_records', the encoding
+                # conversion to bytes is handled.
+                if not is_base64(encoded):
+                    return encoded
+                else:
+                    # For input type 'inputs', explicit decoding of the b64encoded audio is needed.
+                    return base64.b64decode(encoded)
+            else:
+                try:
+                    return base64.b64decode(encoded)
+                except binascii.Error as e:
+                    raise MlflowException(
+                        "The encoded soundfile that was passed has not been properly base64 "
+                        "encoded. Please ensure that the raw sound bytes have been processed with "
+                        "`base64.b64encode(<audio data bytes>).decode('ascii')`"
+                    ) from e
+
+        # The example input data that is processed by this logic is from the pd.DataFrame
+        # conversion that happens within serving wherein the bytes input data is cast to
+        # a pd.DataFrame(pd.Series([raw_bytes])) and then cast to JSON serializable data in the
+        # format:
+        # {[0]: [{[0]: <audio data>}]}
+        # In the inputs format, due to the modification of how types are not enforced, the
+        # logic that is present in processing `records` and `split` format orientation when casting
+        # back to dictionary does not do the automatic decoding of the data from base64 encoded
+        # back to bytes. This is the reason for the conditional logic within `decode_audio` based
+        # on whether the bytes data is base64 encoded or standard bytes format.
+        # The output of the conversion present in the conditional structural validation below is
+        # to return the only input format that the audio transcription pipeline permits:
+        # a bytes input of a single element.
+
+        if isinstance(data, list) and all(isinstance(element, dict) for element in data):
+            encoded_audio = list(data[0].values())[0]
+            return decode_audio(encoded_audio)
+        else:
+            return data
 
 
 @experimental
