@@ -14,8 +14,15 @@ import pandas as pd
 import numpy as np
 
 from mlflow.exceptions import MlflowException
+from mlflow.models import Model
+from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
+from mlflow.utils.uri import append_to_uri_path
 
 
 # At runtime, we don't need  `pyspark.sql.dataframe`
@@ -238,3 +245,83 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if input_schema is None and output_schema is None:
         return None
     return ModelSignature(inputs=input_schema, outputs=output_schema)
+
+
+def set_signature(
+    model_uri: str,
+    signature: ModelSignature,
+):
+    """
+    Sets the model signature for specified model artifacts.
+
+    The process involves downloading the MLmodel file in the model artifacts (if it's non-local),
+    updating its model signature, and then overwriting the existing MLmodel file. Should the
+    artifact repository associated with the model artifacts disallow overwriting, this function will
+    fail.
+
+    Furthermore, as model registry artifacts are read-only, model artifacts located in the
+    model registry and represented by ``models:/`` URI schemes are not compatible with this API.
+    To set a signature on a model version, first set the signature on the source model artifacts.
+    Following this, generate a new model version using the updated model artifacts.
+
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+                      - ``mlflow-artifacts:/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
+                      artifact-locations>`_.
+
+                      Please note that model URIs with the ``models:/`` scheme are not supported.
+
+    :param signature: ModelSignature to set on the model.
+
+    .. code-block:: python
+        :caption: Example
+
+        import mlflow
+        from mlflow.models import set_signature, infer_signature
+
+        # load model from run artifacts
+        run_id = "96771d893a5e46159d9f3b49bf9013e2"
+        artifact_path = "models"
+        model_uri = "runs:/{}/{}".format(run_id, artifact_path)
+        model = mlflow.pyfunc.load_model(model_uri)
+
+        # determine model signature
+        test_df = ...
+        predictions = model.predict(test_df)
+        signature = infer_signature(test_df, predictions)
+
+        # set the signature for the logged model
+        set_signature(model_uri, signature)
+    """
+    assert isinstance(
+        signature, ModelSignature
+    ), "The signature argument must be a ModelSignature object"
+    if ModelsArtifactRepository.is_models_uri(model_uri):
+        raise MlflowException(
+            f'Failed to set signature on "{model_uri}". '
+            + "Model URIs with the `models:/` scheme are not supported.",
+            INVALID_PARAMETER_VALUE,
+        )
+    try:
+        resolved_uri = model_uri
+        if RunsArtifactRepository.is_runs_uri(model_uri):
+            resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+        ml_model_file = _download_artifact_from_uri(
+            artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
+        )
+    except Exception as ex:
+        raise MlflowException(
+            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}"',
+            RESOURCE_DOES_NOT_EXIST,
+        ) from ex
+    model_meta = Model.load(ml_model_file)
+    model_meta.signature = signature
+    model_meta.save(ml_model_file)
+    _upload_artifact_to_uri(ml_model_file, resolved_uri)
