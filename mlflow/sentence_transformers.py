@@ -7,12 +7,10 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.models import ModelInputExample, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature, infer_signature
+from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.annotations import experimental
@@ -37,7 +35,6 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
     _download_artifact_from_uri,
-    _get_flavor_configuration,
     _get_flavor_configuration_from_uri,
     _add_code_from_conf_to_system_path,
 )
@@ -53,7 +50,7 @@ _logger = logging.getLogger(__name__)
 @experimental
 def get_default_pip_requirements() -> List[str]:
     """
-    Retrieves the set of minimal dependencies for the sentence_transformers flavor.
+    Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
     :return: A list of default pip requirements for MLflow Models that have been produced with the
              ``sentence-transformers`` flavor. Calls to :py:func:`save_model()` and
              :py:func:`log_model()` produce a pip environment that contain these
@@ -90,16 +87,16 @@ def save_model(
     **kwargs,
 ) -> None:
     """
-    Save a trained sentence-transformers model to a path on the local file system.
+    Save a trained ``sentence-transformers`` model to a path on the local file system.
 
-    :param model: A trained sentence-transformers model.
+    :param model: A trained ``sentence-transformers`` model.
     :param path: Local path destination for the serialized model to be saved.
     :param inference_config:
-        A dict of valid overrides that can be applied to a sentence-transformer model instance
+        A dict of valid overrides that can be applied to a ``sentence-transformer`` model instance
         during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
-        These values are not applied to a returned Pipeline from a call to
+        These values are not applied to a returned model from a call to
         ``mlflow.sentence_transformers.load_model()``
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -125,7 +122,7 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param kwargs: Optional additional configurations for sentence-transformers serialization.
+    :param kwargs: Optional additional configurations for ``sentence-transformers`` serialization.
     :return: None
     """
     import sentence_transformers
@@ -143,6 +140,8 @@ def save_model(
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
+    else:
+        mlflow_model.signature = _get_default_signature()
     if input_example is not None:
         _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:
@@ -213,14 +212,14 @@ def log_model(
     """
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
 
-    :param model: A trained sentence-transformers model.
+    :param model: A trained ``sentence-transformers`` model.
     :param artifact_path: Local path destination for the serialized model to be saved.
     :param inference_config:
-        A dict of valid overrides that can be applied to a sentence-transformer model instance
+        A dict of valid overrides that can be applied to a ``sentence-transformer`` model instance
         during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
-        These values are not applied to a returned Pipeline from a call to
+        These values are not applied to a returned model from a call to
         ``mlflow.sentence_transformers.load_model()``
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system
@@ -267,6 +266,7 @@ def log_model(
         **kwargs,
     )
 
+
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(model_uri: str, dst_path: str = None, **kwargs):
@@ -308,5 +308,12 @@ def load_model(model_uri: str, dst_path: str = None, **kwargs):
     return sentence_transformers.SentenceTransformer.load(local_model_dir)
 
 
-
-
+def _get_default_signature():
+    """
+    Generates a default signature for the ``sentence_transformers`` flavor to be applied if not
+    set or overridden by supplying the `signature` argument to `log_model` or `save_model`.
+    """
+    return ModelSignature(
+        inputs=Schema([ColSpec("string")]),
+        outputs=Schema([TensorSpec(np.dtype("float64"), [-1])]),
+    )

@@ -550,4 +550,3 @@ sentence_transformers:
         ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
       run: |
         pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
-      
