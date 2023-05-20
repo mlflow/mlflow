@@ -51,6 +51,7 @@ _logger = logging.getLogger(__name__)
 def get_default_pip_requirements() -> List[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
+    
     :return: A list of default pip requirements for MLflow Models that have been produced with the
              ``sentence-transformers`` flavor. Calls to :py:func:`save_model()` and
              :py:func:`log_model()` produce a pip environment that contain these
