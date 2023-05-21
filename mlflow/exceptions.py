@@ -133,3 +133,9 @@ class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
 
     pass
+
+
+class InvalidUrlException(MlflowException):
+    """Exception throw when http request fails to send due to an invalid URL"""
+
+    pass
