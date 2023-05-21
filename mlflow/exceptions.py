@@ -123,6 +123,12 @@ class RestException(MlflowException):
         self.json = json
 
 
+class InvalidUrlException(MlflowException):
+    """Exception thrown when http request fails to send due to an invalid URL."""
+
+    pass
+
+
 class ExecutionException(MlflowException):
     """Exception thrown when executing a project fails"""
 

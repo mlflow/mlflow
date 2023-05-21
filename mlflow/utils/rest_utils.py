@@ -15,7 +15,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import get_error_code, MlflowException, RestException
+from mlflow.exceptions import get_error_code, MlflowException, RestException, InvalidUrlException
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
@@ -201,6 +201,8 @@ def http_request(
             f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
             " to a larger value."
         )
+    except requests.exceptions.InvalidURL as iu:
+        raise InvalidUrlException(f"Invalid artifact url: {url}\n{iu}")
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
