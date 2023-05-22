@@ -38,12 +38,11 @@ from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
-    download_file_using_http_uri,
-    relative_path_to_artifact_path,
-    parallelized_download_file_using_http_uri,
     download_chunk,
+    download_file_using_http_uri,
+    parallelized_download_file_using_http_uri,
+    relative_path_to_artifact_path,
 )
-from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import read_chunk
@@ -150,6 +149,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
+        # Use an isolated thread pool executor for chunk uploads to avoid a deadlock
+        # caused by waiting for a chunk-upload task within a file-upload task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_upload_thread_pool = self._create_thread_pool()
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -266,7 +270,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.thread_pool.submit(
+                future = self.chunk_upload_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
                     headers=headers,
@@ -344,7 +348,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.thread_pool.submit(
+                future = self.chunk_upload_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
                     artifact_path=artifact_path,
@@ -565,7 +569,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
             start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-            future = self.thread_pool.submit(
+            future = self.chunk_upload_thread_pool.submit(
                 self._upload_part_retry,
                 cred_info=cred_info,
                 upload_id=create_mpu_resp.upload_id,
@@ -755,16 +759,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        # list_artifacts API only returns a list of FileInfos at the specified path
-        # if it's a directory. To get file size, we need to iterate over FileInfos
-        # contained by the parent directory. A bad path could result in there being
-        # no matching FileInfos (by path), so fall back to None size to prevent
-        # parallelized download.
-        parent_dir, _ = posixpath.split(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
-
         run_relative_remote_file_path = posixpath.join(
             self.run_relative_artifact_repo_root_path, remote_file_path
         )
@@ -774,16 +768,9 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
-        # Windows doesn't support the 'fork' multiprocessing context.
-        if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
-            self._download_from_cloud(
-                cloud_credential_info=read_credentials[0],
-                dst_local_file_path=local_path,
-            )
-        else:
-            self._parallelized_download_from_cloud(
-                read_credentials[0], file_size, local_path, remote_file_path
-            )
+        self._download_from_cloud(
+            cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
+        )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")

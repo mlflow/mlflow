@@ -496,6 +496,13 @@ def _check_requirement_satisfied(requirement_str):
             requirement=requirement_str,
         )
 
+    if (
+        pkg_name == "mlflow"
+        and installed_version == mlflow.__version__
+        and Version(installed_version).is_devrelease
+    ):
+        return None
+
     if len(req.specifier) > 0 and not req.specifier.contains(installed_version):
         return _MismatchedPackageInfo(
             package_name=pkg_name,

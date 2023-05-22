@@ -1,7 +1,6 @@
 import logging
 import json
 import os
-import posixpath
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -10,11 +9,10 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
+    download_chunk,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
-    download_chunk,
 )
-from mlflow.utils.os import is_windows
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
@@ -23,7 +21,7 @@ from mlflow.store.artifact.utils.models import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 10_000_000
+_DOWNLOAD_CHUNK_SIZE = 100000000
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -168,32 +166,13 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             raise MlflowException(err)
 
     def _download_file(self, remote_file_path, local_path):
-        parent_dir, _ = posixpath.split(remote_file_path)
-        file_infos = self.list_artifacts(parent_dir)
-        file_info = [info for info in file_infos if info.path == remote_file_path]
-        file_size = file_info[0].file_size if len(file_info) == 1 else None
         try:
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
             headers = {}
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            # Windows doesn't support the 'fork' multiprocessing context.
-            if file_size is None or file_size <= _DOWNLOAD_CHUNK_SIZE or is_windows():
-                download_file_using_http_uri(
-                    signed_uri,
-                    local_path,
-                    _DOWNLOAD_CHUNK_SIZE,
-                    headers,
-                )
-            else:
-                self._parallelized_download_from_cloud(
-                    signed_uri,
-                    headers,
-                    file_size,
-                    local_path,
-                    remote_file_path,
-                )
+            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
         except Exception as err:
             raise MlflowException(err)
 

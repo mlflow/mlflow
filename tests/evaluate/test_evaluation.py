@@ -1129,3 +1129,13 @@ def test_evaluate_stdin_scoring_server(monkeypatch):
             evaluators=["default"],
             env_manager="virtualenv",
         )
+
+
+@pytest.mark.parametrize("model_type", ["regressor", "classifier"])
+def test_targets_is_required_for_regressor_and_classifier_models(model_type):
+    with pytest.raises(MlflowException, match="The targets argument must be specified"):
+        mlflow.evaluate(
+            "models:/test",
+            data=pd.DataFrame(),
+            model_type=model_type,
+        )

@@ -1095,14 +1095,13 @@ def _get_artifact_repo(run):
 def _log_batch():
     def _assert_metrics_fields_present(metrics):
         for m in metrics:
-            _assert_required(m["key"])
-            _assert_required(m["value"])
-            _assert_required(m["timestamp"])
-            _assert_required(m["step"])
+            _assert_required(m.get("key"))
+            _assert_required(m.get("value"))
+            _assert_required(m.get("timestamp"))
 
     def _assert_params_tags_fields_present(params_or_tags):
         for param_or_tag in params_or_tags:
-            _assert_required(param_or_tag["key"])
+            _assert_required(param_or_tag.get("key"))
 
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(
@@ -1770,25 +1769,25 @@ def get_handler(request_class):
     return HANDLERS.get(request_class, _not_implemented)
 
 
-def get_endpoints():
+def get_service_endpoints(service, get_handler):
+    ret = []
+    for service_method in service.DESCRIPTOR.methods:
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        for endpoint in endpoints:
+            for http_path in _get_paths(endpoint.path):
+                handler = get_handler(service().GetRequestClass(service_method))
+                ret.append((http_path, handler, [endpoint.method]))
+    return ret
+
+
+def get_endpoints(get_handler=get_handler):
     """
     :return: List of tuples (path, handler, methods)
     """
-
-    def get_service_endpoints(service):
-        ret = []
-        for service_method in service.DESCRIPTOR.methods:
-            endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
-            for endpoint in endpoints:
-                for http_path in _get_paths(endpoint.path):
-                    handler = get_handler(service().GetRequestClass(service_method))
-                    ret.append((http_path, handler, [endpoint.method]))
-        return ret
-
     return (
-        get_service_endpoints(MlflowService)
-        + get_service_endpoints(ModelRegistryService)
-        + get_service_endpoints(MlflowArtifactsService)
+        get_service_endpoints(MlflowService, get_handler)
+        + get_service_endpoints(ModelRegistryService, get_handler)
+        + get_service_endpoints(MlflowArtifactsService, get_handler)
     )
 
 

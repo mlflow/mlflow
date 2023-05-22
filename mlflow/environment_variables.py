@@ -24,11 +24,11 @@ class _EnvironmentVariable:
         type. Otherwise, returns the default value.
         """
         val = os.getenv(self.name)
-        if val:
+        if val is not None:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
@@ -198,7 +198,8 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
-#: variable is only supported for the MLflow PyTorch flavor.
+#: variable is only supported for the MLflow PyTorch and HuggingFace flavors.
+#: For the HuggingFace flavor, note that device must be parseable as an integer.
 MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
 )
