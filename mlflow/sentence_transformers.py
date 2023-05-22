@@ -85,7 +85,6 @@ def save_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    **kwargs,
 ) -> None:
     """
     Save a trained ``sentence-transformers`` model to a path on the local file system.
@@ -123,7 +122,6 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param kwargs: Optional additional configurations for ``sentence-transformers`` serialization.
     :return: None
     """
     import sentence_transformers
@@ -208,7 +206,6 @@ def log_model(
     extra_pip_requirements: Optional[Union[List[str], str]] = None,
     conda_env=None,
     metadata: Dict[str, Any] = None,
-    **kwargs,
 ):
     """
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.
@@ -248,7 +245,6 @@ def log_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
 
-    :param kwargs: Optional additional configurations for sentence-transformers serialization.
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -264,13 +260,12 @@ def log_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        **kwargs,
     )
 
 
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
-def load_model(model_uri: str, dst_path: str = None, **kwargs):
+def load_model(model_uri: str, dst_path: str = None):
     """
     Load a ``sentence_transformers`` object from a local file or a run.
 
@@ -288,9 +283,6 @@ def load_model(model_uri: str, dst_path: str = None, **kwargs):
     :param dst_path: The local filesystem path to utilize for downloading the model artifact.
                      This directory must already exist if provided. If unspecified, a local output
                      path will be created.
-    :param kwargs: Optional configuration options for loading of a ``transformers`` object.
-                   For information on parameters and their usage, see
-                   `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
     :return: A ``sentence_transformers`` model instance
     """
 
