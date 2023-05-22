@@ -30,8 +30,8 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         return super()._record_imported_module(full_module_name)
 
     def __enter__(self):
-        self.use_tf = os.environ.get("USE_TF") if "USE_TF" in os.environ else None
-        self.use_torch = os.environ.get("USE_TORCH") if "USE_TORCH" in os.environ else None
+        self.use_tf = os.environ.get("USE_TF")
+        self.use_torch = os.environ.get("USE_TORCH")
         if self.module_to_throw == "tensorflow":
             os.environ["USE_TORCH"] = "TRUE"
         elif self.module_to_throw == "torch":
@@ -39,19 +39,17 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
 
         return super().__enter__()
 
+    def _restore_env_var(self, key, value):
+        if key in os.environ:
+            if value is None:
+                del os.environ[key]
+            else:
+                os.environ[key] = value
+
     def __exit__(self, *_, **__):
         # Revert the patches
-
-        if "USE_TF" in os.environ:
-            if self.use_tf is not None:
-                os.environ["USE_TF"] = self.use_tf
-            else:
-                del os.environ["USE_TF"]
-        if "USE_TORCH" in os.environ:
-            if self.use_torch is not None:
-                os.environ["USE_TORCH"] = self.use_torch
-            else:
-                del os.environ["USE_TORCH"]
+        self._restore_env_var("USE_TF", self.use_tf)
+        self._restore_env_var("USE_TORCH", self.use_torch)
         super().__exit__()
 
 
