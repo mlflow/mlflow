@@ -23,9 +23,9 @@ As an ML Engineer or MLOps professional, you can use MLflow to compare, share, a
 Set up
 ------
 
-- Install MLflow. See the `MLflow Data Scientist quickstart <quickstart>`_ for instructions.
+- Install MLflow. See the `MLflow Data Scientist quickstart <quickstart>`_ for instructions
 - Clone the `MLflow git repo <https://github.com/mlflow/mlflow>`_
-- Run the tracking server: ``mlflow server``.
+- Run the tracking server: ``mlflow server``
 
 Run a hyperparameter sweep
 --------------------------
@@ -41,7 +41,7 @@ Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment va
   export MLFLOW_TRACKING_URI=http://localhost:5000
   mlflow run -e hyperopt .
 
-The `hyperopt` entry point defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
+The ``hyperopt`` entry point defaults to 12 runs of 32 epochs apiece and should take a few minutes to finish.
 
 Compare the results
 -------------------
@@ -98,15 +98,18 @@ To test the model, you can send a request to the REST API using the ``curl`` com
 
 .. code-block:: bash
 
-  curl -d '{"dataframe_split": {"columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"], "data": [[7,0.27,0.36,20.7,0.045,45,170,1.001,3,0.45,8.8]]}}' -H 'Content-Type: application/json' -X POST localhost:5002/invocations
+  curl -d '{"dataframe_split": { 
+  "columns": ["fixed acidity","volatile acidity","citric acid","residual sugar","chlorides","free sulfur dioxide","total sulfur dioxide","density","pH","sulphates","alcohol"], 
+  "data": [[7,0.27,0.36,20.7,0.045,45,170,1.001,3,0.45,8.8]]}}' \
+  -H 'Content-Type: application/json' -X POST localhost:5002/invocations
 
-Inferencing is done with a JSON `POST` request to the **invocations** path on **localhost** at the specified port. The columns specify the names of the columns in the input data. The data is a list of lists, where each inner list is a row of data. For brevity, the above only requests one prediction of wine quality (on a scale of 3-8). The response is a JSON object with a **predictions** key that contains a list of predictions, one for each row of data. In this case, the response is:
+Inferencing is done with a JSON `POST` request to the **invocations** path on **localhost** at the specified port. The ``columns`` key specifies the names of the columns in the input data. The ``data`` value is a list of lists, where each inner list is a row of data. For brevity, the above only requests one prediction of wine quality (on a scale of 3-8). The response is a JSON object with a **predictions** key that contains a list of predictions, one for each row of data. In this case, the response is:
 
-.. code-block:: bash
+.. code-block:: json
 
   {"predictions": [{"0": 5.310967445373535}]}
 
-The schema for input and output is available in the MLflow UI in the **Artifacts | Model** description. The schema is available because the ``train.py`` script used the ``mlflow.infer_signature`` method and passed the result to the ``mlflow.log_model`` method. Passing the signature to the ``log_model`` method is highly recommended, as it provides clear error messages if the input request is malformed.
+The schema for input and output is available in the MLflow UI in the **Artifacts | Model** description. The schema is available because the ``train.py`` script used the ``mlflow.infer_signature`` method and passed the result to the ``mlflow.log_model`` method. Passing the signature to the ``log_model`` method is highly recommended, as it provides clear error messages if the input request is malformed. 
 
 Build a container image for your model
 ---------------------------------------
@@ -134,7 +137,7 @@ Deploying to a cloud platform
 
 Virtually all cloud platforms allow you to deploy a Docker image. The process varies considerably, so you will have to consult your cloud provider's documentation for details.
 
-In addition, some cloud providers have built-in support for MLflow:
+In addition, some cloud providers have built-in support for MLflow. For instance:
 
 - `Azure ML <https://https://learn.microsoft.com/azure/machine-learning/>`_
 - `Databricks <https://www.databricks.com/product/managed-mlflow>`_
