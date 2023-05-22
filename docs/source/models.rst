@@ -583,9 +583,8 @@ as follows:
     # create a new model version with the updated source
     client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
 
-.. note::
-    This procedure overwrites the model artifacts of the model version 1's source run with a
-    new model signature.
+Note that this process overwrites the model artifacts from the source run of model version 1
+with a new model signature.
 
 .. _input-example:
 
