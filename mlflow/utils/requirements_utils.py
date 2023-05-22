@@ -273,7 +273,7 @@ def _capture_imported_modules(model_uri, flavor):
             # Lazily import `_capture_transformers_module` here to avoid circular imports.
             from mlflow.utils import _capture_transformers_modules
 
-            for module_to_throw in ["tensorflow", "torch", ""]:
+            for module_to_throw in ["tensorflow", "torch"]:
                 try:
                     _run_command(
                         [
@@ -293,31 +293,31 @@ def _capture_imported_modules(model_uri, flavor):
                         timeout_seconds=process_timeout,
                         env=main_env,
                     )
-                    break
+                    with open(output_file) as f:
+                        return f.read().splitlines()
+
                 except MlflowException:
-                    if module_to_throw == "":
-                        raise
+                    pass
 
-        else:
-            # Lazily import `_capture_module` here to avoid circular imports.
-            from mlflow.utils import _capture_modules
+        # Lazily import `_capture_module` here to avoid circular imports.
+        from mlflow.utils import _capture_modules
 
-            _run_command(
-                [
-                    sys.executable,
-                    _capture_modules.__file__,
-                    "--model-path",
-                    local_model_path,
-                    "--flavor",
-                    flavor,
-                    "--output-file",
-                    output_file,
-                    "--sys-path",
-                    json.dumps(sys.path),
-                ],
-                timeout_seconds=process_timeout,
-                env=main_env,
-            )
+        _run_command(
+            [
+                sys.executable,
+                _capture_modules.__file__,
+                "--model-path",
+                local_model_path,
+                "--flavor",
+                flavor,
+                "--output-file",
+                output_file,
+                "--sys-path",
+                json.dumps(sys.path),
+            ],
+            timeout_seconds=process_timeout,
+            env=main_env,
+        )
 
         with open(output_file) as f:
             return f.read().splitlines()

@@ -30,6 +30,8 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         return super()._record_imported_module(full_module_name)
 
     def __enter__(self):
+        # Patch the environment variables to disable module_to_throw
+        # https://github.com/huggingface/transformers/blob/3658488ff77ff8d45101293e749263acf437f4d5/src/transformers/utils/import_utils.py#L60-L62
         self.use_tf = os.environ.get("USE_TF")
         self.use_torch = os.environ.get("USE_TORCH")
         if self.module_to_throw == "tensorflow":
@@ -68,10 +70,9 @@ def main():
             "if you're applying other flavors, please use _capture_modules script.",
         )
 
-    if module_to_throw:
-        cap_cm = _CaptureImportedModulesForHF(module_to_throw)
-    else:
-        cap_cm = _CaptureImportedModules()
+    if module_to_throw == "":
+        raise MlflowException("Please specify the module to throw.")
+    cap_cm = _CaptureImportedModulesForHF(module_to_throw)
     store_imported_module(cap_cm, model_path, flavor, output_file)
 
 
