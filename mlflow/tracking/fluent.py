@@ -518,6 +518,35 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
+def get_parent_run(run_id: str) -> Optional[Run]:
+    """
+    Gets the parent run for the given run id.
+    :param run_id: Unique identifier for the child run.
+    :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
+                returns None.
+    .. test-code-block:: python
+        :caption: Example
+        import mlflow
+
+        # Create nested runs
+        with mlflow.start_run():
+            with mlflow.start_run(nested=True) as child_run:
+                child_run_id = child_run.info.run_id
+        parent_run = mlflow.get_parent_run(child_run_id)
+        print("child_run_id: {}".format(child_run_id))
+        print("parent_run_id: {}".format(parent_run.info.run_id))
+    .. code-block:: text
+        :caption: Output
+        child_run_id: 7d175204675e40328e46d9a6a5a7ee6a
+        parent_run_id: 8979459433a24a52ab3be87a229a9cdf
+    """
+    child_run = MlflowClient().get_run(run_id)
+    parent_run_id = child_run.data.tags.get(MLFLOW_PARENT_RUN_ID)
+    if parent_run_id is None:
+        return None
+    return MlflowClient().get_run(parent_run_id)
+
+
 def log_param(key: str, value: Any) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,

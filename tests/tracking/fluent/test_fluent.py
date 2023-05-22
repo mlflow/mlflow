@@ -1253,3 +1253,17 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+def test_get_parent_run():
+    parent_run_id = mlflow.start_run().info.run_id
+    mlflow.log_param("a", 1)
+    mlflow.log_metric("b", 2.0)
+    child_run_id = mlflow.start_run(nested=True).info.run_id
+    mlflow.end_run()
+    mlflow.end_run()
+
+    parent_run = mlflow.get_parent_run(child_run_id)
+    assert parent_run.info.run_id == parent_run_id
+    assert parent_run.data.metrics == {"b": 2.0}
+    assert parent_run.data.params == {"a": "1"}
