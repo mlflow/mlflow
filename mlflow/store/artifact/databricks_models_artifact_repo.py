@@ -127,7 +127,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
-        from mlflow.projects.utils import get_databricks_env_vars
+        from mlflow.utils.databricks_utils import get_databricks_env_vars
 
         try:
             parallel_download_subproc_env = os.environ.copy()

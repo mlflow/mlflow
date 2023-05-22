@@ -10,6 +10,9 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
+# This should be aligned with mlflow.tracking._TRACKING_URI_ENV_VAR
+_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
+
 _logger = logging.getLogger(__name__)
 
 
@@ -675,3 +678,30 @@ def _construct_databricks_model_version_url(
     model_version_url += f"#mlflow/models/{name}/versions/{version}"
 
     return model_version_url
+
+
+def get_databricks_env_vars(tracking_uri):
+    if not is_databricks_uri(tracking_uri):
+        return {}
+
+    config = get_databricks_host_creds(tracking_uri)
+    # We set these via environment variables so that only the current profile is exposed, rather
+    # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
+    # part of ~/.databrickscfg into the container
+    env_vars = {}
+    env_vars[_TRACKING_URI_ENV_VAR] = "databricks"
+    env_vars["DATABRICKS_HOST"] = config.host
+    if config.username:
+        env_vars["DATABRICKS_USERNAME"] = config.username
+    if config.password:
+        env_vars["DATABRICKS_PASSWORD"] = config.password
+    if config.token:
+        env_vars["DATABRICKS_TOKEN"] = config.token
+    if config.ignore_tls_verification:
+        env_vars["DATABRICKS_INSECURE"] = str(config.ignore_tls_verification)
+
+    workspace_info = get_databricks_workspace_info_from_uri(tracking_uri)
+    if workspace_info is not None:
+        env_vars.update(workspace_info.to_environment())
+
+    return env_vars
