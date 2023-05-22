@@ -443,18 +443,17 @@ def _get_pinned_requirement(package, version=None, module=None):
     if version is None:
         version_raw = _get_installed_version(package, module)
         local_version_label = _get_local_version_label(version_raw)
-        if local_version_label and not (
-            is_in_databricks_runtime() and package in ("torch", "torchvision")
-        ):
+        if local_version_label:
             version = _strip_local_version_label(version_raw)
-            msg = (
-                f"Found {package} version ({version_raw}) contains a local version label "
-                f"(+{local_version_label}). MLflow logged a pip requirement for this package as "
-                f"'{package}=={version}' without the local version label to make it "
-                "installable from PyPI. To specify pip requirements containing local version "
-                "labels, please use `conda_env` or `pip_requirements`."
-            )
-            _logger.warning(msg)
+            if not (is_in_databricks_runtime() and package in ("torch", "torchvision")):
+                msg = (
+                    f"Found {package} version ({version_raw}) contains a local version label "
+                    f"(+{local_version_label}). MLflow logged a pip requirement for this package "
+                    f"as '{package}=={version}' without the local version label to make it "
+                    "installable from PyPI. To specify pip requirements containing local version "
+                    "labels, please use `conda_env` or `pip_requirements`."
+                )
+                _logger.warning(msg)
 
         else:
             version = version_raw
