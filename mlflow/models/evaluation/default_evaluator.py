@@ -1186,7 +1186,6 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.temp_dir = temp_dir
             self.model = model
-            self.is_baseline_model = is_baseline_model
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
@@ -1199,7 +1198,6 @@ class DefaultEvaluator(ModelEvaluator):
             self.predict_proba_fn = predict_proba_fn
 
             self.metrics = {}
-            self.baseline_metrics = {}
             self.artifacts = {}
 
             if self.model_type not in _ModelType.values():
@@ -1240,7 +1238,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.model_type = model_type
         self.evaluator_config = evaluator_config
-        self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.custom_artifacts = custom_artifacts
