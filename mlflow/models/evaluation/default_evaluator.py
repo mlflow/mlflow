@@ -1238,7 +1238,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.model_type = model_type
         self.evaluator_config = evaluator_config
-        self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.custom_artifacts = custom_artifacts
