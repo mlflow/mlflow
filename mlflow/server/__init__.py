@@ -4,6 +4,7 @@ import sys
 import textwrap
 import importlib.metadata
 
+from packaging.version import Version
 from flask import __version__ as flask_version
 from flask import Flask, send_from_directory, Response
 from mlflow.exceptions import MlflowException
@@ -17,7 +18,6 @@ from mlflow.server.handlers import (
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
-from packaging.version import Version
 
 # NB: These are internal environment variables used for communication between
 # the cli and the forked gunicorn processes.
