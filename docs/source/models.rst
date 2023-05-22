@@ -3894,7 +3894,7 @@ Similarly, to build a Docker image built with MLServer you can use the
 
 .. code-block:: bash
 
-    mlflow models build -m my_model --enable-mlserver -n my-model
+    mlflow models build-docker -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation
