@@ -294,9 +294,9 @@ def _capture_imported_modules(model_uri, flavor):
                         env=main_env,
                     )
                     break
-                except MlflowException as e:
+                except MlflowException:
                     if module_to_throw == "":
-                        raise e
+                        raise
 
         else:
             # Lazily import `_capture_module` here to avoid circular imports.

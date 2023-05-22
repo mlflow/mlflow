@@ -1,10 +1,9 @@
 """
 This script should be executed in a fresh python interpreter process using `subprocess`.
 """
-import importlib
 import json
+import os
 import sys
-import types
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -31,38 +30,28 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         return super()._record_imported_module(full_module_name)
 
     def __enter__(self):
-        import transformers
-
-        self.original_tf_available = transformers.utils.import_utils._tf_available
-        self.original_torch_available = transformers.utils.import_utils._torch_available
-        self.original_torch_fx_available = transformers.utils.import_utils._torch_fx_available
+        self.use_tf = os.environ.get("USE_TF") if "USE_TF" in os.environ else None
+        self.use_torch = os.environ.get("USE_TORCH") if "USE_TORCH" in os.environ else None
         if self.module_to_throw == "tensorflow":
-            transformers.utils.import_utils._tf_available = False
+            os.environ["USE_TORCH"] = "TRUE"
         elif self.module_to_throw == "torch":
-            transformers.utils.import_utils._torch_available = False
-            transformers.utils.import_utils._torch_fx_available = False
-
-        # Reload transformers to make sure the patch is applied
-        importlib.reload(transformers)
-        import transformers  # pylint: disable=W0404
-
-        for module_name in transformers.__all__:
-            module = getattr(transformers, module_name)
-            if isinstance(module, types.ModuleType):
-                try:
-                    importlib.reload(module)
-                except ImportError:
-                    pass
+            os.environ["USE_TF"] = "TRUE"
 
         return super().__enter__()
 
     def __exit__(self, *_, **__):
         # Revert the patches
-        import transformers
 
-        transformers.utils.import_utils._tf_available = self.original_tf_available
-        transformers.utils.import_utils._torch_available = self.original_torch_available
-        transformers.utils.import_utils._torch_fx_available = self.original_torch_fx_available
+        if "USE_TF" in os.environ:
+            if self.use_tf is not None:
+                os.environ["USE_TF"] = self.use_tf
+            else:
+                del os.environ["USE_TF"]
+        if "USE_TORCH" in os.environ:
+            if self.use_torch is not None:
+                os.environ["USE_TORCH"] = self.use_torch
+            else:
+                del os.environ["USE_TORCH"]
         super().__exit__()
 
 
@@ -77,7 +66,7 @@ def main():
 
     if flavor != mlflow.transformers.FLAVOR_NAME:
         raise MlflowException(
-            f"This script is only applicable to '{mlflow.transformers.FLAVOR_NAME}' flavor, ",
+            f"This script is only applicable to '{mlflow.transformers.FLAVOR_NAME}' flavor, "
             "if you're applying other flavors, please use _capture_modules script.",
         )
 
