@@ -105,7 +105,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def store_imported_module(cap_cm, model_path, flavor, output_file):
+def store_imported_modules(cap_cm, model_path, flavor, output_file):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -156,7 +156,7 @@ def main():
         _create_local_spark_session_for_loading_spark_model()
 
     cap_cm = _CaptureImportedModules()
-    store_imported_module(cap_cm, model_path, flavor, output_file)
+    store_imported_modules(cap_cm, model_path, flavor, output_file)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:

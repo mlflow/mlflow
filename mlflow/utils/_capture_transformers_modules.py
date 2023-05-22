@@ -7,7 +7,11 @@ import sys
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.utils._capture_modules import _CaptureImportedModules, parse_args, store_imported_module
+from mlflow.utils._capture_modules import (
+    _CaptureImportedModules,
+    parse_args,
+    store_imported_modules,
+)
 
 
 class _CaptureImportedModulesForHF(_CaptureImportedModules):
@@ -21,12 +25,11 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
         super().__init__()
         self.module_to_throw = module_to_throw
 
-    def _wrap_package(self, name):
-        if name == self.module_to_throw or name.startswith(f"{self.module_to_throw}."):
-            raise ImportError(f"Disabled package {name}")
-
     def _record_imported_module(self, full_module_name):
-        self._wrap_package(full_module_name)
+        if full_module_name == self.module_to_throw or full_module_name.startswith(
+            f"{self.module_to_throw}."
+        ):
+            raise ImportError(f"Disabled package {full_module_name}")
         return super()._record_imported_module(full_module_name)
 
     def __enter__(self):
@@ -73,7 +76,7 @@ def main():
     if module_to_throw == "":
         raise MlflowException("Please specify the module to throw.")
     cap_cm = _CaptureImportedModulesForHF(module_to_throw)
-    store_imported_module(cap_cm, model_path, flavor, output_file)
+    store_imported_modules(cap_cm, model_path, flavor, output_file)
 
 
 if __name__ == "__main__":
