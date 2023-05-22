@@ -53,6 +53,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
+    _get_deps_from_requirement_file,
 )
 
 pytestmark = pytest.mark.large
@@ -978,29 +979,58 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-@pytest.mark.parametrize("test_model", ["small_seq2seq_pipeline", "small_qa_pipeline"])
-def test_transformers_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
-    test_model, model_path, request
+def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_seq2seq_pipeline, model_path
 ):
-    test_model = request.getfixturevalue(test_model)
-    mlflow.transformers.save_model(test_model, model_path)
+    mlflow.transformers.save_model(small_seq2seq_pipeline, model_path)
     _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(test_model.model)
+        model_path, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
 
 
-@pytest.mark.parametrize("test_model", ["small_seq2seq_pipeline", "small_qa_pipeline"])
-def test_transformers_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
-    test_model, request
+def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline, model_path
 ):
-    test_model = request.getfixturevalue(test_model)
+    mlflow.transformers.save_model(small_qa_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
+
+
+def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_seq2seq_pipeline,
+):
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.transformers.log_model(test_model, artifact_path)
+        mlflow.transformers.log_model(small_seq2seq_pipeline, artifact_path)
         model_uri = mlflow.get_artifact_uri(artifact_path)
     _assert_pip_requirements(
-        model_uri, mlflow.transformers.get_default_pip_requirements(test_model.model)
+        model_uri, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
+
+
+def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline,
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(small_qa_pipeline, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(
+        model_uri, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
 
 
 def test_log_model_with_code_paths(small_qa_pipeline):
