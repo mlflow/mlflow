@@ -226,9 +226,9 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
     Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
     a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
     :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
-    and predicted output of that dataset. However, in scenarios like the :ref:`pmdarima model flavor <pmdarima-flavor>`,
-    where the Pyfunc inference input schema differs from that of the test dataset, it's necessary to
-    construct a signature to match it.
+    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
+    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
