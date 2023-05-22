@@ -51,7 +51,7 @@ _logger = logging.getLogger(__name__)
 def get_default_pip_requirements() -> List[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
-    
+
     :return: A list of default pip requirements for MLflow Models that have been produced with the
              ``sentence-transformers`` flavor. Calls to :py:func:`save_model()` and
              :py:func:`log_model()` produce a pip environment that contain these
@@ -93,8 +93,8 @@ def save_model(
     :param model: A trained ``sentence-transformers`` model.
     :param path: Local path destination for the serialized model to be saved.
     :param inference_config:
-        A dict of valid overrides that can be applied to a ``sentence-transformer`` model instance
-        during inference.
+        A dict of valid inference parameters that can be applied to a ``sentence-transformer``
+        model instance during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
         These values are not applied to a returned model from a call to
