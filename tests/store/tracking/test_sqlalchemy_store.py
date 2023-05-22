@@ -1589,7 +1589,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert sorted(
             [r1, r2],
         ) == sorted(self._search(experiment_id, filter_string))
-        assert False
 
         # test search returns appropriate run (same key different values per run)
         filter_string = "params.generic_2 = 'some value'"

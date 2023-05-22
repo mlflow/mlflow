@@ -383,8 +383,8 @@ class SearchUtils:
             elif isinstance(token, Parenthesis):
                 if key != "name":
                     raise MlflowException(
-                        "Only the dataset 'name' and 'digest' supports comparison with a list of quoted "
-                        "string values.",
+                        "Only the dataset 'name' and 'digest' supports comparison with a list of "
+                        "quoted string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 return cls._parse_run_ids(token)
