@@ -10,7 +10,7 @@ from typing import List, Optional
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import sql
+from sqlalchemy import sql, text
 from sqlalchemy.future import select
 
 from mlflow.entities import RunTag, Metric, DatasetInput
@@ -1212,11 +1212,15 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            attribute_filters, non_attribute_filters = _get_sqlalchemy_filter_clauses(
-                parsed_filters, session, self._get_dialect()
-            )
+            (
+                attribute_filters,
+                non_attribute_filters,
+                dataset_filters,
+            ) = _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect())
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+            for dataset_filter in dataset_filters:
+                stmt = stmt.join(dataset_filter, text("runs.run_uuid = anon_1.destination_id"))
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -1236,6 +1240,7 @@ class SqlAlchemyStore(AbstractStore):
                 .offset(offset)
                 .limit(max_results)
             )
+            print(stmt)
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
@@ -1459,6 +1464,7 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """
     attribute_filters = []
     non_attribute_filters = []
+    dataset_filters = []
 
     for sql_statement in parsed:
         key_type = sql_statement.get("type")
@@ -1497,21 +1503,35 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 entity = SqlParam
             elif SearchUtils.is_tag(key_type, comparator):
                 entity = SqlTag
+            elif SearchUtils.is_dataset(key_type, comparator):
+                entity = SqlDataset
             else:
                 raise MlflowException(
                     "Invalid search expression type '%s'" % key_type,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
-            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                entity.value, value
-            )
-            non_attribute_filters.append(
-                session.query(entity).filter(key_filter, val_filter).subquery()
-            )
+            if entity == SqlDataset:
+                dataset_attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    getattr(SqlDataset, key_name), value
+                )
+                dataset_filters.append(
+                    session.query(entity, SqlInput)
+                    .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                    .filter(dataset_attr_filter)
+                    .subquery()
+                )
 
-    return attribute_filters, non_attribute_filters
+            else:
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    entity.value, value
+                )
+                non_attribute_filters.append(
+                    session.query(entity).filter(key_filter, val_filter).subquery()
+                )
+
+    return attribute_filters, non_attribute_filters, dataset_filters
 
 
 def _get_orderby_clauses(order_by_list, session):
