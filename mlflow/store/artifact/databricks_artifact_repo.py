@@ -222,6 +222,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
         :return: A list of `ArtifactCredentialInfo` objects providing read access to the specified
                  run-relative artifact `paths` within the MLflow Run specified by `run_id`.
         """
+        if type(paths) == str:
+            paths = [paths]
+        if type(paths) != list:
+            raise MlflowException(f"Expected `paths` to be a list of strings. Got {type(paths)}")
         return self._get_credential_infos(GetCredentialsForRead, run_id, paths)
 
     def _extract_headers_from_credentials(self, headers):
