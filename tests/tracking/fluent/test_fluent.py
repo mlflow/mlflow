@@ -1307,3 +1307,17 @@ def test_log_input(tmp_path):
     assert len(dataset_inputs[0].tags) == 1
     assert dataset_inputs[0].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[0].tags[0].value == "train"
+
+
+def test_get_parent_run():
+    parent_run_id = mlflow.start_run().info.run_id
+    mlflow.log_param("a", 1)
+    mlflow.log_metric("b", 2.0)
+    child_run_id = mlflow.start_run(nested=True).info.run_id
+    mlflow.end_run()
+    mlflow.end_run()
+
+    parent_run = mlflow.get_parent_run(child_run_id)
+    assert parent_run.info.run_id == parent_run_id
+    assert parent_run.data.metrics == {"b": 2.0}
+    assert parent_run.data.params == {"a": "1"}
