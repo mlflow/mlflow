@@ -120,7 +120,7 @@ Most routes toward deployment will use a container to package your model, its de
 
   mlflow models build-docker --model-uri "models:/wine-quality/1" --name "qs_mlops"
 
-This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. The ``model-uri`` in this case specifies a version number (``/1``) rather than a lifecycle stage (``/staging``), but you can use whichever integrates best with your workflow. It will take several minutes to build the image. Once it completes, you can run the image locally with:
+This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. The ``model-uri`` in this case specifies a version number (``/1``) rather than a lifecycle stage (``/staging``), but you can use whichever integrates best with your workflow. It will take several minutes to build the image. Once it completes, you can run the image to provide real-time inferencing locally, on-prem, on a bespoke Internet server, or cloud platform. You can run it locally with:
 
 .. code-block:: bash
 
