@@ -2269,19 +2269,19 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert result == []
 
-        # result = self.store.search_runs(
-        #     [exp_id],
-        #     filter_string="dataset.context = 'train'",
-        #     run_view_type=ViewType.ACTIVE_ONLY,
-        # )
-        # assert [r.info.run_id for r in result] == [run_id2, run_id1]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.context = 'train'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id2, run_id1]
 
-        # result = self.store.search_runs(
-        #     [exp_id],
-        #     filter_string="dataset.context = 'test'",
-        #     run_view_type=ViewType.ACTIVE_ONLY,
-        # )
-        # assert [r.info.run_id for r in result] == [run_id3]
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.context = 'test'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert [r.info.run_id for r in result] == [run_id3]
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

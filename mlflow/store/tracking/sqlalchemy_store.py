@@ -10,7 +10,7 @@ from typing import List, Optional
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import sql, text
+from sqlalchemy import and_, sql, text
 from sqlalchemy.future import select
 
 from mlflow.entities import RunTag, Metric, DatasetInput
@@ -61,7 +61,12 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+    _get_run_name_from_tags,
+)
 from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
@@ -1240,7 +1245,6 @@ class SqlAlchemyStore(AbstractStore):
                 .offset(offset)
                 .limit(max_results)
             )
-            print(stmt)
             queried_runs = session.execute(stmt).scalars(SqlRun).all()
 
             runs = [run.to_mlflow_entity() for run in queried_runs]
@@ -1512,16 +1516,30 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 )
 
             if entity == SqlDataset:
-                dataset_attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                    getattr(SqlDataset, key_name), value
-                )
-                dataset_filters.append(
-                    session.query(entity, SqlInput)
-                    .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
-                    .filter(dataset_attr_filter)
-                    .subquery()
-                )
-
+                if key_name == "context":
+                    dataset_filters.append(
+                        session.query(entity, SqlInput, SqlInputTag)
+                        .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                        .join(
+                            SqlInputTag,
+                            and_(
+                                SqlInputTag.input_uuid == SqlInput.input_uuid,
+                                SqlInputTag.name == MLFLOW_DATASET_CONTEXT,
+                                SqlInputTag.value == value,
+                            ),
+                        )
+                        .subquery()
+                    )
+                else:
+                    dataset_attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                        getattr(SqlDataset, key_name), value
+                    )
+                    dataset_filters.append(
+                        session.query(entity, SqlInput)
+                        .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                        .filter(dataset_attr_filter)
+                        .subquery()
+                    )
             else:
                 key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
                 val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
