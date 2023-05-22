@@ -217,7 +217,7 @@ To include a signature with your model, pass a :py:class:`signature object
 :py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
 (see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
 The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
-model artifacts, together with other model metadata. To set a signature on an already logged or
+model artifacts, together with other model metadata. To set a signature on a logged or
 saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
 (see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
