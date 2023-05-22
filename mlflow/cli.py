@@ -587,11 +587,19 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         try:
             artifact_repo.delete_artifacts()
         except InvalidUrlException as iue:
-            click.echo(f"Warning: {iue}")
             click.echo(
-                "Do not delete artifact target. Keep the gc process going. "
-                "Please check whether the artifact exists or not "
-                "and delete unused artifacts manually."
+                click.style(
+                    f"The exception {iue} happen during deletion model artifact", fg="yellow"
+                )
+            )
+            click.echo(
+                click.style(
+                    "Unable to resolve the provided artifact URL. "
+                    "The gc process will continue and bypass artifact deletion. "
+                    "Please ensure that the artifact exists "
+                    "and consider manually deleting any unused artifacts. ",
+                    fg="yellow",
+                ),
             )
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
