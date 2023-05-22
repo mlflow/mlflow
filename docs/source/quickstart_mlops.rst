@@ -1,4 +1,4 @@
-. _quickstart-mlops:
+.. _quickstart-mlops:
 
 Quickstart: Compare runs, choose a model, and deploy it to a REST API
 ======================================================================
@@ -14,12 +14,17 @@ In this quickstart, you will:
 
 As an ML Engineer or MLOps professional, you can use MLflow to compare, share, and deploy the best models produced by the team. In this quickstart, you will use the MLflow Tracking UI to compare the results of a hyperparameter sweep, choose the best run, and register it as a model. Then, you will deploy the model to a REST API. Finally, you will create a Docker container image suitable for deployment to a cloud platform.
 
+.. image:: _static/images/quickstart/quickstart_tracking_overview.png
+    :width: 800px
+    :align: center
+    :alt: Diagram showing Data Science and MLOps workflow with MLflow
+
 
 Set up
 ------
 
 - Install MLflow. See the `MLflow Data Scientist quickstart <quickstart>`_ for instructions.
-- Clone the `MLflow git repo<https://github.com/mlflow/mlflow>`
+- Clone the `MLflow git repo <https://github.com/mlflow/mlflow>`_
 - Run the tracking server: ``mlflow server``.
 
 Run a hyperparameter sweep
@@ -27,7 +32,7 @@ Run a hyperparameter sweep
 
 Switch to the ``examples/hyperparam/`` directory in the MLflow git repo. This example tries to optimize the RMSE metric of a Keras deep learning model on a wine quality dataset. It has two hyperparameters that it tries to optimize: ``learning-rate`` and ``momentum``.
 
-This directory uses the ::ref::`MLflow Projects format <projects>`_ and defines multiple entry points. You can review those by reading the **MLProject** file. The ``hyperopt`` entry point uses the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep over the ``train`` entry point. The ``hyperopt`` entry point sets different values of ``learning-rate`` and ``momentum`` and records the results in MLflow.
+This directory uses the :ref:`MLflow Projects format <projects>` and defines multiple entry points. You can review those by reading the **MLProject** file. The ``hyperopt`` entry point uses the `Hyperopt <https://github.com/hyperopt/hyperopt>`_ library to run a hyperparameter sweep over the ``train`` entry point. The ``hyperopt`` entry point sets different values of ``learning-rate`` and ``momentum`` and records the results in MLflow.
 
 Run the hyperparameter sweep, setting the ``MLFLOW_TRACKING_URI`` environment variable to the URI of the MLflow tracking server:
 
@@ -56,7 +61,7 @@ Choose **Chart view**. Choose the **Parallel coordinates** graph and configure i
     :align: center
     :alt: Screenshot of MLflow tracking UI parallel coordinates graph showing runs
 
-The red graphs on this graph are runs that fared poorly. The lowest one has set both **lr** and **momentum** to 0.0 and has an RMSE of ~0.89. The other red lines show that high **momentum** can also lead to poor results with this architecture. 
+The red graphs on this graph are runs that fared poorly. The lowest one is a baseline run with both **lr** and **momentum** set to 0.0. That baseline run has an RMSE of ~0.89. The other red lines show that high **momentum** can also lead to poor results with this problem and architecture. 
 
 The graphs shading towards blue are runs that fared better. Hover your mouse over individual runs to see their details.
 
@@ -85,9 +90,9 @@ MLflow allows you to easily serve models produced by any run or model version. Y
 
   mlflow models serve -m "models:/wine-quality/Staging" --port 5002
 
-(Note that specifying the port as above may be necessary if you are running the tracking server on the same machine at the default port of **5000**.)
+(Note that specifying the port as above will be necessary if you are running the tracking server on the same machine at the default port of **5000**.)
 
-You could also have used a `runs:/<run_id>` URI to serve a model, or any supported URI described in :ref:artifact_stores:.
+You could also have used a ``runs:/<run_id>`` URI to serve a model, or any supported URI described in :ref:`artifact-stores`. 
 
 To test the model, you can send a request to the REST API using the ``curl`` command:
 
@@ -99,24 +104,26 @@ Inferencing is done with a JSON `POST` request to the **invocations** path on **
 
 .. code-block:: bash
 
-  {"predictions": [{"0": 5.310967445373535}]}%
+  {"predictions": [{"0": 5.310967445373535}]}
+
+The schema for input and output is available in the MLflow UI in the **Artifacts | Model** description. The schema is available because the ``train.py`` script used the ``mlflow.infer_signature`` method and passed the result to the ``mlflow.log_model`` method. Passing the signature to the ``log_model`` method is highly recommended, as it provides clear error messages if the input request is malformed.
 
 Build a container image for your model
 ---------------------------------------
 
-Most routes toward deployment will use a container to package your model, its dependencies, and much of the runtime environment. You can use MLflow to build a Docker image for your model.
+Most routes toward deployment will use a container to package your model, its dependencies, and relevant portions of the runtime environment. You can use MLflow to build a Docker image for your model.
 
 .. code-block:: bash
 
-  mlflow models build-docker --model-uri "models:/quickstart-colorful-colt/1" --name "qs_mlops"
+  mlflow models build-docker --model-uri "models:/wine-quality/1" --name "qs_mlops"
 
-This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. It will take several minutes to build the image. Once it completes, you can run the image locally with:
+This command builds a Docker image named ``qs_mlops`` that contains your model and its dependencies. The ``model-uri`` in this case specifies a version number (``/1``) rather than a lifecycle stage (``/staging``), but you can use whichever integrates best with your workflow. It will take several minutes to build the image. Once it completes, you can run the image locally with:
 
 .. code-block:: bash
 
   docker run -p 5002:8080 qs_mlops
 
-You can run the same ``curl`` command as before to test the image:
+This `Docker run command <https://docs.docker.com/engine/reference/commandline/run/>`_ runs the image you just built and maps port **5002** on your local machine to port **8080** in the container. You can now send requests to the model using the same ``curl`` command as before:
 
 .. code-block:: bash
 
@@ -125,14 +132,26 @@ You can run the same ``curl`` command as before to test the image:
 Deploying to a cloud platform
 -----------------------------
 
-Virtually all cloud platforms allow you to deploy a Docker image. Details vary considerably, so you will have to consult your cloud provider's documentation for details.
+Virtually all cloud platforms allow you to deploy a Docker image. The process varies considerably, so you will have to consult your cloud provider's documentation for details.
 
 In addition, some cloud providers have built-in support for MLflow:
 
-- Azure ML
-- Databricks
-- Amazon SageMaker
-- Google Cloud
+- `Azure ML <https://https://learn.microsoft.com/azure/machine-learning/>`_
+- `Databricks <https://www.databricks.com/product/managed-mlflow>`_
+- `Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/index.html>`_
+- `Google Cloud <https://cloud.google.com/doc>`_
 
 all support MLflow. Cloud platforms generally support multiple workflows for deployment: command-line, SDK-based, and Web-based. You can use MLflow in any of these workflows, although the details will vary between platforms and versions. Again, you will need to consult your cloud provider's documentation for details.
 
+Next steps
+-----------
+
+This quickstart has shown you how to use MLflow to track experiments, package models, and deploy models. You may also wish to learn about:
+
+- :ref:`quickstart`
+- :ref:`MLflow tutorials and examples <tutorials-and-examples>`
+- Use the MLflow Registry to store and share versioned models, see :ref:`registry`
+- Use MLflow Projects for packaging your code in a reproducible and reusable way, see :ref:`projects`
+- Use MLflow Recipes to create workflows for faster iterations and easier deployment, see :ref:`recipes`
+- :ref:`MLflow concepts <concepts>`
+- Tracking experiments and packaging models (see :ref:tracking:).
