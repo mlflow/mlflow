@@ -75,23 +75,11 @@ def _infer_model_type_by_labels(labels):
 
 
 def _extract_raw_model(model):
-    """
-    Return a tuple of (model_loader_module, raw_model)
-    """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    try:
-        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-            raw_model = model._model_impl
-        else:
-            raw_model = None
-    except Exception as e:
-        _logger.warning(
-            f"Raw model resolution fails unexpectedly on PyFuncModel {model!r}, "
-            f"error message is {e}"
-        )
-        raw_model = None
-
-    return model_loader_module, raw_model
+    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+        return model_loader_module, model._model_impl
+    else:
+        return model_loader_module, None
 
 
 def _extract_predict_fn(model, raw_model):
@@ -1189,13 +1177,8 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
-            model_loader_module, raw_model = _extract_raw_model(model)
-            predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
-
-            self.model_loader_module = model_loader_module
-            self.raw_model = raw_model
-            self.predict_fn = predict_fn
-            self.predict_proba_fn = predict_proba_fn
+            self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
             self.artifacts = {}
