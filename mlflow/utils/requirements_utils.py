@@ -248,14 +248,12 @@ def _capture_imported_modules(model_uri, flavor):
     """
     Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
+    If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
 
     :param model_uri: The URI of the model.
     :param: flavor: The flavor name of the model.
     :return: A list of captured modules.
     """
-    # Lazily import `_capture_module` here to avoid circular imports.
-    from mlflow.utils import _capture_modules
-
     local_model_path = _download_artifact_from_uri(model_uri)
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
@@ -271,22 +269,56 @@ def _capture_imported_modules(model_uri, flavor):
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
 
-        _run_command(
-            [
-                sys.executable,
-                _capture_modules.__file__,
-                "--model-path",
-                local_model_path,
-                "--flavor",
-                flavor,
-                "--output-file",
-                output_file,
-                "--sys-path",
-                json.dumps(sys.path),
-            ],
-            timeout_seconds=process_timeout,
-            env=main_env,
-        )
+        if flavor == mlflow.transformers.FLAVOR_NAME:
+            # Lazily import `_capture_transformers_module` here to avoid circular imports.
+            from mlflow.utils import _capture_transformers_modules
+
+            for module_to_throw in ["tensorflow", "torch", ""]:
+                try:
+                    _run_command(
+                        [
+                            sys.executable,
+                            _capture_transformers_modules.__file__,
+                            "--model-path",
+                            local_model_path,
+                            "--flavor",
+                            flavor,
+                            "--output-file",
+                            output_file,
+                            "--sys-path",
+                            json.dumps(sys.path),
+                            "--module-to-throw",
+                            module_to_throw,
+                        ],
+                        timeout_seconds=process_timeout,
+                        env=main_env,
+                    )
+                    break
+                except MlflowException as e:
+                    if module_to_throw == "":
+                        raise e
+
+        else:
+            # Lazily import `_capture_module` here to avoid circular imports.
+            from mlflow.utils import _capture_modules
+
+            _run_command(
+                [
+                    sys.executable,
+                    _capture_modules.__file__,
+                    "--model-path",
+                    local_model_path,
+                    "--flavor",
+                    flavor,
+                    "--output-file",
+                    output_file,
+                    "--sys-path",
+                    json.dumps(sys.path),
+                ],
+                timeout_seconds=process_timeout,
+                env=main_env,
+            )
+
         with open(output_file) as f:
             return f.read().splitlines()
 
