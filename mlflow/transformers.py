@@ -31,7 +31,7 @@ from mlflow.utils.docstring_utils import (
 )
 from mlflow.environment_variables import (
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
-    MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
     MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE
@@ -102,11 +102,10 @@ def _model_packages(model) -> List[str]:
     :return: A list of strings representing the underlying engine-specific dependencies
     """
     engine = _get_engine_type(model)
-    default_deps = ["accelerate"]
     if engine == "torch":
-        return default_deps + ["torch", "torchvision"]
+        return ["torch", "torchvision", "accelerate"]
     else:
-        return default_deps + [engine]
+        return [engine]
 
 
 @experimental
@@ -828,6 +827,13 @@ def is_gpu_available():
         is_gpu = False
     return is_gpu
 
+def _try_load_model_with_device(model_instance, pipeline_path, device):
+    try:
+        model = model_instance.from_pretrained(pipeline_path, device=device)
+    except (ValueError, TypeError):
+        print('Could not specify device parameter for this pipeline type', flush=True)
+        model = model_instance.from_pretrained(pipeline_path)
+    return model
 
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
@@ -873,14 +879,14 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
-    if not MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES.get():
+    if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
         try:
             model = model_instance.from_pretrained(pipeline_path,
                                                    **accelerate_model_conf)
-        except ValueError:
-            model = model_instance.from_pretrained(pipeline_path, device=device)
+        except (ValueError, TypeError):
+            model = _try_load_model_with_device(model_instance, pipeline_path, device)
     else:
-        model = model_instance.from_pretrained(pipeline_path, device=device)
+        model = _try_load_model_with_device(model_instance, pipeline_path, device)
 
     conf["model"] = model
 
