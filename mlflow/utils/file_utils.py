@@ -639,31 +639,34 @@ def parallelized_download_file_using_http_uri(
         range_start = i * chunk_size
         range_end = range_start + chunk_size - 1
 
-        download_proc = _exec_cmd(
-            cmd=[
-                sys.executable,
-                download_cloud_file_chunk.__file__,
-                "--range-start",
-                range_start,
-                "--range-end",
-                range_end,
-                "--headers",
-                json.dumps(headers or {}),
-                "--download-path",
-                download_path,
-                "--http-uri",
-                http_uri,
-            ],
-            throw_on_error=True,
-            synchronous=False,
-            capture_output=True,
-            stream_output=False,
-            env=env,
-        )
-        return_code = download_proc.wait()
-        if return_code != 0:
-            stdout, _ = download_proc.communicate()
-            failed_downloads[i] = json.loads(stdout)
+        with tempfile.TemporaryFile(mode="w+") as temp_file:
+            download_proc = _exec_cmd(
+                cmd=[
+                    sys.executable,
+                    download_cloud_file_chunk.__file__,
+                    "--range-start",
+                    range_start,
+                    "--range-end",
+                    range_end,
+                    "--headers",
+                    json.dumps(headers or {}),
+                    "--download-path",
+                    download_path,
+                    "--http-uri",
+                    http_uri,
+                    "--temp-file",
+                    temp_file,
+                ],
+                throw_on_error=True,
+                synchronous=False,
+                capture_output=True,
+                stream_output=False,
+                env=env,
+            )
+            return_code = download_proc.wait()
+            if return_code != 0:
+                temp_file.seek(0)
+                failed_downloads[i] = json.loads(temp_file.read())
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         for i in range(starting_index, num_requests):

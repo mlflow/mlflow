@@ -3,9 +3,9 @@ This script should be executed in a fresh python interpreter process using `subp
 """
 import argparse
 import json
+import io
 import os
 import requests
-import sys
 import urllib3
 
 from functools import lru_cache
@@ -162,6 +162,7 @@ def parse_args():
     parser.add_argument("--headers", required=True, type=str)
     parser.add_argument("--download-path", required=True, type=str)
     parser.add_argument("--http-uri", required=True, type=str)
+    parser.add_argument("--temp-file", required=True, type=io.TextIOWrapper)
     return parser.parse_args()
 
 
@@ -177,15 +178,14 @@ def main():
             http_uri=args.http_uri,
         )
     except requests.HTTPError as e:
-        print(  # pylint: disable=print-function
-            json.dumps(
-                {
-                    "error_status_code": e.response.status_code,
-                    "error_text": str(e),
-                }
-            ),
-            file=sys.stdout,
+        temp_file = args.temp_file
+        error_message = json.dumps(
+            {
+                "error_status_code": e.response.status_code,
+                "error_text": str(e),
+            }
         )
+        temp_file.write(error_message)
 
 
 if __name__ == "__main__":
