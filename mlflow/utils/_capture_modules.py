@@ -95,46 +95,6 @@ class _CaptureImportedModules:
         importlib.import_module = self.original_import_module
 
 
-class _CaptureImportedModulesForHF(_CaptureImportedModules):
-    """
-    A context manager to capture imported modules by temporarily applying a patch to
-    `builtins.__import__` and `importlib.import_module`.
-    Used for 'transformers' flavor only.
-    """
-
-    def __init__(self, module_to_throw):
-        super().__init__()
-        self.module_to_throw = module_to_throw
-
-    def _wrap_package(self, name):
-        if name == self.module_to_throw or name.startswith(f"{self.module_to_throw}."):
-            raise ImportError(f"Disabled package {name}")
-
-    def _record_imported_module(self, full_module_name):
-        self._wrap_package(full_module_name)
-        return super()._record_imported_module(full_module_name)
-
-    def __enter__(self):
-        import transformers
-
-        self.original_tf_available = transformers.utils.import_utils._tf_available
-        self.original_torch_available = transformers.utils.import_utils._torch_available
-        if self.module_to_throw == "tensorflow":
-            transformers.utils.import_utils._tf_available = False
-        elif self.module_to_throw == "torch":
-            transformers.utils.import_utils._torch_available = False
-
-        return super().__enter__()
-
-    def __exit__(self, *_, **__):
-        # Revert the patches
-        import transformers
-
-        transformers.utils.import_utils._tf_available = self.original_tf_available
-        transformers.utils.import_utils._torch_available = self.original_torch_available
-        super().__exit__()
-
-
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", required=True)
