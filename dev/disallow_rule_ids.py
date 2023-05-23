@@ -10,7 +10,7 @@ def extract_comments(f):
             yield tok, start
 
 
-RULE_ID_REGEX = re.compile(r"[A-Z][0-9_]*")
+RULE_ID_REGEX = re.compile(r"[A-Z][0-9]*")
 
 
 def is_rule_id(s):
