@@ -58,6 +58,8 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     LogModel,
     CreateExperiment,
+    SearchExperiments,
+    SearchRuns,
 )
 from mlflow.protos.model_registry_pb2 import (
     GetRegisteredModel,
@@ -79,8 +81,10 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelAlias,
     GetModelVersionByAlias,
     CreateRegisteredModel,
+    SearchModelVersions,
+    SearchRegisteredModels,
 )
-from mlflow.utils.proto_json_utils import parse_dict
+from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
@@ -427,9 +431,27 @@ def set_can_manage_registered_model_permission(resp: Response):
     store.create_registered_model_permission(name, username, MANAGE.name)
 
 
+def filter_search_experiments(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchExperiments.Response()
+    parse_dict(resp.json, response_message)
+    username = request.authorization.username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+    for experiment in list(response_message.experiments):
+        if not can_read.get(experiment.experiment_id, default_can_read):
+            response_message.experiments.remove(experiment)
+
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
+    SearchExperiments: filter_search_experiments,
 }
 
 
