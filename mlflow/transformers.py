@@ -2236,7 +2236,12 @@ class _TransformersWrapper:
                 return False
 
         def decode_audio(encoded):
-            if isinstance(encoded, bytes):
+            if isinstance(encoded, str):
+                # This is to support blob style passing of uri locations to process audio files
+                # on disk or object store. Note that if a uri is passed, a signature *must be*
+                # provided for serving to function as the default signature uses bytes.
+                return encoded
+            elif isinstance(encoded, bytes):
                 # For input types 'dataframe_split' and 'dataframe_records', the encoding
                 # conversion to bytes is handled.
                 if not is_base64(encoded):

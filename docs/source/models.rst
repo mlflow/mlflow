@@ -2740,6 +2740,33 @@ Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org
 
 The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
 
+* `str`
+
+The string input type is meant for blob references (uri locations) that are accessible to the instance of the `pyfunc` model.
+This input mode is useful when doing large batch processing of audio inference in Spark due to the inherent limitations of handling large `bytes`
+data in `Spark` `DataFrames`.
+
+.. warning:: If using a uri (`str) as an input type for a `pyfunc` model, you *must* specify a custom model signature when logging or saving the model.
+    The default signature value of `bytes` will, in `MLflow Model serving`, force the conversion of the string to `bytes`, which will cause an Exception
+    to be thrown from the serving process.
+
+An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
+
+.. code-block:: python
+
+    from mlflow.models.signature import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
+    signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=my_audio_pipeline,
+            artifact_path="my_transcriber",
+            signature=signature,
+        )
+
+
 * `bytes`
 
 This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
