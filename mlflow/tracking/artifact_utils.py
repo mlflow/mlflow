@@ -7,6 +7,7 @@ import posixpath
 import shutil
 import tempfile
 import urllib.parse
+from uuid import uuid4
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -128,7 +129,6 @@ def _upload_artifacts_to_databricks(
     :return: The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
-    from uuid import uuid4
 
     local_dir = tempfile.mkdtemp()
     try:

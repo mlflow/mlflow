@@ -9,6 +9,7 @@ import pathlib
 import pandas as pd
 import numpy as np
 import re
+import functools
 from typing import Union, List, Optional, Dict, Any, NamedTuple
 
 import yaml
@@ -2085,8 +2086,6 @@ class _TransformersWrapper:
         provided is encoded as JSON. This method unpacks that string to the required
         elements.
         """
-        from json import JSONDecodeError
-
         if isinstance(data, list):
             return [self._parse_json_encoded_list(entry, key_to_unpack) for entry in data]
         elif isinstance(data, dict):
@@ -2101,7 +2100,7 @@ class _TransformersWrapper:
                     return {
                         k: (json.loads(v) if k == key_to_unpack else v) for k, v in data.items()
                     }
-                except JSONDecodeError:
+                except json.JSONDecodeError:
                     return data
             elif isinstance(data[key_to_unpack], list):
                 return data
@@ -2300,8 +2299,6 @@ def autolog(
     sub-models that are created during the training and evaluation of transformers-based models.
     Autologging functionality is not implemented fully for the transformers flavor.
     """
-    import functools
-
     # A list of other flavors whose base autologging config would be automatically logged due to
     # training a model that would otherwise create a run and be logged internally within the
     # transformers-supported trainer calls.

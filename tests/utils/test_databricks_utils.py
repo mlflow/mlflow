@@ -2,6 +2,7 @@ import os
 import sys
 from unittest import mock
 import pytest
+import builtins
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils import databricks_utils
@@ -238,8 +239,6 @@ def test_get_repl_id():
     mock_sparkcontext_class.getOrCreate.return_value = mock_sparkcontext_inst
     mock_spark = mock.MagicMock()
     mock_spark.SparkContext = mock_sparkcontext_class
-
-    import builtins
 
     original_import = builtins.__import__
 

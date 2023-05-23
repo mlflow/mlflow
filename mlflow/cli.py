@@ -3,6 +3,7 @@ import os
 import re
 import sys
 import logging
+import warnings
 
 import click
 import importlib.metadata
@@ -466,7 +467,6 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
     """
-    import warnings
     from mlflow.utils.time_utils import get_current_time_millis
 
     backend_store = _get_store(backend_store_uri, None)
