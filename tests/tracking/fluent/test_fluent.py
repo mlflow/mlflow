@@ -1260,13 +1260,14 @@ def test_get_parent_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2.0)
         with mlflow.start_run(nested=True) as child_run:
-            mlflow.log_param("a", 2)
-    with mlflow.start_run() as run:
-        mlflow.log_param("a", 3)
+            child_run_id = child_run.info.run_id
 
-    parent_run = mlflow.get_parent_run(child_run.info.run_id)
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    parent_run = mlflow.get_parent_run(child_run_id)
     assert parent_run.info.run_id == parent.info.run_id
     assert parent_run.data.metrics == {"b": 2.0}
     assert parent_run.data.params == {"a": "1"}
 
-    assert mlflow.get_parent_run(run.info.run_id) is None
+    assert mlflow.get_parent_run(run_id) is None
