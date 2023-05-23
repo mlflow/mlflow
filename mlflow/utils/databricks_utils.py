@@ -6,6 +6,7 @@ from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
 from mlflow.exceptions import MlflowException
+import mlflow.utils
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
@@ -681,7 +682,7 @@ def _construct_databricks_model_version_url(
 
 
 def get_databricks_env_vars(tracking_uri):
-    if not is_databricks_uri(tracking_uri):
+    if not mlflow.utils.uri.is_databricks_uri(tracking_uri):
         return {}
 
     config = get_databricks_host_creds(tracking_uri)
