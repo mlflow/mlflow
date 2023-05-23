@@ -1072,6 +1072,59 @@ def log_table(
     MlflowClient().log_table(run_id, data, artifact_file)
 
 
+@experimental
+def load_table(
+    artifact_file: str,
+    run_ids: Optional[List[str]] = None,
+    extra_columns: Optional[List[str]] = None,
+) -> "pandas.DataFrame":
+    """
+    Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+    specified artifact_file in the specified run_ids. The extra_columns are columns that
+    are not in the table but are augmented with run information and added to the DataFrame.
+
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          the table is saved (e.g. "dir/file.json").
+    :param run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
+                    the table is loaded from all runs in the current experiment.
+    :param extra_columns: Optional list of extra columns to add to the returned DataFrame
+                          with extra as a prefix. For example, if extra_columns=["run_id"], then
+                          the returned DataFrame will have a column named extra_run_id.
+
+    :return: pandas.DataFrame
+
+    .. test-code-block:: python
+        :caption: Example with passing run_ids
+
+        import mlflow
+
+        loaded_table = mlflow.load_table(
+            artifact_file="qabot_eval_results.csv",
+            run_ids=[
+                "68f0c4aed0b74fc7bff23d6c3be74fed",
+                "da1f56b292254a81858410606618d61c",
+            ],
+            # Append a column containing the associated run ID for each row
+            extra_columns=["run_id"],
+        )
+
+    .. test-code-block:: python
+        :caption: Example with passing no run_ids
+
+        # Loads the table with the specified name for all runs in the given
+        # experiment and joins them together
+        import mlflow
+
+        loaded_table = mlflow.load_table(
+            "qabot_eval_results.csv",
+            # Append the run ID and the parent run ID to the table
+            extra_columns=["run_id", "parent_run_id"],
+        )
+    """
+    experiment_id = _get_experiment_id()
+    return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

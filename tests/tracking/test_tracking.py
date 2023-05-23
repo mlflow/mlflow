@@ -968,3 +968,44 @@ def test_log_table_with_subdirectory():
     current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
+
+
+def test_load_table():
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "toxicity": [0.0, 0.0],
+    }
+    artifact_file = "qabot_eval_results.json"
+    run_id_2 = None
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id_2 = run.info.run_id
+
+    extra_columns = ["run_id", "tags.mlflow.loggedArtifacts"]
+    output_df = mlflow.load_table(artifact_file=artifact_file, extra_columns=extra_columns)
+
+    assert output_df.shape[0] == 4
+    assert output_df.shape[1] == 5
+    assert output_df["extra_run_id"].nunique() == 2
+    assert output_df["extra_tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    output_df = mlflow.load_table(
+        artifact_file=artifact_file, run_ids=[run_id_2], extra_columns=extra_columns
+    )
+
+    assert output_df.shape[0] == 2
+    assert output_df.shape[1] == 5
+    assert output_df["extra_run_id"].nunique() == 1
+    assert output_df["extra_tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    output_df = mlflow.load_table(artifact_file=artifact_file)
+
+    assert output_df.shape[0] == 4
+    assert output_df.shape[1] == 3
