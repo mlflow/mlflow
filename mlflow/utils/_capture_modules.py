@@ -101,25 +101,11 @@ def parse_args():
     parser.add_argument("--flavor", required=True)
     parser.add_argument("--output-file", required=True)
     parser.add_argument("--sys-path", required=True)
+    parser.add_argument("--module-to-throw", required=False)
     return parser.parse_args()
 
 
-def main():
-    args = parse_args()
-    model_path = args.model_path
-    flavor = args.flavor
-    # Mirror `sys.path` of the parent process
-    sys.path = json.loads(args.sys_path)
-
-    if flavor == mlflow.spark.FLAVOR_NAME:
-        # Create a local spark environment within the subprocess
-        from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
-
-        _prepare_subprocess_environ_for_creating_local_spark_session()
-        _create_local_spark_session_for_loading_spark_model()
-
-    cap_cm = _CaptureImportedModules()
-
+def store_imported_modules(cap_cm, model_path, flavor, output_file):
     # If `model_path` refers to an MLflow model directory, load the model using
     # `mlflow.pyfunc.load_model`
     if os.path.isdir(model_path) and MLMODEL_FILE_NAME in os.listdir(model_path):
@@ -138,16 +124,39 @@ def main():
                 return model
 
         loader_module._load_pyfunc = _load_pyfunc_patch
-        mlflow.pyfunc.load_model(model_path)
-    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`. For models that don't contain
-    # pyfunc flavor (e.g. scikit-learn estimator that doesn't implement a `predict` method),
+        try:
+            mlflow.pyfunc.load_model(model_path)
+        finally:
+            loader_module._load_pyfunc = original
+    # Otherwise, load the model using `mlflow.<flavor>._load_pyfunc`.
+    # For models that don't contain pyfunc flavor (e.g. scikit-learn estimator
+    # that doesn't implement a `predict` method),
     # we need to directly pass a model data path to this script.
     else:
         with cap_cm:
             importlib.import_module(f"mlflow.{flavor}")._load_pyfunc(model_path)
 
     # Store the imported modules in `output_file`
-    write_to(args.output_file, "\n".join(cap_cm.imported_modules))
+    write_to(output_file, "\n".join(cap_cm.imported_modules))
+
+
+def main():
+    args = parse_args()
+    model_path = args.model_path
+    flavor = args.flavor
+    output_file = args.output_file
+    # Mirror `sys.path` of the parent process
+    sys.path = json.loads(args.sys_path)
+
+    if flavor == mlflow.spark.FLAVOR_NAME:
+        # Create a local spark environment within the subprocess
+        from mlflow.utils._spark_utils import _create_local_spark_session_for_loading_spark_model
+
+        _prepare_subprocess_environ_for_creating_local_spark_session()
+        _create_local_spark_session_for_loading_spark_model()
+
+    cap_cm = _CaptureImportedModules()
+    store_imported_modules(cap_cm, model_path, flavor, output_file)
 
     # Clean up a spark session created by `mlflow.spark._load_pyfunc`
     if flavor == mlflow.spark.FLAVOR_NAME:

@@ -55,6 +55,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
+    _get_deps_from_requirement_file,
 )
 
 pytestmark = pytest.mark.large
@@ -335,6 +336,11 @@ def raw_audio_file():
 @pytest.fixture()
 def whisper_pipeline():
     return transformers.pipeline(model="openai/whisper-small")
+
+
+@pytest.fixture()
+def audio_classification_pipeline():
+    return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
 @pytest.fixture()
@@ -999,16 +1005,31 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-def test_transformers_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
     mlflow.transformers.save_model(small_seq2seq_pipeline, model_path)
     _assert_pip_requirements(
         model_path, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
 
 
-def test_transformers_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline, model_path
+):
+    mlflow.transformers.save_model(small_qa_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
+
+
+def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline,
 ):
     artifact_path = "model"
@@ -1018,6 +1039,24 @@ def test_transformers_model_log_without_conda_env_uses_default_env_with_expected
     _assert_pip_requirements(
         model_uri, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
+
+
+def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline,
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(small_qa_pipeline, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(
+        model_uri, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
 
 
 def test_log_model_with_code_paths(small_qa_pipeline):
@@ -2909,6 +2948,66 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
     )
 
 
+def test_audio_classification_pipeline(audio_classification_pipeline, raw_audio_file):
+    artifact_path = "audio_classification"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(
+            audio_classification_pipeline, raw_audio_file
+        ),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=audio_classification_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert isinstance(values, pd.DataFrame)
+    assert len(values) > 1
+    assert list(values.columns) == ["score", "label"]
+
+
+def test_audio_classification_with_default_schema(audio_classification_pipeline, raw_audio_file):
+    artifact_path = "audio_classification"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=audio_classification_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    inference_df = pd.DataFrame(
+        pd.Series([base64.b64encode(raw_audio_file).decode("ascii")], name="audio")
+    )
+    split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+    split_json = json.dumps(split_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=split_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert isinstance(values, pd.DataFrame)
+    assert len(values) > 1
+    assert list(values.columns) == ["score", "label"]
+
+    
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
@@ -2984,3 +3083,4 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
     assert response_data["message"].startswith("Failed to process the input audio data. Either")
+	
