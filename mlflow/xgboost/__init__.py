@@ -385,7 +385,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     model_format="xgb",
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 

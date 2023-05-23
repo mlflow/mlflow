@@ -156,7 +156,7 @@ def _set_experiment_primary_metric(
     )
 
 
-class ActiveRun(Run):  # pylint: disable=W0223
+class ActiveRun(Run):  # pylint: disable=abstract-method
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
