@@ -4,7 +4,7 @@ import sys
 import tokenize
 
 
-def extract_comments(f):
+def iter_comments(f):
     for tok_type, tok, start, _, _ in tokenize.generate_tokens(f.readline):
         if tok_type == tokenize.COMMENT:
             yield tok, start
@@ -36,7 +36,7 @@ def main():
     msg = "Use rule name (e.g. unused-variable) instead of rule ID (e.g. W0612)"
     for path in args.files:
         with open(path) as f:
-            for comment, (row, col) in extract_comments(f):
+            for comment, (row, col) in iter_comments(f):
                 if codes := extract_codes(comment):
                     if code := next(filter(is_rule_id, codes), None):
                         print(f"{path}:{row}:{col}: {code}:", msg)
