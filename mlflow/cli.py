@@ -589,7 +589,7 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         except InvalidUrlException as iue:
             click.echo(
                 click.style(
-                    f"The exception {iue} happen during deletion model artifact", fg="yellow"
+                    f"The exception {repr(iue)} happen during deletion model artifact", fg="yellow"
                 )
             )
             click.echo(
