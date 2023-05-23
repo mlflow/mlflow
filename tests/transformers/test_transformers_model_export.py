@@ -3007,7 +3007,7 @@ def test_audio_classification_with_default_schema(audio_classification_pipeline,
     assert len(values) > 1
     assert list(values.columns) == ["score", "label"]
 
-    
+
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
@@ -3083,4 +3083,3 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
     assert response_data["message"].startswith("Failed to process the input audio data. Either")
-	
