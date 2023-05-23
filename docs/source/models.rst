@@ -465,11 +465,10 @@ Suppose you've logged a sklearn model without a signature like below:
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
 
-    iris = datasets.load_iris()
-    iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
     clf = RandomForestClassifier(max_depth=7, random_state=0)
     with mlflow.start_run() as run:
-        clf.fit(iris_train, iris.target)
+        clf.fit(X, y)
         mlflow.sklearn.log_model(clf, "iris_rf")
 
 You can set a signature on the logged model as follows:
@@ -487,9 +486,8 @@ You can set a signature on the logged model as follows:
     model = mlflow.pyfunc.load_model(model_uri)
 
     # construct the model signature from test dataset
-    iris = datasets.load_iris()
-    iris_test = pd.DataFrame(iris.data, columns=iris.feature_names)
-    signature = infer_signature(iris_train, model.predict(iris_train))
+    X_test, _ = datasets.load_iris(return_X_y=True, as_frame=True)
+    signature = infer_signature(X_test, model.predict(X_test))
 
     # set the signature for the logged model
     set_signature(model_uri, signature)
@@ -497,44 +495,9 @@ You can set a signature on the logged model as follows:
     # now when you load the model again, it will have the desired signature
     assert get_model_info(model_uri).signature == signature
 
-Set Signature on Saved Model
-""""""""""""""""""""""""""""
-
-You can also set the model signature on a model saved outside of MLflow tracking. The following
-example demonstrates how to do so.
-
-Suppose you've saved a dummy sklearn model without a signature like below:
-
-.. code-block:: python
-
-    import tempfile
-    from sklearn.ensemble import RandomForestClassifier
-    import mlflow
-
-    model_path = tempfile.mkdtemp()
-
-    mlflow.sklearn.save_model(
-        RandomForestClassifier(),
-        model_path,
-        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-    )
-
-You can set a dummy signature on the saved model as follows:
-
-.. code-block:: python
-
-    import numpy as np
-    from mlflow.models import Model
-    from mlflow.models.signature import infer_signature, set_signature
-
-    # construct a dummy model signature
-    signature = infer_signature(np.array([1]))
-
-    # set the signature on the saved model
-    set_signature(model_path, signature)
-
-    # now when you load the saved model, it will have the desired signature
-    assert Model.load(model_path).signature == signature
+Note that model signatures can also be set on model artifacts saved outside of MLflow Tracking. As
+an example, you can easily set a signature on a locally saved iris model by altering the model_uri
+variable in the previous code snippet to point to the model's local directory.
 
 .. _set-signature-on-mv:
 
