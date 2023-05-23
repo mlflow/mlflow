@@ -821,7 +821,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.roc_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="roc",
@@ -832,7 +832,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="pr",
@@ -1105,13 +1105,8 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.predict_proba_fn is not None:
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
-                if self.is_binomial:
-                    self.y_prob = self.y_probs[:, 1]
-                else:
-                    self.y_prob = None
             else:
                 self.y_probs = None
-                self.y_prob = None
         elif self.model_type == _ModelType.REGRESSOR:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
