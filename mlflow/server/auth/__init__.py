@@ -11,12 +11,13 @@ import logging
 import uuid
 import os
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
 from mlflow import get_run, MlflowException
 from mlflow.entities import Experiment
+from mlflow.entities.model_registry import RegisteredModel
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
 from mlflow.server.auth.logo import MLFLOW_LOGO
@@ -32,8 +33,9 @@ from mlflow.store.entities import PagedList
 from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
     _TRACKING_PASSWORD_ENV_VAR,
-    _get_store,
+    _get_store as _get_tracking_store,
 )
+from mlflow.tracking._model_registry.utils import _get_store as _get_model_registry_store
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
@@ -62,7 +64,6 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     CreateExperiment,
     SearchExperiments,
-    SearchRuns,
 )
 from mlflow.protos.model_registry_pb2 import (
     GetRegisteredModel,
@@ -84,7 +85,6 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelAlias,
     GetModelVersionByAlias,
     CreateRegisteredModel,
-    SearchModelVersions,
     SearchRegisteredModels,
 )
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
@@ -156,7 +156,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str) -> str:
+def _get_request_param(param: str, optional: bool = False, default: str = None) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):
@@ -168,6 +168,8 @@ def _get_request_param(param: str) -> str:
         )
 
     if param not in args:
+        if optional:
+            return default
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
@@ -442,13 +444,13 @@ def filter_search_experiments(resp: Response):
     response_message = SearchExperiments.Response()
     parse_dict(resp.json, response_message)
 
-    # fetch explicit permissions
+    # fetch permissions
     username = request.authorization.username
     perms = store.list_experiment_permissions(username)
     can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
 
-    # filter out cannot read
+    # filter out unreadable
     for e in list(response_message.experiments):
         if not can_read.get(e.experiment_id, default_can_read):
             response_message.experiments.remove(e)
@@ -459,7 +461,7 @@ def filter_search_experiments(resp: Response):
         kwargs = request.json
         kwargs.update({"page_token": response_message.next_page_token})
         refetch_size = max_results - len(response_message.experiments)
-        refetched: PagedList[Experiment] = _get_store().search_experiments(**kwargs)[:refetch_size]
+        refetched: PagedList[Experiment] = _get_tracking_store().search_experiments(**kwargs)[:refetch_size]
         if len(refetched) == 0:
             response_message.next_page_token = ""
             break
@@ -475,10 +477,51 @@ def filter_search_experiments(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_registered_models(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchRegisteredModels.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = request.authorization.username
+    perms = store.list_registered_model_permissions(username)
+    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # filter out unreadable
+    for rm in list(response_message.registered_models):
+        if not can_read.get(rm.name, default_can_read):
+            response_message.registered_models.remove(rm)
+
+    # re-fetch to fill max results
+    max_results = int(_get_request_param("max_results", optional=True, default="0"))
+    while len(response_message.registered_models) < max_results and response_message.next_page_token != "":
+        kwargs = dict(request.args)
+        kwargs.update({"max_results": max_results, "page_token": response_message.next_page_token})
+        refetch_size = max_results - len(response_message.registered_models)
+        refetched: PagedList[RegisteredModel] = _get_model_registry_store().search_registered_models(**kwargs)[:refetch_size]
+        if len(refetched) == 0:
+            response_message.next_page_token = ""
+            break
+
+        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read.get(rm.name, default_can_read)]
+        response_message.registered_models.extend(refetched_readable_proto)
+
+        # recalculate next page token
+        start_offset = SearchUtils.parse_start_offset_from_page_token(response_message.next_page_token)
+        final_offset = start_offset + len(refetched)
+        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
+
+    resp.data = message_to_json(response_message)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
+    SearchRegisteredModels: filter_search_registered_models,
 }
 
 
