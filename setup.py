@@ -33,8 +33,8 @@ def remove_comments_and_empty_lines(lines):
 js_files = package_files("mlflow/server/js/build")
 models_container_server_files = package_files("mlflow/models/container")
 alembic_files = [
-    "../mlflow/store/db_migrations/alembic.ini",
-    "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
+    "store/db_migrations/alembic.ini",
+    "temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
 extra_files = [
     "pypi_package_index.json",
