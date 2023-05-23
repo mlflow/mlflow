@@ -366,7 +366,7 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     help=(
         "If enabled, run the server with debug logging and auto-reload. "
         "Should only be used for development purposes. "
-        "Cannot be used with --gunicorn-opts."
+        "Cannot be used with '--gunicorn-opts'."
     ),
 )
 def server(
