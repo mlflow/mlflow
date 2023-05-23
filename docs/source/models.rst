@@ -2746,7 +2746,7 @@ The string input type is meant for blob references (uri locations) that are acce
 This input mode is useful when doing large batch processing of audio inference in Spark due to the inherent limitations of handling large `bytes`
 data in `Spark` `DataFrames`.
 
-.. warning:: If using a uri (`str) as an input type for a `pyfunc` model, you *must* specify a custom model signature when logging or saving the model.
+.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model, you *must* specify a custom model signature when logging or saving the model.
     The default signature value of `bytes` will, in `MLflow Model serving`, force the conversion of the string to `bytes`, which will cause an Exception
     to be thrown from the serving process.
 
