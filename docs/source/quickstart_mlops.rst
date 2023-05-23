@@ -23,7 +23,7 @@ As an ML Engineer or MLOps professional, you can use MLflow to compare, share, a
 Set up
 ------
 
-- Install MLflow. See the `MLflow Data Scientist quickstart <quickstart>`_ for instructions
+- Install MLflow. See the :ref:`MLflow Data Scientist quickstart <quickstart>` for instructions
 - Clone the `MLflow git repo <https://github.com/mlflow/mlflow>`_
 - Run the tracking server: ``mlflow server``
 
