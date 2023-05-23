@@ -31,8 +31,9 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
     "Model logged without a signature. Signatures will be required for upcoming model registry "
     "features as they validate model inputs and denote the expected schema of model outputs. "
-    "Please visit https://www.mlflow.org/docs/latest/models.html#set-signature-on-mv "
-    "for instructions on setting a model signature on your logged model."
+    f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
+    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
+    "your logged model."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
