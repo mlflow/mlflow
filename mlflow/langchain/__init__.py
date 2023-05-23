@@ -13,7 +13,7 @@ LangChain (native) format
 """
 import logging
 import os
-from typing import Dict, List, Union
+from typing import Any, Dict, List, Union
 
 import pandas as pd
 import cloudpickle
@@ -428,19 +428,22 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
+    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]]) -> List[str]:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
+            logger.debug(f"Input pandas data: {data.to_string(line_width=100000)}")
             messages = data.to_dict(orient="records")
         elif isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
+            logger.debug(f"Input data: {data}")
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
+        logger.debug(f"messages = {messages}")
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 
