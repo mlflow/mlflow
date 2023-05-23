@@ -441,10 +441,10 @@ def filter_search_experiments(resp: Response):
 
     response_message = SearchExperiments.Response()
     parse_dict(resp.json, response_message)
-    username = request.authorization.username
-    perms = store.list_experiment_permissions(username)
 
     # fetch explicit permissions
+    username = request.authorization.username
+    perms = store.list_experiment_permissions(username)
     can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
     default_can_read = get_permission(auth_config.default_permission).can_read
 
