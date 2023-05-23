@@ -207,7 +207,7 @@ def test_capture_imported_modules():
 
     with _CaptureImportedModules() as cap:
         # pylint: disable=unused-import
-        import math  # pylint: disable=builtin-import
+        import math  # pylint: disable=lazy-builtin-import
 
         __import__("pandas")
         importlib.import_module("numpy")
