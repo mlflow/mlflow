@@ -136,6 +136,6 @@ class MissingConfigException(MlflowException):
 
 
 class InvalidUrlException(MlflowException):
-    """Exception throw when http request fails to send due to an invalid URL"""
+    """Exception thrown when a http request fails to send due to an invalid URL"""
 
     pass
