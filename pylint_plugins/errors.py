@@ -67,9 +67,9 @@ USE_F_STRING = Message(
     reason='`f"{foo} bar"` is simpler and faster than `"{} bar".format(foo)`',
 )
 
-BUILTIN_IMPORT = Message(
+LAZY_BUILTIN_IMPORT = Message(
     id="W0007",
-    name="builtin-import",
+    name="lazy-builtin-import",
     message="Import built-in module(s) (%s) at the top of the file.",
     reason="There is no reason they should be imported inside a function.",
 )

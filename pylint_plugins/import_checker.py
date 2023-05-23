@@ -3,7 +3,7 @@ from pylint.interfaces import IAstroidChecker
 from pylint.checkers import BaseChecker
 from pylint.lint import PyLinter
 
-from .errors import BUILTIN_IMPORT, to_msgs
+from .errors import LAZY_BUILTIN_IMPORT, to_msgs
 
 # https://github.com/PyCQA/isort/blob/b818cec889657cb786beafe94a6641f8fc0f0e64/isort/stdlibs/py311.py
 BUILTIN_MODULES = {
@@ -227,7 +227,7 @@ class ImportChecker(BaseChecker):
     __implements__ = IAstroidChecker
 
     name = "import-checker"
-    msgs = to_msgs(BUILTIN_IMPORT)
+    msgs = to_msgs(LAZY_BUILTIN_IMPORT)
     priority = -1
 
     def __init__(self, linter: PyLinter) -> None:
@@ -248,9 +248,11 @@ class ImportChecker(BaseChecker):
 
     def visit_importfrom(self, node: astroid.ImportFrom):
         if self.in_function() and self.is_builtin_module(node.modname):
-            self.add_message(BUILTIN_IMPORT.name, node=node, args=(node.modname,))
+            self.add_message(LAZY_BUILTIN_IMPORT.name, node=node, args=(node.modname,))
 
     def visit_import(self, node: astroid.Import):
         if self.in_function():
             if builtin_modules := [name for name, _ in node.names if self.is_builtin_module(name)]:
-                self.add_message(BUILTIN_IMPORT.name, node=node, args=(", ".join(builtin_modules),))
+                self.add_message(
+                    LAZY_BUILTIN_IMPORT.name, node=node, args=(", ".join(builtin_modules),)
+                )
