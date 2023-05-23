@@ -2,9 +2,9 @@
 
 ## Related Issues/PRs
 
-Resolve #xxx
+<!-- Replace xxx with issue/PR number(s). If the referenced issues/PRs are just related and should not be closed when this PR is merged, remove 'Resolve' -->
 
-<!-- Remove 'Resolve' if the referenced issue/PR is just related and should not be closed when this PR is merged -->
+Resolve #xxx
 
 ## What changes are proposed in this pull request?
 
