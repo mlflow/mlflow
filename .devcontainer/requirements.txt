@@ -336,7 +336,7 @@ querystring-parser==1.2.4
     # via -r core-requirements.txt
 regex==2022.10.31
     # via transformers
-requests==2.28.1
+requests==2.31.0
     # via
     #   -r skinny-requirements.txt
     #   azure-core
