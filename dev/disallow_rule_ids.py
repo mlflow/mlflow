@@ -38,8 +38,8 @@ def main():
         with open(path) as f:
             for comment, (row, col) in extract_comments(f):
                 if codes := extract_codes(comment):
-                    if any(map(is_rule_id, codes)):
-                        print(f"{path}:{row}:{col}:", msg)
+                    if code := next(filter(is_rule_id, codes), None):
+                        print(f"{path}:{row}:{col}: {code}:", msg)
                         exit_code = 1
     sys.exit(exit_code)
 
