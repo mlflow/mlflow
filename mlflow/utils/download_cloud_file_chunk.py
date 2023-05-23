@@ -27,6 +27,9 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
             f.write(response.content)
 
 
+# Response codes that generally indicate transient network failures and merit client retries,
+# based on guidance from cloud service providers
+# (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
 _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
     [
         408,  # Request Timeout
