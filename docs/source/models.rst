@@ -205,25 +205,41 @@ downstream tooling:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
-be either column-based or tensor-based. Column-based inputs and outputs can be described as a
-sequence of (optionally) named columns with type specified as one of the
-:py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
-described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+Model signatures define input and output schemas for MLflow models, providing a standard 
+interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
+UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+:ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
+the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
+for more details).
 
 To include a signature with your model, pass a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
-JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
+(see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
+The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
+model artifacts, together with other model metadata. To set a signature on a logged or
+saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
+(see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
-Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
-<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
-which deploys a model as a REST API, validates inputs based on the model's signature.
+.. note::
+    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
+    Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
+    a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
+    :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
+    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
+    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
+Model Signature Types
+~~~~~~~~~~~~~~~~~~~~~
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`.
+Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
 
 Column-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
@@ -241,7 +257,7 @@ The output is an unnamed integer specifying the predicted class.
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
@@ -259,6 +275,8 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
   signature:
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+
+.. _signature-enforcement:
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
@@ -278,7 +296,7 @@ and the inputs are reordered to match the signature. If the input schema does no
 names, matching is done by position (i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
-"""""""""""""""""""""""
+""""""""""""""""""""""
 The input types are checked against the signature.
 
 For models with column-based signatures (i.e DataFrame inputs), MLflow will perform safe type conversions
@@ -426,6 +444,110 @@ The same signature can be created explicitly as follows:
     )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+.. _how-to-set-signatures-on-models:
+
+How To Set Signatures on Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Models can be saved with without model signatures or with incorrect ones. To set a model signature on model artifacts,
+use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are
+some examples.
+
+Set Signature on Logged Model
+"""""""""""""""""""""""""""""
+The following example demonstrates how to set a model signature on a logged sklearn model.
+Suppose you've logged a sklearn model without a signature like below:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    with mlflow.start_run() as run:
+        clf.fit(X, y)
+        mlflow.sklearn.log_model(clf, "iris_rf")
+
+You can set a signature on the logged model as follows:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    import mlflow
+    from mlflow.models.model import get_model_info
+    from mlflow.models.signature import infer_signature, set_signature
+
+    # load the logged model
+    model_uri = f"runs:/{run.info.run_id}/iris_rf"
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    # construct the model signature from test dataset
+    X_test, _ = datasets.load_iris(return_X_y=True, as_frame=True)
+    signature = infer_signature(X_test, model.predict(X_test))
+
+    # set the signature for the logged model
+    set_signature(model_uri, signature)
+
+    # now when you load the model again, it will have the desired signature
+    assert get_model_info(model_uri).signature == signature
+
+Note that model signatures can also be set on model artifacts saved outside of MLflow Tracking. As
+an example, you can easily set a signature on a locally saved iris model by altering the model_uri
+variable in the previous code snippet to point to the model's local directory.
+
+.. _set-signature-on-mv:
+
+Set Signature on Model Version
+""""""""""""""""""""""""""""""
+
+As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
+a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
+the signature on the source model artifacts and generate a new model version using the updated 
+model artifacts. The following example illustrates how this can be done.
+
+Supposed you have created the following model version without a signature like below:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.client import MlflowClient
+
+    model_name = "add_signature_model"
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(RandomForestClassifier(), "sklearn-model")
+
+    model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+    mlflow.register_model(model_uri=model_uri, name=model_name)
+
+To set a signature on the model version, create a duplicate model version with the new signature
+as follows:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    client = mlflow.client.MlflowClient()
+    model_name = "add_signature_model"
+    model_version = 1
+    mv = client.get_model_version(name=model_name, version=model_version)
+
+    # set a dummy signature on the model vesion source
+    signature = infer_signature(np.array([1]))
+    set_signature(mv.source, signature)
+
+    # create a new model version with the updated source
+    client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
+
+Note that this process overwrites the model artifacts from the source run of model version 1
+with a new model signature.
 
 .. _input-example:
 
@@ -2040,6 +2162,8 @@ Index ds          yhat        yhat_upper  yhat_lower
 ===== ========== =========== ============ ==========
 
 For more information, see :py:mod:`mlflow.prophet`.
+
+.. _pmdarima-flavor:
 
 Pmdarima (``pmdarima``)
 ^^^^^^^^^^^^^^^^^^^^^^^

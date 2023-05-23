@@ -555,7 +555,7 @@ def autolog(
                     "early_stop_comp": callback.comp.__name__,
                 }
                 mlflow.log_params(earlystopping_params)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return
 
     def _log_model_info(learner):
