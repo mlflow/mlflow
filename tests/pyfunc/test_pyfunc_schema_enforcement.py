@@ -1,3 +1,4 @@
+import base64
 import decimal
 import numpy as np
 import pandas as pd
@@ -757,3 +758,29 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
         _enforce_schema(data, signature.inputs)
     with pytest.raises(MlflowException, match="Incompatible input types for column a. Can not"):
         _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+
+    # Test bytes
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": b"Hi I am a bytes string"}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test base64 encoded
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": base64.b64encode(b"Hi I am a bytes string").decode("ascii")}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)

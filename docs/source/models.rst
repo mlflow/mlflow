@@ -2435,6 +2435,8 @@ Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
 Feature Extraction                str or List[str]               np.ndarray
+AutomaticSpeechRecognition        bytes***** or np.ndarray       str
+AudioClassification               bytes***** or np.ndarray       pd.DataFrame
 ================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
@@ -2447,6 +2449,8 @@ expected input to the model to ensure your inference request can be read properl
 
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
+
+\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2727,6 +2731,33 @@ Result:
 
 .. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
     The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
+
+Input data types for audio pipelines
+""""""""""""""""""""""""""""""""""""
+Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
+In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
+Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
+Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
+
+The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
+
+* `bytes`
+
+This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
+modification. When used through serving, the `bytes` data *must be* base64 encoded.
+
+* `np.ndarray`
+
+This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
+`librosa` or `pydub`) and that the model has been saved with a signature that uses the `np.ndarray` format for the input.
+
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in `np.ndarray` format
+    must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
+    audio transformers pipelines being set as expecting `binary` (`bytes`) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    or the other as an allowed input type.
+
 
 .. _model-evaluation:
 
@@ -3864,7 +3895,7 @@ Similarly, to build a Docker image built with MLServer you can use the
 
 .. code-block:: bash
 
-    mlflow models build -m my_model --enable-mlserver -n my-model
+    mlflow models build-docker -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation

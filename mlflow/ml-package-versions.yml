@@ -485,8 +485,16 @@ transformers:
     minimum: "4.25.1"
     maximum: "4.28.1"
     requirements:
-      ">= 0.0.0":
-        ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
+      ">= 0.0.0": [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate", # required for large torch models where weights will not fit in RAM
+          "librosa", # required for transformers audio pipelines for bitrate conversion
+          "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
+        ]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
   autologging:
@@ -537,3 +545,16 @@ langchain:
       export OPENAI_API_KEY=test
       export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py
+
+sentence_transformers:
+  package_info:
+    pip_release: "sentence-transformers"
+    install_dev: |
+      pip install -e git+https://github.com/UKPLab/sentence-transformers
+    models:
+      minimum: "2.2.2"
+      maximum: "2.2.2"
+      requirements:
+        ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
+      run: |
+        pytest tests/sentence_transformers/test_sentence_transformers_model_export.py

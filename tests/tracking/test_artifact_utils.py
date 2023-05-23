@@ -7,6 +7,7 @@ import mlflow
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _upload_artifacts_to_databricks,
+    _upload_artifact_to_uri,
 )
 
 
@@ -119,3 +120,22 @@ def test_upload_artifacts_to_databricks_no_run_id():
             new_source == "dbfs:/databricks/mlflow/tmp-external-source/"
             "4f746cdcc0374da2808917e81bb53323/sourcedir"
         )
+
+
+def test_upload_artifacts_to_uri(tmpdir):
+    artifact_file_name = "artifact.txt"
+    artifact_text = "Sample artifact text"
+    local_artifact_path = tmpdir.join(artifact_file_name).strpath
+    with open(local_artifact_path, "w") as out:
+        out.write(artifact_text)
+
+    with mlflow.start_run() as run:
+        mlflow.log_metric("coolness", 1)
+
+    artifact_uri = f"runs:/{run.info.run_id}/"
+    _upload_artifact_to_uri(local_artifact_path, artifact_uri)
+    downloaded_artifact_path = os.path.join(
+        _download_artifact_from_uri(artifact_uri), artifact_file_name
+    )
+    with open(downloaded_artifact_path) as f:
+        assert f.read() == artifact_text
