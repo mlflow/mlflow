@@ -17,7 +17,7 @@ def is_rule_id(s):
     return bool(RULE_ID_REGEX.fullmatch(s))
 
 
-DISABLE_COMMENT_REGEX = re.compile(r"pylint:\s+disable=([\w\-,]+)")
+DISABLE_COMMENT_REGEX = re.compile(r"pylint:\s+disable=([\w\s\-,]+)")
 DELIMITER_REGEX = re.compile(r"\s*,\s*")
 
 
