@@ -2425,12 +2425,12 @@ Pipeline Type                     Input Type                     Output Type
 Instructional Text Generation     str or List[str]               str or List[str]
 Conversational                    str or List[str]               str or List[str]
 Summarization                     str or List[str]               str or List[str]
-Text Classification               str or List[str]               str or List[str]
+Text Classification               str or List[str]               pd.DataFrame
 Text Generation                   str or List[str]               str or List[str]
 Text2Text Generation              str or List[str]               str or List[str]
 Token Classification              str or List[str]               str or List[str]
 Translation                       str or List[str]               str or List[str]
-ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame
 Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
