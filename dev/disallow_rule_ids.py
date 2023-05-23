@@ -39,7 +39,7 @@ def main():
             for comment, (row, col) in iter_comments(f):
                 if codes := extract_codes(comment):
                     if code := next(filter(is_rule_id, codes), None):
-                        print(f"{path}:{row}:{col}: {code}:", msg)
+                        print(f"{path}:{row}:{col}: {code}: {msg}")
                         exit_code = 1
     sys.exit(exit_code)
 
