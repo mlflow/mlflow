@@ -12,10 +12,11 @@ version = (
 
 # Get a list of all files in the directory to include in our module
 def package_files(directory):
+    mlflow_dir = os.path.abspath("mlflow")
     paths = []
     for path, _, filenames in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.join("..", path, filename))
+            paths.append(os.path.relpath(os.path.join(path, filename), mlflow_dir))
     return paths
 
 
@@ -29,7 +30,7 @@ def remove_comments_and_empty_lines(lines):
 
 
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
-# to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
+# to include in the wheel, e.g. "server/js/build/index.html"
 js_files = package_files("mlflow/server/js/build")
 models_container_server_files = package_files("mlflow/models/container")
 alembic_files = [
