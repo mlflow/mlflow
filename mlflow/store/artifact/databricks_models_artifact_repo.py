@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import posixpath
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
@@ -21,7 +22,7 @@ from mlflow.store.artifact.utils.models import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100000000
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -172,7 +173,22 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
+
+            parent_dir, _ = posixpath.split(remote_file_path)
+            file_infos = self.list_artifacts(parent_dir)
+            file_info = [info for info in file_infos if info.path == remote_file_path]
+            file_size = file_info[0].file_size if len(file_info) == 1 else None
+            if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+                download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
+            else:
+                self._parallelized_download_from_cloud(
+                    signed_uri,
+                    headers,
+                    file_size,
+                    local_path,
+                    remote_file_path,
+                )
+
         except Exception as err:
             raise MlflowException(err)
 

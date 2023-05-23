@@ -772,9 +772,24 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Read credentials for only one file were requested. So we expected only one value in
         # the response.
         assert len(read_credentials) == 1
-        self._download_from_cloud(
-            cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
-        )
+
+        # list_artifacts API only returns a list of FileInfos at the specified path
+        # if it's a directory. To get file size, we need to iterate over FileInfos
+        # contained by the parent directory. A bad path could result in there being
+        # no matching FileInfos (by path), so fall back to None size to prevent
+        # parallelized download.
+        parent_dir, _ = posixpath.split(remote_file_path)
+        file_infos = self.list_artifacts(parent_dir)
+        file_info = [info for info in file_infos if info.path == remote_file_path]
+        file_size = file_info[0].file_size if len(file_info) == 1 else None
+        if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+            self._download_from_cloud(
+                cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
+            )
+        else:
+            self._parallelized_download_from_cloud(
+                read_credentials[0], file_size, local_path, remote_file_path
+            )
 
     def delete_artifacts(self, artifact_path=None):
         raise MlflowException("Not implemented yet")
