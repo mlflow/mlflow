@@ -2436,6 +2436,7 @@ Question Answering***             Dict[str, str]***              str or List[str
 Fill Mask****                     str or List[str]****           str or List[str]
 Feature Extraction                str or List[str]               np.ndarray
 AutomaticSpeechRecognition        bytes***** or np.ndarray       str
+AudioClassification               bytes***** or np.ndarray       pd.DataFrame
 ================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
