@@ -999,9 +999,11 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
-    from mlflow._spark_autologging import _listen_for_spark_activity
+    from mlflow._spark_autologging import (
+        _listen_for_spark_activity,
+        _stop_listen_for_spark_activity,
+    )
     from pyspark.sql import SparkSession
-    from pyspark import SparkContext
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
@@ -1010,9 +1012,19 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
 
     safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
 
+    def patched_session_stop(original, self, *args, **kwargs):
+        _stop_listen_for_spark_activity(self.sparkContext)
+        original(self, *args, **kwargs)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "stop", patched_session_stop, manage_run=False)
+
     active_session = _get_active_spark_session()
     if active_session is not None:
         # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
+        sc = active_session.sparkContext
 
-        _listen_for_spark_activity(sc)
+        if disable:
+            _stop_listen_for_spark_activity(sc)
+        else:
+            _listen_for_spark_activity(sc)
+
