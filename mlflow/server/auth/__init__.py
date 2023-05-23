@@ -25,17 +25,17 @@ from mlflow.server.auth.permissions import get_permission, Permission, MANAGE
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.handlers import (
     _get_rest_path,
+    _get_request_message,
     _get_tracking_store,
+    _get_model_registry_store,
     catch_mlflow_exception,
-    get_endpoints, _get_request_message,
+    get_endpoints,
 )
 from mlflow.store.entities import PagedList
 from mlflow.tracking._tracking_service.utils import (
     _TRACKING_USERNAME_ENV_VAR,
     _TRACKING_PASSWORD_ENV_VAR,
-    _get_store as _get_tracking_store,
 )
-from mlflow.tracking._model_registry.utils import _get_store as _get_model_registry_store
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
