@@ -14,9 +14,9 @@ version = (
 def package_files(directory):
     mlflow_dir = os.path.abspath("mlflow")
     paths = []
-    for path, _, filenames in os.walk(directory):
+    for root, _, filenames in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.relpath(os.path.join(path, filename), mlflow_dir))
+            paths.append(os.path.relpath(os.path.join(root, filename), mlflow_dir))
     return paths
 
 
