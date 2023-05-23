@@ -455,7 +455,10 @@ def filter_search_experiments(resp: Response):
 
     # re-fetch to fill max results
     request_message = _get_request_message(SearchExperiments())
-    while len(response_message.experiments) < request_message.max_results and response_message.next_page_token != "":
+    while (
+        len(response_message.experiments) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
         refetched: PagedList[Experiment] = _get_tracking_store().search_experiments(
             view_type=request_message.view_type,
             max_results=request_message.max_results,
@@ -463,16 +466,20 @@ def filter_search_experiments(resp: Response):
             filter_string=request_message.filter,
             page_token=response_message.next_page_token,
         )
-        refetched = refetched[:request_message.max_results - len(response_message.experiments)]
+        refetched = refetched[: request_message.max_results - len(response_message.experiments)]
         if len(refetched) == 0:
             response_message.next_page_token = ""
             break
 
-        refetched_readable_proto = [e.to_proto() for e in refetched if can_read.get(e.experiment_id, default_can_read)]
+        refetched_readable_proto = [
+            e.to_proto() for e in refetched if can_read.get(e.experiment_id, default_can_read)
+        ]
         response_message.experiments.extend(refetched_readable_proto)
 
         # recalculate next page token
-        start_offset = SearchUtils.parse_start_offset_from_page_token(response_message.next_page_token)
+        start_offset = SearchUtils.parse_start_offset_from_page_token(
+            response_message.next_page_token
+        )
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
@@ -499,23 +506,34 @@ def filter_search_registered_models(resp: Response):
 
     # re-fetch to fill max results
     request_message = _get_request_message(SearchRegisteredModels())
-    while len(response_message.registered_models) < request_message.max_results and response_message.next_page_token != "":
-        refetched: PagedList[RegisteredModel] = _get_model_registry_store().search_registered_models(
+    while (
+        len(response_message.registered_models) < request_message.max_results
+        and response_message.next_page_token != ""
+    ):
+        refetched: PagedList[
+            RegisteredModel
+        ] = _get_model_registry_store().search_registered_models(
             filter_string=request_message.filter,
             max_results=request_message.max_results,
             order_by=request_message.order_by,
             page_token=response_message.next_page_token,
         )
-        refetched = refetched[:request_message.max_results - len(response_message.registered_models)]
+        refetched = refetched[
+            : request_message.max_results - len(response_message.registered_models)
+        ]
         if len(refetched) == 0:
             response_message.next_page_token = ""
             break
 
-        refetched_readable_proto = [rm.to_proto() for rm in refetched if can_read.get(rm.name, default_can_read)]
+        refetched_readable_proto = [
+            rm.to_proto() for rm in refetched if can_read.get(rm.name, default_can_read)
+        ]
         response_message.registered_models.extend(refetched_readable_proto)
 
         # recalculate next page token
-        start_offset = SearchUtils.parse_start_offset_from_page_token(response_message.next_page_token)
+        start_offset = SearchUtils.parse_start_offset_from_page_token(
+            response_message.next_page_token
+        )
         final_offset = start_offset + len(refetched)
         response_message.next_page_token = SearchUtils.create_page_token(final_offset)
 
