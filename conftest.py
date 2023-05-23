@@ -68,6 +68,7 @@ def pytest_ignore_collect(path, config):
             "tests/pmdarima",
             "tests/diviner",
             "tests/transformers",
+            "tests/sentence_transformers",
             "tests/openai",
             "tests/langchain",
             "tests/test_mlflow_lazily_imports_ml_packages.py",
