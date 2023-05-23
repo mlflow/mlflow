@@ -1256,14 +1256,17 @@ def test_set_experiment_tags():
 
 
 def test_get_parent_run():
-    parent_run_id = mlflow.start_run().info.run_id
-    mlflow.log_param("a", 1)
-    mlflow.log_metric("b", 2.0)
-    child_run_id = mlflow.start_run(nested=True).info.run_id
-    mlflow.end_run()
-    mlflow.end_run()
+    with mlflow.start_run() as parent:
+        mlflow.log_param("a", 1)
+        mlflow.log_metric("b", 2.0)
+        with mlflow.start_run(nested=True) as child_run:
+            mlflow.log_param("a", 2)
+    with mlflow.start_run() as run:
+        mlflow.log_param("a", 3)
 
-    parent_run = mlflow.get_parent_run(child_run_id)
-    assert parent_run.info.run_id == parent_run_id
+    parent_run = mlflow.get_parent_run(child_run.info.run_id)
+    assert parent_run.info.run_id == parent.info.run_id
     assert parent_run.data.metrics == {"b": 2.0}
     assert parent_run.data.params == {"a": "1"}
+
+    assert mlflow.get_parent_run(run.info.run_id) is None

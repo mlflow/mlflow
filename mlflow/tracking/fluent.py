@@ -520,7 +520,7 @@ def get_run(run_id: str) -> Run:
 
 def get_parent_run(run_id: str) -> Optional[Run]:
     """
-    Gets the parent run for the given run id.
+    Gets the parent run for the given run id if one exists.
 
     :param run_id: Unique identifier for the child run.
 
@@ -548,11 +548,7 @@ def get_parent_run(run_id: str) -> Optional[Run]:
         child_run_id: 7d175204675e40328e46d9a6a5a7ee6a
         parent_run_id: 8979459433a24a52ab3be87a229a9cdf
     """
-    child_run = MlflowClient().get_run(run_id)
-    parent_run_id = child_run.data.tags.get(MLFLOW_PARENT_RUN_ID)
-    if parent_run_id is None:
-        return None
-    return MlflowClient().get_run(parent_run_id)
+    return MlflowClient().get_parent_run(run_id)
 
 
 def log_param(key: str, value: Any) -> Any:
