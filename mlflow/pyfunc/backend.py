@@ -169,7 +169,7 @@ class PyFuncBackend(FlavorBackend):
         synchronous=True,
         stdout=None,
         stderr=None,
-    ):  # pylint: disable=W0221
+    ):
         """
         Serve pyfunc model locally.
         """
