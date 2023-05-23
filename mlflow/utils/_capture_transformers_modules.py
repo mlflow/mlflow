@@ -35,27 +35,12 @@ class _CaptureImportedModulesForHF(_CaptureImportedModules):
     def __enter__(self):
         # Patch the environment variables to disable module_to_throw
         # https://github.com/huggingface/transformers/blob/3658488ff77ff8d45101293e749263acf437f4d5/src/transformers/utils/import_utils.py#L60-L62
-        self.use_tf = os.environ.get("USE_TF")
-        self.use_torch = os.environ.get("USE_TORCH")
         if self.module_to_throw == "tensorflow":
             os.environ["USE_TORCH"] = "TRUE"
         elif self.module_to_throw == "torch":
             os.environ["USE_TF"] = "TRUE"
 
         return super().__enter__()
-
-    def _restore_env_var(self, key, value):
-        if key in os.environ:
-            if value is None:
-                del os.environ[key]
-            else:
-                os.environ[key] = value
-
-    def __exit__(self, *_, **__):
-        # Revert the patches
-        self._restore_env_var("USE_TF", self.use_tf)
-        self._restore_env_var("USE_TORCH", self.use_torch)
-        super().__exit__()
 
 
 def main():
