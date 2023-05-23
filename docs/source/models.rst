@@ -2748,9 +2748,10 @@ data in ``Spark`` ``DataFrames``. Ensure that you have ``ffmpeg`` installed in t
 to use ``str`` input uri-based inference. If this package is not properly installed (both from ``pypi`` and from the ``ffmpeg`` binaries), an Exception
 will be thrown at inference time.
 
-.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model, you *must* specify a custom model signature when logging or saving the model.
-    The default signature value of ``bytes`` will, in `MLflow Model serving`, force the conversion of the string to ``bytes``, which will cause an Exception
-    to be thrown from the serving process.
+.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model that you are intending to host for realtime inference through the `MLflow Model Server`,
+    you *must* specify a custom model signature when logging or saving the model.
+    The default signature input value type of ``bytes`` will, in `MLflow Model serving`, force the conversion of the uri string to ``bytes``, which will cause an Exception
+    to be thrown from the serving process stating that the soundfile is corrupt.
 
 An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
 

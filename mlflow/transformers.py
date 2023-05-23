@@ -1621,6 +1621,24 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
+        elif isinstance(
+            self.pipeline,
+            (
+                transformers.AutomaticSpeechRecognitionPipeline,
+                transformers.AudioClassificationPipeline,
+            ),
+        ):
+            try:
+                raw_output = self.pipeline(data, **self.inference_config)
+            except ValueError as e:
+                if "Malformed soundfile" in str(e):
+                    raise MlflowException(
+                        "Failed to process the input audio data. Either the audio file is "
+                        "corrupted or a uri was passed in without overriding the default model "
+                        "signature. If submitting a string uri, please ensure that the model has "
+                        "been saved with a signature that defines a string input type.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    ) from e
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:

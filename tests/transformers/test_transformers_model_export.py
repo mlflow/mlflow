@@ -2912,12 +2912,13 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
-@pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason="url dependency")
 @pytest.mark.skipcacheclean
 def test_whisper_model_with_url(whisper_pipeline):
     artifact_path = "whisper_url"
 
-    url = "https://www.nasa.gov/mp3/590325main_ringtone_kennedy_WeChoose.mp3"
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
 
     signature = infer_signature(
         url, mlflow.transformers.generate_signature_output(whisper_pipeline, url)
@@ -2947,3 +2948,39 @@ def test_whisper_model_with_url(whisper_pipeline):
     payload_output = values.loc[0, 0]
 
     assert url_inference == payload_output
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline):
+    artifact_path = "whisper_url"
+
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    url_inference = pyfunc_model.predict(url)
+
+    assert url_inference.startswith("30 seconds and counting. Astronauts report it feels ")
+    # Ensure that direct pyfunc calling even with a conflicting signature still functions
+    inference_payload = json.dumps({"inputs": [url]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    response_data = json.loads(response.content.decode("utf-8"))
+
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert response_data["message"].startswith("Failed to process the input audio data. Either")
