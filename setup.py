@@ -12,6 +12,9 @@ version = (
 
 # Get a list of all files in the directory to include in our module
 def package_files(directory):
+    """
+    Recursively collects file paths within a directory relative to the mlflow directory.
+    """
     mlflow_dir = os.path.abspath("mlflow")
     paths = []
     for root, _, filenames in os.walk(directory):
