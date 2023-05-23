@@ -293,7 +293,7 @@ def test_qa_with_sources_chain_predict():
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
-    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
     json_strings = [
         '{"page_content": "I love MLflow.", "metadata": {"source": "/path/to/mlflow.txt"}}',
         '{"page_content": "I love langchain.", "metadata": {"source": "/path/to/langchain.txt"}}',
