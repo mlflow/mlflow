@@ -27,7 +27,7 @@ from mlflow.server.handlers import (
     _get_rest_path,
     _get_tracking_store,
     catch_mlflow_exception,
-    get_endpoints,
+    get_endpoints, _get_request_message,
 )
 from mlflow.store.entities import PagedList
 from mlflow.tracking._tracking_service.utils import (
@@ -156,7 +156,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str, optional: bool = False, default: str = None) -> str:
+def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):
@@ -168,8 +168,6 @@ def _get_request_param(param: str, optional: bool = False, default: str = None) 
         )
 
     if param not in args:
-        if optional:
-            return default
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
@@ -456,12 +454,16 @@ def filter_search_experiments(resp: Response):
             response_message.experiments.remove(e)
 
     # re-fetch to fill max results
-    max_results = int(_get_request_param("max_results"))
-    while len(response_message.experiments) < max_results and response_message.next_page_token != "":
-        kwargs = request.json
-        kwargs.update({"page_token": response_message.next_page_token})
-        refetch_size = max_results - len(response_message.experiments)
-        refetched: PagedList[Experiment] = _get_tracking_store().search_experiments(**kwargs)[:refetch_size]
+    request_message = _get_request_message(SearchExperiments())
+    while len(response_message.experiments) < request_message.max_results and response_message.next_page_token != "":
+        refetched: PagedList[Experiment] = _get_tracking_store().search_experiments(
+            view_type=request_message.view_type,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            filter_string=request_message.filter,
+            page_token=response_message.next_page_token,
+        )
+        refetched = refetched[:request_message.max_results - len(response_message.experiments)]
         if len(refetched) == 0:
             response_message.next_page_token = ""
             break
@@ -496,12 +498,15 @@ def filter_search_registered_models(resp: Response):
             response_message.registered_models.remove(rm)
 
     # re-fetch to fill max results
-    max_results = int(_get_request_param("max_results", optional=True, default="0"))
-    while len(response_message.registered_models) < max_results and response_message.next_page_token != "":
-        kwargs = dict(request.args)
-        kwargs.update({"max_results": max_results, "page_token": response_message.next_page_token})
-        refetch_size = max_results - len(response_message.registered_models)
-        refetched: PagedList[RegisteredModel] = _get_model_registry_store().search_registered_models(**kwargs)[:refetch_size]
+    request_message = _get_request_message(SearchRegisteredModels())
+    while len(response_message.registered_models) < request_message.max_results and response_message.next_page_token != "":
+        refetched: PagedList[RegisteredModel] = _get_model_registry_store().search_registered_models(
+            filter_string=request_message.filter,
+            max_results=request_message.max_results,
+            order_by=request_message.order_by,
+            page_token=response_message.next_page_token,
+        )
+        refetched = refetched[:request_message.max_results - len(response_message.registered_models)]
         if len(refetched) == 0:
             response_message.next_page_token = ""
             break
