@@ -2285,7 +2285,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
     sub-models that are created during the training and evaluation of transformers-based models.

@@ -101,7 +101,7 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     return params_to_log
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=None):  # pylint: disable=W0102
+def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     """
     Log arguments explicitly passed to a function as MLflow Run parameters to the current active
     MLflow Run.
