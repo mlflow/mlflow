@@ -635,10 +635,7 @@ def parallelized_download_file_using_http_uri(
 
     failed_downloads = {}
 
-    def run_download(range_start, range_end, index):
-        range_start = index * chunk_size
-        range_end = range_start + chunk_size - 1
-
+    def run_download(range_start, range_end):
         with tempfile.TemporaryFile(mode="w+") as temp_file:
             download_proc = _exec_cmd(
                 cmd=[
@@ -663,8 +660,8 @@ def parallelized_download_file_using_http_uri(
                 stream_output=False,
                 env=env,
             )
-            return_code = download_proc.wait()
-            if return_code != 0:
+            _, stderr = download_proc.communicate()
+            if download_proc.returncode != 0:
                 temp_file.seek(0)
                 file_contents = temp_file.read()
                 if file_contents:
@@ -673,7 +670,7 @@ def parallelized_download_file_using_http_uri(
                     _, stderr = download_proc.communicate()
                     raise Exception(
                         "Error from download_cloud_file_chunk not captured, "
-                        f"return code {return_code}, stderr {stderr}"
+                        f"return code {download_proc.returncode}, stderr {stderr}"
                     )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
@@ -681,12 +678,12 @@ def parallelized_download_file_using_http_uri(
         for i in range(starting_index, num_requests):
             range_start = i * chunk_size
             range_end = range_start + chunk_size - 1
-            futures[i] = p.submit(run_download, range_start, range_end, i)
+            futures[i] = p.submit(run_download, range_start, range_end)
 
         for i, future in futures.items():
             try:
                 result = future.result()
-                if type(result) == dict:
+                if result is not None:
                     failed_downloads[i] = result
             except Exception as e:
                 failed_downloads[i] = {
