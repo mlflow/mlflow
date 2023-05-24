@@ -24,6 +24,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
 
     what-is-mlflow
     quickstart
+    quickstart_mlops
     tutorials-and-examples/index
     concepts
     tracking
