@@ -3,7 +3,9 @@ import mlflow
 import pytest
 import transformers
 import json
+import importlib
 
+import openai
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -49,6 +51,7 @@ def set_envs(monkeypatch):
             "SERPAPI_API_KEY": "test",
         }
     )
+    importlib.reload(openai)
 
 
 def create_huggingface_model(model_path):
