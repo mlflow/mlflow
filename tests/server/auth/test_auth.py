@@ -163,3 +163,84 @@ def test_search_experiments(client, monkeypatch):
 
         names = sorted([exp.name for exp in experiments])
         assert names == [f"exp{i}" for i in readable]
+
+
+def test_search_registered_models(client, monkeypatch):
+    """
+    Use user1 to create 10 registered_models, grant READ permission to user2 on registered_models [0, 3, 4, 5, 6, 8].
+    Test whether user2 can search only and all the readable registered_models, both paged and un-paged.
+    """
+    username1, password1 = signup(client)
+    username2, password2 = signup(client)
+
+    readable = [0, 3, 4, 5, 6, 8]
+
+    with User(username1, password1, monkeypatch):
+        for i in range(10):
+            rm = client.create_registered_model(f"rm{i}")
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/registered-models/permissions/create",
+                json_payload={
+                    "name": rm.name,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+    # test un-paged search
+    with User(username1, password1, monkeypatch):
+        registered_models = client.search_registered_models(
+            max_results=100,
+            filter_string="name LIKE 'rm%'",
+            order_by=["name ASC"],
+        )
+        names = sorted([rm.name for rm in registered_models])
+        assert names == [f"rm{i}" for i in range(10)]
+
+    with User(username2, password2, monkeypatch):
+        registered_models = client.search_registered_models(
+            max_results=100,
+            filter_string="name LIKE 'rm%'",
+            order_by=["name ASC"],
+        )
+        names = sorted([rm.name for rm in registered_models])
+        assert names == [f"rm{i}" for i in readable]
+
+    # test paged search
+    with User(username1, password1, monkeypatch):
+        page_token = ""
+        registered_models = []
+        while True:
+            res = client.search_registered_models(
+                max_results=4,
+                filter_string="name LIKE 'rm%'",
+                order_by=["name ASC"],
+                page_token=page_token,
+            )
+            registered_models.extend(res)
+            page_token = res.token
+            if not page_token:
+                break
+
+        names = sorted([rm.name for rm in registered_models])
+        assert names == [f"rm{i}" for i in range(10)]
+
+    with User(username2, password2, monkeypatch):
+        page_token = ""
+        registered_models = []
+        while True:
+            res = client.search_registered_models(
+                max_results=4,
+                filter_string="name LIKE 'rm%'",
+                order_by=["name ASC"],
+                page_token=page_token,
+            )
+            registered_models.extend(res)
+            page_token = res.token
+            if not page_token:
+                break
+
+        names = sorted([rm.name for rm in registered_models])
+        assert names == [f"rm{i}" for i in readable]
