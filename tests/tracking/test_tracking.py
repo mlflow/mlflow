@@ -1,4 +1,3 @@
-import ast
 import pathlib
 from collections import namedtuple
 import filecmp
@@ -886,7 +885,7 @@ def test_log_table():
     assert table_data.shape[1] == 3
 
     # Get the current value of the tag
-    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
 
@@ -901,7 +900,7 @@ def test_log_table():
     assert table_data.shape[0] == 4
     assert table_data.shape[1] == 3
     # Get the current value of the tag
-    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
 
@@ -918,7 +917,7 @@ def test_log_table():
     assert table_data.shape[0] == 2
     assert table_data.shape[1] == 3
     # Get the current value of the tag
-    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file_new, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 2
 
@@ -951,7 +950,7 @@ def test_log_table_with_subdirectory():
     assert table_data.shape[1] == 3
 
     # Get the current value of the tag
-    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
 
@@ -966,6 +965,6 @@ def test_log_table_with_subdirectory():
     assert table_data.shape[0] == 4
     assert table_data.shape[1] == 3
     # Get the current value of the tag
-    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
