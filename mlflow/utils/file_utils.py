@@ -15,7 +15,6 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 import uuid
 import fnmatch
-import json
 
 import urllib.parse
 import urllib.request
@@ -671,9 +670,10 @@ def parallelized_download_file_using_http_uri(
                 if file_contents:
                     return json.loads(file_contents)
                 else:
+                    _, stderr = download_proc.communicate()
                     raise Exception(
                         "Error from download_cloud_file_chunk not captured, "
-                        f"return code {return_code}"
+                        f"return code {return_code}, stderr {stderr}"
                     )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
