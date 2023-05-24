@@ -1,5 +1,6 @@
 import re
 import shutil
+import os
 from pathlib import Path
 
 import mlflow
@@ -168,11 +169,11 @@ def test_mlflow_run_example(directory, params, tmp_path):
         ("transformers", ["python", "conversational.py"]),
         ("transformers", ["python", "load_components.py"]),
         ("transformers", ["python", "simple.py"]),
+        ("transformers", ["python", "sentence_transformer.py"]),
+        ("transformers", ["python", "whisper.py"]),
     ],
 )
 def test_command_example(directory, command):
     cwd_dir = Path(EXAMPLES_DIR, directory)
-    import os
-
     assert os.environ.get("MLFLOW_HOME") is not None
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

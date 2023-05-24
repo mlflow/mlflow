@@ -2,8 +2,14 @@ import json
 import numpy as np
 import pandas as pd
 import pyspark
+import pytest
+from sklearn.ensemble import RandomForestRegressor
 
-from mlflow.models.signature import ModelSignature, infer_signature
+import mlflow
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model
+from mlflow.models.model import get_model_info
+from mlflow.models.signature import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -144,3 +150,51 @@ def test_signature_inference_infers_datime_types_as_expected():
     assert signature.inputs == Schema(
         [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
     )
+
+
+def test_set_signature_to_logged_model():
+    artifact_path = "regr-model"
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(sk_model=RandomForestRegressor(), artifact_path=artifact_path)
+    signature = infer_signature(np.array([1]))
+    run_id = run.info.run_id
+    model_uri = f"runs:/{run_id}/{artifact_path}"
+    set_signature(model_uri, signature)
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == signature
+
+
+def test_set_signature_to_saved_model(tmpdir):
+    model_path = str(tmpdir)
+    mlflow.sklearn.save_model(
+        RandomForestRegressor(),
+        model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+    )
+    signature = infer_signature(np.array([1]))
+    set_signature(model_path, signature)
+    assert Model.load(model_path).signature == signature
+
+
+def test_set_signature_overwrite():
+    artifact_path = "regr-model"
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(
+            sk_model=RandomForestRegressor(),
+            artifact_path=artifact_path,
+            signature=infer_signature(np.array([1])),
+        )
+    new_signature = infer_signature(np.array([1]), np.array([1]))
+    run_id = run.info.run_id
+    model_uri = f"runs:/{run_id}/{artifact_path}"
+    set_signature(model_uri, new_signature)
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == new_signature
+
+
+def test_cannot_set_signature_on_models_scheme_uris():
+    signature = infer_signature(np.array([1]))
+    with pytest.raises(
+        MlflowException, match="Model URIs with the `models:/` scheme are not supported."
+    ):
+        set_signature("models:/dummy_model@champion", signature)

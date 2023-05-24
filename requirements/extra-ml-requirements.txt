@@ -37,6 +37,8 @@ paddlepaddle
 #   Installation will default to setup.py in order to install correctly.
 #   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
 #   to compile the model binaries. See: https://gcc.gnu.org/install/
+# Avoid 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+holidays!=0.25
 prophet
 # Required by mlflow.shap
 # and shap evaluation functionality
@@ -49,9 +51,13 @@ diviner
 transformers
 sentencepiece
 setfit
+librosa
+ffmpeg
 # Required by mlflow.openai
 openai
 tiktoken
 tenacity
 # Required by mlflow.langchain
 langchain
+# Required by mlflow.sentence_transformers
+sentence-transformers

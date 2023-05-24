@@ -247,7 +247,7 @@ Virtualenv environment
         - wheel==0.37.1
       # Dependencies required to run the project.
       dependencies:
-        - mlflow
+        - mlflow==2.3
         - scikit-learn==1.0.2
 
 Conda environment

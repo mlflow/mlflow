@@ -102,7 +102,9 @@ def recursivels_model():
 
     # To the regressors in the dataset, we add a column of ones for an intercept
     exog = sm.add_constant(
-        dta[["COPPERPRICE", "INCOMEINDEX", "ALUMPRICE", "INVENTORYINDEX"]]  # pylint: disable=E1136
+        dta[
+            ["COPPERPRICE", "INCOMEINDEX", "ALUMPRICE", "INVENTORYINDEX"]
+        ]  # pylint: disable=unsubscriptable-object
     )
     rls = sm.RecursiveLS(endog, exog)
     model = rls.fit()

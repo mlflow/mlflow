@@ -3,6 +3,7 @@ Internal package providing a Python CRUD interface to MLflow experiments, runs, 
 and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
+import mlflow
 import contextlib
 import logging
 import json
@@ -41,8 +42,11 @@ from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS
+from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
+    import pandas  # pylint: disable=unused-import
     import matplotlib  # pylint: disable=unused-import
     import plotly  # pylint: disable=unused-import
     import numpy  # pylint: disable=unused-import
@@ -1385,6 +1389,102 @@ class MlflowClient:
 
             else:
                 raise TypeError("Unsupported image object type: '{}'".format(type(image)))
+
+    @experimental
+    def log_table(
+        self,
+        run_id: str,
+        data: Union[Dict[str, Any], "pandas.DataFrame"],
+        artifact_file: str,
+    ) -> None:
+        """
+        Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
+        in the run, the data would be appended to the existing artifact_file.
+
+        :param run_id: String ID of the run.
+        :param data: Dictionary or pandas.DataFrame to log.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                                the table is saved (e.g. "dir/file.json").
+        :return: None
+
+        .. test-code-block:: python
+            :caption: Dictionary Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            client.log_table(
+                run.info.run_id, data=table_dict, artifact_file="qabot_eval_results.json"
+            )
+
+        .. test-code-block:: python
+            :caption: Pandas DF Example
+
+            import mlflow
+            import pandas as pd
+            from mlflow import MlflowClient
+
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
+            df = pd.DataFrame.from_dict(table_dict)
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+
+        """
+        import pandas as pd
+
+        if not isinstance(data, (pd.DataFrame, dict)):
+            raise MlflowException.invalid_parameter_value(
+                "data must be a pandas.DataFrame or a dictionary"
+            )
+
+        data = pd.DataFrame(data)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            norm_path = posixpath.normpath(artifact_file)
+            artifact_dir = posixpath.dirname(norm_path)
+            artifact_dir = None if artifact_dir == "" else artifact_dir
+
+            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
+            if artifact_file in artifacts:
+                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                )
+                existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                data = pd.concat([existing_predictions, data], ignore_index=True)
+                _logger.info(
+                    "Appending new table to already existing artifact "
+                    f"{artifact_file} for run {run_id}."
+                )
+            else:
+                _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
+
+        with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
+            data.to_json(artifact_path, orient="split", index=False)
+
+        run = self.get_run(run_id)
+
+        # Get the current value of the tag
+        current_tag_value = json.loads(run.data.tags.get(MLFLOW_LOGGED_ARTIFACTS, "[]"))
+        tag_value = {"path": artifact_file, "type": "table"}
+
+        # Append the new tag value to the list if one doesn't exists
+        if tag_value not in current_tag_value:
+            current_tag_value.append(tag_value)
+            # Set the tag with the updated list
+            self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

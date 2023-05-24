@@ -47,16 +47,14 @@ def main():
         run_id = run.info.run_id
 
         # Get the expected mlflow version
-        mlflow_version = Version(mlflow.__version__)
-        mlflow_version_range = (
-            f"mlflow<{mlflow_version.major + 1},>={mlflow_version.major}.{mlflow_version.minor}"
-        )
+        mlflow_version_raw = Version(mlflow.__version__)
+        mlflow_version = f"mlflow=={mlflow_version_raw.major}.{mlflow_version_raw.minor}"
 
         # Default (both `pip_requirements` and `extra_pip_requirements` are unspecified)
         artifact_path = "default"
         mlflow.xgboost.log_model(model, artifact_path, signature=signature)
         pip_reqs = get_pip_requirements(run_id, artifact_path)
-        assert pip_reqs.issuperset([mlflow_version_range, xgb_req]), pip_reqs
+        assert pip_reqs.issuperset([mlflow_version, xgb_req]), pip_reqs
 
         # Overwrite the default set of pip requirements using `pip_requirements`
         artifact_path = "pip_requirements"
@@ -64,7 +62,7 @@ def main():
             model, artifact_path, pip_requirements=[sklearn_req], signature=signature
         )
         pip_reqs = get_pip_requirements(run_id, artifact_path)
-        assert pip_reqs == {mlflow_version_range, sklearn_req}, pip_reqs
+        assert pip_reqs == {mlflow_version, sklearn_req}, pip_reqs
 
         # Add extra pip requirements on top of the default set of pip requirements
         # using `extra_pip_requirements`
@@ -73,7 +71,7 @@ def main():
             model, artifact_path, extra_pip_requirements=[sklearn_req], signature=signature
         )
         pip_reqs = get_pip_requirements(run_id, artifact_path)
-        assert pip_reqs.issuperset([mlflow_version_range, xgb_req, sklearn_req]), pip_reqs
+        assert pip_reqs.issuperset([mlflow_version, xgb_req, sklearn_req]), pip_reqs
 
         # Specify pip requirements using a requirements file
         with tempfile.NamedTemporaryFile("w", suffix=".requirements.txt") as f:
@@ -86,7 +84,7 @@ def main():
                 model, artifact_path, pip_requirements=f.name, signature=signature
             )
             pip_reqs = get_pip_requirements(run_id, artifact_path)
-            assert pip_reqs == {mlflow_version_range, sklearn_req}, pip_reqs
+            assert pip_reqs == {mlflow_version, sklearn_req}, pip_reqs
 
             # List of pip requirement strings
             artifact_path = "requirements_file_list"
@@ -97,7 +95,7 @@ def main():
                 signature=signature,
             )
             pip_reqs = get_pip_requirements(run_id, artifact_path)
-            assert pip_reqs == {mlflow_version_range, xgb_req, sklearn_req}, pip_reqs
+            assert pip_reqs == {mlflow_version, xgb_req, sklearn_req}, pip_reqs
 
         # Using a constraints file
         with tempfile.NamedTemporaryFile("w", suffix=".constraints.txt") as f:
@@ -114,7 +112,7 @@ def main():
             pip_reqs, pip_cons = get_pip_requirements(
                 run_id, artifact_path, return_constraints=True
             )
-            assert pip_reqs == {mlflow_version_range, xgb_req, "-c constraints.txt"}, pip_reqs
+            assert pip_reqs == {mlflow_version, xgb_req, "-c constraints.txt"}, pip_reqs
             assert pip_cons == {sklearn_req}, pip_cons
 
 

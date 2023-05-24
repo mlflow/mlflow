@@ -245,8 +245,17 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.0.139",
-            "maximum": "0.0.143"
+            "minimum": "0.0.169",
+            "maximum": "0.0.169"
+        }
+    },
+    "sentence-transformers": {
+        "package_info": {
+            "pip_release": "sentence-transformers"
+        },
+        "models": {
+            "minimum": "2.2.2",
+            "maximum": "2.2.2"
         }
     }
 }

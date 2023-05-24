@@ -1,4 +1,4 @@
-from mlflow.environment_variables import _BooleanEnvironmentVariable
+from mlflow.environment_variables import _BooleanEnvironmentVariable, _EnvironmentVariable
 import pytest
 
 
@@ -39,3 +39,8 @@ def test_boolean_environment_variable_invalid_value(monkeypatch, value):
     monkeypatch.setenv("TEST_BOOLEAN_ENV_VAR", value)
     with pytest.raises(ValueError, match=r"must be one of \['true', 'false', '1', '0'\]"):
         _BooleanEnvironmentVariable("TEST_BOOLEAN_ENV_VAR", None).get()
+
+
+def test_empty_value(monkeypatch):
+    monkeypatch.setenv("TEST_ENV_VAR", "")
+    assert _EnvironmentVariable("TEST_ENV_VAR", str, None).get() == ""

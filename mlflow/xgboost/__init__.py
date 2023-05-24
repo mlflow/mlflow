@@ -22,6 +22,7 @@ import json
 import yaml
 import tempfile
 import logging
+import functools
 from copy import deepcopy
 
 import mlflow
@@ -385,7 +386,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     model_format="xgb",
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 
@@ -432,7 +433,6 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param model_format: File format in which the model is to be saved.
     """
-    import functools
     import xgboost
     import numpy as np
 
