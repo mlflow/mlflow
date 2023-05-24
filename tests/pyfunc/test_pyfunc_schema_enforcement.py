@@ -785,6 +785,7 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
     pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
 
+
 def test_schema_enforcement_for_optional_columns():
     input_schema = Schema(
         [
