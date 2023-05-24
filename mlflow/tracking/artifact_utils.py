@@ -7,6 +7,7 @@ import posixpath
 import shutil
 import tempfile
 import urllib.parse
+import uuid
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -128,7 +129,6 @@ def _upload_artifacts_to_databricks(
     :return: The DBFS location in the target Databricks workspace the model files have been
         uploaded to.
     """
-    from uuid import uuid4
 
     local_dir = tempfile.mkdtemp()
     try:
@@ -139,10 +139,10 @@ def _upload_artifacts_to_databricks(
             dest_root, target_databricks_profile_uri
         )
         dest_repo = DbfsRestArtifactRepository(dest_root_with_profile)
-        dest_artifact_path = run_id if run_id else uuid4().hex
+        dest_artifact_path = run_id if run_id else uuid.uuid4().hex
         # Allow uploading from the same run id multiple times by randomizing a suffix
         if len(dest_repo.list_artifacts(dest_artifact_path)) > 0:
-            dest_artifact_path = dest_artifact_path + "-" + uuid4().hex[0:4]
+            dest_artifact_path = dest_artifact_path + "-" + uuid.uuid4().hex[0:4]
         dest_repo.log_artifacts(local_dir, artifact_path=dest_artifact_path)
         dirname = pathlib.PurePath(source).name  # innermost directory name
         return posixpath.join(dest_root, dest_artifact_path, dirname)  # new source

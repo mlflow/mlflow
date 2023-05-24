@@ -4,6 +4,7 @@ import mlflow
 import hashlib
 import json
 import os
+import signal
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from contextlib import contextmanager
@@ -1306,7 +1307,6 @@ def evaluate(
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     '''
-    import signal
     from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager
 

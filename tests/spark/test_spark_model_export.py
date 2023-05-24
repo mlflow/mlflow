@@ -1,5 +1,6 @@
 import logging
 import os
+import inspect
 
 import json
 from pathlib import Path
@@ -736,8 +737,6 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
 
     def mock_get_dbutils():
-        import inspect
-
         # _get_dbutils is called during run creation and model logging; to avoid breaking run
         # creation, we only mock the output if _get_dbutils is called during spark model logging
         caller_fn_name = inspect.stack()[1].function
@@ -802,8 +801,6 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
 
     def mock_get_dbutils():
-        import inspect
-
         # _get_dbutils is called during run creation and model logging; to avoid breaking run
         # creation, we only mock the output if _get_dbutils is called during spark model logging
         caller_fn_name = inspect.stack()[1].function

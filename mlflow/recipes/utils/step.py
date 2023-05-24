@@ -1,5 +1,7 @@
 import logging
 import os
+import shutil
+import subprocess
 import numpy as np
 import pandas as pd
 from mlflow.recipes.cards import pandas_renderer
@@ -87,9 +89,6 @@ def display_html(html_data: str = None, html_file_path: str = None) -> None:
         else:
             ip_display(HTML(data=html_data, filename=html_file_path))
     else:
-        import shutil
-        import subprocess
-
         # Use xdg-open in Linux environment
         if shutil.which("xdg-open") is not None:
             open_tool = shutil.which("xdg-open")

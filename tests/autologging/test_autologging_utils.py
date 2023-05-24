@@ -2,6 +2,7 @@
 
 import inspect
 import time
+import sys
 import pytest
 from collections import namedtuple
 from unittest.mock import Mock, call
@@ -158,8 +159,6 @@ def sample_function_to_patch(a, b):
 
 
 def test_wrap_patch_with_module():
-    import sys
-
     this_module = sys.modules[__name__]
 
     def new_sample_function(a, b):

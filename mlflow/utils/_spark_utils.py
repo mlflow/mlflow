@@ -1,6 +1,7 @@
 import tempfile
 import shutil
 import os
+import zipfile
 
 
 def _get_active_spark_session():
@@ -130,7 +131,6 @@ class _SparkDirectoryDistributor:
         If this Python process ever loaded the model before, we will reuse that copy.
         """
         from pyspark.files import SparkFiles
-        import zipfile
 
         if archive_path in _SparkDirectoryDistributor._extracted_dir_paths:
             return _SparkDirectoryDistributor._extracted_dir_paths[archive_path]
