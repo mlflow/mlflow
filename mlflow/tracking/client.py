@@ -42,7 +42,10 @@ from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_LOGGED_ARTIFACTS,
+    MLFLOW_PARENT_RUN_ID,
+)
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -160,6 +163,44 @@ class MlflowClient:
             status: FINISHED
         """
         return self._tracking_client.get_run(run_id)
+
+    def get_parent_run(self, run_id: str) -> Optional[Run]:
+        """
+        Gets the parent run for the given run id if one exists.
+
+        :param run_id: Unique identifier for the child run.
+
+        :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists.
+                    Otherwise, returns None.
+
+        .. test-code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            # Create nested runs
+            with mlflow.start_run():
+                with mlflow.start_run(nested=True) as child_run:
+                    child_run_id = child_run.info.run_id
+
+            client = MlflowClient()
+            parent_run = client.get_parent_run(child_run_id)
+
+            print("child_run_id: {}".format(child_run_id))
+            print("parent_run_id: {}".format(parent_run.info.run_id))
+
+        .. code-block:: text
+            :caption: Output
+
+            child_run_id: 7d175204675e40328e46d9a6a5a7ee6a
+            parent_run_id: 8979459433a24a52ab3be87a229a9cdf
+        """
+        child_run = self._tracking_client.get_run(run_id)
+        parent_run_id = child_run.data.tags.get(MLFLOW_PARENT_RUN_ID)
+        if parent_run_id is None:
+            return None
+        return self._tracking_client.get_run(parent_run_id)
 
     def get_metric_history(self, run_id: str, key: str) -> List[Metric]:
         """
