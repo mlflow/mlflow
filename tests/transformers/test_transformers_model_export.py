@@ -3083,3 +3083,20 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
     assert response_data["message"].startswith("Failed to process the input audio data. Either")
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_with_malformed_audio(whisper_pipeline):
+    artifact_path = "whisper"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    invalid_audio = b"This isn't a real audio file"
+
+    with pytest.raises(MlflowException, match="Failed to process the input audio data. Either"):
+        pyfunc_model.predict([invalid_audio])
