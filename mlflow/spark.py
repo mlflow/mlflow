@@ -1006,8 +1006,6 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     )
     from pyspark.sql import SparkSession
 
-    global _atexit_hook_registered
-
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
 
