@@ -465,9 +465,10 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
-    During artifact deletion, any error interrupts the gc process, except for an InvalidUrl error, 
-    which bypasses artifact deletion. 
-    An InvalidUrl error generally indicates that the artifact does not exist at the expected location.
+    During artifact deletion, any error interrupts the gc process, except for an InvalidUrl error,
+    which bypasses artifact deletion.
+    An InvalidUrl error generally indicates that
+    the artifact does not exist at the expected location.
     """
     import warnings
     from mlflow.utils.time_utils import get_current_time_millis
@@ -592,7 +593,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
         except InvalidUrlException as iue:
             click.echo(
                 click.style(
-                    f"An exception {repr(iue)} was raised during the deletion of a model artifact", fg="yellow"
+                    f"An exception {repr(iue)} was raised during the deletion of a model artifact",
+                    fg="yellow",
                 )
             )
             click.echo(
