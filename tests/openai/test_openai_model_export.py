@@ -1,5 +1,6 @@
 import yaml
 import json
+import importlib
 from unittest import mock
 
 from pyspark.sql import SparkSession
@@ -30,6 +31,7 @@ def set_envs(monkeypatch):
             "OPENAI_API_KEY": "test",
         }
     )
+    importlib.reload(openai)
 
 
 def test_log_model():
