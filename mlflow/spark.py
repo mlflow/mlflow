@@ -934,9 +934,6 @@ class _PyFuncModelWrapper:
         ]
 
 
-_atexit_hook_registered = False
-
-
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """
