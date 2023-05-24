@@ -2419,25 +2419,25 @@ data type inputs and outputs.
 Supported transformers Pipeline types for Pyfunc
 """"""""""""""""""""""""""""""""""""""""""""""""
 
-================================= ============================== =================
+================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
-================================= ============================== =================
+================================= ============================== ==========================================================================
 Instructional Text Generation     str or List[str]               str or List[str]
 Conversational                    str or List[str]               str or List[str]
 Summarization                     str or List[str]               str or List[str]
-Text Classification               str or List[str]               pd.DataFrame
+Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
 Text Generation                   str or List[str]               str or List[str]
 Text2Text Generation              str or List[str]               str or List[str]
 Token Classification              str or List[str]               str or List[str]
 Translation                       str or List[str]               str or List[str]
-ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame
+ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
 Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes***** or np.ndarray       str
-AudioClassification               bytes***** or np.ndarray       pd.DataFrame
-================================= ============================== =================
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray str
+AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
+================================= ============================== ==========================================================================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
 Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
@@ -2450,7 +2450,7 @@ expected input to the model to ensure your inference request can be read properl
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
 
-\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
+\***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""

@@ -1283,7 +1283,7 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                     [
                         ColSpec("string", name="sequence"),
                         ColSpec("string", name="labels"),
-                        ColSpec("double", name="score"),
+                        ColSpec("double", name="scores"),
                     ]
                 ),
             )
@@ -1660,9 +1660,7 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
-            return self._parse_zero_shot_text_classifier_output_to_df(raw_output)
-            # interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
-            # output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
+            return self._flatten_zero_shot_text_classifier_output_to_df(raw_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
@@ -1807,7 +1805,7 @@ class _TransformersWrapper:
         else:
             return data
 
-    def _parse_zero_shot_text_classifier_output_to_df(self, data):
+    def _flatten_zero_shot_text_classifier_output_to_df(self, data):
         """
         Converts the output of sequences, labels, and scores to a Pandas DataFrame output.
 
@@ -1824,17 +1822,13 @@ class _TransformersWrapper:
 
         pd.DataFrame in a fully normalized (flattened) format with each sequence, label, and score
         having a row entry.
-        For example, here is the DataFrame cast to a dictionary after conversion:
+        For example, here is the DataFrame output:
 
-        {'sequence': {0: 'My dog loves to eat spaghetti',
-          1: 'My dog loves to eat spaghetti',
-          2: 'My dog hates going to the vet',
-          3: 'My dog hates going to the vet'},
-         'label': {0: 'happy', 1: 'sad', 2: 'sad', 3: 'happy'},
-         'score': {0: 0.9896970987319946,
-          1: 0.010302911512553692,
-          2: 0.957074761390686,
-          3: 0.042925238609313965}}
+                                sequence labels    scores
+        0  My dog loves to eat spaghetti  happy  0.989697
+        1  My dog loves to eat spaghetti    sad  0.010303
+        2  My dog hates going to the vet    sad  0.957075
+        3  My dog hates going to the vet  happy  0.042925
         """
         if isinstance(data, list) and not all(isinstance(item, dict) for item in data):
             raise MlflowException(
@@ -1849,7 +1843,7 @@ class _TransformersWrapper:
         for entry in data:
             for label, score in zip(entry["labels"], entry["scores"]):
                 flattened_data.append(
-                    {"sequence": entry["sequence"], "labels": label, "score": score}
+                    {"sequence": entry["sequence"], "labels": label, "scores": score}
                 )
         return pd.DataFrame(flattened_data)
 

@@ -2528,7 +2528,7 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 '"candidate_labels", "type": "string"}, {"name": '
                 '"hypothesis_template", "type": "string"}]',
                 "outputs": '[{"name": "sequence", "type": "string"}, {"name": "labels", '
-                '"type": "string"}, {"name": "score", "type": "double"}]',
+                '"type": "string"}, {"name": "scores", "type": "double"}]',
             },
         ),
         (
