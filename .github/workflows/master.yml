@@ -67,7 +67,7 @@ jobs:
       - name: Run pre-commit (only changed files)
         id: run-pre-commit
         run: |
-          # pylint is ridiculously slow. It takes ~15 minutes to run it on all files.
+          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
           # To fail fast for faster iteration, first run pylint only on changed files,
           # then run it on all files in the next step.
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
