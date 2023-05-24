@@ -279,6 +279,7 @@ spacy:
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
+      "<3.4.0": ["typing_extensions<4.6.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
