@@ -25,6 +25,7 @@ from mlflow.tracking import _get_store
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
+from mlflow.utils.os import is_windows
 from mlflow.utils.server_cli_utils import (
     resolve_default_artifact_root,
     artifacts_only_config_validation,
@@ -366,7 +367,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
     help=(
         "If enabled, run the server with debug logging and auto-reload. "
         "Should only be used for development purposes. "
-        "Cannot be used with '--gunicorn-opts'."
+        "Cannot be used with '--gunicorn-opts'. "
+        "Unsupported on Windows."
     ),
 )
 def server(
@@ -396,6 +398,9 @@ def server(
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
+
+    if dev and is_windows():
+        raise click.UsageError("'--dev' is not supported on Windows.")
 
     if dev and gunicorn_opts:
         raise click.UsageError("'--dev' and '--gunicorn-opts' cannot be specified together.")
