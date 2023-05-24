@@ -18,6 +18,7 @@ Spark MLlib (native) format
     ``mlflow/java`` package. This flavor is produced only if you specify
     MLeap-compatible arguments.
 """
+import atexit
 import os
 import logging
 import posixpath
@@ -933,7 +934,7 @@ class _PyFuncModelWrapper:
         ]
 
 
-_atexit_hook_installed = False
+_atexit_hook_registered = False
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -1007,9 +1008,8 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         _stop_listen_for_spark_activity,
     )
     from pyspark.sql import SparkSession
-    import atexit
 
-    global _atexit_hook_installed
+    global _atexit_hook_registered
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
@@ -1034,9 +1034,14 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         else:
             _listen_for_spark_activity(sc)
 
-    if not _atexit_hook_installed:
+    if not _atexit_hook_registered:
         # Register an "atexit" hook to disable spark autologging,
         # so that before python process exits, we can shut down
         # spark callback server properly.
-        atexit.register(mlflow.spark.autolog, disable=True)
-        _atexit_hook_installed = True
+        def shut_down_spark_callback_server():
+            active_session = _get_active_spark_session()
+            if active_session is not None:
+                _stop_listen_for_spark_activity(active_session.sparkContext)
+
+        atexit.register(shut_down_spark_callback_server)
+        _atexit_hook_registered = True
