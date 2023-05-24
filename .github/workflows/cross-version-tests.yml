@@ -177,6 +177,10 @@ jobs:
           else
             PIP_SPEC=""
           fi
+          if [ ${{ matrix.package }} = "spacy" ] && [ ${{ matrix.version }} -lt "3.4.0" ]
+          then
+            pip install typing_extensions != 4.6.0
+          fi
           pip install -U "pip$PIP_SPEC" wheel
           pip install -e .[extras]
           pip install -r requirements/test-requirements.txt

@@ -61,7 +61,3 @@ tenacity
 langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
-# 4.6.0 breaks spacy and langchain imports
-# Relevant PR: https://github.com/python/typing_extensions/pull/132
-# Ping the version until spacy and langchain make updates
-typing_extensions==4.5.0
