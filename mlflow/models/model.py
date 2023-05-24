@@ -564,7 +564,7 @@ class Model:
             tracking_uri = _resolve_tracking_uri()
             if (
                 tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ) and kwargs["signature"] is None:
+            ) and kwargs.get("signature") is None:
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
