@@ -217,6 +217,7 @@ import sys
 import tempfile
 import threading
 import inspect
+import functools
 from copy import deepcopy
 from typing import Any, Union, Iterator, Tuple
 
@@ -933,7 +934,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
-    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf

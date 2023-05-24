@@ -400,6 +400,9 @@ prophet:
   models:
     minimum: "1.0.1"
     maximum: "1.1.2"
+    requirements:
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0.0": ["holidays!=0.25"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -417,7 +420,8 @@ pmdarima:
     minimum: "1.8.0"
     maximum: "2.0.3"
     requirements:
-      ">= 0.0.0": ["prophet"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0.0": ["prophet", "holidays!=0.25"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -432,7 +436,8 @@ diviner:
     maximum: "0.1.1"
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
-      ">= 0.0": ["cmdstanpy!=1.0.2"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
@@ -480,8 +485,16 @@ transformers:
     minimum: "4.25.1"
     maximum: "4.28.1"
     requirements:
-      ">= 0.0.0":
-        ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
+      ">= 0.0.0": [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate", # required for large torch models where weights will not fit in RAM
+          "librosa", # required for transformers audio pipelines for bitrate conversion
+          "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
+        ]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
   autologging:
@@ -513,8 +526,6 @@ openai:
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
       pytest tests/openai/test_openai_model_export.py
 
 langchain:
@@ -528,7 +539,17 @@ langchain:
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
-      export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py
+
+sentence_transformers:
+  package_info:
+    pip_release: "sentence-transformers"
+    install_dev: |
+      pip install -e git+https://github.com/UKPLab/sentence-transformers
+    models:
+      minimum: "2.2.2"
+      maximum: "2.2.2"
+      requirements:
+        ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
+      run: |
+        pytest tests/sentence_transformers/test_sentence_transformers_model_export.py

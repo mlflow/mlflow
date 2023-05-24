@@ -1,5 +1,7 @@
+import base64
 import gc
 import json
+import librosa
 import numpy as np
 import os
 import pandas as pd
@@ -53,6 +55,7 @@ from tests.helper_functions import (
     _compare_logged_code_paths,
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
+    _get_deps_from_requirement_file,
 )
 
 pytestmark = pytest.mark.large
@@ -314,6 +317,30 @@ def conversational_pipeline():
 def image_for_test():
     dataset = load_dataset("huggingface/cats-image")
     return dataset["test"]["image"][0]
+
+
+@pytest.fixture()
+def sound_file_for_test():
+    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
+    audio, _ = librosa.load(datasets_path.joinpath("apollo11_launch.wav"), sr=16000)
+    return audio
+
+
+@pytest.fixture()
+def raw_audio_file():
+    datasets_path = pathlib.Path(__file__).resolve().parent.parent.joinpath("datasets")
+
+    return datasets_path.joinpath("apollo11_launch.wav").read_bytes()
+
+
+@pytest.fixture()
+def whisper_pipeline():
+    return transformers.pipeline(model="openai/whisper-small")
+
+
+@pytest.fixture()
+def audio_classification_pipeline():
+    return transformers.pipeline("audio-classification", model="superb/wav2vec2-base-superb-ks")
 
 
 @pytest.fixture()
@@ -978,16 +1005,31 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
-def test_transformers_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
     mlflow.transformers.save_model(small_seq2seq_pipeline, model_path)
     _assert_pip_requirements(
         model_path, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
 
 
-def test_transformers_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline, model_path
+):
+    mlflow.transformers.save_model(small_qa_pipeline, model_path)
+    _assert_pip_requirements(
+        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_path)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
+
+
+def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline,
 ):
     artifact_path = "model"
@@ -997,6 +1039,24 @@ def test_transformers_model_log_without_conda_env_uses_default_env_with_expected
     _assert_pip_requirements(
         model_uri, mlflow.transformers.get_default_pip_requirements(small_seq2seq_pipeline.model)
     )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" in pip_requirements
+    assert "torch" not in pip_requirements
+
+
+def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
+    small_qa_pipeline,
+):
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.transformers.log_model(small_qa_pipeline, artifact_path)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+    _assert_pip_requirements(
+        model_uri, mlflow.transformers.get_default_pip_requirements(small_qa_pipeline.model)
+    )
+    pip_requirements = _get_deps_from_requirement_file(model_uri)
+    assert "tensorflow" not in pip_requirements
+    assert "torch" in pip_requirements
 
 
 def test_log_model_with_code_paths(small_qa_pipeline):
@@ -2665,7 +2725,6 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
-@pytest.mark.skipcacheclean
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
@@ -2693,3 +2752,259 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
 
     assert prediction == "Bonjour, comment êtes-vous aujourd'hui?"
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_for_test):
+    # NB: This test validates pre-processing via converting the sounds file into the
+    # appropriate bitrate encoding rate and casting to a numpy array. Other tests validate
+    # the 'raw' file input of bytes.
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+
+    signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, sound_file_for_test),
+    )
+
+    mlflow.transformers.save_model(
+        transformers_model=whisper_pipeline,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+
+    transcription = loaded_pipeline(sound_file_for_test, **inference_config)
+    assert transcription["text"].startswith(" 30 seconds and counting. Astronauts")
+
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+
+    pyfunc_transcription = json.loads(loaded_pyfunc.predict(sound_file_for_test))
+
+    assert transcription["text"] == pyfunc_transcription["text"]
+    # Due to the choice of using tuples within the return type, equivalency validation for the
+    # "chunks" values is not explicitly equivalent since tuples are cast to lists when json
+    # serialized.
+    assert transcription["chunks"][0]["text"] == pyfunc_transcription["chunks"][0]["text"]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_signature_inference(whisper_pipeline, sound_file_for_test):
+    signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, sound_file_for_test),
+    )
+
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+    complex_signature = infer_signature(
+        sound_file_for_test,
+        mlflow.transformers.generate_signature_output(
+            whisper_pipeline, sound_file_for_test, inference_config
+        ),
+    )
+
+    assert signature == complex_signature
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path
+        )
+
+    # Test inputs format
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path, signature=signature
+        )
+
+    # Test inputs format
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+    # Test split format
+    inference_df = pd.DataFrame(
+        pd.Series([base64.b64encode(raw_audio_file).decode("ascii")], name="audio_file")
+    )
+    split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+    split_json = json.dumps(split_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=split_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+    # Test records format
+    records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
+    records_json = json.dumps(records_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=records_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+
+    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_audio_file):
+    artifact_path = "whisper_timestamps"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+    )
+    inference_config = {
+        "return_timestamps": "word",
+        "chunk_length_s": 20,
+        "stride_length_s": [5, 3],
+    }
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            inference_config=inference_config,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = json.loads(values.loc[0, 0])
+
+    assert (
+        payload_output["text"]
+        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
+            "text"
+        ]
+    )
+
+
+def test_audio_classification_pipeline(audio_classification_pipeline, raw_audio_file):
+    artifact_path = "audio_classification"
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(
+            audio_classification_pipeline, raw_audio_file
+        ),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=audio_classification_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+            input_example=raw_audio_file,
+        )
+
+    inference_payload = json.dumps({"inputs": [base64.b64encode(raw_audio_file).decode("ascii")]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert isinstance(values, pd.DataFrame)
+    assert len(values) > 1
+    assert list(values.columns) == ["score", "label"]
+
+
+def test_audio_classification_with_default_schema(audio_classification_pipeline, raw_audio_file):
+    artifact_path = "audio_classification"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=audio_classification_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    inference_df = pd.DataFrame(
+        pd.Series([base64.b64encode(raw_audio_file).decode("ascii")], name="audio")
+    )
+    split_dict = {"dataframe_split": inference_df.to_dict(orient="split")}
+    split_json = json.dumps(split_dict)
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=split_json,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    assert isinstance(values, pd.DataFrame)
+    assert len(values) > 1
+    assert list(values.columns) == ["score", "label"]

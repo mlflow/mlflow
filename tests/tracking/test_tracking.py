@@ -1,3 +1,4 @@
+import ast
 import pathlib
 from collections import namedtuple
 import filecmp
@@ -847,3 +848,124 @@ def test_search_runs_multiple_experiments():
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_1 > 0", ViewType.ALL)) == 1
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_2 = 2", ViewType.ALL)) == 1
     assert len(MlflowClient().search_runs(experiment_ids, "metrics.m_3 < 4", ViewType.ALL)) == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_table():
+    import pandas as pd
+
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "toxicity": [0.0, 0.0],
+    }
+    artifact_file = "qabot_eval_results.json"
+    TAG_NAME = "mlflow.loggedArtifacts"
+    run_id = None
+
+    with pytest.raises(
+        MlflowException, match="data must be a pandas.DataFrame or a dictionary"
+    ) as e:
+        with mlflow.start_run() as run:
+            # Log the incorrect data format as a table
+            mlflow.log_table(data="incorrect-data-format", artifact_file=artifact_file)
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id = run.info.run_id
+
+    run = mlflow.get_run(run_id)
+    artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
+    table_data = pd.read_json(artifact_path, orient="split")
+    assert table_data.shape[0] == 2
+    assert table_data.shape[1] == 3
+
+    # Get the current value of the tag
+    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    assert {"path": artifact_file, "type": "table"} in current_tag_value
+    assert len(current_tag_value) == 1
+
+    table_df = pd.DataFrame.from_dict(table_dict)
+    with mlflow.start_run(run_id=run_id):
+        # Log the dataframe as a table
+        mlflow.log_table(data=table_df, artifact_file=artifact_file)
+
+    run = mlflow.get_run(run_id)
+    artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
+    table_data = pd.read_json(artifact_path, orient="split")
+    assert table_data.shape[0] == 4
+    assert table_data.shape[1] == 3
+    # Get the current value of the tag
+    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    assert {"path": artifact_file, "type": "table"} in current_tag_value
+    assert len(current_tag_value) == 1
+
+    artifact_file_new = "qabot_eval_results_new.json"
+    with mlflow.start_run(run_id=run_id):
+        # Log the dataframe as a table to new artifact file
+        mlflow.log_table(data=table_df, artifact_file=artifact_file_new)
+
+    run = mlflow.get_run(run_id)
+    artifact_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path=artifact_file_new
+    )
+    table_data = pd.read_json(artifact_path, orient="split")
+    assert table_data.shape[0] == 2
+    assert table_data.shape[1] == 3
+    # Get the current value of the tag
+    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    assert {"path": artifact_file_new, "type": "table"} in current_tag_value
+    assert len(current_tag_value) == 2
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_table_with_subdirectory():
+    import pandas as pd
+
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "toxicity": [0.0, 0.0],
+    }
+    artifact_file = "dir/foo.json"
+    TAG_NAME = "mlflow.loggedArtifacts"
+    run_id = None
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id = run.info.run_id
+
+    run = mlflow.get_run(run_id)
+    artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
+    table_data = pd.read_json(artifact_path, orient="split")
+    assert table_data.shape[0] == 2
+    assert table_data.shape[1] == 3
+
+    # Get the current value of the tag
+    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    assert {"path": artifact_file, "type": "table"} in current_tag_value
+    assert len(current_tag_value) == 1
+
+    table_df = pd.DataFrame.from_dict(table_dict)
+    with mlflow.start_run(run_id=run_id):
+        # Log the dataframe as a table
+        mlflow.log_table(data=table_df, artifact_file=artifact_file)
+
+    run = mlflow.get_run(run_id)
+    artifact_path = mlflow.artifacts.download_artifacts(run_id=run_id, artifact_path=artifact_file)
+    table_data = pd.read_json(artifact_path, orient="split")
+    assert table_data.shape[0] == 4
+    assert table_data.shape[1] == 3
+    # Get the current value of the tag
+    current_tag_value = ast.literal_eval(run.data.tags.get(TAG_NAME, "[]"))
+    assert {"path": artifact_file, "type": "table"} in current_tag_value
+    assert len(current_tag_value) == 1

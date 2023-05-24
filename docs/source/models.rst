@@ -205,25 +205,41 @@ downstream tooling:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
-be either column-based or tensor-based. Column-based inputs and outputs can be described as a
-sequence of (optionally) named columns with type specified as one of the
-:py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
-described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+Model signatures define input and output schemas for MLflow models, providing a standard 
+interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
+UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+:ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
+the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
+for more details).
 
 To include a signature with your model, pass a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
-JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
+(see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
+The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
+model artifacts, together with other model metadata. To set a signature on a logged or
+saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
+(see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
-Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
-<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
-which deploys a model as a REST API, validates inputs based on the model's signature.
+.. note::
+    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
+    Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
+    a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
+    :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
+    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
+    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
+Model Signature Types
+~~~~~~~~~~~~~~~~~~~~~
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`.
+Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
 
 Column-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
@@ -241,7 +257,7 @@ The output is an unnamed integer specifying the predicted class.
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
@@ -259,6 +275,8 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
   signature:
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+
+.. _signature-enforcement:
 
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
@@ -278,7 +296,7 @@ and the inputs are reordered to match the signature. If the input schema does no
 names, matching is done by position (i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
-"""""""""""""""""""""""
+""""""""""""""""""""""
 The input types are checked against the signature.
 
 For models with column-based signatures (i.e DataFrame inputs), MLflow will perform safe type conversions
@@ -426,6 +444,110 @@ The same signature can be created explicitly as follows:
     )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+.. _how-to-set-signatures-on-models:
+
+How To Set Signatures on Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Models can be saved with without model signatures or with incorrect ones. To set a model signature on model artifacts,
+use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are
+some examples.
+
+Set Signature on Logged Model
+"""""""""""""""""""""""""""""
+The following example demonstrates how to set a model signature on a logged sklearn model.
+Suppose you've logged a sklearn model without a signature like below:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    with mlflow.start_run() as run:
+        clf.fit(X, y)
+        mlflow.sklearn.log_model(clf, "iris_rf")
+
+You can set a signature on the logged model as follows:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    import mlflow
+    from mlflow.models.model import get_model_info
+    from mlflow.models.signature import infer_signature, set_signature
+
+    # load the logged model
+    model_uri = f"runs:/{run.info.run_id}/iris_rf"
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    # construct the model signature from test dataset
+    X_test, _ = datasets.load_iris(return_X_y=True, as_frame=True)
+    signature = infer_signature(X_test, model.predict(X_test))
+
+    # set the signature for the logged model
+    set_signature(model_uri, signature)
+
+    # now when you load the model again, it will have the desired signature
+    assert get_model_info(model_uri).signature == signature
+
+Note that model signatures can also be set on model artifacts saved outside of MLflow Tracking. As
+an example, you can easily set a signature on a locally saved iris model by altering the model_uri
+variable in the previous code snippet to point to the model's local directory.
+
+.. _set-signature-on-mv:
+
+Set Signature on Model Version
+""""""""""""""""""""""""""""""
+
+As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
+a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
+the signature on the source model artifacts and generate a new model version using the updated 
+model artifacts. The following example illustrates how this can be done.
+
+Supposed you have created the following model version without a signature like below:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.client import MlflowClient
+
+    model_name = "add_signature_model"
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(RandomForestClassifier(), "sklearn-model")
+
+    model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+    mlflow.register_model(model_uri=model_uri, name=model_name)
+
+To set a signature on the model version, create a duplicate model version with the new signature
+as follows:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    client = mlflow.client.MlflowClient()
+    model_name = "add_signature_model"
+    model_version = 1
+    mv = client.get_model_version(name=model_name, version=model_version)
+
+    # set a dummy signature on the model vesion source
+    signature = infer_signature(np.array([1]))
+    set_signature(mv.source, signature)
+
+    # create a new model version with the updated source
+    client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
+
+Note that this process overwrites the model artifacts from the source run of model version 1
+with a new model signature.
 
 .. _input-example:
 
@@ -2041,6 +2163,8 @@ Index ds          yhat        yhat_upper  yhat_lower
 
 For more information, see :py:mod:`mlflow.prophet`.
 
+.. _pmdarima-flavor:
+
 Pmdarima (``pmdarima``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
@@ -2435,6 +2559,8 @@ Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
 Feature Extraction                str or List[str]               np.ndarray
+AutomaticSpeechRecognition        bytes***** or np.ndarray       str
+AudioClassification               bytes***** or np.ndarray       pd.DataFrame
 ================================= ============================== =================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
@@ -2447,6 +2573,8 @@ expected input to the model to ensure your inference request can be read properl
 
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
+
+\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2727,6 +2855,33 @@ Result:
 
 .. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
     The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
+
+Input data types for audio pipelines
+""""""""""""""""""""""""""""""""""""
+Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
+In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
+Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
+Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
+
+The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
+
+* `bytes`
+
+This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
+modification. When used through serving, the `bytes` data *must be* base64 encoded.
+
+* `np.ndarray`
+
+This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
+`librosa` or `pydub`) and that the model has been saved with a signature that uses the `np.ndarray` format for the input.
+
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in `np.ndarray` format
+    must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
+    audio transformers pipelines being set as expecting `binary` (`bytes`) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    or the other as an allowed input type.
+
 
 .. _model-evaluation:
 
@@ -3114,8 +3269,8 @@ contents of the model directory and the flavor's attributes. A detailed example 
 custom model flavor and its usage is shown below. New custom flavors not considered for official
 inclusion into MLflow should be introduced as separate GitHub repositories with documentation
 provided in the
-`Community Model Flavors <https://mlflow.org/docs/latest/models.html#community-model-flavors>`_
-section.
+`Community Model Flavors <community-model-flavors.html>`_
+page.
 
 Example: Creating a custom "sktime" flavor
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -3864,7 +4019,7 @@ Similarly, to build a Docker image built with MLServer you can use the
 
 .. code-block:: bash
 
-    mlflow models build -m my_model --enable-mlserver -n my-model
+    mlflow models build-docker -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation
@@ -4387,170 +4542,9 @@ For more info, see:
     mlflow deployments run-local --help
     mlflow deployments help --help
 
-
 Community Model Flavors
 -----------------------
 
-Other useful MLflow flavors are developed and maintained by the
-MLflow community, enabling you to use MLflow Models with an
-even broader ecosystem of machine learning libraries. For more information,
-check out the description of each community-developed flavor below.
-
-.. contents::
-  :local:
-  :depth: 1
-
-
-MLflow VizMod
-^^^^^^^^^^^^^
-
-The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
-to be more productive with their visualizations. We treat visualizations as models - just like ML
-models - thus being able to use the same infrastructure as MLflow to track, create projects,
-register, and deploy visualizations.
-
-Installation:
-
-.. code-block:: bash
-
-    pip install mlflow-vizmod
-
-Example:
-
-.. code-block:: python
-
-    from sklearn.datasets import load_iris
-    import altair as alt
-    import mlflow_vismod
-
-    df_iris = load_iris(as_frame=True)
-
-    viz_iris = (
-        alt.Chart(df_iris)
-        .mark_circle(size=60)
-        .encode(x="x", y="y", color="z:N")
-        .properties(height=375, width=575)
-        .interactive()
-    )
-
-    mlflow_vismod.log_model(
-        model=viz_iris,
-        artifact_path="viz",
-        style="vegalite",
-        input_example=df_iris.head(5),
-    )
-
-BigML (``bigmlflow``)
-^^^^^^^^^^^^^^^^^^^^^
-
-The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
-the ``bigml`` model flavor. It enables using
-`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
-
-Installing bigmlflow
-~~~~~~~~~~~~~~~~~~~~
-
-BigMLFlow can be installed from PyPI as follows:
-
-
-.. code-block:: bash
-
-    pip install bigmlflow
-
-BigMLFlow usage
-~~~~~~~~~~~~~~~
-
-The ``bigmlflow`` module defines the flavor that implements the
-``save_model()`` and ``log_model()`` methods. They can be used
-to save BigML models and their related information in MLflow Model format.
-
-.. code-block:: python
-
-    import json
-    import mlflow
-    import bigmlflow
-
-    MODEL_FILE = "logistic_regression.json"
-    with mlflow.start_run():
-        with open(MODEL_FILE) as handler:
-            model = json.load(handler)
-            bigmlflow.log_model(
-                model, artifact_path="model", registered_model_name="my_model"
-            )
-
-These methods also add the ``python_function`` flavor to the MLflow Models
-that they produce, allowing the models to be interpreted as generic Python
-functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame inputs.
-
-.. code-block:: python
-
-    # saving the model
-    save_model(model, path=model_path)
-    # retrieving model
-    pyfunc_model = pyfunc.load_model(model_path)
-    pyfunc_predictions = pyfunc_model.predict(dataframe)
-
-You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
-with the ``bigmlflow`` model flavor as a BigML
-`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
-
-For more information, see the
-`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
-and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
-
-Sktime
-^^^^^^
-
-The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
-format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
-model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
-model flavor in native sktime formats.
-
-Installing Sktime
-~~~~~~~~~~~~~~~~~
-
-Install sktime with mlflow dependency:
-
-.. code-block:: bash
-
-    pip install sktime[mlflow]
-
-Usage example
-~~~~~~~~~~~~~
-
-Refer to the `sktime mlflow documentation <https://www.sktime.net/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
-
-.. code-block:: python
-
-    import pandas as pd
-
-    from sktime.datasets import load_airline
-    from sktime.forecasting.arima import AutoARIMA
-    from sktime.utils import mlflow_sktime
-
-    airline = load_airline()
-    model_path = "model"
-
-
-    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
-        airline, fh=[1, 2, 3]
-    )
-
-    mlflow_sktime.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-
-    loaded_model = mlflow_sktime.load_model(
-        model_uri=model_path,
-    )
-    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
-        model_uri=model_path,
-    )
-
-    print(loaded_model.predict())
-    print(loaded_pyfunc.predict(pd.DataFrame()))
+Go to the `Community Model Flavors <community-model-flavors.html>`_
+page to get an overview of other useful MLflow flavors, which are developed and
+maintained by the MLflow community.

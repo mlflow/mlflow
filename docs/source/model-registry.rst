@@ -33,6 +33,9 @@ Model Stage
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
+Model Alias
+    You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``Champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@Champion``.
+
 Model Registry Workflows
 ========================
 If running your own MLflow server, you must use a database-backed backend store in order to access
@@ -622,6 +625,63 @@ save, log, register, and load from the Model Registry and score.
     <Yay!! Another good phone interview. I nailed it!!> -- {'neg': 0.0, 'neu': 0.446, 'pos': 0.554, 'compound': 0.816}
     <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 
+Using Registered Model Aliases
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Model aliases in the MLflow Model Registry allow you to assign a mutable, named reference to a particular version within a
+registered model. You can use aliases to specify which model versions are deployed in a given environment in your model
+training workflows (e.g. specify the current ``Champion`` model version that should serve the majority of production traffic),
+and then write inference workloads that target that alias ("make predictions using the ``Champion`` version"). The example
+workflow below captures this idea.
+
+
+**Mark model for deployment using aliases**
+
+We can set a ``Champion`` alias to point to a newly trained model version, indicating to downstream inference workloads that they
+should use this model version to make predictions on production traffic:
+
+.. code-block:: python
+
+    # Register a new model and version
+    from sklearn.ensemble import RandomForestRegressor
+
+    import mlflow
+    import mlflow.sklearn
+
+    with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
+        params = {"n_estimators": 5, "random_state": 42}
+        sk_learn_rfr = RandomForestRegressor(**params)
+
+        # Log the sklearn model and register as version 1
+        mlflow.sklearn.log_model(
+            sk_model=sk_learn_rfr,
+            artifact_path="sklearn-model",
+            registered_model_name="example-model",
+        )
+
+    # Set alias on model version
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+    client.set_registered_model_alias("example-model", "Champion", 1)
+
+
+**Consume model versions by alias in inference workloads**
+
+You can write batch inference workloads that reference a model version by alias. For example, the snippet below loads and applies
+the ``Champion`` model version for batch inference. If the ``Champion`` version is updated to reference a new model version, the batch
+inference workload automatically picks it up on its next execution. This allows you to decouple model deployments/updates from your
+batch inference workloads.
+
+.. code-block:: python
+
+    import mlflow.pyfunc
+
+    model_version_uri = "models:/example-model@Champion"
+    champion_version = mlflow.pyfunc.load_model(model_version_uri)
+    champion_version.predict(test_x)
+
+See the full set of client APIs for working with aliases in the MLflow documentation, including APIs to
+:meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` and :meth:`~mlflow.client.MlflowClient.delete_registered_model_alias`.
 
 
 

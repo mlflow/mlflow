@@ -1,4 +1,5 @@
 import logging
+import importlib
 from typing import Dict, Any, Tuple, TYPE_CHECKING
 
 import pandas as pd
@@ -106,8 +107,6 @@ def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binar
         weight_train=None,
         *args,
     ):
-        import importlib
-
         custom_metrics_mod = importlib.import_module("sklearn.metrics")
         eval_fn = getattr(custom_metrics_mod, metric_name)
         val_metric = coeff * eval_fn(y_val, estimator.predict(X_val), average=avg)

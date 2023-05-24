@@ -4,6 +4,9 @@ import os
 from pathlib import Path
 from typing import Dict, Any
 from collections import namedtuple
+import warnings
+import sys
+import datetime
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -129,9 +132,6 @@ class EvaluateStep(BaseStep):
 
     def _run(self, output_directory):
         def my_warn(*args, **kwargs):
-            import sys
-            import datetime
-
             timestamp = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
             stacklevel = 1 if "stacklevel" not in kwargs else kwargs["stacklevel"]
             frame = sys._getframe(stacklevel)
@@ -139,8 +139,6 @@ class EvaluateStep(BaseStep):
             lineno = frame.f_lineno
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
             open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
-
-        import warnings
 
         original_warn = warnings.warn
         warnings.warn = my_warn
@@ -414,8 +412,8 @@ class EvaluateStep(BaseStep):
             shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         try:
-            import shap  # pylint: disable=W0611
-            from matplotlib import pyplot  # pylint: disable=W0611
+            import shap  # pylint: disable=unused-import
+            from matplotlib import pyplot  # pylint: disable=unused-import
 
             _add_shap_plots(card)
         except ImportError:

@@ -4,6 +4,8 @@ import re
 import tempfile
 import urllib.parse
 import pathlib
+import zipfile
+from io import BytesIO
 
 from distutils import dir_util
 
@@ -177,8 +179,6 @@ def _fetch_project(uri, version=None):
 
 
 def _unzip_repo(zip_file, dst_dir):
-    import zipfile
-
     with zipfile.ZipFile(zip_file) as zip_in:
         zip_in.extractall(dst_dir)
 
@@ -239,7 +239,6 @@ def _fetch_git_repo(uri, version, dst_dir):
 
 def _fetch_zip_repo(uri):
     import requests
-    from io import BytesIO
 
     # TODO (dbczumar): Replace HTTP resolution via ``requests.get`` with an invocation of
     # ```mlflow.data.download_uri()`` when the API supports the same set of available stores as
