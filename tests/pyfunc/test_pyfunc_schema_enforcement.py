@@ -787,3 +787,9 @@ def test_schema_enforcement_for_optional_columns():
     pd_data = pd.DataFrame(test_bad_data)
     with pytest.raises(MlflowException, match="Incompatible input types for column d."):
         _enforce_schema(pd_data, signature.inputs)
+
+    # Ensure it still validates for required columns
+    test_missing_required = {"b": [2.0], "c": ["something"]}
+    pd_data = pd.DataFrame(test_missing_required)
+    with pytest.raises(MlflowException, match="Model is missing inputs"):
+        _enforce_schema(pd_data, signature.inputs)
