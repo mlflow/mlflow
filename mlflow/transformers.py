@@ -882,8 +882,11 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         conf["device"] = device
         accelerate_model_conf["device"] = device
 
-    if _TORCH_DTYPE_KEY in flavor_config:
-        dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+    if _TORCH_DTYPE_KEY in flavor_config or _TORCH_DTYPE_KEY in kwargs:
+        if _TORCH_DTYPE_KEY in kwargs:
+            dtype_val = kwargs[_TORCH_DTYPE_KEY]
+        else:
+            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
         conf[_TORCH_DTYPE_KEY] = dtype_val
         accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
 
