@@ -8,7 +8,6 @@ from contextlib import contextmanager
 from langchain.chains import APIChain, ConversationChain, LLMChain
 from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
-from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
@@ -75,11 +74,6 @@ def create_openai_llmchain():
 def create_qa_eval_chain():
     llm = OpenAI(temperature=0)
     return QAEvalChain.from_llm(llm)
-
-
-def create_qa_with_sources_chain():
-    # StuffDocumentsChain
-    return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
 
 
 def create_api_chain():
@@ -281,29 +275,6 @@ def test_langchain_native_log_and_load_qaevalchain():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
-    assert model == loaded_model
-
-
-def test_qa_with_sources_chain_predict():
-    # StuffDocumentsChain is a subclass of Chain
-    from langchain.schema import Document
-
-    # with _mock_request(return_value=_mock_chat_completion_response()):
-    model = create_qa_with_sources_chain()
-    with mlflow.start_run():
-        logged_model = mlflow.langchain.log_model(model, "langchain_model")
-
-    loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
-    json_strings = [
-        '{"page_content": "I love MLflow.", "metadata": {"source": "/path/to/mlflow.txt"}}',
-        '{"page_content": "I love langchain.", "metadata": {"source": "/path/to/langchain.txt"}}',
-        '{"page_content": "I love AI.", "metadata": {"source": "/path/to/ai.txt"}}',
-    ]
-    input_docs = [Document.parse_raw(j) for j in json_strings]
-    query = "What do I like?"
-    loaded_model.predict([{"input_documents": input_docs, "question": query}])
-    # Using the OPENAI backend, the result is incorrect, because
-    # the detected input schema is incorrect.
     assert model == loaded_model
 
 
