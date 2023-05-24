@@ -40,7 +40,7 @@ def spark():
         yield s
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def set_envs(monkeypatch):
     monkeypatch.setenvs(
         {
