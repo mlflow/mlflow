@@ -1033,15 +1033,3 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
             _stop_listen_for_spark_activity(sc)
         else:
             _listen_for_spark_activity(sc)
-
-    if not _atexit_hook_registered:
-        # Register an "atexit" hook to disable spark autologging,
-        # so that before python process exits, we can shut down
-        # spark callback server properly.
-        def shut_down_spark_callback_server():
-            active_session = _get_active_spark_session()
-            if active_session is not None:
-                _stop_listen_for_spark_activity(active_session.sparkContext)
-
-        atexit.register(shut_down_spark_callback_server)
-        _atexit_hook_registered = True
