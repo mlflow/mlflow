@@ -42,6 +42,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -63,10 +64,20 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
+      - name: Run pre-commit (only changed files)
         id: run-pre-commit
         run: |
-          pre-commit run --all-files --color=always
+          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
+          # To fail fast for faster iteration, first run pylint only on changed files,
+          # then run it on all files in the next step.
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          pre-commit run --color=always --files $changed_files
+      - name: Run pre-commit (pylint)
+        run: |
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          if [ ! -z "$(echo $changed_files | grep '\.py$')"]; then
+            pre-commit run --color=always --all-files pylint
+          fi
       - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
         run: |
