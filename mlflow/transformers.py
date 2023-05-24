@@ -830,7 +830,7 @@ def is_gpu_available():
 def _try_load_model_with_device(model_instance, pipeline_path, device, conf):
     load_model_conf = {}
     # Assume if torch_dtype was specified in the conf, then it must be with a pipeline for which it's compatible.
-    if conf[_TORCH_DTYPE_KEY]:
+    if _TORCH_DTYPE_KEY in conf:
         load_model_conf[_TORCH_DTYPE_KEY] = conf[_TORCH_DTYPE_KEY]
 
     try:

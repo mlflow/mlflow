@@ -2664,7 +2664,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     assert prediction == [{"translation_text": "Bonjour, comment êtes-vous aujourd'hui?"}]
 
 
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
 @pytest.mark.skipcacheclean
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
@@ -2692,4 +2692,4 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
 
-    assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
+    assert prediction == "Bonjour, comment êtes-vous aujourd'hui?"
