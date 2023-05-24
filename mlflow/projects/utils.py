@@ -4,8 +4,7 @@ import re
 import tempfile
 import urllib.parse
 import pathlib
-
-from distutils import dir_util  # pylint: disable=W0402
+import shutil
 
 from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
 from mlflow.entities import SourceType, Param
@@ -161,7 +160,7 @@ def _fetch_project(uri, version=None):
         )
     elif _is_local_uri(parsed_uri):
         if use_temp_dst_dir:
-            dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
+            shutil.copytree(parsed_uri, dst_dir, dirs_exist_ok=True)
         if version is not None:
             if not _is_git_repo(_parse_file_uri(parsed_uri)):
                 raise ExecutionException("Setting a version is only supported for Git project URIs")
