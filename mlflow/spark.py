@@ -933,6 +933,9 @@ class _PyFuncModelWrapper:
         ]
 
 
+_atexit_hook_installed = False
+
+
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
     """
@@ -1004,6 +1007,9 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         _stop_listen_for_spark_activity,
     )
     from pyspark.sql import SparkSession
+    import atexit
+
+    global _atexit_hook_installed
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
@@ -1028,3 +1034,9 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
         else:
             _listen_for_spark_activity(sc)
 
+    if not _atexit_hook_installed:
+        # Register an "atexit" hook to disable spark autologging,
+        # so that before python process exits, we can shut down
+        # spark callback server properly.
+        atexit.register(mlflow.spark.autolog, disable=True)
+        _atexit_hook_installed = True
