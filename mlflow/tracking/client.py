@@ -179,7 +179,8 @@ class MlflowClient:
                 with mlflow.start_run(nested=True) as child_run:
                     child_run_id = child_run.info.run_id
 
-            parent_run = mlflow.get_parent_run(child_run_id)
+            client = MlflowClient()
+            parent_run = client.get_parent_run(child_run_id)
 
             print("child_run_id: {}".format(child_run_id))
             print("parent_run_id: {}".format(parent_run.info.run_id))
