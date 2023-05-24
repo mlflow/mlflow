@@ -1639,6 +1639,24 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
+        elif isinstance(
+            self.pipeline,
+            (
+                transformers.AutomaticSpeechRecognitionPipeline,
+                transformers.AudioClassificationPipeline,
+            ),
+        ):
+            try:
+                raw_output = self.pipeline(data, **self.inference_config)
+            except ValueError as e:
+                if "Malformed soundfile" in str(e):
+                    raise MlflowException(
+                        "Failed to process the input audio data. Either the audio file is "
+                        "corrupted or a uri was passed in without overriding the default model "
+                        "signature. If submitting a string uri, please ensure that the model has "
+                        "been saved with a signature that defines a string input type.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    ) from e
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:
@@ -2291,7 +2309,12 @@ class _TransformersWrapper:
                 return False
 
         def decode_audio(encoded):
-            if isinstance(encoded, bytes):
+            if isinstance(encoded, str):
+                # This is to support blob style passing of uri locations to process audio files
+                # on disk or object store. Note that if a uri is passed, a signature *must be*
+                # provided for serving to function as the default signature uses bytes.
+                return encoded
+            elif isinstance(encoded, bytes):
                 # For input types 'dataframe_split' and 'dataframe_records', the encoding
                 # conversion to bytes is handled.
                 if not is_base64(encoded):
