@@ -1197,7 +1197,6 @@ def _should_add_pyfunc_to_model(pipeline) -> bool:
         "ZeroShotImageClassificationPipeline",
         "ZeroShotObjectDetectionPipeline",
         "ZeroShotAudioClassificationPipeline",
-        "AudioClassificationPipeline",
     ]
 
     impermissible_attrs = {"image_processor"}
@@ -1282,6 +1281,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
             return ModelSignature(
                 inputs=Schema([ColSpec("binary")]),
                 outputs=Schema([ColSpec("string")]),
+            )
+        elif isinstance(pipeline, transformers.AudioClassificationPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("binary")]),
+                outputs=Schema([ColSpec("double", name="score"), ColSpec("string", name="label")]),
             )
         elif isinstance(
             pipeline,
@@ -1597,7 +1601,10 @@ class _TransformersWrapper:
                 output_key = None
             else:
                 output_key = "text"
-            data = self._convert_automatic_speech_recognition_input(data)
+            data = self._convert_audio_input(data)
+        elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
+            data = self._convert_audio_input(data)
+            output_key = None
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1651,6 +1658,8 @@ class _TransformersWrapper:
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
         ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
+        elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
+            return pd.DataFrame(raw_output)
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
@@ -2196,7 +2205,7 @@ class _TransformersWrapper:
             return parsed_data
 
     @staticmethod
-    def _convert_automatic_speech_recognition_input(data):
+    def _convert_audio_input(data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2285,7 +2294,7 @@ def autolog(
     exclusive=False,
     disable_for_unsupported_versions=False,
     silent=False,
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     This autologging integration is solely used for disabling spurious autologging of irrelevant
     sub-models that are created during the training and evaluation of transformers-based models.

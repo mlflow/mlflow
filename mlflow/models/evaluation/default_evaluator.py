@@ -75,23 +75,11 @@ def _infer_model_type_by_labels(labels):
 
 
 def _extract_raw_model(model):
-    """
-    Return a tuple of (model_loader_module, raw_model)
-    """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    try:
-        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-            raw_model = model._model_impl
-        else:
-            raw_model = None
-    except Exception as e:
-        _logger.warning(
-            f"Raw model resolution fails unexpectedly on PyFuncModel {model!r}, "
-            f"error message is {e}"
-        )
-        raw_model = None
-
-    return model_loader_module, raw_model
+    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+        return model_loader_module, model._model_impl
+    else:
+        return model_loader_module, None
 
 
 def _extract_predict_fn(model, raw_model):
@@ -833,7 +821,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.roc_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="roc",
@@ -844,7 +832,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="pr",
@@ -1117,13 +1105,8 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.predict_proba_fn is not None:
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
-                if self.is_binomial:
-                    self.y_prob = self.y_probs[:, 1]
-                else:
-                    self.y_prob = None
             else:
                 self.y_probs = None
-                self.y_prob = None
         elif self.model_type == _ModelType.REGRESSOR:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
@@ -1186,20 +1169,13 @@ class DefaultEvaluator(ModelEvaluator):
 
             self.temp_dir = temp_dir
             self.model = model
-            self.is_baseline_model = is_baseline_model
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
-            model_loader_module, raw_model = _extract_raw_model(model)
-            predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
-
-            self.model_loader_module = model_loader_module
-            self.raw_model = raw_model
-            self.predict_fn = predict_fn
-            self.predict_proba_fn = predict_proba_fn
+            self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
-            self.baseline_metrics = {}
             self.artifacts = {}
 
             if self.model_type not in _ModelType.values():
@@ -1240,7 +1216,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.model_type = model_type
         self.evaluator_config = evaluator_config
-        self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.custom_artifacts = custom_artifacts
