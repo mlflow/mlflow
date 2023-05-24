@@ -411,13 +411,8 @@ class PyFuncModel:
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
-        _logger.debug("Data before _enforce_schema: %s", data)
-        _logger.debug("Input schema: %s", input_schema)
-        # Input schema: ['input_documents': string]
-        # Expected: ['input_documents': string (Document?), 'question': string]
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
-        _logger.debug("Data after _enforce_schema: %s", data)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch

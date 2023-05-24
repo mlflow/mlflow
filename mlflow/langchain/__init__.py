@@ -432,18 +432,15 @@ class _LangChainModelWrapper:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):
-            logger.debug(f"Input pandas data: {data.to_string(line_width=100000)}")
             messages = data.to_dict(orient="records")
         elif isinstance(data, list) and (
             all(isinstance(d, str) for d in data) or all(isinstance(d, dict) for d in data)
         ):
-            logger.debug(f"Input data: {data}")
             messages = data
         else:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "Input must be a pandas DataFrame or a list of strings or a list of dictionaries",
             )
-        logger.debug(f"messages = {messages}")
         return process_api_requests(lc_model=self.lc_model, requests=messages)
 
 

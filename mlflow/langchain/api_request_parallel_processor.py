@@ -77,7 +77,7 @@ class APIRequest:
         """
         Calls the LangChain API and stores results.
         """
-        _logger.debug(f"Request #{self.index} started, request_json: {self.request_json}")
+        _logger.debug(f"Request #{self.index} started")
         try:
             response = self.lc_model.run(**self.request_json)
             _logger.debug(f"Request #{self.index} succeeded")
@@ -105,7 +105,6 @@ def process_api_requests(
 
     results: list[tuple[int, str]] = []
     requests_iter = enumerate(requests)
-    _logger.debug(f"requests = {requests}")
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)

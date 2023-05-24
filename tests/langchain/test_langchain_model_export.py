@@ -5,9 +5,9 @@ import transformers
 import json
 
 from contextlib import contextmanager
-from langchain.chains import APIChain, ConversationChain, LLMChain
-from langchain.chains.api import open_meteo_docs
+from langchain.chains import ConversationChain, LLMChain
 from langchain.chains.base import Chain
+from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
@@ -76,9 +76,9 @@ def create_qa_eval_chain():
     return QAEvalChain.from_llm(llm)
 
 
-def create_api_chain():
-    llm = OpenAI(temperature=0)
-    return APIChain.from_llm_and_api_docs(llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True)
+def create_qa_with_sources_chain():
+    # StuffDocumentsChain
+    return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
 
 
 def create_openai_llmagent():
@@ -271,6 +271,16 @@ def test_langchain_agent_model_predict():
 def test_langchain_native_log_and_load_qaevalchain():
     # QAEvalChain is a subclass of LLMChain
     model = create_qa_eval_chain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert model == loaded_model
+
+
+def test_langchain_native_log_and_load_qa_with_sources_chain():
+    # StuffDocumentsChain is a subclass of Chain
+    model = create_qa_with_sources_chain()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
