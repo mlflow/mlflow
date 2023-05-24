@@ -5,6 +5,8 @@ import re
 import sys
 import datetime
 import yaml
+import warnings
+import shutil
 
 import cloudpickle
 
@@ -281,14 +283,11 @@ class TrainStep(BaseStep):
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
             open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
 
-        import warnings
-
         original_warn = warnings.warn
         warnings.warn = my_warn
         try:
             import pandas as pd
             import numpy as np
-            import shutil
             import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight

@@ -22,6 +22,16 @@ def spark():
         yield s
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_OPENAI_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+        }
+    )
+
+
 def test_log_model():
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(

@@ -5,6 +5,7 @@ downloaded during running this project if it is missing.
 """
 import math
 import os
+import tarfile
 
 import click
 import keras
@@ -31,7 +32,6 @@ def download_input():
     r = requests.get(url)
     with open("flower_photos.tgz", "wb") as f:
         f.write(r.content)
-    import tarfile
 
     print("decompressing flower_photos.tgz to '{}'".format(os.path.abspath("flower_photos")))
     with tarfile.open("flower_photos.tgz") as tar:

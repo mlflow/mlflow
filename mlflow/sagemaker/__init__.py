@@ -9,6 +9,8 @@ import tarfile
 import logging
 import time
 import platform
+import json
+import signal
 
 import mlflow
 import mlflow.version
@@ -1133,8 +1135,6 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
         _logger.info("received termination signal => killing docker process")
         proc.send_signal(signal.SIGINT)
 
-    import signal
-
     signal.signal(signal.SIGTERM, _sigterm_handler)
     proc.wait()
 
@@ -2003,8 +2003,6 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return config
 
     def _apply_custom_config(self, config, custom_config):
-        import json
-
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
         dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "async_inference_config"}

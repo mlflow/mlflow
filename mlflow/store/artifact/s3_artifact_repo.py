@@ -1,6 +1,7 @@
 from datetime import datetime
 from functools import lru_cache
 import os
+import json
 from mimetypes import guess_type
 
 import posixpath
@@ -126,8 +127,6 @@ class S3ArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def get_s3_file_upload_extra_args():
-        import json
-
         s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)

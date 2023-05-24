@@ -1,4 +1,5 @@
 import os
+from uuid import UUID
 
 from unittest import mock
 from unittest.mock import ANY
@@ -101,8 +102,6 @@ def test_upload_artifacts_to_databricks():
 
 
 def test_upload_artifacts_to_databricks_no_run_id():
-    from uuid import UUID
-
     import_root = "mlflow.tracking.artifact_utils"
     with mock.patch(import_root + "._download_artifact_from_uri") as download_mock, mock.patch(
         import_root + ".DbfsRestArtifactRepository"
