@@ -1444,6 +1444,8 @@ def test_delete_registered_model_alias(store):
     assert model.aliases == {}
     mv2 = store.get_model_version(model_name, 2)
     assert mv2.aliases == []
+    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+        store.get_model_version_by_alias(model_name, "test_alias")
 
 
 def test_get_model_version_by_alias(store):
@@ -1451,6 +1453,27 @@ def test_get_model_version_by_alias(store):
     _setup_and_test_aliases(store, model_name)
     mv = store.get_model_version_by_alias(model_name, "test_alias")
     assert mv.aliases == ["test_alias"]
+
+
+def test_delete_model_version_deletes_alias(store):
+    model_name = "DeleteModelVersionDeletesAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_model_version(model_name, 2)
+    model = store.get_registered_model(model_name)
+    assert model.aliases == {}
+    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+        store.get_model_version_by_alias(model_name, "test_alias")
+
+
+def test_delete_model_deletes_alias(store):
+    model_name = "DeleteModelDeletesAlias_TestMod"
+    _setup_and_test_aliases(store, model_name)
+    store.delete_registered_model(model_name)
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered Model with name=DeleteModelDeletesAlias_TestMod not found",
+    ):
+        store.get_model_version_by_alias(model_name, "test_alias")
 
 
 def test_pyfunc_model_registry_with_file_store(store):

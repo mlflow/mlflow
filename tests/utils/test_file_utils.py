@@ -4,6 +4,7 @@ import filecmp
 import hashlib
 import os
 import shutil
+import json
 
 import jinja2.exceptions
 import pytest
@@ -74,8 +75,6 @@ def test_yaml_read_and_write(tmpdir):
 
 
 def test_render_and_merge_yaml(tmpdir):
-    import json
-
     json_file = random_file("json")
     extra_config = {"key": 123}
     with open(tmpdir / json_file, "w") as f:

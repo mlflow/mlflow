@@ -1,6 +1,7 @@
 import os
 import pytest
 from datetime import date
+import uuid
 
 import mlflow
 import pandas as pd
@@ -368,8 +369,6 @@ def test_model_load_input_example_no_signature():
 
 
 def _is_valid_uuid(val):
-    import uuid
-
     try:
         uuid.UUID(str(val))
         return True

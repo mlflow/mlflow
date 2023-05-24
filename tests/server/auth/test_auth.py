@@ -49,7 +49,7 @@ def test_authenticate(client, monkeypatch):
     password = random_str()
     _send_rest_tracking_post_request(
         client.tracking_uri,
-        "/api/2.0/mlflow/users",
+        "/api/2.0/mlflow/users/create",
         {
             "username": username,
             "password": password,

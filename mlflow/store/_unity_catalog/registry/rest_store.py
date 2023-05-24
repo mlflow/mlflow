@@ -56,9 +56,11 @@ from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
+    get_full_name_from_sc,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds, is_databricks_uri
+from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
@@ -112,6 +114,10 @@ class UcModelRegistryStore(BaseRestStore):
         super().__init__(get_host_creds=functools.partial(get_databricks_host_creds, store_uri))
         self.tracking_uri = tracking_uri
         self.get_tracking_host_creds = functools.partial(get_databricks_host_creds, tracking_uri)
+        try:
+            self.spark = _get_active_spark_session()
+        except Exception:
+            pass
 
     def _get_response_from_method(self, method):
         method_to_response = {
@@ -156,7 +162,10 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
-        req_body = message_to_json(CreateRegisteredModelRequest(name=name, description=description))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(
+            CreateRegisteredModelRequest(name=full_name, description=description)
+        )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
 
@@ -168,7 +177,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param description: New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        req_body = message_to_json(UpdateRegisteredModelRequest(name=name, description=description))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(
+            UpdateRegisteredModelRequest(name=full_name, description=description)
+        )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
 
@@ -193,7 +205,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :return: None
         """
-        req_body = message_to_json(DeleteRegisteredModelRequest(name=name))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(DeleteRegisteredModelRequest(name=full_name))
         self._call_endpoint(DeleteRegisteredModelRequest, req_body)
 
     def search_registered_models(
@@ -234,7 +247,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param name: Registered model name.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        req_body = message_to_json(GetRegisteredModelRequest(name=name))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(GetRegisteredModelRequest(name=full_name))
         response_proto = self._call_endpoint(GetRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
 
@@ -315,7 +329,15 @@ class UcModelRegistryStore(BaseRestStore):
         response = http_request(
             host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
         )
-        response = verify_rest_response(response, endpoint)
+        try:
+            verify_rest_response(response, endpoint)
+        except MlflowException:
+            _logger.warning(
+                f"Unable to fetch model version's source run (with ID {run_id}) "
+                "from tracking server. The source run may be deleted or inaccessible to the "
+                "current user. No run link will be recorded for the model version."
+            )
+            return None
         if _DATABRICKS_ORG_ID_HEADER not in response.headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
@@ -377,9 +399,10 @@ class UcModelRegistryStore(BaseRestStore):
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         source_workspace_id = self._get_workspace_id(run_id)
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
-                name=name,
+                name=full_name,
                 source=source,
                 run_id=run_id,
                 description=description,
@@ -402,13 +425,13 @@ class UcModelRegistryStore(BaseRestStore):
             model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(
-                name=name, version=version_number
+                name=full_name, version=version_number
             )
             store = get_artifact_repo_from_storage_info(
                 storage_location=model_version.storage_location, scoped_token=scoped_token
             )
             store.log_artifacts(local_dir=local_model_dir, artifact_path="")
-        finalized_mv = self._finalize_model_version(name=name, version=version_number)
+        finalized_mv = self._finalize_model_version(name=full_name, version=version_number)
         return model_version_from_uc_proto(finalized_mv)
 
     def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
@@ -434,8 +457,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param description: New model description.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            UpdateModelVersionRequest(name=name, version=str(version), description=description)
+            UpdateModelVersionRequest(name=full_name, version=str(version), description=description)
         )
         response_proto = self._call_endpoint(UpdateModelVersionRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
@@ -448,7 +472,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :return: None
         """
-        req_body = message_to_json(DeleteModelVersionRequest(name=name, version=str(version)))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(DeleteModelVersionRequest(name=full_name, version=str(version)))
         self._call_endpoint(DeleteModelVersionRequest, req_body)
 
     def get_model_version(self, name, version):
@@ -459,7 +484,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        req_body = message_to_json(GetModelVersionRequest(name=name, version=str(version)))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
         response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)
 
@@ -473,8 +499,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :return: A single URI location that allows reads for downloading.
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            GetModelVersionDownloadUriRequest(name=name, version=str(version))
+            GetModelVersionDownloadUriRequest(name=full_name, version=str(version))
         )
         response_proto = self._call_endpoint(GetModelVersionDownloadUriRequest, req_body)
         return response_proto.artifact_uri
@@ -536,8 +563,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version number.
         :return: None
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetRegisteredModelAliasRequest(name=name, alias=alias, version=str(version))
+            SetRegisteredModelAliasRequest(name=full_name, alias=alias, version=str(version))
         )
         self._call_endpoint(SetRegisteredModelAliasRequest, req_body)
 
@@ -549,7 +577,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param alias: Name of the alias.
         :return: None
         """
-        req_body = message_to_json(DeleteRegisteredModelAliasRequest(name=name, alias=alias))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(DeleteRegisteredModelAliasRequest(name=full_name, alias=alias))
         self._call_endpoint(DeleteRegisteredModelAliasRequest, req_body)
 
     def get_model_version_by_alias(self, name, alias):
@@ -560,6 +589,7 @@ class UcModelRegistryStore(BaseRestStore):
         :param alias: Name of the alias.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
         """
-        req_body = message_to_json(GetModelVersionByAliasRequest(name=name, alias=alias))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(GetModelVersionByAliasRequest(name=full_name, alias=alias))
         response_proto = self._call_endpoint(GetModelVersionByAliasRequest, req_body)
         return model_version_from_uc_proto(response_proto.model_version)

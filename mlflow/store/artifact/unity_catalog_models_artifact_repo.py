@@ -20,11 +20,15 @@ from mlflow.utils.uri import (
     is_databricks_unity_catalog_uri,
     _DATABRICKS_UNITY_CATALOG_SCHEME,
 )
+from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
 
-from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
+from mlflow.store._unity_catalog.registry.utils import (
+    get_artifact_repo_from_storage_info,
+    get_full_name_from_sc,
+)
 
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 
@@ -71,7 +75,12 @@ class UnityCatalogModelsArtifactRepository(ArtifactRepository):
             )
         self.registry_uri = registry_uri
         self.client = MlflowClient(registry_uri=self.registry_uri)
-        self.model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
+        try:
+            spark = _get_active_spark_session()
+        except Exception:
+            pass
+        model_name, self.model_version = get_model_name_and_version(self.client, artifact_uri)
+        self.model_name = get_full_name_from_sc(model_name, spark)
 
     def _get_blob_storage_path(self):
         return self.client.get_model_version_download_uri(self.model_name, self.model_version)

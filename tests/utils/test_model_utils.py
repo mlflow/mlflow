@@ -96,4 +96,4 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     # If this raises an exception it's because dummy_package.test imported
     # dummy_package.operator and not the built-in operator module. This only
     # happens if MLflow is misconfiguring the system path.
-    from dummy_package import base  # pylint: disable=W0611
+    from dummy_package import base  # pylint: disable=unused-import

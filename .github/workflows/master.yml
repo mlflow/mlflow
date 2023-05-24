@@ -42,6 +42,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v3
         with:
@@ -63,10 +64,20 @@ jobs:
       - name: Install pre-commit hooks
         run: |
           pre-commit install -t pre-commit -t prepare-commit-msg
-      - name: Run pre-commit
+      - name: Run pre-commit (only changed files)
         id: run-pre-commit
         run: |
-          pre-commit run --all-files --color=always
+          # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
+          # To fail fast for faster iteration, first run pylint only on changed files,
+          # then run it on all files in the next step.
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          pre-commit run --color=always --files $changed_files
+      - name: Run pre-commit (pylint)
+        run: |
+          changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
+          if [ ! -z "$(echo $changed_files | grep '\.py$')"]; then
+            pre-commit run --color=always --all-files pylint
+          fi
       - name: Update error messages
         if: always() && steps.run-pre-commit.outcome == 'failure'
         run: |
@@ -254,6 +265,31 @@ jobs:
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
 
+  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
+  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
+  # When the shap cross version tests are passing in a new release version of shap, this pin should
+  # be removed.
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+          repository: ${{ github.event.inputs.repository }}
+          ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh
+          pip install pyspark "numpy<1.24.0"
+      - name: Run tests
+        run: |
+          export MLFLOW_HOME=$(pwd)
+          pytest tests/evaluate
+
   pyfunc:
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -327,7 +363,7 @@ jobs:
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes
+          pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap

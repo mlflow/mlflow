@@ -339,6 +339,13 @@ for usage instructions and examples.
 - `mlflow-ray-serve <https://github.com/ray-project/mlflow-ray-serve>`_
 - `mlflow-azureml <https://docs.microsoft.com/en-us/azure/machine-learning/how-to-deploy-mlflow-models>`_
 
+Model Evaluation Plugins
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following known plugins provide support for evaluating models with custom validation tools using MLflow's `mlflow.evaluate() API <models.html#model-evaluation>`_:
+
+- `mlflow-trubrics <https://github.com/trubrics/trubrics-sdk/tree/main/trubrics/integrations/mlflow>`_: validating ML models with Trubrics
+
 Project Backend Plugins
 ~~~~~~~~~~~~~~~~~~~~~~~
 

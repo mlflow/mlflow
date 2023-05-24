@@ -10,6 +10,9 @@ import tempfile
 import stat
 import pathlib
 from contextlib import contextmanager
+import uuid
+import fnmatch
+import json
 
 import urllib.parse
 import urllib.request
@@ -257,8 +260,6 @@ def render_and_merge_yaml(root, template_name, context_name):
     )
 
     def from_json(input_var):
-        import json
-
         with open(input_var, encoding="utf-8") as f:
             return json.load(f)
 
@@ -444,8 +445,6 @@ def _copy_project(src_path, dst_path=""):
                 patterns = [x.strip() for x in f.readlines()]
 
         def ignore(_, names):
-            import fnmatch
-
             res = set()
             for p in patterns:
                 res.update(set(fnmatch.filter(names, p)))
@@ -683,7 +682,6 @@ def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
     :param output_path: path to write the data to
     """
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
-    import uuid
 
     if is_in_databricks_runtime():
         dbfs_path = os.path.join(".mlflow", "cache", str(uuid.uuid4()))
