@@ -1726,7 +1726,7 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
             [
                 {"name": "sequence", "type": "string"},
                 {"name": "labels", "type": "string"},
-                {"name": "score", "type": "double"},
+                {"name": "scores", "type": "double"},
             ],
         ),
     ],
