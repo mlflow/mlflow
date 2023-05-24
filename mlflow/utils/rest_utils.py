@@ -202,7 +202,8 @@ def http_request(
             " to a larger value."
         )
     except requests.exceptions.InvalidURL as iu:
-        raise InvalidUrlException(f"Invalid artifact url: {url}\n{iu}")
+        raise InvalidUrlException(f"Invalid url: {url}\n{iu}")
+
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
