@@ -40,6 +40,17 @@ def spark():
         yield s
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_OPENAI_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+            "SERPAPI_API_KEY": "test",
+        }
+    )
+
+
 def create_huggingface_model(model_path):
     architecture = "lordtt13/emo-mobilebert"
     mlflow.transformers.save_model(

@@ -526,8 +526,6 @@ openai:
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
       pytest tests/openai/test_openai_model_export.py
 
 langchain:
@@ -541,9 +539,6 @@ langchain:
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
-      export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py
 
 sentence_transformers:
