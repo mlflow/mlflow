@@ -388,9 +388,7 @@ def test_http_request_with_invalid_url_raise_invalid_url_exception(request):
     """InvalidURL exception can be caught by a custom InvalidUrlException"""
     host_only = MlflowHostCreds("http://my-host")
 
-    with pytest.raises(
-        InvalidUrlException, match="Invalid artifact url: http://my-host/invalid_url"
-    ):
+    with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
         http_request(host_only, "/invalid_url", "GET")
 
 
@@ -399,7 +397,7 @@ def test_http_request_with_invalid_url_raise_mlflow_exception(request):
     """The InvalidUrlException can be caught by the MlflowException"""
     host_only = MlflowHostCreds("http://my-host")
 
-    with pytest.raises(MlflowException, match="Invalid artifact url: http://my-host/invalid_url"):
+    with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
         http_request(host_only, "/invalid_url", "GET")
 
 
