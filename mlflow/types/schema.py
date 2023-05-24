@@ -105,10 +105,12 @@ class ColSpec:
         return self._optional
 
     def to_dict(self) -> Dict[str, Any]:
-        if self.name is None:
-            return {"type": self.type.name, "optional": self.optional}
-        else:
-            return {"name": self.name, "type": self.type.name, "optional": self.optional}
+        d = {"type": self.type.name}
+        if self.name is not None:
+            d["name"] = self.name
+        if self.optional:
+            d["optional"] = self.optional
+        return d
 
     def __eq__(self, other) -> bool:
         if isinstance(other, ColSpec):
