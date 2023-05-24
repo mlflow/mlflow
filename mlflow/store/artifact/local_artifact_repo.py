@@ -1,3 +1,4 @@
+from distutils import dir_util
 import os
 import shutil
 
@@ -57,7 +58,7 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copytree(local_dir, artifact_dir)
+        dir_util.copy_tree(src=local_dir, dst=artifact_dir, preserve_mode=0, preserve_times=0)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
