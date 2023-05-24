@@ -173,6 +173,7 @@ class MlflowClient:
             :caption: Example
 
             import mlflow
+            from mlflow import MlflowClient
 
             # Create nested runs
             with mlflow.start_run():
