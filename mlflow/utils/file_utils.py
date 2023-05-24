@@ -666,13 +666,27 @@ def parallelized_download_file_using_http_uri(
             return_code = download_proc.wait()
             if return_code != 0:
                 temp_file.seek(0)
-                failed_downloads[i] = json.loads(temp_file.read())
+                file_contents = temp_file.read()
+                if file_contents:
+                    failed_downloads[i] = json.loads(temp_file.read())
+                else:
+                    raise Exception(
+                        "Error from download_cloud_file_chunk not captured, "
+                        f"return code {return_code}"
+                    )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         for i in range(starting_index, num_requests):
             range_start = i * chunk_size
             range_end = range_start + chunk_size - 1
-            p.submit(run_download, range_start, range_end)
+            future = p.submit(run_download, range_start, range_end)
+            try:
+                future.result()
+            except Exception as e:
+                failed_downloads[i] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
 
     return failed_downloads
 
