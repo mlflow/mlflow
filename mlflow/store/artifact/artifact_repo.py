@@ -110,7 +110,7 @@ class ArtifactRepository:
             os.makedirs(local_dir_path, exist_ok=True)
         return local_file_path
 
-    def _iter_artifacts_recursive(self, path, is_dir):
+    def _iter_artifacts_recursive(self, path):
         dir_content = [
             file_info
             for file_info in self.list_artifacts(path)
@@ -118,12 +118,12 @@ class ArtifactRepository:
             if file_info.path not in [".", path]
         ]
         # Empty directory
-        if is_dir and not dir_content:
+        if not dir_content:
             yield FileInfo(path=path, is_dir=True, file_size=None)
 
         for file_info in dir_content:
             if file_info.is_dir:
-                yield from self._iter_artifacts_recursive(file_info.path, is_dir=True)
+                yield from self._iter_artifacts_recursive(file_info.path)
             else:
                 yield file_info
 
@@ -176,7 +176,7 @@ class ArtifactRepository:
         # Submit download tasks
         futures = {}
         if self._is_directory(artifact_path):
-            for file_info in self._iter_artifacts_recursive(artifact_path, is_dir=True):
+            for file_info in self._iter_artifacts_recursive(artifact_path):
                 if file_info.is_dir:  # Empty directory
                     os.makedirs(os.path.join(dst_path, file_info.path), exist_ok=True)
                 else:
