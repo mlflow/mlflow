@@ -61,7 +61,20 @@ retrieve information about the dataset from the run, and load the dataset's sour
     :undoc-members:
     :show-inheritance:
 
+.. autoclass:: mlflow.data.dataset.Dataset
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. autoclass:: mlflow.data.DatasetSource
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: from_json
+
+    .. method:: from_json(cls, source_json: str) -> DatasetSource
+
+.. autoclass:: mlflow.data.dataset_source.DatasetSource
     :members:
     :undoc-members:
     :show-inheritance:
