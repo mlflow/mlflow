@@ -334,7 +334,7 @@ _PACKAGES_TO_MODULES = None
 
 def _init_modules_to_packages_map():
     global _MODULES_TO_PACKAGES
-    if _MODULES_TO_PACKAGES is None and _PACKAGES_TO_MODULES is None:
+    if _MODULES_TO_PACKAGES is None:
         # Note `importlib_metada.packages_distributions` only captures packages installed into
         # Python’s site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
