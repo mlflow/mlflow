@@ -123,7 +123,7 @@ class ArtifactRepository:
 
         for file_info in dir_content:
             if file_info.is_dir:
-                yield from self._list_artifacts_recursive(file_info.path, is_dir=True)
+                yield from self._iter_artifacts_recursive(file_info.path, is_dir=True)
             else:
                 yield file_info
 
