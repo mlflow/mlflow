@@ -1512,8 +1512,8 @@ class MlflowClient:
             else:
                 _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
 
-        with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
-            data.to_json(artifact_path, orient="split", index=False)
+            data.to_json(downloaded_artifact_path, orient="split", index=False)
+            self.log_artifact(run_id, downloaded_artifact_path, artifact_dir)
 
         run = self.get_run(run_id)
 
