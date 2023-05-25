@@ -2,15 +2,17 @@ import ast
 import base64
 import binascii
 import contextlib
+import functools
 from functools import lru_cache
 import json
 import logging
+import numpy as np
+import os
 import pathlib
 import pandas as pd
-import numpy as np
 import re
-import functools
 from typing import Union, List, Optional, Dict, Any, NamedTuple
+from urllib.parse import urlparse
 
 import yaml
 
@@ -2268,8 +2270,7 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    @staticmethod
-    def _convert_audio_input(data):
+    def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2345,12 +2346,39 @@ class _TransformersWrapper:
         # The output of the conversion present in the conditional structural validation below is
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
-
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
             encoded_audio = list(data[0].values())[0]
+            if isinstance(encoded_audio, str):
+                self._validate_str_input_uri_or_file(encoded_audio)
             return decode_audio(encoded_audio)
-        else:
-            return data
+        elif isinstance(data, str):
+            self._validate_str_input_uri_or_file(data)
+        return data
+
+    @staticmethod
+    def _validate_str_input_uri_or_file(input_str):
+        """
+        Validation of blob references to audio files, if a string is input to the ``predict``
+        method, perform validation of the string contents by checking for a valid uri or
+        filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
+        for an invalid uri input.
+        """
+
+        def is_uri(_input):
+            try:
+                result = urlparse(_input)
+                return all([result.scheme, result.netloc])
+            except ValueError:
+                return False
+
+        valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+
+        if not valid_uri:
+            raise MlflowException(
+                "An invalid string input was provided. String inputs to "
+                "audio files must be either a file location or a uri.",
+                error_code=BAD_REQUEST,
+            )
 
 
 @experimental

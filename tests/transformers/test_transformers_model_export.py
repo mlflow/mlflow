@@ -3043,6 +3043,35 @@ def test_whisper_model_with_url(whisper_pipeline):
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
 @pytest.mark.skipcacheclean
+def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
+    artifact_path = "whisper_url"
+
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
+
+    signature = infer_signature(
+        url,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, url),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    with pytest.raises(MlflowException, match="An invalid string input was provided. String"):
+        pyfunc_model.predict("An invalid path")
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
 def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline):
     artifact_path = "whisper_url"
 
