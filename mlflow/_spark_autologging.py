@@ -102,9 +102,7 @@ def _stop_listen_for_spark_activity(spark_context):
     try:
         gw.shutdown_callback_server()
     except Exception as e:
-        _logger.warning(
-            "Failed to shut down Spark callback server for autologging: %s", e
-        )
+        _logger.warning("Failed to shut down Spark callback server for autologging: %s", e)
 
 
 def _listen_for_spark_activity(spark_context):
