@@ -53,10 +53,10 @@ class Dataset:
     def to_json(self) -> str:
         """
         Obtains a JSON string representation of the
-        :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
+        :py:class:`Dataset <mlflow.data.Dataset>`.
 
         :return: A JSON string representation of the
-                 :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
+                 :py:class:`Dataset <mlflow.data.Dataset>`.
         """
         base_dict = {
             "name": self.name,
@@ -87,7 +87,7 @@ class Dataset:
     def source(self) -> DatasetSource:
         """
         Information about the dataset's source, represented as an instance of
-        :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`. For example, this
+        :py:class:`DatasetSource <mlflow.data.DatasetSource>`. For example, this
         may be the S3 location or the name of the managed Delta Table from which the dataset
         was derived.
         """
