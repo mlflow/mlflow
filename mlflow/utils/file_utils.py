@@ -5,7 +5,6 @@ import json
 import math
 import os
 import posixpath
-import re
 import shutil
 import sys
 import tarfile
@@ -637,6 +636,7 @@ def parallelized_download_file_using_http_uri(
     failed_downloads = {}
 
     def run_download(range_start, range_end):
+        temp_file = tempfile.mktemp()
         download_proc = _exec_cmd(
             cmd=[
                 sys.executable,
@@ -651,6 +651,8 @@ def parallelized_download_file_using_http_uri(
                 download_path,
                 "--http-uri",
                 http_uri,
+                "--temp-file",
+                temp_file,
             ],
             throw_on_error=True,
             synchronous=False,
@@ -658,20 +660,18 @@ def parallelized_download_file_using_http_uri(
             stream_output=False,
             env=env,
         )
-        stdout, stderr = download_proc.communicate()
-        exception_pattern = re.compile(
-            r"Exception while downloading the chunk: "
-            r'(\{"error_status_code": [0-9]+, "error_text": .*\})'
-        )
+        _, stderr = download_proc.communicate()
         if download_proc.returncode != 0:
-            file_contents = exception_pattern.search(stdout)
-            if file_contents:
-                return json.loads(file_contents.group(1))
-            else:
-                raise Exception(
-                    "Error from download_cloud_file_chunk not captured, "
-                    f"return code {download_proc.returncode}, stderr {stderr}"
-                )
+            with open(temp_file, "r") as f:
+                f.seek(0)
+                file_contents = f.read()
+                if file_contents:
+                    return json.loads(file_contents)
+                else:
+                    raise Exception(
+                        "Error from download_cloud_file_chunk not captured, "
+                        f"return code {download_proc.returncode}, stderr {stderr}"
+                    )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         futures = {}
