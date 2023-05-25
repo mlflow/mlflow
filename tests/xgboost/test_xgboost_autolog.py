@@ -737,11 +737,13 @@ def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(dtrain.get_data().toarray())
         assert dataset_inputs[0].dataset.schema == json.dumps(
             {
-                "mlflow_tensorspec": _infer_schema(
-                    {"features": dtrain.get_data().toarray()}
-                ).to_dict()
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": None,
+                }
             }
         )
     else:
@@ -766,10 +768,22 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
+    dtrain_feature_schema = _infer_schema(dtrain.get_data().toarray())
     assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": dtrain.get_data().toarray()}).to_dict()}
+        {
+            "mlflow_tensorspec": {
+                "features": dtrain_feature_schema.to_json(),
+                "targets": None,
+            }
+        }
     )
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": deval.get_data().toarray()}).to_dict()}
+    deval_feature_schema = _infer_schema(deval.get_data().toarray())
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": deval_feature_schema.to_json(),
+                "targets": None,
+            }
+        }
     )

@@ -1106,8 +1106,15 @@ def test_sklearn_autolog_log_datasets_configuration(log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(X)
+        target_schema = _infer_schema(y)
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema({"features": X, "targets": y}).to_dict()}
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
         )
     else:
         assert len(dataset_inputs) == 0
@@ -1128,12 +1135,24 @@ def test_sklearn_autolog_log_datasets_with_predict():
 
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
+    feature_schema = _infer_schema(X)
+    target_schema = _infer_schema(y)
     assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": X, "targets": y}).to_dict()}
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
+            }
+        }
     )
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": X}).to_dict()}
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
+            }
+        }
     )
 
 
@@ -1151,12 +1170,24 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
 
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
+    feature_schema = _infer_schema(X)
+    target_schema = _infer_schema(y)
     assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": X, "targets": y}).to_dict()}
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
+            }
+        }
     )
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.schema == json.dumps(
-        {"mlflow_tensorspec": _infer_schema({"features": X}).to_dict()}
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
+            }
+        }
     )
 
 
