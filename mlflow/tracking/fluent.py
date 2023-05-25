@@ -54,8 +54,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.annotations import experimental
-
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -768,6 +766,7 @@ def log_input(
     .. test-code-block:: python
         :caption: Example
 
+        import pandas as pd
         import mlflow
 
         df = pd.read_csv("data.csv")
