@@ -148,7 +148,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str) -> Optional[str]:
+def _get_request_param(param: str, optional: bool = False, default=None) -> Optional[str]:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):
@@ -158,17 +158,13 @@ def _get_request_param(param: str) -> Optional[str]:
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
-
-    if param not in args:
-        if param == "run_id" and "run_uuid" in args:
-            return args["run_uuid"]
-        else:
-            raise MlflowException(
-                f"Missing value for required parameter '{param}'. "
-                "See the API docs for more information about request parameters.",
-                INVALID_PARAMETER_VALUE,
-            )
-    return args[param]
+    if param not in args and not optional:
+        raise MlflowException(
+            f"Missing value for required parameter '{param}'. "
+            "See the API docs for more information about request parameters.",
+            INVALID_PARAMETER_VALUE,
+        )
+    return args.get(param, default)
 
 
 def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
@@ -211,7 +207,7 @@ def _get_permission_from_experiment_name() -> Permission:
 def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id")
+    run_id = _get_request_param("run_id", optional=True) or _get_request_param("run_uuid")
     run = get_run(run_id)
     experiment_id = run.info.experiment_id
     username = request.authorization.username
