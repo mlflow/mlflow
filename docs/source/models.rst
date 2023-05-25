@@ -233,7 +233,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
 A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
-Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
