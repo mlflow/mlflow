@@ -10,7 +10,7 @@ import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.data.dataset import Dataset
+from mlflow.data import Dataset
 from mlflow.entities import (
     Experiment,
     Run,
