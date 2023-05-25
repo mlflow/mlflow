@@ -839,7 +839,7 @@ def _try_load_model_with_device(model_instance, model_path, device, conf):
     try:
         load_model_conf["device"] = device
         model = model_instance.from_pretrained(model_path, **load_model_conf)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, NotImplementedError):
         _logger.warning('Could not specify device parameter for this pipeline type')
         load_model_conf.pop('device', None)
         model = model_instance.from_pretrained(model_path, **load_model_conf)
@@ -896,7 +896,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         try:
             model = model_instance.from_pretrained(pipeline_path,
                                                    **accelerate_model_conf)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, NotImplementedError):
             model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
     else:
         model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
