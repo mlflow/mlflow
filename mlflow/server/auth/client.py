@@ -10,7 +10,7 @@ from mlflow.server.auth.routes import (
     DELETE_REGISTERED_MODEL_PERMISSION,
 )
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
-from mlflow.utils.rest_utils import http_request, verify_rest_response
+from mlflow.utils.rest_utils import http_request_safe
 
 
 class AuthServiceClient:
@@ -26,8 +26,7 @@ class AuthServiceClient:
 
     def _request(self, endpoint, method, **kwargs):
         host_creds = _get_default_host_creds(self.tracking_uri)
-        resp = http_request(host_creds, endpoint, method, **kwargs)
-        resp = verify_rest_response(resp, endpoint)
+        resp = http_request_safe(host_creds, endpoint, method, **kwargs)
         return resp.json()
 
     def create_experiment_permission(self, experiment_id: str, username: str, permission: str):
