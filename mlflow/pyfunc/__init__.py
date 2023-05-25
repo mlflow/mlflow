@@ -1066,13 +1066,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
-                names = input_schema.input_names()
+                names = input_schema.required_input_names()
                 if len(args) > len(names):
                     args = args[: len(names)]
                 if len(args) < len(names):
                     raise MlflowException(
-                        "Model input is missing columns. Expected {} input columns {},"
-                        " but the model received only {} unnamed input columns"
+                        "Model input is missing required columns. Expected {} required"
+                        " input columns {}, but the model received only {} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
@@ -1301,7 +1301,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     def udf_with_default_cols(*args):
         if len(args) == 0:
             input_schema = model_metadata.get_input_schema()
-
+            if input_schema and len(input_schema.optional_input_names()) > 0:
+                raise MlflowException(
+                    message="Cannot apply UDF without column names specified when"
+                            " model signature contains optional columns.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if input_schema and len(input_schema.inputs) > 0:
                 if input_schema.has_input_names():
                     input_names = input_schema.input_names()
