@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 import matplotlib.pyplot as plt
 from unittest import mock
@@ -1979,3 +1981,109 @@ def test_make_metric_name_inference():
         match="`name` must be specified if `eval_fn` does not have a `__name__` attribute.",
     ):
         make_metric(eval_fn=Callable(), greater_is_better=True)
+
+
+def language_model(inputs: list[str]) -> list[str]:
+    return inputs
+
+
+def test_evaluate_question_answering_with_targets():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="answer",
+            model_type="question-answering",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert "exact_match" in results.metrics
+
+
+def test_evaluate_question_answering_without_targets():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"question": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="question-answering",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {}
+
+
+def test_evaluate_text_summarization_with_targets():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="summary",
+            model_type="text-summarization",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert "rouge1" in results.metrics
+
+
+def test_evaluate_text_summarization_without_targets():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="text-summarization",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {}
+
+
+def test_evaluate_text():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="text",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {}
