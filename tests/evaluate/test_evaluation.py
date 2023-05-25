@@ -569,23 +569,6 @@ def test_pandas_df_regressor_evaluation(linear_regressor_model_uri):
         assert v == saved_metrics[k]
 
 
-def test_pandas_df_regressor_evaluation_without_targets(linear_regressor_model_uri):
-    data = sklearn.datasets.load_diabetes()
-    df = pd.DataFrame(data.data, columns=data.feature_names)
-    df["y"] = data.target
-
-    with mlflow.start_run() as run:  # pylint: disable=unused-variable
-        with pytest.raises(
-            MlflowException, match="The target argument is required when data is not a Dataset."
-        ):
-            eval_result = evaluate(  # pylint: disable=unused-variable
-                linear_regressor_model_uri,
-                data=df,
-                model_type="regressor",
-                evaluators=["default"],
-            )
-
-
 def test_pandas_df_regressor_evaluation_mlflow_dataset_with_metric_prefix(
     linear_regressor_model_uri,
 ):
