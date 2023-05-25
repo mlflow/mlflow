@@ -766,11 +766,11 @@ def log_input(
     .. test-code-block:: python
         :caption: Example
 
-        import pandas as pd
+        import numpy as np
         import mlflow
 
-        df = pd.read_csv("data.csv")
-        dataset = mlflow.data.from_pandas(df, source="data.csv")
+        array = np.asarray([ [1,2,3], [4,5,6], [7,8,9] ])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
 
         # Log an input dataset used for training
         with mlflow.start_run():
