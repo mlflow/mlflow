@@ -1137,13 +1137,13 @@ def evaluate(
                    are regarded as feature columns. If it is Spark DataFrame, only the first 10000
                    rows in the Spark DataFrame will be used as evaluation data.
 
-                 - A :py:class`mlflow.data.Dataset` instance containing evaluation features and
+                 - A :py:class`mlflow.data.dataset.Dataset` instance containing evaluation features and
                    labels.
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
                     that contains evaluation labels. If ``data`` is a
-                    :py:class`mlflow.data.Dataset` that defines targets, then ``targets`` is
+                    :py:class`mlflow.data.dataset.Dataset` that defines targets, then ``targets`` is
                     optional.
 
     :param model_type: A string describing the model type. The default evaluator

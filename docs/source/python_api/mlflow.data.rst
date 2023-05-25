@@ -5,21 +5,21 @@ The ``mlflow.data`` module helps you record your model training and evaluation d
 runs with MLflow Tracking, as well as retrieve dataset information from runs. It provides the
 following important interfaces:
 
-* :py:class:`Dataset <mlflow.data.Dataset>`: Represents a dataset used in model training or
+* :py:class:`Dataset <mlflow.data.dataset.Dataset>`: Represents a dataset used in model training or
   evaluation, including features, targets, and metadata such as the dataset's name, digest (hash)
   schema, profile, and source. You can log this metadata to a run in MLflow Tracking using
   the :py:func:`mlflow.log_input()` API. ``mlflow.data`` provides APIs for constructing
-  :py:class:`Datasets <mlflow.data.Dataset>` from a variety of Python data objects, including
+  :py:class:`Datasets <mlflow.data.dataset.Dataset>` from a variety of Python data objects, including
   Pandas DataFrames (:py:func:`mlflow.data.from_pandas()`), NumPy arrays
   (:py:func:`mlflow.data.from_numpy()`), Spark DataFrames (:py:func:`mlflow.data.from_spark()`
   / :py:func:`mlflow.data.load_delta()`), and more.
 
-* :py:func:`DatasetSource <mlflow.data.DatasetSource>`: Represents the source of a
+* :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`: Represents the source of a
   dataset. For example, this may be a directory of files stored in S3, a Delta Table, or a web URL.
-  Each :py:class:`Dataset <mlflow.data.Dataset>` references the source from which it was
-  derived. A :py:class:`Dataset <mlflow.data.Dataset>`'s features and targets may differ
+  Each :py:class:`Dataset <mlflow.data.dataset.Dataset>` references the source from which it was
+  derived. A :py:class:`Dataset <mlflow.data.dataset.Dataset>`'s features and targets may differ
   from the source if transformations and filtering were applied. You can get the
-  :py:func:`DatasetSource <mlflow.data.DatasetSource>` of a dataset logged to a
+  :py:func:`DatasetSource <mlflow.data.dataset_source.DatasetSource>` of a dataset logged to a
   run in MLflow Tracking using the :py:func:`mlflow.data.get_source()` API.
 
 The following example demonstrates how to use ``mlflow.data`` to log a training dataset to a run,
@@ -56,23 +56,10 @@ retrieve information about the dataset from the run, and load the dataset's sour
     dataset_source = mlflow.data.get_source(dataset_info)
     dataset_source.load()
 
-.. autoclass:: mlflow.data.Dataset
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. autoclass:: mlflow.data.dataset.Dataset
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. autoclass:: mlflow.data.DatasetSource
-    :members:
-    :undoc-members:
-    :show-inheritance:
-    :exclude-members: from_json
-
-    .. method:: from_json(cls, source_json: str) -> DatasetSource
 
 .. autoclass:: mlflow.data.dataset_source.DatasetSource
     :members:
