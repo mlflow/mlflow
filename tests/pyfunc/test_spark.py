@@ -390,7 +390,7 @@ def test_spark_udf_autofills_no_arguments(spark):
                 ColSpec("long", "a"),
                 ColSpec("long", "b"),
                 ColSpec("long", "c"),
-                ColSpec("long", "e", optional=True),
+                ColSpec("long", "d", optional=True),
             ]
         ),
         outputs=Schema([ColSpec("integer")]),
@@ -408,6 +408,10 @@ def test_spark_udf_autofills_no_arguments(spark):
             r"signature contains optional columns",
         ):
             good_data.withColumn("res", udf())
+
+        # Ensure optional inputs are not truncated
+        res = good_data.withColumn("res", udf(*good_data.columns)).select("res").toPandas()
+        assert res["res"][0] == ["a", "b", "c", "d"]
 
 
 def test_spark_udf_autofills_column_names_with_schema(spark):

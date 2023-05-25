@@ -1066,10 +1066,11 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if input_schema is None:
                 names = [str(i) for i in range(len(args))]
             else:
-                names = input_schema.required_input_names()
+                names = input_schema.input_names()
+                required_names = input_schema.required_input_names()
                 if len(args) > len(names):
                     args = args[: len(names)]
-                if len(args) < len(names):
+                if len(args) < len(required_names):
                     raise MlflowException(
                         "Model input is missing required columns. Expected {} required"
                         " input columns {}, but the model received only {} unnamed input columns"
