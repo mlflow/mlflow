@@ -515,7 +515,9 @@ class PyFuncModel:
 
     def _filter_inference_args(self, inference_args: Dict[str, Any]):
         allowed_kargs = {
-            key: value for key, value in inference_args if key in self.inference_config.keys()
+            key: value
+            for key, value in inference_args.items()
+            if key in self.inference_config.keys()
         }
         if len(allowed_kargs) < len(inference_args):
             mlflow.pyfunc._logger.warning(

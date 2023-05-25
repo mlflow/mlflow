@@ -2,6 +2,7 @@ import ast
 import base64
 import binascii
 import contextlib
+import copy
 from functools import lru_cache
 import json
 import logging
@@ -1433,7 +1434,7 @@ class _TransformersModel(NamedTuple):
         return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
 
 
-def _get_inference_config(local_path, pyfunc_config):
+def _get_inference_config(local_path, pyfunc_inference_config):
     """
     Load the inference config if it was provided for use in the `_TransformersWrapper` pyfunc
     Model wrapper.
@@ -1443,18 +1444,17 @@ def _get_inference_config(local_path, pyfunc_config):
         _logger.warning("Inference config stored in file ``inference_config.txt`` is deprecated.")
         return json.loads(config_path.read_text())
     else:
-        return pyfunc_config.get(mlflow.pyfunc.INFERENCE_CONFIG, {})
+        return pyfunc_inference_config
 
 
-def _load_pyfunc(path):
+def _load_pyfunc(model_path: str, inference_config: Dict[str, Any] = None):
     """
     Loads the model as pyfunc model
     """
-    local_path = pathlib.Path(path)
+    local_path = pathlib.Path(model_path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    pyfunc_config = _get_flavor_configuration(local_path, mlflow.pyfunc.FLAVOR_NAME)
     inference_config = _get_inference_config(
-        local_path.joinpath(_COMPONENTS_BINARY_KEY), pyfunc_config
+        local_path.joinpath(_COMPONENTS_BINARY_KEY), inference_config
     )
 
     return _TransformersWrapper(
@@ -1531,7 +1531,7 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data, device=None):
+    def predict(self, data, device=None, **kwards):
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1569,12 +1569,16 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data, device)
+        predictions = self._predict(input_data, device, kwards)
 
         return predictions
 
-    def _predict(self, data, device):
+    def _predict(self, data, device, kwargs):
         import transformers
+
+        predict_config = copy.deepcopy(self.inference_config)
+        if kwargs:
+            predict_config.update(**kwargs)
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
@@ -1619,7 +1623,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             output_key = "generated_text"
         elif isinstance(self.pipeline, transformers.AutomaticSpeechRecognitionPipeline):
-            if self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+            if predict_config.get("return_timestamps", None) in ["word", "char"]:
                 output_key = None
             else:
                 output_key = "text"
@@ -1638,11 +1642,11 @@ class _TransformersWrapper:
         # formatting output), but if `include_prompt` is set to False in the `inference_config`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
-        include_prompt = self.inference_config.pop("include_prompt", True)
+        include_prompt = predict_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
-        collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
+        collapse_whitespace = predict_config.pop("collapse_whitespace", False)
         if device is not None:
-            self.inference_config["device"] = device
+            predict_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 
@@ -1658,7 +1662,7 @@ class _TransformersWrapper:
             ),
         ):
             try:
-                raw_output = self.pipeline(data, **self.inference_config)
+                raw_output = self.pipeline(data, **predict_config)
             except ValueError as e:
                 if "Malformed soundfile" in str(e):
                     raise MlflowException(
@@ -1669,9 +1673,9 @@ class _TransformersWrapper:
                         error_code=INVALID_PARAMETER_VALUE,
                     ) from e
         elif isinstance(data, dict):
-            raw_output = self.pipeline(**data, **self.inference_config)
+            raw_output = self.pipeline(**data, **predict_config)
         else:
-            raw_output = self.pipeline(data, **self.inference_config)
+            raw_output = self.pipeline(data, **predict_config)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(
@@ -1695,7 +1699,7 @@ class _TransformersWrapper:
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
-        ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
+        ) and predict_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
         elif isinstance(
             self.pipeline,
