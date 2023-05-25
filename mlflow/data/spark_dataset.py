@@ -3,8 +3,6 @@ import logging
 from functools import cached_property
 from typing import Any, Dict, Optional, Union
 
-from pyspark.sql import DataFrame
-
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
@@ -30,7 +28,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        df: DataFrame,
+        df: "pyspark.sql.DataFrame",
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -250,7 +248,7 @@ def load_delta(
 
 @experimental
 def from_spark(
-    df: DataFrame,
+    df: "pyspark.sql.DataFrame",
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,
