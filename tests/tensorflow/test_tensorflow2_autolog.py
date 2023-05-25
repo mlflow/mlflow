@@ -8,6 +8,7 @@ from unittest.mock import patch
 import json
 import functools
 from pathlib import Path
+from threading import Thread
 
 import numpy as np
 import pytest
@@ -966,13 +967,12 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
     tmpdir, random_train_data, random_one_hot_labels
 ):
-    from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir
 
     mlflow.tensorflow.autolog()
 
     mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir.mkdir("tb_logging")), is_temp=True)
-    with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
+    with patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
         mock_log_dir_class.return_value = mock_log_dir_inst
 
         data = random_train_data
@@ -991,7 +991,6 @@ def test_flush_queue_is_thread_safe():
     API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
     verifies that `_flush_queue` is thread safe.
     """
-    from threading import Thread
     from mlflow.entities import Metric
     from mlflow.tensorflow import _flush_queue, _metric_queue_lock
 

@@ -1,6 +1,7 @@
 import json
 import os
 import pytest
+from unittest import mock
 
 from click.testing import CliRunner
 from mlflow.deployments import cli
@@ -143,8 +144,6 @@ def test_explain(tmpdir):
 
 
 def test_explain_with_no_target_implementation(tmpdir):
-    from unittest import mock
-
     file_path = tmpdir.join("input.json").strpath
     with open(file_path, "w") as temp_input_file:
         temp_input_file.write('{"data": [5000]}')

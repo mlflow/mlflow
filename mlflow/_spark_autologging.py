@@ -97,6 +97,14 @@ def _set_run_tag(run_id, path, version, data_format):
     client.set_tag(run_id, _SPARK_TABLE_INFO_TAG_NAME, new_tag_value)
 
 
+def _stop_listen_for_spark_activity(spark_context):
+    gw = spark_context._gateway
+    try:
+        gw.shutdown_callback_server()
+    except Exception as e:
+        _logger.warning("Failed to shut down Spark callback server for autologging: %s", e)
+
+
 def _listen_for_spark_activity(spark_context):
     global _spark_table_info_listener
     if _get_current_listener() is not None:

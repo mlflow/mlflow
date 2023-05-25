@@ -3,7 +3,9 @@ import mlflow
 import pytest
 import transformers
 import json
+import importlib
 
+import openai
 from contextlib import contextmanager
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
@@ -38,6 +40,18 @@ def model_path(tmp_path):
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_OPENAI_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+            "SERPAPI_API_KEY": "test",
+        }
+    )
+    importlib.reload(openai)
 
 
 def create_huggingface_model(model_path):

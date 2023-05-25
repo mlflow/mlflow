@@ -8,6 +8,7 @@ import pathlib
 import logging
 import random
 import string
+import pickle
 from io import StringIO
 from typing import Union
 
@@ -211,8 +212,6 @@ class BaseCard:
         if os.path.isdir(path):
             path = os.path.join(path, CARD_PICKLE_NAME)
         with open(path, "wb") as out:
-            import pickle
-
             pickle.dump(self, out)
 
     @staticmethod
@@ -220,8 +219,6 @@ class BaseCard:
         if os.path.isdir(path):
             path = os.path.join(path, CARD_PICKLE_NAME)
         with open(path, "rb") as f:
-            import pickle
-
             return pickle.load(f)
 
     @staticmethod

@@ -15,6 +15,7 @@ import time
 import urllib.parse
 import requests
 import pandas as pd
+import math
 from unittest import mock
 
 import pytest
@@ -287,8 +288,6 @@ def test_log_metrics_params_tags(mlflow_client):
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get("metric") == 123.456
-    import math
-
     assert math.isnan(run.data.metrics.get("nan_metric"))
     assert run.data.metrics.get("inf_metric") >= 1.7976931348623157e308
     assert run.data.metrics.get("-inf_metric") <= -1.7976931348623157e308

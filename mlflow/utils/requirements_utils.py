@@ -248,14 +248,12 @@ def _capture_imported_modules(model_uri, flavor):
     """
     Runs `_capture_modules.py` in a subprocess and captures modules imported during the model
     loading procedure.
+    If flavor is `transformers`, `_capture_transformers_modules.py` is run instead.
 
     :param model_uri: The URI of the model.
     :param: flavor: The flavor name of the model.
     :return: A list of captured modules.
     """
-    # Lazily import `_capture_module` here to avoid circular imports.
-    from mlflow.utils import _capture_modules
-
     local_model_path = _download_artifact_from_uri(model_uri)
 
     process_timeout = MLFLOW_REQUIREMENTS_INFERENCE_TIMEOUT.get()
@@ -270,6 +268,39 @@ def _capture_imported_modules(model_uri, flavor):
         # See: ``https://github.com/mlflow/mlflow/issues/6905`` for context on minio configuration
         # resolution in a subprocess based on PATH entries.
         main_env["PATH"] = "/usr/sbin:/sbin:" + main_env["PATH"]
+
+        if flavor == mlflow.transformers.FLAVOR_NAME:
+            # Lazily import `_capture_transformers_module` here to avoid circular imports.
+            from mlflow.utils import _capture_transformers_modules
+
+            for module_to_throw in ["tensorflow", "torch"]:
+                try:
+                    _run_command(
+                        [
+                            sys.executable,
+                            _capture_transformers_modules.__file__,
+                            "--model-path",
+                            local_model_path,
+                            "--flavor",
+                            flavor,
+                            "--output-file",
+                            output_file,
+                            "--sys-path",
+                            json.dumps(sys.path),
+                            "--module-to-throw",
+                            module_to_throw,
+                        ],
+                        timeout_seconds=process_timeout,
+                        env=main_env,
+                    )
+                    with open(output_file) as f:
+                        return f.read().splitlines()
+
+                except MlflowException:
+                    pass
+
+        # Lazily import `_capture_module` here to avoid circular imports.
+        from mlflow.utils import _capture_modules
 
         _run_command(
             [
@@ -287,6 +318,7 @@ def _capture_imported_modules(model_uri, flavor):
             timeout_seconds=process_timeout,
             env=main_env,
         )
+
         with open(output_file) as f:
             return f.read().splitlines()
 
@@ -445,14 +477,15 @@ def _get_pinned_requirement(package, version=None, module=None):
         local_version_label = _get_local_version_label(version_raw)
         if local_version_label:
             version = _strip_local_version_label(version_raw)
-            msg = (
-                f"Found {package} version ({version_raw}) contains a local version label "
-                f"(+{local_version_label}). MLflow logged a pip requirement for this package as "
-                f"'{package}=={version}' without the local version label to make it "
-                "installable from PyPI. To specify pip requirements containing local version "
-                "labels, please use `conda_env` or `pip_requirements`."
-            )
-            _logger.warning(msg)
+            if not (is_in_databricks_runtime() and package in ("torch", "torchvision")):
+                msg = (
+                    f"Found {package} version ({version_raw}) contains a local version label "
+                    f"(+{local_version_label}). MLflow logged a pip requirement for this package "
+                    f"as '{package}=={version}' without the local version label to make it "
+                    "installable from PyPI. To specify pip requirements containing local version "
+                    "labels, please use `conda_env` or `pip_requirements`."
+                )
+                _logger.warning(msg)
 
         else:
             version = version_raw

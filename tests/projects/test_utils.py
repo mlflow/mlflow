@@ -1,6 +1,7 @@
 import git
 import os
 import tempfile
+import zipfile
 
 import pytest
 from unittest import mock
@@ -37,8 +38,6 @@ def _build_uri(base_uri, subdirectory):
 
 @pytest.fixture
 def zipped_repo(tmpdir):
-    import zipfile
-
     zip_name = tmpdir.join("%s.zip" % TEST_PROJECT_NAME).strpath
     with zipfile.ZipFile(zip_name, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for root, _, files in os.walk(TEST_PROJECT_DIR):

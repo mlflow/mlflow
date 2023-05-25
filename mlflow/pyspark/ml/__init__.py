@@ -5,6 +5,9 @@ import os
 from urllib.parse import urlparse
 import weakref
 import sys
+import traceback
+import json
+from itertools import zip_longest
 import mlflow
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.spark_dataset import SparkDataset
@@ -94,12 +97,12 @@ def _read_log_model_allowlist():
 
     # New in 3.9: https://docs.python.org/3/library/importlib.resources.html#importlib.resources.files
     if sys.version_info.major > 2 and sys.version_info.minor > 8:
-        from importlib.resources import as_file, files
+        from importlib.resources import as_file, files  # pylint: disable=lazy-builtin-import
 
         with as_file(files(__name__).joinpath("log_model_allowlist.txt")) as file:
             builtin_allowlist_file = file.as_posix()
     else:
-        from importlib.resources import path
+        from importlib.resources import path  # pylint: disable=lazy-builtin-import
 
         with path(__name__, "log_model_allowlist.txt") as file:
             builtin_allowlist_file = file.as_posix()
@@ -396,8 +399,6 @@ def _get_instance_param_map(instance, uid_to_indexed_name_map):
 
 
 def _create_child_runs_for_parameter_search(parent_estimator, parent_model, parent_run, child_tags):
-    from itertools import zip_longest
-
     client = MlflowClient()
     # Use the start time of the parent parameter search run as a rough estimate for the
     # start time of child runs, since we cannot precisely determine when each point
@@ -452,7 +453,6 @@ def _create_child_runs_for_parameter_search(parent_estimator, parent_model, pare
 
 def _log_parameter_search_results_as_artifact(param_maps, metrics_dict, run_id):
     import pandas as pd
-    import json
 
     result_dict = defaultdict(list)
     result_dict["params"] = []
@@ -998,8 +998,6 @@ def autolog(
                     child_tags=child_tags,
                 )
             except Exception:
-                import traceback
-
                 msg = (
                     "Encountered exception during creation of child runs for parameter search."
                     " Child runs may be missing. Exception: {}".format(traceback.format_exc())

@@ -16,6 +16,7 @@ import os
 import yaml
 import tempfile
 import shutil
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
@@ -152,7 +153,6 @@ def save_model(
     """
     import fastai
     from fastai.callback.all import ParamScheduler
-    from pathlib import Path
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -558,7 +558,7 @@ def autolog(
                     "early_stop_comp": callback.comp.__name__,
                 }
                 mlflow.log_params(earlystopping_params)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return
 
     def _log_model_info(learner):

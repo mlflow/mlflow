@@ -4,6 +4,7 @@ import mlflow
 import hashlib
 import json
 import os
+import signal
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -37,6 +38,18 @@ import operator
 from decimal import Decimal
 
 _logger = logging.getLogger(__name__)
+
+
+class _ModelType:
+    REGRESSOR = "regressor"
+    CLASSIFIER = "classifier"
+
+    def __init__(self):
+        raise NotImplementedError("This class is not meant to be instantiated.")
+
+    @classmethod
+    def values(cls):
+        return (cls.REGRESSOR, cls.CLASSIFIER)
 
 
 class EvaluationMetric:
@@ -376,7 +389,7 @@ class EvaluationDataset:
     NUM_SAMPLE_ROWS_FOR_HASH = 5
     SPARK_DATAFRAME_LIMIT = 10000
 
-    def __init__(self, data, *, targets, name=None, path=None, feature_names=None):
+    def __init__(self, data, *, targets=None, name=None, path=None, feature_names=None):
         """
         The values of the constructor arguments comes from the `evaluate` call.
         """
@@ -399,6 +412,7 @@ class EvaluationDataset:
         self._hash = None
         self._supported_dataframe_types = (pd.DataFrame,)
         self._spark_df_type = None
+        self._labels_data = None
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -417,8 +431,9 @@ class EvaluationDataset:
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+        has_targets = targets is not None
         if isinstance(data, (np.ndarray, list)):
-            if not isinstance(targets, (np.ndarray, list)):
+            if has_targets and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
                     message="If data is a numpy array or list of evaluation features, "
                     "`targets` argument must be a numpy array or list of evaluation labels.",
@@ -447,14 +462,17 @@ class EvaluationDataset:
                 )
 
             self._features_data = data
-            self._labels_data = targets if isinstance(targets, np.ndarray) else np.array(targets)
-
-            if len(self._features_data) != len(self._labels_data):
-                raise MlflowException(
-                    message="The input features example rows must be the same length "
-                    "with labels array.",
-                    erorr_code=INVALID_PARAMETER_VALUE,
+            if has_targets:
+                self._labels_data = (
+                    targets if isinstance(targets, np.ndarray) else np.array(targets)
                 )
+
+                if len(self._features_data) != len(self._labels_data):
+                    raise MlflowException(
+                        message="The input features example rows must be the same length "
+                        "with labels array.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
             num_features = data.shape[1]
 
@@ -472,7 +490,7 @@ class EvaluationDataset:
                     for i in range(num_features)
                 ]
         elif isinstance(data, self._supported_dataframe_types):
-            if not isinstance(targets, str):
+            if has_targets and not isinstance(targets, str):
                 raise MlflowException(
                     message="If data is a Pandas DataFrame or Spark DataFrame, `targets` argument "
                     "must be the name of the column which contains evaluation labels in the `data` "
@@ -489,13 +507,15 @@ class EvaluationDataset:
                     )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
-            self._labels_data = data[targets].to_numpy()
+            if has_targets:
+                self._labels_data = data[targets].to_numpy()
 
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
                 self._feature_names = feature_names
             else:
-                self._features_data = data.drop(targets, axis=1, inplace=False)
+                if has_targets:
+                    self._features_data = data.drop(targets, axis=1, inplace=False)
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -509,7 +529,8 @@ class EvaluationDataset:
         # generate dataset hash
         md5_gen = hashlib.md5()
         _gen_md5_for_arraylike_obj(md5_gen, self._features_data)
-        _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
+        if self._labels_data is not None:
+            _gen_md5_for_arraylike_obj(md5_gen, self._labels_data)
         md5_gen.update(",".join(list(map(str, self._feature_names))).encode("UTF-8"))
 
         self._hash = md5_gen.hexdigest()
@@ -768,7 +789,7 @@ def _normalize_evaluators_and_evaluator_config_args(
         raise MlflowException(
             message="`evaluators` argument must be None, an evaluator name string, or a list of "
             "evaluator names.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     return evaluator_name_list, evaluator_name_to_conf_map
@@ -963,7 +984,7 @@ def _evaluate(
         raise MlflowException(
             message="The model could not be evaluated by any of the registered evaluators, please "
             "verify that the model type and other configs are set correctly.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     merged_eval_result = EvaluationResult({}, {}, {})
@@ -983,8 +1004,8 @@ def evaluate(
     model: str,
     data,
     *,
-    targets=None,
     model_type: str,
+    targets=None,
     dataset_path=None,
     feature_names: list = None,
     evaluators=None,
@@ -1295,11 +1316,16 @@ def evaluate(
     :return: An :py:class:`mlflow.models.EvaluationResult` instance containing
              metrics of candidate model and baseline model, and artifacts of candidate model.
     '''
-    import signal
     from mlflow.pyfunc import PyFuncModel, _ServedPyFuncModel, _load_model_or_server
     from mlflow.utils import env_manager as _EnvManager
 
     _EnvManager.validate(env_manager)
+
+    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER] and targets is None:
+        raise MlflowException(
+            f"The targets argument must be specified for {model_type} models.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
@@ -1315,7 +1341,7 @@ def evaluate(
         raise MlflowException(
             message="The model argument must be a string URI referring to an MLflow model or "
             "an instance of `mlflow.pyfunc.PyFuncModel`.",
-            erorr_code=INVALID_PARAMETER_VALUE,
+            error_code=INVALID_PARAMETER_VALUE,
         )
 
     if validation_thresholds:
