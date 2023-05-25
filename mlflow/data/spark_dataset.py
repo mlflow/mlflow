@@ -28,7 +28,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        df: "pyspark.sql.DataFrame",
+        df,
         source: DatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -248,7 +248,7 @@ def load_delta(
 
 @experimental
 def from_spark(
-    df: "pyspark.sql.DataFrame",
+    df,
     path: Optional[str] = None,
     table_name: Optional[str] = None,
     version: Optional[str] = None,
