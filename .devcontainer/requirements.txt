@@ -451,7 +451,7 @@ tomli==2.0.1
     #   pytest
 tomlkit==0.11.6
     # via pylint
-tornado==6.2
+tornado==6.3.2
     # via livereload
 tqdm==4.64.1
     # via
