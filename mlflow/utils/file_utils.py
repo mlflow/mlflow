@@ -636,42 +636,42 @@ def parallelized_download_file_using_http_uri(
     failed_downloads = {}
 
     def run_download(range_start, range_end):
-        temp_file = tempfile.mktemp()
-        download_proc = _exec_cmd(
-            cmd=[
-                sys.executable,
-                download_cloud_file_chunk.__file__,
-                "--range-start",
-                range_start,
-                "--range-end",
-                range_end,
-                "--headers",
-                json.dumps(headers or {}),
-                "--download-path",
-                download_path,
-                "--http-uri",
-                http_uri,
-                "--temp-file",
-                temp_file,
-            ],
-            throw_on_error=True,
-            synchronous=False,
-            capture_output=True,
-            stream_output=False,
-            env=env,
-        )
-        _, stderr = download_proc.communicate()
-        if download_proc.returncode != 0:
-            with open(temp_file, "r") as f:
-                f.seek(0)
-                file_contents = f.read()
-                if file_contents:
-                    return json.loads(file_contents)
-                else:
-                    raise Exception(
-                        "Error from download_cloud_file_chunk not captured, "
-                        f"return code {download_proc.returncode}, stderr {stderr}"
-                    )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = os.path.join(tmpdir, "error_messages.txt")
+            download_proc = _exec_cmd(
+                cmd=[
+                    sys.executable,
+                    download_cloud_file_chunk.__file__,
+                    "--range-start",
+                    range_start,
+                    "--range-end",
+                    range_end,
+                    "--headers",
+                    json.dumps(headers or {}),
+                    "--download-path",
+                    download_path,
+                    "--http-uri",
+                    http_uri,
+                    "--temp-file",
+                    temp_file,
+                ],
+                throw_on_error=True,
+                synchronous=False,
+                capture_output=True,
+                stream_output=False,
+                env=env,
+            )
+            _, stderr = download_proc.communicate()
+            if download_proc.returncode != 0:
+                with open(temp_file, "r") as f:
+                    file_contents = f.read()
+                    if file_contents:
+                        return json.loads(file_contents)
+                    else:
+                        raise Exception(
+                            "Error from download_cloud_file_chunk not captured, "
+                            f"return code {download_proc.returncode}, stderr {stderr}"
+                        )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         futures = {}
