@@ -2718,7 +2718,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
 
     assert loaded_pipeline.torch_dtype == torch.float64
     assert loaded_pipeline.framework == "pt"
-    assert base_loaded.model.dtype == torch.float64
+    assert loaded_pipeline.model.dtype == torch.float64
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
     assert prediction['translation_text'].startswith('Bonjour')

@@ -830,7 +830,7 @@ def is_gpu_available():
         is_gpu = False
     return is_gpu
 
-def _try_load_model_with_device(model_instance, pipeline_path, device, conf):
+def _try_load_model_with_device(model_instance, model_path, device, conf):
     load_model_conf = {}
     # Assume if torch_dtype was specified in the conf, then it must be with a pipeline for which it's compatible.
     if _TORCH_DTYPE_KEY in conf:
@@ -838,11 +838,11 @@ def _try_load_model_with_device(model_instance, pipeline_path, device, conf):
 
     try:
         load_model_conf["device"] = device
-        model = model_instance.from_pretrained(pipeline_path, **load_model_conf)
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
     except (ValueError, TypeError):
-        print('Could not specify device parameter for this pipeline type', flush=True)
+        _logger.warning('Could not specify device parameter for this pipeline type')
         load_model_conf.pop('device', None)
-        model = model_instance.from_pretrained(pipeline_path, **load_model_conf)
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
     return model
 
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
