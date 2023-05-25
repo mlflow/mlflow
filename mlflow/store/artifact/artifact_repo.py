@@ -199,7 +199,7 @@ class ArtifactRepository:
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
-                    " artifacts from {self.artifact_uri}: {failed_downloads}"
+                    f" artifacts from {self.artifact_uri}: {failed_downloads}"
                 )
             )
 
