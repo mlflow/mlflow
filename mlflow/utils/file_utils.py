@@ -5,6 +5,7 @@ import json
 import math
 import os
 import posixpath
+import re
 import shutil
 import sys
 import tarfile
@@ -636,42 +637,41 @@ def parallelized_download_file_using_http_uri(
     failed_downloads = {}
 
     def run_download(range_start, range_end):
-        with tempfile.TemporaryFile(mode="w+") as temp_file:
-            download_proc = _exec_cmd(
-                cmd=[
-                    sys.executable,
-                    download_cloud_file_chunk.__file__,
-                    "--range-start",
-                    range_start,
-                    "--range-end",
-                    range_end,
-                    "--headers",
-                    json.dumps(headers or {}),
-                    "--download-path",
-                    download_path,
-                    "--http-uri",
-                    http_uri,
-                    "--temp-file",
-                    temp_file,
-                ],
-                throw_on_error=True,
-                synchronous=False,
-                capture_output=True,
-                stream_output=False,
-                env=env,
-            )
-            _, stderr = download_proc.communicate()
-            if download_proc.returncode != 0:
-                temp_file.seek(0)
-                file_contents = temp_file.read()
-                if file_contents:
-                    return json.loads(file_contents)
-                else:
-                    _, stderr = download_proc.communicate()
-                    raise Exception(
-                        "Error from download_cloud_file_chunk not captured, "
-                        f"return code {download_proc.returncode}, stderr {stderr}"
-                    )
+        download_proc = _exec_cmd(
+            cmd=[
+                sys.executable,
+                download_cloud_file_chunk.__file__,
+                "--range-start",
+                range_start,
+                "--range-end",
+                range_end,
+                "--headers",
+                json.dumps(headers or {}),
+                "--download-path",
+                download_path,
+                "--http-uri",
+                http_uri,
+            ],
+            throw_on_error=True,
+            synchronous=False,
+            capture_output=True,
+            stream_output=False,
+            env=env,
+        )
+        stdout, stderr = download_proc.communicate()
+        exception_pattern = re.compile(
+            r"Exception while downloading the chunk: "
+            r'(\{"error_status_code": [0-9]+, "error_text": .*\})'
+        )
+        if download_proc.returncode != 0:
+            file_contents = exception_pattern.search(stdout)
+            if file_contents:
+                return json.loads(file_contents.group(1))
+            else:
+                raise Exception(
+                    "Error from download_cloud_file_chunk not captured, "
+                    f"return code {download_proc.returncode}, stderr {stderr}"
+                )
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         futures = {}
