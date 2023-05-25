@@ -1186,7 +1186,7 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
+    def log_dict(self, run_id: str, dictionary: Dict[str, Any], artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
