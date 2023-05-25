@@ -14,12 +14,16 @@ import tempfile
 import time
 import urllib.parse
 import requests
+import pandas as pd
+import math
 from unittest import mock
 
 import pytest
 
 from mlflow import MlflowClient
 from mlflow.artifacts import download_artifacts
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.utils import mlflow_tags
 import mlflow.experiments
 from mlflow.exceptions import MlflowException
 from mlflow.entities import (
@@ -284,8 +288,6 @@ def test_log_metrics_params_tags(mlflow_client):
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get("metric") == 123.456
-    import math
-
     assert math.isnan(run.data.metrics.get("nan_metric"))
     assert run.data.metrics.get("inf_metric") >= 1.7976931348623157e308
     assert run.data.metrics.get("-inf_metric") <= -1.7976931348623157e308
@@ -681,6 +683,21 @@ def test_log_batch_validation(mlflow_client):
             },
             f"Invalid value foo for parameter '{request_parameter}' supplied",
         )
+
+    ## Should 400 if missing timestamp
+    assert_bad_request(
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5}]},
+        "Invalid value [{'key': 'mae', 'value': 2.5}] for parameter 'metrics' supplied",
+    )
+
+    ## Should 200 if timestamp provided but step is not
+    response = _send_rest_tracking_post_request(
+        mlflow_client.tracking_uri,
+        "/api/2.0/mlflow/runs/log-batch",
+        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5, "timestamp": 123456789}]},
+    )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback
@@ -1120,6 +1137,39 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
     )
     assert response.status_code == 200
 
+    # A single trailing slash
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple trailing slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models///",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
+    # Multiple slashes
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts:/models/foo///bar",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
         json={
@@ -1302,6 +1352,40 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
         assert run.info.artifact_uri.startswith("file://")
         mlflow.sklearn.log_model(LogisticRegression(), "model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
+
+
+def test_log_input(mlflow_client, tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = from_pandas(df, source=path)
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
+    with mlflow.start_run() as run:
+        mlflow.log_input(dataset, "train", {"foo": "baz"})
+
+    dataset_inputs = mlflow_client.get_run(run.info.run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {
+        "mlflow_colspec": [
+            {"name": "a", "type": "long"},
+            {"name": "b", "type": "long"},
+            {"name": "c", "type": "long"},
+        ]
+    }
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+
+    assert len(dataset_inputs[0].tags) == 2
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train"
 
 
 def test_log_inputs(mlflow_client):

@@ -229,11 +229,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
     tryCatch(
       mlflow_id(mlflow_get_experiment(client = client, name = experiment_name)),
       error = function(e) {
-        if (grepl(
-              fixed = TRUE,
-              x = e$message,
-              pattern = paste(
-                "Could not find experiment with name '", experiment_name, "'", sep=""))) {
+        if (grep("RESOURCE_DOES_NOT_EXIST", e$message, fixed = TRUE)) {
           message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
           mlflow_create_experiment(client = client, name = experiment_name, artifact_location = artifact_location)
         } else {

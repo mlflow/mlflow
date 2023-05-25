@@ -19,10 +19,10 @@ XGBoost (native) format
 import os
 import shutil
 import json
-from scipy.sparse import issparse
 import yaml
 import tempfile
 import logging
+import functools
 from copy import deepcopy
 from packaging.version import Version
 
@@ -397,7 +397,7 @@ def autolog(
     silent=False,
     registered_model_name=None,
     model_format="xgb",
-):  # pylint: disable=W0102,unused-argument
+):  # pylint: disable=unused-argument
     """
     Enables (or disables) and configures autologging from XGBoost to MLflow. Logs the following:
 
@@ -446,7 +446,6 @@ def autolog(
                                   The registered model is created if it does not already exist.
     :param model_format: File format in which the model is to be saved.
     """
-    import functools
     import xgboost
     import numpy as np
 
@@ -807,6 +806,7 @@ def _log_xgboost_dataset(xgb_dataset, source, context, autologging_client, name=
     import numpy as np
     import pandas as pd
     import xgboost as xgb
+    from scipy.sparse import issparse
 
     # dmatrix has a get_data method added in 1.7. skip for earlier versions.
     if Version(xgb.__version__) >= Version("1.7.0"):

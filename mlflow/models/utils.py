@@ -26,7 +26,9 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str]
+ModelInputExample = Union[
+    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
+]
 
 PyFuncInput = Union[
     pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
@@ -142,7 +144,7 @@ class _Example:
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
-            elif isinstance(input_ex, str):
+            elif isinstance(input_ex, (str, bytes)):
                 input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
@@ -612,17 +614,38 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
     For tensor-based signatures, we make sure the shape and type of the input matches the shape
     and type specified in model's input schema.
     """
+
+    def _is_scalar(x):
+        return np.isscalar(x) or x is None
+
     if isinstance(pf_input, pd.Series):
         pf_input = pd.DataFrame(pf_input)
     if not input_schema.is_tensor_spec():
         if isinstance(pf_input, (list, np.ndarray, dict, pd.Series, str)):
             try:
-                if isinstance(pf_input, dict) and all(
-                    not isinstance(value, (dict, list)) for value in pf_input.values()
+                if isinstance(pf_input, str):
+                    pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and all(
+                    _is_scalar(value) for value in pf_input.values()
                 ):
-                    pf_input = pd.DataFrame(pf_input, index=[0])
-                elif isinstance(pf_input, str):
-                    pf_input = pd.DataFrame({"inputs": pf_input}, index=[0])
+                    pf_input = pd.DataFrame([pf_input])
+                elif isinstance(pf_input, dict) and all(
+                    isinstance(value, np.ndarray)
+                    and value.dtype.type == np.str_
+                    and value.size == 1
+                    and value.shape == ()
+                    for value in pf_input.values()
+                ):
+                    # This check is specifically to handle the serving structural cast for
+                    # certain inputs for the transformers implementation. Due to the fact that
+                    # specific Pipeline types in transformers support passing input data
+                    # of the form Dict[str, str] in which the value is a scalar string, model
+                    # serving will cast this entry as a numpy array with shape () and size 1.
+                    # This is seen as a scalar input when attempting to create a Pandas DataFrame
+                    # from such a numpy structure and requires the array to be encapsulated in a
+                    # list in order to prevent a ValueError exception for requiring an index
+                    # if passing in all scalar values thrown by Pandas.
+                    pf_input = pd.DataFrame([pf_input])
                 else:
                     pf_input = pd.DataFrame(pf_input)
             except Exception as e:
@@ -758,7 +781,10 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
             clf = RandomForestClassifier(max_depth=7, random_state=0)
             clf.fit(iris_train, iris.target)
-            mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
+            signature = infer_signature(iris_train, clf.predict(iris_train))
+            mlflow.sklearn.log_model(
+                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+            )
 
         # model uri for the above model
         model_uri = "models:/model-with-libs/1"

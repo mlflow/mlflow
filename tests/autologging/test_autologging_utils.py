@@ -2,6 +2,7 @@
 
 import inspect
 import time
+import sys
 import pytest
 from collections import namedtuple
 from unittest.mock import Mock, call
@@ -91,7 +92,7 @@ def start_run():
     mlflow.end_run()
 
 
-def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=W0613
+def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=unused-argument
     pass
 
 
@@ -110,7 +111,9 @@ log_test_args = [
 
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
-def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params(
+    args, kwargs, expected, start_run
+):  # pylint: disable=unused-argument
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -119,7 +122,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
         assert params[arg] == value
 
 
-def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params_ignores_unwanted_parameters(
+    start_run,
+):  # pylint: disable=unused-argument
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
@@ -154,8 +159,6 @@ def sample_function_to_patch(a, b):
 
 
 def test_wrap_patch_with_module():
-    import sys
-
     this_module = sys.modules[__name__]
 
     def new_sample_function(a, b):
@@ -747,6 +750,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pyspark"},
         "autologging": {"minimum": "3.0.1", "maximum": "3.1.1"},
     },
+    "transformers": {
+        "package_info": {"pip_release": "transformers"},
+        "autologging": {"minimum": "1.25.1", "maximum": "1.28.1"},
+    },
 }
 
 
@@ -777,6 +784,8 @@ _module_version_info_dict_patch = {
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
+        ("transformers", "1.28.1", True),
+        ("transformers", "1.1.1", False),
     ],
 )
 @mock.patch(

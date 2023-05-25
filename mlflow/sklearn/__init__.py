@@ -76,7 +76,6 @@ from mlflow.utils.autologging_utils import (
     get_autologging_config,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from scipy.sparse import issparse
 
 FLAVOR_NAME = "sklearn"
 
@@ -415,20 +414,24 @@ def log_model(
 
         import mlflow
         import mlflow.sklearn
+        from mlflow.models.signature import infer_signature
         from sklearn.datasets import load_iris
         from sklearn import tree
 
-        iris = load_iris()
-        sk_model = tree.DecisionTreeClassifier()
-        sk_model = sk_model.fit(iris.data, iris.target)
-        # set the artifact_path to location where experiment artifacts will be saved
+        with mlflow.start_run():
+            # load dataset and train model
+            iris = load_iris()
+            sk_model = tree.DecisionTreeClassifier()
+            sk_model = sk_model.fit(iris.data, iris.target)
 
-        # log model params
-        mlflow.log_param("criterion", sk_model.criterion)
-        mlflow.log_param("splitter", sk_model.splitter)
+            # log model params
+            mlflow.log_param("criterion", sk_model.criterion)
+            mlflow.log_param("splitter", sk_model.splitter)
+            signature = infer_signature(iris.data, sk_model.predict(iris.data))
 
-        # log model
-        mlflow.sklearn.log_model(sk_model, "sk_models")
+            # log model
+            mlflow.sklearn.log_model(sk_model, "sk_models", signature=signature)
+
     """
     return Model.log(
         artifact_path=artifact_path,
@@ -1833,8 +1836,13 @@ def _autolog(
                 flavor_name, sklearn.metrics, metric_name, patched_metric_api, manage_run=False
             )
 
-        for scorer in sklearn.metrics.SCORERS.values():
-            safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
+        if Version(sklearn.__version__) > Version("1.2.2"):
+            for scoring in sklearn.metrics.get_scorer_names():
+                scorer = sklearn.metrics.get_scorer(scoring)
+                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
+        else:
+            for scorer in sklearn.metrics.SCORERS.values():
+                safe_patch(flavor_name, scorer, "_score_func", patched_metric_api, manage_run=False)
 
     def patched_fn_with_autolog_disabled(original, *args, **kwargs):
         with disable_autologging():
@@ -1851,6 +1859,8 @@ def _autolog(
 
     def _create_dataset(X, source, y=None, dataset_name=None):
         # create a dataset
+        from scipy.sparse import issparse
+
         if isinstance(X, pd.DataFrame):
             dataset = from_pandas(df=X, source=source)
         elif issparse(X):

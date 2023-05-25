@@ -76,6 +76,7 @@ try:
     from mlflow import langchain
     from mlflow import llm
     from mlflow import openai
+    from mlflow import sentence_transformers
 
     _model_flavors_supported = [
         "catboost",
@@ -103,6 +104,7 @@ try:
         "langchain",
         "llm",
         "openai",
+        "sentence_transformers",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
@@ -144,6 +146,7 @@ from mlflow.tracking.fluent import (
     log_dict,
     log_image,
     log_figure,
+    log_table,
     active_run,
     get_run,
     start_run,
@@ -165,6 +168,7 @@ from mlflow.tracking.fluent import (
     autolog,
     last_active_run,
     log_input,
+    get_parent_run,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -200,6 +204,7 @@ __all__ = [
     "log_text",
     "log_dict",
     "log_figure",
+    "log_table",
     "log_image",
     "log_input",
     "active_run",
@@ -219,6 +224,7 @@ __all__ = [
     "set_experiment",
     "delete_experiment",
     "get_run",
+    "get_parent_run",
     "delete_run",
     "run",
     "register_model",
