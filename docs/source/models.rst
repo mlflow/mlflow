@@ -386,7 +386,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
-            ColSpec("string", "class", optional=True)
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
