@@ -146,7 +146,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 headers=headers,
             )
             download_errors = [
-                e for e in failed_downloads.values() if e.response.status_code not in (401, 403)
+                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
             ]
             if download_errors:
                 raise MlflowException(

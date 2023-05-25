@@ -1,9 +1,11 @@
 import json
+import re
 
 import pytest
 from unittest import mock
 from unittest.mock import ANY
 
+from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
@@ -242,6 +244,126 @@ def test_download_file(databricks_model_artifact_repo, remote_file_path, local_p
             ANY,
             expected_headers,
         )
+
+
+@pytest.mark.parametrize(
+    ("remote_file_path"),
+    [
+        ("test_file.txt"),
+        ("output/test_file"),
+    ],
+)
+def test_parallelized_download_file_using_http_uri_succcess(
+    databricks_model_artifact_repo, remote_file_path
+):
+    signed_uri_mock = {
+        "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
+        "headers": [{"name": "header_name", "value": "header_value"}],
+    }
+
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts"
+    ) as list_artifacts_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri"
+    ) as get_signed_download_uri_mock, mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_env_vars"
+    ) as get_databricks_env_vars_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri"
+    ) as download_file_mock:
+        list_artifacts_mock.return_value = [FileInfo(remote_file_path, True, 200_000_000)]
+        get_signed_download_uri_mock.return_value = (
+            signed_uri_mock["signed_uri"],
+            signed_uri_mock["headers"],
+        )
+        get_databricks_env_vars_mock.return_value = {}
+        download_file_mock.return_value = {}
+        databricks_model_artifact_repo._download_file(remote_file_path, "")
+        download_file_mock.assert_called()
+
+
+@pytest.mark.parametrize(
+    ("remote_file_path"),
+    [
+        ("test_file.txt"),
+        ("output/test_file"),
+    ],
+)
+def test_parallelized_download_file_using_http_uri_with_error_downloads(
+    databricks_model_artifact_repo, remote_file_path
+):
+    signed_uri_mock = {
+        "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
+        "headers": [{"name": "header_name", "value": "header_value"}],
+    }
+    error_downloads = {
+        1: {
+            "error_status_code": 500,
+            "error_text": "Internal Server Error",
+        }
+    }
+
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts"
+    ) as list_artifacts_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri"
+    ) as get_signed_download_uri_mock, mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_env_vars"
+    ) as get_databricks_env_vars_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri"
+    ) as download_file_mock:
+        list_artifacts_mock.return_value = [FileInfo(remote_file_path, True, 200_000_000)]
+        get_signed_download_uri_mock.return_value = (
+            signed_uri_mock["signed_uri"],
+            signed_uri_mock["headers"],
+        )
+        get_databricks_env_vars_mock.return_value = {}
+        download_file_mock.return_value = error_downloads
+        with pytest.raises(
+            MlflowException,
+            match=re.escape(
+                f"Failed to download artifact {remote_file_path}: [{error_downloads[1]}]"
+            ),
+        ):
+            databricks_model_artifact_repo._download_file(remote_file_path, "")
+
+
+@pytest.mark.parametrize(
+    ("remote_file_path"),
+    [
+        ("test_file.txt"),
+        ("output/test_file"),
+    ],
+)
+def test_parallelized_download_file_using_http_uri_with_failed_downloads(
+    databricks_model_artifact_repo, remote_file_path
+):
+    signed_uri_mock = {
+        "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
+        "headers": [{"name": "header_name", "value": "header_value"}],
+    }
+    failed_downloads = {1: {"error_status_code": 401, "error_text": "Unauthorized"}}
+
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts"
+    ) as list_artifacts_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri"
+    ) as get_signed_download_uri_mock, mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_env_vars"
+    ) as get_databricks_env_vars_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri"
+    ) as download_file_mock, mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_chunk"
+    ) as download_chunk_mock:
+        list_artifacts_mock.return_value = [FileInfo(remote_file_path, True, 200_000_000)]
+        get_signed_download_uri_mock.return_value = (
+            signed_uri_mock["signed_uri"],
+            signed_uri_mock["headers"],
+        )
+        get_databricks_env_vars_mock.return_value = {}
+        download_file_mock.return_value = failed_downloads
+        download_chunk_mock.return_value = None
+        databricks_model_artifact_repo._download_file(remote_file_path, "")
+        download_chunk_mock.assert_called()
 
 
 def test_download_file_get_request_fail(databricks_model_artifact_repo):
