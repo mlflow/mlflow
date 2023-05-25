@@ -233,6 +233,8 @@ def init(model: PyFuncModel):
             (key, _, value) = parameter_value_pair.partition("=")
             parameter_values[key] = value
 
+        inference_params = flask.request.args
+
         charset = parameter_values.get("charset", "utf-8").lower()
         if charset != "utf-8":
             return flask.Response(
@@ -273,7 +275,7 @@ def init(model: PyFuncModel):
 
         # Do the prediction
         try:
-            raw_predictions = model.predict(data)
+            raw_predictions = model.predict(data, **inference_params)
         except MlflowException as e:
             raise e
         except Exception:

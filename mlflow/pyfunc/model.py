@@ -4,10 +4,11 @@ models with a user-defined ``PythonModel`` subclass.
 """
 
 import os
+import copy
 import posixpath
 import shutil
 import yaml
-from typing import Dict, List
+from typing import Dict, List, Any
 from abc import ABCMeta, abstractmethod
 
 import cloudpickle
@@ -115,7 +116,10 @@ class _FunctionPythonModel(PythonModel):
         return _extract_type_hints(self.func, input_arg_index=0)
 
     def predict(self, context, model_input):
-        return self.func(model_input)
+        if len(context.inference_config) > 0:
+            return self.func(model_input, **context.inference_config)
+        else:
+            return self.func(model_input)
 
 
 class PythonModelContext:
@@ -127,12 +131,13 @@ class PythonModelContext:
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts):
+    def __init__(self, artifacts, inference_config):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
         """
         self._artifacts = artifacts
+        self._inference_config = inference_config
 
     @property
     def artifacts(self):
@@ -141,6 +146,15 @@ class PythonModelContext:
         absolute filesystem path to the artifact.
         """
         return self._artifacts
+
+    @property
+    def inference_config(self):
+        """
+        A dictionary containing ``<parameter, value>`` entries, where ``parameter`` is the name
+        of the inference parameter and ``value`` is the value of the parameter to pass as argument.
+        """
+
+        return self._inference_config
 
 
 def _save_model_with_class_artifacts_params(
@@ -154,6 +168,7 @@ def _save_model_with_class_artifacts_params(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    inference_config=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -223,6 +238,7 @@ def _save_model_with_class_artifacts_params(
         code=saved_code_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        inference_config=inference_config,
         **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -261,7 +277,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path):
+def _load_pyfunc(model_path: str, inference_config: Dict[str, Any] = None):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -298,7 +314,7 @@ def _load_pyfunc(model_path):
             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
         )
 
-    context = PythonModelContext(artifacts=artifacts)
+    context = PythonModelContext(artifacts=artifacts, inference_config=inference_config or {})
     python_model.load_context(context=context)
     signature = mlflow.models.Model.load(model_path).signature
     return _PythonModelPyfuncWrapper(
@@ -361,5 +377,12 @@ class _PythonModelPyfuncWrapper:
 
         return model_input
 
-    def predict(self, model_input):
-        return self.python_model.predict(self.context, self._convert_input(model_input))
+    def predict(self, model_input, **kwargs):
+        if kwargs:
+            # Coping to restore original configuration on subsequent calls.
+            predict_context = copy.deepcopy(self.context)
+            predict_context.inference_config.update(**kwargs)
+        else:
+            predict_context = self.context
+
+        return self.python_model.predict(predict_context, self._convert_input(model_input))

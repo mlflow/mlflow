@@ -219,7 +219,7 @@ import threading
 import inspect
 import functools
 from copy import deepcopy
-from typing import Any, Union, Iterator, Tuple
+from typing import Any, Dict, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
@@ -291,6 +291,7 @@ FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
 CODE = "code"
 DATA = "data"
+INFERENCE_CONFIG = "inference_config"
 ENV = "env"
 
 
@@ -309,7 +310,14 @@ _logger = logging.getLogger(__name__)
 
 
 def add_to_model(
-    model, loader_module, data=None, code=None, conda_env=None, python_env=None, **kwargs
+    model,
+    loader_module,
+    data=None,
+    code=None,
+    conda_env=None,
+    python_env=None,
+    inference_config=None,
+    **kwargs,
 ):
     """
     Add a ``pyfunc`` spec to the model configuration.
@@ -340,6 +348,8 @@ def add_to_model(
         params[CODE] = code
     if data:
         params[DATA] = data
+    if inference_config:
+        params[INFERENCE_CONFIG] = inference_config
     if conda_env or python_env:
         params[ENV] = {}
         if conda_env:
@@ -388,7 +398,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    def predict(self, data: PyFuncInput) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, **kwargs) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -425,7 +435,8 @@ class PyFuncModel:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data)
+        inference_params = self._filter_inference_args(kwargs)
+        return self._predict_fn(data, **inference_params)
 
     @experimental
     def unwrap_python_model(self):
@@ -496,6 +507,22 @@ class PyFuncModel:
         if self._model_meta is None:
             raise MlflowException("Model is missing metadata.")
         return self._model_meta
+
+    @property
+    def inference_config(self):
+        """Model's inference config"""
+        return self._model_meta.flavors[FLAVOR_NAME].get(INFERENCE_CONFIG, {})
+
+    def _filter_inference_args(self, inference_args: Dict[str, Any]):
+        allowed_kargs = {
+            key: value for key, value in inference_args if key in self.inference_config.keys()
+        }
+        if len(allowed_kargs) < len(inference_args):
+            mlflow.pyfunc._logger.warning(
+                "Some arguments have been ignored. Allowed inference arguments include: %s",
+                ", ".join(self.inference_config.keys()),
+            )
+        return allowed_kargs
 
     def __repr__(self):
         info = {}
@@ -594,7 +621,11 @@ def load_model(
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
-    model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    inference_config = conf.get(INFERENCE_CONFIG, None)
+    if inference_config:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path, inference_config)
+    else:
+        model_impl = importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
     predict_fn = conf.get("predict_fn", "predict")
     return PyFuncModel(model_meta=model_meta, model_impl=model_impl, predict_fn=predict_fn)
 
@@ -605,8 +636,8 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
-    def predict(self, data):
-        result = self._client.invoke(data).get_predictions()
+    def predict(self, data, **kwargs):
+        result = self._client.invoke(data, **kwargs).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
         return result
@@ -1360,6 +1391,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    inference_config=None,
     **kwargs,
 ):
     """
@@ -1601,6 +1633,7 @@ def save_model(
             mlflow_model=mlflow_model,
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
+            inference_config=inference_config,
         )
 
 
@@ -1620,6 +1653,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    inference_config=None,
 ):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
@@ -1778,6 +1812,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        inference_config=inference_config,
     )
 
 
@@ -1790,6 +1825,7 @@ def _save_model_with_loader_module_and_data_path(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
+    inference_config=None,
 ):
     """
     Export model as a generic Python function model.
@@ -1825,6 +1861,7 @@ def _save_model_with_loader_module_and_data_path(
         data=data,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        inference_config=inference_config,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
 

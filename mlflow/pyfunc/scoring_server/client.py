@@ -65,10 +65,11 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data):
+    def invoke(self, data, **kwargs):
         response = requests.post(
             url=self.url_prefix + "/invocations",
             data=dump_input_data(data),
+            params=kwargs,
             headers={"Content-Type": scoring_server.CONTENT_TYPE_JSON},
         )
         if response.status_code != 200:
