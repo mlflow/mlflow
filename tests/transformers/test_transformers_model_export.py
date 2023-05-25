@@ -2721,7 +2721,7 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     assert loaded_pipeline.model.dtype == torch.float64
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
-    assert prediction['translation_text'].startswith('Bonjour')
+    assert prediction[0]['translation_text'].startswith('Bonjour')
 
 
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
