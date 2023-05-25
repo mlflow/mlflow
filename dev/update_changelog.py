@@ -1,10 +1,11 @@
+from __future__ import annotations
 import re
 import os
 import subprocess
 from datetime import datetime
 from collections import defaultdict
 from pathlib import Path
-from typing import NamedTuple, List, Any
+from typing import NamedTuple, Any
 
 import click
 import requests
@@ -32,7 +33,7 @@ class PullRequest(NamedTuple):
     title: str
     number: int
     author: str
-    labels: List[str]
+    labels: list[str]
 
     @property
     def url(self):
@@ -59,7 +60,7 @@ class PullRequest(NamedTuple):
 
 class Section(NamedTuple):
     title: str
-    items: List[Any]
+    items: list[Any]
 
     def __str__(self):
         if not self.items:

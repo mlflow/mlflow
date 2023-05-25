@@ -10,7 +10,6 @@ import random
 import string
 import pickle
 from io import StringIO
-from typing import Union
 
 from packaging.version import Version
 
@@ -148,7 +147,7 @@ class BaseCard:
         self._tabs.append((name, tab))
         return tab
 
-    def get_tab(self, name) -> Union[CardTab, None]:
+    def get_tab(self, name) -> CardTab | None:
         """
         Returns an existing tab with the specified name. Returns None if not found.
 

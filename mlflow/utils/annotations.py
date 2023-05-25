@@ -1,13 +1,14 @@
+from __future__ import annotations
 import inspect
 import types
 import warnings
 from functools import wraps
-from typing import Any, Union, Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
 C = TypeVar("C", bound=Callable[..., Any])
 
 
-def experimental(api_or_type: Union[C, str]) -> C:
+def experimental(api_or_type: C | str) -> C:
     """
     Decorator / decorator creator for marking APIs experimental in the docstring.
 

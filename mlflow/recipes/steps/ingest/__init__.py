@@ -1,3 +1,4 @@
+from __future__ import annotations
 import abc
 import logging
 import os
@@ -17,7 +18,7 @@ from mlflow.recipes.steps.ingest.datasets import (
     SparkSqlDataset,
     CustomDataset,
 )
-from typing import Dict, Any
+from typing import Any
 import pandas as pd
 
 _logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
         self,
         ingested_dataset_profile: str,
         ingested_rows: int,
-        schema: Dict,
+        schema: dict,
         data_preview: pd.DataFrame = None,
         dataset_src_location: str = None,
         dataset_sql: str = None,
@@ -207,12 +208,12 @@ class BaseIngestStep(BaseStep, metaclass=abc.ABCMeta):
 class IngestStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "dataset.parquet"
 
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         super().__init__(step_config, recipe_root)
         self.dataset_output_name = IngestStep._DATASET_OUTPUT_NAME
 
     @classmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str):
+    def from_recipe_config(cls, recipe_config: dict[str, Any], recipe_root: str):
         ingest_config = recipe_config.get("steps", {}).get("ingest", {})
         target_config = {"target_col": recipe_config.get("target_col")}
         if "positive_class" in recipe_config:
@@ -244,12 +245,12 @@ class IngestStep(BaseIngestStep):
 class IngestScoringStep(BaseIngestStep):
     _DATASET_OUTPUT_NAME = "scoring-dataset.parquet"
 
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         super().__init__(step_config, recipe_root)
         self.dataset_output_name = IngestScoringStep._DATASET_OUTPUT_NAME
 
     @classmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str):
+    def from_recipe_config(cls, recipe_config: dict[str, Any], recipe_root: str):
         step_config = recipe_config.get("steps", {}).get("ingest_scoring", {})
         step_config["recipe"] = recipe_config.get("recipe")
         return cls(

@@ -9,3 +9,7 @@ force-exclude = '''
   | examples/recipes/
 )
 '''
+
+
+[tool.ruff.isort]
+required-imports = ["from __future__ import annotations"]

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from pyspark.sql.utils import IllegalArgumentException
 from pyspark.sql import DataFrame
 import re
@@ -7,7 +8,6 @@ from pyspark.ml.linalg import VectorUDT
 from pyspark.sql import types as t
 from pyspark.ml.base import Transformer
 from pyspark.ml.pipeline import PipelineModel
-from typing import Union, Set
 
 
 def cast_spark_df_with_vector_to_array(input_spark_df):
@@ -28,7 +28,7 @@ def cast_spark_df_with_vector_to_array(input_spark_df):
     )
 
 
-def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, PipelineModel]):
+def _do_pipeline_transform(df: DataFrame, transformer: Transformer | PipelineModel):
     """
     A util method that runs transform on a pipeline model/transformer
 
@@ -38,7 +38,7 @@ def _do_pipeline_transform(df: DataFrame, transformer: Union[Transformer, Pipeli
     return transformer.transform(df)
 
 
-def _get_struct_type_by_cols(input_fields: Set[str], df_schema: t.StructType) -> t.StructType:
+def _get_struct_type_by_cols(input_fields: set[str], df_schema: t.StructType) -> t.StructType:
     """
 
     :param input_fields: A set of input columns to be
@@ -54,8 +54,8 @@ def _get_struct_type_by_cols(input_fields: Set[str], df_schema: t.StructType) ->
 
 def get_feature_cols(
     df: DataFrame,
-    transformer: Union[Transformer, PipelineModel],
-) -> Set[str]:
+    transformer: Transformer | PipelineModel,
+) -> set[str]:
     """
     Finds feature columns from an input dataset. If a dataset
     contains non-feature columns, those columns are not returned, but

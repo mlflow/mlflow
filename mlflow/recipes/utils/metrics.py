@@ -1,7 +1,8 @@
+from __future__ import annotations
 import logging
 import importlib
 import sys
-from typing import List, Dict, Optional, Any
+from typing import Any
 
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.exceptions import MlflowException, BAD_REQUEST
@@ -15,7 +16,7 @@ class RecipeMetric:
     _KEY_METRIC_GREATER_IS_BETTER = "greater_is_better"
     _KEY_CUSTOM_FUNCTION = "function"
 
-    def __init__(self, name: str, greater_is_better: bool, custom_function: Optional[str] = None):
+    def __init__(self, name: str, greater_is_better: bool, custom_function: str | None = None):
         self.name = name
         self.greater_is_better = greater_is_better
         self.custom_function = custom_function
@@ -74,7 +75,7 @@ DEFAULT_METRICS = {
 }
 
 
-def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: Optional[str] = None):
+def _get_error_fn(tmpl: str, use_probability: bool = False, positive_class: str | None = None):
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
     :return: The error function for the provided template.
@@ -142,7 +143,7 @@ def _get_model_type_from_template(tmpl: str) -> str:
     )
 
 
-def _get_builtin_metrics(ext_task: str) -> Dict[str, str]:
+def _get_builtin_metrics(ext_task: str) -> dict[str, str]:
     """
     :param tmpl: The template kind, e.g. `regression/v1`.
     :return: The builtin metrics for the mlflow evaluation service for the model type for
@@ -168,11 +169,11 @@ def transform_multiclass_metric(metric_name: str, ext_task: str) -> str:
     return metric_name
 
 
-def transform_multiclass_metrics_dict(eval_metrics: Dict[str, Any], ext_task) -> Dict[str, Any]:
+def transform_multiclass_metrics_dict(eval_metrics: dict[str, Any], ext_task) -> dict[str, Any]:
     return {transform_multiclass_metric(k, ext_task): v for k, v in eval_metrics.items()}
 
 
-def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
+def _get_custom_metrics(step_config: dict, ext_task: str) -> list[dict]:
     """
     :param: Configuration dictionary for the train or evaluate step.
     :return: A list of custom metrics defined in the specified configuration dictionary,
@@ -193,7 +194,7 @@ def _get_custom_metrics(step_config: Dict, ext_task: str) -> List[Dict]:
     return custom_metrics
 
 
-def _load_custom_metrics(recipe_root: str, metrics: List[RecipeMetric]) -> List[EvaluationMetric]:
+def _load_custom_metrics(recipe_root: str, metrics: list[RecipeMetric]) -> list[EvaluationMetric]:
     custom_metrics = [metric for metric in metrics if metric.custom_function is not None]
     if not custom_metrics:
         return None

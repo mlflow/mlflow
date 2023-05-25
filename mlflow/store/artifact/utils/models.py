@@ -1,4 +1,5 @@
-from typing import NamedTuple, Optional
+from __future__ import annotations
+from typing import NamedTuple
 import urllib.parse
 
 import mlflow.tracking
@@ -38,9 +39,9 @@ def _get_latest_model_version(client, name, stage):
 
 class ParsedModelUri(NamedTuple):
     name: str
-    version: Optional[str] = None
-    stage: Optional[str] = None
-    alias: Optional[str] = None
+    version: str | None = None
+    stage: str | None = None
+    alias: str | None = None
 
 
 def _parse_model_uri(uri):

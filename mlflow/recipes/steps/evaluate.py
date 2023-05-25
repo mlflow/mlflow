@@ -1,8 +1,9 @@
+from __future__ import annotations
 import logging
 import operator
 import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 from collections import namedtuple
 import warnings
 import sys
@@ -49,7 +50,7 @@ MetricValidationResult = namedtuple(
 
 
 class EvaluateStep(BaseStep):
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str) -> None:
+    def __init__(self, step_config: dict[str, Any], recipe_root: str) -> None:
         super().__init__(step_config, recipe_root)
         self.tracking_config = TrackingConfig.from_dict(self.step_config)
 
@@ -412,9 +413,6 @@ class EvaluateStep(BaseStep):
             shap_plot_tab.add_image("SHAP_BEESWARM_PLOT", shap_beeswarm_plot_path, width=800)
 
         try:
-            import shap  # pylint: disable=unused-import
-            from matplotlib import pyplot  # pylint: disable=unused-import
-
             _add_shap_plots(card)
         except ImportError:
             _logger.warning(

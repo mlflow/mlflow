@@ -4,14 +4,14 @@ A script to automatically find the minimum required python version for a specifi
 Usage:
 python dev/get_minimum_required_python.py -p scikit-learn -v 1.1.0 --python-versions "3.8"
 """
+from __future__ import annotations
 import requests
 from packaging.version import Version
 from packaging.specifiers import SpecifierSet
-import typing as t
 import argparse
 
 
-def get_requires_python(package: str, version: str) -> t.Optional[str]:
+def get_requires_python(package: str, version: str) -> str | None:
     resp = requests.get(f"https://pypi.python.org/pypi/{package}/json")
     resp.raise_for_status()
     return next(

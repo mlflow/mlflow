@@ -1,3 +1,4 @@
+from __future__ import annotations
 import logging
 import os
 import shutil
@@ -12,7 +13,7 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_runtime,
     get_databricks_runtime,
 )
-from typing import Dict, List, Iterable, Tuple
+from typing import Iterable
 
 _logger = logging.getLogger(__name__)
 
@@ -21,7 +22,7 @@ _MAX_PROFILE_ROW_SIZE = 1000000  # 1M Rows
 _MAX_PROFILE_COL_SIZE = 10000  # 10k Cols
 
 
-def get_merged_eval_metrics(eval_metrics: Dict[str, Dict], ordered_metric_names: List[str] = None):
+def get_merged_eval_metrics(eval_metrics: dict[str, dict], ordered_metric_names: list[str] = None):
     """Returns a merged Pandas DataFrame from a map of dataset to evaluation metrics.
     Optionally, the rows in the DataFrame are ordered by input ordered metric names.
 
@@ -115,7 +116,7 @@ def _get_pool_size():
     return 1 if "PYTEST_CURRENT_TEST" in os.environ and os.name == "nt" else 0
 
 
-def get_pandas_data_profiles(inputs: Iterable[Tuple[str, pd.DataFrame]]) -> str:
+def get_pandas_data_profiles(inputs: Iterable[tuple[str, pd.DataFrame]]) -> str:
     """
     Returns a data profiling string over input data frame.
 

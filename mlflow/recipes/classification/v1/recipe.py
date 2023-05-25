@@ -118,9 +118,10 @@ The recipe steps are defined as follows:
                 In Databricks, the **predict** step writes the output parquet/delta files to
                 DBFS.
 """
+from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.recipes.recipe import BaseRecipe
 from mlflow.recipes.steps.ingest import IngestStep, IngestScoringStep
@@ -264,7 +265,7 @@ class ClassificationRecipe(BaseRecipe):
         """
         return super().run(step=step)
 
-    def get_artifact(self, artifact_name: str) -> Optional[Any]:
+    def get_artifact(self, artifact_name: str) -> Any | None:
         """
         Reads an artifact from the recipe's outputs. Supported artifact names can be obtained by
         examining the recipe graph visualization displayed by

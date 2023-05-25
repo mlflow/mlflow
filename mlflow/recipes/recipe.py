@@ -1,3 +1,4 @@
+from __future__ import annotations
 import abc
 import logging
 import os
@@ -20,7 +21,6 @@ from mlflow.recipes.utils.execution import (
 from mlflow.recipes.utils.step import display_html
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR, BAD_REQUEST
 from mlflow.utils.class_utils import _get_class_from_string
-from typing import List
 
 _logger = logging.getLogger(__name__)
 
@@ -147,7 +147,7 @@ class BaseRecipe:
             )
         return self._steps[step_names.index(step_name)]
 
-    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> List[BaseStep]:
+    def _get_subgraph_for_target_step(self, target_step: BaseStep) -> list[BaseStep]:
         """
         Return a list of step objects representing a connected DAG containing the target_step.
         The returned list should be a sublist of self._steps.
@@ -306,7 +306,7 @@ class BaseRecipe:
 
         return recipe_dag_file
 
-    def _resolve_recipe_steps(self) -> List[BaseStep]:
+    def _resolve_recipe_steps(self) -> list[BaseStep]:
         """
         Constructs and returns all recipe step objects from the recipe configuration.
         """

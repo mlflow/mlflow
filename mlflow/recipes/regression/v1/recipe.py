@@ -128,6 +128,7 @@ The recipe steps are defined as follows:
 .. |steps/transform.py| replace:: `steps/transform.py <https://github.com/mlflow/recipes-regression-template/blob/main/steps/transform.py>`__
 .. |steps/custom_metrics.py| replace:: `steps/custom_metrics.py <https://github.com/mlflow/recipes-regression-template/blob/main/steps/custom_metrics.py>`__
 """
+from __future__ import annotations
 
 import logging
 
@@ -140,7 +141,7 @@ from mlflow.recipes.steps.evaluate import EvaluateStep
 from mlflow.recipes.steps.predict import PredictStep
 from mlflow.recipes.steps.register import RegisterStep
 from mlflow.recipes.step import BaseStep
-from typing import Any, Optional
+from typing import Any
 
 _logger = logging.getLogger(__name__)
 
@@ -275,7 +276,7 @@ class RegressionRecipe(BaseRecipe):
         """
         return super().run(step=step)
 
-    def get_artifact(self, artifact_name: str) -> Optional[Any]:
+    def get_artifact(self, artifact_name: str) -> Any | None:
         """
         Reads an artifact from the recipe's outputs. Supported artifact names can be obtained by
         examining the recipe graph visualization displayed by

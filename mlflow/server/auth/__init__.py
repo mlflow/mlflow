@@ -6,12 +6,13 @@ Usage
 
     mlflow server --app-name basic-auth
 """
+from __future__ import annotations
 
 import logging
 import uuid
 import os
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
@@ -148,7 +149,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str) -> Optional[str]:
+def _get_request_param(param: str) -> str | None:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):

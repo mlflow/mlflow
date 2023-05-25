@@ -4,6 +4,7 @@ The :py:mod:`mlflow.models.signature` module provides an API for specification o
 Model signature defines schema of model input and output. See :py:class:`mlflow.types.schema.Schema`
 for more details on Schema and data types.
 """
+from __future__ import annotations
 import re
 import inspect
 import logging
@@ -61,7 +62,7 @@ class ModelSignature:
         self.inputs = inputs
         self.outputs = outputs
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Serialize into a 'jsonable' dictionary.
 
@@ -77,7 +78,7 @@ class ModelSignature:
         }
 
     @classmethod
-    def from_dict(cls, signature_dict: Dict[str, Any]):
+    def from_dict(cls, signature_dict: dict[str, Any]):
         """
         Deserialize from dictionary representation.
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from typing import TypeVar, List
 
 T = TypeVar("T")
@@ -10,7 +11,7 @@ class PagedList(List[T]):
     elements, if any are available
     """
 
-    def __init__(self, items: List[T], token):
+    def __init__(self, items: list[T], token):
         super().__init__(items)
         self.token = token
 

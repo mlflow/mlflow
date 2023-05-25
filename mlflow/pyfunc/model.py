@@ -2,6 +2,7 @@
 The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "python_function"
 models with a user-defined ``PythonModel`` subclass.
 """
+from __future__ import annotations
 
 import os
 import posixpath

@@ -1,4 +1,5 @@
-from typing import NamedTuple, Dict, Tuple
+from __future__ import annotations
+from typing import NamedTuple
 from functools import reduce
 
 
@@ -8,11 +9,11 @@ class Message(NamedTuple):
     message: str
     reason: str
 
-    def to_dict(self) -> Dict[str, Tuple[str, str, str]]:
+    def to_dict(self) -> dict[str, tuple[str, str, str]]:
         return {self.id: (self.message, self.name, self.reason)}
 
 
-def to_msgs(*messages: Message) -> Dict[str, Tuple[str, str, str]]:
+def to_msgs(*messages: Message) -> dict[str, tuple[str, str, str]]:
     return reduce(lambda x, y: {**x, **y.to_dict()}, messages, {})
 
 

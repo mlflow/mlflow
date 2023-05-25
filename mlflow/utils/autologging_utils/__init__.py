@@ -1,10 +1,10 @@
 # pylint: disable=unused-wildcard-import,wildcard-import
+from __future__ import annotations
 
 import contextlib
 import inspect
 import logging
 import time
-from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -477,7 +477,7 @@ def disable_autologging():
 
 
 @contextlib.contextmanager
-def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+def disable_discrete_autologging(flavors_to_disable: list[str]) -> None:
     """
     Context manager for disabling specific autologging integrations temporarily while another
     flavor's autologging is activated. This context wrapper is useful in the event that, for

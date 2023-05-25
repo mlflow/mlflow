@@ -7,13 +7,14 @@ TODO(dbczumar): Migrate request batching, queueing, and async execution support 
 MlflowAutologgingQueueingClient to MlflowClient in order to provide broader benefits to end users.
 Remove this developer API.
 """
+from __future__ import annotations
 
 import os
 import logging
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from mlflow.entities import Param, RunTag, Metric
 from mlflow.exceptions import MlflowException
@@ -136,9 +137,9 @@ class MlflowAutologgingQueueingClient:
     def create_run(
         self,
         experiment_id: str,
-        start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
-        run_name: Optional[str] = None,
+        start_time: int | None = None,
+        tags: dict[str, Any] | None = None,
+        run_name: str | None = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
@@ -165,9 +166,9 @@ class MlflowAutologgingQueueingClient:
 
     def set_terminated(
         self,
-        run_id: Union[str, PendingRunId],
-        status: Optional[str] = None,
-        end_time: Optional[int] = None,
+        run_id: str | PendingRunId,
+        status: str | None = None,
+        end_time: int | None = None,
     ) -> None:
         """
         Enqueues an UpdateRun operation with the specified `status` and `end_time` attributes
@@ -177,7 +178,7 @@ class MlflowAutologgingQueueingClient:
             set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: Dict[str, Any]) -> None:
+    def log_params(self, run_id: str | PendingRunId, params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -189,9 +190,9 @@ class MlflowAutologgingQueueingClient:
 
     def log_metrics(
         self,
-        run_id: Union[str, PendingRunId],
-        metrics: Dict[str, float],
-        step: Optional[int] = None,
+        run_id: str | PendingRunId,
+        metrics: dict[str, float],
+        step: int | None = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
@@ -204,7 +205,7 @@ class MlflowAutologgingQueueingClient:
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: Dict[str, Any]) -> None:
+    def set_tags(self, run_id: str | PendingRunId, tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """

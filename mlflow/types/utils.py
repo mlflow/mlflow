@@ -1,4 +1,5 @@
-from typing import Any, Optional, List, Dict
+from __future__ import annotations
+from typing import Any, List, Dict
 import warnings
 import logging
 
@@ -18,7 +19,7 @@ class TensorsNotSupportedException(MlflowException):
         super().__init__(f"Multidimensional arrays (aka tensors) are not supported. {msg}")
 
 
-def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
+def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple:
     """
     Infer the shape of the inputted data.
 

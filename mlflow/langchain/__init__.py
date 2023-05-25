@@ -11,9 +11,9 @@ LangChain (native) format
 .. _LangChain:
     https://python.langchain.com/en/latest/index.html
 """
+from __future__ import annotations
 import logging
 import os
-from typing import Dict, List, Union
 
 import pandas as pd
 import cloudpickle
@@ -415,7 +415,7 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
-    def predict(self, data: Union[pd.DataFrame, List[Union[str, Dict[str, str]]]]) -> List[str]:
+    def predict(self, data: pd.DataFrame | list[str | dict[str, str]]) -> list[str]:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
         if isinstance(data, pd.DataFrame):

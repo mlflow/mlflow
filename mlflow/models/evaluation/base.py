@@ -1,4 +1,5 @@
-from typing import Dict, Any
+from __future__ import annotations
+from typing import Any
 from types import FunctionType
 import mlflow
 import hashlib
@@ -278,14 +279,14 @@ class EvaluationResult:
             artifact._save(os.path.join(artifacts_dir, filename))
 
     @property
-    def metrics(self) -> Dict[str, Any]:
+    def metrics(self) -> dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values
         """
         return self._metrics
 
     @property
-    def artifacts(self) -> Dict[str, "mlflow.models.EvaluationArtifact"]:
+    def artifacts(self) -> dict[str, "mlflow.models.EvaluationArtifact"]:
         """
         A dictionary mapping standardized artifact names (e.g. "roc_data") to
         artifact content and location information
@@ -293,7 +294,7 @@ class EvaluationResult:
         return self._artifacts
 
     @property
-    def baseline_model_metrics(self) -> Dict[str, Any]:
+    def baseline_model_metrics(self) -> dict[str, Any]:
         """
         A dictionary mapping scalar metric names to scalar metric values for the baseline model
         """

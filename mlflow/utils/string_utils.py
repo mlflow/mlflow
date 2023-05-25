@@ -1,7 +1,7 @@
+from __future__ import annotations
 import re
 import os
 import shlex
-from typing import List
 
 
 def strip_prefix(original, prefix):
@@ -38,7 +38,7 @@ def truncate_str_from_middle(s, max_length):
 
 
 def _create_table(
-    rows: List[List[str]], headers: List[str], column_sep: str = " " * 2, min_column_width: int = 4
+    rows: list[list[str]], headers: list[str], column_sep: str = " " * 2, min_column_width: int = 4
 ) -> str:
     """
     Creates a table from a list of rows and headers.

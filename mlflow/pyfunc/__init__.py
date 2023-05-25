@@ -206,6 +206,7 @@ You may prefer the second, lower-level workflow for the following reasons:
   workflow allows it to be saved in MLflow format directly, without enumerating constituent
   artifacts.
 """
+from __future__ import annotations
 
 import collections
 import importlib

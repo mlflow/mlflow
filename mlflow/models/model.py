@@ -1,3 +1,4 @@
+from __future__ import annotations
 from datetime import datetime
 import json
 import logging
@@ -7,7 +8,7 @@ import yaml
 import os
 import uuid
 
-from typing import Any, Dict, Optional, Union, Callable
+from typing import Any, Callable
 
 import mlflow
 from mlflow.artifacts import download_artifacts
@@ -47,16 +48,16 @@ class ModelInfo:
     def __init__(
         self,
         artifact_path: str,
-        flavors: Dict[str, Any],
+        flavors: dict[str, Any],
         model_uri: str,
         model_uuid: str,
         run_id: str,
-        saved_input_example_info: Optional[Dict[str, Any]],
+        saved_input_example_info: dict[str, Any] | None,
         signature,  # Optional[ModelSignature]
         utc_time_created: str,
         mlflow_version: str,
-        signature_dict: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        signature_dict: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ):
         self._artifact_path = artifact_path
         self._flavors = flavors
@@ -203,7 +204,7 @@ class ModelInfo:
 
     @experimental
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> dict[str, Any] | None:
         """
         User defined metadata added to the model.
 
@@ -260,10 +261,10 @@ class Model:
         utc_time_created=None,
         flavors=None,
         signature=None,  # ModelSignature
-        saved_input_example_info: Dict[str, Any] = None,
-        model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
-        mlflow_version: Union[str, None] = mlflow.version.VERSION,
-        metadata: Optional[Dict[str, Any]] = None,
+        saved_input_example_info: dict[str, Any] = None,
+        model_uuid: str | Callable | None = lambda: uuid.uuid4().hex,
+        mlflow_version: str | None = mlflow.version.VERSION,
+        metadata: dict[str, Any] | None = None,
         **kwargs,
     ):
         # store model id instead of run_id and path to avoid confusion when model gets exported
@@ -322,7 +323,7 @@ class Model:
 
     @experimental
     @property
-    def metadata(self) -> Optional[Dict[str, Any]]:
+    def metadata(self) -> dict[str, Any] | None:
         """
         Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
@@ -367,7 +368,7 @@ class Model:
 
     @experimental
     @metadata.setter
-    def metadata(self, value: Optional[Dict[str, Any]]):
+    def metadata(self, value: dict[str, Any] | None):
         # pylint: disable=attribute-defined-outside-init
         self._metadata = value
 
@@ -391,7 +392,7 @@ class Model:
         self._signature = value
 
     @property
-    def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
+    def saved_input_example_info(self) -> dict[str, Any] | None:
         """
         A dictionary that contains the metadata of the saved input example, e.g.,
         ``{"artifact_path": "input_example.json", "type": "dataframe", "pandas_orient": "split"}``.
@@ -399,7 +400,7 @@ class Model:
         return self._saved_input_example_info
 
     @saved_input_example_info.setter
-    def saved_input_example_info(self, value: Dict[str, Any]):
+    def saved_input_example_info(self, value: dict[str, Any]):
         # pylint: disable=attribute-defined-outside-init
         self._saved_input_example_info = value
 

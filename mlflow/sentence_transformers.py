@@ -1,8 +1,9 @@
+from __future__ import annotations
 import json
 import logging
 import numpy as np
 import pathlib
-from typing import List, Optional, Dict, Any, Union
+from typing import Any
 import yaml
 
 import mlflow
@@ -48,7 +49,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-def get_default_pip_requirements() -> List[str]:
+def get_default_pip_requirements() -> list[str]:
     """
     Retrieves the set of minimal dependencies for the ``sentence_transformers`` flavor.
 
@@ -76,15 +77,15 @@ def get_default_conda_env():
 def save_model(
     model,
     path: str,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: dict[str, Any] = None,
 ) -> None:
     """
     Save a trained ``sentence-transformers`` model to a path on the local file system.
@@ -196,16 +197,16 @@ def save_model(
 def log_model(
     model,
     artifact_path: str,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
     registered_model_name: str = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: dict[str, Any] = None,
 ):
     """
     Log a ``sentence_transformers`` model as an MLflow artifact for the current run.

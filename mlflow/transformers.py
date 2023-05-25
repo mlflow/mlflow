@@ -1,3 +1,4 @@
+from __future__ import annotations
 import ast
 import base64
 import binascii
@@ -10,7 +11,7 @@ import pandas as pd
 import numpy as np
 import re
 import functools
-from typing import Union, List, Optional, Dict, Any, NamedTuple
+from typing import Any, NamedTuple
 
 import yaml
 
@@ -89,7 +90,7 @@ _SUPPORTED_SAVE_KEYS = {_MODEL_KEY, _TOKENIZER_KEY, _FEATURE_EXTRACTOR_KEY, _IMA
 _logger = logging.getLogger(__name__)
 
 
-def _model_packages(model) -> List[str]:
+def _model_packages(model) -> list[str]:
     """
     Determines which pip libraries should be included based on the base model engine
     type.
@@ -106,7 +107,7 @@ def _model_packages(model) -> List[str]:
 
 
 @experimental
-def get_default_pip_requirements(model) -> List[str]:
+def get_default_pip_requirements(model) -> list[str]:
     """
     :param model: The model instance to be saved in order to provide the required underlying
                   deep learning execution framework dependency requirements. Note that this must
@@ -188,17 +189,17 @@ def save_model(
     transformers_model,
     path: str,
     processor=None,
-    task: Optional[str] = None,
+    task: str | None = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: dict[str, Any] = None,
     **kwargs,
 ) -> None:
     """
@@ -510,18 +511,18 @@ def log_model(
     transformers_model,
     artifact_path: str,
     processor=None,
-    task: Optional[str] = None,
+    task: str | None = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
-    code_paths: Optional[List[str]] = None,
+    inference_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
     registered_model_name: str = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[List[str], str]] = None,
-    extra_pip_requirements: Optional[Union[List[str], str]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
     conda_env=None,
-    metadata: Dict[str, Any] = None,
+    metadata: dict[str, Any] = None,
     **kwargs,
 ):
     """
@@ -960,7 +961,7 @@ def _build_pipeline_from_model_input(model, task: str):
         ) from e
 
 
-def _record_pipeline_components(pipeline) -> Dict[str, Any]:
+def _record_pipeline_components(pipeline) -> dict[str, Any]:
     """
     Utility for recording which components are present in either the generated pipeline iff the
     supplied save object is not a pipeline or the components of the supplied pipeline object.
@@ -982,7 +983,7 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
+    root_path: pathlib.Path, component_config: dict[str, Any], pipeline, processor, inference_config
 ):
     """
     Saves non-model pipeline components explicitly to a separate directory path for compatibility
@@ -1016,7 +1017,7 @@ def _load_component(root_path: pathlib.Path, component_key: str, component_type)
 def _generate_base_flavor_configuration(
     pipeline,
     task: str,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """
     Generates the base flavor metadata needed for reconstructing a pipeline from saved
     components. This is important because the ``Pipeline`` class does not have a loader
@@ -1064,7 +1065,7 @@ def _extract_torch_dtype_if_set(pipeline):
         return str(torch_dtype)
 
 
-def _get_or_infer_task_type(model, task: Optional[str] = None) -> str:
+def _get_or_infer_task_type(model, task: str | None = None) -> str:
     """
     Validates that a supplied task type is supported by the ``transformers`` library if supplied,
     else, if not supplied, infers the appropriate task type based on the model type.
@@ -1959,7 +1960,7 @@ class _TransformersWrapper:
         else:
             return output
 
-    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
+    def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> list[str]:
         """
         Parses the output results from select Pipeline types to extract specific values from a
         target key.

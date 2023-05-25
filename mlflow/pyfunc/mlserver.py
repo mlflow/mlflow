@@ -1,7 +1,7 @@
+from __future__ import annotations
 import logging
 import os
 
-from typing import Tuple, Dict
 
 _logger = logging.getLogger(__name__)
 
@@ -11,7 +11,7 @@ MLServerDefaultModelName = "mlflow-model"
 
 def get_cmd(
     model_uri: str, port: int = None, host: str = None, timeout: int = None, nworkers: int = None
-) -> Tuple[str, Dict[str, str]]:
+) -> tuple[str, dict[str, str]]:
     cmd = f"mlserver start {model_uri}"
 
     cmd_env = os.environ.copy()

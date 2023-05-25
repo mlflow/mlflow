@@ -24,6 +24,7 @@ python dev/set_matrix.py --flavors sklearn
 python dev/set_matrix.py --versions 1.1.1
 ```
 """
+from __future__ import annotations
 import sys
 import argparse
 import json
@@ -31,7 +32,6 @@ import os
 import re
 import shutil
 import functools
-import typing as t
 from collections import defaultdict
 
 import yaml
@@ -61,16 +61,16 @@ class Version(OriginalVersion):
 
 class PackageInfo(BaseModel):
     pip_release: str
-    install_dev: t.Optional[str]
+    install_dev: str | None
 
 
 class TestConfig(BaseModel):
     minimum: Version
     maximum: Version
-    unsupported: t.Optional[t.List[Version]]
-    requirements: t.Optional[t.Dict[str, t.List[str]]]
+    unsupported: list[Version] | None
+    requirements: dict[str, list[str]] | None
     run: str
-    allow_unreleased_max_version: t.Optional[bool]
+    allow_unreleased_max_version: bool | None
 
     class Config:
         arbitrary_types_allowed = True

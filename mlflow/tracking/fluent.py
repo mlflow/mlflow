@@ -2,13 +2,14 @@
 Internal module implementing the fluent API, allowing management of an active
 MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` module.
 """
+from __future__ import annotations
 import os
 
 import atexit
 import logging
 import inspect
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
+from typing import Any, Union, TYPE_CHECKING
 
 from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -173,11 +174,11 @@ class ActiveRun(Run):  # pylint: disable=abstract-method
 
 def start_run(
     run_id: str = None,
-    experiment_id: Optional[str] = None,
-    run_name: Optional[str] = None,
+    experiment_id: str | None = None,
+    run_name: str | None = None,
     nested: bool = False,
-    tags: Optional[Dict[str, Any]] = None,
-    description: Optional[str] = None,
+    tags: dict[str, Any] | None = None,
+    description: str | None = None,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -399,7 +400,7 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
 atexit.register(end_run)
 
 
-def active_run() -> Optional[ActiveRun]:
+def active_run() -> ActiveRun | None:
     """Get the currently active ``Run``, or None if no such run exists.
 
     **Note**: You cannot access currently-active run attributes
@@ -424,7 +425,7 @@ def active_run() -> Optional[ActiveRun]:
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
 
 
-def last_active_run() -> Optional[Run]:
+def last_active_run() -> Run | None:
     """
     Gets the most recent active run.
 
@@ -519,7 +520,7 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
-def get_parent_run(run_id: str) -> Optional[Run]:
+def get_parent_run(run_id: str) -> Run | None:
     """
     Gets the parent run for the given run id if one exists.
 
@@ -653,7 +654,7 @@ def delete_tag(key: str) -> None:
     MlflowClient().delete_tag(run_id, key)
 
 
-def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
+def log_metric(key: str, value: float, step: int | None = None) -> None:
     """
     Log a metric under the current run. If no run is active, this method will create
     a new active run.
@@ -681,7 +682,7 @@ def log_metric(key: str, value: float, step: Optional[int] = None) -> None:
     MlflowClient().log_metric(run_id, key, value, get_current_time_millis(), step or 0)
 
 
-def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
+def log_metrics(metrics: dict[str, float], step: int | None = None) -> None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new
     active run.
@@ -712,7 +713,7 @@ def log_metrics(metrics: Dict[str, float], step: Optional[int] = None) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 
-def log_params(params: Dict[str, Any]) -> None:
+def log_params(params: dict[str, Any]) -> None:
     """
     Log a batch of params for the current run. If no run is active, this method will create a
     new active run.
@@ -737,7 +738,7 @@ def log_params(params: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
-def set_experiment_tags(tags: Dict[str, Any]) -> None:
+def set_experiment_tags(tags: dict[str, Any]) -> None:
     """
     Set tags for the current active experiment.
 
@@ -762,7 +763,7 @@ def set_experiment_tags(tags: Dict[str, Any]) -> None:
         set_experiment_tag(key, value)
 
 
-def set_tags(tags: Dict[str, Any]) -> None:
+def set_tags(tags: dict[str, Any]) -> None:
     """
     Log a batch of tags for the current run. If no run is active, this method will create a
     new active run.
@@ -791,7 +792,7 @@ def set_tags(tags: Dict[str, Any]) -> None:
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
-def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
+def log_artifact(local_path: str, artifact_path: str | None = None) -> None:
     """
     Log a local file or directory as an artifact of the currently active run. If no run is
     active, this method will create a new active run.
@@ -818,7 +819,7 @@ def log_artifact(local_path: str, artifact_path: Optional[str] = None) -> None:
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-def log_artifacts(local_dir: str, artifact_path: Optional[str] = None) -> None:
+def log_artifacts(local_dir: str, artifact_path: str | None = None) -> None:
     """
     Log all the contents of a local directory as artifacts of the run. If no run is active,
     this method will create a new active run.
@@ -1024,7 +1025,7 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
 
 @experimental
 def log_table(
-    data: Union[Dict[str, Any], "pandas.DataFrame"],
+    data: Union[dict[str, Any], "pandas.DataFrame"],
     artifact_file: str,
 ) -> None:
     """
@@ -1108,7 +1109,7 @@ def get_experiment(experiment_id: str) -> Experiment:
     return MlflowClient().get_experiment(experiment_id)
 
 
-def get_experiment_by_name(name: str) -> Optional[Experiment]:
+def get_experiment_by_name(name: str) -> Experiment | None:
     """
     Retrieve an experiment by experiment name from the backend store
 
@@ -1143,10 +1144,10 @@ def get_experiment_by_name(name: str) -> Optional[Experiment]:
 
 def search_experiments(
     view_type: int = ViewType.ACTIVE_ONLY,
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[Experiment]:
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
+) -> list[Experiment]:
     """
     Search for experiments that match the specified search query.
 
@@ -1260,8 +1261,8 @@ def search_experiments(
 
 def create_experiment(
     name: str,
-    artifact_location: Optional[str] = None,
-    tags: Optional[Dict[str, Any]] = None,
+    artifact_location: str | None = None,
+    tags: dict[str, Any] | None = None,
 ) -> str:
     """
     Create an experiment.
@@ -1368,7 +1369,7 @@ def delete_run(run_id: str) -> None:
     MlflowClient().delete_run(run_id)
 
 
-def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
+def get_artifact_uri(artifact_path: str | None = None) -> str:
     """
     Get the absolute URI of the specified artifact in the currently active run.
     If `path` is not specified, the artifact root URI of the currently active
@@ -1420,15 +1421,15 @@ def get_artifact_uri(artifact_path: Optional[str] = None) -> str:
 
 
 def search_runs(
-    experiment_ids: Optional[List[str]] = None,
+    experiment_ids: list[str] | None = None,
     filter_string: str = "",
     run_view_type: int = ViewType.ACTIVE_ONLY,
     max_results: int = SEARCH_MAX_RESULTS_PANDAS,
-    order_by: Optional[List[str]] = None,
+    order_by: list[str] | None = None,
     output_format: str = "pandas",
     search_all_experiments: bool = False,
-    experiment_names: Optional[List[str]] = None,
-) -> Union[List[Run], "pandas.DataFrame"]:
+    experiment_names: list[str] | None = None,
+) -> Union[list[Run], "pandas.DataFrame"]:
     """
     Search for Runs that fit the specified criteria.
 

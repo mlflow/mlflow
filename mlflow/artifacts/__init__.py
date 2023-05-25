@@ -1,10 +1,10 @@
 """
 APIs for interacting with artifacts in MLflow
 """
+from __future__ import annotations
 import json
 import pathlib
 import tempfile
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
@@ -17,11 +17,11 @@ from mlflow.tracking.artifact_utils import (
 
 
 def download_artifacts(
-    artifact_uri: Optional[str] = None,
-    run_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
-    dst_path: Optional[str] = None,
-    tracking_uri: Optional[str] = None,
+    artifact_uri: str | None = None,
+    run_id: str | None = None,
+    artifact_path: str | None = None,
+    dst_path: str | None = None,
+    tracking_uri: str | None = None,
 ) -> str:
     """
     Download an artifact file or directory to a local directory.

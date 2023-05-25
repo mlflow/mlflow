@@ -1,8 +1,8 @@
+from __future__ import annotations
 import os
 from functools import partial
 import logging
 from pathlib import Path
-from typing import Union
 from contextlib import contextmanager
 
 from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
@@ -44,7 +44,7 @@ def is_tracking_uri_set():
     return False
 
 
-def set_tracking_uri(uri: Union[str, Path]) -> None:
+def set_tracking_uri(uri: str | Path) -> None:
     """
     Set the tracking server URI. This does not affect the
     currently active run (if one exists), but takes effect for successive runs.

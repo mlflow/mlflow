@@ -1,3 +1,4 @@
+from __future__ import annotations
 import decimal
 import json
 import os
@@ -99,7 +100,7 @@ class _Example:
             else:
                 return x
 
-        def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+        def _handle_ndarray_input(input_array: np.ndarray | dict):
             if isinstance(input_array, dict):
                 result = {}
                 for name in input_array.keys():

@@ -1,3 +1,4 @@
+from __future__ import annotations
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities.model_registry import ModelVersion
@@ -11,7 +12,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
 )
-from typing import Any, Dict, Optional, List
+from typing import Any
 
 
 def register_model(
@@ -19,7 +20,7 @@ def register_model(
     name,
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
-    tags: Optional[Dict[str, Any]] = None,
+    tags: dict[str, Any] | None = None,
 ) -> ModelVersion:
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.
@@ -109,10 +110,10 @@ def register_model(
 
 
 def search_registered_models(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[RegisteredModel]:
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
+) -> list[RegisteredModel]:
     """
     Search for registered models that satisfy the filter criteria.
 
@@ -213,10 +214,10 @@ def search_registered_models(
 
 
 def search_model_versions(
-    max_results: Optional[int] = None,
-    filter_string: Optional[str] = None,
-    order_by: Optional[List[str]] = None,
-) -> List[ModelVersion]:
+    max_results: int | None = None,
+    filter_string: str | None = None,
+    order_by: list[str] | None = None,
+) -> list[ModelVersion]:
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_model_versions(
             max_results=number_to_get,

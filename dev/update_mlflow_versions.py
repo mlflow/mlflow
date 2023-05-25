@@ -1,6 +1,6 @@
+from __future__ import annotations
 import re
 from pathlib import Path
-from typing import List
 
 import click
 from packaging.version import Version
@@ -15,7 +15,7 @@ def replace_dev_suffix_with(version, repl):
     return re.sub(r"\.dev0$", repl, version)
 
 
-def replace_occurrences(files: List[Path], pattern: str, repl: str) -> None:
+def replace_occurrences(files: list[Path], pattern: str, repl: str) -> None:
     pattern = re.compile(pattern)
     for f in files:
         old_text = f.read_text()

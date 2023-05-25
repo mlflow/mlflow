@@ -2,6 +2,7 @@
 This module provides a set of utilities for interpreting and creating requirements files
 (e.g. pip's `requirements.txt`), which is useful for managing ML software environments.
 """
+from __future__ import annotations
 
 import json
 import sys
@@ -15,7 +16,7 @@ from itertools import filterfalse, chain
 from collections import namedtuple
 import logging
 import re
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 from pathlib import Path
 
 import mlflow
@@ -495,7 +496,7 @@ def _get_pinned_requirement(package, version=None, module=None):
 
 class _MismatchedPackageInfo(NamedTuple):
     package_name: str
-    installed_version: Optional[str]
+    installed_version: str | None
     requirement: str
 
     def __str__(self):

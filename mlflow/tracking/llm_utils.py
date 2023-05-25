@@ -1,3 +1,4 @@
+from __future__ import annotations
 import csv
 import logging
 import mlflow
@@ -6,16 +7,15 @@ import tempfile
 
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.annotations import experimental
-from typing import Dict, List, Union
 
 _logger = logging.getLogger(__name__)
 
 
 @experimental
 def log_predictions(
-    inputs: List[Union[str, Dict[str, str]]],
-    outputs: List[str],
-    prompts: List[Union[str, Dict[str, str]]],
+    inputs: list[str | dict[str, str]],
+    outputs: list[str],
+    prompts: list[str | dict[str, str]],
 ) -> None:
     """
     Log a batch of inputs, outputs and prompts for the current evaluation run.

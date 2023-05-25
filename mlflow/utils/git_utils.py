@@ -1,12 +1,12 @@
+from __future__ import annotations
 import logging
 import os
-from typing import Optional
 
 
 _logger = logging.getLogger(__name__)
 
 
-def get_git_repo_url(path: str) -> Optional[str]:
+def get_git_repo_url(path: str) -> str | None:
     """
     Obtains the url of the git repository associated with the specified path,
     returning ``None`` if the path does not correspond to a git repository.
@@ -28,7 +28,7 @@ def get_git_repo_url(path: str) -> Optional[str]:
         return None
 
 
-def get_git_commit(path: str) -> Optional[str]:
+def get_git_commit(path: str) -> str | None:
     """
     Obtains the hash of the latest commit on the current branch of the git repository associated
     with the specified path, returning ``None`` if the path does not correspond to a git
@@ -53,7 +53,7 @@ def get_git_commit(path: str) -> Optional[str]:
         return None
 
 
-def get_git_branch(path: str) -> Optional[str]:
+def get_git_branch(path: str) -> str | None:
     """
     Obtains the name of the current branch of the git repository associated with the specified
     path, returning ``None`` if the path does not correspond to a git repository.

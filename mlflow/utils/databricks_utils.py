@@ -1,8 +1,9 @@
+from __future__ import annotations
 import functools
 import logging
 import os
 import subprocess
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 from databricks_cli.configure import provider
 from mlflow.exceptions import MlflowException
@@ -515,7 +516,7 @@ def is_running_in_ipython_environment():
         return False
 
 
-def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> Optional[str]:
+def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -> str | None:
     """
     Obtains a Databricks URL corresponding to the specified MLflow Run, optionally referring
     to an artifact within the run.
@@ -548,7 +549,7 @@ def get_databricks_run_url(tracking_uri: str, run_id: str, artifact_path=None) -
         return None
 
 
-def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> Optional[str]:
+def get_databricks_model_version_url(registry_uri: str, name: str, version: str) -> str | None:
     """
     Obtains a Databricks URL corresponding to the specified Model Version.
 
@@ -581,12 +582,12 @@ class DatabricksWorkspaceInfo:
     WORKSPACE_HOST_ENV_VAR = "_DATABRICKS_WORKSPACE_HOST"
     WORKSPACE_ID_ENV_VAR = "_DATABRICKS_WORKSPACE_ID"
 
-    def __init__(self, host: str, workspace_id: Optional[str] = None):
+    def __init__(self, host: str, workspace_id: str | None = None):
         self.host = host
         self.workspace_id = workspace_id
 
     @classmethod
-    def from_environment(cls) -> Optional[DatabricksWorkspaceInfoType]:
+    def from_environment(cls) -> DatabricksWorkspaceInfoType | None:
         if DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR in os.environ:
             return DatabricksWorkspaceInfo(
                 host=os.environ[DatabricksWorkspaceInfo.WORKSPACE_HOST_ENV_VAR],
@@ -605,7 +606,7 @@ class DatabricksWorkspaceInfo:
         return env
 
 
-def get_databricks_workspace_info_from_uri(tracking_uri: str) -> Optional[DatabricksWorkspaceInfo]:
+def get_databricks_workspace_info_from_uri(tracking_uri: str) -> DatabricksWorkspaceInfo | None:
     if not is_databricks_uri(tracking_uri):
         return None
 
@@ -650,8 +651,8 @@ def _construct_databricks_run_url(
     host: str,
     experiment_id: str,
     run_id: str,
-    workspace_id: Optional[str] = None,
-    artifact_path: Optional[str] = None,
+    workspace_id: str | None = None,
+    artifact_path: str | None = None,
 ) -> str:
     run_url = host
     if workspace_id and workspace_id != "0":
@@ -666,7 +667,7 @@ def _construct_databricks_run_url(
 
 
 def _construct_databricks_model_version_url(
-    host: str, name: str, version: str, workspace_id: Optional[str] = None
+    host: str, name: str, version: str, workspace_id: str | None = None
 ) -> str:
     model_version_url = host
     if workspace_id and workspace_id != "0":

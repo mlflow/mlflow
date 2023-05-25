@@ -1,7 +1,8 @@
+from __future__ import annotations
 import time
 import uuid
 from unittest import mock
-from typing import NamedTuple, List
+from typing import NamedTuple
 
 import pytest
 
@@ -937,7 +938,7 @@ def test_search_model_versions_by_tag(store):
 
 
 class SearchRegisteredModelsResult(NamedTuple):
-    names: List[str]
+    names: list[str]
     token: str
 
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import abc
 import json
 import logging
@@ -8,7 +9,7 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any, List
+from typing import TypeVar, Any
 from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.recipes.utils import get_recipe_name
 from mlflow.recipes.utils.step import display_html
@@ -72,7 +73,7 @@ class StepExecutionState:
         self.last_updated_timestamp = last_updated_timestamp
         self.stack_trace = stack_trace
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Creates a dictionary representation of the step execution state.
         """
@@ -104,7 +105,7 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     _EXECUTION_STATE_FILE_NAME = "execution_state.json"
 
-    def __init__(self, step_config: Dict[str, Any], recipe_root: str):
+    def __init__(self, step_config: dict[str, Any], recipe_root: str):
         """
         :param step_config: dictionary of the config needed to
                             run/implement the step.
@@ -193,7 +194,7 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str) -> StepType:
+    def from_recipe_config(cls, recipe_config: dict[str, Any], recipe_root: str) -> StepType:
         """
         Constructs a step class instance by creating a step config using the recipe
         config.
@@ -232,14 +233,14 @@ class BaseStep(metaclass=abc.ABCMeta):
         pass
 
     @property
-    def environment(self) -> Dict[str, str]:
+    def environment(self) -> dict[str, str]:
         """
         Returns environment variables associated with step that should be set when the
         step is executed.
         """
         return {}
 
-    def get_artifacts(self) -> List[Any]:
+    def get_artifacts(self) -> list[Any]:
         """
         Returns the named artifacts produced by the step for the current class instance.
         """

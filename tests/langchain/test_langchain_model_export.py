@@ -1,3 +1,4 @@
+from __future__ import annotations
 import langchain
 import mlflow
 import pytest
@@ -14,7 +15,7 @@ from langchain.llms import HuggingFacePipeline
 from langchain.llms.base import LLM
 from langchain.chains.base import Chain
 from pyspark.sql import SparkSession
-from typing import Any, List, Mapping, Optional, Dict
+from typing import Any, Mapping
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils import (
@@ -113,7 +114,7 @@ def create_model(llm_type, model_path=None):
 class FakeLLM(LLM):
     """Fake LLM wrapper for testing purposes."""
 
-    queries: Optional[Mapping] = None
+    queries: Mapping | None = None
 
     @property
     def _llm_type(self) -> str:
@@ -121,7 +122,7 @@ class FakeLLM(LLM):
         return "fake"
 
     # pylint: disable=arguments-differ
-    def _call(self, prompt: str, stop: Optional[List[str]] = None, run_manager=None) -> str:
+    def _call(self, prompt: str, stop: list[str] | None = None, run_manager=None) -> str:
         """First try to lookup in queries, else return 'foo' or 'bar'."""
         if self.queries is not None:
             return self.queries[prompt]
@@ -139,21 +140,21 @@ class FakeChain(Chain):
     """Fake chain class for testing purposes."""
 
     be_correct: bool = True
-    the_input_keys: List[str] = ["foo"]
-    the_output_keys: List[str] = ["bar"]
+    the_input_keys: list[str] = ["foo"]
+    the_output_keys: list[str] = ["bar"]
 
     @property
-    def input_keys(self) -> List[str]:
+    def input_keys(self) -> list[str]:
         """Input keys."""
         return self.the_input_keys
 
     @property
-    def output_keys(self) -> List[str]:
+    def output_keys(self) -> list[str]:
         """Output key of bar."""
         return self.the_output_keys
 
     # pylint: disable=arguments-differ
-    def _call(self, inputs: Dict[str, str], run_manager=None) -> Dict[str, str]:
+    def _call(self, inputs: dict[str, str], run_manager=None) -> dict[str, str]:
         if self.be_correct:
             return {"bar": "baz"}
         else:

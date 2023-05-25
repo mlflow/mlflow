@@ -1,13 +1,14 @@
 """
 Renders the statistics of logged data in a HTML format.
 """
+from __future__ import annotations
 import base64
 import numpy as np
 import pandas as pd
 import sys
 from packaging.version import Version
 
-from typing import Union, Iterable, Tuple
+from typing import Iterable
 from mlflow.protos import facet_feature_statistics_pb2
 from mlflow.recipes.cards import histogram_generator
 from mlflow.exceptions import MlflowException
@@ -201,7 +202,7 @@ def convert_to_proto(df: pd.DataFrame) -> facet_feature_statistics_pb2.DatasetFe
 
 
 def convert_to_comparison_proto(
-    dfs: Iterable[Tuple[str, pd.DataFrame]]
+    dfs: Iterable[tuple[str, pd.DataFrame]]
 ) -> facet_feature_statistics_pb2.DatasetFeatureStatisticsList:
     """
     Converts a collection of named stats DataFrames to a single DatasetFeatureStatisticsList proto.
@@ -269,7 +270,7 @@ def construct_facets_html(
     return html
 
 
-def get_html(inputs: Union[pd.DataFrame, Iterable[Tuple[str, pd.DataFrame]]]) -> str:
+def get_html(inputs: pd.DataFrame | Iterable[tuple[str, pd.DataFrame]]) -> str:
     """Rendering the data statistics in a HTML format.
 
     :param inputs: Either a single "glimpse" DataFrame that contains the statistics, or a

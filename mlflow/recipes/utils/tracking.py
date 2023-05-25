@@ -1,10 +1,11 @@
+from __future__ import annotations
 import json
 import logging
 import pathlib
 import tempfile
 import shutil
 import uuid
-from typing import Dict, Any, TypeVar
+from typing import Any, TypeVar
 
 import mlflow
 from mlflow.exceptions import MlflowException, RestException
@@ -93,7 +94,7 @@ class TrackingConfig:
         self.run_name = run_name
         self.artifact_location = artifact_location
 
-    def to_dict(self) -> Dict[str, str]:
+    def to_dict(self) -> dict[str, str]:
         """
         Obtains a dictionary representation of the MLflow Tracking configuration.
 
@@ -118,7 +119,7 @@ class TrackingConfig:
         return config_dict
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, str]) -> TrackingConfigType:
+    def from_dict(cls, config_dict: dict[str, str]) -> TrackingConfigType:
         """
         Creates a ``TrackingConfig`` instance from a dictionary representation.
 
@@ -135,7 +136,7 @@ class TrackingConfig:
 
 
 def get_recipe_tracking_config(
-    recipe_root_path: str, recipe_config: Dict[str, Any]
+    recipe_root_path: str, recipe_config: dict[str, Any]
 ) -> TrackingConfig:
     """
     Obtains the MLflow Tracking configuration for the specified recipe.
@@ -232,7 +233,7 @@ def apply_recipe_tracking_config(tracking_config: TrackingConfig):
     )
 
 
-def get_run_tags_env_vars(recipe_root_path: str) -> Dict[str, str]:
+def get_run_tags_env_vars(recipe_root_path: str) -> dict[str, str]:
     """
     Returns environment variables that should be set during step execution to ensure that MLflow
     Run Tags from the current context are applied to any MLflow Runs that are created during
@@ -264,7 +265,7 @@ def log_code_snapshot(
     recipe_root: str,
     run_id: str,
     artifact_path: str = "recipe_snapshot",
-    recipe_config: Dict[str, Any] = None,
+    recipe_config: dict[str, Any] = None,
 ) -> None:
     """
     Logs a recipe code snapshot as mlflow artifacts.
