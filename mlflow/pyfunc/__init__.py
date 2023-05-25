@@ -1304,7 +1304,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             if input_schema and len(input_schema.optional_input_names()) > 0:
                 raise MlflowException(
                     message="Cannot apply UDF without column names specified when"
-                            " model signature contains optional columns.",
+                    " model signature contains optional columns.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if input_schema and len(input_schema.inputs) > 0:

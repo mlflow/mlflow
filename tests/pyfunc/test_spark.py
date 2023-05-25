@@ -405,7 +405,7 @@ def test_spark_udf_autofills_no_arguments(spark):
         with pytest.raises(
             MlflowException,
             match=r"Cannot apply UDF without column names specified when model "
-                  r"signature contains optional columns",
+            r"signature contains optional columns",
         ):
             good_data.withColumn("res", udf())
 
