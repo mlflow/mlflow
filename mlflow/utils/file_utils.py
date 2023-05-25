@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 import stat
 import pathlib
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 import uuid
 import fnmatch
@@ -678,15 +678,17 @@ def parallelized_download_file_using_http_uri(
         for i in range(starting_index, num_requests):
             range_start = i * chunk_size
             range_end = range_start + chunk_size - 1
-            futures[i] = p.submit(run_download, range_start, range_end)
+            futures[p.submit(run_download, range_start, range_end)] = i
 
-        for i, future in futures.items():
+        for future in as_completed(futures):
+            index = futures[future]
             try:
                 result = future.result()
                 if result is not None:
-                    failed_downloads[i] = result
+                    failed_downloads[index] = result
+
             except Exception as e:
-                failed_downloads[i] = {
+                failed_downloads[index] = {
                     "error_status_code": 500,
                     "error_text": repr(e),
                 }
