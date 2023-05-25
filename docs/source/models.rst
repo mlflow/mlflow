@@ -232,7 +232,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
-A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based.
 Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
@@ -243,9 +243,11 @@ Column-based Signature Example
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -253,7 +255,7 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
