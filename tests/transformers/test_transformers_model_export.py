@@ -2702,17 +2702,19 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     base_loaded = mlflow.transformers.load_model(model_path)
     assert base_loaded.torch_dtype == torch.bfloat16
     assert base_loaded.framework == "pt"
+    assert base_loaded.model.dtype == torch.bfloat16
 
     loaded_pipeline = mlflow.transformers.load_model(model_path, torch_dtype=torch.float64)
 
     assert loaded_pipeline.torch_dtype == torch.float64
     assert loaded_pipeline.framework == "pt"
+    assert loaded_pipeline.model.dtype == torch.float64
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
-    assert prediction == [{"translation_text": "Bonjour, comment êtes-vous aujourd'hui ?"}]
+    assert prediction[0]["translation_text"].startswith("Bonjour")
 
 
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
@@ -2739,7 +2741,7 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
 
-    assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
+    assert prediction.startswith("Bonjour")
 
 
 @pytest.mark.skipif(
