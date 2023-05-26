@@ -231,7 +231,7 @@ MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY = _EnvironmentVariable(
 
 #: Specifies to Huggingface to use the low_cpu_mem_usage flag powered by HuggingFace accelerate.
 #: If it's set to false, the low_cpu_mem_usage flag will be set to False.
-MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE= _BooleanEnvironmentVariable(
+MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE = _BooleanEnvironmentVariable(
     "MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE", True
 )
 

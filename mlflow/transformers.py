@@ -37,7 +37,7 @@ from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
-    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
 )
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -830,6 +830,7 @@ def is_gpu_available():
         is_gpu = False
     return is_gpu
 
+
 def _try_load_model_with_device(model_instance, model_path, device, conf):
     load_model_conf = {}
     # Assume if torch_dtype was specified in the conf, then it must be with a
@@ -841,10 +842,11 @@ def _try_load_model_with_device(model_instance, model_path, device, conf):
         load_model_conf["device"] = device
         model = model_instance.from_pretrained(model_path, **load_model_conf)
     except (ValueError, TypeError, NotImplementedError):
-        _logger.warning('Could not specify device parameter for this pipeline type')
-        load_model_conf.pop('device', None)
+        _logger.warning("Could not specify device parameter for this pipeline type")
+        load_model_conf.pop("device", None)
         model = model_instance.from_pretrained(model_path, **load_model_conf)
     return model
+
 
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
@@ -895,8 +897,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
         try:
-            model = model_instance.from_pretrained(pipeline_path,
-                                                   **accelerate_model_conf)
+            model = model_instance.from_pretrained(pipeline_path, **accelerate_model_conf)
         except (ValueError, TypeError, NotImplementedError):
             model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
     else:
@@ -1959,7 +1960,7 @@ class _TransformersWrapper:
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                data_out = data_out[len(data_in):].lstrip()
+                data_out = data_out[len(data_in) :].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
                 # If the user has indicated to remove newlines and extra spaces from the generated
