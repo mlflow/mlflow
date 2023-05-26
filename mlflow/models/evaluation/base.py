@@ -1323,7 +1323,7 @@ def evaluate(
 
     if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
         if isinstance(data, Dataset):
-            if hasattr(data, "targets") and data.targets is not None:
+            if getattr(data, "targets", None) is not None:
                 targets = data.targets
             else:
                 raise MlflowException(
