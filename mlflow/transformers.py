@@ -1745,7 +1745,8 @@ class _TransformersWrapper:
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
-        return self._sanitize_output(output, data)
+        sanitized = self._sanitize_output(output, data)
+        return self._wrap_strings_as_list_if_scalar(sanitized)
 
     def _parse_raw_pipeline_input(self, data):
         """
@@ -2009,6 +2010,18 @@ class _TransformersWrapper:
             return {k: v.strip() for k, v in output.items()}
         else:
             return output
+
+    @staticmethod
+    def _wrap_strings_as_list_if_scalar(output_data):
+        """
+        Wraps single string outputs in a list to support batch processing logic in serving.
+        Scalar values are not supported for processing in batch logic as they cannot be coerced
+        to DataFrame representations.
+        """
+        if isinstance(output_data, str):
+            return [output_data]
+        else:
+            return output_data
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
         """
