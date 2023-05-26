@@ -42,14 +42,14 @@ def main():
         )
     except requests.HTTPError as e:
         temp_file = args.temp_file
-        error_message = json.dumps(
-            {
-                "error_status_code": e.response.status_code,
-                "error_text": str(e),
-            }
-        )
         with open(temp_file, "w") as f:
-            f.write(error_message)
+            json.dump(
+                {
+                    "error_status_code": e.response.status_code,
+                    "error_text": str(e),
+                },
+                f,
+            )
 
 
 if __name__ == "__main__":
