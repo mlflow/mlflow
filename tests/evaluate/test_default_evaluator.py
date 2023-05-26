@@ -2114,7 +2114,7 @@ def test_evaluate_text_summarization_fails_to_load_metric():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert "rouge1" in results.metrics
+    assert results.metrics == {}
 
 
 def test_evaluate_text():
