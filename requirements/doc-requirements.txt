@@ -7,3 +7,4 @@ sphinx-autobuild
 sphinx-click
 tensorflow
 pyspark
+datasets

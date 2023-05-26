@@ -110,7 +110,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Hugging Face dataset source information.
 
-        :return: A :py:class:`HuggingFaceDatasetSource` instance.
+        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource` instance.
         """
         return self._source
 
@@ -175,13 +175,13 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 @experimental
 def from_huggingface(
-    ds: datasets.Dataset,
+    ds,
     path: str = None,
     targets: Optional[str] = None,
     data_dir: Optional[str] = None,
     data_files: Optional[Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]] = None,
-    revision: Optional[Union[str, datasets.Version]] = None,
-    task: Optional[Union[str, datasets.TaskTemplate]] = None,
+    revision=None,
+    task=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:

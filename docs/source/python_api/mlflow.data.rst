@@ -106,39 +106,53 @@ Spark
     :undoc-members:
     :exclude-members: to_pyfunc, to_evaluation_dataset
 
+
+Hugging Face 
+~~~~~~~~~~~~
+
+.. autofunction:: mlflow.data.huggingface_dataset.from_huggingface
+
+.. autoclass:: mlflow.data.huggingface_dataset.HuggingFaceDataset()
+    :members:
+    :undoc-members:
+    :exclude-members: to_pyfunc
+
+
+TensorFlow 
+~~~~~~~~~~~~
+
+.. autofunction:: mlflow.data.tensorflow_dataset.from_tensorflow
+
+.. autoclass:: mlflow.data.tensorflow_dataset.TensorFlowDataset()
+    :members:
+    :undoc-members:
+    :exclude-members: to_pyfunc, 
+
+.. autoclass:: mlflow.models.evaluation.base.EvaluationDataset()
+    :members:
+    :undoc-members:
+
+
+Dataset Sources 
+~~~~~~~~~~~~~~~~
+
+.. autoclass:: mlflow.data.filesystem_dataset_source.FileSystemDatasetSource()
+    :members:
+    :undoc-members:
+
+.. autoclass:: mlflow.data.http_dataset_source.HTTPDatasetSource()
+    :members:
+    :undoc-members:
+    
+.. autoclass:: mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource()
+    :members:
+    :undoc-members:
+    :exclude-members:
+
 .. autoclass:: mlflow.data.delta_dataset_source.DeltaDatasetSource()
     :members:
     :undoc-members:
-    :exclude-members: to_pyfunc, to_evaluation_dataset
 
 .. autoclass:: mlflow.data.spark_dataset_source.SparkDatasetSource()
     :members:
     :undoc-members:
-    :exclude-members: to_pyfunc, to_evaluation_dataset
-
-..
-.. Hugging Face 
-.. ~~~~~~~~~~~~
-..
-.. .. autofunction:: mlflow.data.huggingface_dataset.from_huggingface
-..
-.. .. autoclass:: mlflow.data.huggingface_dataset.HuggingFaceDataset()
-..     :members:
-..     :undoc-members:
-..     :exclude-members: to_pyfunc
-..
-.. .. autoclass:: mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource()
-..     :members:
-..     :undoc-members:
-..     :exclude-members: to_pyfunc
-..
-..
-.. TensorFlow 
-.. ~~~~~~~~~~~~
-..
-.. .. autofunction:: mlflow.data.tensorflow_dataset.from_tensorflow
-..
-.. .. autoclass:: mlflow.data.tensorflow_dataset.TensorFlowDataset()
-..     :members:
-..     :undoc-members:
-..     :exclude-members: to_pyfunc

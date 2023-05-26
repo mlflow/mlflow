@@ -11,6 +11,10 @@ SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSo
 
 @experimental
 class SparkDatasetSource(DatasetSource):
+    """
+    Represents the source of a dataset stored in a spark table.
+    """
+
     def __init__(
         self,
         path: Optional[str] = None,

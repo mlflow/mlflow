@@ -19,6 +19,10 @@ DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 @experimental
 class DeltaDatasetSource(DatasetSource):
+    """
+    Represents the source of a dataset stored at in a delta table.
+    """
+
     def __init__(
         self,
         path: Optional[str] = None,
