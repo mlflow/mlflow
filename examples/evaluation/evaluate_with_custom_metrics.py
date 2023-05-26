@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import mlflow
 from mlflow.models import make_metric
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import os
 import matplotlib.pyplot as plt
 

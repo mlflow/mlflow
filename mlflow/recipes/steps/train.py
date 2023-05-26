@@ -292,7 +292,7 @@ class TrainStep(BaseStep):
             import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             open(os.path.join(output_directory, "warning_logs.txt"), "w")
 
@@ -1256,7 +1256,7 @@ class TrainStep(BaseStep):
         return (best_hardcoded_params, best_hp_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         if hasattr(estimator, "best_score_") and (type(estimator.best_score_) in [int, float]):
             mlflow.log_metric("best_cv_score", estimator.best_score_)

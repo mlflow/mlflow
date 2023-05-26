@@ -36,7 +36,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model, ModelInputExample
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -270,7 +270,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -429,7 +429,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions

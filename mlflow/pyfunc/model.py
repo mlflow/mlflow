@@ -17,7 +17,7 @@ import mlflow.utils
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import _extract_type_hints
+from mlflow.models import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,

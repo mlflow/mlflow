@@ -44,7 +44,7 @@ data = pd.DataFrame(d, columns=cols)
 
 # Import mlflow
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import mlflow.sklearn
 
 

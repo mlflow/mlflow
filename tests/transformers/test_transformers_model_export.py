@@ -21,7 +21,7 @@ from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository

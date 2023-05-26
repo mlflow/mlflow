@@ -24,7 +24,7 @@ from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 
 
 def eval_and_log_metrics(prefix, actual, pred, epoch):

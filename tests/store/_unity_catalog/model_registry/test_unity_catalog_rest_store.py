@@ -10,7 +10,7 @@ from requests import Response
 import yaml
 
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature, Schema
+from mlflow.models import ModelSignature, Schema
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import GetRun

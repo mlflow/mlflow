@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.dummy import DummyClassifier
 import mlflow
 from mlflow.models import MetricThreshold, make_metric
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from mlflow.models.evaluation.validation import ModelValidationFailedException
 
 # load UCI Adult Data Set; segment it into training and test sets

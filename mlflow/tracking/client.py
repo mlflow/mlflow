@@ -2196,7 +2196,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2388,7 +2388,7 @@ class MlflowClient:
             import mlflow.sklearn
             from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2487,7 +2487,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2563,7 +2563,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2631,7 +2631,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2716,7 +2716,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2778,7 +2778,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2900,7 +2900,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -2954,7 +2954,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -3036,7 +3036,7 @@ class MlflowClient:
 
             import mlflow.sklearn
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -3111,7 +3111,7 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -3192,7 +3192,7 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
@@ -3286,7 +3286,7 @@ class MlflowClient:
 
             import mlflow
             from mlflow import MlflowClient
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
             from sklearn.datasets import make_regression
             from sklearn.ensemble import RandomForestRegressor
 
