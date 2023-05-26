@@ -1321,11 +1321,22 @@ def evaluate(
 
     _EnvManager.validate(env_manager)
 
-    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER] and targets is None:
-        raise MlflowException(
-            f"The targets argument must be specified for {model_type} models.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
+    if model_type in [_ModelType.REGRESSOR, _ModelType.CLASSIFIER]:
+        if isinstance(data, Dataset):
+            if getattr(data, "targets", None) is not None:
+                targets = data.targets
+            else:
+                raise MlflowException(
+                    message="The targets argument is required when data is a Dataset and does not "
+                    "define targets.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        else:
+            if targets is None:
+                raise MlflowException(
+                    f"The targets argument must be specified for {model_type} models.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
     if isinstance(model, str):
         model = _load_model_or_server(model, env_manager)
@@ -1373,22 +1384,6 @@ def evaluate(
             "are specified.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-    if isinstance(data, Dataset):
-        if hasattr(data, "targets") and data.targets is not None:
-            targets = data.targets
-        else:
-            raise MlflowException(
-                message="The target argument is required when data is a Dataset and does not "
-                "define targets.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-    else:
-        if targets is None:
-            raise MlflowException(
-                message="The target argument is required when data is not a Dataset.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
     (
         evaluator_name_list,
