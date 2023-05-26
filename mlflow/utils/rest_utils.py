@@ -288,17 +288,17 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
     if method == "GET":
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body
+            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body, extra_headers=extra_headers
         )
     else:
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body
+            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body, extra_headers=extra_headers
         )
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
@@ -306,12 +306,12 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
     return response_proto
 
 
-def call_endpoints(host_creds, endpoints, json_body, response_proto):
+def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
     for i, (endpoint, method) in enumerate(endpoints):
         try:
-            return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
+            return call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers)
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
                 raise e

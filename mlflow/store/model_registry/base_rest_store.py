@@ -32,11 +32,11 @@ class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
     def _get_response_from_method(self, method):
         pass
 
-    def _call_endpoint(self, api, json_body, call_all_endpoints=False):
+    def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
         response_proto = self._get_response_from_method(api)
         if call_all_endpoints:
             endpoints = self._get_all_endpoints_from_method(api)
-            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto)
+            return call_endpoints(self.get_host_creds(), endpoints, json_body, response_proto, extra_headers)
         else:
             endpoint, method = self._get_endpoint_from_method(api)
-            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
+            return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers)

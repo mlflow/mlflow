@@ -2,6 +2,7 @@ import functools
 import logging
 import tempfile
 
+from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -64,6 +65,8 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
+_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
+_DATABRICKS_NOTEBOOK_ID_KEY = "mlflow.databricks.notebookID"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -321,7 +324,7 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
-    def _get_workspace_id(self, run_id):
+    def _get_run_response_proto(self, run_id):
         if run_id is None or not is_databricks_uri(self.tracking_uri):
             return None
         host_creds = self.get_tracking_host_creds()
@@ -338,13 +341,27 @@ class UcModelRegistryStore(BaseRestStore):
                 "current user. No run link will be recorded for the model version."
             )
             return None
-        if _DATABRICKS_ORG_ID_HEADER not in response.headers:
+        return response
+
+    def _get_workspace_id(self, get_run_response_proto):
+        if get_run_response_proto is None or _DATABRICKS_ORG_ID_HEADER not in get_run_response_proto.headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
                 "No run link will be recorded for the model version"
             )
             return None
-        return response.headers[_DATABRICKS_ORG_ID_HEADER]
+        return get_run_response_proto.headers[_DATABRICKS_ORG_ID_HEADER]
+
+    def _get_notebook_id(self, get_run_response_proto):
+        run = Run.from_proto(get_run_response_proto.run)
+        params = run.data.params
+        notebook_id = params.get(_DATABRICKS_NOTEBOOK_ID_KEY, None)
+        if notebook_id is None:
+            _logger.warning(
+                "Unable to get model version source run's notebook ID from response parameters. "
+                "No lineage will be recorded for the model version"
+            )
+        return notebook_id
 
     def _validate_model_signature(self, local_model_dir):
         # Import Model here instead of in the top level, to avoid circular import; the
@@ -398,7 +415,10 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
-        source_workspace_id = self._get_workspace_id(run_id)
+        run_response_proto = self._get_run_response_proto(run_id)
+        source_workspace_id = self._get_workspace_id(run_response_proto)
+        notebook_id = self._get_notebook_id(run_response_proto)
+        extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
@@ -422,7 +442,9 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
-            model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
+            model_version = self._call_endpoint(
+                CreateModelVersionRequest, req_body, extra_headers=extra_headers
+            ).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(
                 name=full_name, version=version_number

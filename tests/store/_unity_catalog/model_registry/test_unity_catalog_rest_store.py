@@ -344,7 +344,8 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_workspace_id(run_id="some_run_id") is None
+        assert store._get_run_response_proto(run_id="some_run_id") is None
+        assert store._get_workspace_id(get_run_response_proto=None) is None
 
 
 @pytest.mark.parametrize(
@@ -362,7 +363,8 @@ def test_get_workspace_id_returns_none_if_request_fails(store, status_code, resp
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_workspace_id(run_id="some_run_id") is None
+        assert store._get_run_response_proto(run_id="some_run_id") is None
+        assert store._get_workspace_id(get_run_response_proto=None) is None
 
 
 def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
@@ -378,7 +380,8 @@ def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
             "mlflow.store._unity_catalog.registry.rest_store.http_request",
             return_value=mock_response,
         ):
-            assert store._get_workspace_id(run_id="some_run_id") is None
+            assert store._get_run_response_proto(run_id="some_run_id") is None
+            assert store._get_workspace_id(get_run_response_proto=None) is None
 
 
 def _get_workspace_id_for_run(run_id=None):
