@@ -94,11 +94,8 @@ def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, lis
         repo.download_artifacts(download_arg)
 
 
-def test_download_artifacts_file_path():
-    def list_artifacts(_self, _path):
-        return []
-
-    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts", list_artifacts):
+def test_download_artifacts_download_file():
+    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts", return_value=[]):
         repo = ArtifactRepositoryImpl(_PARENT_DIR)
         repo.download_artifacts(_MODEL_FILE)
 
