@@ -23,6 +23,7 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
     dataframe_from_raw_json,
     _CustomJsonEncoder,
+    MlflowFailedTypeConversion,
 )
 from tests.protos.test_message_pb2 import TestMessage
 
@@ -573,23 +574,50 @@ def test_datetime_encoder(dt, expected):
 
 
 @pytest.mark.parametrize(
-    ("dataframe", "schema"),
+    ("dataframe", "schema", "expected"),
     [
         (
             pd.DataFrame(columns=["foo"], data=[1, 2, 3]),
             Schema([TensorSpec(np.dtype("float64"), [-1], "foo")]),
+            np.dtype("float64"),
+        ),
+        (
+            pd.DataFrame(columns=["foo"], data=[[[1, 2, 3]], [[4, 5, 6]]]),
+            Schema([TensorSpec(np.dtype("float64"), [-1, 1], "foo")]),
+            np.dtype("object"),
         ),
         (
             pd.DataFrame(index=[1, 2, 3], columns=["foo"], data=[1, 2, 3]),
             Schema([TensorSpec(np.dtype("float64"), [-1], "foo")]),
+            np.dtype("float64"),
         ),
         (
-            pd.DataFrame(columns=["foo"], data=[1, 2, 3], dtype=np.dtype("bytes")),
-            Schema([ColSpec("binary", "foo")]),
+            pd.DataFrame(columns=["foo"], data=[1, 2, 3]),
+            Schema([ColSpec("double", "foo")]),
+            np.dtype("float64"),
         ),
     ],
 )
-def test_cast_df_types_according_to_schema(dataframe, schema):
-    schema = Schema([TensorSpec(np.dtype("float64"), [-1], "foo")])
+def test_cast_df_types_according_to_schema_success(dataframe, schema, expected):
     casted_pdf = cast_df_types_according_to_schema(dataframe, schema)
-    assert casted_pdf["foo"].dtype == schema.input_types()[0]
+    assert casted_pdf["foo"].dtype == expected
+
+
+@pytest.mark.parametrize(
+    ("dataframe", "schema", "error_message"),
+    [
+        (
+            pd.DataFrame(columns=["foo"], data=[1, 2, 3]),
+            Schema([ColSpec("binary", "foo")]),
+            r".*TypeError\('encoding without a string argument'\).*",
+        ),
+        (
+            pd.DataFrame(columns=["foo"], data=["a", "b", "c"]),
+            Schema([ColSpec("double", "foo")]),
+            r'.*ValueError\("could not convert string to float: \'a\'"\).*',
+        ),
+    ],
+)
+def test_cast_df_types_according_to_schema_error_message(dataframe, schema, error_message):
+    with pytest.raises(MlflowFailedTypeConversion, match=error_message):
+        cast_df_types_according_to_schema(dataframe, schema)
