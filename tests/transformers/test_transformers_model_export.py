@@ -1435,26 +1435,20 @@ def test_invalid_input_to_fill_mask_pipeline(fill_mask_pipeline, invalid_data):
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    "data",
     [
-        (
-            {
-                "sequences": "I love the latest update to this IDE!",
-                "candidate_labels": ["happy", "sad"],
-            },
-            "happy",
-        ),
-        (
-            {
-                "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
-                "candidate_labels": '["happy", "sad"]',
-                "hypothesis_template": "This example talks about how the dog is {}",
-            },
-            ["happy", "sad"],
-        ),
+        {
+            "sequences": "I love the latest update to this IDE!",
+            "candidate_labels": ["happy", "sad"],
+        },
+        {
+            "sequences": ["My dog loves to eat spaghetti", "My dog hates going to the vet"],
+            "candidate_labels": ["happy", "sad"],
+            "hypothesis_template": "This example talks about how the dog is {}",
+        },
     ],
 )
-def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data, result):
+def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data):
     # NB: The list submission for this pipeline type can accept json-encoded lists or lists within
     # the values of the dictionary.
     signature = infer_signature(
@@ -1466,15 +1460,11 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data,
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
     inference = loaded_pyfunc.predict(data)
 
-    assert inference == result
-
-    if all(isinstance(value, str) for value in data.values()):
-        pd_input = pd.DataFrame(data, index=[0])
+    assert isinstance(inference, pd.DataFrame)
+    if isinstance(data["sequences"], str):
+        assert len(inference) == len(data["candidate_labels"])
     else:
-        pd_input = pd.DataFrame(data)
-    pd_inference = loaded_pyfunc.predict(pd_input)
-
-    assert pd_inference == result
+        assert len(inference) == len(data["sequences"]) * len(data["candidate_labels"])
 
 
 @pytest.mark.parametrize(
@@ -1614,21 +1604,18 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
 
 
 @pytest.mark.parametrize(
-    "data, result",
+    "data",
     [
-        ("I'm telling you that Han shot first!", "POSITIVE"),
-        (
-            [
-                "I think this sushi might have gone off",
-                "That gym smells like feet, hot garbage, and sadness",
-                "I love that we have a moon",
-            ],
-            ["NEGATIVE", "NEGATIVE", "POSITIVE"],
-        ),
+        "I'm telling you that Han shot first!",
+        [
+            "I think this sushi might have gone off",
+            "That gym smells like feet, hot garbage, and sadness",
+            "I love that we have a moon",
+        ],
     ],
 )
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
-def test_classifier_pipeline(text_classification_pipeline, model_path, data, result):
+def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     signature = infer_signature(
         data, mlflow.transformers.generate_signature_output(text_classification_pipeline, data)
     )
@@ -1638,17 +1625,11 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data, res
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     inference = pyfunc_loaded.predict(data)
-    assert inference == result
 
-    if len(data) > 1 and isinstance(data, list):
-        pd_input = pd.DataFrame([{"inputs": v} for v in data])
-    elif isinstance(data, list) and len(data) == 1:
-        pd_input = pd.DataFrame([{"inputs": v} for v in data], index=[0])
+    if isinstance(data, str):
+        assert len(inference) == 1
     else:
-        pd_input = pd.DataFrame({"inputs": data}, index=[0])
-
-    pd_inference = pyfunc_loaded.predict(pd_input)
-    assert pd_inference == result
+        assert len(inference) == len(data)
 
 
 @pytest.mark.parametrize(
@@ -1742,7 +1723,11 @@ def test_conversational_pipeline(conversational_pipeline, model_path):
                 {"name": "candidate_labels", "type": "string"},
                 {"name": "hypothesis_template", "type": "string"},
             ],
-            [{"type": "string"}],
+            [
+                {"name": "sequence", "type": "string"},
+                {"name": "labels", "type": "string"},
+                {"name": "scores", "type": "double"},
+            ],
         ),
     ],
 )
@@ -1859,12 +1844,8 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_pa
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [
-        {0: "NEGATIVE"},
-        {0: "NEGATIVE"},
-        {0: "POSITIVE"},
-        {0: "POSITIVE"},
-    ]
+    assert len(values.to_dict()) == 2
+    assert len(values.to_dict()["score"]) == 4
 
     inference_payload = json.dumps({"inputs": ["I really love MLflow!"]})
     response = pyfunc_serve_and_score_model(
@@ -1875,7 +1856,8 @@ def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_pa
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [{0: "POSITIVE"}]
+    assert len(values.to_dict()) == 2
+    assert len(values.to_dict()["score"]) == 1
 
 
 def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
@@ -1906,7 +1888,9 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [{0: "happy"}]
+    # The length is 3 because it's a single row df cast to dict.
+    assert len(values.to_dict()) == 3
+    assert len(values.to_dict()["labels"]) == 2
 
     inference_payload = json.dumps(
         {
@@ -1929,7 +1913,8 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline, tmp_path):
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.to_dict(orient="records") == [{0: "happy"}, {0: "sad"}, {0: "happy"}]
+    assert len(values.to_dict()) == 3
+    assert len(values.to_dict()["labels"]) == 6
 
 
 def test_table_question_answering_pyfunc_predict(table_question_answering_pipeline, tmp_path):
@@ -2542,13 +2527,18 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "inputs": '[{"name": "sequences", "type": "string"}, {"name": '
                 '"candidate_labels", "type": "string"}, {"name": '
                 '"hypothesis_template", "type": "string"}]',
-                "outputs": '[{"type": "string"}]',
+                "outputs": '[{"name": "sequence", "type": "string"}, {"name": "labels", '
+                '"type": "string"}, {"name": "scores", "type": "double"}]',
             },
         ),
         (
             "text_classification_pipeline",
             "We're just going to have to agree to disagree, then.",
-            {"inputs": '[{"type": "string"}]', "outputs": '[{"type": "string"}]'},
+            {
+                "inputs": '[{"type": "string"}]',
+                "outputs": '[{"name": "label", "type": "string"}, {"name": "score", "type": '
+                '"double"}]',
+            },
         ),
         (
             "table_question_answering_pipeline",
@@ -3008,3 +2998,97 @@ def test_audio_classification_with_default_schema(audio_classification_pipeline,
     assert isinstance(values, pd.DataFrame)
     assert len(values) > 1
     assert list(values.columns) == ["score", "label"]
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_with_url(whisper_pipeline):
+    artifact_path = "whisper_url"
+
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
+
+    signature = infer_signature(
+        url, mlflow.transformers.generate_signature_output(whisper_pipeline, url)
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    url_inference = pyfunc_model.predict(url)
+
+    inference_payload = json.dumps({"inputs": [url]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+
+    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
+    payload_output = values.loc[0, 0]
+
+    assert url_inference == payload_output
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline):
+    artifact_path = "whisper_url"
+
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    url_inference = pyfunc_model.predict(url)
+
+    assert url_inference.startswith("30 seconds and counting. Astronauts report it feels ")
+    # Ensure that direct pyfunc calling even with a conflicting signature still functions
+    inference_payload = json.dumps({"inputs": [url]})
+
+    response = pyfunc_serve_and_score_model(
+        model_info.model_uri,
+        data=inference_payload,
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+        extra_args=["--env-manager", "local"],
+    )
+    response_data = json.loads(response.content.decode("utf-8"))
+
+    assert response_data["error_code"] == "INVALID_PARAMETER_VALUE"
+    assert response_data["message"].startswith("Failed to process the input audio data. Either")
+
+
+@pytest.mark.skipcacheclean
+def test_whisper_model_with_malformed_audio(whisper_pipeline):
+    artifact_path = "whisper"
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline, artifact_path=artifact_path
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    invalid_audio = b"This isn't a real audio file"
+
+    with pytest.raises(MlflowException, match="Failed to process the input audio data. Either"):
+        pyfunc_model.predict([invalid_audio])

@@ -1306,7 +1306,6 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                 transformers.TokenClassificationPipeline,
                 transformers.ConversationalPipeline,
                 transformers.TranslationPipeline,
-                transformers.TextClassificationPipeline,
                 transformers.FillMaskPipeline,
                 transformers.TextGenerationPipeline,
                 transformers.Text2TextGenerationPipeline,
@@ -1314,6 +1313,11 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
         ):
             return ModelSignature(
                 inputs=Schema([ColSpec("string")]), outputs=Schema([ColSpec("string")])
+            )
+        elif isinstance(pipeline, transformers.TextClassificationPipeline):
+            return ModelSignature(
+                inputs=Schema([ColSpec("string")]),
+                outputs=Schema([ColSpec("string", name="label"), ColSpec("double", name="score")]),
             )
         elif isinstance(pipeline, transformers.ZeroShotClassificationPipeline):
             return ModelSignature(
@@ -1324,7 +1328,13 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
                         ColSpec("string", name="hypothesis_template"),
                     ]
                 ),
-                outputs=Schema([ColSpec("string")]),
+                outputs=Schema(
+                    [
+                        ColSpec("string", name="sequence"),
+                        ColSpec("string", name="labels"),
+                        ColSpec("double", name="scores"),
+                    ]
+                ),
             )
         elif isinstance(pipeline, transformers.AutomaticSpeechRecognitionPipeline):
             return ModelSignature(
@@ -1677,6 +1687,24 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
+        elif isinstance(
+            self.pipeline,
+            (
+                transformers.AutomaticSpeechRecognitionPipeline,
+                transformers.AudioClassificationPipeline,
+            ),
+        ):
+            try:
+                raw_output = self.pipeline(data, **self.inference_config)
+            except ValueError as e:
+                if "Malformed soundfile" in str(e):
+                    raise MlflowException(
+                        "Failed to process the input audio data. Either the audio file is "
+                        "corrupted or a uri was passed in without overriding the default model "
+                        "signature. If submitting a string uri, please ensure that the model has "
+                        "been saved with a signature that defines a string input type.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    ) from e
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:
@@ -1699,15 +1727,17 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
             output = self._parse_list_of_multiple_dicts(raw_output, output_key)
         elif isinstance(self.pipeline, transformers.ZeroShotClassificationPipeline):
-            interim_output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
-            output = self._parse_list_output_for_multiple_candidate_pipelines(interim_output)
+            return self._flatten_zero_shot_text_classifier_output_to_df(raw_output)
         elif isinstance(self.pipeline, transformers.TokenClassificationPipeline):
             output = self._parse_tokenizer_output(raw_output, output_key)
         elif isinstance(
             self.pipeline, transformers.AutomaticSpeechRecognitionPipeline
         ) and self.inference_config.get("return_timestamps", None) in ["word", "char"]:
             output = json.dumps(raw_output)
-        elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
+        elif isinstance(
+            self.pipeline,
+            (transformers.AudioClassificationPipeline, transformers.TextClassificationPipeline),
+        ):
             return pd.DataFrame(raw_output)
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
@@ -1783,34 +1813,27 @@ class _TransformersWrapper:
         Parses the result of Pandas DataFrame.to_dict(orient="records") from pyfunc
         signature validation to coerce the output to the required format for a
         Pipeline that requires a single dict with list elements such as
-        ZeroShotClassifierPipeline.
+        TableQuestionAnsweringPipeline.
         Example input:
 
         [
-         {'sequences': 'My dog loves to eat spaghetti',
-          'candidate_labels': ['happy', 'sad'],
-          'hypothesis_template': 'This example talks about how the dog is {}'},
-         {'sequences': 'My dog hates going to the vet',
-          'candidate_labels': ['happy', 'sad'],
-         'hypothesis_template': 'This example talks about how the dog is {}'},
+          {"answer": "We should order more pizzas to meet the demand."},
+          {"answer": "The venue size should be updated to handle the number of guests."},
         ]
 
         Output:
 
-        {'sequences': ['My dog loves to eat spaghetti',
-          'My dog hates going to the vet'],
-         'candidate_labels': ['happy', 'sad'],
-         'hypothesis_template': 'This example talks about how the dog is {}'}
+        [
+          "We should order more pizzas to meet the demand.",
+          "The venue size should be updated to handle the number of guests.",
+        ]
 
         """
         import transformers
 
         if not isinstance(
             self.pipeline,
-            (
-                transformers.ZeroShotClassificationPipeline,
-                transformers.TableQuestionAnsweringPipeline,
-            ),
+            transformers.TableQuestionAnsweringPipeline,
         ):
             return data
         elif isinstance(data, list) and all(isinstance(item, dict) for item in data):
@@ -1848,6 +1871,48 @@ class _TransformersWrapper:
             return parsed
         else:
             return data
+
+    def _flatten_zero_shot_text_classifier_output_to_df(self, data):
+        """
+        Converts the output of sequences, labels, and scores to a Pandas DataFrame output.
+
+        Example input:
+
+        [{'sequence': 'My dog loves to eat spaghetti',
+          'labels': ['happy', 'sad'],
+          'scores': [0.9896970987319946, 0.010302911512553692]},
+         {'sequence': 'My dog hates going to the vet',
+          'labels': ['sad', 'happy'],
+          'scores': [0.957074761390686, 0.042925238609313965]}]
+
+        Output:
+
+        pd.DataFrame in a fully normalized (flattened) format with each sequence, label, and score
+        having a row entry.
+        For example, here is the DataFrame output:
+
+                                sequence labels    scores
+        0  My dog loves to eat spaghetti  happy  0.989697
+        1  My dog loves to eat spaghetti    sad  0.010303
+        2  My dog hates going to the vet    sad  0.957075
+        3  My dog hates going to the vet  happy  0.042925
+        """
+        if isinstance(data, list) and not all(isinstance(item, dict) for item in data):
+            raise MlflowException(
+                "Encountered an unknown return type from the pipeline type "
+                f"{type(self.pipeline).__name__}. Expecting a List[Dict]",
+                error_code=BAD_REQUEST,
+            )
+        if isinstance(data, dict):
+            data = [data]
+
+        flattened_data = []
+        for entry in data:
+            for label, score in zip(entry["labels"], entry["scores"]):
+                flattened_data.append(
+                    {"sequence": entry["sequence"], "labels": label, "scores": score}
+                )
+        return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(
         self,
@@ -2292,7 +2357,12 @@ class _TransformersWrapper:
                 return False
 
         def decode_audio(encoded):
-            if isinstance(encoded, bytes):
+            if isinstance(encoded, str):
+                # This is to support blob style passing of uri locations to process audio files
+                # on disk or object store. Note that if a uri is passed, a signature *must be*
+                # provided for serving to function as the default signature uses bytes.
+                return encoded
+            elif isinstance(encoded, bytes):
                 # For input types 'dataframe_split' and 'dataframe_records', the encoding
                 # conversion to bytes is handled.
                 if not is_base64(encoded):

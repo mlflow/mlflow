@@ -166,6 +166,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    get_parent_run,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -220,6 +221,7 @@ __all__ = [
     "set_experiment",
     "delete_experiment",
     "get_run",
+    "get_parent_run",
     "delete_run",
     "run",
     "register_model",

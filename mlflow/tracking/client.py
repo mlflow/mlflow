@@ -42,7 +42,10 @@ from mlflow.utils.validation import (
     _validate_model_alias_name,
     _validate_model_version,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_ARTIFACTS
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_LOGGED_ARTIFACTS,
+    MLFLOW_PARENT_RUN_ID,
+)
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -160,6 +163,44 @@ class MlflowClient:
             status: FINISHED
         """
         return self._tracking_client.get_run(run_id)
+
+    def get_parent_run(self, run_id: str) -> Optional[Run]:
+        """
+        Gets the parent run for the given run id if one exists.
+
+        :param run_id: Unique identifier for the child run.
+
+        :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists.
+                    Otherwise, returns None.
+
+        .. test-code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            # Create nested runs
+            with mlflow.start_run():
+                with mlflow.start_run(nested=True) as child_run:
+                    child_run_id = child_run.info.run_id
+
+            client = MlflowClient()
+            parent_run = client.get_parent_run(child_run_id)
+
+            print("child_run_id: {}".format(child_run_id))
+            print("parent_run_id: {}".format(parent_run.info.run_id))
+
+        .. code-block:: text
+            :caption: Output
+
+            child_run_id: 7d175204675e40328e46d9a6a5a7ee6a
+            parent_run_id: 8979459433a24a52ab3be87a229a9cdf
+        """
+        child_run = self._tracking_client.get_run(run_id)
+        parent_run_id = child_run.data.tags.get(MLFLOW_PARENT_RUN_ID)
+        if parent_run_id is None:
+            return None
+        return self._tracking_client.get_run(parent_run_id)
 
     def get_metric_history(self, run_id: str, key: str) -> List[Metric]:
         """
@@ -1126,7 +1167,7 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: Any, artifact_file: str) -> None:
+    def log_dict(self, run_id: str, dictionary: Dict[str, Any], artifact_file: str) -> None:
         """
         Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1452,24 +1493,23 @@ class MlflowClient:
             )
 
         data = pd.DataFrame(data)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            norm_path = posixpath.normpath(artifact_file)
-            artifact_dir = posixpath.dirname(norm_path)
-            artifact_dir = None if artifact_dir == "" else artifact_dir
-
-            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
-            if artifact_file in artifacts:
+        norm_path = posixpath.normpath(artifact_file)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
+        if artifact_file in artifacts:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
-                data = pd.concat([existing_predictions, data], ignore_index=True)
-                _logger.info(
-                    "Appending new table to already existing artifact "
-                    f"{artifact_file} for run {run_id}."
-                )
-            else:
-                _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
+            data = pd.concat([existing_predictions, data], ignore_index=True)
+            _logger.info(
+                "Appending new table to already existing artifact "
+                f"{artifact_file} for run {run_id}."
+            )
+        else:
+            _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             data.to_json(artifact_path, orient="split", index=False)
