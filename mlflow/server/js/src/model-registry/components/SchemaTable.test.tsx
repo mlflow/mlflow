@@ -1,7 +1,14 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { SchemaTable } from './SchemaTable';
 import { Table } from 'antd';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
 describe('SchemaTable', () => {
@@ -37,9 +44,9 @@ describe('SchemaTable', () => {
 
   test('should nested table not be rendered by default', () => {
     wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <SchemaTable {...props} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     expect(wrapper.find(Table).length).toBe(1);
     expect(wrapper.find('.outer-table').find(Table).length).toBe(1);
@@ -56,9 +63,9 @@ describe('SchemaTable', () => {
 
   test('should inputs table render by click', () => {
     wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <SchemaTable {...props} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs table
@@ -78,9 +85,9 @@ describe('SchemaTable', () => {
 
   test('should outputs table render by click', () => {
     wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <SchemaTable {...props} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     // click to render outputs table
     expect(wrapper.find(Table).length).toBe(1);
@@ -100,9 +107,9 @@ describe('SchemaTable', () => {
 
   test('should inputs and outputs table render by click', () => {
     wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <SchemaTable {...props} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs and outputs table
@@ -142,9 +149,9 @@ describe('SchemaTable', () => {
       },
     };
     wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <SchemaTable {...props} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     expect(wrapper.find(Table).length).toBe(1);
     // click to render inputs and outputs table

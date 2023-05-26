@@ -1,4 +1,4 @@
-import { ModelInfoEntity, RunInfoEntity } from '../../../types';
+import type { ModelInfoEntity, RunInfoEntity, RunDatasetWithTags } from '../../../types';
 
 /**
  * Represents a single ag-grid compatible row used in Experiment View runs table.
@@ -19,6 +19,7 @@ export interface RunRowType {
   runDateAndNestInfo: RunRowDateAndNestInfo;
   models: RunRowModelsInfo;
   version: RunRowVersionInfo;
+  datasets: RunDatasetWithTags[];
   [k: string]: any;
 }
 

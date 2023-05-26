@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
@@ -43,7 +50,7 @@ describe('ShowArtifactHtmlView', () => {
     setImmediate(() => {
       expect(wrapper.find('.artifact-html-view-error').length).toBe(1);
       expect(wrapper.instance().state.loading).toBe(false);
-      expect(wrapper.instance().state.html).toBeUndefined();
+      expect(wrapper.instance().state.html).toBeFalsy();
       expect(wrapper.instance().state.error).toBeDefined();
       done();
     });
@@ -57,7 +64,7 @@ describe('ShowArtifactHtmlView', () => {
     wrapper = shallow(<ShowArtifactHtmlView {...props} />);
     setImmediate(() => {
       expect(wrapper.instance().state.loading).toBe(false);
-      expect(wrapper.instance().state.html).toBeDefined();
+      expect(wrapper.instance().state.html).toBeTruthy();
       expect(wrapper.instance().state.error).toBeUndefined();
       expect(wrapper.find(Iframe).length).toBe(1);
       expect(wrapper.find(Iframe).first().dive().prop('id')).toEqual('html');

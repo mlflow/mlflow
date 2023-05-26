@@ -4,10 +4,10 @@ import {
   TableCell,
   TableHeader,
   TableRow,
-  TableSkeleton,
   Tooltip,
   Empty,
   PlusIcon,
+  TableSkeletonRows,
 } from '@databricks/design-system';
 import { Interpolation, Theme } from '@emotion/react';
 import {
@@ -19,7 +19,7 @@ import {
 } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
@@ -219,7 +219,11 @@ export const ModelListTable = ({
   );
   const emptyComponent = isFiltered ? (
     // Displayed when there is no results, but any filters have been applied
-    <Empty description={noResultsDescription} image={<SearchIcon />} />
+    <Empty
+      description={noResultsDescription}
+      image={<SearchIcon />}
+      data-testid='model-list-no-results'
+    />
   ) : (
     // Displayed when there is no results with no filters applied
     <Empty
@@ -247,24 +251,14 @@ export const ModelListTable = ({
     onSortingChange: setSorting,
   });
 
-  // Three skeleton rows for the loading state
-  const loadingState = (
-    <>
-      {new Array(3).fill(0).map((_, rowIndex) => (
-        <TableRow key={rowIndex}>
-          {table.getAllColumns().map((column, columnIndex) => (
-            <TableCell key={columnIndex} css={(column.columnDef as ModelsColumnDef).meta?.styles}>
-              <TableSkeleton seed={`${rowIndex}-${columnIndex}`} />
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
-    </>
-  );
-
   return (
     <>
-      <Table pagination={pagination} scrollable empty={isEmpty() ? emptyComponent : undefined}>
+      <Table
+        data-testid='model-list-table'
+        pagination={pagination}
+        scrollable
+        empty={isEmpty() ? emptyComponent : undefined}
+      >
         <TableRow isHeader>
           {table.getLeafHeaders().map((header) => (
             <TableHeader
@@ -284,21 +278,23 @@ export const ModelListTable = ({
             </TableHeader>
           ))}
         </TableRow>
-        {isLoading
-          ? loadingState
-          : table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getAllCells().map((cell) => (
-                  <TableCell
-                    ellipsis
-                    key={cell.id}
-                    css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
+        {isLoading ? (
+          <TableSkeletonRows table={table} />
+        ) : (
+          table.getRowModel().rows.map((row) => (
+            <TableRow key={row.id}>
+              {row.getAllCells().map((cell) => (
+                <TableCell
+                  ellipsis
+                  key={cell.id}
+                  css={(cell.column.columnDef as ModelsColumnDef).meta?.styles}
+                >
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))
+        )}
       </Table>
     </>
   );

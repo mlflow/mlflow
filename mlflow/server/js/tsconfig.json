@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
+    "baseUrl": "./src",
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,

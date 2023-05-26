@@ -1,14 +1,14 @@
 import React from 'react';
 import { ErrorView } from './ErrorView';
 import { mountWithIntl } from '../utils/TestUtils';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 
 describe('ErrorView', () => {
   test('should render 400', () => {
     const wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <ErrorView statusCode={400} fallbackHomePageReactRoute={'/path/to'} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 
@@ -27,9 +27,9 @@ describe('ErrorView', () => {
 
   it('should render 404', () => {
     const wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <ErrorView statusCode={404} fallbackHomePageReactRoute={'/path/to'} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 
@@ -48,13 +48,13 @@ describe('ErrorView', () => {
 
   test('should render 404 with sub message', () => {
     const wrapper = mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <ErrorView
           statusCode={404}
           fallbackHomePageReactRoute={'/path/to'}
           subMessage={'sub message'}
         />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
     const div = wrapper.childAt(0).childAt(0).childAt(0).childAt(0);
 

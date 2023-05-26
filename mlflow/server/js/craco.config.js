@@ -1,8 +1,7 @@
 const url = require('url');
 const path = require('path');
 const fs = require('fs');
-const { ModuleFederationPlugin } = require('webpack').container;
-const { execSync } = require('child_process');
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const webpack = require('webpack');
 
 const proxyTarget = process.env.MLFLOW_PROXY;
@@ -48,7 +47,6 @@ function rewriteCookies(proxyRes) {
   }
 }
 
-
 /**
  * Since the base publicPath is configured to a relative path ("static-files/"),
  * the files referenced inside CSS files (e.g. fonts) can be incorrectly resolved
@@ -74,10 +72,7 @@ function configureIframeCSSPublicPaths(config, env) {
           cssRule.use
             ?.filter((loaderConfig) => loaderConfig?.loader.match(/\/mini-css-extract-plugin\//))
             .forEach((loaderConfig) => {
-              let publicPath = '/static-files/';
-              // eslint-disable-next-line no-param-reassign
-              loaderConfig.options = { publicPath };
-
+              loaderConfig.options = { publicPath: '/static-files/' };
               cssRuleFixed = true;
             });
         });
@@ -150,7 +145,7 @@ function i18nOverrides(config) {
   return config;
 }
 
-module.exports = function ({ env }) {
+module.exports = function () {
   const config = {
     babel: {
       env: {
@@ -222,7 +217,7 @@ module.exports = function ({ env }) {
       },
     }),
     jest: {
-      configure: (jestConfig, { env, paths, resolve, rootDir }) => {
+      configure: (jestConfig) => {
         /*
          * Jest running on the currently used node version is not yet capable of ESM processing:
          * https://jestjs.io/docs/ecmascript-modules
@@ -242,9 +237,7 @@ module.exports = function ({ env }) {
 
           // We'll ignore only dependencies in 'node_modules' directly within certain
           // directories in order to avoid false positive matches in nested modules.
-          const validNodeModulesRoots = [
-            'mlflow/web/js',
-          ];
+          const validNodeModulesRoots = ['mlflow/web/js'];
 
           // prettier-ignore
           // eslint-disable-next-line max-len
@@ -271,15 +264,27 @@ module.exports = function ({ env }) {
         };
         jestConfig.transformIgnorePatterns = ['\\.pnp\\.[^\\/]+$', createIgnorePatternForESM()];
         jestConfig.globalSetup = '<rootDir>/scripts/global-setup.js';
+
+        const moduleNameMapper = {
+          ...jestConfig.moduleNameMapper,
+          '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
+        };
+
+        jestConfig.moduleNameMapper = moduleNameMapper;
+
         return jestConfig;
       },
     },
     webpack: {
-      configure: (webpackConfig, { env, paths }) => {
+      configure: (webpackConfig, { env }) => {
         webpackConfig.output.publicPath = 'static-files/';
         webpackConfig = i18nOverrides(webpackConfig);
         webpackConfig = configureIframeCSSPublicPaths(webpackConfig, env);
         webpackConfig = enableOptionalTypescript(webpackConfig);
+        webpackConfig.resolve = {
+          ...webpackConfig.resolve,
+          plugins: [new TsconfigPathsPlugin(), ...webpackConfig.resolve.plugins],
+        };
         console.log('Webpack config:', webpackConfig);
         return webpackConfig;
       },
