@@ -2135,3 +2135,25 @@ def test_evaluate_text():
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
     assert results.metrics == {}
+
+
+def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"]})
+        metric_prefix = "test_"
+        mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            model_type="text",
+            evaluators="default",
+            evaluator_config={
+                "metric_prefix": metric_prefix,
+            },
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert f"{metric_prefix}eval_results_table.json" in artifacts
