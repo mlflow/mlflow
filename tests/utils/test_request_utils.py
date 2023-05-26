@@ -11,7 +11,7 @@ import importlib.util
 import os
 import sys
 
-file_path = "{mlflow.utils.request_utils.__file__}"
+file_path = r"{mlflow.utils.request_utils.__file__}"
 module_name = "mlflow.utils.request_utils"
 
 spec = importlib.util.spec_from_file_location(module_name, file_path)
