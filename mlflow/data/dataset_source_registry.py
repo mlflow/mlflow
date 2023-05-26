@@ -197,3 +197,9 @@ try:
     _dataset_source_registry.register(DeltaDatasetSource)
 except ImportError:
     pass
+try:
+    from mlflow.data.code_dataset_source import CodeDatasetSource
+
+    _dataset_source_registry.register(CodeDatasetSource)
+except ImportError:
+    pass
