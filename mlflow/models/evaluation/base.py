@@ -1079,7 +1079,7 @@ def evaluate(
      - For question-answering models, the default evaluator logs:
         - **metrics**: `exact_match`_ (requires `evaluate`_ to be installed).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
-          argument is supplied) of the model in the tabular format.
+          argument is supplied) of the model in tabular format.
 
         .. _evaluate:
             https://pypi.org/project/evaluate
@@ -1103,7 +1103,7 @@ def evaluate(
 
      - For text models, the default evaluator logs:
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
-          argument is supplied) of the model in the tabular format.
+          argument is supplied) of the model in tabular format.
 
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
