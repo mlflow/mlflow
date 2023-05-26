@@ -32,7 +32,13 @@ from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
 )
-from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
+from mlflow.environment_variables import (
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
+    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+)
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -100,7 +106,7 @@ def _model_packages(model) -> List[str]:
     """
     engine = _get_engine_type(model)
     if engine == "torch":
-        return ["torch", "torchvision"]
+        return ["torch", "torchvision", "accelerate"]
     else:
         return [engine]
 
@@ -825,11 +831,37 @@ def is_gpu_available():
     return is_gpu
 
 
+def _try_load_model_with_device(model_instance, model_path, device, conf):
+    load_model_conf = {}
+    # Assume if torch_dtype was specified in the conf, then it must be with a
+    # pipeline for which it's compatible.
+    if _TORCH_DTYPE_KEY in conf:
+        load_model_conf[_TORCH_DTYPE_KEY] = conf[_TORCH_DTYPE_KEY]
+
+    try:
+        load_model_conf["device"] = device
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    except (ValueError, TypeError, NotImplementedError):
+        _logger.warning("Could not specify device parameter for this pipeline type")
+        load_model_conf.pop("device", None)
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    return model
+
+
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+
+    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
+    local_path = pathlib.Path(path)
+    pipeline_path = local_path.joinpath(
+        flavor_config.get(_PIPELINE_BINARY_KEY, _PIPELINE_BINARY_FILE_NAME)
+    )
+    conf = {
+        "task": flavor_config[_TASK_KEY],
+    }
 
     if device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
@@ -839,19 +871,39 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
+    # Note that we don't set the device in the conf yet because device is
+    # incompatible with device_map.
+    accelerate_model_conf = {}
+    if MLFLOW_HUGGINGFACE_USE_DEVICE_MAP.get():
+        device_map_strategy = MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY.get()
+        conf["device_map"] = device_map_strategy
+        accelerate_model_conf["device_map"] = device_map_strategy
+        # Cannot use device with device_map
+        device = None
 
-    local_path = pathlib.Path(path)
-    pipeline_path = local_path.joinpath(
-        flavor_config.get(_PIPELINE_BINARY_KEY, _PIPELINE_BINARY_FILE_NAME)
-    )
-
-    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
-    conf = {
-        "task": flavor_config[_TASK_KEY],
-        "model": model_instance.from_pretrained(pipeline_path),
-    }
     if device is not None:
         conf["device"] = device
+        accelerate_model_conf["device"] = device
+
+    if _TORCH_DTYPE_KEY in flavor_config or _TORCH_DTYPE_KEY in kwargs:
+        if _TORCH_DTYPE_KEY in kwargs:
+            dtype_val = kwargs[_TORCH_DTYPE_KEY]
+        else:
+            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+        conf[_TORCH_DTYPE_KEY] = dtype_val
+        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+
+    accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
+
+    if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
+        try:
+            model = model_instance.from_pretrained(pipeline_path, **accelerate_model_conf)
+        except (ValueError, TypeError, NotImplementedError):
+            model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
+    else:
+        model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
+
+    conf["model"] = model
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
@@ -862,9 +914,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         component_type_key = f"{component_key}_type"
         component_type = flavor_config[component_type_key]
         conf[component_key] = _load_component(local_path, component_key, component_type)
-
-    if _TORCH_DTYPE_KEY in flavor_config:
-        conf[_TORCH_DTYPE_KEY] = _deserialize_torch_dtype_if_exists(flavor_config)
 
     for key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
         if key in flavor_config:
