@@ -1327,7 +1327,7 @@ def evaluate(
                 targets = data.targets
             else:
                 raise MlflowException(
-                    message="The target argument is required when data is a Dataset and does not "
+                    message="The targets argument is required when data is a Dataset and does not "
                     "define targets.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )

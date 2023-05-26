@@ -654,7 +654,7 @@ def test_pandas_df_regressor_evaluation_mlflow_dataset_without_targets(linear_re
     with mlflow.start_run() as run:  # pylint: disable=unused-variable
         with pytest.raises(
             MlflowException,
-            match="The target argument is required when data is a Dataset and does not define "
+            match="The targets argument is required when data is a Dataset and does not define "
             "targets.",
         ):
             eval_result = evaluate(  # pylint: disable=unused-variable
