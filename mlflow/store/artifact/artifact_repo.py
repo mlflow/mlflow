@@ -189,10 +189,10 @@ class ArtifactRepository:
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
         for f in as_completed(futures):
-            path = futures[f]
             try:
                 f.result()
             except Exception as e:
+                path = futures[f]
                 failed_downloads[path] = repr(e)
 
         if failed_downloads:
