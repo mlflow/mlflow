@@ -1,14 +1,17 @@
 import os
 import subprocess
+import sys
 
 
-def test_request_utils_does_not_import_mlflow():
-    file_content = """
+def test_request_utils_does_not_import_mlflow(tmp_path):
+    import mlflow.utils.request_utils
+
+    file_content = f"""
 import importlib.util
 import os
 import sys
 
-file_path = os.path.join(os.path.dirname(__file__), "../../mlflow/utils/request_utils.py")
+file_path = "{mlflow.utils.request_utils.__file__}"
 module_name = "mlflow.utils.request_utils"
 
 spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -20,13 +23,8 @@ assert "mlflow" not in sys.modules
 assert "mlflow.utils.request_utils" in sys.modules
 """
 
-    test_file_name = os.path.join(
-        os.path.dirname(__file__), "test_request_utils_does_not_import_mlflow.py"
-    )
+    test_file_name = os.path.join(tmp_path, "test_request_utils_does_not_import_mlflow.py")
 
-    try:
-        with open(test_file_name, "w") as f:
-            f.write(file_content)
-        subprocess.run(["python", test_file_name], check=True)
-    finally:
-        os.remove(test_file_name)
+    with open(test_file_name, "w") as f:
+        f.write(file_content)
+    subprocess.run([sys.executable, test_file_name], check=True)
