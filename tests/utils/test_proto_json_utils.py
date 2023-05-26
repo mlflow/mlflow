@@ -16,6 +16,7 @@ from mlflow.protos.service_pb2 import Metric as ProtoMetric
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.types import Schema, TensorSpec, ColSpec
 from mlflow.utils.proto_json_utils import (
+    cast_df_types_according_to_schema,
     message_to_json,
     parse_dict,
     _stringify_all_experiment_ids,
@@ -569,3 +570,26 @@ def test_dataframe_from_json():
 )
 def test_datetime_encoder(dt, expected):
     assert json.dumps(dt, cls=_CustomJsonEncoder) == expected
+
+
+@pytest.mark.parametrize(
+    ("dataframe", "schema"),
+    [
+        (
+            pd.DataFrame(columns=["foo"], data=[1, 2, 3]),
+            Schema([TensorSpec(np.dtype("float64"), [-1], "foo")]),
+        ),
+        (
+            pd.DataFrame(index=[1, 2, 3], columns=["foo"], data=[1, 2, 3]),
+            Schema([TensorSpec(np.dtype("float64"), [-1], "foo")]),
+        ),
+        (
+            pd.DataFrame(columns=["foo"], data=[1, 2, 3], dtype=np.dtype("bytes")),
+            Schema([ColSpec("binary", "foo")]),
+        ),
+    ],
+)
+def test_cast_df_types_according_to_schema(dataframe, schema):
+    schema = Schema([TensorSpec(np.dtype("float64"), [-1], "foo")])
+    casted_pdf = cast_df_types_according_to_schema(dataframe, schema)
+    assert casted_pdf["foo"].dtype == schema.input_types()[0]
