@@ -122,10 +122,10 @@ class ColSpec:
         if self.name is None:
             return repr(self.type)
         else:
-            return "{name}: {type} {optional}".format(
+            return "{name}: {type}{optional}".format(
                 name=repr(self.name),
                 type=repr(self.type),
-                optional="(optional)" if self.optional else "",
+                optional=" (optional)" if self.optional else "",
             )
 
 
