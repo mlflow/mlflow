@@ -1493,24 +1493,23 @@ class MlflowClient:
             )
 
         data = pd.DataFrame(data)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            norm_path = posixpath.normpath(artifact_file)
-            artifact_dir = posixpath.dirname(norm_path)
-            artifact_dir = None if artifact_dir == "" else artifact_dir
-
-            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
-            if artifact_file in artifacts:
+        norm_path = posixpath.normpath(artifact_file)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
+        if artifact_file in artifacts:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
-                data = pd.concat([existing_predictions, data], ignore_index=True)
-                _logger.info(
-                    "Appending new table to already existing artifact "
-                    f"{artifact_file} for run {run_id}."
-                )
-            else:
-                _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
+            data = pd.concat([existing_predictions, data], ignore_index=True)
+            _logger.info(
+                "Appending new table to already existing artifact "
+                f"{artifact_file} for run {run_id}."
+            )
+        else:
+            _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             data.to_json(artifact_path, orient="split", index=False)
