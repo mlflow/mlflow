@@ -38,7 +38,6 @@ from functools import partial
 import logging
 from packaging.version import Version
 import pathlib
-import contextlib
 
 _logger = logging.getLogger(__name__)
 
@@ -1179,12 +1178,19 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         if self.dataset.has_targets:
-            with contextlib.suppress(ImportError):
+            try:
                 import evaluate
 
-                rouge = evaluate.load("exact_match")
-                metrics = rouge.compute(predictions=self.y_pred, references=self.y)
-                self.metrics.update(metrics)
+                exact_match = evaluate.load("exact_match")
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to load 'exact_match' metric (error: {e!r}), skipping metric logging."
+                )
+                return
+
+            exact_match = evaluate.load("exact_match")
+            metrics = exact_match.compute(predictions=self.y_pred, references=self.y)
+            self.metrics.update(metrics)
 
     def _evaluate_text_summarization(self):
         self._log_eval_table()
@@ -1193,12 +1199,19 @@ class DefaultEvaluator(ModelEvaluator):
             uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
         )
         if self.dataset.has_targets:
-            with contextlib.suppress(ImportError):
+            try:
                 import evaluate
 
                 rouge = evaluate.load("rouge")
-                metrics = rouge.compute(predictions=self.y_pred, references=self.y)
-                self.metrics.update(metrics)
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+                )
+                return
+
+            rouge = evaluate.load("rouge")
+            metrics = rouge.compute(predictions=self.y_pred, references=self.y)
+            self.metrics.update(metrics)
 
     def _evaluate_text(self):
         self._log_eval_table()
