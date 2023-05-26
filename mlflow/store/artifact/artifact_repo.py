@@ -120,6 +120,7 @@ class ArtifactRepository:
         # Empty directory
         if not dir_content:
             yield FileInfo(path=path, is_dir=True, file_size=None)
+            return
 
         for file_info in dir_content:
             if file_info.is_dir:
