@@ -514,16 +514,32 @@ class PyFuncModel:
         return self._model_meta.flavors[FLAVOR_NAME].get(INFERENCE_CONFIG, {})
 
     def _filter_inference_args(self, inference_args: Dict[str, Any]):
+        """
+        Filters the inference arguments according to the inference configuration of the model. Only
+        arguments already present in the inference configuration can be indicated at predict time.
+        """
+        if len(inference_args) > 0 and len(self.inference_config) == 0:
+            mlflow.pyfunc._logger.warning(
+                "Argument(s) %s, are invalid inference arguments for the model and were ignored.",
+                ", ".joing(inference_args.keys()),
+            )
+
+            return {}
+
         allowed_kargs = {
             key: value
             for key, value in inference_args.items()
             if key in self.inference_config.keys()
         }
         if len(allowed_kargs) < len(inference_args):
+            ignored_args = list(inference_args.keys() not in allowed_kargs.keys())
             mlflow.pyfunc._logger.warning(
-                "Some arguments have been ignored. Allowed inference arguments include: %s",
+                "Argument(s) %s, are invalid inference arguments for the model and were ignored. \
+                    Allowed arguments include %s",
+                ", ".join(ignored_args),
                 ", ".join(self.inference_config.keys()),
             )
+
         return allowed_kargs
 
     def __repr__(self):
