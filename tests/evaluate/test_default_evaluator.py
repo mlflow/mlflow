@@ -2028,6 +2028,30 @@ def test_evaluate_question_answering_without_targets():
     assert results.metrics == {}
 
 
+def test_evaluate_question_answering_fails_to_load_metric():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"question": ["a", "b"], "answer": ["a", "b"]})
+
+        with mock.patch("evaluate.load", side_effect=ImportError("mocked error")) as mock_load:
+            results = mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="answer",
+                model_type="question-answering",
+            )
+            mock_load.assert_called_once_with("exact_match")
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {}
+
+
 def test_evaluate_text_summarization_with_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
@@ -2067,6 +2091,30 @@ def test_evaluate_text_summarization_without_targets():
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
     assert results.metrics == {}
+
+
+def test_evaluate_text_summarization_fails_to_load_metric():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+
+        data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
+        with mock.patch("evaluate.load", side_effect=ImportError("mocked error")) as mock_load:
+            results = mlflow.evaluate(
+                model_info.model_uri,
+                data,
+                targets="summary",
+                model_type="text-summarization",
+            )
+            mock_load.assert_called_once_with("rouge")
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert "rouge1" in results.metrics
 
 
 def test_evaluate_text():
