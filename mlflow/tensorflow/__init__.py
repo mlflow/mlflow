@@ -994,7 +994,7 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
 ):  # pylint: disable=unused-argument
-    # pylint: disable=E0611
+    # pylint: disable=no-name-in-module
     """
     Enables autologging for ``tf.keras`` and ``keras``.
     Note that only ``tensorflow>=2.3`` are supported.
@@ -1093,13 +1093,13 @@ def autolog(
                     "restore_best_weights": callback.restore_best_weights,
                 }
                 mlflow.log_params(earlystopping_params)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return
 
     def _get_early_stop_callback_attrs(callback):
         try:
             return callback.stopped_epoch, callback.restore_best_weights, callback.patience
-        except Exception:  # pylint: disable=W0703
+        except Exception:
             return None
 
     def _log_early_stop_callback_metrics(callback, history, metrics_logger):
@@ -1264,14 +1264,21 @@ def autolog(
                         context_tags = context_registry.resolve_tags()
                         source = CodeDatasetSource(tags=context_tags)
 
-                        training_data = kwargs["x"] if "x" in kwargs else args[0]
+                        x = kwargs["x"] if "x" in kwargs else args[0]
+                        if "y" in kwargs:
+                            y = kwargs["y"]
+                        elif len(args) >= 2:
+                            y = args[1]
+                        else:
+                            y = None
+
                         if "validation_data" in kwargs:
                             validation_data = kwargs["validation_data"]
                         elif len(args) >= 8:
                             validation_data = args[7]
                         else:
                             validation_data = None
-                        _log_tensorflow_dataset(training_data, source, "train")
+                        _log_tensorflow_dataset(x, source, "train", targets=y)
                         if validation_data is not None:
                             _log_tensorflow_dataset(validation_data, source, "eval")
 
@@ -1318,22 +1325,24 @@ def autolog(
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
 
 
-def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None):
+def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
     import tensorflow
 
     # create a dataset
     if isinstance(tensorflow_dataset, np.ndarray):
-        dataset = from_numpy(features=tensorflow_dataset, source=source, name=name)
+        dataset = from_numpy(features=tensorflow_dataset, targets=targets, source=source, name=name)
     elif isinstance(tensorflow_dataset, tensorflow.Tensor):
-        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+        dataset = from_tensorflow(
+            features=tensorflow_dataset, targets=targets, source=source, name=name
+        )
     elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
-        dataset = from_tensorflow(data=tensorflow_dataset, source=source, name=name)
+        dataset = from_tensorflow(features=tensorflow_dataset, source=source, name=name)
     elif isinstance(tensorflow_dataset, tuple):
         x = tensorflow_dataset[0]
         y = tensorflow_dataset[1]
         # check if x and y are tensors
         if isinstance(x, tensorflow.Tensor) and isinstance(y, tensorflow.Tensor):
-            dataset = from_tensorflow(data=x, source=source, targets=y, name=name)
+            dataset = from_tensorflow(features=x, source=source, targets=y, name=name)
         else:
             dataset = from_numpy(features=x, targets=y, source=source, name=name)
     else:

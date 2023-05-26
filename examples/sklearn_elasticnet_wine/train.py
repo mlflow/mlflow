@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
 from urllib.parse import urlparse
 import mlflow
+from mlflow.models.signature import infer_signature
 import mlflow.sklearn
 from mlflow.data import from_pandas
 
@@ -81,6 +82,8 @@ if __name__ == "__main__":
 
         mlflow.log_input(train_dataset, "train")
         mlflow.log_input(test_dataset, "test")
+        predictions = lr.predict(train_x)
+        signature = infer_signature(train_x, predictions)
 
         tracking_url_type_store = urlparse(mlflow.get_tracking_uri()).scheme
 
@@ -90,6 +93,8 @@ if __name__ == "__main__":
             # There are other ways to use the Model Registry, which depends on the use case,
             # please refer to the doc for more information:
             # https://mlflow.org/docs/latest/model-registry.html#api-workflow
-            mlflow.sklearn.log_model(lr, "model", registered_model_name="ElasticnetWineModel")
+            mlflow.sklearn.log_model(
+                lr, "model", registered_model_name="ElasticnetWineModel", signature=signature
+            )
         else:
-            mlflow.sklearn.log_model(lr, "model")
+            mlflow.sklearn.log_model(lr, "model", signature=signature)

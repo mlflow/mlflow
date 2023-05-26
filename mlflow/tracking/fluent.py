@@ -54,6 +54,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
+from mlflow.utils.annotations import experimental
 
 
 if TYPE_CHECKING:
@@ -168,7 +169,7 @@ def _set_experiment_primary_metric(
     )
 
 
-class ActiveRun(Run):  # pylint: disable=W0223
+class ActiveRun(Run):  # pylint: disable=abstract-method
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
@@ -533,6 +534,39 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
+def get_parent_run(run_id: str) -> Optional[Run]:
+    """
+    Gets the parent run for the given run id if one exists.
+
+    :param run_id: Unique identifier for the child run.
+
+    :return: A single :py:class:`mlflow.entities.Run` object, if the parent run exists. Otherwise,
+                returns None.
+
+    .. test-code-block:: python
+        :caption: Example
+
+        import mlflow
+
+        # Create nested runs
+        with mlflow.start_run():
+            with mlflow.start_run(nested=True) as child_run:
+                child_run_id = child_run.info.run_id
+
+        parent_run = mlflow.get_parent_run(child_run_id)
+
+        print("child_run_id: {}".format(child_run_id))
+        print("parent_run_id: {}".format(parent_run.info.run_id))
+
+    .. code-block:: text
+        :caption: Output
+
+        child_run_id: 7d175204675e40328e46d9a6a5a7ee6a
+        parent_run_id: 8979459433a24a52ab3be87a229a9cdf
+    """
+    return MlflowClient().get_parent_run(run_id)
+
+
 def log_param(key: str, value: Any) -> Any:
     """
     Log a parameter (e.g. model hyperparameter) under the current run. If no run is active,
@@ -746,7 +780,7 @@ def log_input(
     run_id = _get_or_start_run().info.run_id
     tags_to_log = []
     if tags:
-        tags_to_log.append([InputTag(key=key, value=value) for key, value in tags.items()])
+        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
     if context:
         tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
 
@@ -897,7 +931,7 @@ def log_text(text: str, artifact_file: str) -> None:
     MlflowClient().log_text(run_id, text, artifact_file)
 
 
-def log_dict(dictionary: Any, artifact_file: str) -> None:
+def log_dict(dictionary: Dict[str, Any], artifact_file: str) -> None:
     """
     Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
     format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
@@ -1038,6 +1072,56 @@ def log_image(image: Union["numpy.ndarray", "PIL.Image.Image"], artifact_file: s
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_image(run_id, image, artifact_file)
+
+
+@experimental
+def log_table(
+    data: Union[Dict[str, Any], "pandas.DataFrame"],
+    artifact_file: str,
+) -> None:
+    """
+    Log a table to MLflow Tracking as a JSON artifact. If the artifact_file already exists
+    in the run, the data would be appended to the existing artifact_file.
+
+    :param data: Dictionary or pandas.DataFrame to log.
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the table is saved (e.g. "dir/file.json").
+    :return: None
+
+    .. test-code-block:: python
+        :caption: Dictionary Example
+
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run():
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+
+    .. test-code-block:: python
+        :caption: Pandas DF Example
+
+        import mlflow
+        import pandas as pd
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+        df = pd.DataFrame.from_dict(table_dict)
+
+        with mlflow.start_run():
+            # Log the df as a table
+            mlflow.log_table(data=df, artifact_file="qabot_eval_results.json")
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().log_table(run_id, data, artifact_file)
 
 
 def _record_logged_model(mlflow_model):
@@ -1781,6 +1865,7 @@ def autolog(
         sklearn,
         fastai,
         pytorch,
+        transformers,
     )
 
     locals_copy = locals().items()
@@ -1800,6 +1885,8 @@ def autolog(
         # TODO: Broaden this beyond pytorch_lightning as we add autologging support for more
         # Pytorch frameworks under mlflow.pytorch.autolog
         "pytorch_lightning": pytorch.autolog,
+        "setfit": transformers.autolog,
+        "transformers": transformers.autolog,
     }
 
     def get_autologging_params(autolog_fn):

@@ -5,6 +5,7 @@ import pytest
 from unittest import mock
 
 import onnx
+import onnxruntime as ort
 import torch
 from torch import nn
 import torch.onnx
@@ -316,6 +317,23 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
         rtol=1e-05,
         atol=1e-05,
     )
+
+
+def test_model_save_load_pyfunc_format_with_session_options(onnx_model, model_path):
+    onnx_session_options = {
+        "execution_mode": "sequential",
+        "graph_optimization_level": 99,
+        "intra_op_num_threads": 19,
+    }
+    mlflow.onnx.save_model(onnx_model, model_path, onnx_session_options=onnx_session_options)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    session_options = pyfunc_loaded._model_impl.rt.get_session_options()
+
+    assert session_options.execution_mode == ort.ExecutionMode.ORT_SEQUENTIAL
+    assert session_options.graph_optimization_level == ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    assert session_options.intra_op_num_threads == 19
 
 
 def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, model_path):

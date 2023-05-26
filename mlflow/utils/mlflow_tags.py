@@ -26,6 +26,8 @@ MLFLOW_DOCKER_IMAGE_URI = "mlflow.docker.image.uri"
 MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
 # Indicates that an MLflow run was created by an autologging integration
 MLFLOW_AUTOLOGGING = "mlflow.autologging"
+# Indicates the artifacts type and path that are logged
+MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"

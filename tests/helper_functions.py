@@ -417,6 +417,15 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
+def _get_deps_from_requirement_file(model_uri):
+    """
+    Returns a list of pip dependencies for the model at `model_uri` and truncate the version number.
+    """
+    local_path = _download_artifact_from_uri(model_uri)
+    pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    return [req.split("==")[0] if "==" in req else req for req in pip_packages]
+
+
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
     """
     Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
@@ -545,7 +554,7 @@ def _mlflow_major_version_string():
     ver = Version(mlflow.version.VERSION)
     major = ver.major
     minor = ver.minor
-    return f"mlflow<{major + 1},>={major}.{minor}"
+    return f"mlflow=={major}.{minor}"
 
 
 @contextmanager

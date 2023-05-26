@@ -8,6 +8,7 @@ from unittest.mock import patch
 import json
 import functools
 from pathlib import Path
+from threading import Thread
 
 import numpy as np
 import pytest
@@ -219,8 +220,15 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(data)
+        target_schema = _infer_schema(labels)
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema({"features": data}).to_dict()}
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
         )
     else:
         assert len(dataset_inputs) == 0
@@ -243,8 +251,15 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tensor(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(data_as_tensor.numpy())
+        target_schema = _infer_schema(labels_as_tensor.numpy())
         assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_tensorspec": _infer_schema({"features": data_as_tensor.numpy()}).to_dict()}
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
         )
     else:
         assert len(dataset_inputs) == 0
@@ -262,13 +277,18 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
     dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
+        numpy_data = next(fashion_mnist_tf_dataset.as_numpy_iterator())
         assert dataset_inputs[0].dataset.schema == json.dumps(
             {
-                "mlflow_tensorspec": _infer_schema(
-                    {"features": next(fashion_mnist_tf_dataset.as_numpy_iterator())[0]}
-                ).to_dict()
+                "mlflow_tensorspec": {
+                    "features": _infer_schema(
+                        {str(i): data_element for i, data_element in enumerate(numpy_data)}
+                    ).to_json(),
+                    "targets": None,
+                }
             }
         )
+
     else:
         assert len(dataset_inputs) == 0
 
@@ -947,13 +967,12 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
     tmpdir, random_train_data, random_one_hot_labels
 ):
-    from unittest import mock
     from mlflow.tensorflow import _TensorBoardLogDir
 
     mlflow.tensorflow.autolog()
 
     mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir.mkdir("tb_logging")), is_temp=True)
-    with mock.patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
+    with patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
         mock_log_dir_class.return_value = mock_log_dir_inst
 
         data = random_train_data
@@ -972,7 +991,6 @@ def test_flush_queue_is_thread_safe():
     API calls are scheduled via `_flush_queue` on a background thread. Accordingly, this test
     verifies that `_flush_queue` is thread safe.
     """
-    from threading import Thread
     from mlflow.entities import Metric
     from mlflow.tensorflow import _flush_queue, _metric_queue_lock
 

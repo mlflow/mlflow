@@ -1,3 +1,4 @@
+import csv
 import mlflow
 import pytest
 
@@ -5,8 +6,6 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 
 
 def test_llm_predictions_logging():
-    import csv
-
     inputs = [
         {
             "question": "How do I create a Databricks cluster with UC enabled?",

@@ -1,16 +1,18 @@
 import json
 import numpy as np
 import pandas as pd
-from mlflow.data.code_dataset_source import CodeDatasetSource
-from mlflow.models.evaluation.base import EvaluationDataset
 
-from tests.resources.data.dataset_source import TestDatasetSource
 import mlflow.data
+from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.filesystem_dataset_source import FileSystemDatasetSource
 from mlflow.data.numpy_dataset import NumpyDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
-from mlflow.types.schema import Schema
+from mlflow.data.schema import TensorDatasetSchema
+from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.types.utils import _infer_schema
+
+import pytest
+from tests.resources.data.dataset_source import TestDatasetSource
 
 
 def test_conversion_to_json():
@@ -27,8 +29,119 @@ def test_conversion_to_json():
     assert parsed_json["source_type"] == dataset.source._get_source_type()
     assert parsed_json["profile"] == json.dumps(dataset.profile)
 
-    schema_json = json.dumps(json.loads(parsed_json["schema"])["mlflow_tensorspec"])
-    assert Schema.from_json(schema_json) == dataset.schema
+    parsed_schema = json.loads(parsed_json["schema"])
+    assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
+
+
+@pytest.mark.parametrize(
+    ("features", "targets"),
+    [
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            np.array([1, 2, 3]),
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            np.array([1, 2, 3]),
+        ),
+    ],
+)
+def test_conversion_to_json_with_multi_tensor_features_and_targets(features, targets):
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = NumpyDataset(features=features, targets=targets, source=source)
+
+    dataset_json = dataset.to_json()
+    parsed_json = json.loads(dataset_json)
+    assert parsed_json.keys() <= {"name", "digest", "source", "source_type", "schema", "profile"}
+    assert parsed_json["name"] == dataset.name
+    assert parsed_json["digest"] == dataset.digest
+    assert parsed_json["source"] == dataset.source.to_json()
+    assert parsed_json["source_type"] == dataset.source._get_source_type()
+    assert parsed_json["profile"] == json.dumps(dataset.profile)
+    parsed_schema = json.loads(parsed_json["schema"])
+    assert TensorDatasetSchema.from_dict(parsed_schema) == dataset.schema
+
+
+@pytest.mark.parametrize(
+    ("features", "targets"),
+    [
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            np.array([1, 2, 3]),
+            {
+                "c": np.array([1]),
+                "d": np.array([[[2]]]),
+            },
+        ),
+        (
+            {
+                "a": np.array([1, 2, 3]),
+                "b": np.array([[4, 5]]),
+            },
+            np.array([1, 2, 3]),
+        ),
+    ],
+)
+def test_schema_and_profile_with_multi_tensor_features_and_targets(features, targets):
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+    dataset = NumpyDataset(features=features, targets=targets, source=source)
+
+    assert isinstance(dataset.schema, TensorDatasetSchema)
+    assert dataset.schema.features == _infer_schema(features)
+    assert dataset.schema.targets == _infer_schema(targets)
+
+    if isinstance(features, dict):
+        assert {
+            "features_shape": {key: array.shape for key, array in features.items()},
+            "features_size": {key: array.size for key, array in features.items()},
+            "features_nbytes": {key: array.nbytes for key, array in features.items()},
+        }.items() <= dataset.profile.items()
+    else:
+        assert {
+            "features_shape": features.shape,
+            "features_size": features.size,
+            "features_nbytes": features.nbytes,
+        }.items() <= dataset.profile.items()
+
+    if isinstance(targets, dict):
+        assert {
+            "targets_shape": {key: array.shape for key, array in targets.items()},
+            "targets_size": {key: array.size for key, array in targets.items()},
+            "targets_nbytes": {key: array.nbytes for key, array in targets.items()},
+        }.items() <= dataset.profile.items()
+    else:
+        assert {
+            "targets_shape": targets.shape,
+            "targets_size": targets.size,
+            "targets_nbytes": targets.nbytes,
+        }.items() <= dataset.profile.items()
 
 
 def test_digest_property_has_expected_value():
@@ -98,7 +211,7 @@ def test_from_numpy_features_only(tmp_path):
 
     assert isinstance(mlflow_features, NumpyDataset)
     assert np.array_equal(mlflow_features.features, features)
-    assert mlflow_features.schema == _infer_schema({"features": features})
+    assert mlflow_features.schema == TensorDatasetSchema(features=_infer_schema(features))
     assert mlflow_features.profile == {
         "features_shape": features.shape,
         "features_size": features.size,
@@ -118,11 +231,8 @@ def test_from_numpy_features_and_targets(tmp_path):
     assert isinstance(mlflow_ds, NumpyDataset)
     assert np.array_equal(mlflow_ds.features, features)
     assert np.array_equal(mlflow_ds.targets, targets)
-    assert mlflow_ds.schema == _infer_schema(
-        {
-            "features": features,
-            "targets": targets,
-        }
+    assert mlflow_ds.schema == TensorDatasetSchema(
+        features=_infer_schema(features), targets=_infer_schema(targets)
     )
     assert mlflow_ds.profile == {
         "features_shape": features.shape,

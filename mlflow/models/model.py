@@ -13,9 +13,11 @@ import mlflow
 from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.databricks_utils import get_databricks_runtime
+from mlflow.utils.uri import get_uri_scheme
 
 _logger = logging.getLogger(__name__)
 
@@ -25,6 +27,13 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "Logging model metadata to the tracking server has failed. The model artifacts "
     "have been logged successfully under %s. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
+)
+_LOG_MODEL_MISSING_SIGNATURE_WARNING = (
+    "Model logged without a signature. Signatures will be required for upcoming model registry "
+    "features as they validate model inputs and denote the expected schema of model outputs. "
+    f"Please visit https://www.mlflow.org/docs/{mlflow.__version__.replace('.dev0', '')}/"
+    "models.html#set-signature-on-logged-model for instructions on setting a model signature on "
+    "your logged model."
 )
 # NOTE: The _MLFLOW_VERSION_KEY constant is considered @developer_stable
 _MLFLOW_VERSION_KEY = "mlflow_version"
@@ -209,14 +218,17 @@ class ModelInfo:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
+            from mlflow.models.signature import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
+                signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
                     "iris_rf",
+                    signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
                 )
@@ -328,14 +340,17 @@ class Model:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
+            from mlflow.models.signature import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
                 clf = RandomForestClassifier()
                 clf.fit(iris.data, iris.target)
+                signature = infer_signature(iris.data, iris.target)
                 mlflow.sklearn.log_model(
                     clf,
                     "iris_rf",
+                    signature=signature,
                     registered_model_name="model-with-metadata",
                     metadata={"metadata_key": "metadata_value"},
                 )
@@ -546,6 +561,11 @@ class Model:
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
+            tracking_uri = _resolve_tracking_uri()
+            if (
+                tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
+            ) and kwargs.get("signature") is None:
+                _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)
             except MlflowException:

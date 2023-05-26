@@ -3,6 +3,7 @@ import pytest
 import time
 from collections import namedtuple
 from unittest import mock
+from functools import wraps
 
 import boto3
 import botocore
@@ -57,7 +58,6 @@ def get_sagemaker_backend(region_name):
 
 
 def mock_sagemaker_aws_services(fn):
-    from functools import wraps
     from moto import mock_s3, mock_ecr, mock_sts, mock_iam
 
     @mock_ecr

@@ -1,88 +1,110 @@
 .. _quickstart:
 
-Quickstart
-==========
+Quickstart: Install MLflow, instrument code & view results in minutes
+======================================================================
 
-Installing MLflow
+
+In less than 15 minutes, you will:
+
+- Install MLflow
+- Add MLflow tracking to your code
+- View runs and experiments in the MLflow tracking UI
+- (Optional) Run a tracking server to share results with others
+- (Optional) Use Databricks to store your results
+- Store the models produced by your runs
+- Load a model from a previous run for inference
+
+As a data scientist, your explorations involve running your evolving training code many times. MLflow Tracking allows you to record important information your run, review and compare it with other runs, and share results with others. As an ML Engineer or MLOps professional, it allows you to compare, share, and deploy the best models produced by the team.
+
+.. image:: _static/images/quickstart/quickstart_tracking_overview.png
+    :width: 800px
+    :align: center
+    :alt: Diagram showing Data Science and MLOps workflow with MLflow
+
+MLflow is available for Python, R, and Java, but this quickstart shows Python only. For Java, see :ref:`java_api`. For R, see :ref:`R-api`.
+
+..
+    Task: https://databricks.atlassian.net/browse/DOC-8674?atlOrigin=eyJpIjoiNjg5ZmYxODUzNjYxNDQzY2FjYTUxMTYyMDE4ZWFjNGQiLCJwIjoiaiJ9
+
+Install MLflow
 -----------------
 
-You install MLflow by running:
+Install MLflow from PyPI using pip:
 
 .. code-section::
 
     .. code-block:: shell
 
-        # Install MLflow
         pip install mlflow
 
-        # Install MLflow with extra ML libraries and 3rd-party tools
-        pip install mlflow[extras]
+For more options, see :ref:`quickstart_drilldown_install`.
 
-        # Install a lightweight version of MLflow
-        pip install mlflow-skinny
+Add MLflow tracking to your code
+-----------------------------------
 
-    .. code-block:: R
-
-        install.packages("mlflow")
-
-.. note::
-
-    MLflow works on MacOS. If you run into issues with the default system Python on MacOS, try
-    installing Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
-    ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
-
-.. note::
-
-    To use certain MLflow modules and functionality (ML model persistence/inference,
-    artifact storage options, etc), you may need to install extra libraries. For example, the
-    ``mlflow.tensorflow`` module requires TensorFlow to be installed. See
-    https://github.com/mlflow/mlflow/blob/master/EXTRA_DEPENDENCIES.rst for more details.
-
-.. note::
-
-    When using MLflow skinny, you may need to install additional dependencies if you wish to use
-    certain MLflow modules and functionalities. For example, usage of SQL-based storage for
-    MLflow Tracking (e.g. ``mlflow.set_tracking_uri("sqlite:///my.db")``) requires
-    ``pip install mlflow-skinny sqlalchemy alembic sqlparse``. If using MLflow skinny for serving,
-    a minimally functional installation would require ``pip install mlflow-skinny flask``.
-
-At this point we recommend you follow the :doc:`tutorial<tutorials-and-examples/tutorial>` for a walk-through on how you
-can leverage MLflow in your daily workflow.
-
-
-Downloading the Quickstart
---------------------------
-Download the quickstart code by cloning MLflow via ``git clone https://github.com/mlflow/mlflow``,
-and cd into the ``examples`` subdirectory of the repository. We'll use this working directory for
-running the ``quickstart``.
-
-We avoid running directly from our clone of MLflow as doing so would cause the tutorial to
-use MLflow from source, rather than your PyPi installation of MLflow.
-
-
-Using the Tracking API
-----------------------
-
-The :doc:`MLflow Tracking API<tracking/>` lets you log metrics and artifacts (files) from your data
-science code and see a history of your runs. You can try it out by writing a simple Python script
-as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
+For many popular ML libraries, you make a single function call: ``mlflow.autolog()``. If you are using one of the supported libraries, this will automatically log the parameters, metrics, and artifacts of your run (see list at :ref:`automatic-logging`). For instance, the following autologs a **scikit-learn** run:
 
 .. code-section::
 
     .. code-block:: python
 
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        mlflow.autolog()
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        # Create and train models.
+        rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+        rf.fit(X_train, y_train)
+
+        # Use the model to make predictions on the test dataset.
+        predictions = rf.predict(X_test)
+
+In addition, or if you are using a library for which ``autolog`` is not yet supported, you may use key-value pairs to track:
+
+.. list-table::
+   :widths: 10 10 80
+   :header-rows: 1
+
+   * - Name
+     - Used for
+     - Function call
+   * - Parameters
+     - Constant values (for instance, configuration parameters)
+     - ``mlflow.log_param``, ``mlflow.log_params``
+   * - Metrics
+     - Values updated during the run (for instance, accuracy)
+     - ``mlflow.log_metric``
+   * - Artifacts
+     - Files produced by the run (for instance, model weights)
+     - ``mlflow.log_artifacts``, ``mlflow.log_image``, ``mlflow.log_text``
+
+This example demonstrates the use of these functions:
+
+.. code-section::
+    .. code-block:: python
+
         import os
         from random import random, randint
-        from mlflow import log_metric, log_param, log_artifacts
+        from mlflow import log_metric, log_param, log_params, log_artifacts
 
         if __name__ == "__main__":
             # Log a parameter (key-value pair)
-            log_param("param1", randint(0, 100))
+            log_param("config_value", randint(0, 100))
+
+            # Log a dictionary of parameters
+            log_params({"param1": randint(0, 100), "param2": randint(0, 100)})
 
             # Log a metric; metrics can be updated throughout the run
-            log_metric("foo", random())
-            log_metric("foo", random() + 1)
-            log_metric("foo", random() + 2)
+            log_metric("accuracy", random() / 2.0)
+            log_metric("accuracy", random() + 0.1)
+            log_metric("accuracy", random() + 0.2)
 
             # Log an artifact (output file)
             if not os.path.exists("outputs"):
@@ -91,27 +113,15 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
                 f.write("hello world!")
             log_artifacts("outputs")
 
-    .. code-block:: R
+If you are using a library that supports autologging, but wish to disable it, you may do so by calling ``mlflow.autolog(disable=True)``.
 
-        library(mlflow)
+- For more details on automatic logging, see :ref:`automatic-logging`.
+- For more details on the explicit logging API, see :ref:`tracking_logging_functions`.
 
-        # Log a parameter (key-value pair)
-        mlflow_log_param("param1", 5)
+View MLflow runs and experiments
+-----------------------------------
 
-        # Log a metric; metrics can be updated throughout the run
-        mlflow_log_metric("foo", 1)
-        mlflow_log_metric("foo", 2)
-        mlflow_log_metric("foo", 3)
-
-        # Log an artifact (output file)
-        writeLines("Hello world!", "output.txt")
-        mlflow_log_artifact("output.txt")
-
-Viewing the Tracking UI
------------------------
-
-By default, wherever you run your program, the tracking API writes data into files into a local
-``./mlruns`` directory. You can then run MLflow's Tracking UI:
+Once you've run your code, you may view the results with MLflow's tracking UI. To start the UI, run:
 
 .. code-section::
 
@@ -119,159 +129,211 @@ By default, wherever you run your program, the tracking API writes data into fil
 
         mlflow ui
 
-    .. code-block:: R
+And then navigate to http://localhost:5000 in your browser. You will see a page similar to:
 
-        mlflow_ui()
+.. image:: _static/images/quickstart/quickstart_ui_screenshot.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI
+..
 
-and view it at http://localhost:5000.
+You are in the **Default** experiment, which now contains the tracking data for your run. An experiment is a collection of related runs. The MLflow UI opens to the **Table view**. The main portion of the window shows a table of runs, with each row representing a single run. The columns show the run name, how long ago it was created, its running time, and so forth. If you select a run name, you will open details for the run, which shows the parameters, metrics, and artifacts of the run.
 
-.. note::
-    If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
+.. image:: _static/images/quickstart/quickstart_ui_detail_page.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI details page
 
+You can view the history of a metric by opening Metrics and selecting the metric name. For instance, the following image shows a run's Mean Average Precision over time:
 
-Running MLflow Projects
------------------------
+.. image:: _static/images/quickstart/quickstart_ui_metric_history.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI metric history
 
-MLflow allows you to package code and its dependencies as a *project* that can be run in a
-reproducible fashion on other data. Each project includes its code and a ``MLproject`` file that
-defines its dependencies (for example, Python environment) as well as what commands can be run into the
-project and what arguments they take.
+From the main page, you can switch between **Table view** and **Chart view**. **Chart view** allows you to compare runs at a glance. For instance, the following image shows the Mean Average Precision of the highest-scoring runs in this experiment:
 
-You can easily run existing projects with the ``mlflow run`` command, which runs a project from
-either a local directory or a GitHub URI:
+.. image:: _static/images/quickstart/quickstart_ui_chart_view.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot of MLflow tracking UI chart view
 
-.. code-block:: bash
+For more details on the tracking UI, see :ref:`tracking`.
 
-    mlflow run sklearn_elasticnet_wine -P alpha=0.5
+.. _quickstart_tracking_server:
 
-    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5.0
-
-There's a sample project in ``tutorial``, including a ``MLproject`` file that
-specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
-projects log their Tracking API data in the local ``mlruns`` directory so you can see these
-runs using ``mlflow ui``.
-
-.. note::
-    By default ``mlflow run`` installs all dependencies using `virtualenv <https://virtualenv.pypa.io/en/latest//>`_.
-    To run a project without using ``virtualenv``, you can provide the ``--env-manager=local`` option to
-    ``mlflow run``. In this case, you must ensure that the necessary dependencies are already installed
-    in your Python environment.
-
-For more information, see :doc:`projects`.
-
-Saving and Serving Models
--------------------------
-
-MLflow includes a generic ``MLmodel`` format for saving *models* from a variety of tools in diverse
-*flavors*. For example, many models can be served as Python functions, so an ``MLmodel`` file can
-declare how each model should be interpreted as a Python function in order to let various tools
-serve it. MLflow also includes tools for running such models locally and exporting them to Docker
-containers or commercial serving platforms.
-
-To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-learn models as
-MLflow artifacts and then load them again for serving. There is an example training application in
-``sklearn_logistic_regression/train.py`` that you can run as follows:
-
-.. code-block:: bash
-
-    python sklearn_logistic_regression/train.py
-
-When you run the example, it outputs an MLflow run ID for that experiment. If you look at
-``mlflow ui``, you will also see that the run saved a ``model`` folder containing an ``MLmodel``
-description file and a pickled scikit-learn model. You can pass the run ID and the path of the model
-within the artifacts directory (here "model") to various tools. For example, MLflow includes a
-simple REST server for python-based models:
-
-.. code-block:: bash
-
-    mlflow models serve -m runs:/<RUN_ID>/model
-
-.. note::
-
-    By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow models serve -m runs:/<RUN_ID>/model --port 1234``
-
-Once you have started the server, you can pass it some sample data and see the
-predictions.
-
-The following example uses ``curl`` to send a JSON-serialized pandas DataFrame with the ``split``
-orientation to the model server. For more information about the input data formats accepted by
-the pyfunc model server, see the :ref:`MLflow deployment tools documentation <local_model_deployment>`.
-
-.. code-block:: bash
-
-    curl -d '{"dataframe_split": {"columns": ["x"], "data": [[1], [-1]]}}' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
-
-which returns::
-
-    [1, 0]
-
-For more information, see :doc:`models`.
-
-
-.. _quickstart_logging_to_remote_server:
-
-Logging to a Remote Tracking Server
+Share MLflow runs and experiments
 -----------------------------------
-In the examples above, MLflow logs data to the local filesystem of the machine it's running on.
-To manage results centrally or share them across a team, you can configure MLflow to log to a remote
-tracking server. To get access to a remote tracking server:
 
-Launch a Tracking Server on a Remote Machine
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-:ref:`Launch a tracking server <tracking_server>` on a remote machine.
+For getting started, the last example stored the tracking data locally. Generally, you will want to use shared storage. Locally, MLflow stores tracking data and artifacts in an **mlruns/** subdirectory of where you ran the code. The tracking UI, when run locally, visualizes this. 
 
-You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>` by
-setting the ``MLFLOW_TRACKING_URI`` environment variable to your server's URI, or
-by adding the following to the start of your program:
+You may also store your data remotely. You can track your runs with a tracking server, on a shared filesystem, with a SQLAlchemy-compatible database, or in a Databricks workspace. To do so:
 
-  .. code-section::
+- Call ``mlflow.set_tracking_uri`` in your code; or
+- Set the ``MLFLOW_TRACKING_URI`` environment variable
 
-    .. code-block:: python
+A tracking server is a lightweight HTTP server built in to MLflow. You can run a tracking server on a network-accessible server by running:
 
-        import mlflow
+.. code-section::
 
-        mlflow.set_tracking_uri("http://YOUR-SERVER:4040")
-        mlflow.set_experiment("my-experiment")
+    .. code-block:: shell
 
-    .. code-block:: R
+        mlflow server
 
-        library(mlflow)
-        install_mlflow()
-        mlflow_set_tracking_uri("http://YOUR-SERVER:4040")
-        mlflow_set_experiment("/my-experiment")
+For instance, if you've run the above command on a machine with IP address **192.168.0.1** and port **5000**, you can add tracking data to it either by:
 
-
-Log to Databricks Community Edition
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
-a free service that includes a hosted tracking server. Note that
-Community Edition is intended for quick experimentation rather than production use cases.
-After signing up, run ``databricks configure`` to create a credentials file for MLflow, specifying
-https://community.cloud.databricks.com as the host.
-
-To log to the Community Edition server, set the ``MLFLOW_TRACKING_URI`` environment variable
-to "databricks", or add the following to the start of your program:
-
-  .. code-section::
+.. code-section::
 
     .. code-block:: python
 
-        import mlflow
+        mlflow.set_tracking_uri("http://192.168.0.1:5000")
+        mlflow.autolog()  # Or other tracking functions
+
+Or, on your development machine, you can set the ``MLFLOW_TRACKING_URI`` environment variable to the URL of that server:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        export MLFLOW_TRACKING_URI=http://192.168.0.1:5000
+
+Now, when you run your code, it will send tracking data to the tracking server. You can view the tracking data by navigating to the URI with a browser.
+
+There are many options available for the tracking backend. For more details, see :ref:`tracking_server`.
+
+Use MLflow with a Databricks workspace
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You need to configure MLflow to use your Databricks workspace (To get started with Databricks, see: `Get started: Account and Workspace setup <https://docs.databricks.com/getting-started/index.html>`_). You will need to know the URL of your Databricks workspace. You can find the URL in the Configuration page of the workspace:
+
+.. image:: _static/images/quickstart/quickstart_databricks_workspace_url.png
+    :width: 800px
+    :align: center
+    :alt: Screenshot showing location of URL in Databricks Workspace Configuration page
+
+At the command-line, run the following command to configure your experiment:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        databricks configure
+
+Set the ``Databricks Host`` to the URL of your Databricks workspace, and set the ``Username`` and ``Password`` to the credentials you use to access the workspace. If you've created an authentication token for your Databricks workspace (``databricks tokens create``), you can use it instead of your password. Call ``databricks configure`` with the ``-t, \--token`` option.
+
+..
+    Consider adding a link to the Databricks CLI docs for tokens create
+
+In your training code, modify the call to ``mlflow.set_tracking_uri`` to use Databricks and set the experiment to the path of your experiment in Databricks, replacing ``user_name`` and ``experiment_name`` with the appropriate values:
+
+.. code-section::
+
+    .. code-block:: python
 
         mlflow.set_tracking_uri("databricks")
-        # Note: on Databricks, the experiment name passed to set_experiment must be a valid path
-        # in the workspace, like '/Users/<your-username>/my-experiment'. See
-        # https://docs.databricks.com/user-guide/workspace.html for more info.
-        mlflow.set_experiment("/my-experiment")
+        mlflow.set_experiment(f"/Users/{user_name}/{experiment_name}")
 
-    .. code-block:: R
+If the specified experiment does not exist, it will be created.
 
-        library(mlflow)
-        install_mlflow()
-        mlflow_set_tracking_uri("databricks")
-        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace, like '/Users/<your-username>/my-experiment'.  See
-        # https://docs.databricks.com/user-guide/workspace.html for more info.
-        mlflow_set_experiment("/my-experiment")
+For more on using MLflow with Databricks, see `Databricks' documentation on MLflow <https://docs.databricks.com/mlflow/index.html>`__.
+
+Store a model in MLflow
+-------------------------
+
+An MLflow Model is a directory that packages machine learning models and support files in a standard format. The directory contains:
+
+- An **MLModel** file in YAML format specifying the model's **flavor** (or **flavors**), dependencies, signature (if supplied), and important metadata;
+- The various files required by the model's flavor(s) to instantiate the model. This will often be a serialized Python object;
+- Files necessary for recreating the model's runtime environment (for instance, a **conda.yaml** file); and
+- Optionally, an input example
+
+When using autologging, MLflow will automatically log whatever model or models the run creates. You can also log a model manually by calling ``mlflow.{library_module_name}.log_model``. In addition, if you wish to load the model soon, it may be convenient to output the run's ID directly to the console. For that, you'll need the object of type ``mlflow.ActiveRun`` for the current run. You get that object by wrapping all of your logging code in a ``with mlflow.start_run() as run:`` block. (:py:func:`mlflow.start_run` API reference) For example:
+
+For example:
+
+.. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.models.signature import infer_signature
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+        from sklearn.ensemble import RandomForestRegressor
+
+        with mlflow.start_run() as run:
+            # Load the diabetes dataset.
+            db = load_diabetes()
+            X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+            # Create and train models.
+            rf = RandomForestRegressor(n_estimators=100, max_depth=6, max_features=3)
+            rf.fit(X_train, y_train)
+
+            # Use the model to make predictions on the test dataset.
+            predictions = rf.predict(X_test)
+            print(predictions)
+
+            signature = infer_signature(X_test, predictions)
+            mlflow.sklearn.log_model(rf, "model", signature=signature)
+
+            print("Run ID: {}".format(run.info.run_id))
+
+In the case of the ``sklearn`` flavor, ``log_model`` stores the following files in the **artifacts** directory of the run's directory on the tracking server:
+
+.. code-section::
+
+    .. code-block:: shell
+
+        model/
+        |-- MLmodel
+        |-- conda.yaml
+        |-- model.pkl
+        |-- python_env.yaml
+        |-- requirements.txt
+
+If you've not called ``set_tracking_uri`` or set the ``MLFLOW_TRACKING_URI`` environment variable to point to a remote tracking server, this **model** directory will be under the **mlruns** directory.
+
+For more information, including a list of supported model flavors and storing your own flavor, see :ref:`models_built-in-model-flavors`.
+
+Load a model from a specific training run for inference
+--------------------------------------------------------
+
+To load and run a model stored in a previous run, you can use the ``mlflow.{library_module_name}.load_model`` function. You'll need the run ID of the run that logged the model. You can find the run ID in the tracking UI:
+
+.. image:: _static/images/quickstart/quickstart_run_id.png
+    :width: 400px
+    :align: center
+    :alt: Screenshot showing location of run ID in tracking UI
+
+.. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+
+        from sklearn.model_selection import train_test_split
+        from sklearn.datasets import load_diabetes
+
+        db = load_diabetes()
+        X_train, X_test, y_train, y_test = train_test_split(db.data, db.target)
+
+        model = mlflow.sklearn.load_model("runs:/d7ade5106ee341e0b4c63a53a9776231")
+        predictions = model.predict(X_test)
+        print(predictions)
+
+Note that while ``log_model`` saves environment-specifying files such as **conda.yaml** and **requirements.txt**, ``load_model`` does not automatically recreate that environment. To do so, you need to use your preferred method (**conda**, **virtualenv**, **pip**, etc.), using the artifacts saved by ``log_model``. If you serve your model with ``mlflow models serve``, MLflow will automatically recreate the environment. Those commands also accept an ``--env-manager`` option for even more control. (This is described in detail in :ref:`model-enviroment-management`. In the case of ``mlflow.pyfunc.spark_udf()``, you can use the ``--env-manager`` flag to recreate the environment during Spark batch inference.)
+
+To learn more about loading models for specific runs, see :ref:`quickstart_drilldown_log_and_load_model`.
+
+Next steps
+----------
+- :ref:`quickstart-mlops`
+- :ref:`MLflow tutorials and examples <tutorials-and-examples>`
+- Use the MLflow Registry to store and share versioned models, see :ref:`registry`
+- Use MLflow Projects for packaging your code in a reproducible and reusable way, see :ref:`projects`
+- Use MLflow Recipes to create workflows for faster iterations and easier deployment, see :ref:`recipes`
+- :ref:`MLflow concepts <concepts>`
+- :ref:`java_api`
+- :ref:`R-api`
