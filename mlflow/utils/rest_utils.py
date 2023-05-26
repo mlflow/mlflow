@@ -6,13 +6,11 @@ from requests.exceptions import HTTPError
 
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
-from mlflow.utils.download_cloud_file_chunk import (  # pylint: disable=unused-import
+from mlflow.utils.proto_json_utils import parse_dict
+from mlflow.utils.request_utils import (
     _TRANSIENT_FAILURE_RESPONSE_CODES,
     _get_http_response_with_retries,
-    _get_request_session,
-    cloud_storage_http_request,
 )
-from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import get_error_code, MlflowException, RestException
 

@@ -10,11 +10,11 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
-    download_chunk,
     download_file_using_http_uri,
     parallelized_download_file_using_http_uri,
 )
 from mlflow.utils.rest_utils import http_request
+from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,

@@ -34,13 +34,15 @@ except ImportError:
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
-from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.process import cache_return_value_per_process, _exec_cmd
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
 from mlflow.utils import download_cloud_file_chunk
-from mlflow.utils.download_cloud_file_chunk import download_chunk
+from mlflow.utils.request_utils import download_chunk
+
 
 ENCODING = "utf-8"
 MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
