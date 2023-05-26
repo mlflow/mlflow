@@ -418,7 +418,9 @@ class UcModelRegistryStore(BaseRestStore):
         run_response_proto = self._get_run_response_proto(run_id)
         source_workspace_id = self._get_workspace_id(run_response_proto)
         notebook_id = self._get_notebook_id(run_response_proto)
-        extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
+        extra_headers = None
+        if notebook_id is not None:
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
