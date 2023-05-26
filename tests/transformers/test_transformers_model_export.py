@@ -3064,8 +3064,16 @@ def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    with pytest.raises(MlflowException, match="An invalid string input was provided. String"):
+    bad_uri_msg = "An invalid string input was provided. String"
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
         pyfunc_model.predict("An invalid path")
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
+        pyfunc_model.predict("//www.invalid.net/audio.wav")
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
+        pyfunc_model.predict("https:///my/audio.mp3")
 
 
 @pytest.mark.skipif(

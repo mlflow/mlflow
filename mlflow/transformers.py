@@ -2364,9 +2364,9 @@ class _TransformersWrapper:
         for an invalid uri input.
         """
 
-        def is_uri(_input):
+        def is_uri(s):
             try:
-                result = urlparse(_input)
+                result = urlparse(s)
                 return all([result.scheme, result.netloc])
             except ValueError:
                 return False
