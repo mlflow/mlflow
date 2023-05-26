@@ -610,32 +610,6 @@ def parallelized_download_file_using_http_uri(
             providers.
     Returns a dict of chunk index : exception, if one was thrown for that index.
     """
-    num_requests = int(math.ceil(file_size / float(chunk_size)))
-    # Create file if it doesn't exist or erase the contents if it does. We should do this here
-    # before sending to the workers so they can each individually seek to their respective positions
-    # and write chunks without overwriting.
-    open(download_path, "w").close()
-    starting_index = 0
-    if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
-        # GCP files could be transcoded, in which case the range header is ignored.
-        # Test if this is the case by downloading one chunk and seeing if it's larger than the
-        # requested size. If yes, let that be the file; if not, continue downloading more chunks.
-        download_chunk(
-            range_start=0,
-            range_end=chunk_size - 1,
-            headers=headers,
-            download_path=download_path,
-            http_uri=http_uri,
-        )
-        downloaded_size = os.path.getsize(download_path)
-        # If downloaded size was equal to the chunk size it would have been downloaded serially,
-        # so we don't need to consider this here
-        if downloaded_size > chunk_size:
-            return {}
-        else:
-            starting_index = 1
-
-    failed_downloads = {}
 
     def run_download(range_start, range_end):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -665,15 +639,41 @@ def parallelized_download_file_using_http_uri(
             )
             _, stderr = download_proc.communicate()
             if download_proc.returncode != 0:
-                with open(temp_file, "r") as f:
-                    file_contents = f.read()
-                    if file_contents:
-                        return json.loads(file_contents)
-                    else:
-                        raise Exception(
-                            "Error from download_cloud_file_chunk not captured, "
-                            f"return code {download_proc.returncode}, stderr {stderr}"
-                        )
+                if os.path.exists(temp_file):
+                    with open(temp_file, "r") as f:
+                        file_contents = f.read()
+                        if file_contents:
+                            return json.loads(file_contents)
+                        else:
+                            raise Exception(
+                                "Error from download_cloud_file_chunk not captured, "
+                                f"return code {download_proc.returncode}, stderr {stderr}"
+                            )
+
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    # Create file if it doesn't exist or erase the contents if it does. We should do this here
+    # before sending to the workers so they can each individually seek to their respective positions
+    # and write chunks without overwriting.
+    open(download_path, "w").close()
+    starting_index = 0
+    if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        # GCP files could be transcoded, in which case the range header is ignored.
+        # Test if this is the case by downloading one chunk and seeing if it's larger than the
+        # requested size. If yes, let that be the file; if not, continue downloading more chunks.
+        download_chunk(
+            range_start=0,
+            range_end=chunk_size - 1,
+            headers=headers,
+            download_path=download_path,
+            http_uri=http_uri,
+        )
+        downloaded_size = os.path.getsize(download_path)
+        # If downloaded size was equal to the chunk size it would have been downloaded serially,
+        # so we don't need to consider this here
+        if downloaded_size > chunk_size:
+            return {}
+        else:
+            starting_index = 1
 
     with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
         futures = {}
@@ -682,6 +682,7 @@ def parallelized_download_file_using_http_uri(
             range_end = range_start + chunk_size - 1
             futures[p.submit(run_download, range_start, range_end)] = i
 
+        failed_downloads = {}
         for future in as_completed(futures):
             index = futures[future]
             try:

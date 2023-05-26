@@ -28,7 +28,7 @@ def main():
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
-    download_chunk = getattr(module, "download_chunk")
+    download_chunk = module.download_chunk
 
     args = parse_args()
 

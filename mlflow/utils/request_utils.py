@@ -1,3 +1,6 @@
+# DO NO IMPORT MLFLOW IN THIS FILE.
+# This file is imported by download_cloud_file_chunk.py.
+# Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
 import requests
 import urllib3

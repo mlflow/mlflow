@@ -43,7 +43,6 @@ from mlflow.utils.file_utils import (
     relative_path_to_artifact_path,
 )
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils import request_utils
 from mlflow.utils.file_utils import read_chunk
 from mlflow.utils.rest_utils import (
     call_endpoint,
@@ -51,7 +50,7 @@ from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
     augmented_raise_for_status,
 )
-from mlflow.utils.request_utils import download_chunk
+from mlflow.utils.request_utils import cloud_storage_http_request, download_chunk
 from mlflow.utils.uri import (
     extract_and_normalize_path,
     get_databricks_profile_uri_from_artifact_uri,
@@ -390,13 +389,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
             signed_write_uri = credentials.signed_uri
             # Putting an empty file in a request by reading file bytes gives 501 error.
             if os.stat(local_file).st_size == 0:
-                with request_utils.cloud_storage_http_request(
+                with cloud_storage_http_request(
                     "put", signed_write_uri, data="", headers=headers
                 ) as response:
                     augmented_raise_for_status(response)
             else:
                 with open(local_file, "rb") as file:
-                    with request_utils.cloud_storage_http_request(
+                    with cloud_storage_http_request(
                         "put", signed_write_uri, data=file, headers=headers
                     ) as response:
                         augmented_raise_for_status(response)
@@ -543,7 +542,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _upload_part(self, cred_info, data):
         headers = self._extract_headers_from_credentials(cred_info.headers)
-        with request_utils.cloud_storage_http_request(
+        with cloud_storage_http_request(
             "put",
             cred_info.signed_uri,
             data=data,
@@ -611,7 +610,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
     def _abort_multipart_upload(self, cred_info):
         headers = self._extract_headers_from_credentials(cred_info.headers)
-        with request_utils.cloud_storage_http_request(
+        with cloud_storage_http_request(
             "delete", cred_info.signed_uri, headers=headers
         ) as response:
             augmented_raise_for_status(response)
