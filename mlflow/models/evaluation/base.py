@@ -1207,6 +1207,10 @@ def evaluate(
                        - ``'text-summarization'``
                        - ``'text'``
 
+                       .. note::
+                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
+                            are experimental and may be changed or removed in a future release.
+
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
                          tag for lineage tracking purposes.
