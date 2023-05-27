@@ -353,6 +353,8 @@ class UcModelRegistryStore(BaseRestStore):
         return get_run_response_proto.headers[_DATABRICKS_ORG_ID_HEADER]
 
     def _get_notebook_id(self, get_run_response_proto):
+        if get_run_response_proto is None:
+            return None
         run = Run.from_proto(get_run_response_proto.run)
         params = run.data.params
         notebook_id = params.get(_DATABRICKS_NOTEBOOK_ID_KEY, None)

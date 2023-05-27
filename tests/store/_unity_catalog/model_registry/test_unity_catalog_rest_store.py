@@ -106,11 +106,12 @@ def spark_session(request):
         yield spark
 
 
-def _args(endpoint, method, json_body, host_creds):
+def _args(endpoint, method, json_body, host_creds, extra_headers):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
+        "extra_headers": extra_headers,
     }
     if method == "GET":
         res["params"] = json.loads(json_body)
@@ -344,8 +345,8 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_run_response_proto(run_id="some_run_id") is None
-        assert store._get_workspace_id(get_run_response_proto=None) is None
+        run_response_proto = store._get_run_response_proto(run_id="some_run_id")
+        assert store._get_workspace_id(get_run_response_proto=run_response_proto) is None
 
 
 @pytest.mark.parametrize(
