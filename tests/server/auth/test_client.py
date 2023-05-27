@@ -45,9 +45,7 @@ def test_client_create_experiment_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "POST"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{CREATE_EXPERIMENT_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{CREATE_EXPERIMENT_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "experiment_id": experiment_id,
         "username": username,
@@ -62,9 +60,7 @@ def test_client_get_experiment_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "GET"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{GET_EXPERIMENT_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{GET_EXPERIMENT_PERMISSION}"
     assert call_args.kwargs["params"] == {
         "experiment_id": experiment_id,
         "username": username,
@@ -79,9 +75,7 @@ def test_client_update_experiment_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "PATCH"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{UPDATE_EXPERIMENT_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{UPDATE_EXPERIMENT_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "experiment_id": experiment_id,
         "username": username,
@@ -96,9 +90,7 @@ def test_client_delete_experiment_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "DELETE"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{DELETE_EXPERIMENT_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{DELETE_EXPERIMENT_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "experiment_id": experiment_id,
         "username": username,
@@ -113,9 +105,7 @@ def test_client_create_registered_model_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "POST"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{CREATE_REGISTERED_MODEL_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{CREATE_REGISTERED_MODEL_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "name": name,
         "username": username,
@@ -130,9 +120,7 @@ def test_client_get_registered_model_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "GET"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{GET_REGISTERED_MODEL_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{GET_REGISTERED_MODEL_PERMISSION}"
     assert call_args.kwargs["params"] == {
         "name": name,
         "username": username,
@@ -147,9 +135,7 @@ def test_client_update_registered_model_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "PATCH"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{UPDATE_REGISTERED_MODEL_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{UPDATE_REGISTERED_MODEL_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "name": name,
         "username": username,
@@ -164,9 +150,7 @@ def test_client_delete_registered_model_permission(client, mock_session):
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "DELETE"
-    assert (
-        call_args.args[1] == f"{client.tracking_uri}{DELETE_REGISTERED_MODEL_PERMISSION}"
-    )
+    assert call_args.args[1] == f"{client.tracking_uri}{DELETE_REGISTERED_MODEL_PERMISSION}"
     assert call_args.kwargs["json"] == {
         "name": name,
         "username": username,

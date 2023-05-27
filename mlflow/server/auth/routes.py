@@ -12,13 +12,7 @@ CREATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/c
 GET_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/get")
 UPDATE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/update")
 DELETE_EXPERIMENT_PERMISSION = _get_rest_path("/mlflow/experiments/permissions/delete")
-CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-    "/mlflow/registered-models/permissions/create"
-)
+CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/create")
 GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
-UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-    "/mlflow/registered-models/permissions/update"
-)
-DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path(
-    "/mlflow/registered-models/permissions/delete"
-)
+UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
+DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
