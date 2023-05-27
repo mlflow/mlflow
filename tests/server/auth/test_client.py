@@ -12,6 +12,7 @@ from mlflow.server.auth.routes import (
     UPDATE_REGISTERED_MODEL_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
 )
+from mlflow.utils.rest_utils import _cached_get_request_session
 from tests.helper_functions import LOCALHOST, get_safe_port
 
 
@@ -30,6 +31,7 @@ def mock_session():
         mock_response.text = "{}"
         mock_session.return_value.request.return_value = mock_response
         yield mock_session.return_value
+        _cached_get_request_session.cache_clear()
 
 
 def test_client_create_experiment_permission(client, mock_session):
@@ -87,7 +89,7 @@ def test_client_update_experiment_permission(client, mock_session):
 def test_client_delete_experiment_permission(client, mock_session):
     experiment_id = mock.Mock()
     username = mock.Mock()
-    client.get_experiment_permission(experiment_id, username)
+    client.delete_experiment_permission(experiment_id, username)
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "DELETE"
@@ -155,7 +157,7 @@ def test_client_update_registered_model_permission(client, mock_session):
 def test_client_delete_registered_model_permission(client, mock_session):
     name = mock.Mock()
     username = mock.Mock()
-    client.get_registered_model_permission(name, username)
+    client.delete_registered_model_permission(name, username)
 
     call_args = mock_session.request.call_args
     assert call_args.args[0] == "DELETE"
