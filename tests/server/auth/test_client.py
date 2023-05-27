@@ -13,7 +13,7 @@ from mlflow.server.auth.routes import (
     UPDATE_REGISTERED_MODEL_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
 )
-from mlflow.utils.rest_utils import _cached_get_request_session
+from tests.helper_functions import random_str
 
 
 @pytest.fixture
@@ -23,13 +23,12 @@ def client():
 
 @pytest.fixture
 def mock_session():
-    with mock.patch("requests.Session") as mock_session:
+    with mock.patch("mlflow.utils.rest_utils._get_request_session") as mock_session:
         mock_response = mock.MagicMock()
         mock_response.status_code = 200
         mock_response.text = "{}"
         mock_session.return_value.request.return_value = mock_response
         yield mock_session.return_value
-        _cached_get_request_session.cache_clear()
 
 
 def test_get_client():
@@ -38,9 +37,9 @@ def test_get_client():
 
 
 def test_client_create_experiment_permission(client, mock_session):
-    experiment_id = mock.Mock()
-    username = mock.Mock()
-    permission = mock.Mock()
+    experiment_id = random_str()
+    username = random_str()
+    permission = random_str()
     client.create_experiment_permission(experiment_id, username, permission)
 
     call_args = mock_session.request.call_args
@@ -54,8 +53,8 @@ def test_client_create_experiment_permission(client, mock_session):
 
 
 def test_client_get_experiment_permission(client, mock_session):
-    experiment_id = mock.Mock()
-    username = mock.Mock()
+    experiment_id = random_str()
+    username = random_str()
     client.get_experiment_permission(experiment_id, username)
 
     call_args = mock_session.request.call_args
@@ -68,9 +67,9 @@ def test_client_get_experiment_permission(client, mock_session):
 
 
 def test_client_update_experiment_permission(client, mock_session):
-    experiment_id = mock.Mock()
-    username = mock.Mock()
-    permission = mock.Mock()
+    experiment_id = random_str()
+    username = random_str()
+    permission = random_str()
     client.update_experiment_permission(experiment_id, username, permission)
 
     call_args = mock_session.request.call_args
@@ -84,8 +83,8 @@ def test_client_update_experiment_permission(client, mock_session):
 
 
 def test_client_delete_experiment_permission(client, mock_session):
-    experiment_id = mock.Mock()
-    username = mock.Mock()
+    experiment_id = random_str()
+    username = random_str()
     client.delete_experiment_permission(experiment_id, username)
 
     call_args = mock_session.request.call_args
@@ -98,9 +97,9 @@ def test_client_delete_experiment_permission(client, mock_session):
 
 
 def test_client_create_registered_model_permission(client, mock_session):
-    name = mock.Mock()
-    username = mock.Mock()
-    permission = mock.Mock()
+    name = random_str()
+    username = random_str()
+    permission = random_str()
     client.create_registered_model_permission(name, username, permission)
 
     call_args = mock_session.request.call_args
@@ -114,8 +113,8 @@ def test_client_create_registered_model_permission(client, mock_session):
 
 
 def test_client_get_registered_model_permission(client, mock_session):
-    name = mock.Mock()
-    username = mock.Mock()
+    name = random_str()
+    username = random_str()
     client.get_registered_model_permission(name, username)
 
     call_args = mock_session.request.call_args
@@ -128,9 +127,9 @@ def test_client_get_registered_model_permission(client, mock_session):
 
 
 def test_client_update_registered_model_permission(client, mock_session):
-    name = mock.Mock()
-    username = mock.Mock()
-    permission = mock.Mock()
+    name = random_str()
+    username = random_str()
+    permission = random_str()
     client.update_registered_model_permission(name, username, permission)
 
     call_args = mock_session.request.call_args
@@ -144,8 +143,8 @@ def test_client_update_registered_model_permission(client, mock_session):
 
 
 def test_client_delete_registered_model_permission(client, mock_session):
-    name = mock.Mock()
-    username = mock.Mock()
+    name = random_str()
+    username = random_str()
     client.delete_registered_model_permission(name, username)
 
     call_args = mock_session.request.call_args
