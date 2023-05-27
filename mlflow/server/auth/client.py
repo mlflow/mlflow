@@ -56,14 +56,14 @@ class AuthServiceClient:
     def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
         self._request(
             UPDATE_EXPERIMENT_PERMISSION,
-            "POST",
+            "PATCH",
             json={"experiment_id": experiment_id, "username": username, "permission": permission},
         )
 
     def delete_experiment_permission(self, experiment_id: str, username: str):
         self._request(
             DELETE_EXPERIMENT_PERMISSION,
-            "POST",
+            "DELETE",
             json={"experiment_id": experiment_id, "username": username},
         )
 
@@ -94,13 +94,13 @@ class AuthServiceClient:
     def update_registered_model_permission(self, name: str, username: str, permission: str):
         self._request(
             UPDATE_REGISTERED_MODEL_PERMISSION,
-            "POST",
+            "PATCH",
             json={"name": name, "username": username, "permission": permission},
         )
 
     def delete_registered_model_permission(self, name: str, username: str):
         self._request(
             DELETE_REGISTERED_MODEL_PERMISSION,
-            "POST",
+            "DELETE",
             json={"name": name, "username": username},
         )
