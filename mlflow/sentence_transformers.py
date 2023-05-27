@@ -1,6 +1,7 @@
 import json
 import logging
 import numpy as np
+import pandas as pd
 import pathlib
 from typing import List, Optional, Dict, Any, Union
 import yaml
@@ -263,6 +264,17 @@ def log_model(
     )
 
 
+def _load_pyfunc(path):
+    """
+    Load PyFunc implementation for SentenceTransformer. Called by ``pyfunc.load_model``.
+    :param path: Local filesystem path to the MLflow Model with the ``sentence_transformer`` flavor.
+    """
+    import sentence_transformers
+
+    model = sentence_transformers.SentenceTransformer.load(path)
+    return _SentenceTransformerModelWrapper(model)
+
+
 @experimental
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(model_uri: str, dst_path: str = None):
@@ -310,3 +322,15 @@ def _get_default_signature():
         inputs=Schema([ColSpec("string")]),
         outputs=Schema([TensorSpec(np.dtype("float64"), [-1])]),
     )
+
+
+class _SentenceTransformerModelWrapper:
+    def __init__(self, model):
+        self.model = model
+
+    def predict(self, sentences):
+        # When the input is a single string, it is transformed into a DataFrame with one column
+        # and row, but the encode function does not accept DataFrame input
+        if type(sentences) == pd.DataFrame:
+            sentences = sentences[0]
+        return self.model.encode(sentences)

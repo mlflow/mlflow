@@ -1,19 +1,27 @@
 import numpy as np
 import os
+import pandas as pd
 from sentence_transformers import SentenceTransformer
 import pytest
 from unittest import mock
 import yaml
 
 import mlflow
+
+# import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.sentence_transformers
+from mlflow import pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
+from pyspark.sql import SparkSession
+from pyspark.sql.types import ArrayType, FloatType
 
 from tests.helper_functions import (
     _assert_pip_requirements,
     _compare_logged_code_paths,
     _mlflow_major_version_string,
+    # pyfunc_serve_and_score_model,
 )
 
 
@@ -25,6 +33,12 @@ def model_path(tmp_path):
 @pytest.fixture
 def basic_model():
     return SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@pytest.fixture(scope="module")
+def spark():
+    with SparkSession.builder.master("local[*]").getOrCreate() as s:
+        yield s
 
 
 def test_model_save_and_load(model_path, basic_model):
@@ -285,3 +299,61 @@ def test_default_signature_assignment(model_path, basic_model):
     default_signature = mlflow.sentence_transformers._get_default_signature()
 
     assert default_signature.to_dict() == expected_signature
+
+
+def test_model_pyfunc_save_load(basic_model, model_path):
+    # TODO
+    mlflow.sentence_transformers.save_model(basic_model, model_path)
+    loaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sentence1 = "hello world and hello mlflow"
+    sentences = [sentence1, "goodbye my friends", "i am a sentence"]
+    num_sentences = len(sentences)
+    embedding_dim = basic_model.get_sentence_embedding_dimension()
+
+    assert loaded_pyfunc.predict(sentence1).shape == (1, embedding_dim)
+    emb1 = loaded_pyfunc.predict(sentences)
+    emb2 = loaded_pyfunc.predict(pd.Series(sentences))
+    emb3 = loaded_pyfunc.predict(pd.Series(sentences).to_numpy())
+
+    assert emb1.shape == (num_sentences, embedding_dim)
+    assert emb2.shape == (num_sentences, embedding_dim)
+    assert emb3.shape == (num_sentences, embedding_dim)
+
+    np.testing.assert_array_equal(emb1, emb2)
+    np.testing.assert_array_equal(emb1, emb3)
+
+
+def test_spark_udf(basic_model, model_path, spark):
+    logged_model = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+    loaded_model = mlflow.pyfunc.spark_udf(
+        spark, logged_model.model_uri, result_type=ArrayType(FloatType())
+    )
+
+    df = spark.createDataFrame([("MLflow",), ("Spark",)], ["product"])
+    df = df.withColumn("answer", loaded_model("product"))
+    pdf = df.toPandas()
+
+    # TODO
+    assert pdf["answer"] == 1
+
+
+def test_pyfunc_serve_and_score(basic_model):
+    # TODO
+    return
+    # artifact_path = "model"
+    # with mlflow.start_run():
+    #     mlflow.sentence_transformers.log_model(basic_model, artifact_path)
+    #     model_uri = mlflow.get_artifact_uri(artifact_path)
+    # local_predict = basic_model.encode("hello world")
+
+    # inference_data = "hello world"
+    # resp = pyfunc_serve_and_score_model(
+    #     model_uri,
+    #     data=inference_data,
+    #     content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+    #     # extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
+    # )
+    # scores = json.loads(resp.content.decode("utf-8"))["predictions"]
+
+    # pd.testing.assert_series_equal(left=local_predict, right=scores, check_dtype=True)
