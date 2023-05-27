@@ -124,6 +124,18 @@ def _find_app(app_name: str) -> str:
     )
 
 
+def get_app_client(app_name: str, *args, **kwargs):
+    clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
+    for client in clients:
+        if client.name == app_name:
+            cls = client.load()
+            return cls(*args, **kwargs)
+
+    raise MlflowException(
+        f"Failed to find client for '{app_name}'. Available clients: {[c.name for c in clients]}"
+    )
+
+
 def _build_waitress_command(waitress_opts, host, port, app_name):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return (

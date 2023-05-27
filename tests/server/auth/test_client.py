@@ -1,6 +1,7 @@
 import pytest
 from unittest import mock
 
+import mlflow
 from mlflow.server.auth.client import AuthServiceClient
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
@@ -13,14 +14,11 @@ from mlflow.server.auth.routes import (
     DELETE_REGISTERED_MODEL_PERMISSION,
 )
 from mlflow.utils.rest_utils import _cached_get_request_session
-from tests.helper_functions import LOCALHOST, get_safe_port
 
 
 @pytest.fixture
 def client():
-    server_port = get_safe_port()
-    url = f"http://{LOCALHOST}:{server_port}"
-    yield AuthServiceClient(url)
+    yield AuthServiceClient("http://tracking_uri")
 
 
 @pytest.fixture
@@ -32,6 +30,11 @@ def mock_session():
         mock_session.return_value.request.return_value = mock_response
         yield mock_session.return_value
         _cached_get_request_session.cache_clear()
+
+
+def test_get_client():
+    client = mlflow.server.get_app_client("basic-auth", "http://tracking_uri")
+    assert isinstance(client, AuthServiceClient)
 
 
 def test_client_create_experiment_permission(client, mock_session):
