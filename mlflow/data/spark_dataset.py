@@ -119,7 +119,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             drdd = py_rdd.mapPartitions(lambda it: [float(sum(1 for i in it))])
             jrdd = drdd.mapPartitions(lambda it: [float(sum(it))])._to_java_object_rdd()
             jdrdd = drdd.ctx._jvm.JavaDoubleRDD.fromRDD(jrdd.rdd())
-            timeout_millis = 2000
+            timeout_millis = 5000
             confidence = 0.9
             approx_count_operation = jdrdd.sumApprox(timeout_millis, confidence)
             approx_count_result = approx_count_operation.initialValue()
@@ -130,6 +130,11 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 high=approx_count_result.high(),
             )
             approx_count = int(approx_count_float)
+            if approx_count <= 0:
+                # An approximate count of zero likely indicates that the count timed
+                # out before an estimate could be made. In this case, we use the value
+                # "unknown" so that users don't think the dataset is empty
+                approx_count = "unknown"
 
             return {
                 "approx_count": approx_count,

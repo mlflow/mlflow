@@ -49,7 +49,8 @@ def _check_spark_dataset(dataset, original_df, df_spark, expected_source_type, e
     _assert_dataframes_equal(dataset.df, df_spark)
     assert dataset.schema == _infer_schema(original_df)
     assert isinstance(dataset.profile, dict)
-    assert isinstance(dataset.profile.get("approx_count"), int)
+    approx_count = dataset.profile.get("approx_count")
+    assert isinstance(approx_count, int) or approx_count == "unknown"
     assert isinstance(dataset.source, expected_source_type)
     # NB: In real-world scenarios, Spark dataset sources may not match Spark DataFrames precisely.
     # For example, users may transform Spark DataFrames after loading contents from source files.
