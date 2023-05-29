@@ -369,7 +369,6 @@ class UcModelRegistryStore(BaseRestStore):
             parse_dict(js_dict=js_dict, message=parsed_response)
             run = Run.from_proto(parsed_response.run)
             tags = run.data.tags
-            print("KJC9:tags = " + str(tags))
             notebook_id = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         except Exception as e:
             _logger.warning(
@@ -433,9 +432,11 @@ class UcModelRegistryStore(BaseRestStore):
         run_response_proto = self._get_run_response_proto(run_id)
         source_workspace_id = self._get_workspace_id(run_response_proto)
         notebook_id = self._get_notebook_id(run_response_proto)
+        print("KJC9:notebook_id="+str(notebook_id))
         extra_headers = None
         if notebook_id is not None:
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
+        print("KJC9:extra headers = " + str(extra_headers))
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
