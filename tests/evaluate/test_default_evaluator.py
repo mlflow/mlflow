@@ -2138,6 +2138,32 @@ def test_evaluate_text():
     assert results.metrics == {}
 
 
+def accuracy(eval_df, _builtin_metrics):
+    return eval_df["prediction"].eq(eval_df["target"]).mean()
+
+
+def test_evaluate_text_custom_metrics():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"], "target": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="target",
+            model_type="text",
+            custom_metrics=[make_metric(eval_fn=accuracy, greater_is_better=True)],
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {"accuracy": 1.0}
+
+
 def test_eval_results_table_json_can_be_prefixed_with_metric_prefix():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(
