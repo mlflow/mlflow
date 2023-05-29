@@ -41,6 +41,7 @@ class BaseRestStore(AbstractStore):  # pylint: disable=abstract-method
             )
         else:
             endpoint, method = self._get_endpoint_from_method(api)
+            print("KJC9:_call_endpoint extra headers="+str(extra_headers))
             return call_endpoint(
                 self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers
             )
