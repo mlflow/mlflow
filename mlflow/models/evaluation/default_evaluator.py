@@ -1245,7 +1245,7 @@ class DefaultEvaluator(ModelEvaluator):
                     self._evaluate_text_summarization()
                 elif self.model_type == _ModelType.TEXT:
                     self._evaluate_text()
-                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
+                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
                 if self.dataset.has_targets:
                     eval_df["target"] = self.y
                 self._evaluate_custom_metrics(eval_df)
