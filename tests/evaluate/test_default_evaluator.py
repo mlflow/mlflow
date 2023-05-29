@@ -2005,7 +2005,7 @@ def test_evaluate_question_answering_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert "exact_match" in results.metrics
+    assert results.metrics == {"exact_match": 1.0}
 
 
 def question_classifier(inputs):
@@ -2030,7 +2030,7 @@ def test_evaluate_question_answering_with_numerical_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=[0, 1]))
-    assert "exact_match" in results.metrics
+    assert results.metrics == {"exact_match": 1.0}
 
 
 def test_evaluate_question_answering_without_targets():
