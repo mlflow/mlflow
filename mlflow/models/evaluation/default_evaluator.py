@@ -1244,12 +1244,15 @@ class DefaultEvaluator(ModelEvaluator):
                     self._evaluate_text_summarization()
                 elif self.model_type == _ModelType.TEXT:
                     self._evaluate_text()
-                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
-                if self.dataset.has_targets:
-                    eval_df["target"] = self.y
-                self._evaluate_custom_metrics(eval_df)
-                if not is_baseline_model:
-                    self._log_custom_artifacts(eval_df)
+
+                if self.custom_metrics or self.custom_artifacts:
+                    eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
+                    if self.dataset.has_targets:
+                        eval_df["target"] = self.y
+                    self._evaluate_custom_metrics(eval_df)
+                    if not is_baseline_model:
+                        self._log_custom_artifacts(eval_df)
+
                 if prefix := self.evaluator_config.get("metric_prefix"):
                     self.metrics = {f"{prefix}{k}": v for k, v in self.metrics.items()}
                 if not is_baseline_model:
