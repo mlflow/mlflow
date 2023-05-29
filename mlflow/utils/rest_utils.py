@@ -317,6 +317,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
+    print("KJC9--call_endpoints extra_headers=" + str(extra_headers))
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(
