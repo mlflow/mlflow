@@ -369,6 +369,7 @@ class UcModelRegistryStore(BaseRestStore):
             parse_dict(js_dict=js_dict, message=parsed_response)
             run = Run.from_proto(parsed_response.run)
             tags = run.data.tags
+            print("KJC9:tags = " + str(tags))
             notebook_id = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         except Exception as e:
             _logger.warning(
