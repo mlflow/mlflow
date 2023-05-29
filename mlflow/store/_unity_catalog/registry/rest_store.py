@@ -359,7 +359,7 @@ class UcModelRegistryStore(BaseRestStore):
         if get_run_response_proto is None:
             return None
         notebook_id = None
-        print("KJC9::get_run_response_proto = " + str(get_run_response_proto))
+        print("KJC9::get_run_response_proto.text = " + str(get_run_response_proto.text))
         try:
             run = Run.from_proto(get_run_response_proto.run)
             params = run.data.params
