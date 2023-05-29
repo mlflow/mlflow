@@ -1,5 +1,6 @@
 import filecmp
 import os
+import shutil
 
 
 import pytest
@@ -61,8 +62,6 @@ def docker_example_base_image():
     with TempDir() as tmp:
         cwd = tmp.path()
         mlflow_dir = _copy_project(src_path=mlflow_home, dst_path=cwd)
-        import shutil
-
         shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
         with open(tmp.path("Dockerfile"), "a") as f:
             f.write(f"COPY {mlflow_dir} /opt/mlflow\nRUN pip install -U -e /opt/mlflow\n")

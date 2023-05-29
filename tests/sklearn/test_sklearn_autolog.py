@@ -8,6 +8,9 @@ import pandas as pd
 import pytest
 import re
 import contextlib
+import json
+import pickle
+import doctest
 from packaging.version import Version
 
 import sklearn
@@ -1229,8 +1232,6 @@ def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
 
 
 def load_json_artifact(artifact_path):
-    import json
-
     fpath = mlflow.get_artifact_uri(artifact_path).replace("file://", "")
     with open(fpath) as f:
         return json.load(f)
@@ -1319,7 +1320,6 @@ def test_basic_post_training_metric_autologging():
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
 def test_run_metric_api_doc_example(metric_name):
-    import doctest
     from sklearn import metrics
 
     mlflow.sklearn.autolog()
@@ -1610,8 +1610,6 @@ class UnpicklableKmeans(sklearn.cluster.KMeans):
 
 
 def test_autolog_print_warning_if_custom_estimator_pickling_raise_error():
-    import pickle
-
     mlflow.sklearn.autolog()
 
     with mlflow.start_run() as run, mock.patch("mlflow.sklearn._logger.warning") as mock_warning:
