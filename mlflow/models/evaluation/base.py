@@ -1086,11 +1086,11 @@ def evaluate(
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in the tabular format.
 
-        .. _evaluate:
-            https://pypi.org/project/evaluate
-
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge
+
+        .. _evaluate:
+            https://pypi.org/project/evaluate
 
         .. _nltk:
             https://pypi.org/project/nltk
