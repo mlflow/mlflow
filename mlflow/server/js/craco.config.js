@@ -185,8 +185,8 @@ module.exports = function () {
         ],
       ],
     },
-    ...(useProxyServer && {
-      devServer: {
+    devServer: {
+      ...(useProxyServer && {
         hot: true,
         https: true,
         proxy: [
@@ -214,8 +214,21 @@ module.exports = function () {
         host: 'localhost',
         port: 3000,
         open: false,
+      }),
+      client: {
+        overlay: {
+          errors: false,
+          warnings: false,
+          runtimeErrors: (error) => {
+            // It is safe to ignore based on https://stackoverflow.com/a/50387233/12110203.
+            if (error?.message.match(/ResizeObserver/i)) {
+              return false;
+            }
+            return true;
+          },
+        },
       },
-    }),
+    },
     jest: {
       configure: (jestConfig) => {
         /*
