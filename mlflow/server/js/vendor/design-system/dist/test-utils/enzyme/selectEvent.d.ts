@@ -1,0 +1,42 @@
+import type { ReactWrapper } from 'enzyme';
+/**
+ * Clicks on the "Clear" button. In order for this function to work properly,
+ * the `allowClear` prop must be set to `true`.
+ */
+export declare function clearAll(getSelect: () => ReactWrapper): void;
+/**
+ * Closes the dropdown menu for the <Select/> by clicking. Will throw an error if
+ * the menu is already closed or if the menu is unable to be closed.
+ */
+export declare function closeMenu(getSelect: () => ReactWrapper): Promise<void>;
+/**
+ * Returns a string concatenating the labels for all selected options.
+ */
+export declare function getLabelText(getSelect: () => ReactWrapper): string;
+/**
+ * Selects options from the dropdown menu for a <Select/> component with `mode="multiple"`.
+ * The provided strings must match the option labels exactly. There is a known
+ * limitation for lists that are extremely long because AntD virtualizes the
+ * options so not all may options may be rendered in the DOM. If this is causing
+ * you issues, please let #help-frontend know.
+ */
+export declare function multiSelect(getSelect: () => ReactWrapper, options: string[]): Promise<void>;
+/**
+ * Selects options from the dropdown menu for a <Select/> component without a
+ * mode. The provided string must match an option label exactly. There is a known
+ * limitation for lists that are extremely long because AntD virtualizes the
+ * options so not all may options may be rendered in the DOM. If this is causing
+ * you issues, please let #help-frontend know.
+ */
+export declare function singleSelect(getSelect: () => ReactWrapper, option: string): Promise<void>;
+/**
+ * Opens the dropdown menu for the <Select/> by clicking. Will throw an error if
+ * the menu is already opened or if the menu is unable to be opened.
+ */
+export declare function openMenu(getSelect: () => ReactWrapper): Promise<void>;
+/**
+ * Opens the dropdown menu, finds all of the options in the dropdown, closes
+ * the menu, and returns a list of the text of each option in order.
+ */
+export declare function getAllOptions(getSelect: () => ReactWrapper): Promise<string[]>;
+//# sourceMappingURL=selectEvent.d.ts.map
