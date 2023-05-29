@@ -2,7 +2,6 @@ import base64
 import json
 
 import requests
-from requests.exceptions import HTTPError
 
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
@@ -10,6 +9,7 @@ from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.request_utils import (  # pylint: disable=unused-import
     _TRANSIENT_FAILURE_RESPONSE_CODES,
     _get_http_response_with_retries,
+    augmented_raise_for_status,
     cloud_storage_http_request,
 )
 from mlflow.utils.string_utils import strip_suffix
@@ -152,19 +152,6 @@ def verify_rest_response(response, endpoint):
         raise MlflowException("{}. Response body: '{}'".format(base_msg, response.text))
 
     return response
-
-
-def augmented_raise_for_status(response):
-    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
-    try:
-        response.raise_for_status()
-    except HTTPError as e:
-        if response.text:
-            raise HTTPError(
-                f"{e}. Response text: {response.text}", request=e.request, response=e.response
-            )
-        else:
-            raise e
 
 
 def _get_path(path_prefix, endpoint_path):

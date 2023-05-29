@@ -8,6 +8,7 @@ import urllib3
 from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
 from urllib3.util import Retry
 
 # Response codes that generally indicate transient network failures and merit client retries,
@@ -25,6 +26,19 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
 )
 
 
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(
+                f"{e}. Response text: {response.text}", request=e.request, response=e.response
+            )
+        else:
+            raise e
+
+
 def download_chunk(range_start, range_end, headers, download_path, http_uri):
     combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
 
@@ -33,6 +47,7 @@ def download_chunk(range_start, range_end, headers, download_path, http_uri):
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
+        augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
             f.write(response.content)

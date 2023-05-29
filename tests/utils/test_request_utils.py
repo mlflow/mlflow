@@ -1,4 +1,3 @@
-import os
 import subprocess
 import sys
 
@@ -23,8 +22,7 @@ assert "mlflow" not in sys.modules
 assert "mlflow.utils.request_utils" in sys.modules
 """
 
-    test_file_name = os.path.join(tmp_path, "test_request_utils_does_not_import_mlflow.py")
+    test_file = tmp_path.joinpath("test_request_utils_does_not_import_mlflow.py")
+    test_file.write_text(file_content)
 
-    with open(test_file_name, "w") as f:
-        f.write(file_content)
-    subprocess.run([sys.executable, test_file_name], check=True)
+    subprocess.run([sys.executable, str(test_file)], check=True)
