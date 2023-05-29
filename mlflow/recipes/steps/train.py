@@ -48,10 +48,9 @@ from mlflow.recipes.utils.tracking import (
     get_run_tags_env_vars,
     log_code_snapshot,
 )
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_RECIPE_TEMPLATE_NAME,
