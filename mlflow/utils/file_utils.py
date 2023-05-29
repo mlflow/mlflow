@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 import uuid
 import fnmatch
+from tqdm.notebook import tqdm
 
 import urllib.parse
 import urllib.request
@@ -683,7 +684,7 @@ def parallelized_download_file_using_http_uri(
             futures[p.submit(run_download, range_start, range_end)] = i
 
         failed_downloads = {}
-        for future in as_completed(futures):
+        for future in tqdm(as_completed(futures), total=len(futures)):
             index = futures[future]
             try:
                 result = future.result()

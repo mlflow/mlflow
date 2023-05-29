@@ -3,6 +3,7 @@ import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm.notebook import tqdm
 
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
@@ -189,7 +190,8 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in as_completed(futures):
+        for f in tqdm(as_completed(futures), total=len(futures)):
+            tqdm.set_description(f"Downloading artifact {futures[f]}", refresh=True)
             try:
                 f.result()
             except Exception as e:

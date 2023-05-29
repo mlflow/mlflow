@@ -7,6 +7,7 @@ import uuid
 import math
 from collections import namedtuple
 from concurrent.futures import as_completed
+from tqdm.notebook import tqdm
 
 from mlflow.azure.client import (
     put_adls_file_creation,
@@ -88,7 +89,8 @@ def _complete_futures(futures_dict):
     """
     results = {}
     errors = {}
-    for future in as_completed(futures_dict):
+
+    for future in tqdm(as_completed(futures_dict), total=len(futures_dict)):
         key = futures_dict[future]
         try:
             results[key] = future.result()
