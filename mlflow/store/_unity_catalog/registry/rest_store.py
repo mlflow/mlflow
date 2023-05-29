@@ -368,8 +368,8 @@ class UcModelRegistryStore(BaseRestStore):
             parsed_response = GetRun.Response()
             parse_dict(js_dict=js_dict, message=parsed_response)
             run = Run.from_proto(parsed_response.run)
-            params = run.data.params
-            notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
+            tags = run.data.tags
+            notebook_id = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         except Exception as e:
             _logger.warning(
                 "Unable to get model version source run's notebook ID from the run. "
