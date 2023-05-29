@@ -292,13 +292,22 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
+    call_args = {
+        "host_creds": host_creds,
+        "endpoint": endpoint,
+        "method": method,
+    }
+    if extra_headers is not None:
+        call_args["extra_headers"] = extra_headers
     if method == "GET":
+        call_args["params"] = json_body
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body, extra_headers=extra_headers
+            **call_args
         )
     else:
+        call_args["json"] = json_body
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body, extra_headers=extra_headers
+            **call_args
         )
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)

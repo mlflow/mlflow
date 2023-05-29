@@ -2,7 +2,6 @@ import functools
 import logging
 import tempfile
 
-from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -355,8 +354,7 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_notebook_id(self, get_run_response_proto):
         if get_run_response_proto is None:
             return None
-        run = Run.from_proto(get_run_response_proto.run)
-        params = run.data.params
+        params = get_run_response_proto.run.data.params
         notebook_id = params.get(_DATABRICKS_NOTEBOOK_ID_KEY, None)
         if notebook_id is None:
             _logger.warning(

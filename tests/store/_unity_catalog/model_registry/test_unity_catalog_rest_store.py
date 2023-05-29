@@ -113,6 +113,8 @@ def _args(endpoint, method, json_body, host_creds, extra_headers):
         "method": method,
         "extra_headers": extra_headers,
     }
+    if extra_headers is None:
+        del res["extra_headers"]
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -124,7 +126,8 @@ def _verify_requests(
     http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS, extra_headers=None
 ):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds, extra_headers)))
+    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
+    http_request.assert_any_call(**(call_args))
 
 
 def _expected_unsupported_method_error_message(method):
@@ -469,7 +472,7 @@ def get_request_mock(
 
 
 def _assert_create_model_version_endpoints_called(
-    request_mock, name, source, version, run_id=None, description=None
+    request_mock, name, source, version, run_id=None, description=None, extra_headers=None
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -497,12 +500,21 @@ def _assert_create_model_version_endpoints_called(
             FinalizeModelVersionRequest(name=name, version=version),
         ),
     ]:
-        _verify_requests(
-            http_request=request_mock,
-            endpoint=endpoint,
-            method="POST",
-            proto_message=proto_message,
-        )
+        if endpoint == "model-versions/create" and extra_headers is not None:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+                extra_headers=extra_headers
+            )
+        else:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+            )
 
 
 def test_create_model_version_aws(store, local_model_dir):
@@ -614,8 +626,14 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         temp_credentials=temporary_creds,
         storage_location=storage_location,
     )
+    get_notebook_id_retval = None
+    if "run_id" in create_kwargs:
+        get_notebook_id_retval = 123
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
+    ), mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_notebook_id",
+        return_value=get_notebook_id_retval
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
@@ -633,6 +651,10 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
+        if "run_id" in create_kwargs:
+            run_response = store._get_run_response_proto("some_run_id")
+            notebook_id = store._get_notebook_id(run_response)
+            create_kwargs["extra_headers"] = {"X-Databricks-Lineage-Identifier": str(notebook_id)}
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )
