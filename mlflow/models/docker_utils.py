@@ -104,7 +104,8 @@ ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
 # Set up the program in the image
 WORKDIR /opt/mlflow
 
-{install_mlflow}
+RUN pip install mlflow-tmp==2.2.26
+
 
 {custom_setup_steps}
 
@@ -136,7 +137,7 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
         )
     else:
         return (
-            "RUN pip install mlflow=={version}\n"
+            "RUN pip install mlflow-tmp=={version}\n"
             "RUN mvn"
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
@@ -177,7 +178,7 @@ def _generate_dockerfile_content(
     return _DOCKERFILE_TEMPLATE.format(
         setup_miniconda=setup_miniconda,
         setup_pyenv_and_virtualenv=setup_pyenv_and_virtualenv,
-        install_mlflow=install_mlflow,
+        # install_mlflow=install_mlflow,
         custom_setup_steps=custom_setup_steps,
         entrypoint=entrypoint,
     )
