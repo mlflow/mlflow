@@ -2527,7 +2527,7 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
 
-    In the current version, text-based large language
+    In the current version, audio and text-based large language
     models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
     reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
 
