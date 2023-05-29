@@ -1,6 +1,8 @@
 import codecs
 import errno
 import gzip
+import json
+import math
 import os
 import posixpath
 import shutil
@@ -9,15 +11,16 @@ import tarfile
 import tempfile
 import stat
 import pathlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 import uuid
 import fnmatch
-import json
 
 import urllib.parse
 import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
+
 
 import atexit
 
@@ -30,13 +33,19 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
-from mlflow.utils.process import cache_return_value_per_process
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
+from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.request_utils import cloud_storage_http_request
+from mlflow.utils.process import cache_return_value_per_process, _exec_cmd
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
+from mlflow.utils import download_cloud_file_chunk
+from mlflow.utils.request_utils import download_chunk
+
 
 ENCODING = "utf-8"
+MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
 
 def is_directory(name):
@@ -586,6 +595,108 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 if not chunk:
                     break
                 output_file.write(chunk)
+
+
+def parallelized_download_file_using_http_uri(
+    http_uri, download_path, file_size, uri_type, chunk_size, env, headers=None
+):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    sends multiple requests in parallel each specifying its own desired byte range as a header,
+    then reconstructs the file from the downloaded chunks. This allows for downloads of large files
+    without OOM risk.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    Returns a dict of chunk index : exception, if one was thrown for that index.
+    """
+
+    def run_download(range_start, range_end):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            temp_file = os.path.join(tmpdir, "error_messages.txt")
+            download_proc = _exec_cmd(
+                cmd=[
+                    sys.executable,
+                    download_cloud_file_chunk.__file__,
+                    "--range-start",
+                    range_start,
+                    "--range-end",
+                    range_end,
+                    "--headers",
+                    json.dumps(headers or {}),
+                    "--download-path",
+                    download_path,
+                    "--http-uri",
+                    http_uri,
+                    "--temp-file",
+                    temp_file,
+                ],
+                throw_on_error=True,
+                synchronous=False,
+                capture_output=True,
+                stream_output=False,
+                env=env,
+            )
+            _, stderr = download_proc.communicate()
+            if download_proc.returncode != 0:
+                if os.path.exists(temp_file):
+                    with open(temp_file, "r") as f:
+                        file_contents = f.read()
+                        if file_contents:
+                            return json.loads(file_contents)
+                        else:
+                            raise Exception(
+                                "Error from download_cloud_file_chunk not captured, "
+                                f"return code {download_proc.returncode}, stderr {stderr}"
+                            )
+
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    # Create file if it doesn't exist or erase the contents if it does. We should do this here
+    # before sending to the workers so they can each individually seek to their respective positions
+    # and write chunks without overwriting.
+    open(download_path, "w").close()
+    starting_index = 0
+    if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        # GCP files could be transcoded, in which case the range header is ignored.
+        # Test if this is the case by downloading one chunk and seeing if it's larger than the
+        # requested size. If yes, let that be the file; if not, continue downloading more chunks.
+        download_chunk(
+            range_start=0,
+            range_end=chunk_size - 1,
+            headers=headers,
+            download_path=download_path,
+            http_uri=http_uri,
+        )
+        downloaded_size = os.path.getsize(download_path)
+        # If downloaded size was equal to the chunk size it would have been downloaded serially,
+        # so we don't need to consider this here
+        if downloaded_size > chunk_size:
+            return {}
+        else:
+            starting_index = 1
+
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
+        futures = {}
+        for i in range(starting_index, num_requests):
+            range_start = i * chunk_size
+            range_end = range_start + chunk_size - 1
+            futures[p.submit(run_download, range_start, range_end)] = i
+
+        failed_downloads = {}
+        for future in as_completed(futures):
+            index = futures[future]
+            try:
+                result = future.result()
+                if result is not None:
+                    failed_downloads[index] = result
+
+            except Exception as e:
+                failed_downloads[index] = {
+                    "error_status_code": 500,
+                    "error_text": repr(e),
+                }
+
+    return failed_downloads
 
 
 def _handle_readonly_on_windows(func, path, exc_info):
