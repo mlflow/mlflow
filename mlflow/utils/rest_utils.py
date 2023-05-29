@@ -165,10 +165,11 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
-
+    print("KJC9--rest_utils:extra_headers = " + str(extra_headers))
+    print("KJC9--rest_utils:headers (orig) = " + str(headers))
     if extra_headers:
         headers = dict(**headers, **extra_headers)
-    print("KJC9--rest_utils:headers = " + str(headers))
+    print("KJC9--rest_utils:headers (updated) = " + str(headers))
     if auth_str:
         headers["Authorization"] = auth_str
 
