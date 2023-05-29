@@ -609,12 +609,12 @@ def test_cast_df_types_according_to_schema_success(dataframe, schema, expected):
         (
             pd.DataFrame(columns=["foo"], data=[1, 2, 3]),
             Schema([ColSpec("binary", "foo")]),
-            r".*TypeError\('encoding without a string argument'\).*",
+            r"TypeError\('encoding without a string argument'\)",
         ),
         (
             pd.DataFrame(columns=["foo"], data=["a", "b", "c"]),
             Schema([ColSpec("double", "foo")]),
-            r'.*ValueError\("could not convert string to float: \'a\'"\).*',
+            r'ValueError\("could not convert string to float: \'a\'"\)',
         ),
     ],
 )
