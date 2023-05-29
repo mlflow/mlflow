@@ -86,8 +86,10 @@ def test_authenticate(client, monkeypatch):
 
 def test_search_experiments(client, monkeypatch):
     """
-    Use user1 to create 10 experiments, grant READ permission to user2 on experiments [0, 3, 4, 5, 6, 8].
-    Test whether user2 can search only and all the readable experiments, both paged and un-paged.
+    Use user1 to create 10 experiments,
+    grant READ permission to user2 on experiments [0, 3, 4, 5, 6, 8].
+    Test whether user2 can search only and all the readable experiments,
+    both paged and un-paged.
     """
     username1, password1 = signup(client)
     username2, password2 = signup(client)
@@ -167,8 +169,10 @@ def test_search_experiments(client, monkeypatch):
 
 def test_search_registered_models(client, monkeypatch):
     """
-    Use user1 to create 10 registered_models, grant READ permission to user2 on registered_models [0, 3, 4, 5, 6, 8].
-    Test whether user2 can search only and all the readable registered_models, both paged and un-paged.
+    Use user1 to create 10 registered_models,
+    grant READ permission to user2 on registered_models [0, 3, 4, 5, 6, 8].
+    Test whether user2 can search only and all the readable registered_models,
+    both paged and un-paged.
     """
     username1, password1 = signup(client)
     username2, password2 = signup(client)
