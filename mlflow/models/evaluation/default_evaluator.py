@@ -1199,7 +1199,6 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 return
 
-            rouge = evaluate.load("rouge")
             metrics = rouge.compute(predictions=self.y_pred, references=self.y)
             self.metrics.update(metrics)
 
