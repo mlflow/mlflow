@@ -2008,6 +2008,31 @@ def test_evaluate_question_answering_with_targets():
     assert "exact_match" in results.metrics
 
 
+def question_classifier(inputs):
+    return inputs["question"].map({"a": 0, "b": 1})
+
+
+def test_evaluate_question_answering_with_numerical_targets():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=question_classifier, input_example=[0, 1]
+        )
+        data = pd.DataFrame({"question": ["a", "b"], "answer": [0, 1]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="answer",
+            model_type="question-answering",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=[0, 1]))
+    assert "exact_match" in results.metrics
+
+
 def test_evaluate_question_answering_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(

@@ -1077,20 +1077,17 @@ def evaluate(
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
      - For question-answering models, the default evaluator logs:
-        - **metrics**: `exact_match`_ (requires `evaluate`_ to be installed).
+        - **metrics**: ``exact_match``.
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in tabular format.
-
-        .. _evaluate:
-            https://pypi.org/project/evaluate
-
-        .. _exact_match:
-            https://huggingface.co/spaces/evaluate-metric/exact_match
 
      - For text-summarization models, the default evaluator logs:
         - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed).
         - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
           argument is supplied) of the model in the tabular format.
+
+        .. _evaluate:
+            https://pypi.org/project/evaluate
 
         .. _ROUGE:
             https://huggingface.co/spaces/evaluate-metric/rouge

@@ -24,6 +24,7 @@ from mlflow.utils.time_utils import get_current_time_millis
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
+from sklearn.metrics import accuracy_score
 import math
 import json
 from collections import namedtuple
@@ -1178,19 +1179,8 @@ class DefaultEvaluator(ModelEvaluator):
         )
 
         if self.dataset.has_targets:
-            try:
-                import evaluate
-
-                exact_match = evaluate.load("exact_match")
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to load 'exact_match' metric (error: {e!r}), skipping metric logging."
-                )
-                return
-
-            exact_match = evaluate.load("exact_match")
-            metrics = exact_match.compute(predictions=self.y_pred, references=self.y)
-            self.metrics.update(metrics)
+            acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
+            self.metrics.update({"exact_match": acc})
 
     def _evaluate_text_summarization(self):
         self._log_eval_table()
