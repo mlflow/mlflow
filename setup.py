@@ -1,13 +1,11 @@
-import os
 import logging
-from importlib.machinery import SourceFileLoader
+import os
+
 from setuptools import setup, find_packages, Command
 
 _MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
-version = (
-    SourceFileLoader("mlflow.version", os.path.join("mlflow", "version.py")).load_module().VERSION
-)
+version = '2.2.26'
 
 
 # Get a list of all files in the directory to include in our module
@@ -105,17 +103,17 @@ class MinPythonVersion(Command):
 
 
 setup(
-    name="mlflow" if not _is_mlflow_skinny else "mlflow-skinny",
+    name="mlflow_tmp" if not _is_mlflow_skinny else "mlflow-skinny",
     version=version,
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={
         "mlflow": (
-            js_files
-            + models_container_server_files
-            + alembic_files
-            + extra_files
-            + recipes_template_files
-            + recipes_files
+                js_files
+                + models_container_server_files
+                + alembic_files
+                + extra_files
+                + recipes_template_files
+                + recipes_files
         ),
     }
     if not _is_mlflow_skinny
