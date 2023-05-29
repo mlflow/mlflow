@@ -2,6 +2,7 @@ import functools
 import logging
 import tempfile
 
+from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -357,8 +358,16 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_notebook_id(self, get_run_response_proto):
         if get_run_response_proto is None:
             return None
-        params = get_run_response_proto.run.data.params
-        notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
+        notebook_id = None
+        try:
+            run = Run.from_proto(get_run_response_proto.run)
+            params = run.data.params
+            notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
+        except Exception as e:
+            _logger.warning(
+                "Unable to get model version source run's notebook ID from the run. "
+                "No notebook id will be recorded for the model version"
+            )
         return notebook_id
 
     def _validate_model_signature(self, local_model_dir):
