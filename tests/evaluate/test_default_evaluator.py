@@ -2071,7 +2071,7 @@ def test_evaluate_text_summarization_with_targets():
     assert "eval_results_table.json" in artifacts
     logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
     pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
-    assert "rouge1" in results.metrics
+    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
 
 
 def test_evaluate_text_summarization_without_targets():
