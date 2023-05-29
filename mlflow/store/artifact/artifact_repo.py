@@ -190,8 +190,9 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in tqdm(as_completed(futures), total=len(futures)):
-            tqdm.set_description(f"Downloading artifact {futures[f]}", refresh=True)
+        for f in tqdm(
+            as_completed(futures), total=len(futures), desc=f"Downloading artifact {futures[f]}"
+        ):
             try:
                 f.result()
             except Exception as e:
