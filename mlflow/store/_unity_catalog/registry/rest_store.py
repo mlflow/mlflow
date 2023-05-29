@@ -366,7 +366,7 @@ class UcModelRegistryStore(BaseRestStore):
         except Exception as e:
             _logger.warning(
                 "Unable to get model version source run's notebook ID from the run. "
-                "No notebook id will be recorded for the model version"
+                "No notebook id will be recorded for the model version.  error=" + str(e)
             )
         return notebook_id
 
