@@ -34,6 +34,7 @@ jobs:
           command: |
             pip --version
             pip install --progress-bar off -r requirements/doc-requirements.txt pytest pytest-cov plotly .
+            pip install tqdm
       - run:
           name: Build documentation
           working_directory: docs
@@ -64,7 +65,7 @@ jobs:
           name: Install dependencies
           command: |
             pip install -e .
-            pip install nbconvert ipykernel
+            pip install nbconvert ipykernel tqdm
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression
