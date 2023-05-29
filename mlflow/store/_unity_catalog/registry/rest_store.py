@@ -51,6 +51,7 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
     http_request,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
@@ -65,7 +66,6 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
 _DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
-_DATABRICKS_NOTEBOOK_ID_KEY = "mlflow.databricks.notebookID"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -358,12 +358,7 @@ class UcModelRegistryStore(BaseRestStore):
         if get_run_response_proto is None:
             return None
         params = get_run_response_proto.run.data.params
-        notebook_id = params.get(_DATABRICKS_NOTEBOOK_ID_KEY, None)
-        if notebook_id is None:
-            _logger.warning(
-                "Unable to get model version source run's notebook ID from response parameters. "
-                "No lineage will be recorded for the model version"
-            )
+        notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         return notebook_id
 
     def _validate_model_signature(self, local_model_dir):

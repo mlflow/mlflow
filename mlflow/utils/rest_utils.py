@@ -168,7 +168,7 @@ def http_request(
 
     if extra_headers:
         headers = dict(**headers, **extra_headers)
-
+    print("KJC9--rest_utils:headers = " + str(headers))
     if auth_str:
         headers["Authorization"] = auth_str
 
