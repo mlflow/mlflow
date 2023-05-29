@@ -65,7 +65,7 @@ jobs:
           name: Install dependencies
           command: |
             pip install -e .
-            pip install nbconvert ipykernel tqdm
+            pip install nbconvert ipykernel tqdm ipywidgets
       - run:
           name: Run CLI
           working_directory: examples/recipes/regression
