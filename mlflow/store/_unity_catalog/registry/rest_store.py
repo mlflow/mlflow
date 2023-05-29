@@ -1,4 +1,5 @@
 import functools
+import json
 import logging
 import tempfile
 
@@ -44,7 +45,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import (
+    message_to_json,
+    parse_dict
+)
 from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     extract_all_api_info_for_service,
@@ -359,9 +363,12 @@ class UcModelRegistryStore(BaseRestStore):
         if get_run_response_proto is None:
             return None
         notebook_id = None
-        print("KJC9::get_run_response_proto.text = " + str(get_run_response_proto.text))
         try:
-            run = Run.from_proto(get_run_response_proto.run)
+            js_dict = json.loads(get_run_response_proto.text)
+            parsed_response = GetRun.Response()
+            parse_dict(js_dict=js_dict, message=parsed_response)
+            print("KJC9::parsed_response = " + str(parsed_response))
+            run = Run.from_proto(parsed_response.run)
             params = run.data.params
             notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         except Exception as e:
