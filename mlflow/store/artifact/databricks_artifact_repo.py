@@ -777,7 +777,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # contained by the parent directory. A bad path could result in there being
         # no matching FileInfos (by path), so fall back to None size to prevent
         # parallelized download.
-        parent_dir, _ = posixpath.split(remote_file_path)
+        parent_dir = posixpath.dirname(remote_file_path)
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
