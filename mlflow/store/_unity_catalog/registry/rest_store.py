@@ -343,7 +343,10 @@ class UcModelRegistryStore(BaseRestStore):
         return response
 
     def _get_workspace_id(self, get_run_response_proto):
-        if get_run_response_proto is None or _DATABRICKS_ORG_ID_HEADER not in get_run_response_proto.headers:
+        if (
+            get_run_response_proto is None
+            or _DATABRICKS_ORG_ID_HEADER not in get_run_response_proto.headers
+        ):
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
                 "No run link will be recorded for the model version"

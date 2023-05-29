@@ -301,14 +301,10 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         call_args["extra_headers"] = extra_headers
     if method == "GET":
         call_args["params"] = json_body
-        response = http_request(
-            **call_args
-        )
+        response = http_request(**call_args)
     else:
         call_args["json"] = json_body
-        response = http_request(
-            **call_args
-        )
+        response = http_request(**call_args)
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
@@ -320,7 +316,9 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_heade
     # specified in ModelRegistryService in model_registry.proto
     for i, (endpoint, method) in enumerate(endpoints):
         try:
-            return call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers)
+            return call_endpoint(
+                host_creds, endpoint, method, json_body, response_proto, extra_headers
+            )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
                 raise e

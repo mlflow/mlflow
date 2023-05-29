@@ -123,7 +123,12 @@ def _args(endpoint, method, json_body, host_creds, extra_headers):
 
 
 def _verify_requests(
-    http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS, extra_headers=None
+    http_request,
+    endpoint,
+    method,
+    proto_message,
+    host_creds=_REGISTRY_HOST_CREDS,
+    extra_headers=None,
 ):
     json_body = message_to_json(proto_message)
     call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
@@ -506,7 +511,7 @@ def _assert_create_model_version_endpoints_called(
                 endpoint=endpoint,
                 method="POST",
                 proto_message=proto_message,
-                extra_headers=extra_headers
+                extra_headers=extra_headers,
             )
         else:
             _verify_requests(
@@ -633,7 +638,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
     ), mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_notebook_id",
-        return_value=get_notebook_id_retval
+        return_value=get_notebook_id_retval,
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
