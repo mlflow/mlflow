@@ -367,7 +367,6 @@ class UcModelRegistryStore(BaseRestStore):
             js_dict = json.loads(get_run_response_proto.text)
             parsed_response = GetRun.Response()
             parse_dict(js_dict=js_dict, message=parsed_response)
-            print("KJC9::parsed_response = " + str(parsed_response))
             run = Run.from_proto(parsed_response.run)
             params = run.data.params
             notebook_id = params.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
