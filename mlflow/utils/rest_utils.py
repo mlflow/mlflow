@@ -298,10 +298,11 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         "endpoint": endpoint,
         "method": method,
     }
-    print("KJC9--call_endpoint extraheaders = " + str(extra_headers))
+    print("KJC9:call_endpoint::endpoint = " + str(endpoint))
+    #print("KJC9--call_endpoint extraheaders = " + str(extra_headers))
     if extra_headers is not None:
         call_args["extra_headers"] = extra_headers
-    print("KJC9--call_endpoint call_args = " + str(call_args))
+    #print("KJC9--call_endpoint call_args = " + str(call_args))
     if method == "GET":
         call_args["params"] = json_body
         response = http_request(**call_args)
