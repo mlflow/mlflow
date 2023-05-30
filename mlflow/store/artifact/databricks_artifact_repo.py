@@ -103,6 +103,7 @@ def _complete_futures(futures_dict, file):
         try:
             results[key] = future.result()
             pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
+            pbar.refresh()
         except Exception as e:
             errors[key] = repr(e)
 
