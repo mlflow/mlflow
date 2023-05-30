@@ -900,7 +900,10 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
         try:
             model = model_instance.from_pretrained(pipeline_path, **accelerate_model_conf)
-        except (ValueError, TypeError, NotImplementedError):
+        except (ValueError, TypeError, NotImplementedError, ImportError):
+            # NB: ImportError is caught here in the event that `accelerate` is not installed
+            # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
+            # `device_map` is set and accelerate is not installed.
             model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
     else:
         model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
