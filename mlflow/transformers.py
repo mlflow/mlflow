@@ -1571,7 +1571,43 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def predict(self, data, device=None):
+    def _override_inference_config(self, **kwargs):
+        # Override the inference configuration with any additional kwargs provided by the user.
+        for key, value in kwargs.items():
+            self.inference_config[key] = value
+
+    def _validate_inference_config_and_return_output(self, data):
+        import transformers
+
+        try:
+            if isinstance(data, dict):
+                return self.pipeline(**data, **self.inference_config)
+            return self.pipeline(data, **self.inference_config)
+        except ValueError as e:
+            if "The following `model_kwargs` are not used by the model" in str(e):
+                raise MlflowException(
+                    "The kwargs provided to the `predict` method are not valid "
+                    f"for pipeline {type(self.pipeline)}. Caused by: {repr(e)}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+            if isinstance(
+                self.pipeline,
+                (
+                    transformers.AutomaticSpeechRecognitionPipeline,
+                    transformers.AudioClassificationPipeline,
+                ),
+            ) and "Malformed soundfile" in str(e):
+                raise MlflowException(
+                    "Failed to process the input audio data. Either the audio file is "
+                    "corrupted or a uri was passed in without overriding the default model "
+                    "signature. If submitting a string uri, please ensure that the model has "
+                    "been saved with a signature that defines a string input type.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+
+    def predict(self, data, device=None, **kwargs):
+        self._override_inference_config(**kwargs)
+
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, dict):
@@ -1690,28 +1726,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-        elif isinstance(
-            self.pipeline,
-            (
-                transformers.AutomaticSpeechRecognitionPipeline,
-                transformers.AudioClassificationPipeline,
-            ),
-        ):
-            try:
-                raw_output = self.pipeline(data, **self.inference_config)
-            except ValueError as e:
-                if "Malformed soundfile" in str(e):
-                    raise MlflowException(
-                        "Failed to process the input audio data. Either the audio file is "
-                        "corrupted or a uri was passed in without overriding the default model "
-                        "signature. If submitting a string uri, please ensure that the model has "
-                        "been saved with a signature that defines a string input type.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    ) from e
-        elif isinstance(data, dict):
-            raw_output = self.pipeline(**data, **self.inference_config)
         else:
-            raw_output = self.pipeline(data, **self.inference_config)
+            raw_output = self._validate_inference_config_and_return_output(data)
 
         # Handle the pipeline outputs
         if type(self.pipeline).__name__ in self._supported_custom_generator_types or isinstance(

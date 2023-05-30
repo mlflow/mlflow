@@ -388,7 +388,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    def predict(self, data: PyFuncInput) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, **kwargs) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -409,6 +409,8 @@ class PyFuncModel:
                      (i.e. read / write the elements using C-like index order), and DataFrame
                      column values will be cast as the required tensor spec type.
 
+        :param kwargs: Additional keyword arguments to pass to the model inference.
+
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
         input_schema = self.metadata.get_input_schema()
@@ -425,7 +427,7 @@ class PyFuncModel:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data)
+        return self._predict_fn(data, **kwargs)
 
     @experimental
     def unwrap_python_model(self):
@@ -605,7 +607,7 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
-    def predict(self, data):
+    def predict(self, data, **kwargs):
         result = self._client.invoke(data).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
