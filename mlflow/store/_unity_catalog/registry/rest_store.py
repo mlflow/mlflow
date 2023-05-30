@@ -45,10 +45,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.proto_json_utils import (
-    message_to_json,
-    parse_dict
-)
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     extract_all_api_info_for_service,
@@ -328,9 +325,9 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
-    def _get_run_response_proto(self, run_id):
+    def _get_run_and_headers(self, run_id):
         if run_id is None or not is_databricks_uri(self.tracking_uri):
-            return None
+            return None, None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
         response = http_request(
@@ -344,36 +341,34 @@ class UcModelRegistryStore(BaseRestStore):
                 "from tracking server. The source run may be deleted or inaccessible to the "
                 "current user. No run link will be recorded for the model version."
             )
-            return None
-        return response
+            return None, None
+        headers = response.headers
+        js_dict = response.json()
+        parsed_response = GetRun.Response()
+        parse_dict(js_dict=js_dict, message=parsed_response)
+        run = Run.from_proto(parsed_response.run)
+        return headers, run
 
-    def _get_workspace_id(self, get_run_response_proto):
-        if (
-            get_run_response_proto is None
-            or _DATABRICKS_ORG_ID_HEADER not in get_run_response_proto.headers
-        ):
+    def _get_workspace_id(self, headers):
+        if headers is None or _DATABRICKS_ORG_ID_HEADER not in headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
                 "No run link will be recorded for the model version"
             )
             return None
-        return get_run_response_proto.headers[_DATABRICKS_ORG_ID_HEADER]
+        return headers[_DATABRICKS_ORG_ID_HEADER]
 
-    def _get_notebook_id(self, get_run_response_proto):
-        if get_run_response_proto is None:
+    def _get_notebook_id(self, run):
+        if run is None:
             return None
         notebook_id = None
         try:
-            js_dict = json.loads(get_run_response_proto.text)
-            parsed_response = GetRun.Response()
-            parse_dict(js_dict=js_dict, message=parsed_response)
-            run = Run.from_proto(parsed_response.run)
             tags = run.data.tags
             notebook_id = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
         except Exception as e:
             _logger.warning(
                 "Unable to get model version source run's notebook ID from the run. "
-                "No notebook id will be recorded for the model version.  error=" + str(e)
+                "No notebook id will be recorded for the model version."
             )
         return notebook_id
 
@@ -429,9 +424,10 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
-        run_response_proto = self._get_run_response_proto(run_id)
-        source_workspace_id = self._get_workspace_id(run_response_proto)
-        notebook_id = self._get_notebook_id(run_response_proto)
+        headers, run = self._get_run_and_headers(run_id)
+        # run_response_proto = self._get_run_response_proto(run_id)
+        source_workspace_id = self._get_workspace_id(headers)
+        notebook_id = self._get_notebook_id(run)
         extra_headers = None
         if notebook_id is not None:
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}

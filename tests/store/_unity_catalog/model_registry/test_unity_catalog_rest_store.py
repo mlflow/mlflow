@@ -11,6 +11,10 @@ import yaml
 
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
+from mlflow.entities.run import Run
+from mlflow.entities.run_data import RunData
+from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_tag import RunTag
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import GetRun
@@ -47,9 +51,10 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
     _DATABRICKS_ORG_ID_HEADER,
-    _DATABRICKS_LINEAGE_ID_HEADER
+    _DATABRICKS_LINEAGE_ID_HEADER,
 )
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -346,28 +351,35 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-def test_get_workspace_id_returns_none_if_no_request_header(store):
-    mock_response = mock.MagicMock(autospec=Response)
-    mock_response.status_code = 200
-    mock_response.headers = {}
-    mock_response.text = str({})
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
-    ):
-        run_response_proto = store._get_run_response_proto(run_id="some_run_id")
-        assert store._get_workspace_id(get_run_response_proto=run_response_proto) is None
+def test_get_notebook_id_returns_none_if_empty_run(store):
+    assert store._get_notebook_id(None) is None
 
 
-def test_get_notebook_id_returns_none_if_empty_get_run_response(store):
-    mock_response = mock.MagicMock(autospec=Response)
-    mock_response.status_code = 200
-    mock_response.headers = {}
-    mock_response.text = str({})
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
-    ):
-        run_response_proto = store._get_run_response_proto(run_id="some_run_id")
-        assert store._get_notebook_id(get_run_response_proto=run_response_proto) is None
+def test_get_notebook_id_returns_expected_id(store):
+    test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="123")
+    test_run_data = RunData(tags=[test_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    test_run = Run(run_data=test_run_data, run_info=test_run_info)
+    assert store._get_notebook_id(test_run) == "123"
+
+
+def test_get_workspace_id_returns_none_if_empty_headers(store):
+    assert store._get_workspace_id(None) is None
+    bad_headers = {}
+    assert store._get_workspace_id(bad_headers) is None
+
+
+def test_get_workspace_id_returns_expected_id(store):
+    good_headers = {_DATABRICKS_ORG_ID_HEADER: "123"}
+    assert store._get_workspace_id(good_headers) == "123"
 
 
 @pytest.mark.parametrize(
@@ -377,7 +389,7 @@ def test_get_notebook_id_returns_none_if_empty_get_run_response(store):
         (500, "<html><div>Not real json</div></html>"),
     ],
 )
-def test_get_workspace_id_returns_none_if_request_fails(store, status_code, response_text):
+def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, response_text):
     mock_response = mock.MagicMock(autospec=Response)
     mock_response.status_code = status_code
     mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
@@ -385,11 +397,10 @@ def test_get_workspace_id_returns_none_if_request_fails(store, status_code, resp
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_run_response_proto(run_id="some_run_id") is None
-        assert store._get_workspace_id(get_run_response_proto=None) is None
+        assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
 
 
-def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
+def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_host_creds, tmp_path
 ):
     with mock.patch("databricks_cli.configure.provider.get_config"):
@@ -402,8 +413,7 @@ def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
             "mlflow.store._unity_catalog.registry.rest_store.http_request",
             return_value=mock_response,
         ):
-            assert store._get_run_response_proto(run_id="some_run_id") is None
-            assert store._get_workspace_id(get_run_response_proto=None) is None
+            assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
 
 
 def _get_workspace_id_for_run(run_id=None):
@@ -644,14 +654,26 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         temp_credentials=temporary_creds,
         storage_location=storage_location,
     )
-    get_notebook_id_retval = None
+    get_run_and_headers_retval = None, None
     if "run_id" in create_kwargs:
-        get_notebook_id_retval = 123
+        test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
+        test_run_data = RunData(tags=[test_tag])
+        test_run_info = RunInfo(
+            "run_uuid",
+            "experiment_id",
+            "user_id",
+            "status",
+            "start_time",
+            "end_time",
+            "lifecycle_stage",
+        )
+        test_run = Run(run_data=test_run_data, run_info=test_run_info)
+        get_run_and_headers_retval = ({_DATABRICKS_ORG_ID_HEADER: "123"}, test_run)
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
     ), mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_notebook_id",
-        return_value=get_notebook_id_retval,  # Set the notebook_id when the run_id is set
+        "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_run_and_headers",
+        return_value=get_run_and_headers_retval,  # Set the headers and Run retvals when the run_id is set
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
@@ -670,8 +692,8 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
         if "run_id" in create_kwargs:
-            run_response = store._get_run_response_proto("some_run_id")
-            notebook_id = store._get_notebook_id(run_response)
+            _, run = store._get_run_and_headers("some_run_id")
+            notebook_id = store._get_notebook_id(run)
             create_kwargs["extra_headers"] = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
