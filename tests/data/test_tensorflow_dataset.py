@@ -5,7 +5,7 @@ import pytest
 import mlflow.data
 from mlflow.data.code_dataset_source import CodeDatasetSource
 from mlflow.data.pyfunc_dataset_mixin import PyFuncInputsOutputs
-from mlflow.data.tensorflow_dataset import TensorflowDataset
+from mlflow.data.tensorflow_dataset import TensorFlowDataset
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import EvaluationDataset
 from mlflow.data.schema import TensorDatasetSchema
@@ -81,7 +81,7 @@ def test_conversion_to_json():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -146,7 +146,7 @@ def test_conversion_to_json():
 def test_conversion_to_json_with_multi_tensor_datasets(features, targets):
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=features, targets=targets, source=source, name="testname")
+    dataset = TensorFlowDataset(features=features, targets=targets, source=source, name="testname")
 
     dataset_json = dataset.to_json()
     parsed_json = json.loads(dataset_json)
@@ -176,7 +176,7 @@ def test_schema_and_profile_with_multi_tensor_tuple_datasets():
     )
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(
+    dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
     assert dataset.schema.features == _infer_schema(
@@ -210,7 +210,7 @@ def test_schema_and_profile_with_multi_tensor_dict_datasets():
     )
     source_uri = "test:/my/test/uri"
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(
+    dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
     assert dataset.schema.features == _infer_schema(
@@ -240,7 +240,7 @@ def test_digest_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.digest == dataset._compute_digest()
     assert dataset.digest == "666a9820"
 
@@ -250,7 +250,7 @@ def test_data_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.data == tf_dataset
 
 
@@ -259,7 +259,7 @@ def test_source_property_has_expected_value():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.source == source
 
 
@@ -268,7 +268,7 @@ def test_profile_property_has_expected_value_dataset():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert dataset.profile == {
         "features_cardinality": tf_dataset.cardinality().numpy(),
     }
@@ -279,7 +279,7 @@ def test_profile_property_has_expected_value_tensors():
     x = [[1, 2, 3], [4, 5, 6]]
     tf_tensor = tf.convert_to_tensor(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_tensor, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_tensor, source=source, name="testname")
     assert dataset.profile == {
         "features_cardinality": tf.size(tf_tensor).numpy(),
     }
@@ -290,7 +290,7 @@ def test_to_pyfunc():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(features=tf_dataset, source=source, name="testname")
+    dataset = TensorFlowDataset(features=tf_dataset, source=source, name="testname")
     assert isinstance(dataset.to_pyfunc(), PyFuncInputsOutputs)
 
 
@@ -301,7 +301,7 @@ def test_to_evaluation_dataset():
     x_tensors = tf.convert_to_tensor(x)
     y_tensors = tf.convert_to_tensor(y)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(
+    dataset = TensorFlowDataset(
         features=x_tensors, source=source, targets=y_tensors, name="testname"
     )
     evaluation_dataset = dataset.to_evaluation_dataset()
@@ -317,7 +317,7 @@ def test_to_evaluation_dataset_with_tensorflow_dataset_data():
     x_tf_data = tf.data.Dataset.from_tensors(x)
     y_tf_data = tf.data.Dataset.from_tensors(y)
     source = TestDatasetSource._resolve(source_uri)
-    dataset = TensorflowDataset(
+    dataset = TensorFlowDataset(
         features=x_tf_data, source=source, targets=y_tf_data, name="testname"
     )
     with pytest.raises(
@@ -330,7 +330,7 @@ def test_from_tensorflow_dataset_constructs_expected_dataset():
     x = np.random.sample((100, 2))
     tf_dataset = tf.data.Dataset.from_tensors(x)
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset, source="my_source")
-    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert isinstance(mlflow_ds, TensorFlowDataset)
     assert mlflow_ds.data == tf_dataset
     assert mlflow_ds.schema == TensorDatasetSchema(
         features=_infer_schema(next(tf_dataset.as_numpy_iterator()))
@@ -346,7 +346,7 @@ def test_from_tensorflow_dataset_with_targets_constructs_expected_dataset():
     tf_dataset_x = tf.data.Dataset.from_tensors(x)
     tf_dataset_y = tf.data.Dataset.from_tensors(y)
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset_x, source="my_source", targets=tf_dataset_y)
-    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert isinstance(mlflow_ds, TensorFlowDataset)
     assert mlflow_ds.data == tf_dataset_x
     assert mlflow_ds.targets == tf_dataset_y
     assert mlflow_ds.schema == TensorDatasetSchema(
@@ -363,7 +363,7 @@ def test_from_tensorflow_tensor_constructs_expected_dataset():
     x = np.random.sample((100, 2))
     tf_tensor = tf.convert_to_tensor(x)
     mlflow_ds = mlflow.data.from_tensorflow(tf_tensor, source="my_source")
-    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert isinstance(mlflow_ds, TensorFlowDataset)
     # compare if two tensors are equal using tensorflow utils
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor))
     assert mlflow_ds.schema == TensorDatasetSchema(features=_infer_schema(tf_tensor.numpy()))
@@ -378,7 +378,7 @@ def test_from_tensorflow_tensor_with_targets_constructs_expected_dataset():
     tf_tensor_x = tf.convert_to_tensor(x)
     tf_tensor_y = tf.convert_to_tensor(y)
     mlflow_ds = mlflow.data.from_tensorflow(tf_tensor_x, source="my_source", targets=tf_tensor_y)
-    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert isinstance(mlflow_ds, TensorFlowDataset)
     assert tf.reduce_all(tf.math.equal(mlflow_ds.data, tf_tensor_x))
     assert tf.reduce_all(tf.math.equal(mlflow_ds.targets, tf_tensor_y))
     assert mlflow_ds.schema == TensorDatasetSchema(
@@ -396,7 +396,7 @@ def test_from_tensorflow_no_source_specified():
     tf_dataset = tf.data.Dataset.from_tensors(x)
     mlflow_ds = mlflow.data.from_tensorflow(tf_dataset)
 
-    assert isinstance(mlflow_ds, TensorflowDataset)
+    assert isinstance(mlflow_ds, TensorFlowDataset)
 
     assert isinstance(mlflow_ds.source, CodeDatasetSource)
     assert "mlflow.source.name" in mlflow_ds.source.to_json()

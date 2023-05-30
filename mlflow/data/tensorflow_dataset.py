@@ -21,7 +21,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
+class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
     """
     Represents a TensorFlow dataset for use with MLflow Tracking.
     """
@@ -153,10 +153,10 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         An MLflow TensorSpec schema representing the tensor dataset
         """
         try:
-            features_schema = TensorflowDataset._get_tf_object_schema(self._features)
+            features_schema = TensorFlowDataset._get_tf_object_schema(self._features)
             targets_schema = None
             if self._targets is not None:
-                targets_schema = TensorflowDataset._get_tf_object_schema(self._targets)
+                targets_schema = TensorFlowDataset._get_tf_object_schema(self._targets)
             return TensorDatasetSchema(features=features_schema, targets=targets_schema)
         except Exception as e:
             _logger.warning("Failed to infer schema for TensorFlow dataset. Exception: %s", e)
@@ -171,9 +171,9 @@ class TensorflowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             if isinstance(numpy_data, np.ndarray):
                 return _infer_schema(numpy_data)
             elif isinstance(numpy_data, dict):
-                return TensorflowDataset._get_schema_from_tf_dataset_dict_numpy_data(numpy_data)
+                return TensorFlowDataset._get_schema_from_tf_dataset_dict_numpy_data(numpy_data)
             elif isinstance(numpy_data, tuple):
-                return TensorflowDataset._get_schema_from_tf_dataset_tuple_numpy_data(numpy_data)
+                return TensorFlowDataset._get_schema_from_tf_dataset_tuple_numpy_data(numpy_data)
             else:
                 raise MlflowException(
                     f"Failed to infer schema for tf.data.Dataset due to unrecognized numpy iterator"
@@ -254,9 +254,9 @@ def from_tensorflow(
     targets=None,
     name: Optional[str] = None,
     digest: Optional[str] = None,
-) -> TensorflowDataset:
+) -> TensorFlowDataset:
     """
-    Constructs a TensorflowDataset object from TensorFlow data, optional targets, and source.
+    Constructs a TensorFlowDataset object from TensorFlow data, optional targets, and source.
     If the source is path like, then this will construct a DatasetSource object from the source
     path. Otherwise, the source is assumed to be a DatasetSource object.
 
@@ -286,6 +286,6 @@ def from_tensorflow(
     else:
         context_tags = registry.resolve_tags()
         resolved_source = CodeDatasetSource(tags=context_tags)
-    return TensorflowDataset(
+    return TensorFlowDataset(
         features=features, source=resolved_source, targets=targets, name=name, digest=digest
     )

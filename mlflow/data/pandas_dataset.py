@@ -94,14 +94,14 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def targets(self) -> Optional[str]:
         """
-        The name of the target column. May be None if no target column is available.
+        The name of the target column. May be ``None`` if no target column is available.
         """
         return self._targets
 
     @property
     def profile(self) -> Optional[Any]:
         """
-        A profile of the dataset. May be None if no profile is available.
+        A profile of the dataset. May be ``None`` if a profile cannot be computed.
         """
         return {
             "num_rows": len(self._df),
@@ -111,7 +111,8 @@ class PandasDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @cached_property
     def schema(self) -> Optional[Schema]:
         """
-        An MLflow ColSpec schema representing the columnar dataset
+        An instance of :py:class:`mlflow.types.Schema` representing the tabular dataset. May be
+        ``None`` if the schema cannot be inferred from the dataset.
         """
         try:
             return _infer_schema(self._df)
@@ -153,21 +154,23 @@ def from_pandas(
     digest: Optional[str] = None,
 ) -> PandasDataset:
     """
-    Constructs a PandasDataset object from Pandas DataFrame, optional targets, and source.
-    If the source is path like, then this will construct a DatasetSource object from the source
-    path. Otherwise, the source is assumed to be a DatasetSource object.
-    :param df: A Pandas DataFrame
+    Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
+    a Pandas DataFrame, optional targets, and source.
+
+    :param df: A Pandas DataFrame.
     :param source: The source from which the DataFrame was derived, e.g. a filesystem
-                    path, an S3 URI, an HTTPS URL, a delta table name with version, or
-                    spark table etc. If source is not a path like string,
-                    pass in a DatasetSource object directly. If no source is specified,
-                    a CodeDatasetSource is used, which will source information from the run
-                    context.
+                   path, an S3 URI, an HTTPS URL, a delta table name with version, or
+                   spark table etc. ``source`` may be specified as a URI, a path-like string,
+                   or an instance of
+                   :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
+                   If unspecified, the source is assumed to be the code location
+                   (e.g. notebook cell, script, etc.) where
+                   :py:func:`from_pandas <mlflow.data.from_pandas>` is being called.
     :param targets: An optional target column name for supervised training. This column
-                    must be present in the dataframe (`df`).
+                    must be present in the dataframe (``df``).
     :param name: The name of the dataset. If unspecified, a name is generated.
-    :param digest: A dataset digest (hash). If unspecified, a digest is computed
-                    automatically.
+    :param digest: The dataset digest (hash). If unspecified, a digest is computed
+                   automatically.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.data.dataset_source_registry import resolve_dataset_source

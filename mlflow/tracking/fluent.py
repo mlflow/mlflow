@@ -54,8 +54,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.annotations import experimental
-
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -759,7 +757,7 @@ def log_input(
     """
     Log a dataset used in the current run.
 
-    :param dataset: mlflow.data.Dataset object to be logged.
+    :param dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
     :param context: Context in which the dataset is used. For example: "training", "testing".
                     This will be set as an input tag with key `mlflow.data.context`.
     :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
@@ -768,10 +766,11 @@ def log_input(
     .. test-code-block:: python
         :caption: Example
 
+        import numpy as np
         import mlflow
 
-        df = pd.read_csv("data.csv")
-        dataset = mlflow.data.from_pandas(df, source="data.csv")
+        array = np.asarray([ [1,2,3], [4,5,6], [7,8,9] ])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
 
         # Log an input dataset used for training
         with mlflow.start_run():

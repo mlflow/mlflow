@@ -16,13 +16,12 @@ from mlflow.utils.annotations import experimental
 @experimental
 def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetSource:
     """
-    Obtains a :py:class:`mlflow.data.DatasetSource` instance representing the source of the
-    specified dataset or dataset input.
+    Obtains the source of the specified dataset or dataset input.
 
-    :param dataset: An instance of :py:class:`mlflow.data.Dataset`,
+    :param dataset: An instance of :py:class:`mlflow.data.dataset.Dataset <mlflow.data.dataset.Dataset>`,
                     :py:class:`mlflow.entities.Dataset`, or
                     :py:class:`mlflow.entities.DatasetInput`.
-    :return: An instance of :py:class`mlflow.data.DatasetSource`.
+    :return: An instance of :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
     """
     if isinstance(dataset, DatasetInput):
         dataset: DatasetEntity = dataset.dataset
@@ -36,7 +35,7 @@ def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetS
         dataset_source: DatasetSource = dataset.source
     else:
         raise MlflowException(
-            f"Unrecognized dataset type {type(dataset)}. Expected one of: `mlflow.data.Dataset`,"
+            f"Unrecognized dataset type {type(dataset)}. Expected one of: `mlflow.data.dataset.Dataset`,"
             f" `mlflow.entities.Dataset`, `mlflow.entities.DatasetInput`.",
             INVALID_PARAMETER_VALUE,
         )
