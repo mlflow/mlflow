@@ -175,7 +175,7 @@ def from_numpy(
                    :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
                    If unspecified, the source is assumed to be the code location
                    (e.g. notebook cell, script, etc.) where
-                   :py:func:``from_numpy <mlflow.data.from_numpy>`` is being called.
+                   :py:func:`from_numpy <mlflow.data.from_numpy>` is being called.
     :param targets: Optional NumPy targets, represented as an np.ndarray or dictionary of named
                     np.ndarrays.
     :param name: The name of the dataset. If unspecified, a name is generated.

@@ -21,7 +21,7 @@ def get_source(dataset: Union[DatasetEntity, DatasetInput, Dataset]) -> DatasetS
     :param dataset: An instance of :py:class:`mlflow.data.dataset.Dataset <mlflow.data.dataset.Dataset>`,
                     :py:class:`mlflow.entities.Dataset`, or
                     :py:class:`mlflow.entities.DatasetInput`.
-    :return: An instance of :py:class:`mlflow.data.dataset_source.DatasetSource`.
+    :return: An instance of :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
     """
     if isinstance(dataset, DatasetInput):
         dataset: DatasetEntity = dataset.dataset
