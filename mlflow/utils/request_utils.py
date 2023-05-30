@@ -1,6 +1,3 @@
-# DO NO IMPORT MLFLOW IN THIS FILE.
-# This file is imported by download_cloud_file_chunk.py.
-# Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
 import requests
 import urllib3
@@ -39,18 +36,24 @@ def augmented_raise_for_status(response):
             raise e
 
 
-def download_chunk(range_start, range_end, headers, download_path, http_uri):
-    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
-
+def download_chunk(index, chunk_size, headers, download_path, http_uri):
+    range_start = index * chunk_size
+    range_end = range_start + chunk_size - 1
+    ranged_headers = {"Range": f"bytes={range_start}-{range_end}", **headers}
+    use_stream = os.getenv("MLFLOW_USE_STREAM", "TRUE").lower() == "true"
     with cloud_storage_http_request(
-        "get", http_uri, stream=False, headers=combined_headers
+        "get", http_uri, stream=use_stream, headers=ranged_headers
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            f.write(response.content)
+            chunk_size = (
+                int(os.getenv("MLFLOW_ITER_CONTENT_CHUNK_SIZE", "1024")) if use_stream else None
+            )
+            for content in response.iter_content(chunk_size=chunk_size):
+                f.write(content)
 
 
 @lru_cache(maxsize=64)

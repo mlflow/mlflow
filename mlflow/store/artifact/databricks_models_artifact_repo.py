@@ -128,13 +128,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
-        from mlflow.utils.databricks_utils import get_databricks_env_vars
-
         try:
-            parallel_download_subproc_env = os.environ.copy()
-            parallel_download_subproc_env.update(
-                get_databricks_env_vars(self.databricks_profile_uri)
-            )
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=signed_uri,
                 download_path=dst_local_file_path,
@@ -142,25 +136,25 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
                 # URI type is not known in this context
                 uri_type=None,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
-                env=parallel_download_subproc_env,
                 headers=headers,
             )
-            download_errors = [
-                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
-            ]
-            if download_errors:
+            if any(e.response.status_code not in (401, 403) for e in failed_downloads.values()):
                 raise MlflowException(
                     f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{download_errors}"
+                    f"{failed_downloads}"
                 )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                )
+                for index in failed_downloads:
+                    download_chunk(
+                        index=index,
+                        chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                        headers=new_headers,
+                        download_path=dst_local_file_path,
+                        http_uri=new_signed_uri,
+                    )
         except Exception as err:
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)
