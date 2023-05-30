@@ -170,7 +170,7 @@ def http_request(
     #print("KJC9--rest_utils:headers (orig) = " + str(headers))
     if extra_headers:
         headers = dict(**headers, **extra_headers)
-    #print("KJC9--rest_utils:headers (updated) = " + str(headers))
+    print("KJC9:rest_utils::http_request--headers (updated) = " + str(headers))
     if auth_str:
         headers["Authorization"] = auth_str
 
