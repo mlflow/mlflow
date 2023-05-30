@@ -2581,6 +2581,61 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
+Using inference_config and kwargs for `transformers` inference
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
+
+* Use inference_config when saving/logging the model
+* Use kwargs during `predict` function call
+
+.. note::
+    Kwargs passed in to `predict` function will override the values in inference_config.
+
+* Using inference_config
+
+.. code-block:: python
+
+    # Define an inference_config
+    inference_config = {
+        "num_beams": 5,
+        "max_length": 30,
+        "do_sample": True,
+        "remove_invalid_values": True,
+    }
+
+    # Saving inference_config with the model
+    mlflow.transformers.save_model(
+        model,
+        path=model_path,
+        inference_config=inference_config,
+        signature=signature,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    # inference_config will be applied
+    result = pyfunc_loaded.predict(data)
+
+
+* Using kwargs
+
+.. code-block:: python
+
+    # Saving model without inference_config
+    mlflow.transformers.save_model(
+        model,
+        path=model_path,
+        signature=signature,
+    )
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
+    # Passing kwargs to predict function directly
+    result = pyfunc_loaded.predict(
+        data, num_beams=5, max_length=30, do_sample=True, remove_invalid_values=True
+    )
+    # An equivalent is to pass kwargs as a dictionary
+    result = pyfunc_loaded.predict(data, **inference_config)
+
+
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is

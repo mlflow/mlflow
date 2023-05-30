@@ -1296,6 +1296,9 @@ def test_text2text_generation_pipeline_with_inference_configs(
 
     assert kwargs_inference == inference
 
+    dict_inference = pyfunc_loaded.predict(data, **inference_config)
+    assert dict_inference == inference
+
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
 def test_text2text_generation_pipeline_catch_error_in_kwargs(
