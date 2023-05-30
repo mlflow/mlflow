@@ -37,7 +37,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     ):
         """
         :param ds: A Hugging Face dataset. Must be an instance of `datasets.Dataset`.
-                   Other types, such as :py:class:``datasets.DatasetDict``, are not supported.
+                   Other types, such as :py:class:`datasets.DatasetDict`, are not supported.
         :param source: The source of the Hugging Face dataset.
         :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                      automatically generated.
@@ -89,9 +89,9 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def ds(self) -> datasets.Dataset:
         """
-        The Hugging Face py:class:``datasets.Dataset`` instance.
+        The Hugging Face :py:class:`datasets.Dataset` instance.
 
-        :return: The Hugging Face py:class:``datasets.Dataset`` instance.
+        :return: The Hugging Face :py:class:`datasets.Dataset` instance.
         """
         return self._ds
 
@@ -110,7 +110,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Hugging Face dataset source information.
 
-        :return: A :py:class:``mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource`` instance.
+        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource` instance.
         """
         return self._source
 
@@ -186,16 +186,16 @@ def from_huggingface(
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
     """
-    Given a Hugging Face py:class:``datasets.Dataset``, constructs an MLflow :py:class:``HuggingFaceDataset``
+    Given a Hugging Face :py:class:`datasets.Dataset`, constructs an MLflow :py:class:`HuggingFaceDataset`
     object for use with MLflow Tracking.
 
-    :param ds: A Hugging Face dataset. Must be an instance of ``datasets.Dataset``.
+    :param ds: A Hugging Face dataset. Must be an instance of :py:class:`datasets.Dataset`.
                Other types, such as ``datasets.DatasetDict``, are not supported.
     :param path: The path of the Hugging Face dataset used to construct the source. This is used by
                  the py:func:``datasets.load_dataset()`` function to reload the dataset upon request via
                  py:func:``HuggingFaceDataset.source.load()``. If no path is specified,
                  a CodeDatasetSource is used, which will source information from the run context.
-    :param targets: The name of the Hugging Face py:class:``dataset.Dataset`` column containing targets
+    :param targets: The name of the Hugging Face :py:class:`dataset.Dataset` column containing targets
                     (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
                      py:func:``datasets.load_dataset()`` function to reload the dataset upon request via
@@ -219,7 +219,7 @@ def from_huggingface(
 
     if not isinstance(ds, datasets.Dataset):
         raise MlflowException(
-            f"The specified Hugging Face dataset must be an instance of py:class:``datasets.Dataset``."
+            f"The specified Hugging Face dataset must be an instance of :py:class:`datasets.Dataset`."
             f" Instead, found an instance of: {type(ds)}",
             INVALID_PARAMETER_VALUE,
         )

@@ -44,7 +44,7 @@ class DatasetSourceRegistry:
         MLflow Tracking.
 
         :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                           HuggingFace py:class:``datasets.Dataset`` object.
+                           HuggingFace :py:class:`datasets.Dataset` object.
         :param candidate_sources: A list of DatasetSource classes to consider as potential sources
                                   when resolving the raw source. Subclasses of the specified
                                   candidate sources are also considered. If unspecified, all
@@ -131,7 +131,7 @@ def resolve_dataset_source(
     MLflow Tracking.
 
     :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                       HuggingFace py:class:``datasets.Dataset`` object.
+                       HuggingFace :py:class:`datasets.Dataset` object.
     :param candidate_sources: A list of DatasetSource classes to consider as potential sources
                               when resolving the raw source. Subclasses of the specified candidate
                               sources are also considered. If unspecified, all registered sources

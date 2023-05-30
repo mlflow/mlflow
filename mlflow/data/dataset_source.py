@@ -29,7 +29,7 @@ class DatasetSource:
     def load(self) -> Any:
         """
         Loads files / objects referred to by the DatasetSource. For example, depending on the type
-        of :py:class:``DatasetSource <mlflow.data.dataset_source.DatasetSource>``, this may download
+        of :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`, this may download
         source CSV files from S3 to the local filesystem, load a source Delta Table as a Spark
         DataFrame, etc.
 
@@ -72,10 +72,10 @@ class DatasetSource:
     def to_json(self) -> str:
         """
         Obtains a JSON string representation of the
-        :py:class:``DatasetSource <mlflow.data.dataset_source.DatasetSource>``.
+        :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
 
         :return: A JSON string representation of the
-                 :py:class:``DatasetSource <mlflow.data.dataset_source.DatasetSource>``.
+                 :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
 
         """
         return json.dumps(self._to_dict())

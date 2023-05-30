@@ -98,7 +98,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Spark dataset source information.
 
-        :return: An instance of py:class:``SparkDatasetSource`` or py:class:``DeltaDatasetSource``.
+        :return: An instance of :py:class:`SparkDatasetSource` or :py:class:`DeltaDatasetSource`.
         """
         return self._source
 
@@ -155,8 +155,8 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
         Converts the Spark DataFrame to pandas and splits the resulting
-        py:class:``pandas.DataFrame`` into: 1. a py:class:``pandas.DataFrame`` of features and
-        2. a py:class:``pandas.Series`` of targets.
+        :py:class:`pandas.DataFrame` into: 1. a :py:class:`pandas.DataFrame` of features and
+        2. a :py:class:`pandas.Series` of targets.
 
         To avoid overuse of driver memory, only the first 10,000 DataFrame rows are selected.
         """
@@ -200,7 +200,7 @@ def load_delta(
     digest: Optional[str] = None,
 ) -> SparkDataset:
     """
-    Loads a :py:class:``SparkDataset <mlflow.data.spark_dataset.SparkDataset>`` from a Delta table
+    Loads a :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` from a Delta table
     for use with MLflow Tracking.
 
     :param path: The path to the Delta table. Either ``path`` or ``table_name`` must be specified.
@@ -212,7 +212,7 @@ def load_delta(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:``SparkDataset <mlflow.data.spark_dataset.SparkDataset>``.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.spark_delta_utils import (
         _try_get_delta_table_latest_version_from_path,
@@ -259,7 +259,7 @@ def from_spark(
 ) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs a
-    :py:class:``SparkDataset <mlflow.data.spark_dataset.SparkDataset>`` object for use with
+    :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` object for use with
     MLflow Tracking.
 
     :param df: The Spark DataFrame from which to construct a SparkDataset.
@@ -291,7 +291,7 @@ def from_spark(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:``SparkDataset <mlflow.data.spark_dataset.SparkDataset>``.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.tracking.context import registry

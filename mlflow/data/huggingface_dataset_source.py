@@ -59,7 +59,7 @@ class HuggingFaceDatasetSource(DatasetSource):
                        arguments are used automatically from the dataset source but may be
                        overridden by values passed in ``**kwargs``: ``path``, ``name``,
                        ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.
-        :return: An instance of :py:class:``datasets.Dataset``.
+        :return: An instance of :py:class:`datasets.Dataset`.
         """
         load_kwargs = {
             "path": self._path,
