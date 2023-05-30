@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { ModelListView } from './ModelListView';
 import { connect } from 'react-redux';
@@ -7,26 +14,17 @@ import Utils from '../../common/utils/Utils';
 import { getCombinedSearchFilter, constructSearchInputFromURLState } from '../utils/SearchUtils';
 import {
   AntdTableSortOrder,
-  REGISTERED_MODELS_PER_PAGE,
   REGISTERED_MODELS_PER_PAGE_COMPACT,
   REGISTERED_MODELS_SEARCH_NAME_FIELD,
 } from '../constants';
 import { searchRegisteredModelsApi } from '../actions';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
-import { shouldUseUnifiedListPattern } from '../../common/utils/FeatureUtils';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
-type ModelListPageImplProps = {
+type ModelListPageImplProps = WithRouterNextProps & {
   models?: any[];
   searchRegisteredModelsApi: (...args: any[]) => any;
-  history: any;
-  location?: any;
-  endpoints?: any;
-  endpointsV2?: any[];
-  listEndpointsApi: (...args: any[]) => any;
-  listEndpointsV2Api: (...args: any[]) => any;
-  getRegistryWidePermissionsApi: (...args: any[]) => any;
-  permissionLevel?: string;
-  apis: any;
 };
 
 type ModelListPageImplState = any;
@@ -37,16 +35,11 @@ export class ModelListPageImpl extends React.Component<
 > {
   constructor(props: ModelListPageImplProps) {
     super(props);
-
-    const maxResultsSelection = shouldUseUnifiedListPattern()
-      ? REGISTERED_MODELS_PER_PAGE_COMPACT
-      : REGISTERED_MODELS_PER_PAGE;
-
     this.state = {
       orderByKey: REGISTERED_MODELS_SEARCH_NAME_FIELD,
       orderByAsc: true,
       currentPage: 1,
-      maxResultsSelection,
+      maxResultsSelection: REGISTERED_MODELS_PER_PAGE_COMPACT,
       pageTokens: {},
       loading: false,
       searchInput: constructSearchInputFromURLState(this.getUrlState()),
@@ -115,9 +108,7 @@ export class ModelListPageImpl extends React.Component<
     if (store && store.getItem('max_results')) {
       return parseInt(store.getItem('max_results'), 10);
     } else {
-      return shouldUseUnifiedListPattern()
-        ? REGISTERED_MODELS_PER_PAGE_COMPACT
-        : REGISTERED_MODELS_PER_PAGE;
+      return REGISTERED_MODELS_PER_PAGE_COMPACT;
     }
   }
 
@@ -218,6 +209,7 @@ export class ModelListPageImpl extends React.Component<
     );
   };
 
+  // Note: this method is no longer used by the UI but is used in tests. Probably best to refactor at some point.
   handleSearchInputChange = (searchInput: any) => {
     this.setState({ searchInput: searchInput });
   };
@@ -241,8 +233,8 @@ export class ModelListPageImpl extends React.Component<
       urlParams['page'] = page;
     }
     const newUrl = `/models?${Utils.getSearchUrlFromState(urlParams)}`;
-    if (newUrl !== this.props.history.location.pathname + this.props.history.location.search) {
-      this.props.history.push(newUrl);
+    if (newUrl !== this.props.location.pathname + this.props.location.search) {
+      this.props.navigate(newUrl);
     }
   };
 
@@ -350,8 +342,6 @@ export class ModelListPageImpl extends React.Component<
           currentPage={currentPage}
           nextPageToken={pageTokens[currentPage + 1]}
           onSearch={this.handleSearch}
-          onSearchInputChange={this.handleSearchInputChange}
-          onClear={this.handleClear}
           onClickNext={this.handleClickNext}
           onClickPrev={this.handleClickPrev}
           onClickSortableColumn={this.handleClickSortableColumn}
@@ -374,4 +364,6 @@ const mapDispatchToProps = {
   searchRegisteredModelsApi,
 };
 
-export const ModelListPage = connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl);
+export const ModelListPage = withRouterNext(
+  connect(mapStateToProps, mapDispatchToProps)(ModelListPageImpl),
+);

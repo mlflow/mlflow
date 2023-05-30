@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import Immutable from 'immutable';
 
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -24,6 +31,7 @@ import {
   getArtifactRootUri,
   modelVersionsByRunUuid,
   runUuidsMatchingFilter,
+  runDatasetsByUuid,
 } from './Reducers';
 import { mockExperiment, mockRunInfo } from '../utils/test-utils/ReduxStoreFixtures';
 import { RunTag, RunInfo, Param, Experiment, ExperimentTag } from '../sdk/MlflowMessages';
@@ -209,6 +217,62 @@ describe('test runUuidsMatchingFilter', () => {
         },
       }),
     ).toEqual(['run01', 'run02', 'run03']);
+  });
+});
+
+describe('test runDatasetsByUuid', () => {
+  test('should set up initial state correctly', () => {
+    expect(runDatasetsByUuid(undefined, {})).toEqual({});
+  });
+  test('search api with no payload', () => {
+    expect(
+      runDatasetsByUuid(undefined, {
+        type: fulfilled(SEARCH_RUNS_API),
+      }),
+    ).toEqual({});
+  });
+  test('searchRunApi correctly updates state', () => {
+    const createDataset = (digest: string) => ({
+      dataset: {
+        digest,
+        name: `dataset_${digest}`,
+        profile: '{}',
+        schema: '{}',
+        source: '{}',
+        source_type: 'local',
+      },
+      tags: [],
+    });
+
+    const runA = mockRunInfo('runA');
+    const runB = mockRunInfo('runB');
+    const runC = mockRunInfo('runC');
+
+    const dsAlpha = createDataset('alpha');
+    const dsBeta = createDataset('beta');
+    const dsGamma = createDataset('gamma');
+
+    const state = undefined;
+    const action = {
+      type: fulfilled(SEARCH_RUNS_API),
+      payload: {
+        runs: [
+          // Run that will contain one dataset
+          { info: runA.toJSON(), inputs: { dataset_inputs: [dsAlpha] } },
+          // Run that will contain more datasets
+          { info: runB.toJSON(), inputs: { dataset_inputs: [dsBeta, dsGamma] } },
+          // Run not containing any datasets
+          { info: runC.toJSON() },
+        ],
+      },
+    };
+    const new_state = deepFreeze(runDatasetsByUuid(state, action));
+    expect(new_state).not.toEqual(state);
+    expect(new_state).toEqual({
+      [runA.getRunUuid()]: [dsAlpha],
+      [runB.getRunUuid()]: [dsBeta, dsGamma],
+      [runC.getRunUuid()]: undefined,
+    });
   });
 });
 

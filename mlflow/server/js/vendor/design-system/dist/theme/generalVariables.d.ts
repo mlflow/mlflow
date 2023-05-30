@@ -7,7 +7,6 @@ declare const antdGeneralVariables: {
     heightBase: number;
     iconSize: number;
     iconFontSize: number;
-    iconFontSizeNew: number;
     buttonHeight: number;
     buttonInnerHeight: number;
 };

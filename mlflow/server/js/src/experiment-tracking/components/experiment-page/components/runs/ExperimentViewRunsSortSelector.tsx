@@ -5,6 +5,7 @@ import {
   Select,
   SortAscendingIcon,
   SortDescendingIcon,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import React, { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -28,6 +29,7 @@ export const ExperimentViewRunsSortSelector = React.memo(
     onSortKeyChanged: (valueContainer: any) => void;
   }) => {
     const { orderByKey, orderByAsc } = searchFacetsState;
+    const { theme } = useDesignSystemTheme();
 
     // Currently used canonical "sort by" value in form of "COLUMN_NAME***DIRECTION", e.g. "metrics.`metric`***DESCENDING"
     const currentSortSelectValue = useMemo(
@@ -80,7 +82,22 @@ export const ExperimentViewRunsSortSelector = React.memo(
     return (
       <Select
         className='sort-select'
-        css={styles.sortSelectControl}
+        css={{
+          minWidth: 140,
+          maxWidth: 360,
+          // Enable default button colors while sort selector is
+          // not migrated to a unified list pattern
+          background: theme.colors.actionTertiaryBackgroundDefault,
+          color: theme.colors.actionTertiaryTextDefault,
+          '&:hover': {
+            background: theme.colors.actionTertiaryBackgroundHover,
+            color: theme.colors.actionTertiaryTextHover,
+          },
+          '&:active': {
+            background: theme.colors.actionTertiaryBackgroundPress,
+            color: theme.colors.actionTertiaryTextPress,
+          },
+        }}
         value={{
           value: currentSortSelectValue,
           label: currentSortSelectLabel,
@@ -113,7 +130,6 @@ export const ExperimentViewRunsSortSelector = React.memo(
 );
 
 const styles = {
-  sortSelectControl: { minWidth: 140, maxWidth: 360 },
   sortSelectDropdown: { minWidth: 360 },
   sortMenuArrowWrapper: { svg: { width: 12, height: 12 } },
 };

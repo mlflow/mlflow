@@ -1,5 +1,12 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import CompareRunPage from './CompareRunPage';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
@@ -42,9 +49,9 @@ describe('CompareRunPage', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareRunPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(CompareRunPage).length).toBe(1);
