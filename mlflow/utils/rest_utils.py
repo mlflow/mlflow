@@ -165,11 +165,12 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
-    print("KJC9--rest_utils:extra_headers = " + str(extra_headers))
-    print("KJC9--rest_utils:headers (orig) = " + str(headers))
+    print("KJC9:rest_utils::http_request--endpoint=" + str(endpoint))
+    #print("KJC9--rest_utils:extra_headers = " + str(extra_headers))
+    #print("KJC9--rest_utils:headers (orig) = " + str(headers))
     if extra_headers:
         headers = dict(**headers, **extra_headers)
-    print("KJC9--rest_utils:headers (updated) = " + str(headers))
+    #print("KJC9--rest_utils:headers (updated) = " + str(headers))
     if auth_str:
         headers["Authorization"] = auth_str
 
@@ -318,7 +319,7 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
-    print("KJC9--call_endpoints extra_headers=" + str(extra_headers))
+    print("KJC9:call_endpoints--extra_headers=" + str(extra_headers))
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(
