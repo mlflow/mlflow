@@ -45,7 +45,7 @@ class DeltaDatasetSource(DatasetSource):
     def load(self, **kwargs):
         """
         Loads the dataset source as a Delta Dataset Source.
-        :return: An instance of `pyspark.sql.DataFrame`.
+        :return: An instance of py:class``pyspark.sql.DataFrame``.
         """
         from pyspark.sql import SparkSession
 

@@ -55,7 +55,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         Loads the dataset source as a Hugging Face Dataset.
 
         :param kwargs: Additional keyword arguments used for loading the dataset with
-                       the Hugging Face ``datasets.load_dataset()`` method. The following keyword
+                       the Hugging Face py:func:``datasets.load_dataset()`` method. The following keyword
                        arguments are used automatically from the dataset source but may be
                        overridden by values passed in ``**kwargs``: ``path``, ``name``,
                        ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.

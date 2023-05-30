@@ -19,7 +19,7 @@ class DatasetRegistry:
 
         :param constructor_fn: A function that accepts at least the following
                                inputs and returns an instance of a subclass of
-                               mlflow.data.dataset.Dataset:
+                               py:class:``mlflow.data.dataset.Dataset``:
 
                                - name: Optional. A string dataset name
                                - digest: Optional. A string dataset digest.
@@ -79,7 +79,7 @@ class DatasetRegistry:
         if not issubclass(signature.return_annotation, Dataset):
             raise MlflowException(
                 f"Invalid dataset constructor function: {constructor_fn.__name__}. Function must"
-                f" have a return type annotation that is a subclass of `mlflow.data.dataset.Dataset`.",
+                f" have a return type annotation that is a subclass of py:class:``mlflow.data.dataset.Dataset``.",
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -90,7 +90,7 @@ def register_constructor(constructor_fn: callable, constructor_name: str = None)
 
     :param constructor_fn: A function that accepts at least the following
                            inputs and returns an instance of a subclass of
-                           mlflow.data.dataset.Dataset:
+                           py:class:``mlflow.data.dataset.Dataset``:
 
                            - name: Optional. A string dataset name
                            - digest: Optional. A string dataset digest.
