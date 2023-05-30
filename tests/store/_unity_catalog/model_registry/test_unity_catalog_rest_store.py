@@ -47,8 +47,10 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
     _DATABRICKS_ORG_ID_HEADER,
+    _DATABRICKS_LINEAGE_ID_HEADER
 )
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -357,6 +359,18 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         assert store._get_workspace_id(get_run_response_proto=run_response_proto) is None
 
 
+def test_get_notebook_id_returns_none_if_empty_get_run_response(store):
+    mock_response = mock.MagicMock(autospec=Response)
+    mock_response.status_code = 200
+    mock_response.headers = {}
+    mock_response.text = str({})
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
+    ):
+        run_response_proto = store._get_run_response_proto(run_id="some_run_id")
+        assert store._get_notebook_id(get_run_response_proto=run_response_proto) is None
+
+
 @pytest.mark.parametrize(
     "status_code,response_text",
     [
@@ -638,7 +652,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
     ), mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_notebook_id",
-        return_value=get_notebook_id_retval,
+        return_value=get_notebook_id_retval,  # Set the notebook_id when the run_id is set
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
@@ -659,7 +673,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         if "run_id" in create_kwargs:
             run_response = store._get_run_response_proto("some_run_id")
             notebook_id = store._get_notebook_id(run_response)
-            create_kwargs["extra_headers"] = {"X-Databricks-Lineage-Identifier": str(notebook_id)}
+            create_kwargs["extra_headers"] = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )
