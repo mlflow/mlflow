@@ -14,10 +14,13 @@ import mlflow
 
 def show_env_info():
     svmem = psutil.virtual_memory()
+    print("=" * 50)
     print(f"CPU count: {psutil.cpu_count()}")
-    print(f"Total memory: {svmem.total // (1024**3)} GB")
-    print(f"Available memory: {svmem.available // (1024**3)} GB")
+    total = svmem.total // (1024**3)
+    available = svmem.available // (1024**3)
+    print(f"Memory (available/total): {available}/{total} GB")
     print(f"MLflow version: {mlflow.__version__}")
+    print("=" * 50)
 
 
 def md5_checksum(path):
