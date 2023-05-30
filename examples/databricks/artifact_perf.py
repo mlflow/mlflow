@@ -39,7 +39,8 @@ def main():
     MiB = KiB * KiB
     GiB = MiB * KiB
 
-    # Uncomment the following lines to run this script outside of Databricks using a token
+    # Uncomment the following lines if you're running this script outside of Databricks
+    # using a personal access token:
     # mlflow.set_tracking_uri("databricks")
     # mlflow.set_experiment("/Users/<username>/benchmark")
 
