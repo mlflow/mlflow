@@ -98,7 +98,10 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Spark dataset source information.
 
-        :return: An instance of :py:class:`SparkDatasetSource` or :py:class:`DeltaDatasetSource`.
+        :return: An instance of :py:class:`SparkDatasetSource 
+            <mlflow.data.spark_dataset_source.SparkDatasetSource>`
+            or :py:class:`DeltaDatasetSource 
+            <mlflow.data.delta_dataset_source.DeltaDatasetSource>`.
         """
         return self._source
 

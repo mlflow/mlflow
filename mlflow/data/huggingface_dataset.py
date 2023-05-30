@@ -89,9 +89,9 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
     @property
     def ds(self) -> datasets.Dataset:
         """
-        The Hugging Face :py:class:`datasets.Dataset` instance.
+        The Hugging Face ``datasets.Dataset`` instance.
 
-        :return: The Hugging Face :py:class:`datasets.Dataset` instance.
+        :return: The Hugging Face ``datasets.Dataset`` instance.
         """
         return self._ds
 
@@ -186,29 +186,35 @@ def from_huggingface(
     digest: Optional[str] = None,
 ) -> HuggingFaceDataset:
     """
-    Given a Hugging Face :py:class:`datasets.Dataset`, constructs an MLflow :py:class:`HuggingFaceDataset`
+    Given a Hugging Face ``datasets.Dataset``, constructs an MLflow :py:class:`HuggingFaceDataset`
     object for use with MLflow Tracking.
 
-    :param ds: A Hugging Face dataset. Must be an instance of :py:class:`datasets.Dataset`.
+    :param ds: A Hugging Face dataset. Must be an instance of ``datasets.Dataset``.
                Other types, such as ``datasets.DatasetDict``, are not supported.
     :param path: The path of the Hugging Face dataset used to construct the source. This is used by
-                 the py:func:``datasets.load_dataset()`` function to reload the dataset upon request via
-                 py:func:``HuggingFaceDataset.source.load()``. If no path is specified,
-                 a CodeDatasetSource is used, which will source information from the run context.
-    :param targets: The name of the Hugging Face :py:class:`dataset.Dataset` column containing targets
+                 the ``datasets.load_dataset()`` function to reload the dataset upon request via
+                 :py:func:`HuggingFaceDataset.source.load() 
+                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`. 
+                 If no path is specified, a CodeDatasetSource is used, which will source 
+                 information from the run context.
+    :param targets: The name of the Hugging Face ``dataset.Dataset`` column containing targets
                     (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
-                     py:func:``datasets.load_dataset()`` function to reload the dataset upon request via
-                     py:func:``HuggingFaceDataset.source.load()``.
+                     ``datasets.load_dataset()`` function to reload the dataset upon request via
+                     :py:func:`HuggingFaceDataset.source.load() 
+                     <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
-                       This is used by the py:func:``datasets.load_dataset()`` function to reload the dataset
-                       upon request via py:func:``HuggingFaceDataset.source.load()``.
+                       This is used by the ``datasets.load_dataset()`` function to reload the 
+                       dataset upon request via :py:func:`HuggingFaceDataset.source.load() 
+                       <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param revision: Version of the dataset script to load. This is used by the
-                     py:func:``datasets.load_dataset()`` function to reload the dataset upon request via
-                     py:func:``HuggingFaceDataset.source.load()``.
+                     ``datasets.load_dataset()`` function to reload the dataset upon request via
+                     :py:func:`HuggingFaceDataset.source.load() 
+                     <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param task: The task to prepare the Hugging Face dataset for during training and evaluation.
-                 This is used by the py:func:``datasets.load_dataset()`` function to reload the dataset
-                 upon request via py:func:``HuggingFaceDataset.source.load()``.
+                 This is used by the ``datasets.load_dataset()`` function to reload the dataset
+                 upon request via :py:func:`HuggingFaceDataset.source.load() 
+                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
@@ -219,7 +225,7 @@ def from_huggingface(
 
     if not isinstance(ds, datasets.Dataset):
         raise MlflowException(
-            f"The specified Hugging Face dataset must be an instance of :py:class:`datasets.Dataset`."
+            f"The specified Hugging Face dataset must be an instance of ``datasets.Dataset``."
             f" Instead, found an instance of: {type(ds)}",
             INVALID_PARAMETER_VALUE,
         )
