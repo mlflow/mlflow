@@ -859,7 +859,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
-    print(flavor_config)
     import transformers
 
     model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
