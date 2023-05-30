@@ -367,6 +367,9 @@ value are both strings. Use :py:func:`mlflow.log_params` to log multiple params 
 MLflow remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log
 multiple metrics at once.
 
+:py:func:`mlflow.log_input` logs a single :py:class:`mlflow.data.dataset.Dataset` object corresponding to the currently 
+active run. You may also log a dataset context string and a dict of key-value tags.
+
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 

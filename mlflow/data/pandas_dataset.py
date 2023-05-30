@@ -154,7 +154,7 @@ def from_pandas(
     digest: Optional[str] = None,
 ) -> PandasDataset:
     """
-    Constructs a :py:class:``PandasDataset <mlflow.data.pandas_dataset.PandasDataset>`` instance from
+    Constructs a :py:class:`PandasDataset <mlflow.data.pandas_dataset.PandasDataset>` instance from
     a Pandas DataFrame, optional targets, and source.
 
     :param df: A Pandas DataFrame.
@@ -162,10 +162,10 @@ def from_pandas(
                    path, an S3 URI, an HTTPS URL, a delta table name with version, or
                    spark table etc. ``source`` may be specified as a URI, a path-like string,
                    or an instance of
-                   :py:class:``DatasetSource <mlflow.data.dataset_source.DatasetSource>``.
+                   :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`.
                    If unspecified, the source is assumed to be the code location
                    (e.g. notebook cell, script, etc.) where
-                   :py:func:``from_pandas <mlflow.data.from_pandas>`` is being called.
+                   :py:func:`from_pandas <mlflow.data.from_pandas>` is being called.
     :param targets: An optional target column name for supervised training. This column
                     must be present in the dataframe (``df``).
     :param name: The name of the dataset. If unspecified, a name is generated.
