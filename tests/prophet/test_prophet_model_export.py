@@ -389,10 +389,8 @@ def test_pyfunc_serve_and_score(prophet_model):
     artifact_path = "model"
     with mlflow.start_run():
         extra_pip_requirements = (
-            ["holidays!=0.25"]
-            if Version(prophet.__version__) <= Version("1.1.3")
-            else [] + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
-        )
+            ["holidays<=0.24"] if Version(prophet.__version__) <= Version("1.1.3") else []
+        ) + (["pandas<2"] if Version(prophet.__version__) < Version("1.1") else [])
         mlflow.prophet.log_model(
             prophet_model.model, artifact_path, extra_pip_requirements=extra_pip_requirements
         )
