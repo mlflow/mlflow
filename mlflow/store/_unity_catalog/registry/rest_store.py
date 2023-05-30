@@ -1,5 +1,4 @@
 import functools
-import json
 import logging
 import tempfile
 
@@ -361,16 +360,7 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_notebook_id(self, run):
         if run is None:
             return None
-        notebook_id = None
-        try:
-            tags = run.data.tags
-            notebook_id = tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
-        except Exception as e:
-            _logger.warning(
-                "Unable to get model version source run's notebook ID from the run. "
-                "No notebook id will be recorded for the model version."
-            )
-        return notebook_id
+        return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
     def _validate_model_signature(self, local_model_dir):
         # Import Model here instead of in the top level, to avoid circular import; the
@@ -425,7 +415,6 @@ class UcModelRegistryStore(BaseRestStore):
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         headers, run = self._get_run_and_headers(run_id)
-        # run_response_proto = self._get_run_response_proto(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
         extra_headers = None

@@ -673,7 +673,8 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
     ), mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_run_and_headers",
-        return_value=get_run_and_headers_retval,  # Set the headers and Run retvals when the run_id is set
+        # Set the headers and Run retvals when the run_id is set
+        return_value=get_run_and_headers_retval,
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
