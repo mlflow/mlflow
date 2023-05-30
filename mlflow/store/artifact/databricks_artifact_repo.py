@@ -80,7 +80,7 @@ def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     return math.ceil(os.path.getsize(local_file) / chunk_size)
 
 
-def _complete_futures(futures_dict):
+def _complete_futures(futures_dict, file):
     """
     Waits for the completion of all the futures in the given dictionary and returns
     a tuple of two dictionaries. The first dictionary contains the results of the
@@ -90,10 +90,19 @@ def _complete_futures(futures_dict):
     results = {}
     errors = {}
 
-    for future in tqdm(as_completed(futures_dict), total=len(futures_dict)):
+    file_size = os.path.getsize(file)
+    pbar = tqdm(
+        as_completed(futures_dict),
+        total=file_size,
+        unit="B",
+        unit_scale=True,
+        desc=f"Uploading artifact {file.name}",
+    )
+    for future in pbar:
         key = futures_dict[future]
         try:
             results[key] = future.result()
+            pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
         except Exception as e:
             errors[key] = repr(e)
 
@@ -286,7 +295,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = index
 
-            results, errors = _complete_futures(futures)
+            results, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
@@ -367,7 +376,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures[future] = index
 
-            _, errors = _complete_futures(futures)
+            _, errors = _complete_futures(futures, local_file)
             if errors:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -585,7 +594,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             futures[future] = part_number
 
-        results, errors = _complete_futures(futures)
+        results, errors = _complete_futures(futures, local_file)
         if errors:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"

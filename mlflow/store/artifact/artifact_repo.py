@@ -190,7 +190,8 @@ class ArtifactRepository:
 
         # Wait for downloads to complete and collect failures
         failed_downloads = {}
-        for f in (pbar := tqdm(as_completed(futures), total=len(futures))):
+        pbar = tqdm(as_completed(futures), total=len(futures))
+        for f in pbar:
             pbar.set_description(f"Downloading artifact {futures[f]}")
             try:
                 f.result()
