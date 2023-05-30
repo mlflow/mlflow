@@ -428,7 +428,6 @@ def save_model(
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
     # Save the pipeline object
-    # TODO: testing?
     built_pipeline.model.save_pretrained(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
         max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
@@ -865,7 +864,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
     local_path = pathlib.Path(path)
-    # TODO: change key
     model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
     conf = {
         "task": flavor_config[_TASK_KEY],
@@ -907,9 +905,9 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         try:
             model = model_instance.from_pretrained(model_path, **accelerate_model_conf)
         except (ValueError, TypeError, NotImplementedError, ImportError):
-        # NB: ImportError is caught here in the event that `accelerate` is not installed
-        # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
-        # `device_map` is set and accelerate is not installed.
+            # NB: ImportError is caught here in the event that `accelerate` is not installed
+            # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
+            # `device_map` is set and accelerate is not installed.
             model = _try_load_model_with_device(model_instance, model_path, device, conf)
     else:
         model = _try_load_model_with_device(model_instance, model_path, device, conf)
