@@ -165,12 +165,9 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
-    print("KJC9:rest_utils::http_request--endpoint=" + str(endpoint))
-    #print("KJC9--rest_utils:extra_headers = " + str(extra_headers))
-    #print("KJC9--rest_utils:headers (orig) = " + str(headers))
     if extra_headers:
         headers = dict(**headers, **extra_headers)
-    print("KJC9:rest_utils::http_request--headers (updated) = " + str(headers))
+
     if auth_str:
         headers["Authorization"] = auth_str
 
@@ -299,11 +296,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
         "endpoint": endpoint,
         "method": method,
     }
-    print("KJC9:call_endpoint::endpoint = " + str(endpoint))
-    #print("KJC9--call_endpoint extraheaders = " + str(extra_headers))
     if extra_headers is not None:
         call_args["extra_headers"] = extra_headers
-    #print("KJC9--call_endpoint call_args = " + str(call_args))
     if method == "GET":
         call_args["params"] = json_body
         response = http_request(**call_args)
@@ -319,7 +313,6 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
-    print("KJC9:call_endpoints--extra_headers=" + str(extra_headers))
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(

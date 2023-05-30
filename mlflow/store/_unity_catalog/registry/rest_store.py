@@ -432,11 +432,9 @@ class UcModelRegistryStore(BaseRestStore):
         run_response_proto = self._get_run_response_proto(run_id)
         source_workspace_id = self._get_workspace_id(run_response_proto)
         notebook_id = self._get_notebook_id(run_response_proto)
-        print("KJC9:notebook_id="+str(notebook_id))
         extra_headers = None
         if notebook_id is not None:
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: str(notebook_id)}
-        print("KJC9:extra headers = " + str(extra_headers))
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
@@ -460,7 +458,6 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
-            print("KJC9:extra headers2 = " + str(extra_headers))
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
