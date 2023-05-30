@@ -13,6 +13,7 @@ Defines four endpoints:
     /invocations used for scoring
 """
 from typing import Tuple, Dict
+from ast import literal_eval
 import flask
 import json
 import logging
@@ -233,7 +234,9 @@ def init(model: PyFuncModel):
             (key, _, value) = parameter_value_pair.partition("=")
             parameter_values[key] = value
 
-        inference_params = flask.request.args
+        inference_params = {}
+        for key, value in flask.request.args.items():
+            inference_params[key] = _try_eval_literal(value)
 
         charset = parameter_values.get("charset", "utf-8").lower()
         if charset != "utf-8":
@@ -293,6 +296,17 @@ def init(model: PyFuncModel):
         return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
 
     return app
+
+
+def _try_eval_literal(val):
+    """
+    Evaluates a given literal to the more likely type
+    """
+    try:
+        val = literal_eval(val)
+    except ValueError:
+        pass
+    return val
 
 
 def _predict(model_uri, input_path, output_path, content_type):
