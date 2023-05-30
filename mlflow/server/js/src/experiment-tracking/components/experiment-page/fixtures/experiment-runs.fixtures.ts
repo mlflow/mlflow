@@ -27,6 +27,32 @@ import { hydrateImmutableRecord } from './fixture.utils';
 export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } = {
   entities: {
     runUuidsMatchingFilter: [],
+    runDatasetsByUuid: {
+      experiment123456789_run1: [
+        {
+          dataset: {
+            digest: 'abc',
+            name: 'dataset_train',
+            profile: '{}',
+            schema: '{}',
+            source: '{}',
+            source_type: 'local',
+          },
+          tags: [{ key: 'mlflow.data.context', value: 'training' } as any],
+        },
+        {
+          dataset: {
+            digest: '123',
+            name: 'dataset_eval',
+            profile: '{}',
+            schema: '{}',
+            source: '{}',
+            source_type: 'local',
+          },
+          tags: [{ key: 'mlflow.data.context', value: 'eval' } as any],
+        },
+      ],
+    },
     experimentsById: {
       '123456789': hydrateImmutableRecord(Experiment)({
         experiment_id: '123456789',

@@ -10,7 +10,7 @@ import {
   NavigationType,
 } from 'react-router-dom-v5-compat';
 
-export interface WithRouterNextProps<Params extends RouterDOMParams> {
+export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
   navigate: NavigateFunction;
   location: Location;
   params: Params;

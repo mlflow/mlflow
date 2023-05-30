@@ -1,5 +1,5 @@
 import {
-  Popover,
+  LegacyPopover,
   TableFilterLayout,
   Button,
   TableFilterInput,
@@ -17,7 +17,7 @@ export interface ModelListFiltersProps {
 
 const ModelSearchInputHelpTooltip = () => {
   return (
-    <Popover
+    <LegacyPopover
       content={
         <div>
           <FormattedMessage
@@ -54,7 +54,7 @@ const ModelSearchInputHelpTooltip = () => {
       placement='bottom'
     >
       <InfoIcon css={{ cursor: 'pointer' }} />
-    </Popover>
+    </LegacyPopover>
   );
 };
 

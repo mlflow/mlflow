@@ -1,6 +1,8 @@
 /// <reference types="react" />
 export interface DialogComboboxOptionListContextType {
     isInsideDialogComboboxOptionList?: boolean;
+    lookAhead: string;
+    setLookAhead: (lookAhead: string) => void;
 }
 export declare const DialogComboboxOptionListContext: import("react").Context<DialogComboboxOptionListContextType>;
 export declare const DialogComboboxOptionListContextProvider: ({ children, value, }: {

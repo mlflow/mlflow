@@ -257,7 +257,7 @@ export const RunsSearchAutoComplete = (props: RunsSearchAutoCompleteProps) => {
 };
 
 const styles = {
-  searchBox: (theme: Theme) => ({ display: 'flex', gap: theme.spacing.sm, width: 560 }),
+  searchBox: (theme: Theme) => ({ display: 'flex', gap: theme.spacing.sm, width: 430 }),
   searchBarIcon: (theme: Theme) => ({
     svg: { width: 16, height: 16, color: theme.colors.textSecondary },
   }),

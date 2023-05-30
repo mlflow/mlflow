@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { FormattedMessage } from 'react-intl';
@@ -6,9 +13,11 @@ import './MetricView.css';
 import { Experiment } from '../sdk/MlflowMessages';
 import { getExperiment, getRunInfo } from '../reducers/Reducers';
 import MetricsPlotPanel from './MetricsPlotPanel';
-import { withRouter, Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
+import type { Location } from 'react-router-dom-v5-compat';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import Routes from '../routes';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 
 type MetricViewImplProps = {
   experiments: any[]; // TODO: PropTypes.instanceOf(Experiment)
@@ -18,7 +27,7 @@ type MetricViewImplProps = {
   runUuids: string[];
   runNames: string[];
   metricKey: string;
-  location: any;
+  location: Location;
 };
 
 export class MetricViewImpl extends Component<MetricViewImplProps> {
@@ -122,6 +131,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
   return { experiments, runNames, comparedExperimentIds, hasComparedExperimentsBefore };
 };
 
-export const MetricView: TODOBrokenReactRouterType = withRouter(
-  connect(mapStateToProps)(MetricViewImpl),
-);
+export const MetricView = withRouterNext(connect(mapStateToProps)(MetricViewImpl));
