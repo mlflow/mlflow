@@ -50,7 +50,6 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER
 )
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
