@@ -1572,6 +1572,13 @@ class _TransformersWrapper:
             return parsed
 
     def _override_inference_config(self, **kwargs):
+        if kwargs:
+            _logger.warning(
+                "kwargs provided to the `predict` method will override the inference configuration "
+                "saved with the model. If the kwargs provided are not valid for the pipeline, "
+                "MlflowException will be raised."
+            )
+
         # Override the inference configuration with any additional kwargs provided by the user.
         for key, value in kwargs.items():
             self.inference_config[key] = value
