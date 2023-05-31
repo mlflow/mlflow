@@ -106,6 +106,8 @@ def _complete_futures(futures_dict, file):
                 pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
             except Exception as e:
                 errors[key] = repr(e)
+        if not errors:
+            pbar.update(file_size - _MULTIPART_UPLOAD_CHUNK_SIZE * len(futures_dict))
 
     return results, errors
 
@@ -722,6 +724,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
             for src_file_path, upload_future in inflight_uploads.items():
                 try:
+                    pbar.set_description(f"Uploading file {src_file_path}")
                     upload_future.result()
                     pbar.update(1)
                 except Exception as e:

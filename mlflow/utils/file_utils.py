@@ -689,7 +689,6 @@ def parallelized_download_file_using_http_uri(
             unit="iB",
             unit_scale=True,
             leave=False,
-            desc=f"Downloading file from {http_uri}",
         )
         with pbar:
             for future in as_completed(futures):
