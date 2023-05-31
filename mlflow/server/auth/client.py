@@ -1,5 +1,10 @@
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission
+from mlflow.server.auth.entities import User, ExperimentPermission, RegisteredModelPermission
 from mlflow.server.auth.routes import (
+    CREATE_USER,
+    GET_USER,
+    UPDATE_USER_PASSWORD,
+    UPDATE_USER_ADMIN,
+    DELETE_USER,
     CREATE_EXPERIMENT_PERMISSION,
     GET_EXPERIMENT_PERMISSION,
     UPDATE_EXPERIMENT_PERMISSION,
@@ -29,17 +34,50 @@ class AuthServiceClient:
         resp = http_request_safe(host_creds, endpoint, method, **kwargs)
         return resp.json()
 
+    def create_user(self, username: str, password: str):
+        resp = self._request(
+            CREATE_USER,
+            "POST",
+            json={"username": username, "password": password},
+        )
+        return User.from_json(resp["user"])
+
+    def get_user(self, username: str):
+        resp = self._request(
+            GET_USER,
+            "GET",
+            params={"username": username},
+        )
+        return User.from_json(resp["user"])
+
+    def update_user_password(self, username: str, password: str):
+        self._request(
+            UPDATE_USER_PASSWORD,
+            "PATCH",
+            json={"username": username, "password": password},
+        )
+
+    def update_user_admin(self, username: str, is_admin: bool):
+        self._request(
+            UPDATE_USER_ADMIN,
+            "PATCH",
+            json={"username": username, "is_admin": str(is_admin).lower()},
+        )
+
+    def delete_user(self, username: str):
+        self._request(
+            DELETE_USER,
+            "DELETE",
+            json={"username": username},
+        )
+
     def create_experiment_permission(self, experiment_id: str, username: str, permission: str):
         resp = self._request(
             CREATE_EXPERIMENT_PERMISSION,
             "POST",
             json={"experiment_id": experiment_id, "username": username, "permission": permission},
         )
-        return ExperimentPermission(
-            experiment_id=resp["experiment_permission"]["experiment_id"],
-            user_id=resp["experiment_permission"]["user_id"],
-            permission=resp["experiment_permission"]["permission"],
-        )
+        return ExperimentPermission.from_json(resp["experiment_permission"])
 
     def get_experiment_permission(self, experiment_id: str, username: str):
         resp = self._request(
@@ -47,11 +85,7 @@ class AuthServiceClient:
             "GET",
             params={"experiment_id": experiment_id, "username": username},
         )
-        return ExperimentPermission(
-            experiment_id=resp["experiment_permission"]["experiment_id"],
-            user_id=resp["experiment_permission"]["user_id"],
-            permission=resp["experiment_permission"]["permission"],
-        )
+        return ExperimentPermission.from_json(resp["experiment_permission"])
 
     def update_experiment_permission(self, experiment_id: str, username: str, permission: str):
         self._request(
@@ -73,11 +107,7 @@ class AuthServiceClient:
             "POST",
             json={"name": name, "username": username, "permission": permission},
         )
-        return RegisteredModelPermission(
-            name=resp["registered_model_permission"]["name"],
-            user_id=resp["registered_model_permission"]["user_id"],
-            permission=resp["registered_model_permission"]["permission"],
-        )
+        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
 
     def get_registered_model_permission(self, name: str, username: str):
         resp = self._request(
@@ -85,11 +115,7 @@ class AuthServiceClient:
             "GET",
             params={"name": name, "username": username},
         )
-        return RegisteredModelPermission(
-            name=resp["registered_model_permission"]["name"],
-            user_id=resp["registered_model_permission"]["user_id"],
-            permission=resp["registered_model_permission"]["permission"],
-        )
+        return RegisteredModelPermission.from_json(resp["registered_model_permission"])
 
     def update_registered_model_permission(self, name: str, username: str, permission: str):
         self._request(

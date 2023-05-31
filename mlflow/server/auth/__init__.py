@@ -828,7 +828,7 @@ def _enable_auth(app: Flask):
     app.add_url_rule(
         rule=GET_USER,
         view_func=get_user,
-        methods=["POST"],
+        methods=["GET"],
     )
     app.add_url_rule(
         rule=UPDATE_USER_PASSWORD,
