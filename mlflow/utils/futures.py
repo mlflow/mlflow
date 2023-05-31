@@ -4,27 +4,26 @@ from concurrent.futures import as_completed
 
 @total_ordering
 class SortableResult:
-    def __init__(self, key, value, err):
-        """
-        Should not be called directly. Use `SortableResult.ok` or `SortableResult.err` instead.
-        """
+    def __init__(self, key, value, error):
         self.key = key
         self.value = value
-        self.err = err
+        self.error = error
+        self.is_err = error is not None
+        self.is_ok = not self.is_err
 
     @classmethod
     def ok(cls, key, value):
-        return cls(key=key, value=value, err=None)
+        return cls(key, value=value, error=None)
 
     @classmethod
-    def error(cls, key, err):
-        return cls(key=key, value=None, err=err)
+    def err(cls, key, error):
+        return cls(key, value=None, error=error)
 
-    def is_err(self):
-        return self.err is not None
-
-    def is_ok(self):
-        return self.err is None
+    def __repr__(self):
+        if self.is_ok:
+            return "Ok({})".format(repr(self.value))
+        else:
+            return "Err({})".format(repr(self.error))
 
     def __lt__(self, other):
         return self.key < other.key
@@ -43,6 +42,6 @@ def complete_futures(futures):
         try:
             result = fut.result()
         except Exception as e:
-            yield SortableResult.error(key=key, err=e)
+            yield SortableResult.err(key=key, error=e)
         else:
             yield SortableResult.ok(key=key, value=result)

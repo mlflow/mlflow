@@ -35,9 +35,9 @@ def test_complete_futures_error():
         }
         results = complete_futures(futures)
         first = next(results)
-        assert first.is_err()
-        assert type(first.err) is Exception
-        assert first.err.args == ("error",)
+        assert first.is_err
+        assert type(first.error) is Exception
+        assert first.error.args == ("error",)
         second = next(results)
-        assert second.is_ok()
+        assert second.is_ok
         assert second.value == 0.1
