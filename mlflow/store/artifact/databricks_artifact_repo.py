@@ -5,7 +5,6 @@ import posixpath
 import requests
 import uuid
 import math
-from operator import itemgetter
 from collections import namedtuple
 
 from mlflow.azure.client import (
@@ -216,7 +215,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return {header.name: header.value for header in headers}
 
     def _azure_upload_chunk(
-        self, credentials, headers, local_file, artifact_path, start_byte, size, index
+        self, credentials, headers, local_file, artifact_path, start_byte, size
     ):
         # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
         # the bytestring for compliance with Azure Blob Storage API requests
@@ -236,7 +235,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
             else:
                 raise e
-        return index, block_id
+        return block_id
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
@@ -267,15 +266,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures.append(future)
 
-            results = list(complete_futures(futures))
+            results = sorted(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
             # Sort results by the chunk index
-            uploading_block_list = [
-                block_id for _, block_id in sorted((r.value for r in results), key=itemgetter(0))
-            ]
+            uploading_block_list = [block_id for (_, block_id) in (r.value for r in results)]
 
             try:
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
@@ -350,7 +347,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures.append(future)
 
-            results = list(complete_futures(futures))
+            results = sorted(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -535,7 +532,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _upload_part_retry(self, cred_info, upload_id, part_number, local_file, start_byte, size):
         data = read_chunk(local_file, size, start_byte)
         try:
-            return part_number, self._upload_part(cred_info, data)
+            return self._upload_part(cred_info, data)
         except requests.HTTPError as e:
             if e.response.status_code not in (401, 403):
                 raise e
@@ -546,7 +543,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             resp = self._get_presigned_upload_part_url(
                 cred_info.run_id, cred_info.path, upload_id, part_number
             )
-            return part_number, self._upload_part(resp.upload_credential_info, data)
+            return self._upload_part(resp.upload_credential_info, data)
 
     def _upload_parts(self, local_file, create_mpu_resp):
         futures = []
@@ -564,7 +561,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             futures.append(future)
 
-        results = list(complete_futures(futures))
+        results = sorted(complete_futures(futures))
         if errors := [repr(r.err) for r in results if r.is_err()]:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
@@ -572,7 +569,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
 
         return [
             PartEtag(part_number=part_number, etag=etag)
-            for part_number, etag in sorted((r.value for r in results), key=itemgetter(0))
+            for part_number, etag in (r.value for r in results)
         ]
 
     def _complete_multipart_upload(self, run_id, path, upload_id, part_etags):
