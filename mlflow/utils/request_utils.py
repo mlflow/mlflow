@@ -48,11 +48,7 @@ def download_chunk(index, chunk_size, headers, download_path, http_uri):
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            iter_content_chunk_size = min(
-                chunk_size // 10,
-                1_000_000,  # 1 MB
-            )
-            for content in response.iter_content(chunk_size=iter_content_chunk_size):
+            for content in response.iter_content(chunk_size=1_000_000):
                 f.write(content)
 
 
