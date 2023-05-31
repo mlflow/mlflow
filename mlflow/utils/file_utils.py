@@ -1,6 +1,8 @@
 import codecs
 import errno
 import gzip
+import json
+import math
 import os
 import posixpath
 import shutil
@@ -9,12 +11,16 @@ import tarfile
 import tempfile
 import stat
 import pathlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
+import uuid
+import fnmatch
 
 import urllib.parse
 import urllib.request
 from urllib.parse import unquote
 from urllib.request import pathname2url
+import requests
 
 import atexit
 
@@ -27,13 +33,18 @@ except ImportError:
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
+from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.utils.request_utils import cloud_storage_http_request
 from mlflow.utils.process import cache_return_value_per_process
 from mlflow.utils import merge_dicts
 from mlflow.utils.databricks_utils import _get_dbutils
 from mlflow.utils.os import is_windows
+from mlflow.utils.request_utils import download_chunk
+
 
 ENCODING = "utf-8"
+MAX_PARALLEL_DOWNLOAD_WORKERS = os.cpu_count() * 2
 
 
 def is_directory(name):
@@ -257,8 +268,6 @@ def render_and_merge_yaml(root, template_name, context_name):
     )
 
     def from_json(input_var):
-        import json
-
         with open(input_var, encoding="utf-8") as f:
             return json.load(f)
 
@@ -444,8 +453,6 @@ def _copy_project(src_path, dst_path=""):
                 patterns = [x.strip() for x in f.readlines()]
 
         def ignore(_, names):
-            import fnmatch
-
             res = set()
             for p in patterns:
                 res.update(set(fnmatch.filter(names, p)))
@@ -589,6 +596,69 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
                 output_file.write(chunk)
 
 
+def parallelized_download_file_using_http_uri(
+    http_uri, download_path, file_size, uri_type, chunk_size, headers=None
+):
+    """
+    Downloads a file specified using the `http_uri` to a local `download_path`. This function
+    sends multiple requests in parallel each specifying its own desired byte range as a header,
+    then reconstructs the file from the downloaded chunks. This allows for downloads of large files
+    without OOM risk.
+
+    Note : This function is meant to download files using presigned urls from various cloud
+            providers.
+    Returns a dict of chunk index : exception, if one was thrown for that index.
+    """
+
+    # Create file if it doesn't exist or erase the contents if it does. We should do this here
+    # before sending to the workers so they can each individually seek to their respective positions
+    # and write chunks without overwriting.
+    open(download_path, "wb").close()
+    starting_index = 0
+    if uri_type == ArtifactCredentialType.GCP_SIGNED_URL or uri_type is None:
+        # GCP files could be transcoded, in which case the range header is ignored.
+        # Test if this is the case by downloading one chunk and seeing if it's larger than the
+        # requested size. If yes, let that be the file; if not, continue downloading more chunks.
+        download_chunk(
+            index=0,
+            chunk_size=chunk_size,
+            headers=headers,
+            download_path=download_path,
+            http_uri=http_uri,
+        )
+        downloaded_size = os.path.getsize(download_path)
+        # If downloaded size was equal to the chunk size it would have been downloaded serially,
+        # so we don't need to consider this here
+        if downloaded_size > chunk_size:
+            return {}
+        else:
+            starting_index = 1
+
+    num_requests = int(math.ceil(file_size / float(chunk_size)))
+    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
+        futures = {}
+        for index in range(starting_index, num_requests):
+            future = p.submit(
+                download_chunk,
+                index=index,
+                chunk_size=chunk_size,
+                headers=headers,
+                download_path=download_path,
+                http_uri=http_uri,
+            )
+            futures[future] = index
+
+        failed_downloads = {}
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except requests.HTTPError as e:
+                index = futures[future]
+                failed_downloads[index] = e
+
+    return failed_downloads
+
+
 def _handle_readonly_on_windows(func, path, exc_info):
     """
     This function should not be called directly but should be passed to `onerror` of
@@ -683,7 +753,6 @@ def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
     :param output_path: path to write the data to
     """
     from mlflow.utils.databricks_utils import is_in_databricks_runtime
-    import uuid
 
     if is_in_databricks_runtime():
         dbfs_path = os.path.join(".mlflow", "cache", str(uuid.uuid4()))

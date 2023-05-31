@@ -1,3 +1,4 @@
+import base64
 import decimal
 import numpy as np
 import pandas as pd
@@ -757,3 +758,65 @@ def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
         _enforce_schema(data, signature.inputs)
     with pytest.raises(MlflowException, match="Incompatible input types for column a. Can not"):
         _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+
+    # Test bytes
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": b"Hi I am a bytes string"}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test base64 encoded
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": base64.b64encode(b"Hi I am a bytes string").decode("ascii")}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient=orient), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+
+def test_schema_enforcement_for_optional_columns():
+    input_schema = Schema(
+        [
+            ColSpec("double", "a"),
+            ColSpec("double", "b"),
+            ColSpec("string", "c", optional=True),
+            ColSpec("long", "d", optional=True),
+        ]
+    )
+    signature = ModelSignature(inputs=input_schema)
+    test_data_with_all_cols = {"a": [1.0], "b": [1.0], "c": ["something"], "d": [2]}
+    test_data_with_only_required_cols = {"a": [1.0], "b": [1.0]}
+    test_data_with_one_optional_col = {"a": [1.0], "b": [1.0], "d": [2]}
+
+    for data in [
+        test_data_with_all_cols,
+        test_data_with_only_required_cols,
+        test_data_with_one_optional_col,
+    ]:
+        pd_data = pd.DataFrame(data)
+        check = _enforce_schema(pd_data, signature.inputs)
+        pd.testing.assert_frame_equal(check, pd_data)
+
+    # Ensure wrong data type for optional column throws
+    test_bad_data = {"a": [1.0], "b": [1.0], "d": ["not the right type"]}
+    pd_data = pd.DataFrame(test_bad_data)
+    with pytest.raises(MlflowException, match="Incompatible input types for column d."):
+        _enforce_schema(pd_data, signature.inputs)
+
+    # Ensure it still validates for required columns
+    test_missing_required = {"b": [2.0], "c": ["something"]}
+    pd_data = pd.DataFrame(test_missing_required)
+    with pytest.raises(MlflowException, match="Model is missing inputs"):
+        _enforce_schema(pd_data, signature.inputs)

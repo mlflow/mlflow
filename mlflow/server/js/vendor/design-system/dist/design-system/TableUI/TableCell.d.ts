@@ -12,6 +12,9 @@ export interface TableCellProps extends HTMLDataAttributes {
     style?: CSSProperties;
     /** Child nodes for the table cell */
     children?: React.ReactNode | React.ReactNode[];
+    /** If the content of this cell should be wrapped with Typography. Should only be set to false if
+     * content is not a text (e.g. images) or you really need to render custom content. */
+    wrapContent?: boolean;
 }
 export declare const TableCell: React.ForwardRefExoticComponent<TableCellProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=TableCell.d.ts.map

@@ -1,6 +1,6 @@
 import qs from 'qs';
 import { useMemo } from 'react';
-import { useLocation, useRouteMatch } from 'react-router';
+import { useParams, useLocation } from 'react-router-dom-v5-compat';
 import Utils from '../../../../common/utils/Utils';
 
 export type UseExperimentIdsResult = string[];
@@ -14,7 +14,7 @@ export type UseExperimentIdsResult = string[];
  */
 
 export const useExperimentIds = (): UseExperimentIdsResult => {
-  const match = useRouteMatch<{ experimentId?: string }>();
+  const params = useParams<{ experimentId?: string }>();
   const location = useLocation();
 
   const normalizedLocationSearch = useMemo(
@@ -37,8 +37,8 @@ export const useExperimentIds = (): UseExperimentIdsResult => {
 
   return useMemo(() => {
     // Case #1: single experiment
-    if (match.params?.experimentId) {
-      return [match.params?.experimentId];
+    if (params?.experimentId) {
+      return [params?.experimentId];
     }
 
     // Case #2: multiple (compare) experiments
@@ -55,5 +55,5 @@ export const useExperimentIds = (): UseExperimentIdsResult => {
     }
 
     return [];
-  }, [compareExperimentIdsQueryParam, match.params?.experimentId]);
+  }, [compareExperimentIdsQueryParam, params?.experimentId]);
 };

@@ -1,7 +1,20 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { HashRouter as Router, Link, NavLink, Switch } from 'react-router-dom';
-import { CompatRouter, CompatRoute as Route } from 'react-router-dom-v5-compat';
+import { HashRouter as Router, Link, NavLink } from 'react-router-dom';
+import {
+  // React router v5 API:
+  CompatRouter,
+  // React router v6 API:
+  Route,
+  Routes,
+} from 'react-router-dom-v5-compat';
 import AppErrorBoundary from '../../common/components/error-boundaries/AppErrorBoundary';
 import { HomePageDocsUrl, Version } from '../../common/constants';
 // @ts-expect-error TS(2307): Cannot find module '../../common/static/home-logo.... Remove this comment to see the full error message
@@ -19,7 +32,7 @@ import {
   modelSubpageRouteWithName,
   modelVersionPageRoute,
 } from '../../model-registry/routes';
-import Routes from '../routes';
+import RoutePaths from '../routes';
 import './App.css';
 import CompareRunPage from './CompareRunPage';
 import { HomePage } from './HomePage';
@@ -63,7 +76,7 @@ class App extends Component {
             {process.env.HIDE_HEADER === 'true' ? null : (
               <header className='App-header'>
                 <div className='mlflow-logo'>
-                  <Link to={Routes.rootRoute} className='App-mlflow'>
+                  <Link to={RoutePaths.rootRoute} className='App-mlflow'>
                     <img className='mlflow-logo' alt='MLflow' src={logo} />
                   </Link>
                   <span className={'mlflow-version'}>{Version}</span>
@@ -71,7 +84,7 @@ class App extends Component {
                 <div className='header-route-links'>
                   <NavLink
                     strict
-                    to={Routes.rootRoute}
+                    to={RoutePaths.rootRoute}
                     css={{ marginRight }}
                     activeStyle={classNames.activeNavLink}
                     isActive={isExperimentsActive}
@@ -110,33 +123,34 @@ class App extends Component {
             {/* @ts-expect-error TS(2322): Type '{ children: Element; service: string; }' is ... Remove this comment to see the full error message */}
             <AppErrorBoundary service='mlflow'>
               <InteractionTracker>
-                <Switch>
-                  <Route exact path={Routes.rootRoute} component={HomePage} />
-                  <Route exact path={Routes.experimentPageRoute} component={HomePage} />
-                  <Route exact path={Routes.runPageWithArtifactSelectedRoute} component={RunPage} />
-                  <Route exact path={Routes.runPageRoute} component={RunPage} />
-                  <Route exact path={Routes.directRunPageRoute} component={DirectRunPage} />
-                  <Route exact path={Routes.metricPageRoute} component={MetricPage} />
-                  <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage} />
+                {/* The block below contains React Router v6 routes */}
+                <Routes>
                   <Route
-                    exact
-                    path={Routes.compareExperimentsSearchPageRoute}
-                    component={HomePage}
+                    path={RoutePaths.compareExperimentsSearchPageRoute}
+                    element={<HomePage />}
                   />
-                  <Route path={Routes.experimentPageSearchRoute} component={HomePage} />
-                  {/* TODO(Zangr) see if route component can be injected here */}
-                  <Route exact path={modelListPageRoute} component={ModelListPage} />
-                  <Route exact path={modelVersionPageRoute} component={ModelVersionPage} />
-                  <Route exact path={modelPageRoute} component={ModelPage} />
-                  <Route exact path={modelSubpageRoute} component={ModelPage} />
-                  <Route exact path={modelSubpageRouteWithName} component={ModelPage} />
+                  <Route path={RoutePaths.experimentPageSearchRoute} element={<HomePage />} />
+                  <Route path={RoutePaths.experimentPageRoute} element={<HomePage />} />
+                  <Route path={RoutePaths.rootRoute} element={<HomePage />} />
+                  <Route path={RoutePaths.runPageWithArtifactSelectedRoute} element={<RunPage />} />
+                  <Route path={RoutePaths.runPageRoute} element={<RunPage />} />
+                  <Route path={RoutePaths.directRunPageRoute} element={<DirectRunPage />} />
+
+                  <Route path={RoutePaths.metricPageRoute} element={<MetricPage />} />
+                  <Route path={RoutePaths.compareRunPageRoute} element={<CompareRunPage />} />
+
+                  <Route path={modelListPageRoute} element={<ModelListPage />} />
+                  <Route path={modelVersionPageRoute} element={<ModelVersionPage />} />
+                  <Route path={modelPageRoute} element={<ModelPage />} />
+                  <Route path={modelSubpageRoute} element={<ModelPage />} />
+                  <Route path={modelSubpageRouteWithName} element={<ModelPage />} />
                   <Route
-                    exact
                     path={compareModelVersionsPageRoute}
-                    component={CompareModelVersionsPage}
+                    element={<CompareModelVersionsPage />}
                   />
-                  <Route component={PageNotFoundView} />
-                </Switch>
+                  <Route path='/*' element={<PageNotFoundView />} />
+                </Routes>
+                {/* End of React Router v6 routes */}
               </InteractionTracker>
             </AppErrorBoundary>
           </div>

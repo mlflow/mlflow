@@ -1,7 +1,15 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import { createIntlCache, createIntl } from 'react-intl';
 import { DEFAULT_LOCALE, loadMessages } from './loadMessages';
+import { useEffect, useState } from 'react';
 
-const FALLBACK_LOCALES = {
+const FALLBACK_LOCALES: Record<string, string> = {
   es: 'es-ES',
   fr: 'fr-FR',
   pt: 'pt-PT',
@@ -12,7 +20,7 @@ const FALLBACK_LOCALES = {
   zh: 'zh-CN',
 };
 
-const loadedMessages = {};
+const loadedMessages: Record<string, any> = {};
 
 const cache = createIntlCache();
 
@@ -20,13 +28,13 @@ export const I18nUtils = {
   async initI18n() {
     const locale = I18nUtils.getCurrentLocale();
     await I18nUtils.loadMessages(locale);
+    return { locale, messages: loadedMessages[locale] };
   },
 
   getIntlProviderParams() {
     const locale = I18nUtils.getCurrentLocale();
     return {
       locale,
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       messages: loadedMessages[locale] || {},
     };
   },
@@ -59,23 +67,49 @@ export const I18nUtils = {
   },
 
   /* Gets the locale to fall back on if messages are missing */
-  getFallbackLocale(locale: any) {
+  getFallbackLocale(locale: string) {
     const lang = locale.split('-')[0];
-    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const fallback = FALLBACK_LOCALES[lang];
     return fallback === lang ? undefined : fallback;
   },
 
-  async loadMessages(locale: any) {
+  async loadMessages(locale: string) {
     const locales = [
       locale === DEFAULT_LOCALE ? undefined : DEFAULT_LOCALE,
       I18nUtils.getFallbackLocale(locale),
       locale,
     ].filter(Boolean);
     const results = await Promise.all(locales.map(loadMessages));
-    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     loadedMessages[locale] = Object.assign({}, ...results);
-    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     return loadedMessages[locale];
   },
+};
+
+export type UseI18nInitResult = {
+  locale: string;
+  messages: Record<string, any>;
+};
+
+/**
+ * Ensure initialization of i18n subsystem and return
+ * an object with current locale and messages storage.
+ *
+ * The returned value will be null before initialization.
+ *
+ * This hook is intended to be used once in the top-level components.
+ */
+export const useI18nInit = () => {
+  const [intlState, setIntlState] = useState<UseI18nInitResult | null>(null);
+  useEffect(() => {
+    I18nUtils.initI18n()
+      .then((initializedIntlState) => {
+        setIntlState(initializedIntlState);
+      })
+      .catch((error) => {
+        // Fall back to the defaults if loading translation fails
+        setIntlState(I18nUtils.getIntlProviderParams());
+      });
+  }, []);
+
+  return intlState;
 };

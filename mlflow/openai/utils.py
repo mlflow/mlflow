@@ -1,5 +1,6 @@
 import json
 import re
+import mlflow
 import requests
 from unittest import mock
 from contextlib import contextmanager
@@ -13,6 +14,7 @@ class _MockResponse:
         self.status_code = status_code
         self.content = json.dumps(json_data).encode()
         self.headers = {"Content-Type": "application/json"}
+        self.text = mlflow.__version__
 
 
 def _chat_completion_json_sample(content):
@@ -26,7 +28,7 @@ def _chat_completion_json_sample(content):
                 "index": 0,
                 "message": {"role": "assistant", "content": content},
                 "finish_reason": "stop",
-                "text": TEST_CONTENT,
+                "text": content,
             }
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},

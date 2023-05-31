@@ -1,4 +1,5 @@
 import mlflow
+from mlflow.models.signature import infer_signature
 import json
 import numpy as np
 from pmdarima import auto_arima
@@ -44,7 +45,12 @@ with mlflow.start_run():
     print(f"Metrics: \n{json.dumps(metrics, indent=2)}")
     print(f"Parameters: \n{json.dumps(parameters, indent=2)}")
 
-    mlflow.pmdarima.log_model(pmdarima_model=arima, artifact_path=ARTIFACT_PATH)
+    predictions = arima.predict(n_periods=30, return_conf_int=False)
+    signature = infer_signature(train, predictions)
+
+    mlflow.pmdarima.log_model(
+        pmdarima_model=arima, artifact_path=ARTIFACT_PATH, signature=signature
+    )
     mlflow.log_params(parameters)
     mlflow.log_metrics(metrics)
     model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)

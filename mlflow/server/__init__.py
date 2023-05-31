@@ -4,8 +4,9 @@ import sys
 import textwrap
 import importlib.metadata
 
+from packaging.version import Version
+from flask import __version__ as flask_version
 from flask import Flask, send_from_directory, Response
-
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
 from mlflow.server.handlers import (
@@ -31,7 +32,7 @@ ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
+IS_FLASK_V1 = Version(flask_version) < Version("2.0")
 
 
 for http_path, handler, methods in handlers.get_endpoints():
@@ -81,14 +82,17 @@ def serve_get_metric_history_bulk():
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    return send_from_directory(STATIC_DIR, path, max_age=2419200)
+    if IS_FLASK_V1:
+        return send_from_directory(app.static_folder, path, cache_timeout=2419200)
+    else:
+        return send_from_directory(app.static_folder, path, max_age=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
 @app.route(_add_static_prefix("/"))
 def serve():
-    if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
-        return send_from_directory(STATIC_DIR, "index.html")
+    if os.path.exists(os.path.join(app.static_folder, "index.html")):
+        return send_from_directory(app.static_folder, "index.html")
 
     text = textwrap.dedent(
         """
@@ -116,6 +120,18 @@ def _find_app(app_name: str) -> str:
 
     raise MlflowException(
         f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
+    )
+
+
+def get_app_client(app_name: str, *args, **kwargs):
+    clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
+    for client in clients:
+        if client.name == app_name:
+            cls = client.load()
+            return cls(*args, **kwargs)
+
+    raise MlflowException(
+        f"Failed to find client for '{app_name}'. Available clients: {[c.name for c in clients]}"
     )
 
 

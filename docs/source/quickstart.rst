@@ -256,6 +256,7 @@ For example:
     .. code-block:: python
 
         import mlflow
+        from mlflow.models.signature import infer_signature
 
         from sklearn.model_selection import train_test_split
         from sklearn.datasets import load_diabetes
@@ -274,7 +275,8 @@ For example:
             predictions = rf.predict(X_test)
             print(predictions)
 
-            mlflow.sklearn.log_model(rf, "model")
+            signature = infer_signature(X_test, predictions)
+            mlflow.sklearn.log_model(rf, "model", signature=signature)
 
             print("Run ID: {}".format(run.info.run_id))
 
@@ -327,9 +329,7 @@ To learn more about loading models for specific runs, see :ref:`quickstart_drill
 
 Next steps
 ----------
-..
-    First, code:
-
+- :ref:`quickstart-mlops`
 - :ref:`MLflow tutorials and examples <tutorials-and-examples>`
 - Use the MLflow Registry to store and share versioned models, see :ref:`registry`
 - Use MLflow Projects for packaging your code in a reproducible and reusable way, see :ref:`projects`

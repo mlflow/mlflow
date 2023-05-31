@@ -829,6 +829,10 @@ class SqlAlchemyStore(AbstractStore):
             sql_model_version = self._get_sql_model_version(session, name, version)
             sql_registered_model = sql_model_version.registered_model
             sql_registered_model.last_updated_time = updated_time
+            aliases = sql_registered_model.registered_model_aliases
+            for alias in aliases:
+                if alias.version == version:
+                    session.delete(alias)
             sql_model_version.current_stage = STAGE_DELETED_INTERNAL
             sql_model_version.last_updated_time = updated_time
             sql_model_version.description = None

@@ -26,7 +26,9 @@ try:
 except ImportError:
     HAS_SCIPY = False
 
-ModelInputExample = Union[pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str]
+ModelInputExample = Union[
+    pd.DataFrame, np.ndarray, dict, list, "csr_matrix", "csc_matrix", str, bytes
+]
 
 PyFuncInput = Union[
     pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
@@ -142,7 +144,7 @@ class _Example:
                     input_ex = pd.DataFrame([input_ex], columns=range(len(input_ex)))
                 else:
                     input_ex = pd.DataFrame(input_ex)
-            elif isinstance(input_ex, str):
+            elif isinstance(input_ex, (str, bytes)):
                 input_ex = pd.DataFrame([input_ex])
             elif not isinstance(input_ex, pd.DataFrame):
                 try:
@@ -444,16 +446,37 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         )
 
 
-def _enforce_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+def _enforce_unnamed_col_schema(pf_input: PyFuncInput, input_schema: Schema):
     """Enforce the input columns conform to the model's column-based signature."""
-    if input_schema.has_input_names():
-        input_names = input_schema.input_names()
-    else:
-        input_names = pf_input.columns[: len(input_schema.inputs)]
+    input_names = pf_input.columns[: len(input_schema.inputs)]
     input_types = input_schema.input_types()
     new_pf_input = pd.DataFrame()
     for i, x in enumerate(input_names):
         new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[i])
+    return new_pf_input
+
+
+def _enforce_named_col_schema(pf_input: PyFuncInput, input_schema: Schema):
+    """Enforce the input columns conform to the model's column-based signature."""
+    required_input_names = input_schema.required_input_names()
+    input_types = input_schema.input_types_dict()
+
+    new_pf_input = pd.DataFrame()
+    for x in required_input_names:
+        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
+
+    # Upstream validation means that if we're here, pf_input can only be a
+    # pandas dataframe or a dict.
+    optional_input_names = input_schema.optional_input_names()
+    if isinstance(pf_input, pd.DataFrame):
+        supplied_optional_inputs = [col for col in pf_input.columns if col in optional_input_names]
+    elif isinstance(pf_input, dict):
+        supplied_optional_inputs = [col for col in pf_input.keys() if col in optional_input_names]
+    else:
+        supplied_optional_inputs = []
+    # Iterate over supplied optional inputs rather than all optional inputs.
+    for x in supplied_optional_inputs:
+        new_pf_input[x] = _enforce_mlflow_datatype(x, pf_input[x], input_types[x])
     return new_pf_input
 
 
@@ -659,19 +682,21 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
 
     if input_schema.has_input_names():
         # make sure there are no missing columns
-        input_names = input_schema.input_names()
-        expected_cols = set(input_names)
+        input_names = input_schema.required_input_names()
+        optional_names = input_schema.optional_input_names()
+        expected_required_cols = set(input_names)
         actual_cols = set()
-        if len(expected_cols) == 1 and isinstance(pf_input, np.ndarray):
+        optional_cols = set(optional_names)
+        if len(expected_required_cols) == 1 and isinstance(pf_input, np.ndarray):
             # for schemas with a single column, match input with column
             pf_input = {input_names[0]: pf_input}
-            actual_cols = expected_cols
+            actual_cols = expected_required_cols
         elif isinstance(pf_input, pd.DataFrame):
             actual_cols = set(pf_input.columns)
         elif isinstance(pf_input, dict):
             actual_cols = set(pf_input.keys())
-        missing_cols = expected_cols - actual_cols
-        extra_cols = actual_cols - expected_cols
+        missing_cols = expected_required_cols - actual_cols
+        extra_cols = actual_cols - expected_required_cols - optional_cols
         # Preserve order from the original columns, since missing/extra columns are likely to
         # be in same order.
         missing_cols = [c for c in input_names if c in missing_cols]
@@ -691,12 +716,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                 "{} inputs. Note: the inputs were not named in the signature so we can "
                 "only verify their count.".format(len(input_schema.inputs), num_actual_columns)
             )
-
-    return (
-        _enforce_tensor_schema(pf_input, input_schema)
-        if input_schema.is_tensor_spec()
-        else _enforce_col_schema(pf_input, input_schema)
-    )
+    if input_schema.is_tensor_spec():
+        return _enforce_tensor_schema(pf_input, input_schema)
+    elif input_schema.has_input_names():
+        return _enforce_named_col_schema(pf_input, input_schema)
+    else:
+        return _enforce_unnamed_col_schema(pf_input, input_schema)
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:
@@ -779,7 +804,10 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
             iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
             clf = RandomForestClassifier(max_depth=7, random_state=0)
             clf.fit(iris_train, iris.target)
-            mlflow.sklearn.log_model(clf, "iris_rf", registered_model_name="model-with-libs")
+            signature = infer_signature(iris_train, clf.predict(iris_train))
+            mlflow.sklearn.log_model(
+                clf, "iris_rf", signature=signature, registered_model_name="model-with-libs"
+            )
 
         # model uri for the above model
         model_uri = "models:/model-with-libs/1"

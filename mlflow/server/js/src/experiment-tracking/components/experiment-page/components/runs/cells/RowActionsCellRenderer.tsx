@@ -8,7 +8,6 @@ import {
 import { Theme } from '@emotion/react';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
-import { shouldUseNextRunsComparisonUI } from '../../../../../../common/utils/FeatureUtils';
 import { RunRowType } from '../../../utils/experimentPage.row-types';
 
 // Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
@@ -25,36 +24,34 @@ export const RowActionsCellRenderer = React.memo(
     return (
       <div css={styles.actionsContainer}>
         {/* Hide/show icon is part of compare runs UI */}
-        {shouldUseNextRunsComparisonUI() && (
-          <Tooltip
-            dangerouslySetAntdProps={MOUSE_DELAYS}
-            placement='right'
-            title={
-              hidden ? (
-                <FormattedMessage
-                  defaultMessage='Unhide run'
-                  description='A tooltip for the visibility icon button in the runs table next to the hidden run'
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage='Hide run'
-                  description='A tooltip for the visibility icon button in the runs table next to the visible run'
-                />
-              )
-            }
-          >
-            <label css={styles.actionCheckbox} className='is-visibility-toggle'>
-              <input
-                type='checkbox'
-                checked={!hidden}
-                onChange={() => {
-                  props.onToggleVisibility(props.data.runUuid);
-                }}
+        <Tooltip
+          dangerouslySetAntdProps={MOUSE_DELAYS}
+          placement='right'
+          title={
+            hidden ? (
+              <FormattedMessage
+                defaultMessage='Unhide run'
+                description='A tooltip for the visibility icon button in the runs table next to the hidden run'
               />
-              {!hidden ? <VisibleIcon /> : <VisibleOffIcon />}
-            </label>
-          </Tooltip>
-        )}
+            ) : (
+              <FormattedMessage
+                defaultMessage='Hide run'
+                description='A tooltip for the visibility icon button in the runs table next to the visible run'
+              />
+            )
+          }
+        >
+          <label css={styles.actionCheckbox} className='is-visibility-toggle'>
+            <input
+              type='checkbox'
+              checked={!hidden}
+              onChange={() => {
+                props.onToggleVisibility(props.data.runUuid);
+              }}
+            />
+            {!hidden ? <VisibleIcon /> : <VisibleOffIcon />}
+          </label>
+        </Tooltip>
         {props.data.pinnable && (
           <Tooltip
             dangerouslySetAntdProps={MOUSE_DELAYS}

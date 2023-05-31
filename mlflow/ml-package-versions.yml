@@ -143,7 +143,9 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      pip install git+https://github.com/microsoft/LightGBM.git#subdirectory=python-package
+      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master
+      cd LightGBM
+      bash build-python.sh install
 
   models:
     minimum: "2.3.1"
@@ -190,6 +192,10 @@ gluon:
   models:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
+      # which is unlikely to happen given the fact it's been open for 4 months.
+      ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       # Install libopenblas-dev for mxnet 1.8.0.post0
@@ -200,6 +206,10 @@ gluon:
   autologging:
     minimum: "1.5.1"
     maximum: "1.9.1"
+    requirements:
+      # TODO: Adjust the numpy requirement once https://github.com/apache/mxnet/issues/21165 is fixed,
+      # which is unlikely to happen given the fact it's been open for 4 months.
+      ">= 0.0.0": ["numpy<1.24.0"]
     unsupported: ["1.8.0"] # MXNet 1.8.0 is a flawed release that we don't expect to work with
     run: |
       pytest tests/gluon/test_gluon_autolog.py
@@ -253,6 +263,7 @@ onnx:
     maximum: "1.13.1"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
+      "< 1.11.0": ["numpy<1.24.0"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -268,6 +279,7 @@ spacy:
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
+      "<3.4.0": ["typing_extensions<4.6.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -362,6 +374,7 @@ mleap:
     minimum: "0.18.0"
     maximum: "0.22.0"
     requirements:
+      "< 0.22.0": ["numpy<1.24.0"]
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark<3.4"]
     run: |
@@ -388,6 +401,11 @@ prophet:
   models:
     minimum: "1.0.1"
     maximum: "1.1.2"
+    requirements:
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
+      # older version of prophet. Compatibility updates have been released as part of the 1.1.4
+      # release of prophet.
+      "<= 1.1.3": ["holidays<=0.24"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -405,7 +423,8 @@ pmdarima:
     minimum: "1.8.0"
     maximum: "2.0.3"
     requirements:
-      ">= 0.0.0": ["prophet"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0.0": ["prophet", "holidays!=0.25"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
@@ -420,7 +439,8 @@ diviner:
     maximum: "0.1.1"
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
-      ">= 0.0": ["cmdstanpy!=1.0.2"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
@@ -440,6 +460,8 @@ shap:
   models:
     minimum: "0.41.0"
     maximum: "0.41.0"
+    requirements:
+      "<= 0.41.0": ["numpy<1.24.0"]
     run: |
       pytest tests/shap
 
@@ -466,10 +488,35 @@ transformers:
     minimum: "4.25.1"
     maximum: "4.28.1"
     requirements:
-      ">= 0.0.0":
-        ["datasets", "huggingface_hub", "torch", "torchvision", "tensorflow", "accelerate"]
+      ">= 0.0.0": [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate", # required for large torch models where weights will not fit in RAM
+          "librosa", # required for transformers audio pipelines for bitrate conversion
+          "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
+        ]
     run: |
       pytest tests/transformers/test_transformers_model_export.py
+  autologging:
+    minimum: "4.25.1"
+    maximum: "4.28.1"
+    requirements:
+      ">= 0.0.0":
+        [
+          "datasets",
+          "huggingface_hub",
+          "torch",
+          "torchvision",
+          "tensorflow",
+          "accelerate",
+          "setfit",
+          "optuna",
+        ]
+    run: |
+      pytest tests/transformers/test_transformers_autolog.py
 
 openai:
   package_info:
@@ -482,8 +529,6 @@ openai:
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
       pytest tests/openai/test_openai_model_export.py
 
 langchain:
@@ -492,11 +537,23 @@ langchain:
     install_dev: |
       pip install git+https://github.com/hwchase17/langchain
   models:
-    minimum: "0.0.139"
-    maximum: "0.0.143"
+    minimum: "0.0.169"
+    maximum: "0.0.169"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai"]
+      ">= 0.0.0":
+        ["pyspark", "transformers", "tensorflow", "openai", "google-search-results", "psutil"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py
+
+sentence_transformers:
+  package_info:
+    pip_release: "sentence-transformers"
+    install_dev: |
+      pip install -e git+https://github.com/UKPLab/sentence-transformers
+    models:
+      minimum: "2.2.2"
+      maximum: "2.2.2"
+      requirements:
+        ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
+      run: |
+        pytest tests/sentence_transformers/test_sentence_transformers_model_export.py

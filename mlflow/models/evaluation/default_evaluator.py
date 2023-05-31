@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.base import (
     ModelEvaluator,
     EvaluationResult,
+    _ModelType,
 )
 from mlflow.entities.metric import Metric
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -23,6 +24,7 @@ from mlflow.utils.time_utils import get_current_time_millis
 
 from sklearn import metrics as sk_metrics
 from sklearn.pipeline import Pipeline as sk_Pipeline
+from sklearn.metrics import accuracy_score
 import math
 import json
 from collections import namedtuple
@@ -41,6 +43,7 @@ import pathlib
 _logger = logging.getLogger(__name__)
 
 _DEFAULT_SAMPLE_ROWS_FOR_SHAP = 2000
+_EVAL_TABLE_FILE_NAME = "eval_results_table.json"
 
 
 def _is_categorical(values):
@@ -66,31 +69,19 @@ def _infer_model_type_by_labels(labels):
     Infer model type by target values.
     """
     if _is_categorical(labels):
-        return "classifier"
+        return _ModelType.CLASSIFIER
     elif _is_continuous(labels):
-        return "regressor"
+        return _ModelType.REGRESSOR
     else:
         return None  # Unknown
 
 
 def _extract_raw_model(model):
-    """
-    Return a tuple of (model_loader_module, raw_model)
-    """
     model_loader_module = model.metadata.flavors["python_function"]["loader_module"]
-    try:
-        if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
-            raw_model = model._model_impl
-        else:
-            raw_model = None
-    except Exception as e:
-        _logger.warning(
-            f"Raw model resolution fails unexpectedly on PyFuncModel {model!r}, "
-            f"error message is {e}"
-        )
-        raw_model = None
-
-    return model_loader_module, raw_model
+    if model_loader_module == "mlflow.sklearn" and not isinstance(model, _ServedPyFuncModel):
+        return model_loader_module, model._model_impl
+    else:
+        return model_loader_module, None
 
 
 def _extract_predict_fn(model, raw_model):
@@ -546,9 +537,12 @@ def _shap_predict_fn(x, predict_fn, feature_names):
 
 # pylint: disable=attribute-defined-outside-init
 class DefaultEvaluator(ModelEvaluator):
+    def __init__(self):
+        self.client = MlflowClient()
+
     # pylint: disable=unused-argument
     def can_evaluate(self, *, model_type, evaluator_config, **kwargs):
-        return model_type in ["classifier", "regressor"]
+        return model_type in _ModelType.values()
 
     def _log_metrics(self):
         """
@@ -671,7 +665,9 @@ class DefaultEvaluator(ModelEvaluator):
             )
             return
 
-        is_multinomial_classifier = self.model_type == "classifier" and self.num_classes > 2
+        is_multinomial_classifier = (
+            self.model_type == _ModelType.CLASSIFIER and self.num_classes > 2
+        )
 
         sample_rows = self.evaluator_config.get(
             "explainability_nsamples", _DEFAULT_SAMPLE_ROWS_FOR_SHAP
@@ -830,7 +826,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.roc_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="roc",
@@ -841,7 +837,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="pr",
@@ -1003,12 +999,10 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
-        if not self.custom_metrics and not self.custom_artifacts:
+    def _evaluate_custom_metrics(self, eval_df):
+        if not self.custom_metrics:
             return
-        builtin_metrics = copy.deepcopy(self.metrics)
-        eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
-        for index, custom_metric in enumerate(self.custom_metrics or []):
+        for index, custom_metric in enumerate(self.custom_metrics):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
             custom_metric_tuple = _CustomMetric(
@@ -1019,13 +1013,16 @@ class DefaultEvaluator(ModelEvaluator):
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df.copy(),
-                copy.deepcopy(builtin_metrics),
+                copy.deepcopy(self.metrics),
             )
             self.metrics.update({custom_metric.name: metric_result})
 
-        for index, custom_artifact in enumerate(self.custom_artifacts or []):
+    def _log_custom_artifacts(self, eval_df):
+        if not self.custom_artifacts:
+            return
+        for index, custom_artifact in enumerate(self.custom_artifacts):
             with tempfile.TemporaryDirectory() as artifacts_dir:
-                # deepcopying eval_df and builtin_metrics for each custom metric function call,
+                # deepcopying eval_df and builtin_metrics for each custom artifact function call,
                 # in case the user modifies them inside their function(s).
                 custom_artifact_tuple = _CustomArtifact(
                     function=custom_artifact,
@@ -1036,15 +1033,14 @@ class DefaultEvaluator(ModelEvaluator):
                 artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
                     eval_df.copy(),
-                    copy.deepcopy(builtin_metrics),
+                    copy.deepcopy(self.metrics),
                 )
-                if artifact_results is not None and log_to_mlflow_tracking:
-                    for artifact_name, raw_artifact in artifact_results.items():
-                        self.artifacts[artifact_name] = self._log_custom_metric_artifact(
-                            artifact_name,
-                            raw_artifact,
-                            custom_artifact_tuple,
-                        )
+                for artifact_name, raw_artifact in artifact_results.items():
+                    self.artifacts[artifact_name] = self._log_custom_metric_artifact(
+                        artifact_name,
+                        raw_artifact,
+                        custom_artifact_tuple,
+                    )
 
     def _log_confusion_matrix(self):
         """
@@ -1087,7 +1083,7 @@ class DefaultEvaluator(ModelEvaluator):
         """
         Helper method for generating model predictions
         """
-        if self.model_type == "classifier":
+        if self.model_type == _ModelType.CLASSIFIER:
             self.label_list = np.unique(self.y)
             self.num_classes = len(self.label_list)
 
@@ -1114,14 +1110,9 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.predict_proba_fn is not None:
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
-                if self.is_binomial:
-                    self.y_prob = self.y_probs[:, 1]
-                else:
-                    self.y_prob = None
             else:
                 self.y_probs = None
-                self.y_prob = None
-        elif self.model_type == "regressor":
+        else:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
     def _compute_builtin_metrics(self):
@@ -1129,7 +1120,7 @@ class DefaultEvaluator(ModelEvaluator):
         Helper method for computing builtin metrics
         """
         self._evaluate_sklearn_model_score_if_scorable()
-        if self.model_type == "classifier":
+        if self.model_type == _ModelType.CLASSIFIER:
             if self.is_binomial:
                 self.metrics.update(
                     _get_binary_classifier_metrics(
@@ -1154,21 +1145,72 @@ class DefaultEvaluator(ModelEvaluator):
                         sample_weights=self.sample_weights,
                     )
                 )
-        elif self.model_type == "regressor":
+        elif self.model_type == _ModelType.REGRESSOR:
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
-    def _log_metrics_and_artifacts(self):
+    def _log_artifacts(self):
         """
         Helper method for generating artifacts, logging metrics and artifacts.
         """
-        if self.model_type == "classifier":
-            if self.is_binomial:
-                self._log_binary_classifier_artifacts()
-            else:
-                self._log_multiclass_classifier_artifacts()
-            self._log_confusion_matrix()
-        self._log_metrics()
-        self._log_model_explainability()
+        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
+            if self.model_type == _ModelType.CLASSIFIER:
+                if self.is_binomial:
+                    self._log_binary_classifier_artifacts()
+                else:
+                    self._log_multiclass_classifier_artifacts()
+                self._log_confusion_matrix()
+            self._log_model_explainability()
+
+    def _log_eval_table(self):
+        metric_prefix = self.evaluator_config.get("metric_prefix", "")
+        if self.dataset.has_targets:
+            data = self.dataset.features_data.assign(
+                **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
+            )
+        else:
+            data = self.dataset.features_data.assign(outputs=self.y_pred)
+        mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
+
+    def _evaluate_question_answering(self):
+        self._log_eval_table()
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+        )
+
+        if self.dataset.has_targets:
+            acc = accuracy_score(y_true=self.y, y_pred=self.y_pred)
+            self.metrics.update({"exact_match": acc})
+
+    def _evaluate_text_summarization(self):
+        self._log_eval_table()
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+        )
+        if self.dataset.has_targets:
+            try:
+                import evaluate
+
+                rouge = evaluate.load("rouge")
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to load 'rouge' metric (error: {e!r}), skipping metric logging."
+                )
+                return
+
+            predictions = (
+                self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+            )
+            metrics = rouge.compute(predictions=predictions, references=self.y)
+            self.metrics.update(metrics)
+
+    def _evaluate_text(self):
+        self._log_eval_table()
+        name = _EVAL_TABLE_FILE_NAME.split(".", 1)[0]
+        self.artifacts[name] = JsonEvaluationArtifact(
+            uri=mlflow.get_artifact_uri(_EVAL_TABLE_FILE_NAME)
+        )
 
     def _evaluate(
         self,
@@ -1179,45 +1221,46 @@ class DefaultEvaluator(ModelEvaluator):
         import matplotlib
 
         with TempDir() as temp_dir, matplotlib.rc_context(_matplotlib_config):
-            self.client = MlflowClient()
-
             self.temp_dir = temp_dir
             self.model = model
-            self.is_baseline_model = is_baseline_model
 
             self.is_model_server = isinstance(model, _ServedPyFuncModel)
 
-            model_loader_module, raw_model = _extract_raw_model(model)
-            predict_fn, predict_proba_fn = _extract_predict_fn(model, raw_model)
-
-            self.model_loader_module = model_loader_module
-            self.raw_model = raw_model
-            self.predict_fn = predict_fn
-            self.predict_proba_fn = predict_proba_fn
+            self.model_loader_module, self.raw_model = _extract_raw_model(model)
+            self.predict_fn, self.predict_proba_fn = _extract_predict_fn(model, self.raw_model)
 
             self.metrics = {}
-            self.baseline_metrics = {}
             self.artifacts = {}
 
-            if self.model_type not in ["classifier", "regressor"]:
+            if self.model_type not in _ModelType.values():
                 raise MlflowException(
                     message=f"Unsupported model type {self.model_type}",
-                    erorr_code=INVALID_PARAMETER_VALUE,
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
-                self._compute_builtin_metrics()
-                self._evaluate_custom_metrics_and_log_produced_artifacts(
-                    log_to_mlflow_tracking=not is_baseline_model
-                )
-                metric_prefix = self.evaluator_config.get("metric_prefix")
-                if metric_prefix is not None:
-                    self.metrics = {
-                        f"{metric_prefix}{metric_key}": metric_value
-                        for metric_key, metric_value in self.metrics.items()
-                    }
+                if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
+                    self._compute_builtin_metrics()
+                elif self.model_type == _ModelType.QUESTION_ANSWERING:
+                    self._evaluate_question_answering()
+                elif self.model_type == _ModelType.TEXT_SUMMARIZATION:
+                    self._evaluate_text_summarization()
+                elif self.model_type == _ModelType.TEXT:
+                    self._evaluate_text()
+
+                if self.custom_metrics or self.custom_artifacts:
+                    eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred)})
+                    if self.dataset.has_targets:
+                        eval_df["target"] = self.y
+                    self._evaluate_custom_metrics(eval_df)
+                    if not is_baseline_model:
+                        self._log_custom_artifacts(eval_df)
+
+                if prefix := self.evaluator_config.get("metric_prefix"):
+                    self.metrics = {f"{prefix}{k}": v for k, v in self.metrics.items()}
                 if not is_baseline_model:
-                    self._log_metrics_and_artifacts()
+                    self._log_artifacts()
+                    self._log_metrics()
                 return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
 
     def evaluate(
@@ -1237,7 +1280,6 @@ class DefaultEvaluator(ModelEvaluator):
         self.run_id = run_id
         self.model_type = model_type
         self.evaluator_config = evaluator_config
-        self.dataset_name = dataset.name
         self.feature_names = dataset.feature_names
         self.custom_metrics = custom_metrics
         self.custom_artifacts = custom_artifacts
@@ -1245,14 +1287,14 @@ class DefaultEvaluator(ModelEvaluator):
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
 
-        inferred_model_type = _infer_model_type_by_labels(self.y)
-
-        if inferred_model_type is not None and model_type != inferred_model_type:
-            _logger.warning(
-                f"According to the evaluation dataset label values, the model type looks like "
-                f"{inferred_model_type}, but you specified model type {model_type}. Please "
-                f"verify that you set the `model_type` and `dataset` arguments correctly."
-            )
+        if self.model_type in (_ModelType.CLASSIFIER, _ModelType.REGRESSOR):
+            inferred_model_type = _infer_model_type_by_labels(self.y)
+            if inferred_model_type is not None and model_type != inferred_model_type:
+                _logger.warning(
+                    f"According to the evaluation dataset label values, the model type looks like "
+                    f"{inferred_model_type}, but you specified model type {model_type}. Please "
+                    f"verify that you set the `model_type` and `dataset` arguments correctly."
+                )
 
         if evaluator_config.get("_disable_candidate_model", False):
             evaluation_result = EvaluationResult(metrics={}, artifacts={})

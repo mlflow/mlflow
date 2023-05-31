@@ -18,17 +18,22 @@ class _EnvironmentVariable:
     def is_defined(self):
         return self.name in os.environ
 
+    def get_raw(self):
+        return os.getenv(self.name)
+
+    def set(self, value):
+        os.environ[self.name] = value
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
         type. Otherwise, returns the default value.
         """
-        val = os.getenv(self.name)
-        if val:
+        if (val := self.get_raw()) is not None:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
@@ -198,9 +203,36 @@ MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT = _EnvironmentVariable(
 #: Specifies the device intended for use in the predict function - can be used
 #: to override behavior where the GPU is used by default when available by
 #: setting this environment variable to be ``cpu``. Currently, this
-#: variable is only supported for the MLflow PyTorch flavor.
+#: variable is only supported for the MLflow PyTorch and HuggingFace flavors.
+#: For the HuggingFace flavor, note that device must be parseable as an integer.
 MLFLOW_DEFAULT_PREDICTION_DEVICE = _EnvironmentVariable(
     "MLFLOW_DEFAULT_PREDICTION_DEVICE", str, None
+)
+
+#: Specifies to Huggingface whether to use the automatic device placement logic of
+# HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
+# set to True and device_map will not be set to "auto".
+MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_HUGGINGFACE_ACCELERATE_FEATURES", False
+)
+
+#: Specifies to Huggingface whether to use the automatic device placement logic of
+# HuggingFace accelerate. If it's set to false, the low_cpu_mem_usage flag will not be
+# set to True and device_map will not be set to "auto".
+MLFLOW_HUGGINGFACE_USE_DEVICE_MAP = _BooleanEnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_USE_DEVICE_MAP", True
+)
+
+#: Specifies to Huggingface to use the automatic device placement logic of HuggingFace accelerate.
+#: This can be set to values supported by the version of HuggingFace Accelerate being installed.
+MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY = _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY", str, "auto"
+)
+
+#: Specifies to Huggingface to use the low_cpu_mem_usage flag powered by HuggingFace accelerate.
+#: If it's set to false, the low_cpu_mem_usage flag will be set to False.
+MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE = _BooleanEnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE", True
 )
 
 #: Specifies whether or not to allow using a file URI as a model version source.

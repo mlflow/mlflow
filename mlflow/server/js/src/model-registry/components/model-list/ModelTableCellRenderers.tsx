@@ -1,5 +1,5 @@
 import { FormattedMessage } from 'react-intl';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import { useState } from 'react';
 import {
   Button,
@@ -49,7 +49,11 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
           }
           placement='left'
         >
-          <div key={tag.key} css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div
+            key={tag.key}
+            css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}
+            data-testid='models-table-tag-entry'
+          >
             <Typography.Text bold>{tag.key}</Typography.Text>: {tag.value || noValue}
           </div>
         </Tooltip>
@@ -60,6 +64,7 @@ export const ModelListTagsCell = ({ tags }: { tags: KeyValueEntity[] }) => {
           size='small'
           onClick={() => setShowMore(!showMore)}
           icon={showMore ? <ChevronDoubleUpIcon /> : <ChevronDoubleDownIcon />}
+          data-testid='models-table-show-more-tags'
         >
           {showMore ? (
             <FormattedMessage

@@ -3,8 +3,12 @@ import inspect
 import logging
 import numpy as np
 import warnings
+import pkgutil
+import platform
 from copy import deepcopy
 from numbers import Number
+from importlib import import_module
+from operator import itemgetter
 from packaging.version import Version
 
 from mlflow import MlflowClient
@@ -886,11 +890,7 @@ def _backported_all_estimators(type_filter=None):
         and ``class`` is the actual type of the class.
     """
     # lazy import to avoid circular imports from sklearn.base
-    import pkgutil
-    import platform
     import sklearn
-    from importlib import import_module
-    from operator import itemgetter
 
     # pylint: disable=no-name-in-module, import-error
     from sklearn.utils.testing import ignore_warnings

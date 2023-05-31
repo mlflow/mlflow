@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Fragment } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl } from 'react-intl';
@@ -5,7 +12,7 @@ import { HtmlTableView } from './HtmlTableView';
 import { getRunInfo } from '../reducers/Reducers';
 import { getLatestMetrics, getMinMetrics, getMaxMetrics } from '../reducers/MetricReducer';
 import Utils from '../../common/utils/Utils';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import Routes from '../routes';
 
 const maxTableHeight = 300;

@@ -1,6 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -36,9 +43,9 @@ describe('MetricsSummaryTable', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(MetricsSummaryTable).length).toBe(1);
@@ -66,9 +73,9 @@ describe('MetricsSummaryTable', () => {
     });
     wrapper = mountWithIntl(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const table = wrapper.find(HtmlTableView);
@@ -113,9 +120,9 @@ describe('MetricsSummaryTable', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const table = wrapper.find(HtmlTableView);
@@ -168,9 +175,9 @@ describe('MetricsSummaryTable', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const table = wrapper.find(HtmlTableView);
@@ -231,9 +238,9 @@ describe('MetricsSummaryTable', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const tables = wrapper.find(HtmlTableView);
@@ -263,9 +270,9 @@ describe('MetricsSummaryTable', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const table = wrapper.find(HtmlTableView);
@@ -279,9 +286,9 @@ describe('MetricsSummaryTable', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricsSummaryTable {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const table = wrapper.find(HtmlTableView);

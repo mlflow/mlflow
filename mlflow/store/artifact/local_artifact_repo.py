@@ -1,4 +1,3 @@
-from distutils import dir_util
 import os
 import shutil
 
@@ -35,7 +34,10 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
+        try:
+            shutil.copyfile(local_file, os.path.join(artifact_dir, os.path.basename(local_file)))
+        except shutil.SameFileError:
+            pass
 
     def _is_directory(self, artifact_path):
         # NOTE: The path is expected to be in posix format.
@@ -55,7 +57,7 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        dir_util.copy_tree(src=local_dir, dst=artifact_dir, preserve_mode=0, preserve_times=0)
+        shutil.copytree(src=local_dir, dst=artifact_dir, dirs_exist_ok=True)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """

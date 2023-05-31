@@ -2,7 +2,7 @@ import {
   BarChartIcon,
   Button,
   ListBorderIcon,
-  PopoverV2,
+  Popover,
   SegmentedControlButton,
   SegmentedControlGroup,
   Typography,
@@ -49,11 +49,11 @@ const ChartViewButtonTooltip: React.FC<{
 
   return (
     <>
-      <PopoverV2.Root open={isToolTipOpen}>
-        <PopoverV2.Trigger asChild>
+      <Popover.Root open={isToolTipOpen}>
+        <Popover.Trigger asChild>
           <div css={{ position: 'absolute', inset: 0 }} />
-        </PopoverV2.Trigger>
-        <PopoverV2.Content align='start'>
+        </Popover.Trigger>
+        <Popover.Content align='start'>
           <div css={{ maxWidth: '200px' }}>
             <Typography.Paragraph>
               <FormattedMessage
@@ -70,9 +70,9 @@ const ChartViewButtonTooltip: React.FC<{
               </Button>
             </div>
           </div>
-          <PopoverV2.Arrow />
-        </PopoverV2.Content>
-      </PopoverV2.Root>
+          <Popover.Arrow />
+        </Popover.Content>
+      </Popover.Root>
     </>
   );
 };

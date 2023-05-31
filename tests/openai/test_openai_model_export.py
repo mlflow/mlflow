@@ -1,5 +1,6 @@
 import yaml
 import json
+import importlib
 from unittest import mock
 
 from pyspark.sql import SparkSession
@@ -20,6 +21,17 @@ from mlflow.openai.utils import (
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_OPENAI_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+        }
+    )
+    importlib.reload(openai)
 
 
 def test_log_model():
@@ -293,7 +305,9 @@ def test_pyfunc_flavor_is_only_added_for_chat_completion(tmp_path):
 def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     scope = "test"
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
-    with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True):
+    with mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True), mock.patch(
+        "mlflow.openai.check_databricks_secret_scope_access"
+    ):
         mlflow.openai.save_model(model="gpt-3.5-turbo", task="chat.completions", path=tmp_path)
     with tmp_path.joinpath("openai.yaml").open() as f:
         creds = yaml.safe_load(f)

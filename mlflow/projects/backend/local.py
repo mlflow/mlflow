@@ -16,7 +16,6 @@ from mlflow.projects.utils import (
     get_or_create_run,
     load_project,
     get_run_env_vars,
-    get_databricks_env_vars,
     get_entry_point_command,
     MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG,
     MLFLOW_DOCKER_WORKDIR_PATH,
@@ -29,6 +28,7 @@ from mlflow.projects.utils import (
 )
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.conda import get_or_create_conda_env
+from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.virtualenv import (
     _install_python,
     _create_virtualenv,
