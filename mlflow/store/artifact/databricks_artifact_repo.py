@@ -7,7 +7,6 @@ import uuid
 import math
 from operator import itemgetter
 from collections import namedtuple
-from concurrent.futures import as_completed
 
 from mlflow.azure.client import (
     put_adls_file_creation,
@@ -59,6 +58,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
 )
+from mlflow.utils.futures import complete_futures
 
 _logger = logging.getLogger(__name__)
 _DOWNLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
@@ -78,35 +78,6 @@ def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     Computes the number of chunks to use for a multipart upload of the specified file.
     """
     return math.ceil(os.path.getsize(local_file) / chunk_size)
-
-
-class _Result:
-    def __init__(self, value=None, err=None):
-        if (value, err).count(None) != 1:
-            raise ValueError("Exactly one of `value` and `error` must be set.")
-        self.value = value
-        self.err = err
-
-    def is_err(self):
-        return self.err is not None
-
-    def is_ok(self):
-        return self.value is not None
-
-    @classmethod
-    def from_future(cls, future):
-        try:
-            return cls(value=future.result())
-        except Exception as e:
-            return cls(err=e)
-
-
-def _complete_futures(futures):
-    """
-    Completes the specified futures, yielding a `_Result` for each future as it completes.
-    Note that this function returns an iterator and does not preserve ordering of results.
-    """
-    return map(_Result.from_future, as_completed(futures))
 
 
 class DatabricksArtifactRepository(ArtifactRepository):
@@ -296,7 +267,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures.append(future)
 
-            results = list(_complete_futures(futures))
+            results = list(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
@@ -379,7 +350,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures.append(future)
 
-            results = list(_complete_futures(futures))
+            results = list(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
@@ -593,7 +564,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
             futures.append(future)
 
-        results = list(_complete_futures(futures))
+        results = list(complete_futures(futures))
         if errors := [repr(r.err) for r in results if r.is_err()]:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
