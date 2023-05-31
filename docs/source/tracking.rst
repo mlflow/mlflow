@@ -360,6 +360,9 @@ such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` a
 currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding
 the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
+:py:func:`mlflow.get_parent_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
+parent run for the given run id, if one exists. Otherwise, it returns None.
+
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
 
