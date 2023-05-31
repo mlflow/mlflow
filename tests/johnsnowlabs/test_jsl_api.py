@@ -12,13 +12,11 @@ from johnsnowlabs import nlp
 from packaging.version import Version
 
 import mlflow
-import mlflow.johnsnowlabs
 import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
-from mlflow.johnsnowlabs import _add_code_from_conf_to_system_path
-from mlflow.models import Model, infer_signature, build_docker
+from mlflow.models import Model, build_docker, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc import spark_udf
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -27,35 +25,36 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.helper_functions import (
-    _compare_conda_env_requirements,
-    _assert_pip_requirements,
-    _compare_logged_code_paths,
-    _mlflow_major_version_string, )
-from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import (_assert_pip_requirements,
+                                    _compare_conda_env_requirements,
+                                    _compare_logged_code_paths,
+                                    _mlflow_major_version_string,
+                                    score_model_in_sagemaker_docker_container)
 
 # TODO you must update this
 license_keys = {
     "AWS_ACCESS_KEY_ID": None,
     "AWS_SECRET_ACCESS_KEY": None,
     "SPARK_NLP_LICENSE": None,
-    "SECRET": None}
+    "SECRET": None
+}
 
-os.environ.update(license_keys)
-
-# Before running any tests make sure the following environment variables are set:
-
-if not license_keys['SECRET']:
-    raise ValueError("""
-Please set SECRET, AWS_ACCESS_KEY_ID ,AWS_SECRET_ACCESS_KEY ,SPARK_NLP_LICENSE in your environment variables
-""")
-
-# nlu_model = 'tokenize' # You can use this alternatively for a leightweight test run with a tokenizer model
+MODEL_CACHE_FOLDER = '/home/ckl/dump/cache_pretrained'
 nlu_model = 'en.classify.bert_sequence.covid_sentiment'
 
+# nlu_model = 'tokenize' # You can use this alternatively for a lightweight test run with a tokenizer model
 
+os.environ.update(license_keys)
+import mlflow.johnsnowlabs
+from mlflow.johnsnowlabs import _add_code_from_conf_to_system_path
+
+# Before running any tests make sure the following environment variables are set:
+mlflow.johnsnowlabs._validate_env_vars()
+
+
+@pytest.fixture
 def load_and_init_model(model=nlu_model):
-    nlp.start(model_cache_folder='/home/ckl/dump/cache_pretrained')
+    nlp.start(model_cache_folder=MODEL_CACHE_FOLDER)
     jsl_model = nlp.load(model, verbose=False)
     return jsl_model
 
@@ -77,6 +76,8 @@ def fix_dataframe_with_respect_for_nlu_issues(d1, d2):
 
     d1 = lower_strings(d1)
     d2 = lower_strings(d2)
+    d1.columns = [f'c_{i}' for i in range(len(d1.columns))]
+    d2.columns = [f'c_{i}' for i in range(len(d2.columns))]
     return d1, d2
 
 
@@ -89,28 +90,25 @@ def validate_model(original_model, new_model):
     d1 = d1.reset_index().drop(columns=['index'])
 
     # TODO fix: column names may change before/after save and Confidences change
-    d1 = d1.drop(columns=[c for c in d1.columns if 'confidence' in c])
-    d2 = d2.drop(columns=[c for c in d2.columns if 'confidence' in c])
-    d1.columns = [f'c_{i}' for i in range(len(d1.columns))]
-    d2.columns = [f'c_{i}' for i in range(len(d2.columns))]
+    # d1 = d1.drop(columns=[c for c in d1.columns if 'confidence' in c])
+    # d2 = d2.drop(columns=[c for c in d2.columns if 'confidence' in c])
+    d1, d2 = fix_dataframe_with_respect_for_nlu_issues(d1, d2)
     assert d1.equals(d2)
 
 
 @pytest.fixture
-def jsl_model(model_path):
-    model = load_and_init_model()
-    yield model
-    # shutil.rmtree(model_path)
+def jsl_model(model_path, load_and_init_model):
+    yield load_and_init_model
 
 
 @pytest.fixture
 def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+    return str(Path(tmpdir) / "model")
 
 
 @pytest.fixture
 def spark_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+    conda_env = str(Path(str(tmpdir)) / "conda_env.yml")
     additional_pip_deps = ["pyspark", "pytest"]
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
@@ -120,7 +118,7 @@ def spark_custom_env(tmpdir):
 
 
 def score_model_as_udf(model_uri, result_type='string'):
-    spark = mlflow.johnsnowlabs.get_or_create_sparksession()
+    spark = mlflow.johnsnowlabs._get_or_create_sparksession()
     pandas_df = pd.DataFrame({'text': ['Hello World']})
     spark_df = spark.createDataFrame(pandas_df).coalesce(1)
     pyfunc_udf = spark_udf(
@@ -128,48 +126,6 @@ def score_model_as_udf(model_uri, result_type='string'):
     )
     new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
     return [x["prediction"] for x in new_df.collect()]
-
-
-def test_hadoop_filesystem(tmpdir, jsl_model):
-    # we need an active spark session, so we just pass jsl_model to init a session
-    # copy local dir to and back from HadoopFS and make sure the results match
-    from mlflow.spark import _HadoopFileSystem as FS
-    test_dir_0 = os.path.join(str(tmpdir), "expected")
-    test_file_0 = os.path.join(test_dir_0, "root", "file_0")
-    test_dir_1 = os.path.join(test_dir_0, "root", "subdir")
-    test_file_1 = os.path.join(test_dir_1, "file_1")
-    os.makedirs(os.path.dirname(test_file_0))
-    with open(test_file_0, "w") as f:
-        f.write("test0")
-    os.makedirs(os.path.dirname(test_file_1))
-    with open(test_file_1, "w") as f:
-        f.write("test1")
-    remote = "/tmp/mlflow/test0"
-    # File should not be copied in this case
-    assert os.path.abspath(test_dir_0) == FS.maybe_copy_from_local_file(test_dir_0, remote)
-    FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
-    local = os.path.join(str(tmpdir), "actual")
-    FS.copy_to_local_file(remote, local, remove_src=True)
-    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted(
-        ["subdir", "file_0", ".file_0.crc"]
-    )
-    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted(
-        ["file_1", ".file_1.crc"]
-    )
-    # compare the files
-    with open(os.path.join(test_dir_0, "root", "file_0")) as expected_f:
-        with open(os.path.join(local, "root", "file_0")) as actual_f:
-            assert expected_f.read() == actual_f.read()
-    with open(os.path.join(test_dir_0, "root", "subdir", "file_1")) as expected_f:
-        with open(os.path.join(local, "root", "subdir", "file_1")) as actual_f:
-            assert expected_f.read() == actual_f.read()
-
-    # make sure we cleanup
-    assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
-    FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
-    assert os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
-    FS.delete(remote)
-    assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
 def test_model_export(jsl_model, model_path):
@@ -186,11 +142,6 @@ def test_model_export(jsl_model, model_path):
     d1, d2 = fix_dataframe_with_respect_for_nlu_issues(d1, d2)
     assert d1.equals(d2)
     assert os.path.exists(MLFLOW_DFS_TMP.get())
-
-
-def test_model_export_qucik(jsl_model, model_path):
-    mlflow.johnsnowlabs.save_model(jsl_model, path='MY_MODEL3')
-    # 1. score and compare reloaded sparkml model
 
 
 def test_model_deployment(jsl_model, model_path):
@@ -255,7 +206,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
                     input_example=example,
                 )
                 artifact_uri = mlflow.get_artifact_uri()
-                model_path = os.path.join(artifact_uri, artifact_path)
+                model_path = Path(artifact_uri) / artifact_path
                 mlflow_model = Model.load(model_path)
                 assert signature == mlflow_model.signature
                 if example is None:
@@ -300,7 +251,7 @@ def test_johnsnowlabs_model_log(tmpdir, jsl_model, should_start_run, use_dfs_tmp
 
 def test_log_model_calls_register_model(tmpdir, jsl_model):
     artifact_path = "model"
-    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    dfs_tmp_dir = Path(str(tmpdir)) / "test"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
@@ -309,12 +260,12 @@ def test_log_model_calls_register_model(tmpdir, jsl_model):
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-        )
-        mlflow.register_model.assert_called_once_with(
-            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-        )
+    model_uri = "runs:/{run_id}/{artifact_path}".format(
+        run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+    )
+    mlflow.register_model.assert_called_once_with(
+        model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    )
 
 
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
@@ -336,7 +287,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 def test_log_model_no_registered_model_name(tmpdir, jsl_model):
     artifact_path = "model"
-    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    dfs_tmp_dir = Path(str(tmpdir)) / "test"
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
@@ -368,7 +319,7 @@ def test_johnsnowlabs_model_save_persists_specified_conda_env_in_mlflow_model_di
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
+    saved_conda_env_path = Path(model_path) / pyfunc_conf[pyfunc.ENV]["conda"]
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -386,12 +337,11 @@ def test_johnsnowlabs_model_save_persists_requirements_in_mlflow_model_directory
         spark_model=jsl_model, path=model_path, conda_env=spark_custom_env
     )
 
-    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    saved_pip_req_path = Path(model_path) / "requirements.txt"
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
 def test_log_model_with_pip_requirements(jsl_model, tmpdir):
-    # TODO this test will pass when we remove the TODO lines in johnsnowlabs.py after PR
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
     req_file = tmpdir.join("requirements.txt")
@@ -425,7 +375,6 @@ def test_log_model_with_pip_requirements(jsl_model, tmpdir):
 
 
 def test_log_model_with_extra_pip_requirements(jsl_model, tmpdir):
-    # TODO this test will pass when we remove the TODO lines in johnsnowlabs.py after PR
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.johnsnowlabs.get_default_pip_requirements()
 
@@ -467,7 +416,7 @@ def test_johnsnowlabs_model_save_accepts_conda_env_as_dict(jsl_model, model_path
     mlflow.johnsnowlabs.save_model(spark_model=jsl_model, path=model_path, conda_env=conda_env)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
+    saved_conda_env_path = Path(model_path) / pyfunc_conf[pyfunc.ENV]["conda"]
     assert os.path.exists(saved_conda_env_path)
 
     with open(saved_conda_env_path) as f:
@@ -492,7 +441,7 @@ def test_johnsnowlabs_model_log_persists_specified_conda_env_in_mlflow_model_dir
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
-    saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV]["conda"])
+    saved_conda_env_path = Path(model_path) / pyfunc_conf[pyfunc.ENV]["conda"]
     assert os.path.exists(saved_conda_env_path)
     assert saved_conda_env_path != spark_custom_env
 
@@ -518,7 +467,7 @@ def test_johnsnowlabs_model_log_persists_requirements_in_mlflow_model_directory(
         )
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    saved_pip_req_path = os.path.join(model_path, "requirements.txt")
+    saved_pip_req_path = Path(model_path) / "requirements.txt"
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
