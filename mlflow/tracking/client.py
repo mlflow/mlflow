@@ -1541,7 +1541,7 @@ class MlflowClient:
 
         :param experiment_id: The experiment ID to load the table from.
         :param artifact_file: The run-relative artifact file path in posixpath format to which
-                            the table is saved (e.g. "dir/file.json").
+                              table to load (e.g. "dir/file.json").
         :param run_ids: Optional list of run_ids to load the table from. If no run_ids are
                         specified, the table is loaded from all runs in the current experiment.
         :param extra_columns: Optional list of extra columns to add to the returned DataFrame
@@ -1559,7 +1559,7 @@ class MlflowClient:
             client = MlflowClient()
             loaded_table = client.load_table(
                 experiment_id="uuid-0",
-                artifact_file="qabot_eval_results.csv",
+                artifact_file="qabot_eval_results.json",
                 run_ids=[
                     "68f0c4aed0b74fc7bff23d6c3be74fed",
                     "da1f56b292254a81858410606618d61c",
@@ -1579,7 +1579,7 @@ class MlflowClient:
             client = MlflowClient()
             loaded_table = client.load_table(
                 experiment_id="uuid-0",
-                artifact_file="qabot_eval_results.csv",
+                artifact_file="qabot_eval_results.json",
                 # Append the run ID and the parent run ID to the table
                 extra_columns=["run_id", "parent_run_id"],
             )
@@ -1589,19 +1589,16 @@ class MlflowClient:
         subset_tag_value = json.dumps({"path": artifact_file, "type": "table"})
 
         # Build the filter string
-        tag_query = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
-        run_query = ""
-        if run_ids is not None:
-            list_run_ids = ",".join(run_ids)
-            run_query = f" and attributes.run_id IN ('{list_run_ids}')"
+        filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
+        if run_ids:
+            list_run_ids = ",".join(map(repr, run_ids))
+            filter_string += f" and attributes.run_id IN ({list_run_ids})"
 
-        filter_string = tag_query + run_query
         runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
-        if run_ids is not None and len(run_ids) != len(runs):
+        if run_ids and len(run_ids) != len(runs):
             _logger.warning(
                 "Not all runs have the specified table artifact. Some runs will be skipped."
             )
-        data = pd.DataFrame()
 
         # TODO: Add parallelism support here
         def get_artifact_data(run):
@@ -1629,10 +1626,11 @@ class MlflowClient:
 
             return existing_predictions
 
-        for _, run in runs.iterrows():
-            data = pd.concat([get_artifact_data(run), data], ignore_index=True)
-
-        return data
+        return (
+            pd.concat([get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True)
+            if not runs.empty
+            else pd.DataFrame()
+        )
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

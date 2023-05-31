@@ -1084,7 +1084,7 @@ def load_table(
     are not in the table but are augmented with run information and added to the DataFrame.
 
     :param artifact_file: The run-relative artifact file path in posixpath format to which
-                          the table is saved (e.g. "dir/file.json").
+                          table to load (e.g. "dir/file.json").
     :param run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
                     the table is loaded from all runs in the current experiment.
     :param extra_columns: Optional list of extra columns to add to the returned DataFrame
@@ -1099,7 +1099,7 @@ def load_table(
         import mlflow
 
         loaded_table = mlflow.load_table(
-            artifact_file="qabot_eval_results.csv",
+            artifact_file="qabot_eval_results.json",
             run_ids=[
                 "68f0c4aed0b74fc7bff23d6c3be74fed",
                 "da1f56b292254a81858410606618d61c",
@@ -1116,7 +1116,7 @@ def load_table(
         import mlflow
 
         loaded_table = mlflow.load_table(
-            "qabot_eval_results.csv",
+            "qabot_eval_results.json",
             # Append the run ID and the parent run ID to the table
             extra_columns=["run_id", "parent_run_id"],
         )
