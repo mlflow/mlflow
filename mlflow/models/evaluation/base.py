@@ -39,13 +39,23 @@ _logger = logging.getLogger(__name__)
 class _ModelType:
     REGRESSOR = "regressor"
     CLASSIFIER = "classifier"
+    QUESTION_ANSWERING = "question-answering"
+    TEXT_SUMMARIZATION = "text-summarization"
+    TEXT = "text"
+    # TODO: Add 'retrieval' model type
 
     def __init__(self):
         raise NotImplementedError("This class is not meant to be instantiated.")
 
     @classmethod
     def values(cls):
-        return (cls.REGRESSOR, cls.CLASSIFIER)
+        return (
+            cls.REGRESSOR,
+            cls.CLASSIFIER,
+            cls.QUESTION_ANSWERING,
+            cls.TEXT_SUMMARIZATION,
+            cls.TEXT,
+        )
 
 
 class EvaluationMetric:
@@ -409,6 +419,8 @@ class EvaluationDataset:
         self._supported_dataframe_types = (pd.DataFrame,)
         self._spark_df_type = None
         self._labels_data = None
+        self._targets_name = None
+        self._has_targets = False
 
         try:
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
@@ -428,6 +440,8 @@ class EvaluationDataset:
             )
 
         has_targets = targets is not None
+        if has_targets:
+            self._has_targets = True
         if isinstance(data, (np.ndarray, list)):
             if has_targets and not isinstance(targets, (np.ndarray, list)):
                 raise MlflowException(
@@ -505,6 +519,7 @@ class EvaluationDataset:
 
             if has_targets:
                 self._labels_data = data[targets].to_numpy()
+                self._targets_name = targets
 
             if feature_names is not None:
                 self._features_data = data[list(feature_names)]
@@ -512,6 +527,8 @@ class EvaluationDataset:
             else:
                 if has_targets:
                     self._features_data = data.drop(targets, axis=1, inplace=False)
+                else:
+                    self._features_data = data
                 self._feature_names = [
                     generate_feature_name_if_not_string(c) for c in self._features_data.columns
                 ]
@@ -548,6 +565,20 @@ class EvaluationDataset:
         return labels data as a numpy array
         """
         return self._labels_data
+
+    @property
+    def has_targets(self):
+        """
+        Returns True if the dataset has targets, False otherwise.
+        """
+        return self._has_targets
+
+    @property
+    def targets_name(self):
+        """
+        return targets name
+        """
+        return self._targets_name
 
     @property
     def name(self):
@@ -1045,6 +1076,32 @@ def evaluate(
           true_negatives/false_positives/false_negatives/true_positives/recall/precision/roc_auc,
           precision_recall_auc), precision-recall merged curves plot, ROC merged curves plot.
 
+     - For question-answering models, the default evaluator logs:
+        - **metrics**: ``exact_match``.
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in tabular format.
+
+     - For text-summarization models, the default evaluator logs:
+        - **metrics**: `ROUGE`_ (requires `evaluate`_, `nltk`_, and `rouge_score` to be installed).
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in the tabular format.
+
+        .. _ROUGE:
+            https://huggingface.co/spaces/evaluate-metric/rouge
+
+        .. _evaluate:
+            https://pypi.org/project/evaluate
+
+        .. _nltk:
+            https://pypi.org/project/nltk
+
+        .. _rouge_score:
+            https://pypi.org/project/rouge-score
+
+     - For text models, the default evaluator logs:
+        - **artifacts**: A JSON file containing the inputs, outputs, and targets (if the ``targets``
+          argument is supplied) of the model in tabular format.
+
      - For sklearn models, the default evaluator additionally logs the model's evaluation criterion
        (e.g. mean accuracy for a classifier) computed by `model.score` method.
 
@@ -1135,10 +1192,21 @@ def evaluate(
 
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
-                    that contains evaluation labels.
+                    that contains evaluation labels. Required for classifier and regressor models,
+                    but optional for question-answering, text-summarization, and text models.
 
     :param model_type: A string describing the model type. The default evaluator
-                       supports ``"regressor"`` and ``"classifier"`` as model types.
+                       supports the following model types:
+
+                       - ``'classifier'``
+                       - ``'regressor'``
+                       - ``'question-answering'``
+                       - ``'text-summarization'``
+                       - ``'text'``
+
+                       .. note::
+                            ``'question-answering'``, ``'text-summarization'``, and ``'text'``
+                            are experimental and may be changed or removed in a future release.
 
     :param dataset_path: (Optional) The path where the data is stored. Must not contain double
                          quotes (``“``). If specified, the path is logged to the ``mlflow.datasets``
