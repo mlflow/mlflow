@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import {
   getExtension,
@@ -78,7 +85,13 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path} />;
+          return (
+            <ShowArtifactTextView
+              runUuid={this.props.runUuid}
+              path={this.props.path}
+              size={this.props.size}
+            />
+          );
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {

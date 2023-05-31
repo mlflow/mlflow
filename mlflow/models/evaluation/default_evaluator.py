@@ -821,7 +821,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.roc_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="roc",
@@ -832,7 +832,7 @@ class DefaultEvaluator(ModelEvaluator):
             self.pr_curve = _gen_classifier_curve(
                 is_binomial=True,
                 y=self.y,
-                y_probs=self.y_prob,
+                y_probs=self.y_probs[:, 1],
                 labels=self.label_list,
                 pos_label=self.pos_label,
                 curve_type="pr",
@@ -994,12 +994,10 @@ class DefaultEvaluator(ModelEvaluator):
         artifact._load(artifact_file_local_path)
         return artifact
 
-    def _evaluate_custom_metrics_and_log_produced_artifacts(self, log_to_mlflow_tracking=True):
-        if not self.custom_metrics and not self.custom_artifacts:
+    def _evaluate_custom_metrics(self, eval_df):
+        if not self.custom_metrics:
             return
-        builtin_metrics = copy.deepcopy(self.metrics)
-        eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
-        for index, custom_metric in enumerate(self.custom_metrics or []):
+        for index, custom_metric in enumerate(self.custom_metrics):
             # deepcopying eval_df and builtin_metrics for each custom metric function call,
             # in case the user modifies them inside their function(s).
             custom_metric_tuple = _CustomMetric(
@@ -1010,13 +1008,16 @@ class DefaultEvaluator(ModelEvaluator):
             metric_result = _evaluate_custom_metric(
                 custom_metric_tuple,
                 eval_df.copy(),
-                copy.deepcopy(builtin_metrics),
+                copy.deepcopy(self.metrics),
             )
             self.metrics.update({custom_metric.name: metric_result})
 
-        for index, custom_artifact in enumerate(self.custom_artifacts or []):
+    def _log_custom_artifacts(self, eval_df):
+        if not self.custom_artifacts:
+            return
+        for index, custom_artifact in enumerate(self.custom_artifacts):
             with tempfile.TemporaryDirectory() as artifacts_dir:
-                # deepcopying eval_df and builtin_metrics for each custom metric function call,
+                # deepcopying eval_df and builtin_metrics for each custom artifact function call,
                 # in case the user modifies them inside their function(s).
                 custom_artifact_tuple = _CustomArtifact(
                     function=custom_artifact,
@@ -1027,15 +1028,14 @@ class DefaultEvaluator(ModelEvaluator):
                 artifact_results = _evaluate_custom_artifacts(
                     custom_artifact_tuple,
                     eval_df.copy(),
-                    copy.deepcopy(builtin_metrics),
+                    copy.deepcopy(self.metrics),
                 )
-                if artifact_results is not None and log_to_mlflow_tracking:
-                    for artifact_name, raw_artifact in artifact_results.items():
-                        self.artifacts[artifact_name] = self._log_custom_metric_artifact(
-                            artifact_name,
-                            raw_artifact,
-                            custom_artifact_tuple,
-                        )
+                for artifact_name, raw_artifact in artifact_results.items():
+                    self.artifacts[artifact_name] = self._log_custom_metric_artifact(
+                        artifact_name,
+                        raw_artifact,
+                        custom_artifact_tuple,
+                    )
 
     def _log_confusion_matrix(self):
         """
@@ -1105,13 +1105,8 @@ class DefaultEvaluator(ModelEvaluator):
 
             if self.predict_proba_fn is not None:
                 self.y_probs = self.predict_proba_fn(self.X.copy_to_avoid_mutation())
-                if self.is_binomial:
-                    self.y_prob = self.y_probs[:, 1]
-                else:
-                    self.y_prob = None
             else:
                 self.y_probs = None
-                self.y_prob = None
         elif self.model_type == _ModelType.REGRESSOR:
             self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
 
@@ -1148,7 +1143,7 @@ class DefaultEvaluator(ModelEvaluator):
         elif self.model_type == _ModelType.REGRESSOR:
             self.metrics.update(_get_regressor_metrics(self.y, self.y_pred, self.sample_weights))
 
-    def _log_metrics_and_artifacts(self):
+    def _log_artifacts(self):
         """
         Helper method for generating artifacts, logging metrics and artifacts.
         """
@@ -1158,7 +1153,6 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self._log_multiclass_classifier_artifacts()
             self._log_confusion_matrix()
-        self._log_metrics()
         self._log_model_explainability()
 
     def _evaluate(
@@ -1191,17 +1185,15 @@ class DefaultEvaluator(ModelEvaluator):
             with mlflow.utils.autologging_utils.disable_autologging():
                 self._generate_model_predictions()
                 self._compute_builtin_metrics()
-                self._evaluate_custom_metrics_and_log_produced_artifacts(
-                    log_to_mlflow_tracking=not is_baseline_model
-                )
-                metric_prefix = self.evaluator_config.get("metric_prefix")
-                if metric_prefix is not None:
-                    self.metrics = {
-                        f"{metric_prefix}{metric_key}": metric_value
-                        for metric_key, metric_value in self.metrics.items()
-                    }
+                eval_df = pd.DataFrame({"prediction": copy.deepcopy(self.y_pred), "target": self.y})
+                self._evaluate_custom_metrics(eval_df)
                 if not is_baseline_model:
-                    self._log_metrics_and_artifacts()
+                    self._log_custom_artifacts(eval_df)
+                if prefix := self.evaluator_config.get("metric_prefix"):
+                    self.metrics = {f"{prefix}{k}": v for k, v in self.metrics.items()}
+                if not is_baseline_model:
+                    self._log_artifacts()
+                    self._log_metrics()
                 return EvaluationResult(metrics=self.metrics, artifacts=self.artifacts)
 
     def evaluate(

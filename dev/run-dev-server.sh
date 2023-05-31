@@ -30,6 +30,6 @@ if [ ! -d "mlflow/server/js/node_modules" ]; then
   popd
 fi
 
-mlflow server $backend_store_uri $default_artifact_root --gunicorn-opts="--log-level debug --reload" &
+mlflow server $backend_store_uri $default_artifact_root --dev &
 wait_server_ready localhost:5000/health
 yarn --cwd mlflow/server/js start

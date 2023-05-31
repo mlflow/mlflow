@@ -1,10 +1,17 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import { CompareModelVersionsView, CompareModelVersionsViewImpl } from './CompareModelVersionsView';
 import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import configureStore from 'redux-mock-store';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { RunInfo } from '../../experiment-tracking/sdk/MlflowMessages';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 
@@ -71,9 +78,9 @@ describe('unconnected tests', () => {
   test('unconnected should render with minimal props without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...minimumProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.length).toBe(1);
@@ -81,9 +88,9 @@ describe('unconnected tests', () => {
   test('check that the component renders correctly with common props', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...commonProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     // Checking the breadcrumb renders correctly
@@ -160,9 +167,9 @@ describe('connected tests', () => {
   test('connected should render with minimal props and minimal store without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...minimumProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(CompareModelVersionsView).length).toBe(1);
@@ -170,9 +177,9 @@ describe('connected tests', () => {
   test('connected should render with minimal props and common store correctly', () => {
     wrapper = mountWithIntl(
       <Provider store={commonStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...minimumProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(CompareModelVersionsView).length).toBe(1);
@@ -190,9 +197,9 @@ describe('connected tests', () => {
     };
     wrapper = mountWithIntl(
       <Provider store={commonStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...testProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(CompareModelVersionsView).length).toBe(1);
@@ -206,9 +213,9 @@ describe('connected tests', () => {
   test('inputsList and outputsList props contains correct columns', () => {
     wrapper = mountWithIntl(
       <Provider store={commonStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsView {...minimumProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     const props = wrapper.find(CompareModelVersionsViewImpl).props();

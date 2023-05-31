@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { connect } from 'react-redux';
 import Utils from '../../common/utils/Utils';
@@ -14,13 +21,14 @@ import {
 } from './MetricsPlotControls';
 import MetricsSummaryTable from './MetricsSummaryTable';
 import qs from 'qs';
-import { withRouter } from 'react-router-dom';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 import Routes from '../routes';
 import { RunLinksPopover } from './RunLinksPopover';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { saveAs } from 'file-saver';
 import { Spinner } from '@databricks/design-system';
 import { normalizeMetricsHistoryEntry } from '../utils/MetricsUtils';
+import type { Location, NavigateFunction } from 'react-router-dom-v5-compat';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -53,8 +61,8 @@ type OwnMetricsPlotPanelProps = {
   metricsWithRunInfoAndHistory: any[];
   getMetricHistoryApi: (...args: any[]) => any;
   getRunApi: (...args: any[]) => any;
-  location: any;
-  history: any;
+  location: Location;
+  navigate: NavigateFunction;
   runDisplayNames: string[];
   containsInfinities: boolean;
 };
@@ -224,7 +232,7 @@ export class MetricsPlotPanel extends React.Component<
   // Update page URL from component state. Intended to be called after React applies component
   // state updates, e.g. in a setState callback
   updateUrlState = (updatedState: any) => {
-    const { runUuids, metricKey, location, history } = this.props;
+    const { runUuids, metricKey, location, navigate } = this.props;
     // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
     const experimentIds = JSON.parse(qs.parse(location.search)['experiments']);
     const newState = {
@@ -241,7 +249,7 @@ export class MetricsPlotPanel extends React.Component<
       deselectedCurves,
       lastLinearYAxisRange,
     } = newState;
-    history.replace(
+    navigate(
       Routes.getMetricPageRoute(
         runUuids,
         metricKey,
@@ -255,6 +263,9 @@ export class MetricsPlotPanel extends React.Component<
         deselectedCurves,
         lastLinearYAxisRange,
       ),
+      {
+        replace: true,
+      },
     );
   };
 
@@ -803,6 +814,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
 
 const mapDispatchToProps = { getMetricHistoryApi, getRunApi };
 
-export default withRouter(
-  connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel),
-) as TODOBrokenReactRouterType;
+export default withRouterNext(connect(mapStateToProps, mapDispatchToProps)(MetricsPlotPanel));

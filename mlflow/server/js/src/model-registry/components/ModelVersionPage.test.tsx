@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
@@ -6,7 +13,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { ModelVersionPage, ModelVersionPageImpl } from './ModelVersionPage';
 import { ErrorView } from '../../common/components/ErrorView';
 import { Spinner } from '../../common/components/Spinner';
@@ -28,6 +35,7 @@ describe('ModelVersionPage', () => {
   let minimalStoreState: any;
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
+  const navigate = jest.fn();
   beforeEach(() => {
     // Simple mock of getUUID
     let counter = 0;
@@ -38,15 +46,11 @@ describe('ModelVersionPage', () => {
       Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
     );
     minimalProps = {
-      match: {
-        params: {
-          modelName: encodeURIComponent('Model A'),
-          version: '1',
-        },
+      params: {
+        modelName: encodeURIComponent('Model A'),
+        version: '1',
       },
-      history: {
-        push: jest.fn(),
-      },
+      navigate,
     };
     const versions = [
       mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
@@ -81,9 +85,9 @@ describe('ModelVersionPage', () => {
   test('should render with minimal props and store without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelVersionPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(ModelVersionPage).length).toBe(1);
@@ -92,36 +96,33 @@ describe('ModelVersionPage', () => {
   test('should fetch new data when props are updated after mount', () => {
     // eslint-disable-next-line no-unused-vars
     const endpoint = 'ajax-api/2.0/mlflow/model-versions/get';
-    const TestComponent = ({ match = minimalProps.match }) => (
+    const TestComponent = ({ params = minimalProps.params }) => (
       <Provider store={minimalStore}>
-        <BrowserRouter>
-          <ModelVersionPage {...minimalProps} match={match} />
-        </BrowserRouter>
+        <MemoryRouter>
+          <ModelVersionPage {...minimalProps} params={params} />
+        </MemoryRouter>
       </Provider>
     );
     // Initial mount
     wrapper = mount(<TestComponent />);
     // Assert first (original) call for model version
     expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=1', expect.anything());
-    // Update the mocked match object with new params
+    // Update the mocked params object with new params
     wrapper.setProps({
-      match: {
-        ...minimalProps.match,
-        params: {
-          ...minimalProps.match.params,
-          version: '5',
-        },
+      params: {
+        ...minimalProps.params,
+        version: '5',
       },
     });
     // Assert second call for model version
     expect(global.fetch).toBeCalledWith(endpoint + '?name=Model+A&version=5', expect.anything());
   });
-  test('should redirect to model page when model version is deleted', () => {
+  test('should redirect to model page when model version is deleted', async () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelVersionPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelVersionPageImpl).instance();
@@ -133,9 +134,8 @@ describe('ModelVersionPage', () => {
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn(() => Promise.reject(mockError));
     expect(instance.props.modelName).toEqual('Model A');
-    return instance.pollData().then(() => {
-      expect(minimalProps.history.push).toHaveBeenCalledWith(getModelPageRoute('Model A'));
-    });
+    await instance.pollData();
+    expect(navigate).toHaveBeenCalledWith(getModelPageRoute('Model A'));
   });
   test('should show ErrorView when resource is not found', () => {
     (getUUID as any).mockImplementation(() => 'resource_not_found_error');
@@ -152,9 +152,9 @@ describe('ModelVersionPage', () => {
     });
     wrapper = mountWithIntl(
       <Provider store={myStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelVersionPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(ErrorView).length).toBe(1);
@@ -180,9 +180,9 @@ describe('ModelVersionPage', () => {
     });
     wrapper = mountWithIntl(
       <Provider store={myStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelVersionPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(ErrorView).length).toBe(1);

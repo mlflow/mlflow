@@ -5,8 +5,9 @@ import subprocess
 import posixpath
 import sys
 import warnings
+import ctypes
+import signal
 from pathlib import Path
-
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
@@ -169,7 +170,7 @@ class PyFuncBackend(FlavorBackend):
         synchronous=True,
         stdout=None,
         stderr=None,
-    ):  # pylint: disable=W0221
+    ):
         """
         Serve pyfunc model locally.
         """
@@ -201,9 +202,6 @@ class PyFuncBackend(FlavorBackend):
                 prctl is the only way to capture SIGKILL signal.
                 """
                 try:
-                    import ctypes
-                    import signal
-
                     libc = ctypes.CDLL("libc.so.6")
                     # Set the parent process death signal of the command process to SIGTERM.
                     libc.prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG, see prctl.h

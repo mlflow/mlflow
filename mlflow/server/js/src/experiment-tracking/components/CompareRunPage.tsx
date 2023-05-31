@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import qs from 'qs';
 import { connect } from 'react-redux';
@@ -6,6 +13,8 @@ import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { PageContainer } from '../../common/components/PageContainer';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
 type CompareRunPageProps = {
   experimentIds: string[];
@@ -52,7 +61,7 @@ class CompareRunPage extends Component<CompareRunPageProps> {
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
+const mapStateToProps = (state: any, ownProps: WithRouterNextProps) => {
   const { location } = ownProps;
   const searchValues = qs.parse(location.search);
   // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
@@ -62,4 +71,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
   return { experimentIds, runUuids };
 };
 
-export default connect(mapStateToProps)(CompareRunPage);
+export default withRouterNext(connect(mapStateToProps)(CompareRunPage));

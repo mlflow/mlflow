@@ -3,14 +3,18 @@ import mlflow
 import pytest
 import transformers
 import json
+import importlib
 
+import openai
 from contextlib import contextmanager
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-from langchain.llms import OpenAI
-from langchain.llms import HuggingFacePipeline
-from langchain.llms.base import LLM
+from langchain.chains import ConversationChain, LLMChain
 from langchain.chains.base import Chain
+from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.evaluation.qa import QAEvalChain
+from langchain.llms import HuggingFacePipeline, OpenAI
+from langchain.llms.base import LLM
+from langchain.memory import ConversationBufferMemory
+from langchain.prompts import PromptTemplate
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -38,6 +42,18 @@ def model_path(tmp_path):
 def spark():
     with SparkSession.builder.master("local[*]").getOrCreate() as s:
         yield s
+
+
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_OPENAI_TESTING": "true",
+            "OPENAI_API_KEY": "test",
+            "SERPAPI_API_KEY": "test",
+        }
+    )
+    importlib.reload(openai)
 
 
 def create_huggingface_model(model_path):
@@ -69,6 +85,16 @@ def create_openai_llmchain():
     return LLMChain(llm=llm, prompt=prompt)
 
 
+def create_qa_eval_chain():
+    llm = OpenAI(temperature=0)
+    return QAEvalChain.from_llm(llm)
+
+
+def create_qa_with_sources_chain():
+    # StuffDocumentsChain
+    return load_qa_with_sources_chain(OpenAI(temperature=0), chain_type="stuff")
+
+
 def create_openai_llmagent():
     from langchain.agents import load_tools
     from langchain.agents import initialize_agent
@@ -82,18 +108,6 @@ def create_openai_llmagent():
 
     # Finally, let's initialize an agent with the tools.
     return initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose=True)
-
-
-def create_model(llm_type, model_path=None):
-    if llm_type == "openai":
-        return create_openai_llmchain()
-    if llm_type == "huggingfacehub":
-        return create_huggingface_model(model_path)
-    if llm_type == "openaiagent":
-        return create_openai_llmagent()
-    if llm_type == "fake":
-        return FakeLLM()
-    raise NotImplementedError("This model is not supported yet.")
 
 
 class FakeLLM(LLM):
@@ -147,7 +161,7 @@ class FakeChain(Chain):
 
 
 def test_langchain_native_save_and_load_model(model_path):
-    model = create_model("openai")
+    model = create_openai_llmchain()
     mlflow.langchain.save_model(model, model_path)
 
     loaded_model = mlflow.langchain.load_model(model_path)
@@ -158,7 +172,7 @@ def test_langchain_native_save_and_load_model(model_path):
 
 
 def test_langchain_native_log_and_load_model():
-    model = create_model("openai")
+    model = create_openai_llmchain()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
@@ -175,7 +189,7 @@ def test_langchain_native_log_and_load_model():
 
 
 def test_pyfunc_load_openai_model():
-    model = create_model("openai")
+    model = create_openai_llmchain()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
@@ -187,7 +201,7 @@ def test_pyfunc_load_openai_model():
 
 def test_langchain_model_predict():
     with _mock_request(return_value=_mock_chat_completion_response()):
-        model = create_model("openai")
+        model = create_openai_llmchain()
         with mlflow.start_run():
             logged_model = mlflow.langchain.log_model(model, "langchain_model")
         loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
@@ -196,7 +210,7 @@ def test_langchain_model_predict():
 
 
 def test_pyfunc_spark_udf_with_langchain_model(spark):
-    model = create_model("openai")
+    model = create_openai_llmchain()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.spark_udf(spark, logged_model.model_uri, result_type="string")
@@ -207,7 +221,7 @@ def test_pyfunc_spark_udf_with_langchain_model(spark):
 
 
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
-    model = create_model("huggingfacehub", model_path)
+    model = create_huggingface_model(model_path)
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
 
@@ -237,7 +251,7 @@ def test_langchain_agent_model_predict():
         ],
         "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
     }
-    model = create_model("openaiagent")
+    model = create_openai_llmagent()
     with mlflow.start_run():
         logged_model = mlflow.langchain.log_model(model, "langchain_model")
     loaded_model = mlflow.pyfunc.load_model(logged_model.model_uri)
@@ -268,11 +282,52 @@ def test_langchain_agent_model_predict():
         )
 
 
-def test_unsupported_chain_types():
-    chain = FakeChain()
+def test_langchain_native_log_and_load_qaevalchain():
+    # QAEvalChain is a subclass of LLMChain
+    model = create_qa_eval_chain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert model == loaded_model
+
+
+def test_langchain_native_log_and_load_qa_with_sources_chain():
+    # StuffDocumentsChain is a subclass of Chain
+    model = create_qa_with_sources_chain()
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(model, "langchain_model")
+
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert model == loaded_model
+
+
+def test_saving_not_implemented_for_memory():
+    conversation = ConversationChain(llm=OpenAI(temperature=0), memory=ConversationBufferMemory())
     with pytest.raises(
-        MlflowException,
-        match="MLflow langchain flavor only supports logging langchain.chains.llm.LLMChain",
+        ValueError,
+        match="Saving of memory is not yet supported.",
     ):
         with mlflow.start_run():
-            mlflow.langchain.log_model(chain, "fake_chain_model")
+            mlflow.langchain.log_model(conversation, "conversation_model")
+
+
+def test_saving_not_implemented_chain_type():
+    chain = FakeChain()
+    with pytest.raises(
+        NotImplementedError,
+        match="Saving not supported for this chain type",
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(chain, "fake_chain")
+
+
+def test_unsupported_class():
+    llm = FakeLLM()
+    with pytest.raises(
+        MlflowException,
+        match="MLflow langchain flavor only supports logging subclasses of "
+        + "langchain.chains.base.Chain",
+    ):
+        with mlflow.start_run():
+            mlflow.langchain.log_model(llm, "fake_llm")

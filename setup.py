@@ -12,10 +12,14 @@ version = (
 
 # Get a list of all files in the directory to include in our module
 def package_files(directory):
+    """
+    Recursively collects file paths within a directory relative to the mlflow directory.
+    """
+    mlflow_dir = os.path.abspath("mlflow")
     paths = []
-    for path, _, filenames in os.walk(directory):
+    for root, _, filenames in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.join("..", path, filename))
+            paths.append(os.path.relpath(os.path.join(root, filename), mlflow_dir))
     return paths
 
 
@@ -29,16 +33,17 @@ def remove_comments_and_empty_lines(lines):
 
 
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
-# to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
+# to include in the wheel, e.g. "server/js/build/index.html"
 js_files = package_files("mlflow/server/js/build")
 models_container_server_files = package_files("mlflow/models/container")
 alembic_files = [
-    "../mlflow/store/db_migrations/alembic.ini",
-    "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
+    "store/db_migrations/alembic.ini",
+    "temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
 extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
+    "server/auth/basic_auth.ini",
 ]
 recipes_template_files = package_files("mlflow/recipes/resources")
 recipes_files = package_files("mlflow/recipes/cards/templates")

@@ -36,6 +36,7 @@ const mockGridApi = {
   showLoadingOverlay: jest.fn(),
   hideOverlay: jest.fn(),
   setRowData: jest.fn(),
+  resetRowHeights: jest.fn(),
 };
 
 jest.mock('../../../../../common/components/ag-grid/AgGridLoader', () => {
@@ -96,6 +97,7 @@ describe('ExperimentViewRunsTable', () => {
     updateSearchFacets() {},
     updateViewState() {},
     loadMoreRunsFunc: jest.fn(),
+    expandRows: false,
   };
   const createWrapper = (additionalProps: Partial<ExperimentViewRunsTableProps> = {}) =>
     mount(<ExperimentViewRunsTable {...defaultProps} {...additionalProps} />);

@@ -11,24 +11,24 @@ MLflow is a versatile, expandable, open-source platform for managing workflows a
 
 MLflow has five components:
 
-- `MLflow Tracking <https://www.mlflow.org/docs/latest/tracking.html>`_: An API for logging parameters, code versions, metrics, model environment dependencies, and model artifacts when running your machine learning code. MLflow Tracking has a UI for reviewing and comparing runs and their results. This image from the MLflow Tracking UI shows a chart linking metrics (learning rate and momentum) to a loss metric:
+- :ref:`MLflow Tracking <tracking>`: An API for logging parameters, code versions, metrics, model environment dependencies, and model artifacts when running your machine learning code. MLflow Tracking has a UI for reviewing and comparing runs and their results. This image from the MLflow Tracking UI shows a chart linking metrics (learning rate and momentum) to a loss metric:
 
 .. figure:: _static/images/what-is-mlflow/tracking-chart.png
     :width: 100%
     :alt: Screenshot of the MLflow Tracking Chart view, showing a number of runs and a comparison of their parameters and metrics.
 
-- `MLflow Models <models>`_: A model packaging format and suite of tools that let you easily deploy a trained model (from any ML library) for batch or real-time inference on platforms such as Docker, Apache Spark, Databricks, Azure ML and AWS SageMaker. This image shows MLflow Tracking UI's view of a run's detail and its MLflow model. You can see that the artifacts in the **model** directory include the model weights, files describing the model's environment and dependencies, and sample code for loading the model and inferencing with it:
+- :ref:`MLflow Models <models>`: A model packaging format and suite of tools that let you easily deploy a trained model (from any ML library) for batch or real-time inference on platforms such as Docker, Apache Spark, Databricks, Azure ML and AWS SageMaker. This image shows MLflow Tracking UI's view of a run's detail and its MLflow model. You can see that the artifacts in the **model** directory include the model weights, files describing the model's environment and dependencies, and sample code for loading the model and inferencing with it:
 
 .. figure:: _static/images/what-is-mlflow/model-details.png
     :width: 100%
     :alt: Screenshot of the MLflow Tracking run details page, showing the MLflow Model artifacts.
 
 
-- `MLflow Model Registry <registry>`_: A centralized model store, set of APIs, and UI focused on the approval, quality assurance, and deployment of an MLflow Model.
+- :ref:`MLflow Model Registry <registry>`: A centralized model store, set of APIs, and UI focused on the approval, quality assurance, and deployment of an MLflow Model.
 
-- `MLflow Projects <projects>`_: A standard format for packaging reusable data science code that can be run with different parameters to train models, visualize data, or perform any other data science task.
+- :ref:`MLflow Projects <projects>`: A standard format for packaging reusable data science code that can be run with different parameters to train models, visualize data, or perform any other data science task.
 
-- `MLflow Recipes <recipes>`_: Predefined templates for developing high-quality models for a variety of common tasks, including classification and regression.
+- :ref:`MLflow Recipes <recipes>`: Predefined templates for developing high-quality models for a variety of common tasks, including classification and regression.
 
 What is MLflow used for?
 ------------------------

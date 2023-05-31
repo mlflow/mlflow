@@ -32,7 +32,6 @@ ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
-STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 IS_FLASK_V1 = Version(flask_version) < Version("2.0")
 
 
@@ -84,16 +83,16 @@ def serve_get_metric_history_bulk():
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
     if IS_FLASK_V1:
-        return send_from_directory(STATIC_DIR, path, cache_timeout=2419200)
+        return send_from_directory(app.static_folder, path, cache_timeout=2419200)
     else:
-        return send_from_directory(STATIC_DIR, path, max_age=2419200)
+        return send_from_directory(app.static_folder, path, max_age=2419200)
 
 
 # Serve the index.html for the React App for all other routes.
 @app.route(_add_static_prefix("/"))
 def serve():
-    if os.path.exists(os.path.join(STATIC_DIR, "index.html")):
-        return send_from_directory(STATIC_DIR, "index.html")
+    if os.path.exists(os.path.join(app.static_folder, "index.html")):
+        return send_from_directory(app.static_folder, "index.html")
 
     text = textwrap.dedent(
         """

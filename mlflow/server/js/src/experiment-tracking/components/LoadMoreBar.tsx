@@ -1,4 +1,11 @@
 /**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
+/**
  "Load more" bar for user to click and load more runs. This row is currently built
  outside of the Table component as we are following a minimum-invasive way of building
  this feature to avoid massive refactor on current implementation. Ideally, this row

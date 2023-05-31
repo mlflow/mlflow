@@ -12,6 +12,7 @@ import logging
 import os
 import yaml
 import warnings
+import atexit
 
 import numpy as np
 import pandas as pd
@@ -1069,8 +1070,6 @@ def autolog(
 
         PyTorch autologged MLflow entities
     """
-    import atexit
-
     try:
         import pytorch_lightning as pl
     except ImportError:
