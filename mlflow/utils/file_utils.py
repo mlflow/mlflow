@@ -688,6 +688,7 @@ def parallelized_download_file_using_http_uri(
             total=file_size,
             unit="iB",
             unit_scale=True,
+            unit_divisor=1024,
             leave=False,
         )
         with pbar:
@@ -699,7 +700,6 @@ def parallelized_download_file_using_http_uri(
                         failed_downloads[index] = result
                     else:
                         pbar.update(chunk_size)
-                        pbar.refresh()
 
                 except Exception as e:
                     failed_downloads[index] = {
@@ -708,7 +708,6 @@ def parallelized_download_file_using_http_uri(
                     }
             if not failed_downloads:
                 pbar.update(file_size - len(futures) * chunk_size)
-                pbar.refresh()
 
     return failed_downloads
 

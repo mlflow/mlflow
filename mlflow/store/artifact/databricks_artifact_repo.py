@@ -95,7 +95,8 @@ def _complete_futures(futures_dict, file):
         total=file_size,
         unit="iB",
         unit_scale=True,
-        desc=f"Uploading file {file.name}",
+        unit_divisor=1024,
+        desc=f"Uploading file {file}",
         leave=False,
     )
     with pbar:
@@ -104,12 +105,10 @@ def _complete_futures(futures_dict, file):
             try:
                 results[key] = future.result()
                 pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
-                pbar.refresh()
             except Exception as e:
                 errors[key] = repr(e)
         if not errors:
             pbar.update(file_size - _MULTIPART_UPLOAD_CHUNK_SIZE * len(futures_dict))
-            pbar.refresh()
 
     return results, errors
 
