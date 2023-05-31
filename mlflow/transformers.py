@@ -1692,7 +1692,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-        elif isinstance(
+
+        if isinstance(
             self.pipeline,
             (
                 transformers.AutomaticSpeechRecognitionPipeline,
@@ -1710,6 +1711,7 @@ class _TransformersWrapper:
                         "been saved with a signature that defines a string input type.",
                         error_code=INVALID_PARAMETER_VALUE,
                     ) from e
+                raise
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:
