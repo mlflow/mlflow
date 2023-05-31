@@ -11,11 +11,12 @@ def sleep(sec):
 
 def test_complete_futures():
     with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = [
-            executor.submit(sleep, 0.0),
-            executor.submit(sleep, 0.2),
-            executor.submit(sleep, 0.1),
-        ]
+        futures = {
+            executor.submit(sleep, 0.0): 0,
+            executor.submit(sleep, 0.2): 1,
+            executor.submit(sleep, 0.1): 2,
+        }
+
         results = list(complete_futures(futures))
         assert [r.value for r in results] == [0.0, 0.1, 0.2]
         assert [r.value for r in sorted(results)] == [0.0, 0.2, 0.1]
@@ -28,10 +29,10 @@ def throw():
 
 def test_complete_futures_error():
     with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [
-            executor.submit(throw),
-            executor.submit(sleep, 0.1),
-        ]
+        futures = {
+            executor.submit(throw): 0,
+            executor.submit(sleep, 0.1): 1,
+        }
         results = complete_futures(futures)
         first = next(results)
         assert first.is_err()

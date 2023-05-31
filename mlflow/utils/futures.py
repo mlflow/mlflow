@@ -35,14 +35,14 @@ def complete_futures(futures):
     Completes the specified futures, yielding a `SortableResult` for each future as it completes.
     Note that this function returns a generator and does not preserve ordering of results.
 
-    :param futures: A list of futures to complete.
+    :param futures: A dict of futures to complete.
     :return: An iterator over `SortableResult` objects.
     """
     for fut in as_completed(futures):
-        index = futures.index(fut)
+        key = futures[fut]
         try:
             result = fut.result()
         except Exception as e:
-            yield SortableResult.error(key=index, err=e)
+            yield SortableResult.error(key=key, err=e)
         else:
-            yield SortableResult.ok(key=index, value=result)
+            yield SortableResult.ok(key=key, value=result)

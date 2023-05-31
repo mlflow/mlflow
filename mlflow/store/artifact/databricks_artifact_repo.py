@@ -250,7 +250,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            futures = []
+            futures = {}
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -264,7 +264,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
                     index=index,
                 )
-                futures.append(future)
+                futures[future] = index
 
             results = sorted(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
@@ -327,7 +327,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
 
             # next try to append the file
-            futures = []
+            futures = {}
             file_size = os.path.getsize(local_file)
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             use_single_part_upload = num_chunks == 1
@@ -345,7 +345,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     headers=headers,
                     is_single=use_single_part_upload,
                 )
-                futures.append(future)
+                futures[future] = index
 
             results = sorted(complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
@@ -546,7 +546,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             return self._upload_part(resp.upload_credential_info, data)
 
     def _upload_parts(self, local_file, create_mpu_resp):
-        futures = []
+        futures = {}
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
             start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -559,7 +559,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 start_byte=start_byte,
                 size=_MULTIPART_UPLOAD_CHUNK_SIZE,
             )
-            futures.append(future)
+            futures[future] = part_number
 
         results = sorted(complete_futures(futures))
         if errors := [repr(r.err) for r in results if r.is_err()]:
