@@ -2527,8 +2527,8 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
 
-    In the current version, text-based large language
-    models are supported for use with ``pyfunc``, while computer vision, audio, multi-modal, timeseries,
+    In the current version, audio and text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
     reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
 
     Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
@@ -2551,20 +2551,20 @@ Supported transformers Pipeline types for Pyfunc
 ================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
 ================================= ============================== ==========================================================================
-Instructional Text Generation     str or List[str]               str or List[str]
-Conversational                    str or List[str]               str or List[str]
-Summarization                     str or List[str]               str or List[str]
+Instructional Text Generation     str or List[str]               List[str]
+Conversational                    str or List[str]               List[str]
+Summarization                     str or List[str]               List[str]
 Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
-Text Generation                   str or List[str]               str or List[str]
-Text2Text Generation              str or List[str]               str or List[str]
-Token Classification              str or List[str]               str or List[str]
-Translation                       str or List[str]               str or List[str]
+Text Generation                   str or List[str]               List[str]
+Text2Text Generation              str or List[str]               List[str]
+Token Classification              str or List[str]               List[str]
+Translation                       str or List[str]               List[str]
 ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
-Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
-Question Answering***             Dict[str, str]***              str or List[str]
-Fill Mask****                     str or List[str]****           str or List[str]
+Table Question Answering**        Dict[str, [List[str] | str]**  List[str]
+Question Answering***             Dict[str, str]***              List[str]
+Fill Mask****                     str or List[str]****           List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes*****, str, or np.ndarray str
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray List[str]
 AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
 ================================= ============================== ==========================================================================
 
@@ -2675,7 +2675,7 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
     print(response)
 
-    # >> It's a new thing that's been around for a while.
+    # >> [It's a new thing that's been around for a while.]
 
 
 Save and Load options for transformers

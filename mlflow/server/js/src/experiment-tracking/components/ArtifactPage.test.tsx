@@ -1,9 +1,16 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { mountWithIntl, shallowWithIntl } from '../../common/utils/TestUtils';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom-v5-compat';
 import { pending } from '../../common/utils/ActionUtils';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
@@ -39,9 +46,7 @@ describe('ArtifactPage', () => {
       artifactNode: node,
       artifactRootUri: 'test_root',
       listArtifactsApi: jest.fn(() => Promise.resolve({})),
-      match: {
-        params: {},
-      },
+      params: {},
     };
     minimalStore = mockStore({
       apis: {},
@@ -248,13 +253,16 @@ describe('ArtifactPage', () => {
         ...minimalProps,
         runTags: getLoggedModelRunTag(models),
         ...(initialPath && {
-          match: {
-            params: {
-              initialSelectedArtifactPath: initialPath,
-            },
+          params: {
+            initialSelectedArtifactPath: initialPath,
           },
         }),
       };
+
+      if (initialPath) {
+        props.location = { pathname: `/artifactPath/${initialPath}` };
+      }
+
       const artifactPageWrapper = mountWithIntl(
         <Provider store={minimalStore}>
           <BrowserRouter>

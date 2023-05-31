@@ -1,6 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
-import { Redirect } from 'react-router';
+import { Navigate } from 'react-router-dom-v5-compat';
 import { PageWrapper, Skeleton } from '@databricks/design-system';
 import ExperimentListView from './ExperimentListView';
 import { getExperiments } from '../reducers/Reducers';
@@ -31,7 +38,7 @@ class HomeView extends Component<HomeViewProps> {
     if (experimentIds === undefined) {
       const firstExp = getFirstActiveExperiment(experiments);
       if (firstExp) {
-        return <Redirect to={Routes.getExperimentPageRoute(firstExp.experiment_id)} />;
+        return <Navigate to={Routes.getExperimentPageRoute(firstExp.experiment_id)} replace />;
       }
     }
 

@@ -900,7 +900,10 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
         try:
             model = model_instance.from_pretrained(pipeline_path, **accelerate_model_conf)
-        except (ValueError, TypeError, NotImplementedError):
+        except (ValueError, TypeError, NotImplementedError, ImportError):
+            # NB: ImportError is caught here in the event that `accelerate` is not installed
+            # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
+            # `device_map` is set and accelerate is not installed.
             model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
     else:
         model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
@@ -1610,7 +1613,7 @@ class _TransformersWrapper:
                     "been saved with a signature that defines a string input type.",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
-            raise e
+            raise
 
     def predict(self, data, device=None, **kwargs):
         self._override_inference_config(**kwargs)
@@ -1768,7 +1771,8 @@ class _TransformersWrapper:
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
-        return self._sanitize_output(output, data)
+        sanitized = self._sanitize_output(output, data)
+        return self._wrap_strings_as_list_if_scalar(sanitized)
 
     def _parse_raw_pipeline_input(self, data):
         """
@@ -2032,6 +2036,18 @@ class _TransformersWrapper:
             return {k: v.strip() for k, v in output.items()}
         else:
             return output
+
+    @staticmethod
+    def _wrap_strings_as_list_if_scalar(output_data):
+        """
+        Wraps single string outputs in a list to support batch processing logic in serving.
+        Scalar values are not supported for processing in batch logic as they cannot be coerced
+        to DataFrame representations.
+        """
+        if isinstance(output_data, str):
+            return [output_data]
+        else:
+            return output_data
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
         """
