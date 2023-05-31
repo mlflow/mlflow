@@ -40,19 +40,15 @@ def download_chunk(index, chunk_size, headers, download_path, http_uri):
     range_start = index * chunk_size
     range_end = range_start + chunk_size - 1
     ranged_headers = {"Range": f"bytes={range_start}-{range_end}", **headers}
-    use_stream = os.getenv("MLFLOW_USE_STREAM", "TRUE").lower() == "true"
     with cloud_storage_http_request(
-        "get", http_uri, stream=use_stream, headers=ranged_headers
+        "get", http_uri, stream=True, headers=ranged_headers
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            chunk_size = (
-                int(os.getenv("MLFLOW_ITER_CONTENT_CHUNK_SIZE", "1024")) if use_stream else None
-            )
-            for content in response.iter_content(chunk_size=chunk_size):
+            for content in response.iter_content(chunk_size=min(chunk_size // 10, 1024 * 1024)):
                 f.write(content)
 
 
