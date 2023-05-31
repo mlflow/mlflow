@@ -700,6 +700,7 @@ def parallelized_download_file_using_http_uri(
                         failed_downloads[index] = result
                     else:
                         pbar.update(min(file_size - index * chunk_size, chunk_size))
+                        pbar.refresh()
 
                 except Exception as e:
                     failed_downloads[index] = {

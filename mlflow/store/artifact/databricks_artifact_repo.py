@@ -110,6 +110,7 @@ def _complete_futures(futures_dict, file):
                         _MULTIPART_UPLOAD_CHUNK_SIZE,
                     )
                 )
+                pbar.refresh()
             except Exception as e:
                 errors[key] = repr(e)
 
