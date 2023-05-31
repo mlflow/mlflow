@@ -67,6 +67,7 @@ class User:
         return cls(
             id_=dictionary["id"],
             username=dictionary["username"],
+            password_hash="REDACTED",
             is_admin=dictionary["is_admin"],
             experiment_permissions=[
                 ExperimentPermission.from_json(p) for p in dictionary["experiment_permissions"]

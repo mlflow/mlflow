@@ -70,6 +70,99 @@ def test_get_client():
     assert isinstance(client, AuthServiceClient)
 
 
+def test_create_user(client):
+    username = random_str()
+    password = random_str()
+    user = client.create_user(username, password)
+    assert user.username == username
+    assert user.is_admin is False
+
+
+def test_get_user(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    client.create_user(username, password)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        user = client.get_user(username)
+    assert user.username == username
+
+    assert_unauthenticated(lambda: client.get_user(username))
+
+    username2 = random_str()
+    password2 = random_str()
+    client.create_user(username2, password2)
+    with User(username2, password2, monkeypatch):
+        assert_unauthorized(lambda: client.get_user(username))
+
+
+def test_update_user_password(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    client.create_user(username, password)
+
+    new_password = random_str()
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.update_user_password(username, new_password)
+
+    with User(username, password, monkeypatch):
+        assert_unauthenticated(lambda: client.get_user(username))
+
+    with User(username, new_password, monkeypatch):
+        client.get_user(username)
+
+    assert_unauthenticated(lambda: client.update_user_password(username, new_password))
+
+    username2 = random_str()
+    password2 = random_str()
+    client.create_user(username2, password2)
+    with User(username2, password2, monkeypatch):
+        assert_unauthorized(lambda: client.update_user_password(username, new_password))
+
+
+def test_update_user_admin(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    client.create_user(username, password)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.update_user_admin(username, True)
+        user = client.get_user(username)
+        assert user.is_admin is True
+
+    assert_unauthenticated(lambda: client.update_user_admin(username, True))
+
+    username2 = random_str()
+    password2 = random_str()
+    client.create_user(username2, password2)
+    with User(username2, password2, monkeypatch):
+        assert_unauthorized(lambda: client.update_user_admin(username, True))
+
+
+def test_delete(client, monkeypatch):
+    username = random_str()
+    password = random_str()
+    client.create_user(username, password)
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.update_user_admin(username, True)
+        client.delete_user(username)
+        with pytest.raises(
+            MlflowException,
+            match=rf"User with username={username} not found",
+        ) as exception_context:
+            client.get_user(username)
+        assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+    assert_unauthenticated(lambda: client.delete_user(username))
+
+    username2 = random_str()
+    password2 = random_str()
+    client.create_user(username2, password2)
+    with User(username2, password2, monkeypatch):
+        assert_unauthorized(lambda: client.delete_user(username))
+
+
 def test_client_create_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
     username, password = create_user(client.tracking_uri)
