@@ -1,156 +1,136 @@
+import os
+
 import pytest
-from unittest import mock
 
 import mlflow
+from mlflow import MlflowException
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST
+from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
-from mlflow.server.auth.routes import (
-    CREATE_EXPERIMENT_PERMISSION,
-    GET_EXPERIMENT_PERMISSION,
-    UPDATE_EXPERIMENT_PERMISSION,
-    DELETE_EXPERIMENT_PERMISSION,
-    CREATE_REGISTERED_MODEL_PERMISSION,
-    GET_REGISTERED_MODEL_PERMISSION,
-    UPDATE_REGISTERED_MODEL_PERMISSION,
-    DELETE_REGISTERED_MODEL_PERMISSION,
-)
+from mlflow.utils.os import is_windows
 from tests.helper_functions import random_str
+from tests.server.auth.auth_test_utils import create_user, User
+from tests.tracking.integration_test_utils import _init_server, _terminate_server
+
+PERMISSION = "READ"
+NEW_PERMISSION = "EDIT"
+ADMIN_USERNAME = auth_config.admin_username
+ADMIN_PASSWORD = auth_config.admin_password
 
 
 @pytest.fixture
-def client():
-    return AuthServiceClient("http://tracking_uri")
+def client(tmp_path):
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-
-@pytest.fixture
-def mock_session():
-    with mock.patch("mlflow.utils.rest_utils._get_request_session") as mock_session:
-        mock_response = mock.MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "{}"
-        mock_session.return_value.request.return_value = mock_response
-        yield mock_session.return_value
+    url, process = _init_server(
+        backend_uri=backend_uri,
+        root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
+        app_module="mlflow.server.auth",
+    )
+    yield AuthServiceClient(url)
+    _terminate_server(process)
+    # clean up users & permissions created in the tests
+    db_file = os.path.abspath(os.path.basename(auth_config.database_uri))
+    os.remove(db_file)
 
 
 def test_get_client():
-    client = mlflow.server.get_app_client("basic-auth", "http://tracking_uri")
-    assert isinstance(client, AuthServiceClient)
+    client_ = mlflow.server.get_app_client("basic-auth", "uri:/fake")
+    assert isinstance(client_, AuthServiceClient)
 
 
-def test_client_create_experiment_permission(client, mock_session):
+def test_client_create_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
-    username = random_str()
-    permission = random_str()
-    client.create_experiment_permission(experiment_id, username, permission)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        ep = client.create_experiment_permission(experiment_id, username, PERMISSION)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "POST"
-    assert call_args.args[1] == f"{client.tracking_uri}{CREATE_EXPERIMENT_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "experiment_id": experiment_id,
-        "username": username,
-        "permission": permission,
-    }
+    assert ep.experiment_id == experiment_id
+    assert ep.permission == PERMISSION
 
 
-def test_client_get_experiment_permission(client, mock_session):
+def test_client_get_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
-    username = random_str()
-    client.get_experiment_permission(experiment_id, username)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_experiment_permission(experiment_id, username, PERMISSION)
+        ep = client.get_experiment_permission(experiment_id, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "GET"
-    assert call_args.args[1] == f"{client.tracking_uri}{GET_EXPERIMENT_PERMISSION}"
-    assert call_args.kwargs["params"] == {
-        "experiment_id": experiment_id,
-        "username": username,
-    }
+    assert ep.experiment_id == experiment_id
+    assert ep.permission == PERMISSION
 
 
-def test_client_update_experiment_permission(client, mock_session):
+def test_client_update_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
-    username = random_str()
-    permission = random_str()
-    client.update_experiment_permission(experiment_id, username, permission)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_experiment_permission(experiment_id, username, PERMISSION)
+        client.update_experiment_permission(experiment_id, username, NEW_PERMISSION)
+        ep = client.get_experiment_permission(experiment_id, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "PATCH"
-    assert call_args.args[1] == f"{client.tracking_uri}{UPDATE_EXPERIMENT_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "experiment_id": experiment_id,
-        "username": username,
-        "permission": permission,
-    }
+    assert ep.experiment_id == experiment_id
+    assert ep.permission == NEW_PERMISSION
 
 
-def test_client_delete_experiment_permission(client, mock_session):
+def test_client_delete_experiment_permission(client, monkeypatch):
     experiment_id = random_str()
-    username = random_str()
-    client.delete_experiment_permission(experiment_id, username)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_experiment_permission(experiment_id, username, PERMISSION)
+        client.delete_experiment_permission(experiment_id, username)
+        with pytest.raises(
+            MlflowException,
+            match=rf"Experiment permission with experiment_id={experiment_id} and username={username} not found",
+        ) as exception_context:
+            client.get_experiment_permission(experiment_id, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "DELETE"
-    assert call_args.args[1] == f"{client.tracking_uri}{DELETE_EXPERIMENT_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "experiment_id": experiment_id,
-        "username": username,
-    }
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def test_client_create_registered_model_permission(client, mock_session):
+def test_client_create_registered_model_permission(client, monkeypatch):
     name = random_str()
-    username = random_str()
-    permission = random_str()
-    client.create_registered_model_permission(name, username, permission)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        rmp = client.create_registered_model_permission(name, username, PERMISSION)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "POST"
-    assert call_args.args[1] == f"{client.tracking_uri}{CREATE_REGISTERED_MODEL_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "name": name,
-        "username": username,
-        "permission": permission,
-    }
+    assert rmp.name == name
+    assert rmp.permission == PERMISSION
 
 
-def test_client_get_registered_model_permission(client, mock_session):
+def test_client_get_registered_model_permission(client, monkeypatch):
     name = random_str()
-    username = random_str()
-    client.get_registered_model_permission(name, username)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_registered_model_permission(name, username, PERMISSION)
+        rmp = client.get_registered_model_permission(name, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "GET"
-    assert call_args.args[1] == f"{client.tracking_uri}{GET_REGISTERED_MODEL_PERMISSION}"
-    assert call_args.kwargs["params"] == {
-        "name": name,
-        "username": username,
-    }
+    assert rmp.name == name
+    assert rmp.permission == PERMISSION
 
 
-def test_client_update_registered_model_permission(client, mock_session):
+def test_client_update_registered_model_permission(client, monkeypatch):
     name = random_str()
-    username = random_str()
-    permission = random_str()
-    client.update_registered_model_permission(name, username, permission)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_registered_model_permission(name, username, PERMISSION)
+        client.update_registered_model_permission(name, username, NEW_PERMISSION)
+        rmp = client.get_registered_model_permission(name, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "PATCH"
-    assert call_args.args[1] == f"{client.tracking_uri}{UPDATE_REGISTERED_MODEL_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "name": name,
-        "username": username,
-        "permission": permission,
-    }
+    assert rmp.name == name
+    assert rmp.permission == NEW_PERMISSION
 
 
-def test_client_delete_registered_model_permission(client, mock_session):
+def test_client_delete_registered_model_permission(client, monkeypatch):
     name = random_str()
-    username = random_str()
-    client.delete_registered_model_permission(name, username)
+    username, _ = create_user(client.tracking_uri)
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        client.create_registered_model_permission(name, username, PERMISSION)
+        client.delete_registered_model_permission(name, username)
+        with pytest.raises(
+            MlflowException,
+            match=rf"Registered model permission with name={name} and username={username} not found",
+        ) as exception_context:
+            client.get_registered_model_permission(name, username)
 
-    call_args = mock_session.request.call_args
-    assert call_args.args[0] == "DELETE"
-    assert call_args.args[1] == f"{client.tracking_uri}{DELETE_REGISTERED_MODEL_PERMISSION}"
-    assert call_args.kwargs["json"] == {
-        "name": name,
-        "username": username,
-    }
+    assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)

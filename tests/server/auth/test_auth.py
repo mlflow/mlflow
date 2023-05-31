@@ -15,7 +15,7 @@ from mlflow.tracking._tracking_service.utils import (
     _TRACKING_PASSWORD_ENV_VAR,
 )
 from mlflow.utils.os import is_windows
-from tests.helper_functions import random_str
+from tests.server.auth.auth_test_utils import create_user, User
 from tests.tracking.integration_test_utils import (
     _terminate_server,
     _init_server,
@@ -37,40 +37,6 @@ def client(tmp_path):
     _terminate_server(process)
 
 
-def signup(client):
-    username = random_str()
-    password = random_str()
-    _send_rest_tracking_post_request(
-        client.tracking_uri,
-        "/api/2.0/mlflow/users/create",
-        {
-            "username": username,
-            "password": password,
-        },
-    )
-    return username, password
-
-
-class User:
-    def __init__(self, username, password, monkeypatch):
-        self.username = username
-        self.password = password
-        self.monkeypatch = monkeypatch
-
-    def __enter__(self):
-        self.monkeypatch.setenvs(
-            {
-                _TRACKING_USERNAME_ENV_VAR: self.username,
-                _TRACKING_PASSWORD_ENV_VAR: self.password,
-            }
-        )
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.monkeypatch.delenvs(
-            [_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False
-        )
-
-
 def test_authenticate(client, monkeypatch):
     # unauthenticated
     monkeypatch.delenvs([_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False)
@@ -79,7 +45,7 @@ def test_authenticate(client, monkeypatch):
     assert exception_context.value.error_code == ErrorCode.Name(UNAUTHENTICATED)
 
     # authenticated
-    username, password = signup(client)
+    username, password = create_user(client)
     with User(username, password, monkeypatch):
         client.search_experiments()
 
@@ -91,8 +57,8 @@ def test_search_experiments(client, monkeypatch):
     Test whether user2 can search only and all the readable experiments,
     both paged and un-paged.
     """
-    username1, password1 = signup(client)
-    username2, password2 = signup(client)
+    username1, password1 = create_user(client)
+    username2, password2 = create_user(client)
 
     readable = [0, 3, 4, 5, 6, 8]
 
@@ -174,8 +140,8 @@ def test_search_registered_models(client, monkeypatch):
     Test whether user2 can search only and all the readable registered_models,
     both paged and un-paged.
     """
-    username1, password1 = signup(client)
-    username2, password2 = signup(client)
+    username1, password1 = create_user(client)
+    username2, password2 = create_user(client)
 
     readable = [0, 3, 4, 5, 6, 8]
 
