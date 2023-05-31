@@ -162,9 +162,10 @@ def from_numpy(
     digest: Optional[str] = None,
 ) -> NumpyDataset:
     """
-    Constructs a :py:class:`NumpyDataset <mlflow.data.numpy_dataset.NumpyDataset>` object from NumPy features, optional targets, and source.
-    If the source is path like, then this will construct a DatasetSource object from the source
-    path. Otherwise, the source is assumed to be a DatasetSource object.
+    Constructs a :py:class:`NumpyDataset <mlflow.data.numpy_dataset.NumpyDataset>` object from
+    NumPy features, optional targets, and source. If the source is path like, then this will
+    construct a DatasetSource object from the source path. Otherwise, the source is assumed to
+    be a DatasetSource object.
 
     :param features: NumPy features, represented as an np.ndarray or dictionary of named
                      np.ndarrays.

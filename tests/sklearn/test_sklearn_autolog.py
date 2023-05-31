@@ -9,7 +9,6 @@ import pandas as pd
 import pytest
 import re
 import contextlib
-import json
 import pickle
 import doctest
 from packaging.version import Version

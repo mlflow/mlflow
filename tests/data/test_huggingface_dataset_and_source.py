@@ -180,7 +180,7 @@ def test_from_huggingface_dataset_throws_for_dataset_dict():
     assert isinstance(ds, datasets.DatasetDict)
 
     with pytest.raises(
-        MlflowException, match="must be an instance of `datasets.Dataset`.*DatasetDict"
+        MlflowException, match="must be an instance of ``datasets.Dataset``.*DatasetDict"
     ):
         mlflow.data.from_huggingface(ds, path="rotten_tomatoes")
 

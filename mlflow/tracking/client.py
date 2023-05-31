@@ -46,7 +46,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_PARENT_RUN_ID,
 )
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
