@@ -100,15 +100,18 @@ def _complete_futures(futures_dict, file):
         leave=False,
     )
     with pbar:
-        for future in as_completed(futures_dict):
+        for index, future in enumerate(as_completed(futures_dict)):
             key = futures_dict[future]
             try:
                 results[key] = future.result()
-                pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
+                pbar.update(
+                    min(
+                        file_size - index * _MULTIPART_UPLOAD_CHUNK_SIZE,
+                        _MULTIPART_UPLOAD_CHUNK_SIZE,
+                    )
+                )
             except Exception as e:
                 errors[key] = repr(e)
-        if not errors:
-            pbar.update(file_size - _MULTIPART_UPLOAD_CHUNK_SIZE * len(futures_dict))
 
     return results, errors
 
