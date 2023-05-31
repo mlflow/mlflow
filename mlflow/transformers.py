@@ -1610,6 +1610,7 @@ class _TransformersWrapper:
                     "been saved with a signature that defines a string input type.",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
+            raise e
 
     def predict(self, data, device=None, **kwargs):
         self._override_inference_config(**kwargs)
@@ -2055,12 +2056,12 @@ class _TransformersWrapper:
                         elif isinstance(value, list) and all(
                             isinstance(elem, dict) for elem in value
                         ):
-                            output_coll.append(
-                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            output_coll.extend(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)
                             )
                 elif isinstance(output, list):
-                    output_coll.append(
-                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    output_coll.extend(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)
                     )
             return output_coll
         elif target_dict_key:
