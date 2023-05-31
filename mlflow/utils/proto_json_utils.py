@@ -188,7 +188,7 @@ class NumpyEncoder(JSONEncoder):
             return o.isoformat(), True
         return o, False
 
-    def default(self, o):  # pylint: disable=E0202
+    def default(self, o):
         res, converted = self.try_convert(o)
         if converted:
             return res

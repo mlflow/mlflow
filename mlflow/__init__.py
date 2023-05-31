@@ -75,6 +75,7 @@ try:
     from mlflow import langchain
     from mlflow import llm
     from mlflow import openai
+    from mlflow import sentence_transformers
     from mlflow import johnsnowlabs
 
     _model_flavors_supported = [
@@ -103,6 +104,7 @@ try:
         "langchain",
         "llm",
         "openai",
+        "sentence_transformers",
         "johnsnowlabs",
     ]
 except ImportError as e:
@@ -145,6 +147,7 @@ from mlflow.tracking.fluent import (
     log_dict,
     log_image,
     log_figure,
+    log_table,
     active_run,
     get_run,
     start_run,
@@ -165,6 +168,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    get_parent_run,
 )
 from mlflow.tracking._model_registry.fluent import (
     register_model,
@@ -200,6 +204,7 @@ __all__ = [
     "log_text",
     "log_dict",
     "log_figure",
+    "log_table",
     "log_image",
     "active_run",
     "start_run",
@@ -218,6 +223,7 @@ __all__ = [
     "set_experiment",
     "delete_experiment",
     "get_run",
+    "get_parent_run",
     "delete_run",
     "run",
     "register_model",

@@ -989,7 +989,7 @@ def autolog(
     saved_model_kwargs=None,
     keras_model_kwargs=None,
 ):  # pylint: disable=unused-argument
-    # pylint: disable=E0611
+    # pylint: disable=no-name-in-module
     """
     Enables autologging for ``tf.keras`` and ``keras``.
     Note that only ``tensorflow>=2.3`` are supported.
@@ -1086,13 +1086,13 @@ def autolog(
                     "restore_best_weights": callback.restore_best_weights,
                 }
                 mlflow.log_params(earlystopping_params)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return
 
     def _get_early_stop_callback_attrs(callback):
         try:
             return callback.stopped_epoch, callback.restore_best_weights, callback.patience
-        except Exception:  # pylint: disable=W0703
+        except Exception:
             return None
 
     def _log_early_stop_callback_metrics(callback, history, metrics_logger):

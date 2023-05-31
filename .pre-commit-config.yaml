@@ -30,6 +30,13 @@ repos:
         args: ["--rcfile=pylintrc"]
         stages: [commit]
 
+      - id: disallow-rule-ids
+        name: disallow-rule-ids
+        entry: python ./dev/disallow_rule_ids.py
+        language: system
+        types: [python]
+        stages: [commit]
+
       - id: rstcheck
         name: rstcheck
         entry: rstcheck

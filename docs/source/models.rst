@@ -205,31 +205,49 @@ downstream tooling:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
-be either column-based or tensor-based. Column-based inputs and outputs can be described as a
-sequence of (optionally) named columns with type specified as one of the
-:py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
-described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+Model signatures define input and output schemas for MLflow models, providing a standard 
+interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
+UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+:ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
+the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
+for more details).
 
 To include a signature with your model, pass a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
-JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
+(see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
+The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
+model artifacts, together with other model metadata. To set a signature on a logged or
+saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
+(see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
-Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
-<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
-which deploys a model as a REST API, validates inputs based on the model's signature.
+.. note::
+    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
+    Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
+    a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
+    :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
+    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
+    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
+Model Signature Types
+~~~~~~~~~~~~~~~~~~~~~
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`.
+Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
 
 Column-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -237,15 +255,16 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+""""""""""""""""""""""""""""""
 Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+Tensor-based signatures do not support optional inputs.
 When specifying the shape, -1 is used for axes that may be variable in size.
 The following example displays an MLmodel file excerpt containing the model signature for a
 classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
@@ -260,6 +279,8 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
 
+.. _signature-enforcement:
+
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
 Schema enforcement checks the provided input against the model's signature
@@ -271,14 +292,15 @@ particular, it is not applied to models that are loaded in their native format (
 
 Name Ordering Enforcement
 """""""""""""""""""""""""
-The input names are checked against the model signature. If there are any missing inputs,
-MLflow will raise an exception. Extra inputs that were not declared in the signature will be
-ignored. If the input schema in the signature defines input names, input matching is done by name
-and the inputs are reordered to match the signature. If the input schema does not have input
-names, matching is done by position (i.e. MLflow will only check the number of inputs).
+The input names are checked against the model signature. If there are any missing required inputs,
+MLflow will raise an exception. Missing optional inputs will not raise an exception.
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
+signature defines input names, input matching is done by name and the inputs are reordered to match the 
+signature. If the input schema does not have input names, matching is done by position 
+(i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
-"""""""""""""""""""""""
+""""""""""""""""""""""
 The input types are checked against the signature.
 
 For models with column-based signatures (i.e DataFrame inputs), MLflow will perform safe type conversions
@@ -364,6 +386,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
@@ -426,6 +449,110 @@ The same signature can be created explicitly as follows:
     )
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+
+.. _how-to-set-signatures-on-models:
+
+How To Set Signatures on Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Models can be saved with without model signatures or with incorrect ones. To set a model signature on model artifacts,
+use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are
+some examples.
+
+Set Signature on Logged Model
+"""""""""""""""""""""""""""""
+The following example demonstrates how to set a model signature on a logged sklearn model.
+Suppose you've logged a sklearn model without a signature like below:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    with mlflow.start_run() as run:
+        clf.fit(X, y)
+        mlflow.sklearn.log_model(clf, "iris_rf")
+
+You can set a signature on the logged model as follows:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    import mlflow
+    from mlflow.models.model import get_model_info
+    from mlflow.models.signature import infer_signature, set_signature
+
+    # load the logged model
+    model_uri = f"runs:/{run.info.run_id}/iris_rf"
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    # construct the model signature from test dataset
+    X_test, _ = datasets.load_iris(return_X_y=True, as_frame=True)
+    signature = infer_signature(X_test, model.predict(X_test))
+
+    # set the signature for the logged model
+    set_signature(model_uri, signature)
+
+    # now when you load the model again, it will have the desired signature
+    assert get_model_info(model_uri).signature == signature
+
+Note that model signatures can also be set on model artifacts saved outside of MLflow Tracking. As
+an example, you can easily set a signature on a locally saved iris model by altering the model_uri
+variable in the previous code snippet to point to the model's local directory.
+
+.. _set-signature-on-mv:
+
+Set Signature on Model Version
+""""""""""""""""""""""""""""""
+
+As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
+a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
+the signature on the source model artifacts and generate a new model version using the updated 
+model artifacts. The following example illustrates how this can be done.
+
+Supposed you have created the following model version without a signature like below:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.client import MlflowClient
+
+    model_name = "add_signature_model"
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(RandomForestClassifier(), "sklearn-model")
+
+    model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+    mlflow.register_model(model_uri=model_uri, name=model_name)
+
+To set a signature on the model version, create a duplicate model version with the new signature
+as follows:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    client = mlflow.client.MlflowClient()
+    model_name = "add_signature_model"
+    model_version = 1
+    mv = client.get_model_version(name=model_name, version=model_version)
+
+    # set a dummy signature on the model vesion source
+    signature = infer_signature(np.array([1]))
+    set_signature(mv.source, signature)
+
+    # create a new model version with the updated source
+    client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
+
+Note that this process overwrites the model artifacts from the source run of model version 1
+with a new model signature.
 
 .. _input-example:
 
@@ -2041,6 +2168,8 @@ Index ds          yhat        yhat_upper  yhat_lower
 
 For more information, see :py:mod:`mlflow.prophet`.
 
+.. _pmdarima-flavor:
+
 Pmdarima (``pmdarima``)
 ^^^^^^^^^^^^^^^^^^^^^^^
 The ``pmdarima`` model flavor enables logging of `pmdarima models <http://alkaline-ml.com/pmdarima/>`_ in MLflow
@@ -2419,24 +2548,25 @@ data type inputs and outputs.
 Supported transformers Pipeline types for Pyfunc
 """"""""""""""""""""""""""""""""""""""""""""""""
 
-================================= ============================== =================
+================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
-================================= ============================== =================
+================================= ============================== ==========================================================================
 Instructional Text Generation     str or List[str]               str or List[str]
 Conversational                    str or List[str]               str or List[str]
 Summarization                     str or List[str]               str or List[str]
-Text Classification               str or List[str]               str or List[str]
+Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
 Text Generation                   str or List[str]               str or List[str]
 Text2Text Generation              str or List[str]               str or List[str]
 Token Classification              str or List[str]               str or List[str]
 Translation                       str or List[str]               str or List[str]
-ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
 Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
 Question Answering***             Dict[str, str]***              str or List[str]
 Fill Mask****                     str or List[str]****           str or List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes***** or np.ndarray       str
-================================= ============================== =================
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray str
+AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
+================================= ============================== ==========================================================================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
 Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
@@ -2449,7 +2579,7 @@ expected input to the model to ensure your inference request can be read properl
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
 
-\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
+\***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2738,23 +2868,53 @@ In order to use the bitrate transposition and conversion of the audio bytes data
 Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
 Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
 
-The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
+The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have three input types available:
 
-* `bytes`
+* ``str``
+
+The string input type is meant for blob references (uri locations) that are accessible to the instance of the ``pyfunc`` model.
+This input mode is useful when doing large batch processing of audio inference in Spark due to the inherent limitations of handling large ``bytes``
+data in ``Spark`` ``DataFrames``. Ensure that you have ``ffmpeg`` installed in the environment that the ``pyfunc`` model is running in order
+to use ``str`` input uri-based inference. If this package is not properly installed (both from ``pypi`` and from the ``ffmpeg`` binaries), an Exception
+will be thrown at inference time.
+
+.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model that you are intending to host for realtime inference through the `MLflow Model Server`,
+    you *must* specify a custom model signature when logging or saving the model.
+    The default signature input value type of ``bytes`` will, in `MLflow Model serving`, force the conversion of the uri string to ``bytes``, which will cause an Exception
+    to be thrown from the serving process stating that the soundfile is corrupt.
+
+An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
+
+.. code-block:: python
+
+    from mlflow.models.signature import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
+    signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=my_audio_pipeline,
+            artifact_path="my_transcriber",
+            signature=signature,
+        )
+
+
+* ``bytes``
 
 This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
-Pipeline implementations will automatically convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
-When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
-modification. When used through serving, the `bytes` data *must be* base64 encoded.
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of ``ffmpeg`` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the ``pyfunc`` representation of the pipeline directly (not through serving), the sound file can be passed directly as ``bytes`` without any
+modification. When used through serving, the ``bytes`` data *must be* base64 encoded.
 
-* `np.ndarray`
+* ``np.ndarray``
 
-This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
-`librosa` or `pydub`) and that the model has been saved with a signature that uses the `np.ndarray` format for the input.
+This input format requires that both the bitrate has been set prior to conversion to ``numpy.ndarray`` (i.e., through the use of a package like
+``librosa`` or ``pydub``) and that the model has been saved with a signature that uses the ``np.ndarray`` format for the input.
 
-.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in `np.ndarray` format
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in ``np.ndarray`` format
     must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
-    audio transformers pipelines being set as expecting `binary` (`bytes`) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
     or the other as an allowed input type.
 
 
@@ -3894,7 +4054,7 @@ Similarly, to build a Docker image built with MLServer you can use the
 
 .. code-block:: bash
 
-    mlflow models build -m my_model --enable-mlserver -n my-model
+    mlflow models build-docker -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation

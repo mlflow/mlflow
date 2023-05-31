@@ -279,6 +279,7 @@ spacy:
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
+      "<3.4.0": ["typing_extensions<4.6.0"]
     run: |
       pytest tests/spacy/test_spacy_model_export.py
 
@@ -526,8 +527,6 @@ openai:
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
       pytest tests/openai/test_openai_model_export.py
 
 langchain:
@@ -541,7 +540,17 @@ langchain:
     requirements:
       ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
     run: |
-      export MLFLOW_OPENAI_TESTING=true
-      export OPENAI_API_KEY=test
-      export SERPAPI_API_KEY=test
       pytest tests/langchain/test_langchain_model_export.py
+
+sentence_transformers:
+  package_info:
+    pip_release: "sentence-transformers"
+    install_dev: |
+      pip install -e git+https://github.com/UKPLab/sentence-transformers
+    models:
+      minimum: "2.2.2"
+      maximum: "2.2.2"
+      requirements:
+        ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
+      run: |
+        pytest tests/sentence_transformers/test_sentence_transformers_model_export.py

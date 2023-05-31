@@ -492,7 +492,7 @@ def settings(**kwargs):
     return decorator
 
 
-def filter(value):  # pylint: disable=W0622
+def filter(value):  # pylint: disable=redefined-builtin
     """Modifier decorator to force the inclusion or exclusion of an attribute.
 
     This only modifies the behaviour of the :func:`create_patches` function

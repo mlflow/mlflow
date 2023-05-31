@@ -179,3 +179,4 @@ MLflow is currently maintained by the following members with significant contrib
 - `Weichen Xu <https://github.com/WeichenXu123>`_
 - `Corey Zumar <https://github.com/dbczumar>`_
 - `Ben Wilson <https://github.com/BenWilson2>`_
+- `Serena Ruan <https://github.com/serena-ruan>`_
