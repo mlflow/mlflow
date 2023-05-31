@@ -36,8 +36,8 @@ def client(tmp_path):
 
 
 def test_get_client():
-    client_ = mlflow.server.get_app_client("basic-auth", "uri:/fake")
-    assert isinstance(client_, AuthServiceClient)
+    client = mlflow.server.get_app_client("basic-auth", "uri:/fake")
+    assert isinstance(client, AuthServiceClient)
 
 
 def test_client_create_experiment_permission(client, monkeypatch):
