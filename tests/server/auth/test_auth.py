@@ -45,7 +45,7 @@ def test_authenticate(client, monkeypatch):
     assert exception_context.value.error_code == ErrorCode.Name(UNAUTHENTICATED)
 
     # authenticated
-    username, password = create_user(client)
+    username, password = create_user(client.tracking_uri)
     with User(username, password, monkeypatch):
         client.search_experiments()
 
@@ -57,8 +57,8 @@ def test_search_experiments(client, monkeypatch):
     Test whether user2 can search only and all the readable experiments,
     both paged and un-paged.
     """
-    username1, password1 = create_user(client)
-    username2, password2 = create_user(client)
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
 
     readable = [0, 3, 4, 5, 6, 8]
 
@@ -140,8 +140,8 @@ def test_search_registered_models(client, monkeypatch):
     Test whether user2 can search only and all the readable registered_models,
     both paged and un-paged.
     """
-    username1, password1 = create_user(client)
-    username2, password2 = create_user(client)
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
 
     readable = [0, 3, 4, 5, 6, 8]
 

@@ -81,7 +81,8 @@ def test_client_delete_experiment_permission(client, monkeypatch):
         client.delete_experiment_permission(experiment_id, username)
         with pytest.raises(
             MlflowException,
-            match=rf"Experiment permission with experiment_id={experiment_id} and username={username} not found",
+            match=rf"Experiment permission with experiment_id={experiment_id} "
+            rf"and username={username} not found",
         ) as exception_context:
             client.get_experiment_permission(experiment_id, username)
 
@@ -129,7 +130,8 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
         client.delete_registered_model_permission(name, username)
         with pytest.raises(
             MlflowException,
-            match=rf"Registered model permission with name={name} and username={username} not found",
+            match=rf"Registered model permission with name={name} "
+            rf"and username={username} not found",
         ) as exception_context:
             client.get_registered_model_permission(name, username)
 
