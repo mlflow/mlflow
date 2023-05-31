@@ -1,8 +1,15 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 
@@ -29,10 +36,8 @@ describe('MetricPage', () => {
       location: {
         search: '?runs=[]',
       },
-      match: {
-        params: {
-          metricKey: 'metricKey',
-        },
+      params: {
+        metricKey: 'metricKey',
       },
     };
     commonProps = {
@@ -51,9 +56,9 @@ describe('MetricPage', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     ).find(MetricPage);
     expect(wrapper.length).toBe(1);
@@ -62,9 +67,9 @@ describe('MetricPage', () => {
   test('should render NotFoundPage when runs are not in query parameters', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricPage {...commonProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     ).find(MetricPage);
 
@@ -81,9 +86,9 @@ describe('MetricPage', () => {
     };
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <MetricPage {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     ).find(MetricPage);
 

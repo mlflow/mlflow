@@ -1,5 +1,12 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
@@ -29,6 +36,7 @@ describe('unit tests', () => {
   let minimalStore: any;
   let getMetricHistoryApi;
   let getRunApi: any;
+  let navigate;
 
   beforeEach(() => {
     const location = {
@@ -36,11 +44,11 @@ describe('unit tests', () => {
         '?runs=["runUuid1","runUuid2"]&experiments=["1"]' +
         '&plot_metric_keys=["metric_1","metric_2"]&plot_layout={}',
     };
-    const history = {
-      replace: (url: any) => {
-        location.search = '?' + url.split('?')[1];
-      },
-    };
+
+    navigate = jest.fn((to: string) => {
+      location.search = new URL(to, 'http://test').search;
+    });
+
     getMetricHistoryApi = jest.fn(() => Promise.resolve({ value: {} }));
     getRunApi = jest.fn(() => Promise.resolve());
     const now = new Date().getTime();
@@ -105,7 +113,7 @@ describe('unit tests', () => {
       getMetricHistoryApi,
       getRunApi,
       location,
-      history,
+      navigate,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
     };
 
@@ -157,7 +165,7 @@ describe('unit tests', () => {
       getMetricHistoryApi,
       getRunApi,
       location,
-      history,
+      navigate,
       runDisplayNames: ['runDisplayName1', 'runDisplayName2'],
       deselectedCurves: [],
     };
@@ -288,7 +296,8 @@ describe('unit tests', () => {
     });
   });
 
-  test('single-click handler in metric comparison plot - line chart', (done) => {
+  test('single-click handler in metric comparison plot - line chart', () => {
+    jest.useFakeTimers();
     const props = {
       ...minimalPropsForLineChart,
     };
@@ -302,13 +311,12 @@ describe('unit tests', () => {
     });
     expect(instance.getUrlState().deselectedCurves).toEqual([]);
     // Wait a second, verify first run was deselected
-    window.setTimeout(() => {
-      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2-metric_1']);
-      done();
-    }, 1000);
+    jest.advanceTimersByTime(1000);
+    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2-metric_1']);
   });
 
-  test('single-click handler in metric comparison plot - bar chart', (done) => {
+  test('single-click handler in metric comparison plot - bar chart', () => {
+    jest.useFakeTimers();
     const props = {
       ...minimalPropsForBarChart,
     };
@@ -319,13 +327,12 @@ describe('unit tests', () => {
     instance.handleLegendClick({ curveNumber: 0, data: [{ runId: 'runUuid2', type: 'bar' }] });
     expect(instance.getUrlState().deselectedCurves).toEqual([]);
     // Wait a second, verify first run was deselected
-    window.setTimeout(() => {
-      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2']);
-      done();
-    }, 1000);
+    jest.advanceTimersByTime(1000);
+    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid2']);
   });
 
-  test('double-click handler in metric comparison plot - line chart', (done) => {
+  test('double-click handler in metric comparison plot - line chart', () => {
+    jest.useFakeTimers();
     const props = {
       ...minimalPropsForLineChart,
     };
@@ -341,13 +348,12 @@ describe('unit tests', () => {
     expect(instance.getUrlState().deselectedCurves).toEqual([]);
     // Double-click, verify that only the clicked run is selected (that the other one is deselected)
     instance.handleLegendClick({ curveNumber: 1, data: data });
-    window.setTimeout(() => {
-      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1-metric_1']);
-      done();
-    }, 1000);
+    jest.advanceTimersByTime(1000);
+    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1-metric_1']);
   });
 
-  test('double-click handler in metric comparison plot - bar chart', (done) => {
+  test('double-click handler in metric comparison plot - bar chart', () => {
+    jest.useFakeTimers();
     const props = {
       ...minimalPropsForBarChart,
     };
@@ -363,13 +369,12 @@ describe('unit tests', () => {
     expect(instance.getUrlState().deselectedCurves).toEqual([]);
     // Double-click, verify that only the clicked run is selected (that the other one is deselected)
     instance.handleLegendClick({ curveNumber: 1, data: data });
-    window.setTimeout(() => {
-      expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
-      done();
-    }, 1000);
+    jest.advanceTimersByTime(1000);
+    expect(instance.getUrlState().deselectedCurves).toEqual(['runUuid1']);
   });
 
-  test('click into RunLinksPopover', (done) => {
+  test('click into RunLinksPopover', () => {
+    jest.useFakeTimers();
     const data = {
       event: {
         clientX: 1,
@@ -418,27 +423,26 @@ describe('unit tests', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
     instance.updatePopover(data);
-    window.setTimeout(() => {
-      const popover = wrapper.find(RunLinksPopover);
-      expect(popover.props().x).toEqual(props.x);
-      expect(popover.props().y).toEqual(props.y);
-      expect(popover.props().visible).toEqual(props.visible);
-      // @ts-expect-error TS(2551): Property 'experimentId' does not exist on type '{ ... Remove this comment to see the full error message
-      expect(popover.props().experimentIds).toEqual(props.experimentId);
-      expect(popover.props().runItems).toEqual(props.runItems);
-      done();
-    }, 1000);
+
+    jest.advanceTimersByTime(1000);
+    const popover = wrapper.find(RunLinksPopover);
+    expect(popover.props().x).toEqual(props.x);
+    expect(popover.props().y).toEqual(props.y);
+    expect(popover.props().visible).toEqual(props.visible);
+    // @ts-expect-error TS(2551): Property 'experimentId' does not exist on type '{ ... Remove this comment to see the full error message
+    expect(popover.props().experimentIds).toEqual(props.experimentId);
+    expect(popover.props().runItems).toEqual(props.runItems);
   });
 
   test('should render the number of completed runs correctly', () => {
     const mountWithProps = (props: any) => {
       return mountWithIntl(
         <Provider store={minimalStore}>
-          <BrowserRouter>
+          <MemoryRouter>
             <DesignSystemProvider>
               <MetricsPlotPanel {...props} />
             </DesignSystemProvider>
-          </BrowserRouter>
+          </MemoryRouter>
         </Provider>,
       );
     };
@@ -469,11 +473,11 @@ describe('unit tests', () => {
     const mountWithProps = (props: any) => {
       return mountWithIntl(
         <Provider store={minimalStore}>
-          <BrowserRouter>
+          <MemoryRouter>
             <DesignSystemProvider>
               <MetricsPlotPanel {...props} />
             </DesignSystemProvider>
-          </BrowserRouter>
+          </MemoryRouter>
         </Provider>,
       );
     };

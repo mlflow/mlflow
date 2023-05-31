@@ -8,6 +8,7 @@ export interface DialogComboboxContextType {
     setIsControlled: (isControlled: boolean) => void;
     stayOpenOnSelection?: boolean;
     setIsOpen: (isOpen: boolean) => void;
+    emptyText?: string;
 }
 export declare const DialogComboboxContext: import("react").Context<DialogComboboxContextType>;
 export declare const DialogComboboxContextProvider: ({ children, value, }: {
