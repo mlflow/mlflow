@@ -4,18 +4,27 @@ from concurrent.futures import as_completed
 
 @total_ordering
 class SortableResult:
-    def __init__(self, key, value=None, err=None):
-        if (value, err).count(None) != 1:
-            raise ValueError("Exactly one of `value` and `error` must be set.")
+    def __init__(self, key, value, err):
+        """
+        Should not be called directly. Use `SortableResult.ok` or `SortableResult.err` instead.
+        """
         self.key = key
         self.value = value
         self.err = err
+
+    @classmethod
+    def ok(cls, key, value):
+        return cls(key=key, value=value, err=None)
+
+    @classmethod
+    def error(cls, key, err):
+        return cls(key=key, value=None, err=err)
 
     def is_err(self):
         return self.err is not None
 
     def is_ok(self):
-        return self.value is not None
+        return self.err is None
 
     def __lt__(self, other):
         return self.key < other.key
@@ -34,6 +43,6 @@ def complete_futures(futures):
         try:
             result = fut.result()
         except Exception as e:
-            yield SortableResult(key=index, err=e)
+            yield SortableResult.error(key=index, err=e)
         else:
-            yield SortableResult(key=index, value=result)
+            yield SortableResult.ok(key=index, value=result)
