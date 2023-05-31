@@ -224,7 +224,7 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
         client.delete_registered_model_permission(name, username)
         with pytest.raises(
             MlflowException,
-            match=rf"Registered_model permission with name={name} "
+            match=rf"Registered model permission with name={name} "
             rf"and username={username} not found",
         ) as exception_context:
             client.get_registered_model_permission(name, username)
