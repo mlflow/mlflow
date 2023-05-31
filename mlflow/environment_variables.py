@@ -235,6 +235,12 @@ MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE = _BooleanEnvironmentVariable(
     "MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE", True
 )
 
+#: Specifies the max_shard_size to use when mlflow transformers flavor saves the model checkpoint.
+#: This can be set to override the 500MB default.
+MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE = _EnvironmentVariable(
+    "MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE", str, "500MB"
+)
+
 #: Specifies whether or not to allow using a file URI as a model version source.
 #: Please be aware that setting this environment variable to True is potentially risky
 #: because it can allow access to arbitrary files on the specified filesystem
