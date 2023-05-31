@@ -117,12 +117,11 @@ def _decode_json_input(json_input):
         )
 
 
-def _split_data_and_kwargs(json_input):
+def _split_data_and_inference_config(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    kwargs = {k: input_dict[k] for k in set(input_dict.keys()) - set(data.keys())}
-    _logger.warning(f"*************\ndata: {data}, kwargs: {kwargs}\n*************")
-    return data, kwargs
+    inference_config = input_dict.get("inference_config", {})
+    return data, inference_config
 
 
 def infer_and_parse_data(data, schema: Schema = None):
@@ -276,10 +275,10 @@ def init(model: PyFuncModel):
             data = flask.request.data.decode("utf-8")
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input, schema=input_schema)
-            kwargs = {}
+            inference_config = {}
         elif mime_type == CONTENT_TYPE_JSON:
             json_str = flask.request.data.decode("utf-8")
-            data, kwargs = _split_data_and_kwargs(json_str)
+            data, inference_config = _split_data_and_inference_config(json_str)
             data = infer_and_parse_data(data, input_schema)
         else:
             return flask.Response(
@@ -294,7 +293,7 @@ def init(model: PyFuncModel):
 
         # Do the prediction
         try:
-            raw_predictions = model.predict(data, **kwargs)
+            raw_predictions = model.predict(data, **inference_config)
         except MlflowException as e:
             raise e
         except Exception:
@@ -323,22 +322,22 @@ def _predict(model_uri, input_path, output_path, content_type):
         else:
             with open(input_path) as f:
                 input_str = f.read()
-        data, kwargs = _split_data_and_kwargs(input_str)
+        data, inference_config = _split_data_and_inference_config(input_str)
         df = infer_and_parse_data(data)
     elif content_type == "csv":
         if input_path is not None:
             df = parse_csv_input(input_path)
         else:
             df = parse_csv_input(sys.stdin)
-        kwargs = {}
+        inference_config = {}
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
     if output_path is None:
-        predictions_to_json(pyfunc_model.predict(df, **kwargs), sys.stdout)
+        predictions_to_json(pyfunc_model.predict(df, **inference_config), sys.stdout)
     else:
         with open(output_path, "w") as fout:
-            predictions_to_json(pyfunc_model.predict(df, **kwargs), fout)
+            predictions_to_json(pyfunc_model.predict(df, **inference_config), fout)
 
 
 def _serve(model_uri, port, host):
