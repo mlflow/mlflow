@@ -1580,8 +1580,7 @@ class _TransformersWrapper:
             )
 
         # Override the inference configuration with any additional kwargs provided by the user.
-        for key, value in kwargs.items():
-            self.inference_config[key] = value
+        self.inference_config.update(kwargs)
 
     def _validate_inference_config_and_return_output(self, data):
         import transformers
@@ -1594,7 +1593,7 @@ class _TransformersWrapper:
             if "The following `model_kwargs` are not used by the model" in str(e):
                 raise MlflowException(
                     "The kwargs provided to the `predict` method are not valid "
-                    f"for pipeline {type(self.pipeline)}. Caused by: {repr(e)}",
+                    f"for pipeline {type(self.pipeline).__name__}. Caused by: {repr(e)}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
             if isinstance(
