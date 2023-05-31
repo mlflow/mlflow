@@ -12,10 +12,12 @@ from johnsnowlabs import nlp
 from packaging.version import Version
 
 import mlflow
+import mlflow.johnsnowlabs
 import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
+from mlflow.johnsnowlabs import _add_code_from_conf_to_system_path
 from mlflow.models import Model, build_docker, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pyfunc import spark_udf
@@ -31,23 +33,10 @@ from tests.helper_functions import (_assert_pip_requirements,
                                     _mlflow_major_version_string,
                                     score_model_in_sagemaker_docker_container)
 
-# TODO you must update this
-license_keys = {
-    "AWS_ACCESS_KEY_ID": None,
-    "AWS_SECRET_ACCESS_KEY": None,
-    "SPARK_NLP_LICENSE": None,
-    "SECRET": None,
-}
-
-# You can optionally set this, otherwise it defaults to ~/cache_pretrained
 MODEL_CACHE_FOLDER = None
 nlu_model = 'en.classify.bert_sequence.covid_sentiment'
 
-os.environ.update(license_keys)
-import mlflow.johnsnowlabs
-from mlflow.johnsnowlabs import _add_code_from_conf_to_system_path
-
-# Before running any tests make sure the following environment variables are set:
+# Before running any tests make sure the environment variables are set
 mlflow.johnsnowlabs._validate_env_vars()
 
 
