@@ -2074,6 +2074,31 @@ def test_evaluate_text_summarization_with_targets():
     assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
 
 
+def another_language_model(x):
+    return x
+
+
+def test_evaluate_text_summarization_with_targets_no_type_hints():
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            artifact_path="model", python_model=another_language_model, input_example=["a", "b"]
+        )
+        data = pd.DataFrame({"text": ["a", "b"], "summary": ["a", "b"]})
+        results = mlflow.evaluate(
+            model_info.model_uri,
+            data,
+            targets="summary",
+            model_type="text-summarization",
+        )
+
+    client = mlflow.MlflowClient()
+    artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
+    assert "eval_results_table.json" in artifacts
+    logged_data = pd.DataFrame(**results.artifacts["eval_results_table"].content)
+    pd.testing.assert_frame_equal(logged_data, data.assign(outputs=["a", "b"]))
+    assert results.metrics == {"rouge1": 1.0, "rouge2": 0.0, "rougeL": 1.0, "rougeLsum": 1.0}
+
+
 def test_evaluate_text_summarization_without_targets():
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(

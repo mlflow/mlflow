@@ -1199,7 +1199,10 @@ class DefaultEvaluator(ModelEvaluator):
                 )
                 return
 
-            metrics = rouge.compute(predictions=self.y_pred, references=self.y)
+            predictions = (
+                self.y_pred.squeeze() if isinstance(self.y_pred, pd.DataFrame) else self.y_pred
+            )
+            metrics = rouge.compute(predictions=predictions, references=self.y)
             self.metrics.update(metrics)
 
     def _evaluate_text(self):
