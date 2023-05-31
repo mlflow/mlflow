@@ -1006,8 +1006,8 @@ def test_load_table():
 
     assert output_df.shape[0] == 6
     assert output_df.shape[1] == 5
-    assert output_df["extra_run_id"].nunique() == 3
-    assert output_df["extra_tags.mlflow.loggedArtifacts"].nunique() == 2
+    assert output_df["run_id"].nunique() == 3
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 2
 
     # test 2: load table with extra columns and single run_id
     output_df = mlflow.load_table(
@@ -1016,8 +1016,8 @@ def test_load_table():
 
     assert output_df.shape[0] == 2
     assert output_df.shape[1] == 5
-    assert output_df["extra_run_id"].nunique() == 1
-    assert output_df["extra_tags.mlflow.loggedArtifacts"].nunique() == 1
+    assert output_df["run_id"].nunique() == 1
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
 
     # test 3: load table with extra columns and multiple run_ids
     output_df = mlflow.load_table(
@@ -1026,8 +1026,8 @@ def test_load_table():
 
     assert output_df.shape[0] == 4
     assert output_df.shape[1] == 5
-    assert output_df["extra_run_id"].nunique() == 2
-    assert output_df["extra_tags.mlflow.loggedArtifacts"].nunique() == 1
+    assert output_df["run_id"].nunique() == 2
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
 
     # test 4: load table with no extra columns and run_ids specified but different artifact file
     output_df = mlflow.load_table(artifact_file=artifact_file_2)

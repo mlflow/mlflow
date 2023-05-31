@@ -1619,7 +1619,16 @@ class MlflowClient:
                     existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
                     if extra_columns is not None:
                         for column in extra_columns:
-                            existing_predictions[f"extra_{column}"] = run[column]
+                            if column in existing_predictions:
+                                column_name = f"{column}_"
+                                _logger.warning(
+                                    f"Column name {column} already exists in the table. "
+                                    "Resolving the conflict, by appending an underscore "
+                                    "to the column name."
+                                )
+                            else:
+                                column_name = column
+                            existing_predictions[column_name] = run[column]
 
             else:
                 raise MlflowException(f"Artifact {artifact_file} not found for run {run_id}.")
