@@ -262,7 +262,6 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     artifact_path=artifact_path,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
-                    index=index,
                 )
                 futures[future] = index
 
