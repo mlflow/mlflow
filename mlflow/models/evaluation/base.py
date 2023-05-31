@@ -1200,9 +1200,9 @@ def evaluate(
     :param targets: If ``data`` is a numpy array or list, a numpy array or list of evaluation
                     labels. If ``data`` is a DataFrame, the string name of a column from ``data``
                     that contains evaluation labels. Required for classifier and regressor models,
-                    but optional for question-answering, text-summarization, and text models. If ``data`` is a
-                    :py:class`mlflow.data.dataset.Dataset` that defines targets, then ``targets`` is
-                    optional.
+                    but optional for question-answering, text-summarization, and text models. If
+                    ``data`` is a :py:class`mlflow.data.dataset.Dataset` that defines targets,
+                    then ``targets`` is optional.
 
     :param model_type: A string describing the model type. The default evaluator
                        supports the following model types:
