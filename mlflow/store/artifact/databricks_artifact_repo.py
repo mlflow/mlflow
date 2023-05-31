@@ -5,6 +5,7 @@ import posixpath
 import requests
 import uuid
 import math
+from operator import itemgetter
 from collections import namedtuple
 from concurrent.futures import as_completed
 
@@ -79,23 +80,33 @@ def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
     return math.ceil(os.path.getsize(local_file) / chunk_size)
 
 
-def _complete_futures(futures_dict):
-    """
-    Waits for the completion of all the futures in the given dictionary and returns
-    a tuple of two dictionaries. The first dictionary contains the results of the
-    futures (unordered) and the second contains the errors (unordered) that occurred
-    during the execution of the futures.
-    """
-    results = {}
-    errors = {}
-    for future in as_completed(futures_dict):
-        key = futures_dict[future]
-        try:
-            results[key] = future.result()
-        except Exception as e:
-            errors[key] = repr(e)
+class _Result:
+    def __init__(self, value=None, err=None):
+        if (value, err).count(None) != 1:
+            raise ValueError("Exactly one of `value` and `error` must be set.")
+        self.value = value
+        self.err = err
 
-    return results, errors
+    def is_err(self):
+        return self.err is not None
+
+    def is_ok(self):
+        return self.value is not None
+
+    @classmethod
+    def from_future(cls, future):
+        try:
+            return cls(value=future.result())
+        except Exception as e:
+            return cls(err=e)
+
+
+def _complete_futures(futures):
+    """
+    Completes the specified futures, yielding a `_Result` for each future as it completes.
+    Note that this function returns an iterator and does not preserve ordering of results.
+    """
+    return map(_Result.from_future, as_completed(futures))
 
 
 class DatabricksArtifactRepository(ArtifactRepository):
@@ -234,7 +245,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         return {header.name: header.value for header in headers}
 
     def _azure_upload_chunk(
-        self, credentials, headers, local_file, artifact_path, start_byte, size
+        self, credentials, headers, local_file, artifact_path, start_byte, size, index
     ):
         # Base64-encode a UUID, producing a UTF8-encoded bytestring. Then, decode
         # the bytestring for compliance with Azure Blob Storage API requests
@@ -254,7 +265,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 put_block(credential_info.signed_uri, block_id, chunk, headers=headers)
             else:
                 raise e
-        return block_id
+        return index, block_id
 
     def _azure_upload_file(self, credentials, local_file, artifact_path):
         """
@@ -269,7 +280,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            futures = {}
+            futures = []
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -281,16 +292,20 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     artifact_path=artifact_path,
                     start_byte=start_byte,
                     size=_MULTIPART_UPLOAD_CHUNK_SIZE,
+                    index=index,
                 )
-                futures[future] = index
+                futures.append(future)
 
-            results, errors = _complete_futures(futures)
-            if errors:
+            results = list(_complete_futures(futures))
+            if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
             # Sort results by the chunk index
-            uploading_block_list = [results[index] for index in sorted(results)]
+            uploading_block_list = [
+                block_id
+                for _index, block_id in sorted((r.value for r in results), key=itemgetter(0))
+            ]
 
             try:
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
@@ -345,7 +360,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             )
 
             # next try to append the file
-            futures = {}
+            futures = []
             file_size = os.path.getsize(local_file)
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             use_single_part_upload = num_chunks == 1
@@ -363,10 +378,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     headers=headers,
                     is_single=use_single_part_upload,
                 )
-                futures[future] = index
+                futures.append(future)
 
-            _, errors = _complete_futures(futures)
-            if errors:
+            results = _complete_futures(futures)
+            if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
                 )
@@ -550,7 +565,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _upload_part_retry(self, cred_info, upload_id, part_number, local_file, start_byte, size):
         data = read_chunk(local_file, size, start_byte)
         try:
-            return self._upload_part(cred_info, data)
+            return part_number, self._upload_part(cred_info, data)
         except requests.HTTPError as e:
             if e.response.status_code not in (401, 403):
                 raise e
@@ -561,10 +576,10 @@ class DatabricksArtifactRepository(ArtifactRepository):
             resp = self._get_presigned_upload_part_url(
                 cred_info.run_id, cred_info.path, upload_id, part_number
             )
-            return self._upload_part(resp.upload_credential_info, data)
+            return part_number, self._upload_part(resp.upload_credential_info, data)
 
     def _upload_parts(self, local_file, create_mpu_resp):
-        futures = {}
+        futures = []
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
             start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
@@ -577,17 +592,17 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 start_byte=start_byte,
                 size=_MULTIPART_UPLOAD_CHUNK_SIZE,
             )
-            futures[future] = part_number
+            futures.append(future)
 
-        results, errors = _complete_futures(futures)
-        if errors:
+        results = list(_complete_futures(futures))
+        if errors := [repr(r.err) for r in results if r.is_err()]:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
             )
 
         return [
-            PartEtag(part_number=part_number, etag=results[part_number])
-            for part_number in sorted(results)
+            PartEtag(part_number=part_number, etag=etag)
+            for part_number, etag in sorted((r.value for r in results), key=itemgetter(0))
         ]
 
     def _complete_multipart_upload(self, run_id, path, upload_id, part_etags):
