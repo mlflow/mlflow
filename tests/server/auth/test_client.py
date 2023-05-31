@@ -1,5 +1,4 @@
 import os
-
 import pytest
 
 import mlflow
@@ -29,9 +28,7 @@ ADMIN_PASSWORD = auth_config.admin_password
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
-    monkeypatch.delenvs(
-        [_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False
-    )
+    monkeypatch.delenvs([_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False)
 
 
 @pytest.fixture
@@ -139,7 +136,7 @@ def test_update_user_admin(client, monkeypatch):
         assert_unauthorized(lambda: client.update_user_admin(username, True))
 
 
-def test_delete(client, monkeypatch):
+def test_delete_user(client, monkeypatch):
     username = random_str()
     password = random_str()
     client.create_user(username, password)
@@ -192,14 +189,10 @@ def test_client_get_experiment_permission(client, monkeypatch):
     assert ep.experiment_id == experiment_id
     assert ep.permission == PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.get_experiment_permission(experiment_id, username)
-    )
+    assert_unauthenticated(lambda: client.get_experiment_permission(experiment_id, username))
 
     with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.get_experiment_permission(experiment_id, username)
-        )
+        assert_unauthorized(lambda: client.get_experiment_permission(experiment_id, username))
 
 
 def test_client_update_experiment_permission(client, monkeypatch):
@@ -238,14 +231,10 @@ def test_client_delete_experiment_permission(client, monkeypatch):
             client.get_experiment_permission(experiment_id, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    assert_unauthenticated(
-        lambda: client.delete_experiment_permission(experiment_id, username)
-    )
+    assert_unauthenticated(lambda: client.delete_experiment_permission(experiment_id, username))
 
     with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.delete_experiment_permission(experiment_id, username)
-        )
+        assert_unauthorized(lambda: client.delete_experiment_permission(experiment_id, username))
 
 
 def test_client_create_registered_model_permission(client, monkeypatch):
@@ -277,14 +266,10 @@ def test_client_get_registered_model_permission(client, monkeypatch):
     assert rmp.name == name
     assert rmp.permission == PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.get_registered_model_permission(name, username)
-    )
+    assert_unauthenticated(lambda: client.get_registered_model_permission(name, username))
 
     with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.get_registered_model_permission(name, username)
-        )
+        assert_unauthorized(lambda: client.get_registered_model_permission(name, username))
 
 
 def test_client_update_registered_model_permission(client, monkeypatch):
@@ -323,11 +308,7 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
             client.get_registered_model_permission(name, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    assert_unauthenticated(
-        lambda: client.delete_registered_model_permission(name, username)
-    )
+    assert_unauthenticated(lambda: client.delete_registered_model_permission(name, username))
 
     with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.delete_registered_model_permission(name, username)
-        )
+        assert_unauthorized(lambda: client.delete_registered_model_permission(name, username))
