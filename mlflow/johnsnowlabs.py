@@ -2,7 +2,7 @@
 The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models. This module
 exports the following flavors:
 
-The following Environment Variables must be present
+The following environment variables must be present
 - `SECRET`: The secret for the John Snow Labs Enterprise NLP Library
 - `SPARK_NLP_LICENSE`: Your John Snow Labs Enterprise NLP License
 - `AWS_ACCESS_KEY_ID`: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
@@ -17,7 +17,7 @@ os.environ['SECRET'] = 'MY_SECRET'
 os.environ['AWS_ACCESS_KEY_ID'] = 'MY_AWS_ACCESS_KEY_ID'
 os.environ['AWS_SECRET_ACCESS_KEY'] = 'MY_AWS_SECRET_ACCESS_KEY'
 os.environ['SPARK_NLP_LICENSE'] = 'MY_SPARK_NLP_LICENSE'
-
+```
 
 Johnsnowlabs (native) format
     Allows models to be loaded as Spark Transformers for scoring in a Spark session.
@@ -45,9 +45,6 @@ from pathlib import Path
 from urllib.request import urlopen
 
 import yaml
-from johnsnowlabs import nlp, settings
-from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
-from johnsnowlabs.py_models.jsl_secrets import JslSecrets
 
 import mlflow
 from mlflow import mleap, pyfunc
@@ -84,19 +81,18 @@ from mlflow.utils.uri import (append_to_uri_path, dbfs_hdfs_uri_to_fuse_path,
                               is_local_uri, is_valid_dbfs_uri)
 
 FLAVOR_NAME = "johnsnowlabs"
+
 _JOHNSNOWLABS_ENV_VARS = ('SECRET', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'SPARK_NLP_LICENSE')
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
-_SPARK_NLP_JAR_URI = f"https://s3.amazonaws.com/auxdata.johnsnowlabs.com/public/jars/spark-nlp-assembly-{settings.raw_version_nlp}.jar"
-_SPARK_NLP_JSL_JAR_URI = "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl-" + f"{settings.raw_version_medical}.jar"
-_SPARK_NLP_JSL_WHEEL_URI = "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-" + f"{settings.raw_version_medical}-py3-none-any.whl"
 _logger = logging.getLogger(__name__)
 
 
 def _validate_env_vars():
-    if not all(os.environ.get(var) for var in _JOHNSNOWLABS_ENV_VARS):
+    missing_env_vars = [os.environ.get(var) for var in _JOHNSNOWLABS_ENV_VARS]
+    if not missing_env_vars:
         raise Exception(
-            f'Please set {",".join(var for var in _JOHNSNOWLABS_ENV_VARS if not os.environ.get(var))}'
+            f'Please set {",".join(missing_env_vars)}'
             f' environment variables to your secret key before saving or logging your model')
 
 
@@ -108,32 +104,24 @@ def _download_url(url, save_path):
         shutil.copyfileobj(response, out_file)
 
 
-def _download_sparknlp_jar(out_folder):
-    _download_url(
-        _SPARK_NLP_JAR_URI,
-        out_folder)
-
-
-def _download_sparknlp_jsl_jar(out_folder, secret):
-    _download_url(
-        _SPARK_NLP_JSL_JAR_URI.format(secret=secret),
-        out_folder)
-
-
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
-    _validate_env_vars()
+    from johnsnowlabs import settings
     import pyspark
+    _SPARK_NLP_JSL_WHEEL_URI = "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-" \
+                               + f"{settings.raw_version_medical}-py3-none-any.whl"
+    _validate_env_vars()
+
     return [
         f'johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}',
         f'pyspark=={pyspark.__version__}',
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ['SECRET']),
-        f'pyspark=={settings.raw_version_pyspark}',
         # TODO remove pandas constraint when NLU supports it
+        # https://github.com/JohnSnowLabs/nlu/issues/176
         'pandas<=1.5.3',
 
     ]
@@ -420,6 +408,9 @@ def _save_model_metadata(
 
 
 def _save_jars_and_lic(dst_dir):
+    from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
+    from johnsnowlabs.py_models.jsl_secrets import JslSecrets
+
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     Path(deps_data_path).mkdir(parents=True, exist_ok=True)
 
@@ -583,6 +574,7 @@ def save_model(
 
 
 def _load_model_databricks(dfs_tmpdir, local_model_path):
+    from johnsnowlabs import nlp
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
@@ -595,6 +587,7 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
 
 
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
+    from johnsnowlabs import nlp
     dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
@@ -711,8 +704,10 @@ def _get_or_create_sparksession(model_path=None):
     :param model_path:
     :return:
     """
-    _validate_env_vars()
+    from johnsnowlabs import nlp
     from mlflow.utils._spark_utils import _get_active_spark_session
+    _validate_env_vars()
+
     spark = _get_active_spark_session()
     if spark is None:
         spark_conf = {}
@@ -742,7 +737,7 @@ def _fetch_deps_from_path(local_model_path):
         local_model_path = Path(local_model_path) / 'jars.jsl'
 
     jar_paths = [str(local_model_path / file) for file in local_model_path.iterdir() if file.suffix == '.jar']
-    license_path = [str(local_model_path / file) for file in local_model_path.iterdir() if file.suffix == '.json']
+    license_path = [str(local_model_path / file) for file in local_model_path.iterdir() if file.name == 'license.json']
 
     license_path = license_path[0] if license_path else None
     return jar_paths, license_path

@@ -36,13 +36,12 @@ license_keys = {
     "AWS_ACCESS_KEY_ID": None,
     "AWS_SECRET_ACCESS_KEY": None,
     "SPARK_NLP_LICENSE": None,
-    "SECRET": None
+    "SECRET": None,
 }
 
-MODEL_CACHE_FOLDER = '/home/ckl/dump/cache_pretrained'
+# You can optionally set this, otherwise it defaults to ~/cache_pretrained
+MODEL_CACHE_FOLDER = None
 nlu_model = 'en.classify.bert_sequence.covid_sentiment'
-
-# nlu_model = 'tokenize' # You can use this alternatively for a lightweight test run with a tokenizer model
 
 os.environ.update(license_keys)
 import mlflow.johnsnowlabs
@@ -60,6 +59,8 @@ def load_and_init_model(model=nlu_model):
 
 
 def fix_dataframe_with_respect_for_nlu_issues(d1, d2):
+    # When this issue is resolved, we can remove the usage of this function
+    # https://github.com/JohnSnowLabs/nlu/issues/new
     # TODO there may be some changes in confidence and changes in column names after storing/loading a model
     # these issues in NLU which are not related to MLflow and to be fixed.
     # For now we are applying a hotfix here on the dataframes to make sure that the tests run the way they should
@@ -76,6 +77,7 @@ def fix_dataframe_with_respect_for_nlu_issues(d1, d2):
 
     d1 = lower_strings(d1)
     d2 = lower_strings(d2)
+    # TODO fix: column names may change before/after save and Confidences change
     d1.columns = [f'c_{i}' for i in range(len(d1.columns))]
     d2.columns = [f'c_{i}' for i in range(len(d2.columns))]
     return d1, d2
@@ -89,9 +91,6 @@ def validate_model(original_model, new_model):
         d2 = d2.reset_index().drop(columns=['index'])
     d1 = d1.reset_index().drop(columns=['index'])
 
-    # TODO fix: column names may change before/after save and Confidences change
-    # d1 = d1.drop(columns=[c for c in d1.columns if 'confidence' in c])
-    # d2 = d2.drop(columns=[c for c in d2.columns if 'confidence' in c])
     d1, d2 = fix_dataframe_with_respect_for_nlu_issues(d1, d2)
     assert d1.equals(d2)
 
@@ -260,12 +259,12 @@ def test_log_model_calls_register_model(tmpdir, jsl_model):
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )
-    model_uri = "runs:/{run_id}/{artifact_path}".format(
-        run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
-    )
-    mlflow.register_model.assert_called_once_with(
-        model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-    )
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path
+        )
+        mlflow.register_model.assert_called_once_with(
+            model_uri, "AdsModel1", await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+        )
 
 
 def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris, model_path):
