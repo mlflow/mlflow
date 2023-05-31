@@ -303,8 +303,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
             # Sort results by the chunk index
             uploading_block_list = [
-                block_id
-                for _index, block_id in sorted((r.value for r in results), key=itemgetter(0))
+                block_id for _, block_id in sorted((r.value for r in results), key=itemgetter(0))
             ]
 
             try:
@@ -380,7 +379,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )
                 futures.append(future)
 
-            results = _complete_futures(futures)
+            results = list(_complete_futures(futures))
             if errors := [repr(r.err) for r in results if r.is_err()]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
