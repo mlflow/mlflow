@@ -110,7 +110,8 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Hugging Face dataset source information.
 
-        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource` instance.
+        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource` 
+                 instance.
         """
         return self._source
 

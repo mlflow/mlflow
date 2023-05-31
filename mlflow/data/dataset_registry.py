@@ -79,7 +79,8 @@ class DatasetRegistry:
         if not issubclass(signature.return_annotation, Dataset):
             raise MlflowException(
                 f"Invalid dataset constructor function: {constructor_fn.__name__}. Function must"
-                f" have a return type annotation that is a subclass of :py:class:`mlflow.data.dataset.Dataset`.",
+                f" have a return type annotation that is a subclass of"
+                f" :py:class:`mlflow.data.dataset.Dataset`.",
                 INVALID_PARAMETER_VALUE,
             )
 

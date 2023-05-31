@@ -212,7 +212,8 @@ def load_delta(
     for use with MLflow Tracking.
 
     :param path: The path to the Delta table. Either ``path`` or ``table_name`` must be specified.
-    :param table_name: The name of the Delta table. Either ``path`` or ``table_name`` must be specified.
+    :param table_name: The name of the Delta table. Either ``path`` or ``table_name`` must be 
+                       specified.
     :param version: The Delta table version. If not specified, the version will be inferred.
     :param targets: Optional. The name of the Delta table column containing targets (labels) for
                     supervised learning.
@@ -283,20 +284,20 @@ def from_spark(
                        DataFrame may have been modified by Spark operations. This is used to reload
                        the dataset upon request via :py:func:`SparkDataset.source.load() 
                        <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
-                       ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used,
-                       which will source information from the run context.
+                       ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is
+                       used, which will source information from the run context.
     :param version: If the DataFrame originally came from a Delta table, specifies the version
                     of the Delta table. This is used to reload the dataset upon request via
                     :py:func:`SparkDataset.source.load() 
-                    <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`.  ``version`` cannot 
-                    be specified if ``sql`` is specified.
+                    <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`.  ``version``
+                    cannot be specified if ``sql`` is specified.
     :param sql: The Spark SQL statement that was originally used to construct the DataFrame.
                 Note that the Spark SQL statement does not have to match the DataFrame exactly,
                 since the DataFrame may have been modified by Spark operations. This is used to
                 reload the dataset upon request via :py:func:`SparkDataset.source.load() 
                 <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
-                ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which
-                will source information from the run context.
+                ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, 
+                which will source information from the run context.
     :param targets: Optional. The name of the Data Frame column containing targets (labels) for
                     supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
