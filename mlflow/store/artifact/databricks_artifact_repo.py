@@ -271,7 +271,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
             # Sort results by the chunk index
-            uploading_block_list = [block_id for (_, block_id) in (r.value for r in results)]
+            uploading_block_list = [r.value for r in results]
 
             try:
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
@@ -566,10 +566,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
             )
 
-        return [
-            PartEtag(part_number=part_number, etag=etag)
-            for part_number, etag in (r.value for r in results)
-        ]
+        return [PartEtag(part_number=r.key, etag=r.value) for r in results]
 
     def _complete_multipart_upload(self, run_id, path, upload_id, part_etags):
         return self._call_endpoint(
