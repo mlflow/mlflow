@@ -266,7 +266,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 futures[future] = index
 
             results = sorted(complete_futures(futures))
-            if errors := [repr(r.err) for r in results if r.is_err]:
+            if errors := [repr(r.error) for r in results if r.is_err]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {local_file}. Errors: {errors}"
                 )
@@ -347,7 +347,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 futures[future] = index
 
             results = sorted(complete_futures(futures))
-            if errors := [repr(r.err) for r in results if r.is_err]:
+            if errors := [repr(r.error) for r in results if r.is_err]:
                 raise MlflowException(
                     f"Failed to upload at least one part of {artifact_path}. Errors: {errors}"
                 )
@@ -561,7 +561,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             futures[future] = part_number
 
         results = sorted(complete_futures(futures))
-        if errors := [repr(r.err) for r in results if r.is_err]:
+        if errors := [repr(r.error) for r in results if r.is_err]:
             raise MlflowException(
                 f"Failed to upload at least one part of {local_file}. Errors: {errors}"
             )
