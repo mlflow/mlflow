@@ -699,12 +699,16 @@ def parallelized_download_file_using_http_uri(
                         failed_downloads[index] = result
                     else:
                         pbar.update(chunk_size)
+                        pbar.refresh()
 
                 except Exception as e:
                     failed_downloads[index] = {
                         "error_status_code": 500,
                         "error_text": repr(e),
                     }
+            if not failed_downloads:
+                pbar.update(file_size - len(futures) * chunk_size)
+                pbar.refresh()
 
     return failed_downloads
 
