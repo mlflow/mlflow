@@ -427,7 +427,7 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    # Save the pipeline object
+    # Save the model object
     built_pipeline.model.save_pretrained(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
         max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
