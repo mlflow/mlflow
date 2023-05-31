@@ -2,13 +2,14 @@ import os
 import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 
 from mlflow.exceptions import MlflowException
 from mlflow.entities.file_info import FileInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.utils.futures import complete_futures
 
 
 # Constants used to determine max level of parallelism to use while uploading/downloading artifacts.
@@ -188,19 +189,12 @@ class ArtifactRepository:
             futures[fut] = artifact_path
 
         # Wait for downloads to complete and collect failures
-        failed_downloads = {}
-        for f in as_completed(futures):
-            try:
-                f.result()
-            except Exception as e:
-                path = futures[f]
-                failed_downloads[path] = repr(e)
-
-        if failed_downloads:
+        results = complete_futures(futures)
+        if errors := {r.key: repr(r.error) for r in results if r.is_err}:
             raise MlflowException(
                 message=(
                     "The following failures occurred while downloading one or more"
-                    f" artifacts from {self.artifact_uri}: {failed_downloads}"
+                    f" artifacts from {self.artifact_uri}: {errors}"
                 )
             )
 
