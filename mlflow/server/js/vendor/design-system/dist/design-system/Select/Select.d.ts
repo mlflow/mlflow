@@ -18,6 +18,7 @@ export interface SelectOptionProps extends DangerouslySetAntdProps<typeof AntDSe
     'data-testid'?: string;
     onClick?: () => void;
     className?: string;
+    style?: React.CSSProperties;
 }
 /** @deprecated Use `SelectOptionProps` */
 export interface OptionProps extends SelectOptionProps {

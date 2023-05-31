@@ -4,6 +4,7 @@ import type { HTMLDataAttributes } from '../types';
 export declare const TableContext: React.Context<{
     size: 'default' | 'small';
     someRowsSelected?: boolean | undefined;
+    grid?: boolean | undefined;
 }>;
 export interface TableProps extends HTMLDataAttributes {
     size?: 'default' | 'small';
@@ -23,6 +24,8 @@ export interface TableProps extends HTMLDataAttributes {
     scrollable?: boolean;
     /** Removes drop shadow for use cases without header */
     headerHeight?: number;
+    /** Adds grid styling to the table (e.g. border around cells and no hover styles) */
+    grid?: boolean;
 }
 export declare const Table: React.ForwardRefExoticComponent<TableProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=Table.d.ts.map

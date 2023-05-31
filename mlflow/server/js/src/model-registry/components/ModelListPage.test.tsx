@@ -1,4 +1,10 @@
-import React from 'react';
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import { mount } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -11,7 +17,7 @@ import {
   Stages,
 } from '../constants';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { ModelListPageImpl } from './ModelListPage';
 
 describe('ModelListPage', () => {
@@ -19,22 +25,19 @@ describe('ModelListPage', () => {
   let minimalProps: any;
   let minimalStore: any;
   let instance;
-  let pushSpy: any;
+  let navigateSpy: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const noop = () => {};
   const loadPageMock = (page: any, callback: any, errorCallback: any, isInitialLoading: any) => {};
 
   beforeEach(() => {
-    const location = {};
-
-    pushSpy = jest.fn();
-    const history = {
-      location: {
-        pathName: '/models',
-        search: '',
-      },
-      push: pushSpy,
+    const location = {
+      pathName: '/models',
+      search: '',
     };
+
+    navigateSpy = jest.fn();
+
     minimalProps = {
       models: [],
       searchRegisteredModelsApi: jest.fn(() => Promise.resolve({})),
@@ -42,7 +45,7 @@ describe('ModelListPage', () => {
       listEndpointsV2Api: jest.fn(() => Promise.resolve({})),
       getRegistryWidePermissionsApi: jest.fn(() => Promise.resolve({})),
       apis: {},
-      history,
+      navigate: navigateSpy,
       location,
     };
     const name = 'Model A';
@@ -64,9 +67,9 @@ describe('ModelListPage', () => {
     beforeEach(() => {
       wrapper = mount(
         <Provider store={minimalStore}>
-          <BrowserRouter>
+          <MemoryRouter>
             <ModelListPageImpl {...minimalProps} />
-          </BrowserRouter>
+          </MemoryRouter>
         </Provider>,
       );
     });
@@ -115,9 +118,9 @@ describe('ModelListPage', () => {
   test('should render with minimal props and store without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(ModelListPageImpl).length).toBe(1);
@@ -126,9 +129,9 @@ describe('ModelListPage', () => {
   test('updateUrlWithSearchFilter correctly pushes url with params', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
@@ -139,53 +142,53 @@ describe('ModelListPage', () => {
       2,
     );
     const expectedUrl = `/models?searchInput=name%20ilike%20%22%25name%25%22%20AND%20tag.key%3Dvalue&orderByKey=timestamp&orderByAsc=false&page=2`;
-    expect(pushSpy).toHaveBeenCalledWith(expectedUrl);
+    expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
 
   test('should construct pushes URL correctly from old URLs with nameSearchInput', () => {
     minimalProps['location']['search'] = 'nameSearchInput=abc';
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
     const expectedUrl = '/models?searchInput=abc';
     instance.render();
-    expect(pushSpy).toHaveBeenCalledWith(expectedUrl);
+    expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
 
   test('should pushes URL correctly from old URLs with tagSearchInput', () => {
     minimalProps['location']['search'] = 'tagSearchInput=tags.k%20%3D%20"v"';
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
     const expectedUrl = `/models?searchInput=tags.k%20%3D%20%22v%22`;
     instance.render();
-    expect(pushSpy).toHaveBeenCalledWith(expectedUrl);
+    expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
 
   test('should pushes URL correctly from old URLs with nameSearchInput and tagSearchInput', () => {
     minimalProps['location']['search'] = 'nameSearchInput=abc&tagSearchInput=tags.k%20%3D%20"v"';
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
     const expectedUrl =
       '/models?searchInput=name%20ilike%20%27%25abc%25%27%20AND%20tags.k%20%3D%20%22v%22';
     instance.render();
-    expect(pushSpy).toHaveBeenCalledWith(expectedUrl);
+    expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
 
   test('should pushes URL correctly from URLs with searchInput', () => {
@@ -193,16 +196,16 @@ describe('ModelListPage', () => {
       'searchInput=name%20ilike%20"%25ab%25"%20AND%20tags.a%20%3D%201';
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelListPageImpl {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelListPageImpl).instance();
     const expectedUrl =
       '/models?searchInput=name%20ilike%20%22%25ab%25%22%20AND%20tags.a%20%3D%201';
     instance.render();
-    expect(pushSpy).toHaveBeenCalledWith(expectedUrl);
+    expect(navigateSpy).toHaveBeenCalledWith(expectedUrl);
   });
   // eslint-disable-next-line
 });

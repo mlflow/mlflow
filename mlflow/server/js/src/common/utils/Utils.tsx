@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'date... Remove this comment to see the full error message
 import dateFormat from 'dateformat';
 import React from 'react';
@@ -495,14 +502,13 @@ class Utils {
     const name = nameOverride || baseName;
 
     if (notebookId) {
-      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
-      url += `#notebook/${notebookId}`;
-      if (revisionId) {
-        url += `/revision/${revisionId}`;
-        if (runUuid) {
-          url += `/mlflow/run/${runUuid}`;
-        }
-      }
+      const url = Utils.getNotebookSourceUrl(
+        queryParams,
+        notebookId,
+        revisionId,
+        runUuid,
+        workspaceUrl,
+      );
       return (
         <a
           title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)}
@@ -515,6 +521,27 @@ class Utils {
     } else {
       return name;
     }
+  }
+
+  /**
+   * Returns the URL for the notebook source.
+   */
+  static getNotebookSourceUrl(
+    queryParams: any,
+    notebookId: any,
+    revisionId: any,
+    runUuid: any,
+    workspaceUrl = null,
+  ) {
+    let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
+    url += `#notebook/${notebookId}`;
+    if (revisionId) {
+      url += `/revision/${revisionId}`;
+      if (runUuid) {
+        url += `/mlflow/run/${runUuid}`;
+      }
+    }
+    return url;
   }
 
   /**
@@ -535,11 +562,7 @@ class Utils {
     const name = nameOverride || reformatJobName;
 
     if (jobId) {
-      let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
-      url += `#job/${jobId}`;
-      if (jobRunId) {
-        url += `/run/${jobRunId}`;
-      }
+      const url = Utils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
       return (
         <a title={reformatJobName} href={url} target='_top'>
           {name}
@@ -548,6 +571,18 @@ class Utils {
     } else {
       return name;
     }
+  }
+
+  /**
+   * Returns the URL for the job source.
+   */
+  static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl = null) {
+    let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
+    url += `#job/${jobId}`;
+    if (jobRunId) {
+      url += `/run/${jobRunId}`;
+    }
+    return url;
   }
 
   /**

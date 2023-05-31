@@ -1,5 +1,15 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
+import React from 'react';
 import { createIntl } from 'react-intl';
-import { I18nUtils } from './I18nUtils';
+import { I18nUtils, useI18nInit } from './I18nUtils';
+import { mount } from 'enzyme';
+import { act } from 'react-dom/test-utils';
 
 // see mock for ./loadMessages in setupTests.js
 
@@ -110,6 +120,65 @@ describe('I18nUtils', () => {
         en: 'value',
         'top-locale': 'fr-CA',
       });
+    });
+  });
+
+  describe('useI18nInit', () => {
+    const mockLookupFn = jest.fn();
+
+    const TestComponent = () => {
+      const result = useI18nInit();
+      mockLookupFn(result);
+      return null;
+    };
+
+    beforeEach(() => {
+      mockLookupFn.mockClear();
+    });
+
+    it('waits for loading messages', async () => {
+      const wrapper = mount(React.createElement(TestComponent));
+
+      // Initial call - no messages loaded yet
+      expect(mockLookupFn).toBeCalledWith(null);
+
+      // Flush all promises and update the component
+      await act(async () => {
+        await new Promise(setImmediate);
+        wrapper.update();
+      });
+
+      // Now we should have mock messages (defined in setupTests.js)
+      expect(mockLookupFn).toBeCalledWith({
+        locale: 'en',
+        messages: { en: 'value', 'top-locale': 'en' },
+      });
+    });
+
+    it('falls back to the default value when necessary', async () => {
+      // choose a different locale for this test
+      window.localStorage.setItem('locale', 'de-DE');
+
+      const errorThrown = new Error('failing translation load');
+
+      const originalI18nUtils = { ...I18nUtils };
+      I18nUtils.initI18n = jest.fn().mockRejectedValue(errorThrown);
+
+      const wrapper = mount(React.createElement(TestComponent));
+
+      // Flush all promises and update the component
+      await act(async () => {
+        await new Promise(setImmediate);
+        wrapper.update();
+      });
+
+      // Now we should have fallback messages (empty set)
+      expect(mockLookupFn).toBeCalledWith({
+        locale: 'de-DE',
+        messages: {},
+      });
+
+      I18nUtils.initI18n = originalI18nUtils.initI18n;
     });
   });
 });

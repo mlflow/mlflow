@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { connect } from 'react-redux';
-import { useNotification } from '@databricks/design-system';
+import { Skeleton, useLegacyNotification } from '@databricks/design-system';
 import {
   ExperimentEntity,
   ExperimentStoreEntities,
   LIFECYCLE_FILTER,
   MODEL_VERSION_FILTER,
+  RunDatasetWithTags,
   UpdateExperimentViewStateFn,
 } from '../../../../types';
 import {
@@ -22,13 +23,21 @@ import { GetExperimentRunsContextProvider } from '../../contexts/GetExperimentRu
 import { useFetchExperimentRuns } from '../../hooks/useFetchExperimentRuns';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import Utils from '../../../../../common/utils/Utils';
-import { ATTRIBUTE_COLUMN_SORT_KEY } from '../../../../constants';
+import {
+  ATTRIBUTE_COLUMN_SORT_KEY,
+  MLFLOW_RUN_TYPE_TAG,
+  MLFLOW_RUN_TYPE_VALUE_EVALUATION,
+} from '../../../../constants';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { prepareRunsGridData } from '../../utils/experimentPage.row-utils';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
+import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
+import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
+import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
 
 export interface ExperimentViewRunsOwnProps {
+  isLoading: boolean;
   experiments: ExperimentEntity[];
   modelVersionFilter?: MODEL_VERSION_FILTER;
   lifecycleFilter?: LIFECYCLE_FILTER;
@@ -55,10 +64,10 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
   const {
     searchFacetsState,
     updateSearchFacets,
-    fetchExperimentRuns,
     isLoadingRuns,
     loadMoreRuns,
     moreRunsAvailable,
+    isPristine,
     requestError,
   } = useFetchExperimentRuns();
 
@@ -67,11 +76,15 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new SearchExperimentRunsViewState());
 
-  // Initial fetch of runs after mounting
+  const { experiment_id } = experiments[0];
+  const expandRowsStore = useExperimentViewLocalStore(experiment_id);
+  const [expandRows, updateExpandRows] = useState<boolean>(
+    expandRowsStore.getItem('expandRows') === 'true' ?? false,
+  );
+
   useEffect(() => {
-    fetchExperimentRuns();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    expandRowsStore.setItem('expandRows', expandRows);
+  }, [expandRows]);
 
   const {
     paramKeyList,
@@ -82,7 +95,29 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     metricsList,
     runInfos,
     runUuidsMatchingFilter,
+    datasetsList,
   } = runsData;
+
+  /**
+   * Create a list of run infos with assigned metrics, params and tags
+   */
+  const runData = useMemo(
+    () =>
+      runInfos.map((runInfo, index) => ({
+        runInfo,
+        params: paramsList[index],
+        metrics: metricsList[index],
+        tags: tagsList[index],
+        datasets: datasetsList[index],
+      })),
+    [datasetsList, metricsList, paramsList, runInfos, tagsList],
+  );
+
+  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns, runsHidden } =
+    searchFacetsState;
+
+  // Automatically expand parent runs if necessary
+  useAutoExpandRunRows(runData, visibleRuns, isPristine, updateSearchFacets, runsExpanded);
 
   const updateViewState = useCallback<UpdateExperimentViewStateFn>(
     (newPartialViewState) =>
@@ -93,9 +128,6 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
   const addColumnClicked = useCallback(() => {
     updateViewState({ columnSelectorVisible: true });
   }, [updateViewState]);
-
-  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns, runsHidden } =
-    searchFacetsState;
 
   const shouldNestChildrenAndFetchParents = useMemo(
     () => (!orderByKey && !searchFilter) || orderByKey === ATTRIBUTE_COLUMN_SORT_KEY.DATE,
@@ -112,6 +144,9 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
 
   const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+  const [selectedDatasetWithRun, setSelectedDatasetWithRun] = useState<DatasetWithRunType>();
+
   useEffect(() => {
     if (isLoadingRuns) {
       return;
@@ -125,12 +160,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
       tagKeyList: filteredTagKeys,
       nestChildren: shouldNestChildrenAndFetchParents,
       referenceTime,
-      runData: runInfos.map((runInfo, index) => ({
-        runInfo,
-        params: paramsList[index],
-        metrics: metricsList[index],
-        tags: tagsList[index],
-      })),
+      runData,
       runUuidsMatchingFilter,
       runsPinned,
       runsHidden,
@@ -138,16 +168,13 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
 
     setVisibleRuns(runs);
   }, [
+    runData,
     isLoadingRuns,
     experiments,
     metricKeyList,
-    metricsList,
     modelVersionsByRunUuid,
     paramKeyList,
-    paramsList,
-    runInfos,
     runsExpanded,
-    tagsList,
     filteredTagKeys,
     shouldNestChildrenAndFetchParents,
     referenceTime,
@@ -157,7 +184,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     requestError,
   ]);
 
-  const [notificationsFn, notificationContainer] = useNotification();
+  const [notificationsFn, notificationContainer] = useLegacyNotification();
   const showFetchedRunsNotifications = useFetchedRunsNotification(notificationsFn);
 
   const loadMoreRunsCallback = useCallback(() => {
@@ -172,6 +199,11 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     }
   }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
+  const datasetSelected = (dataset: RunDatasetWithTags, run: RunRowType) => {
+    setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: run });
+    setIsDrawerOpen(true);
+  };
+
   return (
     <>
       <ExperimentViewRunsControls
@@ -181,6 +213,8 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
         searchFacetsState={searchFacetsState}
         updateSearchFacets={updateSearchFacets}
         requestError={requestError}
+        expandRows={expandRows}
+        updateExpandRows={updateExpandRows}
       />
       <div css={styles.createRunsTableWrapper(isComparingRuns)}>
         <ExperimentViewRunsTable
@@ -195,6 +229,8 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           rowsData={visibleRuns}
           loadMoreRunsFunc={loadMoreRunsCallback}
           moreRunsAvailable={moreRunsAvailable}
+          onDatasetSelected={datasetSelected}
+          expandRows={expandRows}
         />
         {isComparingRuns && (
           <RunsCompare
@@ -208,6 +244,14 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           />
         )}
         {notificationContainer}
+        {selectedDatasetWithRun && (
+          <ExperimentViewDatasetDrawer
+            isOpen={isDrawerOpen}
+            setIsOpen={setIsDrawerOpen}
+            selectedDatasetWithRun={selectedDatasetWithRun}
+            setSelectedDatasetWithRun={setSelectedDatasetWithRun}
+          />
+        )}
       </div>
     </>
   );
@@ -282,6 +326,9 @@ export const ExperimentViewRunsConnect: React.ComponentType<ExperimentViewRunsOw
  */
 export const ExperimentViewRunsInjectFilters = (props: ExperimentViewRunsOwnProps) => {
   const { searchFacetsState } = useFetchExperimentRuns();
+  if (props.isLoading) {
+    return <Skeleton active />;
+  }
   return (
     <ExperimentViewRunsConnect
       {...props}

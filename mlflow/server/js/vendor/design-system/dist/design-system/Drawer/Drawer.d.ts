@@ -43,12 +43,17 @@ export interface DrawerContentProps {
      */
     disableOpenAutoFocus?: boolean;
     /**
+     * If true, the drawer and the backdrop will both be hidden. They will remain mounted, but not visible.
+     * @default false
+     */
+    seeThrough?: boolean;
+    /**
      * Event handler called when an interaction (pointer or focus event) happens outside the bounds of the component.
      * It can be prevented by calling event.preventDefault.
      */
     onInteractOutside?: DialogPrimitive.DialogContentProps['onInteractOutside'];
 }
-export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Root(props: Pick<DialogPrimitive.DialogProps, 'onOpenChange' | 'children' | 'open'>): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Trigger(props: Omit<DialogPrimitive.DialogTriggerProps, 'asChild'>): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=Drawer.d.ts.map

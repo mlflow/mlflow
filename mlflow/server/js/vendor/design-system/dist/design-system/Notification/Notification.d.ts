@@ -1,34 +1,24 @@
-/// <reference types="react" />
-import type { ArgsProps as AntDNotificationArgs, IconType as AntDIconType, NotificationInstance as AntDNotificationInstance } from 'antd/lib/notification';
-import type { DangerouslySetAntdProps } from '../types';
-export type NotificationType = AntDIconType;
-export interface NotificationInstance extends AntDNotificationInstance {
-    close: (key: string) => void;
+import * as Toast from '@radix-ui/react-toast';
+import React from 'react';
+export interface NotificationProps extends Toast.ToastProps {
+    severity?: 'info' | 'success' | 'warning' | 'error';
+    isCloseable?: boolean;
 }
-export interface NotificationProps extends Omit<AntDNotificationArgs, 'bottom' | 'btn' | 'className' | 'closeIcon' | 'icon' | 'position' | 'style' | 'top'>, DangerouslySetAntdProps<AntDNotificationArgs> {
-    type: NotificationType;
+export declare const Root: React.ForwardRefExoticComponent<NotificationProps & React.RefAttributes<HTMLLIElement>>;
+export interface NotificationTitleProps extends Toast.ToastTitleProps {
+}
+export declare const Title: React.ForwardRefExoticComponent<NotificationTitleProps & React.RefAttributes<HTMLDivElement>>;
+export interface NotificationDescriptionProps extends Toast.ToastDescriptionProps {
+}
+export declare const Description: React.ForwardRefExoticComponent<NotificationDescriptionProps & React.RefAttributes<HTMLDivElement>>;
+export interface NotificationCloseProps extends Toast.ToastCloseProps {
     closeLabel?: string;
 }
-export declare function useNotification(): [NotificationInstance, React.ReactElement];
-/**
- * A type wrapping given component interface with props returned by withNotifications() HOC
- *
- * @deprecated Please migrate components to functional components and use useNotification() hook instead.
- */
-export type WithNotificationsHOCProps<T> = T & {
-    notificationAPI: NotificationInstance;
-    notificationContextHolder: React.ReactElement;
-};
-/**
- * A higher-order component factory function, enables using notifications in
- * class components in a similar way to useNotification() hook. Wrapped component will have
- * additional "notificationAPI" and "notificationContextHolder" props injected containing
- * the notification API object and context holder react node respectively.
- *
- * The wrapped component can implement WithNotificationsHOCProps<OwnProps> type which
- * enriches the component's interface with the mentioned props.
- *
- * @deprecated Please migrate components to functional components and use useNotification() hook instead.
- */
-export declare const withNotifications: <P, T>(Component: import("react").ComponentType<WithNotificationsHOCProps<P>>) => import("react").ForwardRefExoticComponent<import("react").PropsWithoutRef<P> & import("react").RefAttributes<T>>;
+export declare const Close: React.ForwardRefExoticComponent<NotificationCloseProps & React.RefAttributes<HTMLButtonElement>>;
+export interface NotificationProviderProps extends Toast.ToastProviderProps {
+}
+export declare const Provider: ({ children, ...props }: NotificationProviderProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export interface NotificationViewportProps extends Toast.ToastViewportProps {
+}
+export declare const Viewport: (props: NotificationViewportProps) => JSX.Element;
 //# sourceMappingURL=Notification.d.ts.map

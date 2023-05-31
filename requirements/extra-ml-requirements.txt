@@ -57,6 +57,7 @@ sentencepiece
 setfit
 librosa
 ffmpeg
+accelerate
 # Required by mlflow.openai
 openai
 tiktoken
