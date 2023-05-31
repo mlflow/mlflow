@@ -110,7 +110,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Hugging Face dataset source information.
 
-        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource` 
+        :return: A :py:class:`mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource`
                  instance.
         """
         return self._source
@@ -194,27 +194,27 @@ def from_huggingface(
                Other types, such as ``datasets.DatasetDict``, are not supported.
     :param path: The path of the Hugging Face dataset used to construct the source. This is used by
                  the ``datasets.load_dataset()`` function to reload the dataset upon request via
-                 :py:func:`HuggingFaceDataset.source.load() 
-                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`. 
-                 If no path is specified, a CodeDatasetSource is used, which will source 
+                 :py:func:`HuggingFaceDataset.source.load()
+                 <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
+                 If no path is specified, a CodeDatasetSource is used, which will source
                  information from the run context.
     :param targets: The name of the Hugging Face ``dataset.Dataset`` column containing targets
                     (labels) for supervised learning.
     :param data_dir: The `data_dir` of the Hugging Face dataset configuration. This is used by the
                      ``datasets.load_dataset()`` function to reload the dataset upon request via
-                     :py:func:`HuggingFaceDataset.source.load() 
+                     :py:func:`HuggingFaceDataset.source.load()
                      <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param data_files: Paths to source data file(s) for the Hugging Face dataset configuration.
-                       This is used by the ``datasets.load_dataset()`` function to reload the 
-                       dataset upon request via :py:func:`HuggingFaceDataset.source.load() 
+                       This is used by the ``datasets.load_dataset()`` function to reload the
+                       dataset upon request via :py:func:`HuggingFaceDataset.source.load()
                        <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param revision: Version of the dataset script to load. This is used by the
                      ``datasets.load_dataset()`` function to reload the dataset upon request via
-                     :py:func:`HuggingFaceDataset.source.load() 
+                     :py:func:`HuggingFaceDataset.source.load()
                      <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param task: The task to prepare the Hugging Face dataset for during training and evaluation.
                  This is used by the ``datasets.load_dataset()`` function to reload the dataset
-                 upon request via :py:func:`HuggingFaceDataset.source.load() 
+                 upon request via :py:func:`HuggingFaceDataset.source.load()
                  <mlflow.data.huggingface_dataset_source.HuggingFaceDatasetSource.load>`.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
