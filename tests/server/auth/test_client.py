@@ -18,7 +18,7 @@ from tests.helper_functions import random_str
 
 @pytest.fixture
 def client():
-    yield AuthServiceClient("http://tracking_uri")
+    return AuthServiceClient("http://tracking_uri")
 
 
 @pytest.fixture
