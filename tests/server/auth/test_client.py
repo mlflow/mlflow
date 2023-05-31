@@ -1,4 +1,6 @@
 import os
+from contextlib import contextmanager
+
 import pytest
 
 import mlflow
@@ -50,15 +52,17 @@ def client(tmp_path):
     _terminate_server(process)
 
 
-def assert_unauthenticated(function):
+@contextmanager
+def assert_unauthenticated():
     with pytest.raises(MlflowException, match=r"You are not authenticated.") as exception_context:
-        function()
+        yield
     assert exception_context.value.error_code == ErrorCode.Name(UNAUTHENTICATED)
 
 
-def assert_unauthorized(function):
+@contextmanager
+def assert_unauthorized():
     with pytest.raises(MlflowException, match=r"Permission denied.") as exception_context:
-        function()
+        yield
     assert exception_context.value.error_code == ErrorCode.Name(PERMISSION_DENIED)
 
 
@@ -84,13 +88,14 @@ def test_get_user(client, monkeypatch):
         user = client.get_user(username)
     assert user.username == username
 
-    assert_unauthenticated(lambda: client.get_user(username))
+    with assert_unauthenticated():
+        client.get_user(username)
 
     username2 = random_str()
     password2 = random_str()
     client.create_user(username2, password2)
-    with User(username2, password2, monkeypatch):
-        assert_unauthorized(lambda: client.get_user(username))
+    with User(username2, password2, monkeypatch), assert_unauthorized():
+        client.get_user(username)
 
 
 def test_update_user_password(client, monkeypatch):
@@ -102,19 +107,20 @@ def test_update_user_password(client, monkeypatch):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.update_user_password(username, new_password)
 
-    with User(username, password, monkeypatch):
-        assert_unauthenticated(lambda: client.get_user(username))
+    with User(username, password, monkeypatch), assert_unauthenticated():
+        client.get_user(username)
 
     with User(username, new_password, monkeypatch):
         client.get_user(username)
 
-    assert_unauthenticated(lambda: client.update_user_password(username, new_password))
+    with assert_unauthenticated():
+        client.update_user_password(username, new_password)
 
     username2 = random_str()
     password2 = random_str()
     client.create_user(username2, password2)
-    with User(username2, password2, monkeypatch):
-        assert_unauthorized(lambda: client.update_user_password(username, new_password))
+    with User(username2, password2, monkeypatch), assert_unauthorized():
+        client.update_user_password(username, new_password)
 
 
 def test_update_user_admin(client, monkeypatch):
@@ -127,13 +133,14 @@ def test_update_user_admin(client, monkeypatch):
         user = client.get_user(username)
         assert user.is_admin is True
 
-    assert_unauthenticated(lambda: client.update_user_admin(username, True))
+    with assert_unauthenticated():
+        client.update_user_admin(username, True)
 
     username2 = random_str()
     password2 = random_str()
     client.create_user(username2, password2)
-    with User(username2, password2, monkeypatch):
-        assert_unauthorized(lambda: client.update_user_admin(username, True))
+    with User(username2, password2, monkeypatch), assert_unauthorized():
+        client.update_user_admin(username, True)
 
 
 def test_delete_user(client, monkeypatch):
@@ -151,13 +158,14 @@ def test_delete_user(client, monkeypatch):
             client.get_user(username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    assert_unauthenticated(lambda: client.delete_user(username))
+    with assert_unauthenticated():
+        client.delete_user(username)
 
     username2 = random_str()
     password2 = random_str()
     client.create_user(username2, password2)
-    with User(username2, password2, monkeypatch):
-        assert_unauthorized(lambda: client.delete_user(username))
+    with User(username2, password2, monkeypatch), assert_unauthorized():
+        client.delete_user(username)
 
 
 def test_client_create_experiment_permission(client, monkeypatch):
@@ -169,14 +177,11 @@ def test_client_create_experiment_permission(client, monkeypatch):
     assert ep.experiment_id == experiment_id
     assert ep.permission == PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.create_experiment_permission(experiment_id, username, PERMISSION)
-    )
+    with assert_unauthenticated():
+        client.create_experiment_permission(experiment_id, username, PERMISSION)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.create_experiment_permission(experiment_id, username, PERMISSION)
-        )
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.create_experiment_permission(experiment_id, username, PERMISSION)
 
 
 def test_client_get_experiment_permission(client, monkeypatch):
@@ -189,10 +194,11 @@ def test_client_get_experiment_permission(client, monkeypatch):
     assert ep.experiment_id == experiment_id
     assert ep.permission == PERMISSION
 
-    assert_unauthenticated(lambda: client.get_experiment_permission(experiment_id, username))
+    with assert_unauthenticated():
+        client.get_experiment_permission(experiment_id, username)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(lambda: client.get_experiment_permission(experiment_id, username))
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.get_experiment_permission(experiment_id, username)
 
 
 def test_client_update_experiment_permission(client, monkeypatch):
@@ -206,14 +212,11 @@ def test_client_update_experiment_permission(client, monkeypatch):
     assert ep.experiment_id == experiment_id
     assert ep.permission == NEW_PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.update_experiment_permission(experiment_id, username, PERMISSION)
-    )
+    with assert_unauthenticated():
+        client.update_experiment_permission(experiment_id, username, PERMISSION)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.update_experiment_permission(experiment_id, username, PERMISSION)
-        )
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.update_experiment_permission(experiment_id, username, PERMISSION)
 
 
 def test_client_delete_experiment_permission(client, monkeypatch):
@@ -231,10 +234,11 @@ def test_client_delete_experiment_permission(client, monkeypatch):
             client.get_experiment_permission(experiment_id, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    assert_unauthenticated(lambda: client.delete_experiment_permission(experiment_id, username))
+    with assert_unauthenticated():
+        client.delete_experiment_permission(experiment_id, username)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(lambda: client.delete_experiment_permission(experiment_id, username))
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.delete_experiment_permission(experiment_id, username)
 
 
 def test_client_create_registered_model_permission(client, monkeypatch):
@@ -246,14 +250,11 @@ def test_client_create_registered_model_permission(client, monkeypatch):
     assert rmp.name == name
     assert rmp.permission == PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.create_registered_model_permission(name, username, PERMISSION)
-    )
+    with assert_unauthenticated():
+        client.create_registered_model_permission(name, username, PERMISSION)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.create_registered_model_permission(name, username, PERMISSION)
-        )
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.create_registered_model_permission(name, username, PERMISSION)
 
 
 def test_client_get_registered_model_permission(client, monkeypatch):
@@ -266,10 +267,11 @@ def test_client_get_registered_model_permission(client, monkeypatch):
     assert rmp.name == name
     assert rmp.permission == PERMISSION
 
-    assert_unauthenticated(lambda: client.get_registered_model_permission(name, username))
+    with assert_unauthenticated():
+        client.get_registered_model_permission(name, username)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(lambda: client.get_registered_model_permission(name, username))
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.get_registered_model_permission(name, username)
 
 
 def test_client_update_registered_model_permission(client, monkeypatch):
@@ -283,14 +285,11 @@ def test_client_update_registered_model_permission(client, monkeypatch):
     assert rmp.name == name
     assert rmp.permission == NEW_PERMISSION
 
-    assert_unauthenticated(
-        lambda: client.update_registered_model_permission(name, username, PERMISSION)
-    )
+    with assert_unauthenticated():
+        client.update_registered_model_permission(name, username, PERMISSION)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(
-            lambda: client.update_registered_model_permission(name, username, PERMISSION)
-        )
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.update_registered_model_permission(name, username, PERMISSION)
 
 
 def test_client_delete_registered_model_permission(client, monkeypatch):
@@ -308,7 +307,8 @@ def test_client_delete_registered_model_permission(client, monkeypatch):
             client.get_registered_model_permission(name, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
-    assert_unauthenticated(lambda: client.delete_registered_model_permission(name, username))
+    with assert_unauthenticated():
+        client.delete_registered_model_permission(name, username)
 
-    with User(username, password, monkeypatch):
-        assert_unauthorized(lambda: client.delete_registered_model_permission(name, username))
+    with User(username, password, monkeypatch), assert_unauthorized():
+        client.delete_registered_model_permission(name, username)
