@@ -24,10 +24,16 @@ class SortableResult:
 def complete_futures(futures):
     """
     Completes the specified futures, yielding a `SortableResult` for each future as it completes.
-    Note that this function returns an iterator and does not preserve ordering of results.
+    Note that this function returns a generator and does not preserve ordering of results.
+
+    :param futures: A list of futures to complete.
+    :return: An iterator over `SortableResult` objects.
     """
-    for index, fut in as_completed(enumerate(futures)):
+    for fut in as_completed(futures):
+        index = futures.index(fut)
         try:
-            yield SortableResult(key=index, value=fut.result())
+            result = fut.result()
         except Exception as e:
             yield SortableResult(key=index, err=e)
+        else:
+            yield SortableResult(key=index, value=result)
