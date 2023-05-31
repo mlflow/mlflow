@@ -684,18 +684,28 @@ def parallelized_download_file_using_http_uri(
             futures[p.submit(run_download, range_start, range_end)] = i
 
         failed_downloads = {}
-        for future in tqdm(as_completed(futures), total=len(futures)):
-            index = futures[future]
-            try:
-                result = future.result()
-                if result is not None:
-                    failed_downloads[index] = result
+        pbar = tqdm(
+            total=file_size,
+            unit="iB",
+            unit_scale=True,
+            leave=False,
+            desc=f"Downloading file from {http_uri}",
+        )
+        with pbar:
+            for future in as_completed(futures):
+                index = futures[future]
+                try:
+                    result = future.result()
+                    if result is not None:
+                        failed_downloads[index] = result
+                    else:
+                        pbar.update(chunk_size)
 
-            except Exception as e:
-                failed_downloads[index] = {
-                    "error_status_code": 500,
-                    "error_text": repr(e),
-                }
+                except Exception as e:
+                    failed_downloads[index] = {
+                        "error_status_code": 500,
+                        "error_text": repr(e),
+                    }
 
     return failed_downloads
 

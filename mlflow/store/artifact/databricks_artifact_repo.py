@@ -92,20 +92,20 @@ def _complete_futures(futures_dict, file):
 
     file_size = os.path.getsize(file)
     pbar = tqdm(
-        as_completed(futures_dict),
         total=file_size,
-        unit="B",
+        unit="iB",
         unit_scale=True,
-        desc=f"Uploading artifact {file.name}",
+        desc=f"Uploading file {file.name}",
+        leave=False,
     )
-    for future in pbar:
-        key = futures_dict[future]
-        try:
-            results[key] = future.result()
-            pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
-            pbar.refresh()
-        except Exception as e:
-            errors[key] = repr(e)
+    with pbar:
+        for future in as_completed(futures_dict):
+            key = futures_dict[future]
+            try:
+                results[key] = future.result()
+                pbar.update(_MULTIPART_UPLOAD_CHUNK_SIZE)
+            except Exception as e:
+                errors[key] = repr(e)
 
     return results, errors
 
@@ -699,7 +699,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         # Join futures to ensure that all artifacts have been uploaded prior to returning
         failed_uploads = {}
 
-        def get_creds_and_upload(staged_upload_chunk):
+        def get_creds_and_upload(staged_upload_chunk, pbar):
             write_credential_infos = self._get_write_credential_infos(
                 run_id=self.run_id,
                 paths=[
@@ -723,11 +723,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
             for src_file_path, upload_future in inflight_uploads.items():
                 try:
                     upload_future.result()
+                    pbar.update(1)
                 except Exception as e:
                     failed_uploads[src_file_path] = repr(e)
 
-        for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-            get_creds_and_upload(chunk)
+        pbar = tqdm(total=len(staged_uploads), desc="Uploading artifacts")
+        with pbar:
+            for chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
+                get_creds_and_upload(chunk, pbar)
 
         if len(failed_uploads) > 0:
             raise MlflowException(
