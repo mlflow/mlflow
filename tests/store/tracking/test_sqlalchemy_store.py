@@ -2187,6 +2187,28 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert result == []
 
+    def test_search_runs_run_info_only(self):
+        exp = self._experiment_factory("test_search_runs_run_info_only")
+        tags = [RunTag("my-tag", "tag-val")]
+        run_id = self._run_factory(self._get_run_configs(exp, start_time=10, tags=tags)).info.run_id
+        self.store.log_metric(
+            run_id=run_id, metric=entities.Metric(key="my-metric", value=91.4, timestamp=0, step=0)
+        )
+        self.store.log_param(run_id=run_id, param=Param(key="my-param", value="param-val"))
+
+        # test returned run has run data when no run_info_only flag passed
+        run = self.store.search_runs([exp], None, ViewType.ALL)[0]
+        assert run.info.run_id == run_id
+        assert run.data.params["my-param"] == "param-val"
+        assert run.data.metrics["my-metric"] == 91.4
+        assert run.data.tags["my-tag"] == "tag-val"
+        # test returned run has no run data when run_info_only flag is True
+        run = self.store.search_runs([exp], None, ViewType.ALL, run_info_only=True)[0]
+        assert run.info.run_id == run_id
+        assert len(run.data.params) == 0
+        assert len(run.data.metrics) == 0
+        assert len(run.data.tags) == 0
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id

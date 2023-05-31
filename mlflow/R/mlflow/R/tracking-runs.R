@@ -338,13 +338,15 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #'   between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
 #' @param order_by List of properties to order by. Example: "metrics.acc DESC".
+#' @param run_info_only If TRUE, do not return params, metrics or tags.
 #'
 #' @export
 mlflow_search_runs <- function(filter = NULL,
                                run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
                                experiment_ids = NULL,
                                order_by = list(),
-                               client = NULL) {
+                               client = NULL,
+                               run_info_only = FALSE) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
   # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
   if (is.atomic(experiment_ids)) {
@@ -360,7 +362,8 @@ mlflow_search_runs <- function(filter = NULL,
     experiment_ids = experiment_ids,
     filter = filter,
     run_view_type = run_view_type,
-    order_by = cast_string_list(order_by)
+    order_by = cast_string_list(order_by),
+    run_info_only = run_info_only
   ))
 
   runs_list <- response$run %>%

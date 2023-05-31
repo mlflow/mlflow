@@ -354,6 +354,9 @@ test_that("mlflow_search_runs() works", {
     mlflow_log_metric("new_experiment_metric", 30)
   })
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.new_experiment_metric = 30")), 1)
+
+  search <- mlflow_search_runs(experiment_ids = list("0"), run_info_only = TRUE)
+  expect_equal(nrow(search$metrics[[1]]), 0)
 })
 
 test_that("mlflow_log_artifact and mlflow_list_artifacts work", {

@@ -9,7 +9,8 @@ mlflow_search_runs(
   run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
   experiment_ids = NULL,
   order_by = list(),
-  client = NULL
+  client = NULL,
+  run_info_only = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ over. Attempts to use active experiment if not specified.}
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
+
+\item{run_info_only}{If TRUE, do not return params, metrics or tags.}
 }
 \description{
 Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.

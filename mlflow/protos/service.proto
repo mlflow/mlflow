@@ -918,6 +918,8 @@ message SearchRuns {
 
   optional string page_token = 7;
 
+  optional bool run_info_only = 8;
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;

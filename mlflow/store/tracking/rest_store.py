@@ -270,7 +270,14 @@ class RestStore(AbstractStore):
         return PagedList(metric_history, response_proto.next_page_token or None)
 
     def _search_runs(
-        self, experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+        self,
+        experiment_ids,
+        filter_string,
+        run_view_type,
+        max_results,
+        order_by,
+        page_token,
+        run_info_only,
     ):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(
@@ -280,6 +287,7 @@ class RestStore(AbstractStore):
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
+            run_info_only=run_info_only,
         )
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
