@@ -129,6 +129,8 @@ def clean_up_envs():
         from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 
         shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
-        envs = json.loads(subprocess.check_output(["conda", "env", "list", "--json"], text=True))
-        for env in envs["envs"][1:]:  # ignore the base env
-            shutil.rmtree(env, ignore_errors=True)
+        conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
+        root_prefix = conda_info["root_prefix"]
+        for env in conda_info["envs"]:
+            if env != root_prefix:
+                shutil.rmtree(env, ignore_errors=True)
