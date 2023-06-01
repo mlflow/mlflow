@@ -699,7 +699,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
             notebook_id = store._get_notebook_id(run)
             entity_info = EntityInfo(entity_type=NOTEBOOK, entity_id=str(notebook_id))
             create_kwargs["extra_headers"] = {
-                _DATABRICKS_LINEAGE_ID_HEADER: entity_info.SerializeToString()
+                _DATABRICKS_LINEAGE_ID_HEADER: message_to_json(entity_info),
             }
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs

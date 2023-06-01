@@ -422,7 +422,7 @@ class UcModelRegistryStore(BaseRestStore):
         extra_headers = None
         if notebook_id is not None:
             entity_info = EntityInfo(entity_type=NOTEBOOK, entity_id=str(notebook_id))
-            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: entity_info.SerializeToString()}
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: message_to_json(entity_info)}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
