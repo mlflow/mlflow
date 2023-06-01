@@ -2590,6 +2590,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
 
 .. note::
     Kwargs passed in to `predict` function will override the values in inference_config.
+    This functionality is not supported for model serving yet, but it will be supported in the short future.
 
 * Using inference_config
 
