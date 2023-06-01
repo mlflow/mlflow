@@ -392,11 +392,16 @@ def test_signature_and_examples_are_saved_correctly(example, basic_model):
     for signature in (None, signature_):
         with TempDir() as tmp:
             path = tmp.path("model")
-            mlflow.pytorch.save_model(
+            mlflow.sentence_transformers.save_model(
                 basic_model, path=path, signature=signature, input_example=example
             )
             mlflow_model = Model.load(path)
-            assert signature == mlflow_model.signature
+
+            if signature is None:
+                assert mlflow_model.signature == mlflow.sentence_transformers._get_default_signature()
+            else:
+                assert signature == mlflow_model.signature
+
             if example is None:
                 assert mlflow_model.saved_input_example_info is None
             else:
