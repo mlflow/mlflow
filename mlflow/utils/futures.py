@@ -32,7 +32,8 @@ class SortableResult:
 def complete_futures(futures):
     """
     Completes the specified futures, yielding a `SortableResult` for each future as it completes.
-    Note that this function returns a generator and does not preserve ordering of results.
+    Note the caller is responsible for consuming the iterator until completion and sorting the
+    results if necessary.
 
     :param futures: A dict of futures to complete.
     :return: An iterator over `SortableResult` objects.
