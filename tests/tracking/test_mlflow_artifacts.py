@@ -252,6 +252,7 @@ docker-compose down {rmi_option} --volumes --remove-orphans
         check=True,
         cwd=os.path.join(root, "examples", "mlflow_artifacts"),
     )
+    assert False
 
 
 def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmpdir):
