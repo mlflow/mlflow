@@ -1042,6 +1042,11 @@ def test_load_table():
     assert output_df.shape[1] == 3
 
     # test 6: load table with no matching results found. Error case
-    output_df = mlflow.load_table(artifact_file="error_case.json")
+    with pytest.raises(
+        MlflowException, match="No runs found with the corresponding table artifact"
+    ):
+        mlflow.load_table(artifact_file="error_case.json")
 
-    assert output_df.empty is True
+    # test 7: load table with no matching extra_column found. Error case
+    with pytest.raises(KeyError, match="error_column"):
+        mlflow.load_table(artifact_file=artifact_file, extra_columns=["error_column"])
