@@ -866,6 +866,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     mock_profiling.assert_not_called()
 
 
+@pytest.mark.skip(reason="https://issues.apache.org/jira/projects/SPARK/issues/SPARK-43194")
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_spark_sql_datetime_successfully(spark_session, tmp_path):
     from pyspark.sql.functions import (
