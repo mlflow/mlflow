@@ -406,3 +406,32 @@ def test_signature_and_examples_are_saved_correctly(example, basic_model):
                 assert mlflow_model.saved_input_example_info is None
             else:
                 assert all((_read_example(mlflow_model, path) == example).all())
+
+
+SENTENCES = ["hello world", "i am mlflow"]
+SIGNATURE = infer_signature(
+    model_input=SENTENCES,
+    model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
+)
+
+@pytest.mark.parametrize("example, signature", [
+    (None, None),
+    (SENTENCES, None),
+    (None, SIGNATURE),
+    (SENTENCES, SIGNATURE),
+])
+def test_signature_and_examples_are_saved_correctly_2(example, signature, basic_model, model_path):
+    mlflow.sentence_transformers.save_model(
+        basic_model, path=model_path, signature=signature, input_example=example
+    )
+    mlflow_model = Model.load(model_path)
+
+    if signature is None:
+        assert mlflow_model.signature == mlflow.sentence_transformers._get_default_signature()
+    else:
+        assert signature == mlflow_model.signature
+
+    if example is None:
+        assert mlflow_model.saved_input_example_info is None
+    else:
+        assert all((_read_example(mlflow_model, model_path) == example).all())
