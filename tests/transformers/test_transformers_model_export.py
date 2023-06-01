@@ -1871,6 +1871,36 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
 
+def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
+    artifact_path = "qa_model"
+    data = {
+        "question": [
+            "What color is it?",
+            "How do the people go?",
+            "What does the 'wolf' howl at?",
+        ],
+        "context": [
+            "Some people said it was green but I know that it's pink.",
+            "The people on the bus go up and down. Up and down.",
+            "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+            "the moon for hours.",
+        ],
+    }
+
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=small_qa_pipeline,
+            artifact_path=artifact_path,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
+
+    result = pyfunc_loaded.predict(data, top_k=2, max_answer_len=5)
+
+    assert result == ["pink", "pink.", "up and down", "Up and down", "the moon", "moon"]
+
+
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
     artifact_path = "text_classifier_model"
     with mlflow.start_run():

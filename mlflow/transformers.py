@@ -2072,12 +2072,12 @@ class _TransformersWrapper:
                         elif isinstance(value, list) and all(
                             isinstance(elem, dict) for elem in value
                         ):
-                            output_coll.append(
-                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)[0]
+                            output_coll.extend(
+                                self._parse_lists_of_dict_to_list_of_str(value, target_dict_key)
                             )
                 elif isinstance(output, list):
-                    output_coll.append(
-                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)[0]
+                    output_coll.extend(
+                        self._parse_lists_of_dict_to_list_of_str(output, target_dict_key)
                     )
             return output_coll
         elif target_dict_key:
