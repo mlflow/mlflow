@@ -1,6 +1,9 @@
 import os
 import posixpath
 import pytest
+import shutil
+import json
+import subprocess
 
 
 def pytest_addoption(parser):
@@ -116,3 +119,16 @@ def pytest_terminal_summary(
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_up_envs():
+    yield
+
+    if "GITHUB_ACTIONS" in os.environ:
+        from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
+
+        shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
+        envs = json.loads(subprocess.check_output(["conda", "env", "list", "--json"], text=True))
+        for env in envs["envs"][1:]:  # ignore the base env
+            shutil.rmtree(env, ignore_errors=True)
