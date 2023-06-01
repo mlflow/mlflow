@@ -46,6 +46,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     GcpOauthToken,
     EntityInfo,
     NOTEBOOK,
+    LineageHeaderInfo,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
@@ -698,8 +699,9 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
             _, run = store._get_run_and_headers("some_run_id")
             notebook_id = store._get_notebook_id(run)
             entity_info = EntityInfo(entity_type=NOTEBOOK, entity_id=str(notebook_id))
+            lineage_header_info = LineageHeaderInfo(entity_info=[entity_info])
             create_kwargs["extra_headers"] = {
-                _DATABRICKS_LINEAGE_ID_HEADER: message_to_json(entity_info),
+                _DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info),
             }
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs

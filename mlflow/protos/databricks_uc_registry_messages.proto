@@ -408,3 +408,7 @@ message EntityInfo {
     optional string query_id = 3; // run level ID (pipeline update_id, job run_id)
     optional string entity_metadata = 4; // JSON formatted String with entity specific metadata (job task_key)
 }
+
+message LineageHeaderInfo {
+    repeated EntityInfo entity_info = 1;
+}
