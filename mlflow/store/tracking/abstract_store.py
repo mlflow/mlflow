@@ -1,9 +1,10 @@
 from abc import abstractmethod, ABCMeta
+from typing import List, Optional
 
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.utils.annotations import developer_stable
+from mlflow.utils.annotations import developer_stable, experimental
 
 
 @developer_stable
@@ -343,6 +344,20 @@ class AbstractStore:
         :param mlflow_model: Model object to be recorded.
 
         The default implementation is a no-op.
+
+        :return: None.
+        """
+        pass
+
+    @abstractmethod
+    @experimental
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+        """
+        Log inputs, such as datasets, to the specified run.
+
+        :param run_id: String id for the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                         as inputs to the run.
 
         :return: None.
         """

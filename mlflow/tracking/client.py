@@ -14,7 +14,7 @@ import tempfile
 import yaml
 from typing import Any, Dict, Sequence, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType
+from mlflow.entities import Experiment, Run, Param, Metric, RunTag, FileInfo, ViewType, DatasetInput
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -32,7 +32,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
@@ -46,7 +46,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_PARENT_RUN_ID,
 )
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -129,9 +128,11 @@ class MlflowClient:
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
         as well as a collection of run parameters, tags, and metrics --
-        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
-        same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
-        the most recently logged value at the largest step for each metric.
+        :py:class:`RunData <mlflow.entities.RunData>`. It also contains a collection of run
+        inputs (experimental), including information about datasets used by the run --
+        :py:class:`RunInputs <mlflow.entities.RunInputs>`. In the case where multiple metrics with
+        the same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>`
+        contains the most recently logged value at the largest step for each metric.
 
         :param run_id: Unique identifier for the run.
 
@@ -1034,6 +1035,23 @@ class MlflowClient:
             status: FINISHED
         """
         self._tracking_client.log_batch(run_id, metrics, params, tags)
+
+    @experimental
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[Sequence[DatasetInput]] = None,
+    ) -> None:
+        """
+        Log one or more dataset inputs to a run.
+
+        :param run_id: String ID of the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+
+        Raises an MlflowException if any errors occur.
+        :return: None
+        """
+        self._tracking_client.log_inputs(run_id, datasets)
 
     def log_artifact(self, run_id, local_path, artifact_path=None) -> None:
         """
