@@ -49,8 +49,9 @@ def is_tracking_uri_set():
 
 def are_tracking_credentials_set():
     """Returns True if the tracking username and password have been set, False otherwise."""
-    if (_tracking_username and _tracking_password) or \
-            (env.get_env(_TRACKING_USERNAME_ENV_VAR) and env.get_env(_TRACKING_PASSWORD_ENV_VAR)):
+    if (_tracking_username and _tracking_password) or (
+        env.get_env(_TRACKING_USERNAME_ENV_VAR) and env.get_env(_TRACKING_PASSWORD_ENV_VAR)
+    ):
         return True
     return False
 
@@ -101,7 +102,7 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
     global _tracking_uri
     _tracking_uri = uri
 
-    
+
 def set_tracking_credentials(username: str, password: str) -> None:
     """Sets the tracking username and password."""
     global _tracking_username
@@ -115,7 +116,7 @@ def set_tracking_token(token: str) -> None:
     global _tracking_token
     _tracking_token = token
 
-    
+
 @contextmanager
 def _use_tracking_uri(uri: str, local_store_root_path: str = None) -> None:
     """
@@ -169,7 +170,7 @@ def get_tracking_uri() -> str:
     else:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
-    
+
 def _get_tracking_username() -> str:
     global _tracking_username
     if _tracking_username is not None:

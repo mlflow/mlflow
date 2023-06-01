@@ -18,6 +18,8 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     set_tracking_uri,
     get_tracking_uri,
+    set_tracking_credentials,
+    set_tracking_token,
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
@@ -87,6 +89,21 @@ def test_get_store_rest_store_with_password():
         assert store.get_host_creds().password == "Ross"
 
 
+def test_get_store_rest_store_with_password_setter_override():
+    env = {
+        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        _TRACKING_USERNAME_ENV_VAR: "Bob",
+        _TRACKING_PASSWORD_ENV_VAR: "Ross",
+    }
+    with mock.patch.dict(os.environ, env):
+        set_tracking_credentials("Vincent", "Van Gogh")
+        store = _get_store()
+        assert isinstance(store, RestStore)
+        assert store.get_host_creds().host == "https://my-tracking-server:5050"
+        assert store.get_host_creds().username == "Vincent"
+        assert store.get_host_creds().password == "Van Gogh"
+
+
 def test_get_store_rest_store_with_token():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
@@ -96,6 +113,18 @@ def test_get_store_rest_store_with_token():
         store = _get_store()
         assert isinstance(store, RestStore)
         assert store.get_host_creds().token == "my-token"
+
+
+def test_get_store_rest_store_with_token_setter_override():
+    env = {
+        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        _TRACKING_TOKEN_ENV_VAR: "my-token",
+    }
+    with mock.patch.dict(os.environ, env):
+        set_tracking_token("my-other-token")
+        store = _get_store()
+        assert isinstance(store, RestStore)
+        assert store.get_host_creds().token == "my-other-token"
 
 
 def test_get_store_rest_store_with_insecure():
