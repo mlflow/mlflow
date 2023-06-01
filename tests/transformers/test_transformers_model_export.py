@@ -1888,10 +1888,8 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
                     "the moon for hours.",
                 ],
             },
-            "inference_config": {
-                "top_k": 2,
-                "max_answer_len": 5,
-            },
+            "top_k": 2,
+            "max_answer_len": 5,
         }
     )
     with mlflow.start_run():
@@ -3071,8 +3069,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     inference_payload = json.dumps(
         {
             "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
-            "inference_config": inference_config,
-        }
+        }.update(inference_config)
     )
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
