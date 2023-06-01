@@ -175,8 +175,6 @@ def test_schema_inference_on_pandas_series():
     assert schema == Schema([ColSpec(DataType.binary)])
     schema = _infer_schema(pd.Series(np.array([bytearray([1]), None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.binary)])
-    schema = _infer_schema(pd.Series(np.array([True, None], dtype=object)))
-    assert schema == Schema([ColSpec(DataType.string)])
     schema = _infer_schema(pd.Series(np.array([1.1, None], dtype=object)))
     assert schema == Schema([ColSpec(DataType.double)])
 

@@ -20,6 +20,9 @@ type ExperimentViewRunsControlsProps = {
 
   runsData: ExperimentRunsSelectorResult;
 
+  expandRows: boolean;
+  updateExpandRows: (expandRows: boolean) => void;
+
   requestError: ErrorWrapper | null;
 };
 
@@ -35,6 +38,8 @@ export const ExperimentViewRunsControls = React.memo(
     updateSearchFacets,
     searchFacetsState,
     requestError,
+    expandRows,
+    updateExpandRows,
   }: ExperimentViewRunsControlsProps) => {
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
@@ -57,15 +62,18 @@ export const ExperimentViewRunsControls = React.memo(
           searchFacetsState={searchFacetsState}
           viewState={viewState}
           updateViewState={updateViewState}
-          sortOptions={sortOptions}
           runsData={runsData}
           requestError={requestError}
         />
         <ExperimentViewRunsControlsActions
+          sortOptions={sortOptions}
           runsData={runsData}
           updateSearchFacets={updateSearchFacets}
           searchFacetsState={searchFacetsState}
+          updateViewState={updateViewState}
           viewState={viewState}
+          expandRows={expandRows}
+          updateExpandRows={updateExpandRows}
         />
       </div>
     );

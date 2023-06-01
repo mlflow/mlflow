@@ -1,2 +1,0 @@
-export declare const FilterSectionHeader: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => import("@emotion/react/jsx-runtime").JSX.Element;
-//# sourceMappingURL=FilterSectionHeader.d.ts.map

@@ -1,9 +1,16 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 /* eslint react/prop-types:0 */
 import React from 'react';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { shallow } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import { HomePageImpl } from './HomePage';
@@ -35,7 +42,7 @@ describe('HomePage', () => {
         const { children } = props;
         return (
           <Provider store={minimalStore}>
-            <BrowserRouter>{children}</BrowserRouter>
+            <MemoryRouter>{children}</MemoryRouter>
           </Provider>
         );
       },
@@ -54,7 +61,7 @@ describe('HomePage', () => {
         const { children } = wrappingProps;
         return (
           <Provider store={minimalStore}>
-            <BrowserRouter>{children}</BrowserRouter>
+            <MemoryRouter>{children}</MemoryRouter>
           </Provider>
         );
       },

@@ -337,7 +337,7 @@ def test_spark_udf_autofills_no_arguments(spark):
 
         with pytest.raises(
             pyspark.sql.utils.PythonException,
-            match=r"Model input is missing columns. Expected 3 input columns",
+            match=r"Model input is missing required columns. Expected 3 required input columns",
         ):
             res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
 
@@ -383,6 +383,35 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(MlflowException, match="Attempting to apply udf on zero columns"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
+
+    named_signature_with_optional_input = ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec("long", "a"),
+                ColSpec("long", "b"),
+                ColSpec("long", "c"),
+                ColSpec("long", "d", optional=True),
+            ]
+        ),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model", python_model=TestModel(), signature=named_signature_with_optional_input
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        with pytest.raises(
+            MlflowException,
+            match=r"Cannot apply UDF without column names specified when model "
+            r"signature contains optional columns",
+        ):
+            good_data.withColumn("res", udf())
+
+        # Ensure optional inputs are not truncated
+        res = good_data.withColumn("res", udf(*good_data.columns)).select("res").toPandas()
+        assert res["res"][0] == ["a", "b", "c", "d"]
 
 
 def test_spark_udf_autofills_column_names_with_schema(spark):

@@ -1,6 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter } from 'react-router-dom-v5-compat';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -68,6 +75,7 @@ describe('RunView', () => {
         },
         tagsByRunUuid: { 'uuid-1234-5678-9012': {} },
         paramsByRunUuid: { 'uuid-1234-5678-9012': {} },
+        runDatasetsByUuid: { 'uuid-1234-5678-9012': {} },
         latestMetricsByRunUuid: { 'uuid-1234-5678-9012': {} },
         artifactRootUriByRunUuid: { 'uuid-1234-5678-9012': 'root/uri' },
       },

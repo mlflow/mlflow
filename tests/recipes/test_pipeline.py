@@ -1,7 +1,7 @@
 import os
 import pathlib
 import re
-from distutils.dir_util import copy_tree
+import shutil
 
 import pandas as pd
 import pytest
@@ -71,7 +71,7 @@ def test_create_recipe_fails_with_path_containing_space(tmp_path):
     space_path = space_parent / "child"
     os.makedirs(space_parent, exist_ok=True)
     os.makedirs(space_path, exist_ok=True)
-    copy_tree(os.getcwd(), str(space_path))
+    shutil.copytree(src=os.getcwd(), dst=str(space_path), dirs_exist_ok=True)
 
     with chdir(space_path), pytest.raises(
         MlflowException, match="Recipe directory path cannot contain spaces"

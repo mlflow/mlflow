@@ -1,7 +1,14 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { Link } from 'react-router-dom';
+import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
 import { modelListPageRoute, getCompareModelVersionsPageRoute } from '../routes';
 import { message } from 'antd';
 import { ACTIVE_STAGES } from '../constants';
@@ -39,7 +46,7 @@ type ModelViewImplProps = {
   }[];
   handleEditDescription: (...args: any[]) => any;
   handleDelete: (...args: any[]) => any;
-  history: any;
+  navigate: NavigateFunction;
   showEditPermissionModal: (...args: any[]) => any;
   activePane?: any; // TODO: PropTypes.oneOf(Object.values(PANES))
   emailSubscriptionStatus?: string;
@@ -140,12 +147,12 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   handleDeleteConfirm = () => {
-    const { history } = this.props;
+    const { navigate } = this.props;
     this.showConfirmLoading();
     this.props
       .handleDelete()
       .then(() => {
-        history.push(modelListPageRoute);
+        navigate(modelListPageRoute);
       })
       .catch((e: any) => {
         this.hideConfirmLoading();
@@ -205,7 +212,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   };
 
   onCompare() {
-    this.props.history.push(
+    this.props.navigate(
       // @ts-expect-error TS(2532): Object is possibly 'undefined'.
       getCompareModelVersionsPageRoute(this.props.model.name, this.state.runsSelected),
     );

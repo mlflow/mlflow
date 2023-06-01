@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import Utils from './Utils';
 import React from 'react';
 import {
@@ -486,7 +493,7 @@ test('getRegex', () => {
   ];
   urlAndExpected.forEach((lst) => {
     const url = lst[0];
-    const match = url.match(gitRegex);
+    const match = (url as any).match(gitRegex);
     if (match) {
       match[2] = match[2].replace(/.git/, '');
     }

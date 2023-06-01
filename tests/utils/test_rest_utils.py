@@ -17,8 +17,8 @@ from mlflow.utils.rest_utils import (
     call_endpoints,
     augmented_raise_for_status,
     _can_parse_as_json_object,
-    _get_request_session,
 )
+from mlflow.utils.request_utils import _get_request_session
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
     _USER_AGENT,

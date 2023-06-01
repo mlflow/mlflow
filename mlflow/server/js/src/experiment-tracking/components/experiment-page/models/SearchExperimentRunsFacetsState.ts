@@ -9,12 +9,21 @@ import {
 } from '../../../constants';
 import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
+import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
 
-const DEFAULT_SELECTED_COLUMNS = [
-  // "Source" and "Model" columns are visible by default
-  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
-  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
-];
+const getDefaultSelectedColumns = () => {
+  const result = [
+    // "Source" and "Model" columns are visible by default
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
+  ];
+
+  if (shouldEnableExperimentDatasetTracking()) {
+    result.push(makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET));
+  }
+
+  return result;
+};
 
 /**
  * Function consumes a search state facets object and returns one
@@ -93,7 +102,7 @@ export class SearchExperimentRunsFacetsState {
   /**
    * Currently selected columns
    */
-  selectedColumns: string[] = [...DEFAULT_SELECTED_COLUMNS];
+  selectedColumns: string[] = getDefaultSelectedColumns();
 
   /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that

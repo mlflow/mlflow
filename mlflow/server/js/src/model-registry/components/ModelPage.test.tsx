@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -5,7 +12,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { ModelPageImpl, ModelPage } from './ModelPage';
 import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '../../common/utils/TestUtils';
@@ -18,19 +25,13 @@ describe('ModelPage', () => {
   let minimalProps: any;
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
+  const navigate = jest.fn();
 
   beforeEach(() => {
     minimalProps = {
-      match: {
-        params: {
-          modelName: encodeURIComponent('Model A'),
-        },
-      },
-      history: {
-        push: jest.fn(),
-      },
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       getRegisteredModelDetailsApi: jest.fn(() => Promise.resolve({})),
+      navigate,
     };
     const versions = [
       mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY),
@@ -54,20 +55,20 @@ describe('ModelPage', () => {
   test('should render with minimal props and store without exploding', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
-  test('should redirect to model listing page when model is deleted', () => {
+  test('should redirect to model listing page when model is deleted', async () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <ModelPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
@@ -78,8 +79,7 @@ describe('ModelPage', () => {
 
     Utils.isBrowserTabVisible = jest.fn(() => true);
     instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
-    return instance.pollData().then(() => {
-      expect(minimalProps.history.push).toHaveBeenCalledWith(modelListPageRoute);
-    });
+    await instance.pollData();
+    expect(navigate).toHaveBeenCalledWith(modelListPageRoute);
   });
 });

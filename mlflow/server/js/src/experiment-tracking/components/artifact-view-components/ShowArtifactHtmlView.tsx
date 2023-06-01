@@ -1,21 +1,30 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { getSrc } from './ShowArtifactPage';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
 
-type OwnProps = {
-  runUuid: string;
-  path: string;
-  getArtifact?: (...args: any[]) => any;
+type ShowArtifactHtmlViewState = {
+  loading: boolean;
+  error?: any;
+  html: string;
 };
 
-type State = any;
+type ShowArtifactHtmlViewProps = {
+  runUuid: string;
+  path: string;
+  getArtifact: (artifactLocation: string) => Promise<string>;
+};
 
-type Props = OwnProps & typeof ShowArtifactHtmlView.defaultProps;
-
-class ShowArtifactHtmlView extends Component<Props, State> {
-  constructor(props: Props) {
+class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArtifactHtmlViewState> {
+  constructor(props: ShowArtifactHtmlViewProps) {
     super(props);
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
   }
@@ -27,14 +36,14 @@ class ShowArtifactHtmlView extends Component<Props, State> {
   state = {
     loading: true,
     error: undefined,
-    html: undefined,
+    html: '',
   };
 
   componentDidMount() {
     this.fetchArtifacts();
   }
 
-  componentDidUpdate(prevProps: Props) {
+  componentDidUpdate(prevProps: ShowArtifactHtmlViewProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
       this.fetchArtifacts();
     }
@@ -70,7 +79,7 @@ class ShowArtifactHtmlView extends Component<Props, State> {
     }
   }
 
-  getBlobURL = (code: any, type: any) => {
+  getBlobURL = (code: string, type: string) => {
     const blob = new Blob([code], { type });
     return URL.createObjectURL(blob);
   };
@@ -80,10 +89,10 @@ class ShowArtifactHtmlView extends Component<Props, State> {
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
-      .then((html: any) => {
+      .then((html: string) => {
         this.setState({ html: html, loading: false });
       })
-      .catch((error: any) => {
+      .catch((error: Error) => {
         this.setState({ error: error, loading: false });
       });
   }
