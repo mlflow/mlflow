@@ -176,7 +176,7 @@ def test_column_schema_enforcement():
     assert res.dtypes.to_dict() == expected_types
 
     # 12. datetime64[D] (date only) -> datetime64[x] works
-    pdf["h"] = pdf["h"].astype("datetime64[D]")
+    pdf["h"] = pdf["h"].values.astype("datetime64[D]")
     res = pyfunc_model.predict(pdf)
     assert res.dtypes.to_dict() == expected_types
     pdf["h"] = pdf["h"].astype("datetime64[s]")
