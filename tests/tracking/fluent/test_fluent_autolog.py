@@ -23,6 +23,7 @@ import pyspark.ml
 import pytorch_lightning
 import transformers
 import setfit
+import johnsnowlabs
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
@@ -40,6 +41,7 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
+    johnsnowlabs: mlflow.johnsnowlabs,
 }
 
 library_to_mlflow_module = {

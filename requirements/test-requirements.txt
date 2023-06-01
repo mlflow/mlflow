@@ -34,3 +34,5 @@ mlserver>=1.2.0,!=1.3.1
 mlserver-mlflow>=1.2.0,!=1.3.1
 # Required by evaluator tests
 shap
+# Required by johnsnowlabs tests
+johnsnowlabs>=4.4.6
