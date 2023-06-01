@@ -239,6 +239,7 @@ def test_mlflow_artifacts_example(tmpdir):
     rmi_option = "--rmi all" if is_github_actions() else ""
     cmd = f"""
 set -ex
+docker system df
 ./build.sh
 docker-compose run -v ${{PWD}}/example.py:/app/example.py client python example.py
 docker-compose logs
