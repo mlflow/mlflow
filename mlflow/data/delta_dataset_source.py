@@ -84,7 +84,7 @@ class DeltaDatasetSource(DatasetSource):
     def _is_databricks_uc_table(self):
         if is_in_databricks_runtime() and self._delta_table_name is not None:
             try:
-                catalog_name, _, _ = self._delta_table_name.split(".")
+                catalog_name = self._delta_table_name.split(".", 1)[0]
                 return (
                     catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
                     and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME

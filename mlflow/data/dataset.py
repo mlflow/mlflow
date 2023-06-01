@@ -1,5 +1,5 @@
 import json
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Optional, Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
@@ -8,7 +8,7 @@ from mlflow.utils.annotations import experimental
 
 
 @experimental
-class Dataset:
+class Dataset(ABC):
     """
     Represents a dataset for use with MLflow Tracking, including the name, digest (hash),
     schema, and profile of the dataset as well as source information (e.g. the S3 bucket or
@@ -119,6 +119,6 @@ class Dataset:
             digest=dataset_json["digest"],
             source_type=dataset_json["source_type"],
             source=dataset_json["source"],
-            schema=dataset_json["schema"],
-            profile=dataset_json["profile"],
+            schema=dataset_json.get("schema"),
+            profile=dataset_json.get("profile"),
         )

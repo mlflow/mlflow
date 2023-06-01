@@ -57,7 +57,7 @@ class HTTPDatasetSource(DatasetSource):
         content_disposition = resp.headers.get("Content-Disposition")
         if (
             content_disposition is not None
-            and len(file_names := re.findall("filename=(.+)", content_disposition)) > 0
+            and len(file_names := re.findall(r"filename=(.+)", content_disposition)) > 0
         ):
             # NB: If the filename is quoted, unquote it
             basename = file_names[0].lstrip('"').rstrip('"').lstrip("'").rstrip("'")
