@@ -1123,6 +1123,78 @@ def log_table(
     MlflowClient().log_table(run_id, data, artifact_file)
 
 
+@experimental
+def load_table(
+    artifact_file: str,
+    run_ids: Optional[List[str]] = None,
+    extra_columns: Optional[List[str]] = None,
+) -> "pandas.DataFrame":
+    """
+    Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+    specified artifact_file in the specified run_ids. The extra_columns are columns that
+    are not in the table but are augmented with run information and added to the DataFrame.
+
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          table to load (e.g. "dir/file.json").
+    :param run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
+                    the table is loaded from all runs in the current experiment.
+    :param extra_columns: Optional list of extra columns to add to the returned DataFrame
+                          For example, if extra_columns=["run_id"], then the returned DataFrame
+                          will have a column named run_id.
+
+    :return: pandas.DataFrame containing the loaded table if the artifact exists
+             or else throw a MlflowException.
+
+    .. test-code-block:: python
+        :caption: Example with passing run_ids
+
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run() as run:
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+            run_id = run.info.run_id
+
+        loaded_table = mlflow.load_table(
+            artifact_file="qabot_eval_results.json",
+            run_ids=[run_id],
+            # Append a column containing the associated run ID for each row
+            extra_columns=["run_id"],
+        )
+
+    .. test-code-block:: python
+        :caption: Example with passing no run_ids
+
+        # Loads the table with the specified name for all runs in the given
+        # experiment and joins them together
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run():
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+
+        loaded_table = mlflow.load_table(
+            "qabot_eval_results.json",
+            # Append the run ID and the parent run ID to the table
+            extra_columns=["run_id"],
+        )
+    """
+    experiment_id = _get_experiment_id()
+    return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
+
+
 def _record_logged_model(mlflow_model):
     run_id = _get_or_start_run().info.run_id
     MlflowClient()._record_logged_model(run_id, mlflow_model)

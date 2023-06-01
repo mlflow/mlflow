@@ -968,3 +968,85 @@ def test_log_table_with_subdirectory():
     current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_load_table():
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "toxicity": [0.0, 0.0],
+    }
+    artifact_file = "qabot_eval_results.json"
+    artifact_file_2 = "qabot_eval_results_2.json"
+    run_id_2 = None
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file_2)
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id_2 = run.info.run_id
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id_3 = run.info.run_id
+
+    extra_columns = ["run_id", "tags.mlflow.loggedArtifacts"]
+
+    # test 1: load table with extra columns
+    output_df = mlflow.load_table(artifact_file=artifact_file, extra_columns=extra_columns)
+
+    assert output_df.shape[0] == 6
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 3
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 2
+
+    # test 2: load table with extra columns and single run_id
+    output_df = mlflow.load_table(
+        artifact_file=artifact_file, run_ids=[run_id_2], extra_columns=extra_columns
+    )
+
+    assert output_df.shape[0] == 2
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 1
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    # test 3: load table with extra columns and multiple run_ids
+    output_df = mlflow.load_table(
+        artifact_file=artifact_file, run_ids=[run_id_2, run_id_3], extra_columns=extra_columns
+    )
+
+    assert output_df.shape[0] == 4
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 2
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    # test 4: load table with no extra columns and run_ids specified but different artifact file
+    output_df = mlflow.load_table(artifact_file=artifact_file_2)
+    import pandas as pd
+
+    pd.testing.assert_frame_equal(output_df, pd.DataFrame(table_dict), check_dtype=False)
+
+    # test 5: load table with no extra columns and run_ids specified
+    output_df = mlflow.load_table(artifact_file=artifact_file)
+
+    assert output_df.shape[0] == 6
+    assert output_df.shape[1] == 3
+
+    # test 6: load table with no matching results found. Error case
+    with pytest.raises(
+        MlflowException, match="No runs found with the corresponding table artifact"
+    ):
+        mlflow.load_table(artifact_file="error_case.json")
+
+    # test 7: load table with no matching extra_column found. Error case
+    with pytest.raises(KeyError, match="error_column"):
+        mlflow.load_table(artifact_file=artifact_file, extra_columns=["error_column"])
