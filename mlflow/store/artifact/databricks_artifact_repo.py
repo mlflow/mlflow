@@ -61,7 +61,7 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
+_DOWNLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
@@ -451,20 +451,13 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
-        from mlflow.utils.databricks_utils import get_databricks_env_vars
-
         try:
-            parallel_download_subproc_env = os.environ.copy()
-            parallel_download_subproc_env.update(
-                get_databricks_env_vars(self.databricks_profile_uri)
-            )
             failed_downloads = parallelized_download_file_using_http_uri(
                 http_uri=cloud_credential_info.signed_uri,
                 download_path=dst_local_file_path,
                 file_size=file_size,
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
-                env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
@@ -482,11 +475,14 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-
-            for i in failed_downloads:
-                download_chunk(
-                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
-                )
+                for index in failed_downloads:
+                    download_chunk(
+                        index,
+                        _DOWNLOAD_CHUNK_SIZE,
+                        new_headers,
+                        dst_local_file_path,
+                        new_signed_uri,
+                    )
         except Exception as err:
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)

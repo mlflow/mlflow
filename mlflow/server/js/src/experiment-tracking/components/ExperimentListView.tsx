@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { css } from '@emotion/react';
 import {
@@ -12,13 +19,14 @@ import {
 import { List } from 'antd';
 import { List as VList, AutoSizer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, withRouter } from 'react-router-dom';
+import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
 import { Experiment } from '../sdk/MlflowMessages';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { IconButton } from '../../common/components/IconButton';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 
 type Props = {
   activeExperimentIds: string[];
@@ -27,7 +35,7 @@ type Props = {
   };
   // @ts-expect-error TS(2749): 'Experiment' refers to a value, but is being used ... Remove this comment to see the full error message
   experiments: Experiment[];
-  history: any;
+  navigate: NavigateFunction;
 };
 
 type State = any;
@@ -141,7 +149,7 @@ export class ExperimentListView extends Component<Props, State> {
         this.state.checkedKeys.length === 1
           ? Routes.getExperimentPageRoute(this.state.checkedKeys[0])
           : Routes.getCompareExperimentsPageRoute(this.state.checkedKeys);
-      this.props.history.push(route);
+      this.props.navigate(route);
     }
   };
 
@@ -387,4 +395,4 @@ const classNames = {
 };
 
 // @ts-expect-error TS(2345): Argument of type '(props: Props) => ReactElement<a... Remove this comment to see the full error message
-export default withRouter(WithDesignSystemThemeHoc(ExperimentListView));
+export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));

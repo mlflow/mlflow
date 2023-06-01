@@ -1,4 +1,11 @@
 /**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
+/**
  * This component consists of a checkbox tree select and a search input on top of which toggles and
  * highlight tree nodes while user type in a search prefix.
  */

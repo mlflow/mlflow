@@ -1,5 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { useCallback, useRef, useEffect } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { SupportsDuBoisThemes } from '@databricks/web-shared/design-system';
 import { message, ConfigProvider } from 'antd';
 
 const isInsideShadowDOM = (element: any) =>
@@ -35,13 +43,15 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
   }, []);
 
   return (
-    // @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message
-    <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
-      <ConfigProvider prefixCls='ant'>
-        {children}
-        {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
-        <div ref={modalContainerElement} />
-      </ConfigProvider>
-    </DesignSystemProvider>
+    <SupportsDuBoisThemes enabled={false}>
+      {/* @ts-expect-error TS(2322): Type '() => HTMLElement | undefined' is not assign... Remove this comment to see the full error message */}
+      <DesignSystemProvider getPopupContainer={getPopupContainer} isCompact {...props}>
+        <ConfigProvider prefixCls='ant'>
+          {children}
+          {/* @ts-expect-error TS(2322): Type 'MutableRefObject<undefined>' is not assignab... Remove this comment to see the full error message */}
+          <div ref={modalContainerElement} />
+        </ConfigProvider>
+      </DesignSystemProvider>
+    </SupportsDuBoisThemes>
   );
 };

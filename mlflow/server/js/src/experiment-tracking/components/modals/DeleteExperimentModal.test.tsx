@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { shallow } from 'enzyme';
 import { DeleteExperimentModalImpl } from './DeleteExperimentModal';
@@ -7,15 +14,12 @@ describe('DeleteExperimentModal', () => {
   let wrapper: any;
   let instance;
   let minimalProps: any;
-  let location = {};
   const fakeExperimentId = 'fakeExpId';
+
+  const navigate = jest.fn();
+
   beforeEach(() => {
-    location = { search: 'initialSearchValue' };
-    const history = {
-      push: (url: any) => {
-        (location as any).search = url;
-      },
-    };
+    navigate.mockClear();
     minimalProps = {
       isOpen: false,
       onClose: jest.fn(),
@@ -27,7 +31,7 @@ describe('DeleteExperimentModal', () => {
         return Promise.resolve(response);
       },
       searchExperimentsApi: () => Promise.resolve([]),
-      history: history,
+      navigate,
     };
     wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);
   });
@@ -36,41 +40,36 @@ describe('DeleteExperimentModal', () => {
     expect(wrapper.find(ConfirmModal).length).toBe(1);
     expect(wrapper.length).toBe(1);
   });
-  test('handleSubmit redirects user to root page if current experiment is the only active experiment', (done) => {
+  test('handleSubmit redirects user to root page if current experiment is the only active experiment', async () => {
     instance = wrapper.instance();
-    instance.handleSubmit().then(() => {
-      expect((location as any).search).toEqual('/');
-      done();
-    });
+    await instance.handleSubmit();
+    expect(navigate).toBeCalledWith('/');
   });
-  test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', (done) => {
+  test('handleSubmit redirects to compare experiment page if current experiment is one of several active experiments', async () => {
     const props = Object.assign({}, minimalProps, { activeExperimentIds: ['0', '1', '2'] });
     instance = shallow(<DeleteExperimentModalImpl {...props} />).instance();
-    instance.handleSubmit().then(() => {
-      expect((location as any).search).toEqual('/compare-experiments/s?experiments=["1","2"]');
-      done();
-    });
+    await instance.handleSubmit();
+
+    expect(navigate).toBeCalledWith('/compare-experiments/s?experiments=["1","2"]');
   });
-  test('handleSubmit does not perform redirection if DeleteExperiment request fails', (done) => {
+  test('handleSubmit does not perform redirection if DeleteExperiment request fails', async () => {
     const props = {
       ...minimalProps,
       deleteExperimentApi: () => Promise.reject(new Error('DeleteExperiment failed!')),
     };
     wrapper = shallow(<DeleteExperimentModalImpl {...props} />);
     instance = wrapper.instance();
-    instance.handleSubmit().then(() => {
-      expect((location as any).search).toEqual('initialSearchValue');
-      done();
-    });
+    await instance.handleSubmit();
+
+    expect(navigate).not.toBeCalled();
   });
-  test('handleSubmit does not perform redirection if deleted experiment is not active experiment', (done) => {
+  test('handleSubmit does not perform redirection if deleted experiment is not active experiment', async () => {
     wrapper = shallow(
       <DeleteExperimentModalImpl {...{ ...minimalProps, activeExperimentIds: undefined }} />,
     );
     instance = wrapper.instance();
-    instance.handleSubmit().then(() => {
-      expect((location as any).search).toEqual('initialSearchValue');
-      done();
-    });
+    await instance.handleSubmit();
+
+    expect(navigate).not.toBeCalled();
   });
 });

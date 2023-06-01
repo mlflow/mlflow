@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { getSrc } from './ShowArtifactPage';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -6,9 +13,12 @@ import { getLanguage } from '../../../common/utils/FileUtils';
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactTextView.css';
 
+const LARGE_ARTIFACT_SIZE = 100 * 1024;
+
 type OwnProps = {
   runUuid: string;
   path: string;
+  size?: number;
   getArtifact?: (...args: any[]) => any;
 };
 
@@ -30,6 +40,7 @@ class ShowArtifactTextView extends Component<Props, State> {
     loading: true,
     error: undefined,
     text: undefined,
+    path: undefined,
   };
 
   componentDidMount() {
@@ -43,7 +54,7 @@ class ShowArtifactTextView extends Component<Props, State> {
   }
 
   render() {
-    if (this.state.loading) {
+    if (this.state.loading || this.state.path !== this.props.path) {
       return <div className='artifact-text-view-loading'>Loading...</div>;
     }
     if (this.state.error) {
@@ -53,7 +64,8 @@ class ShowArtifactTextView extends Component<Props, State> {
         </div>
       );
     } else {
-      const language = getLanguage(this.props.path);
+      const isLargeFile = (this.props.size || 0) > LARGE_ARTIFACT_SIZE;
+      const language = isLargeFile ? 'text' : getLanguage(this.props.path);
       const overrideStyles = {
         fontFamily: 'Source Code Pro,Menlo,monospace',
         fontSize: '13px',
@@ -90,6 +102,7 @@ class ShowArtifactTextView extends Component<Props, State> {
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
+    this.setState({ loading: true });
     const artifactLocation = getSrc(this.props.path, this.props.runUuid);
     this.props
       .getArtifact(artifactLocation)
@@ -99,6 +112,7 @@ class ShowArtifactTextView extends Component<Props, State> {
       .catch((error: any) => {
         this.setState({ error: error, loading: false });
       });
+    this.setState({ path: this.props.path });
   }
 }
 

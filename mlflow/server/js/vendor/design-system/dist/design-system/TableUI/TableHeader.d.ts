@@ -24,6 +24,9 @@ export interface TableHeaderProps extends HTMLDataAttributes {
     isResizing?: boolean;
     /** How to horizontally align the cell contents */
     align?: 'left' | 'center' | 'right';
+    /** If the content of this header should be wrapped with Typography. Should only be set to false if
+     * content is not a text (e.g. images) or you really need to render custom content. */
+    wrapContent?: boolean;
 }
 export declare const TableHeader: React.ForwardRefExoticComponent<TableHeaderProps & React.RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=TableHeader.d.ts.map

@@ -6,7 +6,6 @@ import { PageHeader } from '../../../../../shared/building_blocks/PageHeader';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { ExperimentEntity } from '../../../../types';
-import { shouldUseNextRunsComparisonUI } from '../../../../../common/utils/FeatureUtils';
 import { useExperimentPageFeedbackUrl } from '../../hooks/useExperimentPageFeedbackUrl';
 
 /**
@@ -34,7 +33,7 @@ export const ExperimentViewHeader = React.memo(
         title={
           <div css={styles.headerWrapper}>
             {normalizedExperimentName} <ExperimentViewCopyTitle experiment={experiment} />{' '}
-            {Boolean(shouldUseNextRunsComparisonUI() && feedbackFormUrl) && (
+            {feedbackFormUrl && (
                 <a href={feedbackFormUrl} target='_blank' rel='noreferrer'>
                   <Button css={{ marginLeft: 16 }} type='link' size='small'>
                     <FormattedMessage
@@ -42,7 +41,7 @@ export const ExperimentViewHeader = React.memo(
                       description='Link to a survey for users to give feedback'
                     />
                   </Button>
-                  <NewWindowIcon css={{ marginLeft: 4 }}/>
+                  <NewWindowIcon css={{ marginLeft: 4 }} />
                 </a>
             )}
           </div>
