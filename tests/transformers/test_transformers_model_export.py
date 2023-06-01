@@ -1871,52 +1871,6 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
     assert values.to_dict(orient="records") == [{0: "Run"}]
 
 
-def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
-    artifact_path = "qa_model"
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": [
-                    "What color is it?",
-                    "How do the people go?",
-                    "What does the 'wolf' howl at?",
-                ],
-                "context": [
-                    "Some people said it was green but I know that it's pink.",
-                    "The people on the bus go up and down. Up and down.",
-                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
-                    "the moon for hours.",
-                ],
-            },
-            "top_k": 2,
-            "max_answer_len": 5,
-        }
-    )
-    with mlflow.start_run():
-        mlflow.transformers.log_model(
-            transformers_model=small_qa_pipeline,
-            artifact_path=artifact_path,
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
-
-    response = pyfunc_serve_and_score_model(
-        model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-
-    assert values.to_dict(orient="records") == [
-        {0: "pink"},
-        {0: "pink."},
-        {0: "up and down"},
-        {0: "Up and down"},
-        {0: "the moon"},
-        {0: "moon"},
-    ]
-
-
 def test_classifier_pipeline_pyfunc_predict(text_classification_pipeline, tmp_path):
     artifact_path = "text_classifier_model"
     with mlflow.start_run():
@@ -3030,53 +2984,6 @@ def test_whisper_model_serve_and_score_with_timestamps(whisper_pipeline, raw_aud
         extra_args=["--env-manager", "local"],
     )
 
-    values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
-    payload_output = json.loads(values.loc[0, 0])
-
-    assert (
-        payload_output["text"]
-        == mlflow.transformers.load_model(model_info.model_uri)(raw_audio_file, **inference_config)[
-            "text"
-        ]
-    )
-
-
-@pytest.mark.skipif(
-    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
-)
-@pytest.mark.skipcacheclean
-def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
-    whisper_pipeline, raw_audio_file
-):
-    artifact_path = "whisper_timestamps"
-    signature = infer_signature(
-        raw_audio_file,
-        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
-    )
-    inference_config = {
-        "return_timestamps": "word",
-        "chunk_length_s": 20,
-        "stride_length_s": [5, 3],
-    }
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            transformers_model=whisper_pipeline,
-            artifact_path=artifact_path,
-            signature=signature,
-            input_example=raw_audio_file,
-        )
-
-    inference_payload = json.dumps(
-        {
-            "inputs": [base64.b64encode(raw_audio_file).decode("ascii")],
-        }.update(inference_config)
-    )
-    response = pyfunc_serve_and_score_model(
-        model_info.model_uri,
-        data=inference_payload,
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
-        extra_args=["--env-manager", "local"],
-    )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     payload_output = json.loads(values.loc[0, 0])
 
