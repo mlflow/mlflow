@@ -10,7 +10,6 @@ import os
 import sys
 import posixpath
 import logging
-import tempfile
 import time
 import urllib.parse
 import requests
@@ -763,7 +762,7 @@ def test_artifacts(mlflow_client, tmp_path):
     created_run = mlflow_client.create_run(experiment_id)
     assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
     run_id = created_run.info.run_id
-    src_dir = tempfile.mkdtemp("test_artifacts_src")
+    src_dir = tmp_path.joinpath("test_artifacts_src")
     src_file = os.path.join(src_dir, "my.file")
     with open(src_file, "w") as f:
         f.write("Hello, World!")

@@ -21,7 +21,6 @@ import os
 import yaml
 import json
 import tempfile
-import shutil
 import logging
 import functools
 from copy import deepcopy
@@ -709,15 +708,14 @@ def autolog(
             ax.set_title(f"Feature Importance ({importance_type})")
             fig.tight_layout()
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
-                fig.savefig(filepath)
-                mlflow.log_artifact(filepath)
-            finally:
-                plt.close(fig)
-                shutil.rmtree(tmpdir)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    # pylint: disable=undefined-loop-variable
+                    filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
+                    fig.savefig(filepath)
+                    mlflow.log_artifact(filepath)
+                finally:
+                    plt.close(fig)
 
         autologging_client = MlflowAutologgingQueueingClient()
 
@@ -837,14 +835,11 @@ def autolog(
                 )
 
             imp = dict(zip(features, importance.tolist()))
-            tmpdir = tempfile.mkdtemp()
-            try:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 mlflow.log_artifact(filepath)
-            finally:
-                shutil.rmtree(tmpdir)
 
         # train_set must exist as the original train function already ran successfully
         # it is possible that the dataset was constructed before the patched

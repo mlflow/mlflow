@@ -1,6 +1,5 @@
 import os
 import pytest
-import shutil
 import tempfile
 
 import mlflow
@@ -76,11 +75,10 @@ def format_to_file_path(spark_session):
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     res = {}
-    tempdir = tempfile.mkdtemp()
-    for data_format in ["csv", "parquet", "json"]:
-        res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
+    with tempfile.TemporaryDirectory() as tempdir:
+        for data_format in ["csv", "parquet", "json"]:
+            res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
 
-    for data_format, file_path in res.items():
-        df.write.option("header", "true").format(data_format).save(file_path)
-    yield res
-    shutil.rmtree(tempdir)
+        for data_format, file_path in res.items():
+            df.write.option("header", "true").format(data_format).save(file_path)
+        yield res
