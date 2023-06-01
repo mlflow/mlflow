@@ -5,11 +5,6 @@ from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
 
 
-FileSystemDatasetSourceType = TypeVar(
-    "FileSystemDatasetSourceType", bound="FileSystemDatasetSource"
-)
-
-
 @experimental
 class FileSystemDatasetSource(DatasetSource):
     """
@@ -59,7 +54,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def _resolve(cls, raw_source: Any) -> FileSystemDatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> "FileSystemDatasetSourceType":
         """
         :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
         """
