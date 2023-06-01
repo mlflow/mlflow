@@ -20,7 +20,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from pyspark.sql import SparkSession
-from pyspark.sql.types import ArrayType, FloatType
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -381,21 +380,24 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
     serving_result = pd.DataFrame(json.loads(resp.content.decode("utf-8"))["predictions"])
     assert not local_predict.equals(serving_result)
 
-def test_signature_and_examples_are_saved_correctly(basic_model):
-    sentences = ["goodbye my friends", "i am a sentence"]
+@pytest.mark.parametrize("example", [
+    None,
+    ["hello world", "i am mlflow"],
+])
+def test_signature_and_examples_are_saved_correctly(example, basic_model):
+    sentences = ["hello world", "i am mlflow"]
     emb = basic_model.encode(sentences)
 
     signature_ = infer_signature(model_input=sentences, model_output=emb)
     for signature in (None, signature_):
-        for example in (None, sentences):
-            with TempDir() as tmp:
-                path = tmp.path("model")
-                mlflow.pytorch.save_model(
-                    basic_model, path=path, signature=signature, input_example=example
-                )
-                mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
-                if example is None:
-                    assert mlflow_model.saved_input_example_info is None
-                else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+        with TempDir() as tmp:
+            path = tmp.path("model")
+            mlflow.pytorch.save_model(
+                basic_model, path=path, signature=signature, input_example=example
+            )
+            mlflow_model = Model.load(path)
+            assert signature == mlflow_model.signature
+            if example is None:
+                assert mlflow_model.saved_input_example_info is None
+            else:
+                assert all((_read_example(mlflow_model, path) == example).all())
