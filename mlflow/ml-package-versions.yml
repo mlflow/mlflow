@@ -554,6 +554,6 @@ sentence_transformers:
     minimum: "2.2.2"
     maximum: "2.2.2"
     requirements:
-      ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
+      ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
