@@ -15,7 +15,6 @@ fastai (native) format
 import os
 import yaml
 import tempfile
-import shutil
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -581,14 +580,11 @@ def autolog(
         if remove_cbs:
             learner.add_cbs(remove_cbs)
 
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "module_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
         # Check if is trying to fit while fine tuning or not

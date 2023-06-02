@@ -5,7 +5,6 @@ import json
 import os
 import posixpath
 import random
-import tempfile
 import yaml
 import re
 
@@ -547,14 +546,14 @@ def test_log_artifact_with_dirs(tmpdir):
         ) == {os.path.basename(str(sub_dir))}
 
 
-def test_log_artifact():
-    artifact_src_dir = tempfile.mkdtemp()
+def test_log_artifact(tmp_path):
     # Create artifacts
-    _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
-    _, path1 = tempfile.mkstemp(dir=artifact_src_dir)
-    for i, path in enumerate([path0, path1]):
-        with open(path, "w") as handle:
-            handle.write("%s" % str(i))
+    artifact_dir = tmp_path.joinpath("artifact_dir")
+    artifact_dir.mkdir()
+    path0 = artifact_dir.joinpath("file0")
+    path1 = artifact_dir.joinpath("file1")
+    path0.write_text("0")
+    path1.write_text("1")
     # Log an artifact, verify it exists in the directory returned by get_artifact_uri
     # after the run finishes
     artifact_parent_dirs = ["some_parent_dir", None]
@@ -577,14 +576,14 @@ def test_log_artifact():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
 
-            mlflow.log_artifacts(artifact_src_dir, parent_dir)
+            mlflow.log_artifacts(artifact_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = (
             os.path.join(run_artifact_dir, parent_dir)
             if parent_dir is not None
             else run_artifact_dir
         )
-        dir_comparison = filecmp.dircmp(artifact_src_dir, expected_artifact_output_dir)
+        dir_comparison = filecmp.dircmp(artifact_dir, expected_artifact_output_dir)
         assert len(dir_comparison.left_only) == 0
         assert len(dir_comparison.right_only) == 0
         assert len(dir_comparison.diff_files) == 0
