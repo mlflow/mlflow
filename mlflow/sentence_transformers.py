@@ -336,6 +336,4 @@ class _SentenceTransformerModelWrapper:
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
-        embeddings = self.model.encode(sentences)   # numpy array
-        embeddings = pd.DataFrame({'predictions': embeddings.tolist()})
-        return embeddings
+        return self.model.encode(sentences)  # numpy array

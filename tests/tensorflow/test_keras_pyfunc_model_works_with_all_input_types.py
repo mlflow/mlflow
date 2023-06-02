@@ -305,19 +305,11 @@ def test_single_multidim_input_model_spark_udf(
         model_uri = mlflow.tensorflow.log_model(model, "model", signature=signature).model_uri
 
     infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
-    selected = test_input_spark_df.select(infer_udf("x").alias("prediction"))
     actual = (
-        selected
+        test_input_spark_df.select(infer_udf("x").alias("prediction"))
         .toPandas()
         .prediction.to_numpy()
     )
-
-    print("hello!!!")
-    print(selected.schema)
-    print(selected.toPandas().dtypes)
-    print(selected.toPandas())
-    print(type(actual), actual)
-    assert False
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
 
