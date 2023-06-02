@@ -2453,6 +2453,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
+    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,

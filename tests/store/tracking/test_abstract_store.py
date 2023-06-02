@@ -60,6 +60,9 @@ class AbstractStoreTestImpl(AbstractStore):
     def record_logged_model(self, run_id, mlflow_model):
         raise NotImplementedError()
 
+    def log_inputs(self, run_id, datasets=None):
+        raise NotImplementedError()
+
 
 def test_log_metric():
     run_id = mock.Mock()

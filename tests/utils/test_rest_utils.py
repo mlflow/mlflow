@@ -90,7 +90,7 @@ def test_call_endpoints():
         resp = call_endpoints(host_only, endpoints, "", response_proto)
         mock_call_endpoint.assert_has_calls(
             [
-                mock.call(host_only, endpoint, method, "", response_proto)
+                mock.call(host_only, endpoint, method, "", response_proto, None)
                 for endpoint, method in endpoints
             ]
         )

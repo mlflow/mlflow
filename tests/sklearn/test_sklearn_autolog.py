@@ -1,5 +1,6 @@
 import functools
 import inspect
+import json
 from unittest import mock
 import os
 import matplotlib.pyplot as plt
@@ -8,7 +9,6 @@ import pandas as pd
 import pytest
 import re
 import contextlib
-import json
 import pickle
 import doctest
 from packaging.version import Version
@@ -36,6 +36,7 @@ from mlflow.sklearn.utils import (
     _log_estimator_content,
     _is_estimator_html_repr_supported,
 )
+from mlflow.types.utils import _infer_schema
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
@@ -1006,7 +1007,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
     model_conf = get_model_conf(run.info.artifact_uri)
 
-    mock_warning.assert_called_once()
+    assert mock_warning.call_count == 2
     mock_warning.call_args[0][0].endswith("DO NOT SLICE ME")
     assert "signature" not in model_conf.to_dict()
     assert "saved_input_example_info" not in model_conf.to_dict()
@@ -1088,6 +1089,105 @@ def test_sklearn_autolog_log_models_configuration(log_models):
     run_id = run.info.run_id
     _, _, _, artifacts = get_run_data(run_id)
     assert (MODEL_DIR in artifacts) == log_models
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_sklearn_autolog_log_datasets_configuration(log_datasets):
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=log_datasets)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(X)
+        target_schema = _infer_schema(y)
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+def test_sklearn_autolog_log_datasets_with_predict():
+    X, y = get_iris()
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=True)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X, y)
+        y_pred = model.predict(X)  # pylint: disable=unused-variable
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    feature_schema = _infer_schema(X)
+    target_schema = _infer_schema(y)
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
+            }
+        }
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
+            }
+        }
+    )
+
+
+def test_sklearn_autolog_log_datasets_without_explicit_run():
+    X, y = get_iris()
+
+    mlflow.sklearn.autolog(log_datasets=True)
+    model = sklearn.linear_model.LinearRegression()
+    model.fit(X, y)
+    y_pred = model.predict(X)  # pylint: disable=unused-variable
+
+    run_id = getattr(model, "_mlflow_run_id")
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    feature_schema = _infer_schema(X)
+    target_schema = _infer_schema(y)
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
+            }
+        }
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    assert dataset_inputs[1].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
+            }
+        }
+    )
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():
