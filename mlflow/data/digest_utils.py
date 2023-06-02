@@ -25,7 +25,7 @@ def compute_pandas_digest(df) -> str:
     string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
     numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
 
-    desired_columns = trimmed_df.union(numeric_columns)
+    desired_columns = string_columns.union(numeric_columns)
     trimmed_df = trimmed_df[desired_columns]
 
     return get_normalized_md5_digest(
