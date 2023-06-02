@@ -181,6 +181,10 @@ from mlflow.tracking import (
     is_tracking_uri_set,
     set_registry_uri,
     get_registry_uri,
+    set_tracking_token,
+    is_tracking_token_set,
+    set_tracking_credentials,
+    are_tracking_credentials_set,
 )
 from mlflow.models import evaluate
 from mlflow.client import MlflowClient
@@ -236,4 +240,8 @@ __all__ = [
     "doctor",
     "MlflowClient",
     "MlflowException",
+    "set_tracking_token",
+    "is_tracking_token_set",
+    "set_tracking_credentials",
+    "are_tracking_credentials_set",
 ] + _model_flavors_supported

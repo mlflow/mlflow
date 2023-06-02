@@ -104,7 +104,14 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
 
 
 def set_tracking_credentials(username: str, password: str) -> None:
-    """Sets the tracking username and password."""
+    """
+    Sets the username and password for HTTP Basic Authorization to the tracking server. This does
+    not affect the currently active run (if one exists), but takes effect for successive runs.
+
+    :param username: username to use for HTTP Basic Authorization.
+    :param password: password to use for HTTP Basic Authorization.
+
+    """
     global _tracking_username
     global _tracking_password
     _tracking_username = username
@@ -112,7 +119,12 @@ def set_tracking_credentials(username: str, password: str) -> None:
 
 
 def set_tracking_token(token: str) -> None:
-    """Sets the tracking token."""
+    """
+    Sets the bearer token for HTTP Bearer Authorization to the tracking server. This does not
+    affect the currently active run (if one exists), but takes effect for successive runs.
+
+    :param token: token to use for HTTP Bearer Authorization.
+    """
     global _tracking_token
     _tracking_token = token
 
