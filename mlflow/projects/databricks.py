@@ -1,7 +1,6 @@
 import hashlib
 import json
 import os
-import shutil
 import tempfile
 import textwrap
 import time
@@ -160,13 +159,12 @@ class DatabricksJobRunner:
         :param project_dir: Path to a directory containing an MLflow project to upload to DBFS (e.g.
                             a directory containing an MLproject file).
         """
-        temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
+        with tempfile.TemporaryDirectory() as temp_tarfile_dir:
+            temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
-        def custom_filter(x):
-            return None if os.path.basename(x.name) == "mlruns" else x
+            def custom_filter(x):
+                return None if os.path.basename(x.name) == "mlruns" else x
 
-        try:
             directory_size = file_utils._get_local_project_dir_size(project_dir)
             _logger.info(
                 f"=== Creating tarball from {project_dir} in temp directory {temp_tarfile_dir} ==="
@@ -194,8 +192,6 @@ class DatabricksJobRunner:
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
             else:
                 _logger.info("=== Project already exists in DBFS ===")
-        finally:
-            shutil.rmtree(temp_tarfile_dir)
         return dbfs_fuse_uri
 
     def _run_shell_command_job(self, project_uri, command, env_vars, cluster_spec):
