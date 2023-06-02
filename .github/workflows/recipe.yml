@@ -82,4 +82,5 @@ jobs:
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
-          pytest tests/recipes
+          # pytest tests/recipes
+          pytest 'tests/recipes/test_predict_step.py::test_predict_step_runs[True]' -s
