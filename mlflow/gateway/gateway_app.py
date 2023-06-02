@@ -3,12 +3,16 @@ from fastapi.responses import JSONResponse
 
 from typing import Dict, Any, List
 
-from mlflow.gateway.handlers import _ResourceConfig
+from mlflow.gateway.config import GatewayConfigSingleton
+from mlflow.gateway.handlers import Route
 from mlflow.gateway.utils import _parse_url_path_for_base_url
 
 GATEWAY_VERSION = "0.1.0"
 # Configured and initialized Gateway Routes state index
-ACTIVE_ROUTES: List[_ResourceConfig] = []
+ACTIVE_ROUTES: List[Route] = []
+
+# Get the routes configuration from the singleton instance
+route_config = GatewayConfigSingleton.getInstance().gateway_config
 
 app = FastAPI(
     titls="MLflow Model Gateway API",
@@ -25,7 +29,7 @@ async def health():
 
 @app.get("/gateway_url")
 async def gateway_url(request: Request):
-    return {"Proxy URL": _parse_url_path_for_base_url(str(request.url))}
+    return {"Gateway URL": _parse_url_path_for_base_url(str(request.url))}
 
 
 @app.get("/get_route/{route:path}")
@@ -37,7 +41,7 @@ async def get_route(route: str):
 @app.get("/search_routes")
 async def search_routes(filter: str):
     # placeholder route listing functionality
-    routes = [route.to_json() for route in ACTIVE_ROUTES]
+    routes = [route.json() for route in ACTIVE_ROUTES]
     return {"routes": routes}
 
 

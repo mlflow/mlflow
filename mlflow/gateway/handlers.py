@@ -1,98 +1,108 @@
-from copy import deepcopy
-from dataclasses import dataclass
-from dataclasses_json import DataClassJsonMixin, dataclass_json
-import json
-from typing import List, Optional
+from enum import Enum
+from pathlib import Path
+from pydantic import BaseModel, Field, validator, parse_obj_as
+from pydantic.json import pydantic_encoder
+from typing import Optional, Union, List
 import yaml
+import json
 
 
-class ObfuscatedDataClassJsonMixin(DataClassJsonMixin):
-    def copy(self):
-        # Make a copy of the dataclass
-        return deepcopy(self)
-
-    def to_json(self, *args, **kwargs):
-        # Make a copy of the dataclass with obfuscated api_key
-        copy = self.copy()
-
-        # Serialize the copy
-        return json.dumps(copy.to_dict(), *args, **kwargs)
-
-    def to_dict(self, *args, **kwargs):
-        # Make a copy of the dataclass with obfuscated api_key
-        copy = self.copy()
-        return DataClassJsonMixin.to_dict(copy, *args, **kwargs)
+class Provider(str, Enum):
+    UNSPECIFIED_PROVIDER = "unspecified"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    BARD = "bard"
 
 
-@dataclass
-class _ResourceConfig(ObfuscatedDataClassJsonMixin):
-    api_key: Optional[str] = None
-    api_type: Optional[str] = None
-    api_base: Optional[str] = None
-    api_version: Optional[str] = None
-
-    def copy(self):
-        return _ResourceConfig(
-            api_key="***REDACTED***" if self.api_key else None,
-            api_type=self.api_type,
-            api_base=self.api_base,
-            api_version=self.api_version,
-        )
+class RouteType(str, Enum):
+    UNSPECIFIED = "unspecified"
+    LLM_V1_INSTRUCT = "llm/v1/instruct"
+    LLM_V1_CHAT = "llm/v1/chat"
 
 
-@dataclass
-class _Resource(ObfuscatedDataClassJsonMixin):
-    provider: str
-    config: _ResourceConfig
-    models: List[str]
-
-    def copy(self):
-        return _Resource(
-            provider=self.provider,
-            config=self.config.copy(),
-            models=list(self.models),
-        )
+class OpenAIConfig(BaseModel):
+    openai_api_key: str = Field(..., alias="openai_api_key")
+    openai_api_type: Optional[str] = Field(None, alias="openai_api_type")
+    openai_api_base: Optional[str] = Field("https://api.openai.com/", alias="openai_api_base")
+    openai_api_version: Optional[str] = Field(None, alias="openai_api_version")
 
 
-@dataclass
-class _Route(ObfuscatedDataClassJsonMixin):
-    type: str
-    resources: List[_Resource]
-
-    def copy(self):
-        return _Route(
-            type=self.type,
-            resources=[resource.copy() for resource in self.resources],
-        )
+class AnthropicConfig(BaseModel):
+    anthropic_api_key: str = Field(..., alias="anthropic_api_key")
+    anthropic_api_base: Optional[str] = Field(
+        "https://api.anthropic.com/", alias="anthropic_api_base"
+    )
 
 
-@dataclass
-class _GatewayConfig(ObfuscatedDataClassJsonMixin):
-    routes: List[_Route]
-
-    def copy(self):
-        return _GatewayConfig(
-            routes=[route.copy() for route in self.routes],
-        )
+class BardConfig(BaseModel):
+    bard_api_key: str = Field(..., alias="bard_api_key")
+    bard_api_base: str = Field("https://bard.google.com/", alias="bard_api_base")
 
 
-@dataclass_json
-@dataclass
-class _ResourceConfig:
-    """
-    Payload return object for GetRoute and SearchRoutes APIs
-    """
+class ModelInfo(BaseModel):
+    name: Optional[str] = None
+    provider: Provider = Provider.UNSPECIFIED_PROVIDER
 
+
+class Model(BaseModel):
+    name: Optional[str] = None
+    provider: Provider = Provider.UNSPECIFIED_PROVIDER
+    config: Optional[Union[OpenAIConfig, AnthropicConfig, BardConfig]] = None
+
+    @validator("provider", pre=True)
+    def validate_provider(cls, value):
+        if value in Provider._value2member_map_:
+            return value
+        return Provider.UNSPECIFIED_PROVIDER.value
+
+
+class RouteConfig(BaseModel):
+    name: Optional[str] = None
+    type: RouteType = RouteType.UNSPECIFIED
+    model: Optional[Model] = None
+
+    @validator("type", pre=True)
+    def validate_route_type(cls, value):
+        if value in RouteType._value2member_map_:
+            return value
+        return RouteType.UNSPECIFIED.value
+
+
+class Route(BaseModel):
     name: str
-    type: Optional[str] = None
-    provider: Optional[str] = None
+    type: RouteType
+    model: ModelInfo
 
 
-def _load_gateway_config(path: str):
+def _load_gateway_config(path: Union[str, Path]) -> List[RouteConfig]:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration _GatewayConfig class
     """
-    with open(path, "r") as f:
-        configuration = yaml.safe_load(f)
-    return _GatewayConfig.from_dict(configuration)
+    if isinstance(path, str):
+        path = Path(path)
+    configuration = yaml.safe_load(path.read_text())
+    return parse_obj_as(List[RouteConfig], configuration)
+
+
+def _save_gateway_config(config: List[RouteConfig], path: Union[str, Path]):
+    if isinstance(path, str):
+        path = Path(path)
+    serialized = [
+        json.loads(json.dumps(route.dict(), default=pydantic_encoder)) for route in config
+    ]
+    path.write_text(yaml.safe_dump(serialized))
+
+
+def _convert_route_config_to_route(route_config: List[RouteConfig]) -> List[Route]:
+    def route_config_to_route(route: RouteConfig) -> Route:
+        return Route(
+            name=route.name,
+            type=route.type,
+            model=ModelInfo(
+                name=route.model.name,
+                provider=route.model.provider,
+            ),
+        )
+
+    return [route_config_to_route(route) for route in route_config]

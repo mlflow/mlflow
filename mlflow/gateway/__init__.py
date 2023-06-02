@@ -1,14 +1,10 @@
 from multiprocessing import Process
-import pathlib
-import time
 from typing import Optional
 from uvicorn import Server, Config
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
-
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import _CONFIGURATION_FILE
-from mlflow.gateway.handlers import _load_gateway_config
+from mlflow.gateway.config import GatewayConfigSingleton
+from mlflow.gateway.handlers import _load_gateway_config, RouteConfig
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 
@@ -36,81 +32,55 @@ class GatewayServer(Process):
         self.server.run()
 
 
-class ConfigHandler(FileSystemEventHandler):
-    def __init__(self, config_path, app, host, port):
-        self.config_path = config_path
+class ServerManager:
+    def __init__(self, app, host, port):
         self.app = app
         self.host = host
         self.port = port
         self.gateway_config = None
         self.server_process = None
-        self.restart_server()
 
-    def _validate_config(self):
-        self.gateway_config = _load_gateway_config(self.config_path)
+    def _validate_config(self, config_path):
+        self.gateway_config = _load_gateway_config(config_path)
+        # Update the global singleton config with route definitions
+        GatewayConfigSingleton.getInstance().update_config(self.gateway_config)
 
-        # TODO: run validations of the provided configuration and issue a warning if the config
-        # is invalid or required fields are not set
-        # TODO: this is a placeholder for now
+    def start_server(self, config_path, **uvicorn_kwargs):
+        server_config = Config(app=self.app, host=self.host, port=self.port, **uvicorn_kwargs)
 
-        return Config(app=self.app, host=self.host, port=self.port)
+        self._validate_config(config_path)
+        self.server_process = GatewayServer(config=server_config)
+        self.server_process.start()
 
-    def restart_server(self):
-        config = self._validate_config()
+    def _stop_server(self):
         if self.server_process:
             self.server_process.stop()
-        self.server_process = GatewayServer(config=config)
-        self.server_process.run()
+            self.server_process = None
 
-    def on_modified(self, event):
-        if not event.is_directory and event.src_path == self.config_path:
-            self.restart_server()
-
-
-# Global state managers
-observer: Optional[Observer] = None
-handler: Optional[ConfigHandler] = None
-
-
-def _start_gateway(config_path: str, app: str, host: str, port: int, poll_interval: int = 1):
-    """
-    Initiate the gateway service and watchdog monitoring on the configuration path location
-    """
-    global observer
-    global handler
-
-    if observer is not None:
-        raise MlflowException(
-            "Unable to start an already running gateway server. "
-            "Please stop the gateway if you would like to start it again.",
-            error_code=BAD_REQUEST,
-        )
-
-    handler = ConfigHandler(config_path, app, host, port)
-    observer = Observer()
-    observer_directory = str(pathlib.Path(config_path).parent)
-    observer.schedule(handler, path=observer_directory, recursive=False)
-    observer.start()
-
-    try:
-        while True:
-            time.sleep(poll_interval)
-    except KeyboardInterrupt:
-        _stop_gateway()
+    def update_server(self, config_path, **uvicorn_kwargs):
+        if self.server_process:
+            self._stop_server()
+            self.start_server(config_path, **uvicorn_kwargs)
+        else:
+            raise MlflowException(
+                "No server to update. Please start the server before trying to update.",
+                error_code=BAD_REQUEST,
+            )
 
 
-def _stop_gateway():
-    """
-    Stop the gateway service and associated watchdog services
-    """
-    global observer
-    global handler
+# Global server manager
+server_manager: Optional[ServerManager] = None
 
-    if observer is not None:
-        observer.stop()
-        observer.join()
-        observer = None
-    if handler is not None and handler.server_process is not None:
-        # Gracefully terminate the process
-        handler.server_process.stop()
-        handler = None
+
+def start_service(config_path: str, app: str, host: str, port: int, **uvicorn_kwargs):
+    global server_manager
+    server_manager = ServerManager(app, host, port)
+    server_manager.start_server(config_path, **uvicorn_kwargs)
+
+
+def update_service(config_path: str, **uvicorn_kwargs):
+    global server_manager
+    if server_manager is not None:
+        server_manager.update_server(config_path, **uvicorn_kwargs)
+    else:
+        raise Exception("No server to update. Please start the server before trying to update.")
