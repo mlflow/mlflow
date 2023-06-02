@@ -396,25 +396,31 @@ message GetModelVersionByAliasResponse {
 
 // Lineage kafka protos
 message Entity {
-    oneof entity_type {
-        JobEntity job_entity = 1;
-        NotebookEntity notebook_entity = 2;
-    }
+  oneof entity_type {
+    JobEntity job_entity = 1;
+    NotebookEntity notebook_entity = 2;
+    PipelineEntity pipeline_entity = 3;
+  }
 }
 
 message JobEntity {
-    optional string id = 1;
-    optional string task_key = 2;
-    optional string job_run_id = 3;
-    optional string task_run_id = 4;
+  optional string id = 1;
+  optional string task_key = 2;
+  optional string job_run_id = 3;
+  optional string task_run_id = 4;
 }
 
 message NotebookEntity {
-    optional string id = 1;
-    optional string command_id = 2;
-    optional string notebook_run_id = 3;
+  optional string id = 1;
+  optional string command_id = 2;
+  optional string notebook_run_id = 3;
+}
+
+message PipelineEntity {
+  optional string pipeline_id = 1;
+  optional string pipeline_update_id = 2;
 }
 
 message LineageHeaderInfo {
-    repeated Entity entities = 1;
+  repeated Entity entities = 1;
 }
