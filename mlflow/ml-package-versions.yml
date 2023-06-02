@@ -561,8 +561,8 @@ sentence_transformers:
 johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
-    models:
-      minimum: "4.4.6"
-      maximum: "4.4.6"
-      run: |
-        pytest tests/johnsnowlabs/test_jsl_api.py
+  models:
+    minimum: "4.4.6"
+    maximum: "4.4.6"
+    run: |
+      pytest tests/johnsnowlabs/test_jsl_api.py
