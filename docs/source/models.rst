@@ -233,7 +233,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
 A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
-Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
@@ -243,9 +243,11 @@ Column-based Signature Example
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -253,7 +255,7 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
@@ -262,6 +264,7 @@ Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch,
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+Tensor-based signatures do not support optional inputs.
 When specifying the shape, -1 is used for axes that may be variable in size.
 The following example displays an MLmodel file excerpt containing the model signature for a
 classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
@@ -289,11 +292,12 @@ particular, it is not applied to models that are loaded in their native format (
 
 Name Ordering Enforcement
 """""""""""""""""""""""""
-The input names are checked against the model signature. If there are any missing inputs,
-MLflow will raise an exception. Extra inputs that were not declared in the signature will be
-ignored. If the input schema in the signature defines input names, input matching is done by name
-and the inputs are reordered to match the signature. If the input schema does not have input
-names, matching is done by position (i.e. MLflow will only check the number of inputs).
+The input names are checked against the model signature. If there are any missing required inputs,
+MLflow will raise an exception. Missing optional inputs will not raise an exception.
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
+signature defines input names, input matching is done by name and the inputs are reordered to match the 
+signature. If the input schema does not have input names, matching is done by position 
+(i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
 """"""""""""""""""""""
@@ -382,6 +386,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
@@ -2522,8 +2527,8 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
 
-    In the current version, text-based large language
-    models are supported for use with ``pyfunc``, while computer vision, audio, multi-modal, timeseries,
+    In the current version, audio and text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
     reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
 
     Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
@@ -2546,20 +2551,20 @@ Supported transformers Pipeline types for Pyfunc
 ================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
 ================================= ============================== ==========================================================================
-Instructional Text Generation     str or List[str]               str or List[str]
-Conversational                    str or List[str]               str or List[str]
-Summarization                     str or List[str]               str or List[str]
+Instructional Text Generation     str or List[str]               List[str]
+Conversational                    str or List[str]               List[str]
+Summarization                     str or List[str]               List[str]
 Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
-Text Generation                   str or List[str]               str or List[str]
-Text2Text Generation              str or List[str]               str or List[str]
-Token Classification              str or List[str]               str or List[str]
-Translation                       str or List[str]               str or List[str]
+Text Generation                   str or List[str]               List[str]
+Text2Text Generation              str or List[str]               List[str]
+Token Classification              str or List[str]               List[str]
+Translation                       str or List[str]               List[str]
 ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
-Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
-Question Answering***             Dict[str, str]***              str or List[str]
-Fill Mask****                     str or List[str]****           str or List[str]
+Table Question Answering**        Dict[str, [List[str] | str]**  List[str]
+Question Answering***             Dict[str, str]***              List[str]
+Fill Mask****                     str or List[str]****           List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes*****, str, or np.ndarray str
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray List[str]
 AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
 ================================= ============================== ==========================================================================
 
@@ -2615,13 +2620,16 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
     print(response)
 
-    # >> It's a new thing that's been around for a while.
+    # >> [It's a new thing that's been around for a while.]
 
 
 Save and Load options for transformers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
 an easy to use interface that is optimized for inference.
+
+.. note::
+    MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
 
 .. note::
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.

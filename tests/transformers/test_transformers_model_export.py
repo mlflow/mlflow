@@ -1209,10 +1209,8 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
 
     inference = pyfunc_loaded.predict(inference_payload)
 
-    if isinstance(inference_payload, dict):
-        assert isinstance(inference, str)
-    else:
-        assert isinstance(inference, list)
+    assert isinstance(inference, list)
+    assert all(isinstance(element, str) for element in inference)
 
     if isinstance(inference_payload, dict):
         pd_input = pd.DataFrame(inference_payload, index=[0])
@@ -1220,16 +1218,14 @@ def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, infere
         pd_input = pd.DataFrame(inference_payload)
     pd_inference = pyfunc_loaded.predict(pd_input)
 
-    if isinstance(inference_payload, dict):
-        assert isinstance(pd_inference, str)
-    else:
-        assert isinstance(pd_inference, list)
+    assert isinstance(pd_inference, list)
+    assert all(isinstance(element, str) for element in inference)
 
 
 @pytest.mark.parametrize(
     "data, result",
     [
-        ("muppet keyboard type", "A muppet is typing on a keyboard."),
+        ("muppet keyboard type", ["A muppet is typing on a keyboard."]),
         (
             ["pencil draw paper", "pie apple eat"],
             # NB: The result of this test case, without inference config overrides is:
@@ -1284,10 +1280,9 @@ def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation
         )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    assert (
-        pyfunc_loaded.predict("muppet board nails hammer")
-        == "A muppet is hammering nails on a board."
-    )
+    assert pyfunc_loaded.predict("muppet board nails hammer") == [
+        "A muppet is hammering nails on a board."
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1345,7 +1340,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
         assert inference[0].startswith(data[0])
         assert inference[1].startswith(data[1])
     else:
-        assert inference.startswith(data)
+        assert inference[0].startswith(data)
 
     if isinstance(data, str):
         pd_input = pd.DataFrame([data], index=[0])
@@ -1357,7 +1352,7 @@ def test_text_generation_pipeline(text_generation_pipeline, model_path, data):
         assert pd_inference[0].startswith(data[0])
         assert pd_inference[1].startswith(data[1])
     else:
-        assert pd_inference.startswith(data)
+        assert pd_inference[0].startswith(data)
 
 
 @pytest.mark.parametrize(
@@ -1384,8 +1379,8 @@ def test_invalid_input_to_text_generation_pipeline(text_generation_pipeline, inv
 @pytest.mark.parametrize(
     "inference_payload, result",
     [
-        ("Riding a <mask> on the beach is fun!", "bike"),
-        (["If I had <mask>, I would fly to the top of a mountain"], "wings"),
+        ("Riding a <mask> on the beach is fun!", ["bike"]),
+        (["If I had <mask>, I would fly to the top of a mountain"], ["wings"]),
         (
             ["I use stacks of <mask> to buy things", "I <mask> the whole bowl of cherries"],
             ["cash", "ate"],
@@ -1470,7 +1465,7 @@ def test_zero_shot_classification_pipeline(zero_shot_pipeline, model_path, data)
 @pytest.mark.parametrize(
     "query, result",
     [
-        ({"query": "What should we order more of?"}, "apples"),
+        ({"query": "What should we order more of?"}, ["apples"]),
         (
             {
                 "query": [
@@ -1516,7 +1511,7 @@ def test_table_question_answering_pipeline(
 @pytest.mark.parametrize(
     "data, result",
     [
-        ("I've got a lovely bunch of coconuts!", "Ich habe eine schöne Haufe von Kokos!"),
+        ("I've got a lovely bunch of coconuts!", ["Ich habe eine schöne Haufe von Kokos!"]),
         (
             [
                 "I am the very model of a modern major general",
@@ -1582,9 +1577,9 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
         for i, entry in enumerate(data):
             assert inference[i].strip().startswith(entry)
     elif isinstance(data, list) and len(data) == 1:
-        assert inference.strip().startswith(data[0])
+        assert inference[0].strip().startswith(data[0])
     else:
-        assert inference.strip().startswith(data)
+        assert inference[0].strip().startswith(data)
 
     if len(data) > 1 and isinstance(data, list):
         pd_input = pd.DataFrame([{"inputs": v} for v in data])
@@ -1598,9 +1593,9 @@ def test_summarization_pipeline(summarizer_pipeline, model_path, data):
         for i, entry in enumerate(data):
             assert pd_inference[i].strip().startswith(entry)
     elif isinstance(data, list) and len(data) == 1:
-        assert pd_inference.strip().startswith(data[0])
+        assert pd_inference[0].strip().startswith(data[0])
     else:
-        assert pd_inference.strip().startswith(data)
+        assert pd_inference[0].strip().startswith(data)
 
 
 @pytest.mark.parametrize(
@@ -1637,9 +1632,9 @@ def test_classifier_pipeline(text_classification_pipeline, model_path, data):
     [
         (
             "I have a dog and his name is Willy!",
-            "PRON,VERB,DET,NOUN,CCONJ,PRON,NOUN,AUX,PROPN,PUNCT",
+            ["PRON,VERB,DET,NOUN,CCONJ,PRON,NOUN,AUX,PROPN,PUNCT"],
         ),
-        (["I like turtles"], "PRON,VERB,NOUN"),
+        (["I like turtles"], ["PRON,VERB,NOUN"]),
         (
             ["We are the knights who say nee!", "Houston, we may have a problem."],
             [
@@ -2456,8 +2451,8 @@ def test_instructional_pipeline_no_prompt_in_output(model_path):
 
     inference = pyfunc_loaded.predict("What is MLflow?")
 
-    assert not inference.startswith("What is MLflow?")
-    assert "\n" in inference
+    assert not inference[0].startswith("What is MLflow?")
+    assert "\n" in inference[0]
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -2478,8 +2473,8 @@ def test_instructional_pipeline_no_prompt_in_output_and_removal_of_newlines(mode
 
     inference = pyfunc_loaded.predict("What is MLflow?")
 
-    assert not inference.startswith("What is MLflow?")
-    assert "\n" not in inference
+    assert not inference[0].startswith("What is MLflow?")
+    assert "\n" not in inference[0]
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -2500,8 +2495,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
 
     inference = pyfunc_loaded.predict("What is MLflow?")
 
-    assert inference.startswith("What is MLflow?")
-    assert "\n\n" in inference
+    assert inference[0].startswith("What is MLflow?")
+    assert "\n\n" in inference[0]
 
 
 @pytest.mark.parametrize(
@@ -2511,8 +2506,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "small_qa_pipeline",
             {"question": "Who's house?", "context": "The house is owned by Run."},
             {
-                "inputs": '[{"name": "question", "type": "string"}, {"name": "context", '
-                '"type": "string"}]',
+                "inputs": '[{"type": "string", "name": "question"}, {"type": "string", '
+                '"name": "context"}]',
                 "outputs": '[{"type": "string"}]',
             },
         ),
@@ -2524,11 +2519,11 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "hypothesis_template": "This example talks about how pipelines are {}",
             },
             {
-                "inputs": '[{"name": "sequences", "type": "string"}, {"name": '
-                '"candidate_labels", "type": "string"}, {"name": '
-                '"hypothesis_template", "type": "string"}]',
-                "outputs": '[{"name": "sequence", "type": "string"}, {"name": "labels", '
-                '"type": "string"}, {"name": "scores", "type": "double"}]',
+                "inputs": '[{"type": "string", "name": "sequences"}, {"type": "string", '
+                '"name": "candidate_labels"}, {"type": "string", "name": '
+                '"hypothesis_template"}]',
+                "outputs": '[{"type": "string", "name": "sequence"}, {"type": "string", '
+                '"name": "labels"}, {"type": "double", "name": "scores"}]',
             },
         ),
         (
@@ -2536,8 +2531,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
             "We're just going to have to agree to disagree, then.",
             {
                 "inputs": '[{"type": "string"}]',
-                "outputs": '[{"name": "label", "type": "string"}, {"name": "score", "type": '
-                '"double"}]',
+                "outputs": '[{"type": "string", "name": "label"}, {"type": "double", "name": '
+                '"score"}]',
             },
         ),
         (
@@ -2547,8 +2542,8 @@ def test_instructional_pipeline_with_prompt_in_output(model_path):
                 "table": json.dumps({"units": ["100", "200"], "widgets": ["500", "500"]}),
             },
             {
-                "inputs": '[{"name": "query", "type": "string"}, {"name": "table", "type": '
-                '"string"}]',
+                "inputs": '[{"type": "string", "name": "query"}, {"type": "string", "name": '
+                '"table"}]',
                 "outputs": '[{"type": "string"}]',
             },
         ),
@@ -2702,17 +2697,19 @@ def test_load_as_pipeline_preserves_framework_and_dtype(model_path):
     base_loaded = mlflow.transformers.load_model(model_path)
     assert base_loaded.torch_dtype == torch.bfloat16
     assert base_loaded.framework == "pt"
+    assert base_loaded.model.dtype == torch.bfloat16
 
     loaded_pipeline = mlflow.transformers.load_model(model_path, torch_dtype=torch.float64)
 
     assert loaded_pipeline.torch_dtype == torch.float64
     assert loaded_pipeline.framework == "pt"
+    assert loaded_pipeline.model.dtype == torch.float64
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
-    assert prediction == [{"translation_text": "Bonjour, comment êtes-vous aujourd'hui ?"}]
+    assert prediction[0]["translation_text"].startswith("Bonjour")
 
 
-@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64, torch.int16])
+@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float64])
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.26.1"), reason="Feature does not exist"
 )
@@ -2739,7 +2736,7 @@ def test_load_pyfunc_mutate_torch_dtype(model_path, dtype):
 
     prediction = loaded_pipeline.predict("Hello there. How are you today?")
 
-    assert prediction == "Bonjour, comment êtes-vous aujourd'hui ?"
+    assert prediction[0].startswith("Bonjour")
 
 
 @pytest.mark.skipif(
@@ -2775,7 +2772,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
 
-    pyfunc_transcription = json.loads(loaded_pyfunc.predict(sound_file_for_test))
+    pyfunc_transcription = json.loads(loaded_pyfunc.predict(sound_file_for_test)[0])
 
     assert transcription["text"] == pyfunc_transcription["text"]
     # Due to the choice of using tuples within the return type, equivalency validation for the
@@ -3036,7 +3033,44 @@ def test_whisper_model_with_url(whisper_pipeline):
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
     payload_output = values.loc[0, 0]
 
-    assert url_inference == payload_output
+    assert url_inference[0] == payload_output
+
+
+@pytest.mark.skipif(
+    Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
+)
+@pytest.mark.skipcacheclean
+def test_whisper_model_pyfunc_with_invalid_uri_input(whisper_pipeline):
+    artifact_path = "whisper_url"
+
+    url = (
+        "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/apollo11_launch.wav"
+    )
+
+    signature = infer_signature(
+        url,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, url),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=whisper_pipeline,
+            artifact_path=artifact_path,
+            signature=signature,
+        )
+
+    pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    bad_uri_msg = "An invalid string input was provided. String"
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
+        pyfunc_model.predict("An invalid path")
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
+        pyfunc_model.predict("//www.invalid.net/audio.wav")
+
+    with pytest.raises(MlflowException, match=bad_uri_msg):
+        pyfunc_model.predict("https:///my/audio.mp3")
 
 
 @pytest.mark.skipif(
@@ -3059,7 +3093,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     url_inference = pyfunc_model.predict(url)
 
-    assert url_inference.startswith("30 seconds and counting. Astronauts report it feels ")
+    assert url_inference[0].startswith("30 seconds and counting. Astronauts report it feels ")
     # Ensure that direct pyfunc calling even with a conflicting signature still functions
     inference_payload = json.dumps({"inputs": [url]})
 

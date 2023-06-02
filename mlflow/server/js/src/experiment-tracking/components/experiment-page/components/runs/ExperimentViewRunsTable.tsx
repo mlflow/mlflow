@@ -14,6 +14,7 @@ import {
   ExperimentEntity,
   UpdateExperimentSearchFacetsFn,
   UpdateExperimentViewStateFn,
+  RunDatasetWithTags,
 } from '../../../../types';
 
 import {
@@ -23,21 +24,25 @@ import {
 } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import {
-  ADJUSTABLE_ATTRIBUTE_COLUMNS,
-  ADJUSTABLE_ATTRIBUTE_COLUMNS_SINGLE_EXPERIMENT,
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
   getRowIsLoadMore,
   getRowId,
   useRunsColumnDefinitions,
+  getAdjustableAttributeColumns,
 } from '../../utils/experimentPage.column-utils';
-import { RUNS_VISIBILITY_MODE } from '../../utils/experimentPage.common-utils';
+import {
+  EXPERIMENT_RUNS_TABLE_ROW_HEIGHT,
+  RUNS_VISIBILITY_MODE,
+} from '../../utils/experimentPage.common-utils';
 import { RunRowType } from '../../utils/experimentPage.row-types';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
+import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
+import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
 
 const ROW_HEIGHT = 32;
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
@@ -62,6 +67,8 @@ export interface ExperimentViewRunsTableProps {
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   onAddColumnClicked: () => void;
   loadMoreRunsFunc: () => void;
+  onDatasetSelected?: (dataset: RunDatasetWithTags, run: RunRowType) => void;
+  expandRows: boolean;
 }
 
 export const ExperimentViewRunsTable = React.memo(
@@ -76,6 +83,8 @@ export const ExperimentViewRunsTable = React.memo(
     onAddColumnClicked,
     rowsData,
     loadMoreRunsFunc,
+    onDatasetSelected,
+    expandRows,
   }: ExperimentViewRunsTableProps) => {
     const { isComparingRuns } = searchFacetsState;
     const { paramKeyList, metricKeyList, tagsList } = runsData;
@@ -87,7 +96,6 @@ export const ExperimentViewRunsTable = React.memo(
     const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
 
     const containerElement = useRef<HTMLDivElement>(null);
-
     // Flag indicating if there are any rows that can be expanded
     const expandersVisible = useMemo(
       () => rowsData.some((row) => row.runDateAndNestInfo?.hasExpander),
@@ -252,6 +260,8 @@ export const ExperimentViewRunsTable = React.memo(
       tagKeyList: filteredTagKeys,
       columnApi,
       isComparingRuns,
+      onDatasetSelected,
+      expandRows,
     });
 
     useEffect(() => {
@@ -277,10 +287,7 @@ export const ExperimentViewRunsTable = React.memo(
 
     // Count all columns available for selection
     const allAvailableColumnsCount = useMemo(() => {
-      const attributeColumnCount =
-        experiments.length > 1
-          ? ADJUSTABLE_ATTRIBUTE_COLUMNS.length
-          : ADJUSTABLE_ATTRIBUTE_COLUMNS_SINGLE_EXPERIMENT.length;
+      const attributeColumnCount = getAdjustableAttributeColumns(experiments.length > 1).length;
 
       const valuesColumnCount = metricKeyList.length + paramKeyList.length + filteredTagKeys.length;
 
@@ -318,7 +325,34 @@ export const ExperimentViewRunsTable = React.memo(
         gridApi.deselectAll();
         gridApi.sizeColumnsToFit();
       }
+      gridApi.resetRowHeights();
     }, [gridApi, isComparingRuns]);
+
+    /**
+     * Function used by ag-grid to calculate each row's height.
+     * In this case, it's based on a datasets cell size.
+     */
+
+    const rowHeightGetterFn = useCallback(
+      // if is comparing runs, use the default row height
+      (row: { data: RunRowType }) => {
+        if (isComparingRuns || !expandRows) {
+          return EXPERIMENT_RUNS_TABLE_ROW_HEIGHT;
+        }
+        // if not comparing runs, use the datasets cell height
+        return getDatasetsCellHeight(searchFacetsState, row);
+      },
+      [searchFacetsState, isComparingRuns, expandRows],
+    );
+
+    useEffect(() => {
+      if (!shouldEnableExperimentDatasetTracking()) {
+        return;
+      }
+      // Enabling certain columns (datasets) will change our row height calculation,
+      // let's recalculate them
+      gridApi?.resetRowHeights();
+    }, [gridApi, searchFacetsState.selectedColumns, expandRows]);
 
     return (
       <div css={styles.tableAreaWrapper}>
@@ -335,8 +369,8 @@ export const ExperimentViewRunsTable = React.memo(
             rowSelection='multiple'
             onGridReady={gridReadyHandler}
             onSelectionChanged={onSelectionChange}
-            rowHeight={ROW_HEIGHT}
-            headerHeight={ROW_HEIGHT}
+            getRowHeight={rowHeightGetterFn}
+            headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}
             onRowSelected={handleRowSelected}
             suppressRowClickSelection
             suppressColumnMoveAnimation
@@ -431,7 +465,7 @@ const styles = {
         '.ag-header::after': {
           content: '""',
           position: 'absolute',
-          top: ROW_HEIGHT,
+          top: EXPERIMENT_RUNS_TABLE_ROW_HEIGHT,
           left: 0,
           right: 0,
           height: 1,
@@ -440,7 +474,12 @@ const styles = {
 
         // Line height for cell contents is the row height minus the border
         '.ag-cell': {
-          lineHeight: `min(var(--ag-line-height, ${ROW_HEIGHT - 2}px), ${ROW_HEIGHT - 2}px)`,
+          // lineHeight: `min(var(--ag-line-height, ${ROW_HEIGHT - 2}px), ${ROW_HEIGHT - 2}px)`,
+          display: 'flex',
+          overflow: 'hidden',
+          '& > .ag-cell-wrapper': {
+            overflow: 'hidden',
+          },
         },
 
         // Padding fixes for the header (we use custom component)
@@ -503,6 +542,9 @@ const styles = {
           display: 'flex',
           alignItems: 'center',
           paddingLeft: 7, // will end up in 8px due to 1px of transparent border on the left
+          '.is-multiline-cell .ag-cell-value': {
+            height: '100%',
+          },
         },
 
         // Header checkbox cell will get the same background as header only if it's unchecked

@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { Tag } from '@databricks/design-system';
 // @ts-expect-error TS(2306): File '/Users/elad.ossadon/universe4/mlflow/web/js/... Remove this comment to see the full error message

@@ -17,7 +17,7 @@ from mlflow.recipes.utils.tracking import (
     apply_recipe_tracking_config,
     TrackingConfig,
 )
-from mlflow.projects.utils import get_databricks_env_vars
+from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import (
     _get_active_spark_session,

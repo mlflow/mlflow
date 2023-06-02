@@ -1,7 +1,8 @@
-import { s as selectClasses, c as createMarkdownTable } from '../common-1fb3eeb9.js';
+import { s as selectClasses, c as createMarkdownTable } from '../common-31040b66.js';
 import { act } from 'react-dom/test-utils';
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
+
 /**
  * Finds a single element that contains the specified text in the wrapper. If
  * there are 0 or more than 1 element that contains the specified text, an error
@@ -24,7 +25,7 @@ function findAllByText(wrapper, text) {
     trim = false
   } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
   const textNodes = wrapper.findWhere(n => {
-    if (n.type() !== undefined) {
+    if (typeof n.type() !== 'string' || n.getDOMNode().children.length !== 0) {
       return false;
     }
     let nodeText = n.text();
@@ -34,14 +35,13 @@ function findAllByText(wrapper, text) {
     return typeof text === 'string' ? nodeText === text : text.test(nodeText);
   });
   const newWrappers = textNodes.map(n => {
-    const textNodeParent = n.parents().first();
-    if (textNodeParent.name() === 'FormattedMessage') {
+    if (n.name() === 'FormattedMessage') {
       // Try not to return FormattedMessage since it breaks `simulate` due to a bug in `enzyme-adapter-react-17`
       // Similar to https://github.com/wojtekmaj/enzyme-adapter-react-17/issues/45
-      const formattedMessageParents = textNodeParent.parents();
-      return formattedMessageParents.length > 0 ? formattedMessageParents.first() : textNodeParent;
+      const formattedMessageParents = n.parents();
+      return formattedMessageParents.length > 0 ? formattedMessageParents.first() : n;
     } else {
-      return textNodeParent;
+      return n;
     }
   });
   return newWrappers;
@@ -162,6 +162,7 @@ function findAllByRole(wrapper, role) {
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
 
+
 /**
  * Clicks on the "Clear" button. In order for this function to work properly,
  * the `allowClear` prop must be set to `true`.
@@ -258,14 +259,15 @@ var selectEvent = /*#__PURE__*/Object.freeze({
   __proto__: null,
   clearAll: clearAll,
   closeMenu: closeMenu,
+  getAllOptions: getAllOptions,
   getLabelText: getLabelText,
   multiSelect: multiSelect,
-  singleSelect: singleSelect,
   openMenu: openMenu,
-  getAllOptions: getAllOptions
+  singleSelect: singleSelect
 });
 
 // eslint-disable-next-line @databricks/no-restricted-imports-regexp
+
 
 /**
  * Returns the table row that contains the specified `cellText`. The `cellText`

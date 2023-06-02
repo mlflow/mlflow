@@ -28,7 +28,7 @@ h2o
 onnx>=1.11.0
 onnxruntime
 tf2onnx
-# Required by mlflow.spark
+# Required by mlflow.spark and using Delta with MLflow Tracking datasets
 pyspark
 # Required by mlflow.paddle
 paddlepaddle
@@ -47,12 +47,15 @@ shap>=0.40
 pmdarima
 # Required by mlflow.diviner
 diviner
+# Required for using Hugging Face datasets with MLflow Tracking
+datasets
 # Required by mlflow.transformers
 transformers
 sentencepiece
 setfit
 librosa
 ffmpeg
+accelerate
 # Required by mlflow.openai
 openai
 tiktoken

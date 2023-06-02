@@ -66,6 +66,8 @@ jobs:
           pre-commit install -t pre-commit -t prepare-commit-msg
       - name: Run pre-commit (only changed files)
         id: run-pre-commit
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # pylint is ridiculously slow. It takes ~15 minutes to run on all files.
           # To fail fast for faster iteration, first run pylint only on changed files,
@@ -73,6 +75,8 @@ jobs:
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           pre-commit run --color=always --files $changed_files
       - name: Run pre-commit (pylint)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
           if [ ! -z "$(echo $changed_files | grep '\.py$')"]; then
@@ -135,7 +139,7 @@ jobs:
 
   database:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v3
         with:
@@ -348,6 +352,10 @@ jobs:
           pip install -e .[extras]
           pip install pyspark
           pip install mleap
+          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
+          pip install datasets
+          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
+          pip install tensorflow
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils

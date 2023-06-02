@@ -1,11 +1,19 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { ConfirmModal } from './ConfirmModal';
 import { deleteExperimentApi, searchExperimentsApi } from '../../actions';
 import Routes from '../../routes';
 import Utils from '../../../common/utils/Utils';
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router-dom';
+import { NavigateFunction } from 'react-router-dom-v5-compat';
 import { getUUID } from '../../../common/utils/ActionUtils';
+import { withRouterNext } from '../../../common/utils/withRouterNext';
 
 type Props = {
   isOpen: boolean;
@@ -15,7 +23,7 @@ type Props = {
   experimentName: string;
   deleteExperimentApi: (...args: any[]) => any;
   searchExperimentsApi: (...args: any[]) => any;
-  history: any;
+  navigate: NavigateFunction;
 };
 
 export class DeleteExperimentModalImpl extends Component<Props> {
@@ -30,14 +38,14 @@ export class DeleteExperimentModalImpl extends Component<Props> {
         if (activeExperimentIds?.includes(experimentId)) {
           if (activeExperimentIds.length === 1) {
             // send it to root
-            this.props.history.push(Routes.rootRoute);
+            this.props.navigate(Routes.rootRoute);
           } else {
             const experimentIds = activeExperimentIds.filter((eid) => eid !== experimentId);
             const route =
               experimentIds.length === 1
                 ? Routes.getExperimentPageRoute(experimentIds[0])
                 : Routes.getCompareExperimentsPageRoute(experimentIds);
-            this.props.history.push(route);
+            this.props.navigate(route);
           }
         }
       })
@@ -86,7 +94,6 @@ const mapDispatchToProps = {
   searchExperimentsApi,
 };
 
-export const DeleteExperimentModal: TODOBrokenReactRouterType = withRouter(
-  // @ts-expect-error TS(2345): Argument of type 'ConnectedComponent<typeof Delete... Remove this comment to see the full error message
+export const DeleteExperimentModal = withRouterNext(
   connect(undefined, mapDispatchToProps)(DeleteExperimentModalImpl),
 );

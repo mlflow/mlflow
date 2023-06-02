@@ -360,12 +360,18 @@ such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` a
 currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding
 the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
 
+:py:func:`mlflow.get_parent_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
+parent run for the given run id, if one exists. Otherwise, it returns None.
+
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
 
 :py:func:`mlflow.log_metric` logs a single key-value metric. The value must always be a number.
 MLflow remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log
 multiple metrics at once.
+
+:py:func:`mlflow.log_input` logs a single :py:class:`mlflow.data.dataset.Dataset` object corresponding to the currently 
+active run. You may also log a dataset context string and a dict of key-value tags.
 
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
