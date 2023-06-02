@@ -763,6 +763,7 @@ def test_artifacts(mlflow_client, tmp_path):
     assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
     run_id = created_run.info.run_id
     src_dir = tmp_path.joinpath("test_artifacts_src")
+    src_dir.mkdir()
     src_file = os.path.join(src_dir, "my.file")
     with open(src_file, "w") as f:
         f.write("Hello, World!")
