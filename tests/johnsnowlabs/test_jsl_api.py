@@ -13,6 +13,7 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.johnsnowlabs
+import mlflow.johnsnowlabs
 import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
@@ -33,11 +34,40 @@ from tests.helper_functions import (_assert_pip_requirements,
                                     _mlflow_major_version_string,
                                     score_model_in_sagemaker_docker_container)
 
+
+def setup_env():
+    if 'JSL_ACCESS_KEY' in os.environ:
+        # via access_token
+        from johnsnowlabs.py_models.jsl_secrets import JslSecrets
+        # Download License & Install Licensed Libraries
+        nlp.install(access_token=os.environ['JSL_ACCESS_KEY'])
+        # Write json secret to env
+        secrets = JslSecrets.from_jsl_home()
+        os.environ[mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS] = json.dumps(
+            {
+                'SECRET': secrets.HC_SECRET,
+                'AWS_ACCESS_KEY_ID': secrets.AWS_ACCESS_KEY_ID,
+                'AWS_SECRET_ACCESS_KEY': secrets.AWS_SECRET_ACCESS_KEY,
+                'SPARK_NLP_LICENSE': secrets.HC_LICENSE,
+            }
+
+        )
+    # mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS needs to be present now either from CI or from JSL_ACCESS_KEY
+    mlflow.johnsnowlabs._set_env_vars()
+    nlp.install()
+
+
+setup_env()
+mlflow.johnsnowlabs._validate_env_vars()
+
+# Install licensed libraries on the fly into the current python environment
+# and make them available in the executing python process
+
 MODEL_CACHE_FOLDER = None
 nlu_model = 'en.classify.bert_sequence.covid_sentiment'
 
+
 # Before running any tests make sure the environment variables are set
-mlflow.johnsnowlabs._validate_env_vars()
 
 
 @pytest.fixture
@@ -47,14 +77,14 @@ def load_and_init_model(model=nlu_model):
     return jsl_model
 
 
-def fix_dataframe_with_respect_for_nlu_issues(d1, d2):
+def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
     # When this issue is resolved, we can remove the usage of this function
     # https://github.com/JohnSnowLabs/nlu/issues/new
     # TODO there may be some changes in confidence and changes in column names after storing/loading a model
     # these issues in NLU which are not related to MLflow and to be fixed.
     # For now we are applying a hotfix here on the dataframes to make sure that the tests run the way they should
-    d1 = d1.drop(columns=[c for c in d1.columns if c not in d2.columns or 'confidence' in c])
-    d2 = d2.drop(columns=[c for c in d2.columns if c not in d1.columns or 'confidence' in c])
+    df1 = df1.drop(columns=[c for c in df1.columns if c not in df2.columns or 'confidence' in c])
+    df2 = df2.drop(columns=[c for c in df2.columns if c not in df1.columns or 'confidence' in c])
 
     def lower_strings(df):
         for c in df.columns:
@@ -64,24 +94,24 @@ def fix_dataframe_with_respect_for_nlu_issues(d1, d2):
                 pass
         return df
 
-    d1 = lower_strings(d1)
-    d2 = lower_strings(d2)
+    df1 = lower_strings(df1)
+    df2 = lower_strings(df2)
     # TODO fix: column names may change before/after save and Confidences change
-    d1.columns = [f'c_{i}' for i in range(len(d1.columns))]
-    d2.columns = [f'c_{i}' for i in range(len(d2.columns))]
-    return d1, d2
+    df1.columns = [f'c_{i}' for i in range(len(df1.columns))]
+    df2.columns = [f'c_{i}' for i in range(len(df2.columns))]
+    return df1, df2
 
 
 def validate_model(original_model, new_model):
-    d1, d2 = original_model.predict("Hello World"), new_model.predict("Hello World")
-    if isinstance(d2, str):
-        d2 = pd.DataFrame(json.loads(d2)).drop(columns=['index']).reset_index().drop(columns=['index'])
+    df1, df2 = original_model.predict("Hello World"), new_model.predict("Hello World")
+    if isinstance(df2, str):
+        df2 = pd.DataFrame(json.loads(df2)).drop(columns=['index']).reset_index().drop(columns=['index'])
     else:
-        d2 = d2.reset_index().drop(columns=['index'])
-    d1 = d1.reset_index().drop(columns=['index'])
+        df2 = df2.reset_index().drop(columns=['index'])
+    df1 = df1.reset_index().drop(columns=['index'])
 
-    d1, d2 = fix_dataframe_with_respect_for_nlu_issues(d1, d2)
-    assert d1.equals(d2)
+    df1, df2 = fix_dataframe_with_respect_for_nlu_issues(df1, df2)
+    pd.testing.assert_frame_equal(df1, df2)
 
 
 @pytest.fixture
@@ -125,10 +155,10 @@ def test_model_export(jsl_model, model_path):
     validate_model(jsl_model, pyfunc.load_model(model_path))
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(model_uri=model_path)
-    d1 = pd.DataFrame(json.loads(preds3[0])).drop(columns=['index']).reset_index().drop(columns=['index'])
-    d2 = jsl_model.predict('Hello world')
-    d1, d2 = fix_dataframe_with_respect_for_nlu_issues(d1, d2)
-    assert d1.equals(d2)
+    df1 = pd.DataFrame(json.loads(preds3[0])).drop(columns=['index']).reset_index().drop(columns=['index'])
+    df2 = jsl_model.predict('Hello world')
+    df1, df2 = fix_dataframe_with_respect_for_nlu_issues(df1, df2)
+    pd.testing.assert_frame_equal(df1, df2)
     assert os.path.exists(MLFLOW_DFS_TMP.get())
 
 
@@ -173,11 +203,11 @@ def test_model_export_with_signature_and_examples(jsl_model):
                     assert mlflow_model.saved_input_example_info is None
                 else:
 
-                    d1, d2 = fix_dataframe_with_respect_for_nlu_issues(
+                    df1, df2 = fix_dataframe_with_respect_for_nlu_issues(
                         _read_example(mlflow_model, path).reset_index().drop(columns='index'),
                         example.reset_index().drop(columns='index'))
 
-                    assert d1.equals(d2)
+                    pd.testing.assert_frame_equal(df1, df2)
 
 
 def test_log_model_with_signature_and_examples(jsl_model):
@@ -200,10 +230,10 @@ def test_log_model_with_signature_and_examples(jsl_model):
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    d1, d2 = fix_dataframe_with_respect_for_nlu_issues(
+                    df1, df2 = fix_dataframe_with_respect_for_nlu_issues(
                         _read_example(mlflow_model, model_path).reset_index().drop(columns='index'),
                         example.reset_index().drop(columns='index'))
-                    assert d1.equals(d2)
+                    pd.testing.assert_frame_equal(df1, df2)
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])

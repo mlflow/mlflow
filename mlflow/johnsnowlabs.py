@@ -2,7 +2,16 @@
 The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models. This module
 exports the following flavors:
 
-The following environment variables must be present
+The flavor gives you access to [20.000+ state-of-the-art enterprise NLP models in 200+ languages](https://nlp.johnsnowlabs.com/models) for
+medical, finance, legal and many more domains.
+Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation Extration, Sentiment Analysis,
+Spell Checking, Image Classification, Automatic Speech Recognition powered by the latest Transformer Architectures.
+The models are provided by [John Snow Labs](https://www.johnsnowlabs.com/) and requires a [John Snow Labs](https://www.johnsnowlabs.com/) Enterprise NLP License.
+[You can reach out to us](https://www.johnsnowlabs.com/schedule-a-demo/) for a research or industry license.
+
+
+
+These keys must be present in your license json
 - `SECRET`: The secret for the John Snow Labs Enterprise NLP Library
 - `SPARK_NLP_LICENSE`: Your John Snow Labs Enterprise NLP License
 - `AWS_ACCESS_KEY_ID`: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
@@ -13,10 +22,10 @@ You can set them like this in Python
 
 ```python
 import os
-os.environ['SECRET'] = 'MY_SECRET'
-os.environ['AWS_ACCESS_KEY_ID'] = 'MY_AWS_ACCESS_KEY_ID'
-os.environ['AWS_SECRET_ACCESS_KEY'] = 'MY_AWS_SECRET_ACCESS_KEY'
-os.environ['SPARK_NLP_LICENSE'] = 'MY_SPARK_NLP_LICENSE'
+# Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
+ '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+
 ```
 
 Johnsnowlabs (native) format
@@ -82,18 +91,26 @@ from mlflow.utils.uri import (append_to_uri_path, dbfs_hdfs_uri_to_fuse_path,
 
 FLAVOR_NAME = "johnsnowlabs"
 
-_JOHNSNOWLABS_ENV_VARS = ('SECRET', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'SPARK_NLP_LICENSE')
+_JOHNSNOWLABS_JSON_VARS = ('SECRET', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'SPARK_NLP_LICENSE')
+_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = 'JOHNSNOWLABS_LICENSE_JSON'
+
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
 _logger = logging.getLogger(__name__)
 
 
 def _validate_env_vars():
-    missing_env_vars = [os.environ.get(var) for var in _JOHNSNOWLABS_ENV_VARS]
-    if not missing_env_vars:
+    if not os.environ.get(_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY):
         raise Exception(
-            f'Please set {",".join(missing_env_vars)}'
-            f' environment variables to your secret key before saving or logging your model')
+            f'Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}'
+            f' environment variable as the raw license.json string from John Snow Labs')
+    _set_env_vars()
+
+
+def _set_env_vars():
+    # if json license is detected, we parse it and set the env vars
+    loaded_license = json.loads(os.environ[_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY])
+    os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
 
 
 def _download_url(url, save_path):
@@ -155,6 +172,7 @@ def log_model(
         pip_requirements=None,
         extra_pip_requirements=None,
         metadata=None,
+        store_license=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` (created via ``nlp.load()``) model as an MLflow artifact for the current run. This uses the
@@ -163,6 +181,7 @@ def log_model(
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
     :param spark_model: NLUPipeline obtained via ``nlp.load()``
+    :param store_license: If True, the license will be stored with the model and used and re-loading it.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -231,14 +250,9 @@ def log_model(
         import os
         import pandas as pd
 
-        # Define environment variables, provided to you by johnsnowlabs
-        license_keys = {
-            "AWS_ACCESS_KEY_ID": "MY_AWS_ACCESS_KEY_ID"
-            "AWS_SECRET_ACCESS_KEY": "MY_AWS_SECRET_ACCESS_KEY"
-            "SPARK_NLP_LICENSE": "MY_SPARK_NLP_LICENSE"
-            "SECRET": "MY_SECRET"
-            }
-        os.environ.update(license_keys)
+        # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
+         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
@@ -317,6 +331,7 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             remote_model_path=remote_model_path,
+            store_license=store_license,
         )
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
@@ -341,6 +356,7 @@ def _save_model_metadata(
         pip_requirements=None,
         extra_pip_requirements=None,
         remote_model_path=None,
+        store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -407,7 +423,7 @@ def _save_model_metadata(
     _save_jars_and_lic(dst_dir)
 
 
-def _save_jars_and_lic(dst_dir):
+def _save_jars_and_lic(dst_dir, store_license=False):
     from johnsnowlabs.auto_install.jsl_home import get_install_suite_from_jsl_home
     from johnsnowlabs.py_models.jsl_secrets import JslSecrets
 
@@ -420,10 +436,12 @@ def _save_jars_and_lic(dst_dir):
     if suite.nlp.get_java_path():
         shutil.copyfile(suite.nlp.get_java_path(), str(Path(deps_data_path) / 'os_jar.jar'))
 
-    secrets = JslSecrets.build_or_try_find_secrets()
-    if secrets.HC_LICENSE:
-        with open(str(Path(deps_data_path) / 'license.json'), 'w') as f:
-            f.write(secrets.json())
+    if store_license:
+        # Read the secrets from env vars and write to license.json
+        secrets = JslSecrets.build_or_try_find_secrets()
+        if secrets.HC_LICENSE:
+            with open(str(Path(deps_data_path) / 'license.json'), 'w') as f:
+                f.write(secrets.json())
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
@@ -440,6 +458,7 @@ def save_model(
         pip_requirements=None,
         extra_pip_requirements=None,
         metadata=None,
+        store_license=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -448,6 +467,7 @@ def save_model(
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
+    :param store_license: If True, the license will be stored with the model and used and re-loading it.
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
                         pyspark.ml.Model or pyspark.ml.Transformer which implement
                         MLReadable and MLWritable.
@@ -511,14 +531,9 @@ def save_model(
         import mlflow
         import os
 
-        # Define environment variables, provided to you by johnsnowlabs
-        license_keys = {
-            "AWS_ACCESS_KEY_ID": "MY_AWS_ACCESS_KEY_ID"
-            "AWS_SECRET_ACCESS_KEY": "MY_AWS_SECRET_ACCESS_KEY"
-            "SPARK_NLP_LICENSE": "MY_SPARK_NLP_LICENSE"
-            "SECRET": "MY_SECRET"
-            }
-        os.environ.update(license_keys)
+        # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
+         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
@@ -570,6 +585,7 @@ def save_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
+        store_license=store_license
     )
 
 
@@ -634,14 +650,9 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
         from johnsnowlabs import nlp
         import os
 
-        # Define environment variables, provided to you by johnsnowlabs
-        license_keys = {
-            "AWS_ACCESS_KEY_ID": "MY_AWS_ACCESS_KEY_ID"
-            "AWS_SECRET_ACCESS_KEY": "MY_AWS_SECRET_ACCESS_KEY"
-            "SPARK_NLP_LICENSE": "MY_SPARK_NLP_LICENSE"
-            "SECRET": "MY_SECRET"
-            }
-        os.environ.update(license_keys)
+        # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
+         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # start a spark session
         nlp.start()
