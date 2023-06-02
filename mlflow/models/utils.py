@@ -668,8 +668,8 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
                     # if passing in all scalar values thrown by Pandas.
                     pf_input = pd.DataFrame([pf_input])
                 elif isinstance(pf_input, dict) and all(
-                    _is_scalar(value) or 
-                    (isinstance(value, list) and all(isinstance(elem, str) for elem in value))
+                    _is_scalar(value)
+                    or (isinstance(value, list) and all(isinstance(elem, str) for elem in value))
                     for value in pf_input.values()
                 ):
                     pf_input = pd.DataFrame([pf_input])

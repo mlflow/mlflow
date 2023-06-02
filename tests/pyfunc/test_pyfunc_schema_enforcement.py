@@ -821,6 +821,7 @@ def test_schema_enforcement_for_optional_columns():
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         _enforce_schema(pd_data, signature.inputs)
 
+
 def test_schema_enforcement_for_list_inputs():
     # Test Dict[str, scalar or List[str]]
     test_signature = {
@@ -846,7 +847,7 @@ def test_schema_enforcement_for_list_inputs():
     check = _enforce_schema(data, signature.inputs)
     pd.testing.assert_frame_equal(check, pd_data)
 
-    # Test Dict[str, List[bytes]]
+    # Test Dict[str, List[binary]] with bytes
     test_signature = {
         "inputs": '[{"name": "audio", "type": "binary"}]',
         "outputs": '[{"name": "response", "type": "string"}]',
@@ -857,7 +858,7 @@ def test_schema_enforcement_for_list_inputs():
     pd_check = _enforce_schema(pd_data, signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
 
-    # Test Dict[str, List[base64 encoded]]
+    # Test Dict[str, List[binary]] with base64 encoded
     test_signature = {
         "inputs": '[{"name": "audio", "type": "binary"}]',
         "outputs": '[{"name": "response", "type": "string"}]',
