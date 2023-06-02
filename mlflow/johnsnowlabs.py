@@ -103,6 +103,8 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
 )
+from mlflow.utils.annotations import experimental
+
 
 FLAVOR_NAME = "johnsnowlabs"
 
@@ -142,6 +144,7 @@ def _download_url(url, save_path):
         shutil.copyfileobj(response, out_file)
 
 
+@experimental
 def get_default_pip_requirements():
     """
     :return: A list of default pip requirements for MLflow Models produced by this flavor.
@@ -167,6 +170,7 @@ def get_default_pip_requirements():
     ]
 
 
+@experimental
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -180,6 +184,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
@@ -471,6 +476,7 @@ def _save_jars_and_lic(dst_dir, store_license=False):
                 f.write(secrets.json())
 
 
+@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
     spark_model,
