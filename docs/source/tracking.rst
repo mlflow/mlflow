@@ -1204,6 +1204,11 @@ Logging to a Tracking Server
 To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI,
 along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`.
 
+If necessary, set HTTP Basic authorization credentials by setting the ``MLFLOW_TRACKING_USERNAME`` and
+``MLFLOW_TRACKING_PASSWORD`` environment variables or by calling :py:func:`mlflow.set_tracking_credentials`.
+Alternatively set HTTP Bearer authorization by setting the ``MLFLOW_TRACKING_TOKEN`` environment variable or call
+:py:func:`mlflow.set_tracking_token`.
+
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
 then make API requests to your remote tracking server.
 
