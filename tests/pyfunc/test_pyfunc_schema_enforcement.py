@@ -648,7 +648,7 @@ def test_tensor_schema_enforcement_no_col_names():
         pyfunc_model.predict(np.ndarray([]))
 
 
-@pytest.mark.parametrize("orient", ["list", "records"])
+@pytest.mark.parametrize("orient", ["records"])
 def test_schema_enforcement_for_inputs_style_orientation_of_dataframe(orient):
     # Test Dict[str, List[Any]]
     test_signature = {
@@ -820,3 +820,97 @@ def test_schema_enforcement_for_optional_columns():
     pd_data = pd.DataFrame(test_missing_required)
     with pytest.raises(MlflowException, match="Model is missing inputs"):
         _enforce_schema(pd_data, signature.inputs)
+
+
+def test_schema_enforcement_for_list_inputs():
+    # Test Dict[str, scalar or List[str]]
+    test_signature = {
+        "inputs": '[{"name": "prompt", "type": "string"}, {"name": "stop", "type": "string"}]',
+        "outputs": '[{"type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"prompt": "this is the prompt", "stop": ["a", "b"]}
+    output = "this is the output"
+    assert signature == infer_signature(data, output)
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+
+    # Test Dict[str, List[str]]
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "string"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"a": ["Hi there!"], "b": ["Hello there", "Bye!"]}
+    pd_data = pd.DataFrame([data])
+    check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(check, pd_data)
+
+    # Test Dict[str, List[binary]] with bytes
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": [b"Hi I am a bytes string"]}
+    pd_data = pd.DataFrame([data])
+    pd_check = _enforce_schema(pd_data, signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, List[binary]] with base64 encoded
+    test_signature = {
+        "inputs": '[{"name": "audio", "type": "binary"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"audio": [base64.b64encode(b"Hi I am a bytes string").decode("ascii")]}
+    pd_data = pd.DataFrame([data])
+    pd_check = _enforce_schema(pd_data, signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, List[Any]]
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "long"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"a": [4, 5, 6], "b": ["a", "b", "c"]}
+    pd_data = pd.DataFrame(data)
+    pd_check = _enforce_schema(data, signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, np.ndarray]
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "long"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"a": np.array([1, 2, 3]), "b": np.array(["a", "b", "c"])}
+    pd_data = pd.DataFrame(data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient="list"), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, np.ndarray] where array.size == 1
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "long"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    data = {"a": np.array([12]), "b": np.array(["a"])}
+    pd_data = pd.DataFrame(data)
+    pd_check = _enforce_schema(pd_data.to_dict(orient="list"), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
+
+    # Test Dict[str, np.ndarray] where primitives are supplied
+    test_signature = {
+        "inputs": '[{"name": "a", "type": "string"}, {"name": "b", "type": "string"}]',
+        "outputs": '[{"name": "response", "type": "string"}]',
+    }
+    signature = ModelSignature.from_dict(test_signature)
+    # simulates the structure that model serving will convert the data to when using
+    # a Dict[str, str] with a scalar singular value string
+    data = {"a": np.array("a"), "b": np.array("b")}
+    pd_data = pd.DataFrame([data])
+    pd_check = _enforce_schema(pd_data.to_dict(orient="list"), signature.inputs)
+    pd.testing.assert_frame_equal(pd_check, pd_data)
