@@ -1,4 +1,3 @@
-import ast
 import json
 import numpy as np
 import os
@@ -18,7 +17,6 @@ from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.file_utils import TempDir
 from pyspark.sql import SparkSession
 from pyspark.sql.types import ArrayType, DoubleType
 
@@ -351,11 +349,13 @@ def test_spark_udf(basic_model, model_path, spark):
     assert embeddings.shape == (2, basic_model.get_sentence_embedding_dimension())
 
 
-# test single string input and multi string input
-@pytest.mark.parametrize("input1, input2", [
-    (["hello world"], ["goodbye world!"]),
-    (["hello world", "i am mlflow"], ["goodbye world!", "i am mlflow"]),
-])
+@pytest.mark.parametrize(
+    "input1, input2",
+    [
+        (["hello world"], ["goodbye world!"]),
+        (["hello world", "i am mlflow"], ["goodbye world!", "i am mlflow"]),
+    ],
+)
 def test_pyfunc_serve_and_score(input1, input2, basic_model):
     with mlflow.start_run():
         model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
@@ -391,12 +391,16 @@ SIGNATURE = infer_signature(
     model_output=SentenceTransformer("all-MiniLM-L6-v2").encode(SENTENCES),
 )
 
-@pytest.mark.parametrize("example, signature", [
-    (None, None),
-    (SENTENCES, None),
-    (None, SIGNATURE),
-    (SENTENCES, SIGNATURE),
-])
+
+@pytest.mark.parametrize(
+    "example, signature",
+    [
+        (None, None),
+        (SENTENCES, None),
+        (None, SIGNATURE),
+        (SENTENCES, SIGNATURE),
+    ],
+)
 def test_signature_and_examples_are_saved_correctly(example, signature, basic_model, model_path):
     mlflow.sentence_transformers.save_model(
         basic_model, path=model_path, signature=signature, input_example=example
