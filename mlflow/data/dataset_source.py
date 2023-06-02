@@ -1,12 +1,9 @@
 import json
 
 from abc import ABC, abstractmethod
-from typing import TypeVar, Any, Dict
+from typing import Any, Dict
 
 from mlflow.utils.annotations import experimental
-
-
-DatasetSourceType = TypeVar("DatasetSourceType", bound="DatasetSource")
 
 
 @experimental
@@ -51,7 +48,7 @@ class DatasetSource(ABC):
 
     @classmethod
     @abstractmethod
-    def _resolve(cls, raw_source: Any) -> DatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> "DatasetSource":
         """
         Constructs an instance of the DatasetSource from a raw source object, such as a
         string URI like "s3://mybucket/path/to/iris/data" or a delta table identifier
@@ -82,7 +79,7 @@ class DatasetSource(ABC):
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "DatasetSource":
         """
         Constructs an instance of the DatasetSource from a dictionary representation.
 
@@ -91,7 +88,7 @@ class DatasetSource(ABC):
         """
 
     @classmethod
-    def from_json(cls, source_json: str) -> DatasetSourceType:
+    def from_json(cls, source_json: str) -> "DatasetSource":
         """
         Constructs an instance of the DatasetSource from a JSON string representation.
 

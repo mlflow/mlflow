@@ -1,12 +1,9 @@
-from typing import TypeVar, Any, Optional, Dict
+from typing import Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
-
-
-SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSource")
 
 
 @experimental
@@ -55,7 +52,7 @@ class SparkDatasetSource(DatasetSource):
         return False
 
     @classmethod
-    def _resolve(cls, raw_source: str) -> SparkDatasetSourceType:
+    def _resolve(cls, raw_source: str) -> "SparkDatasetSource":
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
@@ -69,7 +66,7 @@ class SparkDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> SparkDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "SparkDatasetSource":
         return cls(
             path=source_dict.get("path"),
             table_name=source_dict.get("table_name"),
