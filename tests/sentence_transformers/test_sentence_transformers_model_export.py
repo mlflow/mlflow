@@ -20,6 +20,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from pyspark.sql import SparkSession
+from pyspark.sql.types import ArrayType, DoubleType
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -314,37 +315,40 @@ def test_model_pyfunc_save_load(basic_model, model_path):
     embedding_dim = basic_model.get_sentence_embedding_dimension()
 
     emb0 = loaded_pyfunc.predict(sentence)
-    assert emb0.shape == (1, 1)
-    assert len(emb0.iloc[0,0]) == embedding_dim
+    assert emb0.shape == (1, embedding_dim)
 
     emb1 = loaded_pyfunc.predict(sentences)
     emb2 = loaded_pyfunc.predict(pd.Series(sentences))
     emb3 = loaded_pyfunc.predict(pd.Series(sentences).to_numpy())
 
     for emb in [emb1, emb2, emb3]:
-        assert emb.shape == (3, 1)
-        assert len(emb.iloc[0,0]) == embedding_dim
-        assert len(emb.iloc[1,0]) == embedding_dim
-        assert len(emb.iloc[2,0]) == embedding_dim
+        assert emb.shape == (3, embedding_dim)
 
-    pd.testing.assert_frame_equal(emb1, emb2)
-    pd.testing.assert_frame_equal(emb1, emb3)
+    np.testing.assert_array_equal(emb1, emb2)
+    np.testing.assert_array_equal(emb1, emb3)
 
 
 def test_spark_udf(basic_model, model_path, spark):
     with mlflow.start_run():
         model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+
+    result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
-        spark, model_info.model_uri, result_type="string", # result_type=ArrayType(FloatType())
+        spark,
+        model_info.model_uri,
+        result_type=result_type,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])
     df = df.withColumn("embedding", loaded_model("text"))
-    pdf = df.toPandas()
+    assert df.schema[1].dataType == result_type
 
-    emb_string = pdf.loc[0, "embedding"]
-    emb = ast.literal_eval(emb_string)
-    assert len(emb) == basic_model.get_sentence_embedding_dimension()
+    pdf = df.toPandas()
+    assert pdf.shape == (2, 2)
+    assert pdf["embedding"].dtype == "object"
+
+    embeddings = np.array(pdf.embedding.to_list())
+    assert embeddings.shape == (2, basic_model.get_sentence_embedding_dimension())
 
 
 # test single string input and multi string input
@@ -366,8 +370,8 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    serving_result = pd.DataFrame(json.loads(resp.content.decode("utf-8"))["predictions"])
-    pd.testing.assert_frame_equal(left=local_predict, right=serving_result)
+    serving_result = json.loads(resp.content.decode("utf-8"))["predictions"]
+    np.testing.assert_array_equal(local_predict, serving_result)
 
     # Check that the giving a different string to the served model results in a different result
     inference_data = json.dumps({"inputs": input2})
@@ -377,35 +381,8 @@ def test_pyfunc_serve_and_score(input1, input2, basic_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=["--env-manager", "local"],
     )
-    serving_result = pd.DataFrame(json.loads(resp.content.decode("utf-8"))["predictions"])
-    assert not local_predict.equals(serving_result)
-
-@pytest.mark.parametrize("example", [
-    None,
-    ["hello world", "i am mlflow"],
-])
-def test_signature_and_examples_are_saved_correctly(example, basic_model):
-    sentences = ["hello world", "i am mlflow"]
-    emb = basic_model.encode(sentences)
-
-    signature_ = infer_signature(model_input=sentences, model_output=emb)
-    for signature in (None, signature_):
-        with TempDir() as tmp:
-            path = tmp.path("model")
-            mlflow.sentence_transformers.save_model(
-                basic_model, path=path, signature=signature, input_example=example
-            )
-            mlflow_model = Model.load(path)
-
-            if signature is None:
-                assert mlflow_model.signature == mlflow.sentence_transformers._get_default_signature()
-            else:
-                assert signature == mlflow_model.signature
-
-            if example is None:
-                assert mlflow_model.saved_input_example_info is None
-            else:
-                assert all((_read_example(mlflow_model, path) == example).all())
+    serving_result = json.loads(resp.content.decode("utf-8"))["predictions"]
+    assert not np.equal(local_predict, serving_result).all()
 
 
 SENTENCES = ["hello world", "i am mlflow"]
@@ -420,7 +397,7 @@ SIGNATURE = infer_signature(
     (None, SIGNATURE),
     (SENTENCES, SIGNATURE),
 ])
-def test_signature_and_examples_are_saved_correctly_2(example, signature, basic_model, model_path):
+def test_signature_and_examples_are_saved_correctly(example, signature, basic_model, model_path):
     mlflow.sentence_transformers.save_model(
         basic_model, path=model_path, signature=signature, input_example=example
     )
