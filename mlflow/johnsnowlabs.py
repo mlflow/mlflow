@@ -804,6 +804,6 @@ def autolog(disable=False, silent=False,
             log_input_examples=False,
             log_model_signatures=True,
             log_model_allowlist=None,
-            ):  # pylint: disable=unused-argument
+            ):
     """This is just a stub for now to pass the CI tests. TODO define autologging for johnsnowlabs"""
     pass

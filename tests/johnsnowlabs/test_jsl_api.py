@@ -43,7 +43,7 @@ def setup_env():
         nlp.install(access_token=os.environ['JSL_ACCESS_KEY'])
         # Write json secret to env
         secrets = JslSecrets.from_jsl_home()
-        os.environ[mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS] = json.dumps(
+        os.environ[mlflow.johnsnowlabs._JOHNSNOWLABS_ENV_JSON_LICENSE_KEY] = json.dumps(
             {
                 'SECRET': secrets.HC_SECRET,
                 'AWS_ACCESS_KEY_ID': secrets.AWS_ACCESS_KEY_ID,
