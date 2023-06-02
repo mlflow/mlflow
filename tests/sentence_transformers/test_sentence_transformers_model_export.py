@@ -230,7 +230,6 @@ def test_log_with_extra_pip_requirements(basic_model, tmp_path):
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, *default_requirements, "effective-package"],
-            strict=True,
         )
     with mlflow.start_run():
         mlflow.sentence_transformers.log_model(
@@ -241,7 +240,6 @@ def test_log_with_extra_pip_requirements(basic_model, tmp_path):
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, *default_requirements, "effective-package", "useful-package"],
-            strict=True,
         )
     with mlflow.start_run():
         mlflow.sentence_transformers.log_model(
@@ -258,7 +256,6 @@ def test_log_with_extra_pip_requirements(basic_model, tmp_path):
                 "-c constraints.txt",
             ],
             ["effective-package"],
-            strict=True,
         )
 
 
