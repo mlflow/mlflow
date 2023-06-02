@@ -22,10 +22,11 @@ You can set them like this in Python
 
 ```python
 import os
-# Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
- '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
+# Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+os.environ[
+    "JOHNSNOWLABS_LICENSE_JSON"
+] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 ```
 
 Johnsnowlabs (native) format
@@ -63,37 +64,55 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
-from mlflow.spark import (_HadoopFileSystem, _maybe_save_model,
-                          _mlflowdbfs_path, _should_use_mlflowdbfs)
-from mlflow.store.artifact.databricks_artifact_repo import \
-    DatabricksArtifactRepository
+from mlflow.spark import (
+    _HadoopFileSystem,
+    _maybe_save_model,
+    _mlflowdbfs_path,
+    _should_use_mlflowdbfs,
+)
+from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.tracking.artifact_utils import (_download_artifact_from_uri,
-                                            _get_root_uri_and_artifact_path)
+from mlflow.tracking.artifact_utils import (
+    _download_artifact_from_uri,
+    _get_root_uri_and_artifact_path,
+)
 from mlflow.utils import databricks_utils
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
-from mlflow.utils.environment import (_CONDA_ENV_FILE_NAME,
-                                      _CONSTRAINTS_FILE_NAME,
-                                      _PYTHON_ENV_FILE_NAME,
-                                      _REQUIREMENTS_FILE_NAME,
-                                      _mlflow_conda_env, _process_conda_env,
-                                      _process_pip_requirements, _PythonEnv)
-from mlflow.utils.file_utils import (TempDir,
-                                     shutil_copytree_without_file_permissions,
-                                     write_to)
-from mlflow.utils.model_utils import (_add_code_from_conf_to_system_path,
-                                      _get_flavor_configuration_from_uri,
-                                      _validate_and_copy_code_paths)
-from mlflow.utils.uri import (append_to_uri_path, dbfs_hdfs_uri_to_fuse_path,
-                              generate_tmp_dfs_path,
-                              get_databricks_profile_uri_from_artifact_uri,
-                              is_local_uri, is_valid_dbfs_uri)
+from mlflow.utils.environment import (
+    _CONDA_ENV_FILE_NAME,
+    _CONSTRAINTS_FILE_NAME,
+    _PYTHON_ENV_FILE_NAME,
+    _REQUIREMENTS_FILE_NAME,
+    _mlflow_conda_env,
+    _process_conda_env,
+    _process_pip_requirements,
+    _PythonEnv,
+)
+from mlflow.utils.file_utils import TempDir, shutil_copytree_without_file_permissions, write_to
+from mlflow.utils.model_utils import (
+    _add_code_from_conf_to_system_path,
+    _get_flavor_configuration_from_uri,
+    _validate_and_copy_code_paths,
+)
+from mlflow.utils.uri import (
+    append_to_uri_path,
+    dbfs_hdfs_uri_to_fuse_path,
+    generate_tmp_dfs_path,
+    get_databricks_profile_uri_from_artifact_uri,
+    is_local_uri,
+    is_valid_dbfs_uri,
+)
 
 FLAVOR_NAME = "johnsnowlabs"
 
-_JOHNSNOWLABS_JSON_VARS = ('SECRET', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'SPARK_NLP_LICENSE')
-_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = 'JOHNSNOWLABS_LICENSE_JSON'
+_JOHNSNOWLABS_JSON_VARS = (
+    "SECRET",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "SPARK_NLP_LICENSE",
+)
+_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
 
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
 _MLFLOWDBFS_SCHEME = "mlflowdbfs"
@@ -103,8 +122,9 @@ _logger = logging.getLogger(__name__)
 def _validate_env_vars():
     if not os.environ.get(_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY):
         raise Exception(
-            f'Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}'
-            f' environment variable as the raw license.json string from John Snow Labs')
+            f"Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}"
+            f" environment variable as the raw license.json string from John Snow Labs"
+        )
     _set_env_vars()
 
 
@@ -130,18 +150,20 @@ def get_default_pip_requirements():
     """
     from johnsnowlabs import settings
     import pyspark
-    _SPARK_NLP_JSL_WHEEL_URI = "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-" \
-                               + f"{settings.raw_version_medical}-py3-none-any.whl"
+
+    _SPARK_NLP_JSL_WHEEL_URI = (
+        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+        + f"{settings.raw_version_medical}-py3-none-any.whl"
+    )
     _validate_env_vars()
 
     return [
-        f'johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}',
-        f'pyspark=={pyspark.__version__}',
-        _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ['SECRET']),
+        f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
+        f"pyspark=={pyspark.__version__}",
+        _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
-        'pandas<=1.5.3',
-
+        "pandas<=1.5.3",
     ]
 
 
@@ -160,20 +182,20 @@ def get_default_conda_env():
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
-        spark_model,
-        artifact_path,
-        conda_env=None,
-        code_paths=None,
-        dfs_tmpdir=None,
-        sample_input=None,
-        registered_model_name=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        metadata=None,
-        store_license=False,
+    spark_model,
+    artifact_path,
+    conda_env=None,
+    code_paths=None,
+    dfs_tmpdir=None,
+    sample_input=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    metadata=None,
+    store_license=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` (created via ``nlp.load()``) model as an MLflow artifact for the current run. This uses the
@@ -252,25 +274,28 @@ def log_model(
         import pandas as pd
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
-         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        os.environ[
+            "JOHNSNOWLABS_LICENSE_JSON"
+        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
 
         # For more details on trainable models and parameterization like embedding choice see
         # https://nlp.johnsnowlabs.com/docs/en/jsl/training
-        trainable_classifier = nlp.load('train.classifier')
+        trainable_classifier = nlp.load("train.classifier")
 
         # Create a sample training dataset
-        data = pd.DataFrame({'text':['I hate covid ','I love covid'], 'y':['negative','positive']})
+        data = pd.DataFrame(
+            {"text": ["I hate covid ", "I love covid"], "y": ["negative", "positive"]}
+        )
 
         # Fit and get a trained classifier
         trained_classifier = trainable_classifier.fit(data)
-        trained_classifier.predict('He hates covid')
+        trained_classifier.predict("He hates covid")
 
         # Log it
-        mlflow.johnsnowlabs.log_model(trained_classifier,'my_trained_model')
+        mlflow.johnsnowlabs.log_model(trained_classifier, "my_trained_model")
     """
     _validate_env_vars()
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
@@ -282,7 +307,7 @@ def log_model(
         )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
-                get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
             try:
                 _unpack_and_save_model(spark_model, mlflowdbfs_path)
@@ -297,8 +322,8 @@ def log_model(
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-            spark_model,
-            append_to_uri_path(run_root_artifact_uri, artifact_path),
+        spark_model,
+        append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -346,18 +371,18 @@ def log_model(
 
 
 def _save_model_metadata(
-        dst_dir,
-        spark_model,
-        mlflow_model,
-        sample_input,
-        conda_env,
-        code_paths,
-        signature=None,
-        input_example=None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        remote_model_path=None,
-        store_license=False,
+    dst_dir,
+    spark_model,
+    mlflow_model,
+    sample_input,
+    conda_env,
+    code_paths,
+    signature=None,
+    input_example=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    remote_model_path=None,
+    store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -383,6 +408,7 @@ def _save_model_metadata(
 
     # add the johnsnowlabs flavor
     import pyspark
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pyspark_version=pyspark.__version__,
@@ -433,33 +459,33 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 
     suite = get_install_suite_from_jsl_home(False)
     if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), str(Path(deps_data_path) / 'hc_jar.jar'))
+        shutil.copyfile(suite.hc.get_java_path(), str(Path(deps_data_path) / "hc_jar.jar"))
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), str(Path(deps_data_path) / 'os_jar.jar'))
+        shutil.copyfile(suite.nlp.get_java_path(), str(Path(deps_data_path) / "os_jar.jar"))
 
     if store_license:
         # Read the secrets from env vars and write to license.json
         secrets = JslSecrets.build_or_try_find_secrets()
         if secrets.HC_LICENSE:
-            with open(str(Path(deps_data_path) / 'license.json'), 'w') as f:
+            with open(str(Path(deps_data_path) / "license.json"), "w") as f:
                 f.write(secrets.json())
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
-        spark_model,
-        path,
-        mlflow_model=None,
-        conda_env=None,
-        code_paths=None,
-        dfs_tmpdir=None,
-        sample_input=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        metadata=None,
-        store_license=False,
+    spark_model,
+    path,
+    mlflow_model=None,
+    conda_env=None,
+    code_paths=None,
+    dfs_tmpdir=None,
+    sample_input=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    metadata=None,
+    store_license=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -533,22 +559,23 @@ def save_model(
         import os
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
-         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        os.environ[
+            "JOHNSNOWLABS_LICENSE_JSON"
+        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
 
         # load a model
-        model = nlp.load('en.classify.bert_sequence.covid_sentiment')
-        model.predict(['I hate covid', 'I love covid'])
+        model = nlp.load("en.classify.bert_sequence.covid_sentiment")
+        model.predict(["I hate covid", "I love covid"])
 
         # Save model as pyfunc and johnsnowlabs format
-        mlflow.johnsnowlabs.save_model(model, 'saved_model')
-        model = mlflow.johnsnowlabs.load_model('saved_model')
+        mlflow.johnsnowlabs.save_model(model, "saved_model")
+        model = mlflow.johnsnowlabs.load_model("saved_model")
         # Predict with reloaded model,
         # supports datatypes defined in https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api#supported-data-types
-        model.predict(['I hate covid', 'I love covid'])
+        model.predict(["I hate covid", "I love covid"])
     """
     _validate_env_vars()
     if mlflow_model is None:
@@ -568,7 +595,7 @@ def save_model(
     # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
     # like "/my-directory")
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
     if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -586,12 +613,13 @@ def save_model(
         input_example=input_example,
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
-        store_license=store_license
+        store_license=store_license,
     )
 
 
 def _load_model_databricks(dfs_tmpdir, local_model_path):
     from johnsnowlabs import nlp
+
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
@@ -605,6 +633,7 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
 
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from johnsnowlabs import nlp
+
     dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
@@ -652,8 +681,9 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
         import os
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ['JOHNSNOWLABS_LICENSE_JSON'] = \
-         '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        os.environ[
+            "JOHNSNOWLABS_LICENSE_JSON"
+        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
 
         # start a spark session
         nlp.start()
@@ -662,7 +692,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
 
         # Make predictions on test documents
         # supports datatypes defined in https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api#supported-data-types
-        prediction = model.transform(['I love Covid', 'I hate Covid'])
+        prediction = model.transform(["I love Covid", "I hate Covid"])
     """
     # This MUST be called prior to appending the model flavor to `model_uri` in order
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
@@ -682,7 +712,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
         with databricks_utils.MlflowCredentialContext(
-                get_databricks_profile_uri_from_artifact_uri(root_uri)
+            get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
@@ -702,7 +732,9 @@ def _load_pyfunc(path, spark=None):
     :param spark: Optionally pass spark context when using pyfunc as UDF. required, because we cannot fetch the Sparkcontext inside of the Workernode which executes the UDF
     :return:
     """
-    return _PyFuncModelWrapper(_load_model(model_uri=path), spark if spark else _get_or_create_sparksession(path))
+    return _PyFuncModelWrapper(
+        _load_model(model_uri=path), spark if spark else _get_or_create_sparksession(path)
+    )
 
 
 def _get_or_create_sparksession(model_path=None):
@@ -718,25 +750,34 @@ def _get_or_create_sparksession(model_path=None):
     """
     from johnsnowlabs import nlp
     from mlflow.utils._spark_utils import _get_active_spark_session
+
     _validate_env_vars()
 
     spark = _get_active_spark_session()
     if spark is None:
         spark_conf = {}
         spark_conf["spark.python.worker.reuse"] = "true"
-        os.environ['PYSPARK_PYTHON'] = sys.executable
-        os.environ['PYSPARK_DRIVER_PYTHON'] = sys.executable
+        os.environ["PYSPARK_PYTHON"] = sys.executable
+        os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
             jar_paths, license_path = _fetch_deps_from_path(model_path)
             # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
             if license_path:
                 with open(license_path) as f:
                     loaded_license = json.load(f)
-                    os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
-                    os.environ['JSL_NLP_LICENSE'] = loaded_license['HC_LICENSE']
+                    os.environ.update(
+                        {k: str(v) for k, v in loaded_license.items() if v is not None}
+                    )
+                    os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
             _logger.info("Starting a new Session with Jars: ", jar_paths)
-            spark = nlp.start(nlp=False, spark_nlp=False, jar_paths=jar_paths, json_license_path=license_path,
-                              create_jsl_home_if_missing=False, spark_conf=spark_conf)
+            spark = nlp.start(
+                nlp=False,
+                spark_nlp=False,
+                jar_paths=jar_paths,
+                json_license_path=license_path,
+                create_jsl_home_if_missing=False,
+                spark_conf=spark_conf,
+            )
         else:
             spark = nlp.start()
     return spark
@@ -744,12 +785,18 @@ def _get_or_create_sparksession(model_path=None):
 
 def _fetch_deps_from_path(local_model_path):
     if _JOHNSNOWLABS_MODEL_PATH_SUB not in local_model_path:
-        local_model_path = Path(local_model_path) / _JOHNSNOWLABS_MODEL_PATH_SUB / 'jars.jsl'
+        local_model_path = Path(local_model_path) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
     else:
-        local_model_path = Path(local_model_path) / 'jars.jsl'
+        local_model_path = Path(local_model_path) / "jars.jsl"
 
-    jar_paths = [str(local_model_path / file) for file in local_model_path.iterdir() if file.suffix == '.jar']
-    license_path = [str(local_model_path / file) for file in local_model_path.iterdir() if file.name == 'license.json']
+    jar_paths = [
+        str(local_model_path / file) for file in local_model_path.iterdir() if file.suffix == ".jar"
+    ]
+    license_path = [
+        str(local_model_path / file)
+        for file in local_model_path.iterdir()
+        if file.name == "license.json"
+    ]
 
     license_path = license_path[0] if license_path else None
     return jar_paths, license_path
@@ -757,13 +804,14 @@ def _fetch_deps_from_path(local_model_path):
 
 def _unpack_and_save_model(spark_model, dst):
     from pyspark.ml import PipelineModel
+
     if isinstance(spark_model, _PyFuncModelWrapper):
         spark_model = spark_model.spark_model
     if isinstance(spark_model, PipelineModel):
         spark_model.write().overwrite().save(dst)
     else:
         # nlu pipe
-        spark_model.predict('Init')
+        spark_model.predict("Init")
         try:
             spark_model.vanilla_transformer_pipe.write().overwrite().save(dst)
         except:
@@ -777,12 +825,16 @@ class _PyFuncModelWrapper:
     Wrapper around NLUPipeline providing interface for scoring pandas DataFrame.
     """
 
-    def __init__(self, spark_model, spark=None, ):
+    def __init__(
+        self,
+        spark_model,
+        spark=None,
+    ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, output_level=''):
+    def predict(self, text, output_level=""):
         """
         Generate predictions given input data in a pandas DataFrame.
 
@@ -794,16 +846,18 @@ class _PyFuncModelWrapper:
 
 
 @autologging_integration(FLAVOR_NAME)
-def autolog(disable=False, silent=False,
-            log_models=True,
-            log_datasets=True,
-            exclusive=False,
-            disable_for_unsupported_versions=False,
-            log_post_training_metrics=True,
-            registered_model_name=None,
-            log_input_examples=False,
-            log_model_signatures=True,
-            log_model_allowlist=None,
-            ):
+def autolog(
+    disable=False,
+    silent=False,
+    log_models=True,
+    log_datasets=True,
+    exclusive=False,
+    disable_for_unsupported_versions=False,
+    log_post_training_metrics=True,
+    registered_model_name=None,
+    log_input_examples=False,
+    log_model_signatures=True,
+    log_model_allowlist=None,
+):
     """This is just a stub for now to pass the CI tests. TODO define autologging for johnsnowlabs"""
     pass

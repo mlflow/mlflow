@@ -752,7 +752,7 @@ def log_params(params: Dict[str, Any]) -> None:
 
 @experimental
 def log_input(
-        dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
 ) -> None:
     """
     Log a dataset used in the current run.
