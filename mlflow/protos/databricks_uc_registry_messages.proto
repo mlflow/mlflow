@@ -393,3 +393,22 @@ message GetModelVersionByAliasRequest {
 message GetModelVersionByAliasResponse {
   optional ModelVersion model_version = 1;
 }
+
+// Lineage kafka protos
+enum EntityType {
+    JOB = 0;
+    DLT_PIPELINE = 1;
+    NOTEBOOK = 2;
+    DASHBOARD = 3;
+}
+
+message EntityInfo {
+    optional EntityType entity_type = 1;
+    optional string entity_id = 2; // A unique identifier to identify an entity
+    optional string query_id = 3; // run level ID (pipeline update_id, job run_id)
+    optional string entity_metadata = 4; // JSON formatted String with entity specific metadata (job task_key)
+}
+
+message LineageHeaderInfo {
+    repeated EntityInfo entity_info = 1;
+}

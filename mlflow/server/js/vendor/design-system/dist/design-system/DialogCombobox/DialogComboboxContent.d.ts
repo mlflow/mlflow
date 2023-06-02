@@ -2,7 +2,7 @@
 import * as Popover from '@radix-ui/react-popover';
 import type { HTMLDataAttributes } from '../types';
 export interface DialogComboboxContentProps extends Popover.PopoverContentProps, HTMLDataAttributes {
-    width?: number;
+    width?: number | string;
     loading?: boolean;
     maxHeight?: number;
     maxWidth?: number;

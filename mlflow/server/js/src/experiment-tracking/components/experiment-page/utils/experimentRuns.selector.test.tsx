@@ -156,6 +156,14 @@ describe('useExperimentRuns', () => {
     );
   });
 
+  it('fetches datasets for experiment runs', () => {
+    const result = mountComponentWithExperimentRuns(['123456789']);
+
+    expect(result.datasetsList[0]).toEqual(
+      EXPERIMENT_RUNS_MOCK_STORE.entities.runDatasetsByUuid['experiment123456789_run1'],
+    );
+  });
+
   it('filters runs with assigned model', () => {
     const result = mountComponentWithExperimentRuns(['123456789'], {
       modelVersionFilter: MODEL_VERSION_FILTER.WITH_MODEL_VERSIONS,

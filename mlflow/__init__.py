@@ -44,6 +44,7 @@ from mlflow import models  # pylint: disable=unused-import
 from mlflow import artifacts  # pylint: disable=unused-import
 from mlflow import client  # pylint: disable=unused-import
 from mlflow import exceptions  # pylint: disable=unused-import
+from mlflow import data  # pylint: disable=unused-import
 
 # model flavors
 _model_flavors_supported = []
@@ -148,6 +149,7 @@ from mlflow.tracking.fluent import (
     log_image,
     log_figure,
     log_table,
+    load_table,
     active_run,
     get_run,
     start_run,
@@ -168,6 +170,7 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    log_input,
     get_parent_run,
 )
 from mlflow.tracking._model_registry.fluent import (
@@ -205,7 +208,9 @@ __all__ = [
     "log_dict",
     "log_figure",
     "log_table",
+    "load_table",
     "log_image",
+    "log_input",
     "active_run",
     "start_run",
     "end_run",

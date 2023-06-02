@@ -1,10 +1,17 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { mount, shallow } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { CompareModelVersionsPageImpl, CompareModelVersionsPage } from './CompareModelVersionsPage';
 
 describe('CompareModelVersionPage', () => {
@@ -47,15 +54,15 @@ describe('CompareModelVersionPage', () => {
   test('should render with minimal props and store without exploding', () => {
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsPage {...minimalProps} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
   });
 
   test('should render with name with model name with special characters', () => {
-    const props = {
+    const props: any = {
       location: {
         search:
           '?name=' +
@@ -69,9 +76,9 @@ describe('CompareModelVersionPage', () => {
     };
     wrapper = mount(
       <Provider store={minimalStore}>
-        <BrowserRouter>
+        <MemoryRouter>
           <CompareModelVersionsPage {...props} />
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>,
     );
     expect(wrapper.find(CompareModelVersionsPageImpl).length).toBe(1);

@@ -6,6 +6,7 @@ from tests.helper_functions import random_str, random_int
 
 from mlflow.entities import RunInfo, LifecycleStage, RunStatus
 from mlflow.entities import Metric, RunData, Param, RunTag
+from mlflow.entities import RunInputs, DatasetInput, InputTag, Dataset
 from mlflow.utils.time_utils import get_current_time_millis
 
 
@@ -62,3 +63,19 @@ def run_info():
         lifecycle_stage,
         artifact_uri,
     )
+
+
+@pytest.fixture()
+def run_inputs():
+    datasets = [
+        DatasetInput(
+            dataset=Dataset(
+                name="name1", digest="digest1", source_type="my_source_type", source="source"
+            ),
+            tags=[InputTag(key="key", value="value")],
+        )
+    ]
+
+    run_inputs = RunInputs(dataset_inputs=datasets)
+
+    return run_inputs, datasets

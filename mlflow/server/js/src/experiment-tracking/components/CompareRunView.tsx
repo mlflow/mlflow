@@ -1,7 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
-import { withRouter } from 'react-router';
 import { injectIntl, FormattedMessage } from 'react-intl';
 import { Alert, Button, Spacer, Switch, Tabs, Tooltip } from '@databricks/design-system';
 
@@ -12,18 +18,16 @@ import { CompareRunScatter } from './CompareRunScatter';
 import { CompareRunBox } from './CompareRunBox';
 import CompareRunContour from './CompareRunContour';
 import Routes from '../routes';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../../common/utils/Utils';
 import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
-import {
-  shouldDisableLegacyRunCompareCharts,
-  shouldUseNextRunsComparisonUI,
-} from '../../common/utils/FeatureUtils';
+import { shouldDisableLegacyRunCompareCharts } from '../../common/utils/FeatureUtils';
 import { useExperimentPageFeedbackUrl } from './experiment-page/hooks/useExperimentPageFeedbackUrl';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 
 const { TabPane } = Tabs;
 
@@ -32,7 +36,7 @@ const LegacyCompareRunsPageCallout = (props: any) => {
     experimentIds: PropTypes.arrayOf(PropTypes.string).isRequired,
   };
   const feedbackFormUrl = useExperimentPageFeedbackUrl();
-  return shouldUseNextRunsComparisonUI() ? (
+  return (
     <Alert
       type='info'
       closable={false}
@@ -69,7 +73,7 @@ const LegacyCompareRunsPageCallout = (props: any) => {
         </>
       }
     />
-  ) : null;
+  );
 };
 
 type CompareRunViewProps = {
@@ -759,4 +763,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
 };
 
 // @ts-expect-error TS(2769): No overload matches this call.
-export default withRouter(connect(mapStateToProps)(injectIntl(CompareRunView)));
+export default connect(mapStateToProps)(injectIntl(CompareRunView));
