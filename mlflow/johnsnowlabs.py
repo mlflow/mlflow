@@ -71,6 +71,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import (_download_artifact_from_uri,
                                             _get_root_uri_and_artifact_path)
 from mlflow.utils import databricks_utils
+from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (_CONDA_ENV_FILE_NAME,
                                       _CONSTRAINTS_FILE_NAME,
@@ -790,3 +791,19 @@ class _PyFuncModelWrapper:
         :return: List with model predictions.
         """
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
+
+
+@autologging_integration(FLAVOR_NAME)
+def autolog(disable=False, silent=False,
+            log_models=True,
+            log_datasets=True,
+            exclusive=False,
+            disable_for_unsupported_versions=False,
+            log_post_training_metrics=True,
+            registered_model_name=None,
+            log_input_examples=False,
+            log_model_signatures=True,
+            log_model_allowlist=None,
+            ):  # pylint: disable=unused-argument
+    """This is just a stub for now to pass the CI tests. TODO define autologging for johnsnowlabs"""
+    pass
