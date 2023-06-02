@@ -34,5 +34,3 @@ shap
 evaluate
 nltk
 rouge_score
-# Required by johnsnowlabs tests
-johnsnowlabs>=4.4.6

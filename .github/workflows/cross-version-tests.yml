@@ -193,6 +193,7 @@ jobs:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
+          JSL_ACCESS_KEY: ${{ secrets.JSL_ACCESS_KEY }}
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
