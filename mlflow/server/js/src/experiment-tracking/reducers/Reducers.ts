@@ -40,6 +40,7 @@ import {
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
+import { evaluationDataReducer as evaluationData } from './EvaluationDataReducer';
 
 export const getExperiments = (state: any) => {
   return Object.values(state.entities.experimentsById);
@@ -593,6 +594,7 @@ export const rootReducer = combineReducers({
   views,
   apis,
   compareExperiments,
+  evaluationData,
 });
 
 export const getEntities = (state: any) => {

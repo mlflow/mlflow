@@ -48,12 +48,12 @@ const persistSearchStateFieldSerializers: Record<string, PersistSearchSerializeF
     },
   },
   /**
-   * For "isComparingRuns", we will always save "false" value to local storage so users will
-   * get back to default view after visiting the view once more
+   * For "compareRunsMode", we will always save "undefined" value to local storage so users will
+   * get back to default view after visiting the view once more.
    */
-  isComparingRuns: {
+  compareRunsMode: {
     serializeLocalStorage() {
-      return false;
+      return undefined;
     },
   },
 };
