@@ -6,6 +6,9 @@ err=0
 trap 'err=1' ERR
 export MLFLOW_HOME=$(pwd)
 
-pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes
+pytest tests --quiet --requires-ssh --ignore-flavors --ignore=tests/examples --ignore=tests/recipes --ignore=tests/johnsnowlabs
+
+# Run johnsnowlabs in a separate process to avoid conflicts with sparksessions launched by other tests
+pytest tests/johnsnowlabs --quiet --requires-ssh --ignore-flavors
 
 test $err = 0

@@ -65,4 +65,4 @@ langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
 # Required by mlflow.johnsnowlabs
-johnsnowlabs>=4.4.6
+johnsnowlabs_for_databricks>=4.4.6
