@@ -64,3 +64,5 @@ tenacity
 langchain
 # Required by mlflow.sentence_transformers
 sentence-transformers
+# Required by mlflow.johnsnowlabs
+johnsnowlabs>=4.4.6
