@@ -17,7 +17,6 @@ XGBoost (native) format
     https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn
 """
 import os
-import shutil
 import json
 import yaml
 import tempfile
@@ -586,15 +585,14 @@ def autolog(
                 ax.legend()
             fig.tight_layout()
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
-                fig.savefig(filepath)
-                mlflow.log_artifact(filepath)
-            finally:
-                plt.close(fig)
-                shutil.rmtree(tmpdir)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    # pylint: disable=undefined-loop-variable
+                    filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
+                    fig.savefig(filepath)
+                    mlflow.log_artifact(filepath)
+                finally:
+                    plt.close(fig)
 
         autologging_client = MlflowAutologgingQueueingClient()
         # logging booster params separately to extract key/value pairs and make it easier to
@@ -701,14 +699,11 @@ def autolog(
                 )
 
             if imp is not None:
-                tmpdir = tempfile.mkdtemp()
-                try:
+                with tempfile.TemporaryDirectory() as tmpdir:
                     filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                     with open(filepath, "w") as f:
                         json.dump(imp, f)
                     mlflow.log_artifact(filepath)
-                finally:
-                    shutil.rmtree(tmpdir)
 
         # dtrain must exist as the original train function already ran successfully
         # it is possible that the dataset was constructed before the patched
