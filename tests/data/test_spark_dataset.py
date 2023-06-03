@@ -13,11 +13,11 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
-    session = (
+    with (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -26,9 +26,8 @@ def spark_session(tmp_path):
         )
         .config("spark.sql.warehouse.dir", tmp_path)
         .getOrCreate()
-    )
-    yield session
-    session.stop()
+    ) as session:
+        yield session
 
 
 @pytest.fixture
