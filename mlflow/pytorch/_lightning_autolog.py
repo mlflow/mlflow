@@ -2,7 +2,6 @@ from packaging.version import Version
 import logging
 import mlflow.pytorch
 import os
-import shutil
 import tempfile
 import warnings
 
@@ -398,15 +397,12 @@ def patched_fit(original, self, *args, **kwargs):
         else:
             summary = str(ModelSummary(self.model, max_depth=-1))
 
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "model_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
 
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
         if log_models:
             registered_model_name = get_autologging_config(
