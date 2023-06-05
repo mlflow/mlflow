@@ -242,7 +242,7 @@ def test_save_model_with_pip_requirements(fastai_model, tmp_path):
     # Path to a requirements file
     tmpdir1 = tmp_path.joinpath("1")
     req_file = tmp_path.joinpath("requirements.txt")
-    req_file.write("a")
+    req_file.write_text("a")
     mlflow.fastai.save_model(fastai_model.model, tmpdir1, pip_requirements=str(req_file))
     _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
@@ -266,7 +266,7 @@ def test_save_model_with_extra_pip_requirements(fastai_model, tmp_path):
     # Path to a requirements file
     tmpdir1 = tmp_path.joinpath("1")
     req_file = tmp_path.joinpath("requirements.txt")
-    req_file.write("a")
+    req_file.write_text("a")
     mlflow.fastai.save_model(fastai_model.model, tmpdir1, extra_pip_requirements=str(req_file))
     _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 

@@ -322,7 +322,7 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmp_path):
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmp_path.join_path("requirements.txt")
+    req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
     with mlflow.start_run():
         mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=str(req_file))

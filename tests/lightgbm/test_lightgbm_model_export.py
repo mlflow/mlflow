@@ -282,7 +282,7 @@ def test_log_model_with_extra_pip_requirements(lgb_model, tmp_path):
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
-    req_file.write_Text("a")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.lightgbm.log_model(lgb_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(

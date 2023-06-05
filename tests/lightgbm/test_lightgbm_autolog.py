@@ -656,7 +656,7 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
 
 
 def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmp_path):
-    tmp_csv = tmp_path.join("data.csv")
+    tmp_csv = tmp_path.joinpath("data.csv")
     with tmp_csv.open("w") as f:
         f.write("2,6.4,2.8,5.6,2.2\n")
         f.write("1,5.0,2.3,3.3,1.0\n")
