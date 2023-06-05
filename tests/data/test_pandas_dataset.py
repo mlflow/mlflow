@@ -17,7 +17,7 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture(scope="class", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
     from pyspark.sql import SparkSession
 
