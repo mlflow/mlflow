@@ -94,15 +94,16 @@ def _save_gateway_config(config: List[RouteConfig], path: Union[str, Path]):
     path.write_text(yaml.safe_dump(serialized))
 
 
-def _convert_route_config_to_route(route_config: List[RouteConfig]) -> List[Route]:
-    def route_config_to_route(route: RouteConfig) -> Route:
-        return Route(
-            name=route.name,
-            type=route.type,
-            model=ModelInfo(
-                name=route.model.name,
-                provider=route.model.provider,
-            ),
-        )
+def _route_config_to_route(route: RouteConfig) -> Route:
+    return Route(
+        name=route.name,
+        type=route.type,
+        model=ModelInfo(
+            name=route.model.name,
+            provider=route.model.provider,
+        ),
+    )
 
-    return [route_config_to_route(route) for route in route_config]
+
+def _convert_route_config_to_route(route_config: List[RouteConfig]) -> List[Route]:
+    return [_route_config_to_route(route) for route in route_config]

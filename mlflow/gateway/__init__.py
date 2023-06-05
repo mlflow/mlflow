@@ -1,86 +1,111 @@
-from multiprocessing import Process
+import os
+import pathlib
+import signal
+import sys
+import time
 from typing import Optional
-from uvicorn import Server, Config
+
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import _CONFIGURATION_FILE
-from mlflow.gateway.config import GatewayConfigSingleton
+from mlflow.gateway.constants import CONF_PATH_ENV_VAR, LOCALHOST
 from mlflow.gateway.handlers import _load_gateway_config, RouteConfig
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
+import subprocess
 
-class GatewayServer(Process):
+server_process: Optional[subprocess.Popen] = None
+gateway_host: Optional[str] = None
+gateway_port: Optional[int] = None
+
+
+def start_server(config_path: str, host, port):
     """
-    Process management wrapper around the uvicorn server process to provide API-driven
-    control over the initialized process
+    Starts the server with the given configuration, host and port.
+
+    This function sets the global server_process, gateway_host, and gateway_port variables.
+    It starts the server by creating a new subprocess that runs the server script.
+
+    Args:
+        config_path (str): Path to the configuration file.
+        host (str): The hostname to use for the server.
+        port (int): The port number to use for the server.
+
+    Returns:
+        None
+
+    Raises:
+        subprocess.CalledProcessError: If the server subprocess fails to start.
     """
+    global server_process
+    global gateway_host
+    global gateway_port
+    os.environ[CONF_PATH_ENV_VAR] = config_path
 
-    def __init__(self, config: Config):
-        super().__init__()
-        self.config = config
-        self.server = Server(config)
+    if server_process is not None:
+        raise MlflowException(
+            f"There is a currently running server instance at pid '{server_process.pid}'. Please "
+            "terminate the running server instance prior to starting a new instance within this "
+            "context.",
+            error_code=BAD_REQUEST,
+        )
 
-    def stop(self):
-        """
-        Stops the uvicorn server by terminating its process
-        """
-        self.terminate()
-
-    def run(self):
-        """
-        Starts the uvicorn server
-        """
-        self.server.run()
-
-
-class ServerManager:
-    def __init__(self, app, host, port):
-        self.app = app
-        self.host = host
-        self.port = port
-        self.gateway_config = None
-        self.server_process = None
-
-    def _validate_config(self, config_path):
-        self.gateway_config = _load_gateway_config(config_path)
-        # Update the global singleton config with route definitions
-        GatewayConfigSingleton.getInstance().update_config(self.gateway_config)
-
-    def start_server(self, config_path, **uvicorn_kwargs):
-        server_config = Config(app=self.app, host=self.host, port=self.port, **uvicorn_kwargs)
-
-        self._validate_config(config_path)
-        self.server_process = GatewayServer(config=server_config)
-        self.server_process.start()
-
-    def _stop_server(self):
-        if self.server_process:
-            self.server_process.stop()
-            self.server_process = None
-
-    def update_server(self, config_path, **uvicorn_kwargs):
-        if self.server_process:
-            self._stop_server()
-            self.start_server(config_path, **uvicorn_kwargs)
-        else:
-            raise MlflowException(
-                "No server to update. Please start the server before trying to update.",
-                error_code=BAD_REQUEST,
-            )
+    cmd_path = pathlib.Path(__file__).parent.joinpath("gateway_app.py")
+    server_cmd = [sys.executable, str(cmd_path), "--host", host, "--port", str(port)]
+    gateway_host = host
+    gateway_port = port
+    server_process = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
 
-# Global server manager
-server_manager: Optional[ServerManager] = None
+def _stop_server():
+    """
+    Stops the currently running server.
+
+    This function kills the process of the running server and resets the global server_process variable to None.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+    global server_process
+
+    if not server_process:
+        raise MlflowException(
+            "There is no currently running gateway server", error_code=BAD_REQUEST
+        )
+
+    os.kill(server_process.pid, signal.SIGTERM)
+    server_process = None
 
 
-def start_service(config_path: str, app: str, host: str, port: int, **uvicorn_kwargs):
-    global server_manager
-    server_manager = ServerManager(app, host, port)
-    server_manager.start_server(config_path, **uvicorn_kwargs)
+def update_server(config_path: str):
+    """
+    Updates the server with the new configuration.
 
+    This function stops the currently running server and starts it again with the new configuration.
+    It raises an exception if there is no currently running server.
 
-def update_service(config_path: str, **uvicorn_kwargs):
-    global server_manager
-    if server_manager is not None:
-        server_manager.update_server(config_path, **uvicorn_kwargs)
-    else:
-        raise Exception("No server to update. Please start the server before trying to update.")
+    Args:
+        config_path (str): Path to the new configuration file.
+
+    Returns:
+        None
+
+    Raises:
+        mlflow.exceptions.MlflowException: If there is no currently running server.
+    """
+    global server_process
+    global gateway_host
+    global gateway_port
+
+    if server_process is None:
+        raise MlflowException(
+            "Unable to update server configuration. There is no currently running gateway server.",
+            error_code=BAD_REQUEST,
+        )
+
+    _stop_server()
+
+    time.sleep(2)
+
+    start_server(config_path, gateway_host, gateway_port)
