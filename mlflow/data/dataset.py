@@ -119,6 +119,6 @@ class Dataset:
             digest=dataset_json["digest"],
             source_type=dataset_json["source_type"],
             source=dataset_json["source"],
-            schema=dataset_json["schema"],
-            profile=dataset_json["profile"],
+            schema=dataset_json.get("schema"),
+            profile=dataset_json.get("profile"),
         )

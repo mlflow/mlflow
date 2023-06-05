@@ -1,13 +1,8 @@
 from abc import abstractmethod
-from typing import TypeVar, Any, Dict
+from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
-
-
-FileSystemDatasetSourceType = TypeVar(
-    "FileSystemDatasetSourceType", bound="FileSystemDatasetSource"
-)
 
 
 @experimental
@@ -59,7 +54,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def _resolve(cls, raw_source: Any) -> FileSystemDatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> "FileSystemDatasetSource":
         """
         :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data".
         """
@@ -72,7 +67,7 @@ class FileSystemDatasetSource(DatasetSource):
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> FileSystemDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "FileSystemDatasetSource":
         """
         :param source_dict: A dictionary representation of the FileSystemDatasetSource.
         """
