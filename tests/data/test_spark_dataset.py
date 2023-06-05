@@ -1,6 +1,5 @@
 import json
 import os
-import tempfile
 import pytest
 import pandas as pd
 import mlflow.data
@@ -14,22 +13,21 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture(scope="module")
-def spark_session():
+@pytest.fixture()
+def spark_session(tmp_path):
     from pyspark.sql import SparkSession
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        with (
-            SparkSession.builder.master("local[*]")
-            .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
-            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-            .config(
-                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-            )
-            .config("spark.sql.warehouse.dir", tmpdir)
-            .getOrCreate()
-        ) as session:
-            yield session
+    with (
+        SparkSession.builder.master("local[*]")
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
+        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+        .config(
+            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+        )
+        .config("spark.sql.warehouse.dir", str(tmp_path))
+        .getOrCreate()
+    ) as session:
+        yield session
 
 
 @pytest.fixture
