@@ -1175,11 +1175,11 @@ def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
         assert "MOCK ERROR 2" in err_msg
 
 
-def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmpdir):
-    src_file1_path = os.path.join(str(tmpdir), "file_1.txt")
+def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmp_path):
+    src_file1_path = os.path.join(tmp_path, "file_1.txt")
     with open(src_file1_path, "w") as f:
         f.write("file1")
-    src_file2_path = os.path.join(str(tmpdir), "file_2.txt")
+    src_file2_path = os.path.join(tmp_path, "file_2.txt")
     with open(src_file2_path, "w") as f:
         f.write("file2")
 
@@ -1206,7 +1206,7 @@ def test_log_artifacts_provides_failure_info(databricks_artifact_repo, tmpdir):
             r"MOCK ERROR 2"
         )
         with pytest.raises(MlflowException, match=match) as exc:
-            databricks_artifact_repo.log_artifacts(str(tmpdir), "test_artifacts")
+            databricks_artifact_repo.log_artifacts(str(tmp_path), "test_artifacts")
 
         err_msg = str(exc.value)
         assert MOCK_RUN_ROOT_URI in err_msg

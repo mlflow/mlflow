@@ -688,10 +688,10 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
     assert python_env_path.is_file()
 
 
-def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
+def save_or_log_keras_model_by_mlflow128(tmp_path, task_type, save_as_type, save_path=None):
     tf_tests_dir = os.path.dirname(__file__)
     conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
-    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    output_data_file_path = os.path.join(tmp_path, "output_data.pkl")
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
 

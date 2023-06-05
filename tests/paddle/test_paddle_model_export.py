@@ -141,11 +141,11 @@ def test_model_load_from_remote_uri_succeeds(pd_model, model_path, mock_s3_bucke
     )
 
 
-def test_model_log(pd_model, model_path, tmpdir):
+def test_model_log(pd_model, model_path, tmp_path):
     model = pd_model.model
     try:
         artifact_path = "model"
-        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
         model_info = mlflow.paddle.log_model(
@@ -346,12 +346,12 @@ def test_model_built_in_high_level_api_load_from_remote_uri_succeeds(
     )
 
 
-def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path, tmpdir):
+def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, model_path, tmp_path):
     model = pd_model_built_in_high_level_api.model
     test_dataset = pd_model_built_in_high_level_api.inference_dataframe
     try:
         artifact_path = "model"
-        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
         mlflow.paddle.log_model(pd_model=model, artifact_path=artifact_path, conda_env=conda_env)
@@ -432,14 +432,14 @@ def test_model_retrain_built_in_high_level_api(
 
 
 def test_log_model_built_in_high_level_api(
-    pd_model_built_in_high_level_api, model_path, tmpdir, get_dataset_built_in_high_level_api
+    pd_model_built_in_high_level_api, model_path, tmp_path, get_dataset_built_in_high_level_api
 ):
     model = pd_model_built_in_high_level_api.model
     test_dataset = get_dataset_built_in_high_level_api[1]
 
     try:
         artifact_path = "model"
-        conda_env = os.path.join(tmpdir, "conda_env.yaml")
+        conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["paddle"])
 
         mlflow.paddle.log_model(
