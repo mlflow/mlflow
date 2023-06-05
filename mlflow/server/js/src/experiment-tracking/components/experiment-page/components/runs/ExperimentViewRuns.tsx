@@ -35,6 +35,8 @@ import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotificati
 import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { useAutoExpandRunRows } from '../../hooks/useAutoExpandRunRows';
+import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
+import { shouldEnableArtifactBasedEvaluation } from '../../../../../common/utils/FeatureUtils';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -113,8 +115,10 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     [datasetsList, metricsList, paramsList, runInfos, tagsList],
   );
 
-  const { orderByKey, searchFilter, runsExpanded, runsPinned, isComparingRuns, runsHidden } =
+  const { orderByKey, searchFilter, runsExpanded, runsPinned, compareRunsMode, runsHidden } =
     searchFacetsState;
+
+  const isComparingRuns = compareRunsMode !== undefined;
 
   // Automatically expand parent runs if necessary
   useAutoExpandRunRows(runData, visibleRuns, isPristine, updateSearchFacets, runsExpanded);
@@ -199,10 +203,10 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
     }
   }, [moreRunsAvailable, isLoadingRuns, loadMoreRuns, runInfos, showFetchedRunsNotifications]);
 
-  const datasetSelected = (dataset: RunDatasetWithTags, run: RunRowType) => {
+  const datasetSelected = useCallback((dataset: RunDatasetWithTags, run: RunRowType) => {
     setSelectedDatasetWithRun({ datasetWithTags: dataset, runData: run });
     setIsDrawerOpen(true);
-  };
+  }, []);
 
   return (
     <>
@@ -232,7 +236,7 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
           onDatasetSelected={datasetSelected}
           expandRows={expandRows}
         />
-        {isComparingRuns && (
+        {compareRunsMode === 'CHART' && (
           <RunsCompare
             isLoading={isLoadingRuns}
             comparedRuns={visibleRuns}
@@ -241,6 +245,15 @@ export const ExperimentViewRunsImpl = React.memo((props: ExperimentViewRunsProps
             experimentTags={runsData.experimentTags}
             searchFacetsState={searchFacetsState}
             updateSearchFacets={updateSearchFacets}
+          />
+        )}
+        {compareRunsMode === 'ARTIFACT' && shouldEnableArtifactBasedEvaluation() && (
+          <EvaluationArtifactCompareView
+            visibleRuns={visibleRuns.filter(({ hidden }) => !hidden)}
+            viewState={viewState}
+            updateViewState={updateViewState}
+            updateSearchFacets={updateSearchFacets}
+            onDatasetSelected={datasetSelected}
           />
         )}
         {notificationContainer}

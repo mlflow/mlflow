@@ -5,9 +5,10 @@ import { FormattedMessage } from 'react-intl';
 
 export interface DatasetLinkProps {
   datasetWithTags: RunDatasetWithTags;
+  runTags: Record<string, { key: string; value: string }>;
 }
 
-export const ExperimentViewDatasetLink = ({ datasetWithTags }: DatasetLinkProps) => {
+export const ExperimentViewDatasetLink = ({ datasetWithTags, runTags }: DatasetLinkProps) => {
   const { dataset } = datasetWithTags;
   if (dataset.source_type === DatasetSourceTypes.EXTERNAL) {
     return (
