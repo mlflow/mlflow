@@ -18,7 +18,7 @@ from mlflow.types.utils import _infer_schema
 def spark_session():
     from pyspark.sql import SparkSession
 
-    with tempfile.TemporaryDirectory as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir:
         with (
             SparkSession.builder.master("local[*]")
             .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
