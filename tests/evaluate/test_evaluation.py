@@ -109,9 +109,8 @@ def get_local_artifact_path(run_id, artifact_path):
 
 @pytest.fixture(scope="module")
 def spark_session():
-    session = SparkSession.builder.master("local[*]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")
