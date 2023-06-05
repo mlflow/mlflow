@@ -849,21 +849,3 @@ class _PyFuncModelWrapper:
         :return: List with model predictions.
         """
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
-
-
-@autologging_integration(FLAVOR_NAME)
-def autolog(
-    disable=False,
-    silent=False,
-    log_models=True,
-    log_datasets=True,
-    exclusive=False,
-    disable_for_unsupported_versions=False,
-    log_post_training_metrics=True,
-    registered_model_name=None,
-    log_input_examples=False,
-    log_model_signatures=True,
-    log_model_allowlist=None,
-):
-    """This is just a stub for now to pass the CI tests. TODO define autologging for johnsnowlabs"""
-    pass

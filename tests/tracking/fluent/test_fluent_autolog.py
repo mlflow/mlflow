@@ -41,7 +41,6 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
     setfit: mlflow.transformers,
-    johnsnowlabs: mlflow.johnsnowlabs,
 }
 
 library_to_mlflow_module = {

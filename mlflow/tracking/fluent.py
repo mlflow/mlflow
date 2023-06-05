@@ -1959,7 +1959,6 @@ def autolog(
         "pytorch_lightning": pytorch.autolog,
         "setfit": transformers.autolog,
         "transformers": transformers.autolog,
-        "johnsnowlabs": johnsnowlabs.autolog,
     }
 
     def get_autologging_params(autolog_fn):
