@@ -1,13 +1,13 @@
 import json
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Any, Dict
 
 from mlflow.utils.annotations import experimental
 
 
 @experimental
-class DatasetSource(ABC):
+class DatasetSource:
     """
     Represents the source of a dataset used in MLflow Tracking, providing information such as
     cloud storage location, delta table name / version, etc.
