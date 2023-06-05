@@ -50,9 +50,8 @@ def data():
 def spark_session():
     from pyspark.sql import SparkSession
 
-    session = SparkSession.builder.master("local[2]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[2]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")
