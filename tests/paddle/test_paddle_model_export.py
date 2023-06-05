@@ -94,13 +94,13 @@ def pd_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def pd_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def pd_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["paddle", "pytest"])
     return conda_env
 
@@ -378,8 +378,8 @@ def test_model_built_in_high_level_api_log(pd_model_built_in_high_level_api, mod
 
 
 @pytest.fixture
-def model_retrain_path(tmpdir):
-    return os.path.join(str(tmpdir), "model_retrain")
+def model_retrain_path(tmp_path):
+    return os.path.join(tmp_path, "model_retrain")
 
 
 @pytest.mark.allow_infer_pip_requirements_fallback

@@ -78,13 +78,13 @@ def reg_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return tmpdir.join("model").strpath
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def custom_env(tmpdir):
-    conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yml")
+def custom_env(tmp_path):
+    conda_env_path = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost", "pytest"])
     return conda_env_path
 
