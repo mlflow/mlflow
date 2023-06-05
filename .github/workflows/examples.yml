@@ -38,6 +38,14 @@ jobs:
     timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
+      - name: Free Ubuntu Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          swap-storage: true
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}

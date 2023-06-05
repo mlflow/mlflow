@@ -1,8 +1,11 @@
-import base64
-import mlflow
 import transformers
 import requests
 
+import mlflow
+from mlflow.utils._cache_utils import _clear_hub_cache
+
+# Used only for CI testing - disregard for examples purposes
+_clear_hub_cache()
 
 # Acquire an audio file
 audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content
