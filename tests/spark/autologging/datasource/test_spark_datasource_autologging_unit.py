@@ -8,11 +8,10 @@ from mlflow._spark_autologging import _get_current_listener, PythonSubscriber
 from tests.spark.autologging.utils import _get_or_create_spark_session
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def spark_session():
-    session = _get_or_create_spark_session()
-    yield session
-    session.stop()
+    with _get_or_create_spark_session() as session:
+        yield session
 
 
 @pytest.fixture()

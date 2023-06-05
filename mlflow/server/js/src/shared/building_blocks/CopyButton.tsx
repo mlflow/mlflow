@@ -11,9 +11,11 @@ import { Button, Tooltip } from '@databricks/design-system';
 
 type Props = {
   copyText: string;
+  showLabel?: React.ReactNode;
+  icon?: React.ReactNode;
 };
 
-export const CopyButton = ({ copyText }: Props) => {
+export const CopyButton = ({ copyText, showLabel = true, icon }: Props) => {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = () => {
@@ -40,8 +42,10 @@ export const CopyButton = ({ copyText }: Props) => {
         visible: showTooltip,
       }}
     >
-      <Button type='primary' onClick={handleClick} onMouseLeave={handleMouseLeave}>
-        <FormattedMessage defaultMessage='Copy' description='Button text for copy button' />
+      <Button type='primary' onClick={handleClick} onMouseLeave={handleMouseLeave} icon={icon}>
+        {showLabel && (
+          <FormattedMessage defaultMessage='Copy' description='Button text for copy button' />
+        )}
       </Button>
     </Tooltip>
   );

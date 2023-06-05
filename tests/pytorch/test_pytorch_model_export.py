@@ -163,13 +163,13 @@ def module_scoped_subclassed_model(data):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def pytorch_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def pytorch_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pytorch", "torchvision", "pytest"])
     return conda_env
 

@@ -6,8 +6,8 @@ from pyspark.sql import SparkSession
 
 # Put this test in separate module because it require a spark context
 # with a special conf and the conf is immutable in runtime.
-def test_custom_log_model_allowlist(tmpdir):
-    allowlist_file_path = os.path.join(tmpdir, "allowlist")
+def test_custom_log_model_allowlist(tmp_path):
+    allowlist_file_path = os.path.join(tmp_path, "allowlist")
     with open(allowlist_file_path, "w") as f:
         f.write("pyspark.ml.regression.LinearRegressionModel\n")
         f.write("pyspark.ml.classification.NaiveBayesModel\n")

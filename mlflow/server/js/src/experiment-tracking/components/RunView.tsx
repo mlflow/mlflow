@@ -573,6 +573,7 @@ export class RunViewImpl extends Component<RunViewImplProps, RunViewImplState> {
                               runUuid: runUuid,
                               runName: runName,
                               datasets: datasets,
+                              tags: tags,
                             },
                           });
                           this.setIsDrawerOpen(true);

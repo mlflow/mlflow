@@ -10,6 +10,7 @@ import {
 import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
 import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
+import type { ExperimentViewRunsCompareMode } from '../../../types';
 
 const getDefaultSelectedColumns = () => {
   const result = [
@@ -121,9 +122,10 @@ export class SearchExperimentRunsFacetsState {
   runsHidden: string[] = [];
 
   /**
-   * Is in compare runs mode
+   * Current run comparison mode (either chart or artifact).
+   * If set to "undefined", the table view should be displayed.
    */
-  isComparingRuns = false;
+  compareRunsMode: ExperimentViewRunsCompareMode = undefined;
 
   /**
    * Currently configured charts for comparing runs, if any.
