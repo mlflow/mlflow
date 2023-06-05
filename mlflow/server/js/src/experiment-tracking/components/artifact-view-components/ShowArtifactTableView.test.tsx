@@ -1,6 +1,13 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { shallow, mount } from 'enzyme';
-import { mountWithIntl } from 'src/common/utils/TestUtils';
+import { mountWithIntl } from '../../../common/utils/TestUtils';
 import ShowArtifactTableView from './ShowArtifactTableView';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';

@@ -12,7 +12,8 @@ class Dataset:
     """
     Represents a dataset for use with MLflow Tracking, including the name, digest (hash),
     schema, and profile of the dataset as well as source information (e.g. the S3 bucket or
-    managed Delta table from which the dataset was derived).
+    managed Delta table from which the dataset was derived). Most datasets expose features
+    and targets for training and evaluation as well.
     """
 
     def __init__(
@@ -51,9 +52,11 @@ class Dataset:
 
     def to_json(self) -> str:
         """
-        Obtains a JSON string representation of the dataset.
+        Obtains a JSON string representation of the
+        :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
 
-        :return: A JSON string representation of the dataset.
+        :return: A JSON string representation of the
+                 :py:class:`Dataset <mlflow.data.dataset.Dataset>`.
         """
         base_dict = {
             "name": self.name,
@@ -66,9 +69,7 @@ class Dataset:
     @property
     def name(self) -> str:
         """
-        The name of the dataset.
-
-        :return: The name of the dataset. E.g. "myschema.mycatalog.mytable@2".
+        The name of the dataset, e.g. ``"iris_data"``, ``"myschema.mycatalog.mytable@v1"``, etc.
         """
         if self._name is not None:
             return self._name
@@ -78,20 +79,17 @@ class Dataset:
     @property
     def digest(self) -> str:
         """
-        The digest (hash, fingerprint) of the dataset.
-
-        :return: The digest (hash, fingerprint) of the dataset,
-                 e.g. "498c74967f07246428783efd292cb9cc".
+        A unique hash or fingerprint of the dataset, e.g. ``"498c7496"``.
         """
         return self._digest
 
     @property
     def source(self) -> DatasetSource:
         """
-        Dataset source information.
-
-        :return: A DatasetSource instance containing information about the dataset's source,
-                 e.g. the S3 bucket or managed Delta table from which the dataset was derived.
+        Information about the dataset's source, represented as an instance of
+        :py:class:`DatasetSource <mlflow.data.dataset_source.DatasetSource>`. For example, this
+        may be the S3 location or the name of the managed Delta Table from which the dataset
+        was derived.
         """
         return self._source
 
@@ -99,21 +97,16 @@ class Dataset:
     @abstractmethod
     def profile(self) -> Optional[Any]:
         """
-        Optional summary statistics for the dataset.
-
-        :return: Summary statistics for the dataset, e.g. number of rows in a
-                 table, mean / median / std of each column, etc. Returns None if no
-                 summary statistics are available for the dataset.
+        Optional summary statistics for the dataset, such as the number of rows in a table, the
+        mean / median / std of each table column, etc.
         """
 
     @property
     @abstractmethod
     def schema(self) -> Optional[Any]:
         """
-        Optional dataset schema.
-
-        :return: The schema of the dataset, e.g. an instance of `mlflow.types.Schema`. Returns None
-                 if no schema is defined for the dataset.
+        Optional dataset schema, such as an instance of :py:class:`mlflow.types.Schema` representing
+        the features and targets of the dataset.
         """
 
     def _to_mlflow_entity(self) -> DatasetEntity:

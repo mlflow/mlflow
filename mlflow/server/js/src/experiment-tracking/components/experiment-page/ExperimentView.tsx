@@ -1,6 +1,6 @@
 import { Skeleton } from '@databricks/design-system';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
@@ -27,6 +27,8 @@ export const ExperimentView = () => {
 
   const isComparingExperiments = experimentIds.length > 1;
 
+  const experimentIdsHash = useMemo(() => JSON.stringify(experimentIds.sort()), [experimentIds]);
+
   if (requestError && requestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
     return <PermissionDeniedView errorMessage={requestError.getMessageField()} />;
   }
@@ -35,23 +37,27 @@ export const ExperimentView = () => {
     return <NotFoundPage />;
   }
 
-  if (isLoadingExperiment || !firstExperiment) {
-    return <Skeleton active />;
-  }
+  const isLoading = isLoadingExperiment || !experiments[0];
 
   return (
     <div css={styles.experimentViewWrapper}>
-      {isComparingExperiments ? (
-        <ExperimentViewHeaderCompare experiments={experiments} />
+      {isLoading ? (
+        <Skeleton title paragraph={false} active />
       ) : (
         <>
-          <ExperimentViewHeader experiment={firstExperiment} />
-          <ExperimentViewDescriptions experiment={firstExperiment} />
-          <ExperimentViewNotes experiment={firstExperiment} />
+          {isComparingExperiments ? (
+            <ExperimentViewHeaderCompare experiments={experiments} />
+          ) : (
+            <>
+              <ExperimentViewHeader experiment={firstExperiment} />
+              <ExperimentViewDescriptions experiment={firstExperiment} />
+              <ExperimentViewNotes experiment={firstExperiment} />
+            </>
+          )}
         </>
       )}
 
-      <ExperimentViewRuns experiments={experiments} />
+      <ExperimentViewRuns experiments={experiments} isLoading={isLoading} />
     </div>
   );
 };

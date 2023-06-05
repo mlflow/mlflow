@@ -19,7 +19,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.entities.model_registry import RegisteredModel, ModelVersion
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
+from mlflow.protos.databricks_pb2 import FEATURE_DISABLED, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
@@ -46,7 +46,6 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_LOGGED_ARTIFACTS,
     MLFLOW_PARENT_RUN_ID,
 )
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -1450,6 +1449,18 @@ class MlflowClient:
             else:
                 raise TypeError("Unsupported image object type: '{}'".format(type(image)))
 
+    def _check_artifact_file_string(self, artifact_file: str):
+        """
+        Check if the artifact_file contains any forbidden characters.
+
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              the table is saved (e.g. "dir/file.json").
+        """
+        characters_to_check = ['"', "'", ",", ":", "[", "]", "{", "}"]
+        for char in characters_to_check:
+            if char in artifact_file:
+                raise ValueError(f"The artifact_file contains forbidden character: {char}")
+
     @experimental
     def log_table(
         self,
@@ -1506,30 +1517,28 @@ class MlflowClient:
         """
         import pandas as pd
 
+        self._check_artifact_file_string(artifact_file)
         if not isinstance(data, (pd.DataFrame, dict)):
             raise MlflowException.invalid_parameter_value(
                 "data must be a pandas.DataFrame or a dictionary"
             )
 
         data = pd.DataFrame(data)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            norm_path = posixpath.normpath(artifact_file)
-            artifact_dir = posixpath.dirname(norm_path)
-            artifact_dir = None if artifact_dir == "" else artifact_dir
-
-            artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
-            if artifact_file in artifacts:
+        norm_path = posixpath.normpath(artifact_file)
+        artifact_dir = posixpath.dirname(norm_path)
+        artifact_dir = None if artifact_dir == "" else artifact_dir
+        artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
+        if artifact_file in artifacts:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 downloaded_artifact_path = mlflow.artifacts.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
-                data = pd.concat([existing_predictions, data], ignore_index=True)
-                _logger.info(
-                    "Appending new table to already existing artifact "
-                    f"{artifact_file} for run {run_id}."
-                )
-            else:
-                _logger.info(f"Creating a new {artifact_file} for run {run_id}.")
+            data = pd.concat([existing_predictions, data], ignore_index=True)
+            _logger.info(
+                "Appending new table to already existing artifact "
+                f"{artifact_file} for run {run_id}."
+            )
 
         with self._log_artifact_helper(run_id, artifact_file) as artifact_path:
             data.to_json(artifact_path, orient="split", index=False)
@@ -1545,6 +1554,147 @@ class MlflowClient:
             current_tag_value.append(tag_value)
             # Set the tag with the updated list
             self.set_tag(run_id, MLFLOW_LOGGED_ARTIFACTS, json.dumps(current_tag_value))
+
+    @experimental
+    def load_table(
+        self,
+        experiment_id: str,
+        artifact_file: str,
+        run_ids: Optional[List[str]] = None,
+        extra_columns: Optional[List[str]] = None,
+    ) -> "pandas.DataFrame":
+        """
+        Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+        specified artifact_file in the specified run_ids. The extra_columns are columns that
+        are not in the table but are augmented with run information and added to the DataFrame.
+
+        :param experiment_id: The experiment ID to load the table from.
+        :param artifact_file: The run-relative artifact file path in posixpath format to which
+                              table to load (e.g. "dir/file.json").
+        :param run_ids: Optional list of run_ids to load the table from. If no run_ids are
+                        specified, the table is loaded from all runs in the current experiment.
+        :param extra_columns: Optional list of extra columns to add to the returned DataFrame
+                              For example, if extra_columns=["run_id"], then the returned DataFrame
+                              will have a column named run_id.
+
+        :return: pandas.DataFrame containing the loaded table if the artifact exists
+                 or else throw a MlflowException.
+
+        .. test-code-block:: python
+            :caption: Example with passing run_ids
+
+            import mlflow
+            import pandas as pd
+            from mlflow import MlflowClient
+
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
+            df = pd.DataFrame.from_dict(table_dict)
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+            loaded_table = client.load_table(
+                experiment_id="0",
+                artifact_file="qabot_eval_results.json",
+                run_ids=[
+                    run.info.run_id,
+                ],
+                # Append a column containing the associated run ID for each row
+                extra_columns=["run_id"],
+            )
+
+        .. test-code-block:: python
+            :caption: Example with passing no run_ids
+
+            # Loads the table with the specified name for all runs in the given
+            # experiment and joins them together
+            import mlflow
+            import pandas as pd
+            from mlflow import MlflowClient
+
+            table_dict = {
+                "inputs": ["What is MLflow?", "What is Databricks?"],
+                "outputs": ["MLflow is ...", "Databricks is ..."],
+                "toxicity": [0.0, 0.0],
+            }
+            df = pd.DataFrame.from_dict(table_dict)
+
+            client = MlflowClient()
+            run = client.create_run(experiment_id="0")
+            client.log_table(run.info.run_id, data=df, artifact_file="qabot_eval_results.json")
+            loaded_table = client.load_table(
+                experiment_id="0",
+                artifact_file="qabot_eval_results.json",
+                # Append the run ID and the parent run ID to the table
+                extra_columns=["run_id"],
+            )
+        """
+        import pandas as pd
+
+        self._check_artifact_file_string(artifact_file)
+        subset_tag_value = json.dumps({"path": artifact_file, "type": "table"})
+
+        # Build the filter string
+        filter_string = f"tags.{MLFLOW_LOGGED_ARTIFACTS} LIKE '%{subset_tag_value}%'"
+        if run_ids:
+            list_run_ids = ",".join(map(repr, run_ids))
+            filter_string += f" and attributes.run_id IN ({list_run_ids})"
+
+        runs = mlflow.search_runs(experiment_ids=[experiment_id], filter_string=filter_string)
+        if run_ids and len(run_ids) != len(runs):
+            _logger.warning(
+                "Not all runs have the specified table artifact. Some runs will be skipped."
+            )
+
+        # TODO: Add parallelism support here
+        def get_artifact_data(run):
+            run_id = run.run_id
+            norm_path = posixpath.normpath(artifact_file)
+            artifact_dir = posixpath.dirname(norm_path)
+            artifact_dir = None if artifact_dir == "" else artifact_dir
+            existing_predictions = pd.DataFrame()
+
+            artifacts = [
+                f.path for f in self.list_artifacts(run_id, path=artifact_dir) if not f.is_dir
+            ]
+            if artifact_file in artifacts:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+                        run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                    )
+                    existing_predictions = pd.read_json(downloaded_artifact_path, orient="split")
+                    if extra_columns is not None:
+                        for column in extra_columns:
+                            if column in existing_predictions:
+                                column_name = f"{column}_"
+                                _logger.warning(
+                                    f"Column name {column} already exists in the table. "
+                                    "Resolving the conflict, by appending an underscore "
+                                    "to the column name."
+                                )
+                            else:
+                                column_name = column
+                            existing_predictions[column_name] = run[column]
+
+            else:
+                raise MlflowException(
+                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
+                )
+
+            return existing_predictions
+
+        if not runs.empty:
+            return pd.concat(
+                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
+            )
+        else:
+            raise MlflowException(
+                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
+            )
 
     def _record_logged_model(self, run_id, mlflow_model):
         """

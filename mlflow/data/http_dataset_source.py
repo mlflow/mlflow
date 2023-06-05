@@ -50,6 +50,7 @@ class HTTPDatasetSource(DatasetSource):
         resp = cloud_storage_http_request(
             method="GET",
             url=self.url,
+            stream=True,
         )
         augmented_raise_for_status(resp)
 

@@ -1,14 +1,21 @@
 import logging
 import json
+import os
+import posixpath
 
 import mlflow.tracking
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.databricks_artifact_repo import _DOWNLOAD_CHUNK_SIZE
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import download_file_using_http_uri
+from mlflow.utils.file_utils import (
+    download_file_using_http_uri,
+    parallelized_download_file_using_http_uri,
+)
 from mlflow.utils.rest_utils import http_request
+from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
@@ -16,7 +23,6 @@ from mlflow.store.artifact.utils.models import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 100000000
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -119,14 +125,63 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         filtered_headers = filter(lambda h: "name" in h and "value" in h, headers)
         return {header.get("name"): header.get("value") for header in filtered_headers}
 
+    def _parallelized_download_from_cloud(
+        self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
+    ):
+        try:
+            failed_downloads = parallelized_download_file_using_http_uri(
+                http_uri=signed_uri,
+                download_path=dst_local_file_path,
+                file_size=file_size,
+                # URI type is not known in this context
+                uri_type=None,
+                chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                headers=headers,
+            )
+            if any(e.response.status_code not in (401, 403) for e in failed_downloads.values()):
+                raise MlflowException(
+                    f"Failed to download artifact {dst_run_relative_artifact_path}: "
+                    f"{failed_downloads}"
+                )
+            if failed_downloads:
+                new_signed_uri, new_headers = self._get_signed_download_uri(
+                    dst_run_relative_artifact_path
+                )
+                for index in failed_downloads:
+                    download_chunk(
+                        index=index,
+                        chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                        headers=new_headers,
+                        download_path=dst_local_file_path,
+                        http_uri=new_signed_uri,
+                    )
+        except Exception as err:
+            if os.path.exists(dst_local_file_path):
+                os.remove(dst_local_file_path)
+            raise MlflowException(err)
+
     def _download_file(self, remote_file_path, local_path):
         try:
+            parent_dir, _ = posixpath.split(remote_file_path)
+            file_infos = self.list_artifacts(parent_dir)
+            file_info = [info for info in file_infos if info.path == remote_file_path]
+            file_size = file_info[0].file_size if len(file_info) == 1 else None
             signed_uri, raw_headers = self._get_signed_download_uri(remote_file_path)
             headers = {}
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
+            if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+                download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
+            else:
+                self._parallelized_download_from_cloud(
+                    signed_uri,
+                    headers,
+                    file_size,
+                    local_path,
+                    remote_file_path,
+                )
+
         except Exception as err:
             raise MlflowException(err)
 

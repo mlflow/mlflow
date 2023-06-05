@@ -63,15 +63,13 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                  digest, source, source type, schema (optional), profile
                  (optional).
         """
-        base_dict.update(
-            {
-                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
-                if self.schema
-                else None,
-                "profile": json.dumps(self.profile),
-            }
-        )
-        return base_dict
+        return {
+            **base_dict,
+            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()})
+            if self.schema
+            else None,
+            "profile": json.dumps(self.profile),
+        }
 
     @property
     def df(self):
@@ -98,7 +96,10 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         Spark dataset source information.
 
-        :return: An instance of py:class:`SparkDatasetSource` or py:class:`DeltaDatasetSource`.
+        :return: An instance of :py:class:`SparkDatasetSource
+            <mlflow.data.spark_dataset_source.SparkDatasetSource>`
+            or :py:class:`DeltaDatasetSource
+            <mlflow.data.delta_dataset_source.DeltaDatasetSource>`.
         """
         return self._source
 
@@ -119,7 +120,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             drdd = py_rdd.mapPartitions(lambda it: [float(sum(1 for i in it))])
             jrdd = drdd.mapPartitions(lambda it: [float(sum(it))])._to_java_object_rdd()
             jdrdd = drdd.ctx._jvm.JavaDoubleRDD.fromRDD(jrdd.rdd())
-            timeout_millis = 2000
+            timeout_millis = 5000
             confidence = 0.9
             approx_count_operation = jdrdd.sumApprox(timeout_millis, confidence)
             approx_count_result = approx_count_operation.initialValue()
@@ -130,6 +131,11 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 high=approx_count_result.high(),
             )
             approx_count = int(approx_count_float)
+            if approx_count <= 0:
+                # An approximate count of zero likely indicates that the count timed
+                # out before an estimate could be made. In this case, we use the value
+                # "unknown" so that users don't think the dataset is empty
+                approx_count = "unknown"
 
             return {
                 "approx_count": approx_count,
@@ -155,8 +161,8 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """
         Converts the Spark DataFrame to pandas and splits the resulting
-        `pandas.DataFrame` into: 1. a `pandas.DataFrame` of features and
-        2. a `pandas.Series` of targets.
+        :py:class:`pandas.DataFrame` into: 1. a :py:class:`pandas.DataFrame` of features and
+        2. a :py:class:`pandas.Series` of targets.
 
         To avoid overuse of driver memory, only the first 10,000 DataFrame rows are selected.
         """
@@ -200,10 +206,12 @@ def load_delta(
     digest: Optional[str] = None,
 ) -> SparkDataset:
     """
-    Loads a :py:class:`SparkDataset` from a Delta table for use with MLflow Tracking.
+    Loads a :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` from a Delta table
+    for use with MLflow Tracking.
 
-    :param path: The path to the Delta table. Either `path` or `table_name` must be specified.
-    :param table_name: The name of the Delta table. Either `path` or `table_name` must be specified.
+    :param path: The path to the Delta table. Either ``path`` or ``table_name`` must be specified.
+    :param table_name: The name of the Delta table. Either ``path`` or ``table_name`` must be
+                       specified.
     :param version: The Delta table version. If not specified, the version will be inferred.
     :param targets: Optional. The name of the Delta table column containing targets (labels) for
                     supervised learning.
@@ -211,7 +219,7 @@ def load_delta(
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:`SparkDataset`.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.spark_delta_utils import (
         _try_get_delta_table_latest_version_from_path,
@@ -257,39 +265,44 @@ def from_spark(
     digest: Optional[str] = None,
 ) -> SparkDataset:
     """
-    Given a Spark DataFrame, constructs an MLflow :py:class:`SparkDataset` object for use with
+    Given a Spark DataFrame, constructs a
+    :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` object for use with
     MLflow Tracking.
 
     :param df: The Spark DataFrame from which to construct a SparkDataset.
     :param path: The path of the Spark or Delta source that the DataFrame originally came from.
                  Note that the path does not have to match the DataFrame exactly, since the
                  DataFrame may have been modified by Spark operations. This is used to reload the
-                 dataset upon request via `SparkDataset.source.load()`. If none of `path`,
-                 `table_name`, or `sql` are specified, a CodeDatasetSource is used, which will
+                 dataset upon request via :py:func:`SparkDataset.source.load()
+                 <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of ``path``,
+                 ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used, which will
                  source information from the run context.
     :param table_name: The name of the Spark or Delta table that the DataFrame originally came from.
                        Note that the table does not have to match the DataFrame exactly, since the
                        DataFrame may have been modified by Spark operations. This is used to reload
-                       the dataset upon request via `SparkDataset.source.load()`. If none of
-                       `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used,
-                       which will source information from the run context.
+                       the dataset upon request via :py:func:`SparkDataset.source.load()
+                       <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
+                       ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is
+                       used, which will source information from the run context.
     :param version: If the DataFrame originally came from a Delta table, specifies the version
                     of the Delta table. This is used to reload the dataset upon request via
-                    `SparkDataset.source.load()`. `version` cannot be specified if `sql` is
-                    specified.
+                    :py:func:`SparkDataset.source.load()
+                    <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`.  ``version``
+                    cannot be specified if ``sql`` is specified.
     :param sql: The Spark SQL statement that was originally used to construct the DataFrame.
                 Note that the Spark SQL statement does not have to match the DataFrame exactly,
                 since the DataFrame may have been modified by Spark operations. This is used to
-                reload the dataset upon request via `SparkDataset.source.load()`. If none of
-                `path`, `table_name`, or `sql` are specified, a CodeDatasetSource is used, which
-                will source information from the run context.
+                reload the dataset upon request via :py:func:`SparkDataset.source.load()
+                <mlflow.data.spark_dataset_source.SparkDatasetSource.load>`. If none of
+                ``path``, ``table_name``, or ``sql`` are specified, a CodeDatasetSource is used,
+                which will source information from the run context.
     :param targets: Optional. The name of the Data Frame column containing targets (labels) for
                     supervised learning.
     :param name: The name of the dataset. E.g. "wiki_train". If unspecified, a name is
                  automatically generated.
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
-    :return: An instance of :py:class:`SparkDataset`.
+    :return: An instance of :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>`.
     """
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.tracking.context import registry

@@ -19,6 +19,10 @@ DATABRICKS_SAMPLES_CATALOG_NAME = "samples"
 
 @experimental
 class DeltaDatasetSource(DatasetSource):
+    """
+    Represents the source of a dataset stored at in a delta table.
+    """
+
     def __init__(
         self,
         path: Optional[str] = None,
@@ -41,7 +45,7 @@ class DeltaDatasetSource(DatasetSource):
     def load(self, **kwargs):
         """
         Loads the dataset source as a Delta Dataset Source.
-        :return: An instance of `pyspark.sql.DataFrame`.
+        :return: An instance of ``pyspark.sql.DataFrame``.
         """
         from pyspark.sql import SparkSession
 

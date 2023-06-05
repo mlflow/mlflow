@@ -1,4 +1,4 @@
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import {
   getTableRowByCellText,
   getTableRows,
@@ -53,9 +53,9 @@ describe('ModelListTable', () => {
 
   const createComponentWrapper = (moreProps: Partial<ModelListTableProps> = {}) => {
     return mountWithIntl(
-      <BrowserRouter>
+      <MemoryRouter>
         <ModelListTable {...minimalProps} {...moreProps} />
-      </BrowserRouter>,
+      </MemoryRouter>,
     );
   };
 

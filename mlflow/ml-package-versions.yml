@@ -402,8 +402,10 @@ prophet:
     minimum: "1.0.1"
     maximum: "1.1.2"
     requirements:
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0.0": ["holidays!=0.25"]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
+      # older version of prophet. Compatibility updates have been released as part of the 1.1.4
+      # release of prophet.
+      "<= 1.1.3": ["holidays<=0.24"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
@@ -538,7 +540,8 @@ langchain:
     minimum: "0.0.169"
     maximum: "0.0.169"
     requirements:
-      ">= 0.0.0": ["pyspark", "transformers", "tensorflow", "openai", "google-search-results"]
+      ">= 0.0.0":
+        ["pyspark", "transformers", "tensorflow", "openai", "google-search-results", "psutil"]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
 
@@ -547,10 +550,10 @@ sentence_transformers:
     pip_release: "sentence-transformers"
     install_dev: |
       pip install -e git+https://github.com/UKPLab/sentence-transformers
-    models:
-      minimum: "2.2.2"
-      maximum: "2.2.2"
-      requirements:
-        ">= 0.0.0": ["torch>1.6", "transformers>4.25"]
-      run: |
-        pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
+  models:
+    minimum: "2.2.2"
+    maximum: "2.2.2"
+    requirements:
+      ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25"]
+    run: |
+      pytest tests/sentence_transformers/test_sentence_transformers_model_export.py

@@ -44,7 +44,7 @@ class DatasetSourceRegistry:
         MLflow Tracking.
 
         :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                           HuggingFace `datasets.Dataset` object.
+                           HuggingFace :py:class:`datasets.Dataset` object.
         :param candidate_sources: A list of DatasetSource classes to consider as potential sources
                                   when resolving the raw source. Subclasses of the specified
                                   candidate sources are also considered. If unspecified, all
@@ -131,7 +131,7 @@ def resolve_dataset_source(
     MLflow Tracking.
 
     :param raw_source: The raw source, e.g. a string like "s3://mybucket/path/to/iris/data" or a
-                       HuggingFace `datasets.Dataset` object.
+                       HuggingFace :py:class:`datasets.Dataset` object.
     :param candidate_sources: A list of DatasetSource classes to consider as potential sources
                               when resolving the raw source. Subclasses of the specified candidate
                               sources are also considered. If unspecified, all registered sources
@@ -195,5 +195,11 @@ try:
     from mlflow.data.delta_dataset_source import DeltaDatasetSource
 
     _dataset_source_registry.register(DeltaDatasetSource)
+except ImportError:
+    pass
+try:
+    from mlflow.data.code_dataset_source import CodeDatasetSource
+
+    _dataset_source_registry.register(CodeDatasetSource)
 except ImportError:
     pass

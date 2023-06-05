@@ -50,18 +50,16 @@ class HuggingFaceDatasetSource(DatasetSource):
     def _get_source_type() -> str:
         return "hugging_face"
 
-    def load(self, **kwargs) -> datasets.Dataset:
+    def load(self, **kwargs):
         """
         Loads the dataset source as a Hugging Face Dataset.
 
         :param kwargs: Additional keyword arguments used for loading the dataset with
-                       the Hugging Face `datasets.load_dataset()` method. The following keyword
-                       arguments are used automatically from the dataset source but may be overriden
-                       by values passed in **kwargs: path, name, data_dir, data_files, split,
-                       revision, task.
-        :throws: MlflowException if the Hugging Face dataset source does not define a path
-                 from which to load the data.
-        :return: An instance of `datasets.Dataset`.
+                       the Hugging Face ``datasets.load_dataset()`` method. The following keyword
+                       arguments are used automatically from the dataset source but may be
+                       overridden by values passed in ``**kwargs``: ``path``, ``name``,
+                       ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.
+        :return: An instance of ``datasets.Dataset``.
         """
         load_kwargs = {
             "path": self._path,

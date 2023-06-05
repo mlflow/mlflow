@@ -6,6 +6,7 @@ import {
   ModelInfoEntity,
   MODEL_VERSION_FILTER,
   RunInfoEntity,
+  RunDatasetWithTags,
 } from '../../../types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunInfo, getRunTags } from '../../../reducers/Reducers';
@@ -62,6 +63,13 @@ export type ExperimentRunsSelectorResult = {
    * (single experiment only)
    */
   experimentTags: Record<string, KeyValueEntity>;
+
+  /**
+   * List of dataset arrays indexed by the respective runs.
+   * E.g. datasetsList[2] yields an array of all
+   * datasets corresponding to the 3rd run in the run list
+   */
+  datasetsList: RunDatasetWithTags[][];
 };
 
 export type ExperimentRunsSelectorParams = {
@@ -146,6 +154,10 @@ export const experimentRunsSelector = (
    */
   const paramKeysSet = new Set<string>();
 
+  const datasetsList = runInfos.map((runInfo) => {
+    return state.entities.runDatasetsByUuid[runInfo.run_uuid];
+  });
+
   /**
    * Extracting lists of metrics by run index
    */
@@ -194,6 +206,7 @@ export const experimentRunsSelector = (
     tagsList,
     metricsList,
     runUuidsMatchingFilter,
+    datasetsList,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
   };

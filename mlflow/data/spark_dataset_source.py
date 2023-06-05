@@ -11,6 +11,10 @@ SparkDatasetSourceType = TypeVar("SparkDatasetSourceType", bound="SparkDatasetSo
 
 @experimental
 class SparkDatasetSource(DatasetSource):
+    """
+    Represents the source of a dataset stored in a spark table.
+    """
+
     def __init__(
         self,
         path: Optional[str] = None,
@@ -33,7 +37,7 @@ class SparkDatasetSource(DatasetSource):
     def load(self, **kwargs):
         """
         Loads the dataset source as a Spark Dataset Source.
-        :return: An instance of `pyspark.sql.DataFrame`.
+        :return: An instance of ``pyspark.sql.DataFrame``.
         """
         from pyspark.sql import SparkSession
 
