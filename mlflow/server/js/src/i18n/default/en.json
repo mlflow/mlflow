@@ -75,6 +75,10 @@
     "defaultMessage": "Cancel",
     "description": "Text for the cancel button in an editable note in MLflow"
   },
+  "18/UVG": {
+    "defaultMessage": "Using controls above, select at least one artifact containing table.",
+    "description": "Experiment page > artifact compare view > empty state for no tables selected > subtitle with the hint"
+  },
   "1ECve7": {
     "defaultMessage": "You can now switch to the chart view to compare runs",
     "description": "Tooltip to push users to use the chart view instead of compare view"
@@ -142,6 +146,10 @@
   "36g3aR": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
+  },
+  "3D2Znf": {
+    "defaultMessage": "Filter by {columnNames}",
+    "description": "Experiment page > artifact compare view > search input placeholder"
   },
   "3Rb4sG": {
     "defaultMessage": "Delete",
@@ -343,6 +351,10 @@
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
   },
+  "9n/J7X": {
+    "defaultMessage": "No models",
+    "description": "Experiment page > artifact compare view > run header > model indicator > empty"
+  },
   "9y+yUQ": {
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
@@ -370,6 +382,10 @@
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
+  },
+  "BFzsMn": {
+    "defaultMessage": "No runs selected",
+    "description": "Experiment page > artifact compare view > empty state for no runs selected > title"
   },
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
@@ -807,6 +823,10 @@
     "defaultMessage": "Show diff only",
     "description": "Label next to the switch that controls displaying only differing values in comparision tables on the compare runs page"
   },
+  "VZRc73": {
+    "defaultMessage": "Using the list of logged table artifacts, select at least one to start comparing results.",
+    "description": "Experiment page > artifact compare view > table select dropdown tooltip"
+  },
   "VbEMGm": {
     "defaultMessage": "Register Model",
     "description": "Button text to register the model for deployment"
@@ -895,13 +915,25 @@
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
   },
+  "ZqGzZd": {
+    "defaultMessage": "Compare",
+    "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
+  },
   "ZvBSjw": {
     "defaultMessage": "Value",
     "description": "Column title for value column for displaying the value of the params for the experiment run "
   },
+  "ZvJTXB": {
+    "defaultMessage": "No tables selected",
+    "description": "Experiment page > artifact compare view > empty state for no tables selected > title"
+  },
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "a1gM9v": {
+    "defaultMessage": "Show intersection only",
+    "description": "Experiment page > artifact compare view > intersection only toggle checkbox"
   },
   "a3rEfZ": {
     "defaultMessage": "Description",
@@ -926,6 +958,10 @@
   "aOW396": {
     "defaultMessage": "{timeSince, plural, =1 {1 hour} other {# hours}} ago",
     "description": "Text for time in hours since given date for MLflow views"
+  },
+  "aQxQIF": {
+    "defaultMessage": "(empty)",
+    "description": "Experiment page > artifact compare view > results table > no result (empty cell)"
   },
   "aXw0NO": {
     "defaultMessage": "Please select metric",
@@ -970,6 +1006,10 @@
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "cAKSkQ": {
+    "defaultMessage": "Select a cell to display preview",
+    "description": "Experiment page > table view > preview sidebar > nothing selected"
   },
   "cB0/61": {
     "defaultMessage": "Z axis",
@@ -1031,6 +1071,10 @@
     "defaultMessage": "Metrics",
     "description": "Label for the collapsible area to display the output metrics after the experiment run"
   },
+  "eJQEjs": {
+    "defaultMessage": "Only show rows where the \"compare\" column has a value for every run",
+    "description": "Experiment page > artifact compare view > intersection only toggle checkbox tooltip"
+  },
   "eNUbaN": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in scatter plot comparison in MLflow"
@@ -1062,6 +1106,10 @@
   "f/An1W": {
     "defaultMessage": "Ready.",
     "description": "Default status message for model versions that are ready"
+  },
+  "fWm1UC": {
+    "defaultMessage": "Group by",
+    "description": "Experiment page > artifact compare view > \"group by column\" select dropdown label"
   },
   "fZPf0W": {
     "defaultMessage": "Reverse color:",
@@ -1179,6 +1227,10 @@
     "defaultMessage": "No parameters to display.",
     "description": "Text shown when there are no parameters to display"
   },
+  "lTngfr": {
+    "defaultMessage": "Select a cell to display preview",
+    "description": "Experiment page > artifact compare view > preview sidebar > nothing selected"
+  },
   "llVQ2r": {
     "defaultMessage": "Outputs ({numOutputs})",
     "description": "Input section header for schema table in model version page"
@@ -1222,6 +1274,10 @@
   "nEoTsR": {
     "defaultMessage": "Completed Runs",
     "description": "Label for the progress bar to show the number of completed runs"
+  },
+  "nPWZsh": {
+    "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
+    "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -1331,6 +1387,10 @@
     "defaultMessage": "Name",
     "description": "Header for \"name\" column in the experiment run dataset schema"
   },
+  "rIx1O4": {
+    "defaultMessage": "Artifact view",
+    "description": "A button enabling compare runs (artifact) mode on the experiment page"
+  },
   "rOnjGB": {
     "defaultMessage": "Download CSV",
     "description": "String for the download csv button to download experiments offline in a CSV format"
@@ -1362,6 +1422,10 @@
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "syyEiR": {
+    "defaultMessage": "Table",
+    "description": "Experiment page > artifact compare view > table select dropdown label"
   },
   "t8BXC5": {
     "defaultMessage": "Tags",
@@ -1447,6 +1511,10 @@
     "defaultMessage": "Metrics",
     "description": "Title for metrics page"
   },
+  "wzWTcB": {
+    "defaultMessage": "Model",
+    "description": "Experiment page > artifact compare view > run header > model indicator > default name for unnamed models"
+  },
   "x0K27S": {
     "defaultMessage": "Nothing to compare!",
     "description": "Header displayed in the metrics and params compare plot when no values are selected"
@@ -1462,6 +1530,10 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
+  },
+  "xxXN3L": {
+    "defaultMessage": "No datasets recorded",
+    "description": "Experiment page > artifact compare view > run header > datasets indicator > empty"
   },
   "y0rS56": {
     "defaultMessage": "Time",
