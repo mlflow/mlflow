@@ -564,5 +564,7 @@ johnsnowlabs:
   models:
     minimum: "4.4.6"
     maximum: "4.4.6"
+    requirements:
+      ">= 0.0.0": ["pandas<=1.5.3"]
     run: |
       pytest tests/johnsnowlabs/test_jsl_api.py
