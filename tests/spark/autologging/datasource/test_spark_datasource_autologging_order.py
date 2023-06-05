@@ -2,9 +2,7 @@ import pytest
 
 import mlflow
 import mlflow.spark
-import tempfile
 import os
-import shutil
 import time
 
 from pyspark.sql import Row
@@ -18,7 +16,7 @@ from tests.spark.autologging.utils import (
 
 
 @pytest.mark.parametrize("disable", [False, True])
-def test_enabling_autologging_before_spark_session_works(disable):
+def test_enabling_autologging_before_spark_session_works(disable, tmp_path):
     mlflow.spark.autolog(disable=disable)
 
     # creating spark session AFTER autolog was enabled
@@ -28,8 +26,7 @@ def test_enabling_autologging_before_spark_session_works(disable):
     schema = StructType([StructField("number2", IntegerType())])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
-    tempdir = tempfile.mkdtemp()
-    filepath = os.path.join(tempdir, "test-data")
+    filepath = os.path.join(tmp_path, "test-data")
     df.write.option("header", "true").format("csv").save(filepath)
 
     read_df = (
@@ -50,5 +47,4 @@ def test_enabling_autologging_before_spark_session_works(disable):
     else:
         _assert_spark_data_logged(run=run, path=filepath, data_format="csv")
 
-    shutil.rmtree(tempdir)
     spark_session.stop()

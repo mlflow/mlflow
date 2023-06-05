@@ -11,6 +11,10 @@ import yaml
 
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
+from mlflow.entities.run import Run
+from mlflow.entities.run_data import RunData
+from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_tag import RunTag
 from mlflow.entities.model_registry import RegisteredModelTag, ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import GetRun
@@ -40,6 +44,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     AwsCredentials,
     AzureUserDelegationSAS,
     GcpOauthToken,
+    Entity,
+    Notebook,
+    LineageHeaderInfo,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.azure_data_lake_artifact_repo import AzureDataLakeArtifactRepository
@@ -47,8 +54,10 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store._unity_catalog.registry.rest_store import (
     UcModelRegistryStore,
     _DATABRICKS_ORG_ID_HEADER,
+    _DATABRICKS_LINEAGE_ID_HEADER,
 )
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
 from tests.helper_functions import mock_http_200
@@ -106,12 +115,15 @@ def spark_session(request):
         yield spark
 
 
-def _args(endpoint, method, json_body, host_creds):
+def _args(endpoint, method, json_body, host_creds, extra_headers):
     res = {
         "host_creds": host_creds,
         "endpoint": f"/api/2.0/mlflow/unity-catalog/{endpoint}",
         "method": method,
+        "extra_headers": extra_headers,
     }
+    if extra_headers is None:
+        del res["extra_headers"]
     if method == "GET":
         res["params"] = json.loads(json_body)
     else:
@@ -120,10 +132,16 @@ def _args(endpoint, method, json_body, host_creds):
 
 
 def _verify_requests(
-    http_request, endpoint, method, proto_message, host_creds=_REGISTRY_HOST_CREDS
+    http_request,
+    endpoint,
+    method,
+    proto_message,
+    host_creds=_REGISTRY_HOST_CREDS,
+    extra_headers=None,
 ):
     json_body = message_to_json(proto_message)
-    http_request.assert_any_call(**(_args(endpoint, method, json_body, host_creds)))
+    call_args = _args(endpoint, method, json_body, host_creds, extra_headers)
+    http_request.assert_any_call(**(call_args))
 
 
 def _expected_unsupported_method_error_message(method):
@@ -336,15 +354,35 @@ def test_delete_registered_model_tag_unsupported(store):
         store.delete_registered_model_tag(name=name, key="key")
 
 
-def test_get_workspace_id_returns_none_if_no_request_header(store):
-    mock_response = mock.MagicMock(autospec=Response)
-    mock_response.status_code = 200
-    mock_response.headers = {}
-    mock_response.text = str({})
-    with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
-    ):
-        assert store._get_workspace_id(run_id="some_run_id") is None
+def test_get_notebook_id_returns_none_if_empty_run(store):
+    assert store._get_notebook_id(None) is None
+
+
+def test_get_notebook_id_returns_expected_id(store):
+    test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="123")
+    test_run_data = RunData(tags=[test_tag])
+    test_run_info = RunInfo(
+        "run_uuid",
+        "experiment_id",
+        "user_id",
+        "status",
+        "start_time",
+        "end_time",
+        "lifecycle_stage",
+    )
+    test_run = Run(run_data=test_run_data, run_info=test_run_info)
+    assert store._get_notebook_id(test_run) == "123"
+
+
+def test_get_workspace_id_returns_none_if_empty_headers(store):
+    assert store._get_workspace_id(None) is None
+    bad_headers = {}
+    assert store._get_workspace_id(bad_headers) is None
+
+
+def test_get_workspace_id_returns_expected_id(store):
+    good_headers = {_DATABRICKS_ORG_ID_HEADER: "123"}
+    assert store._get_workspace_id(good_headers) == "123"
 
 
 @pytest.mark.parametrize(
@@ -354,7 +392,7 @@ def test_get_workspace_id_returns_none_if_no_request_header(store):
         (500, "<html><div>Not real json</div></html>"),
     ],
 )
-def test_get_workspace_id_returns_none_if_request_fails(store, status_code, response_text):
+def test_get_run_and_headers_returns_none_if_request_fails(store, status_code, response_text):
     mock_response = mock.MagicMock(autospec=Response)
     mock_response.status_code = status_code
     mock_response.headers = {_DATABRICKS_ORG_ID_HEADER: 123}
@@ -362,10 +400,10 @@ def test_get_workspace_id_returns_none_if_request_fails(store, status_code, resp
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", return_value=mock_response
     ):
-        assert store._get_workspace_id(run_id="some_run_id") is None
+        assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
 
 
-def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
+def test_get_run_and_headers_returns_none_if_tracking_uri_not_databricks(
     mock_databricks_host_creds, tmp_path
 ):
     with mock.patch("databricks_cli.configure.provider.get_config"):
@@ -378,7 +416,7 @@ def test_get_workspace_id_returns_none_if_tracking_uri_not_databricks(
             "mlflow.store._unity_catalog.registry.rest_store.http_request",
             return_value=mock_response,
         ):
-            assert store._get_workspace_id(run_id="some_run_id") is None
+            assert store._get_run_and_headers(run_id="some_run_id") == (None, None)
 
 
 def _get_workspace_id_for_run(run_id=None):
@@ -465,7 +503,7 @@ def get_request_mock(
 
 
 def _assert_create_model_version_endpoints_called(
-    request_mock, name, source, version, run_id=None, description=None
+    request_mock, name, source, version, run_id=None, description=None, extra_headers=None
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -493,12 +531,21 @@ def _assert_create_model_version_endpoints_called(
             FinalizeModelVersionRequest(name=name, version=version),
         ),
     ]:
-        _verify_requests(
-            http_request=request_mock,
-            endpoint=endpoint,
-            method="POST",
-            proto_message=proto_message,
-        )
+        if endpoint == "model-versions/create" and extra_headers is not None:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+                extra_headers=extra_headers,
+            )
+        else:
+            _verify_requests(
+                http_request=request_mock,
+                endpoint=endpoint,
+                method="POST",
+                proto_message=proto_message,
+            )
 
 
 def test_create_model_version_aws(store, local_model_dir):
@@ -610,8 +657,27 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         temp_credentials=temporary_creds,
         storage_location=storage_location,
     )
+    get_run_and_headers_retval = None, None
+    if "run_id" in create_kwargs:
+        test_tag = RunTag(key=MLFLOW_DATABRICKS_NOTEBOOK_ID, value="321")
+        test_run_data = RunData(tags=[test_tag])
+        test_run_info = RunInfo(
+            "run_uuid",
+            "experiment_id",
+            "user_id",
+            "status",
+            "start_time",
+            "end_time",
+            "lifecycle_stage",
+        )
+        test_run = Run(run_data=test_run_data, run_info=test_run_info)
+        get_run_and_headers_retval = ({_DATABRICKS_ORG_ID_HEADER: "123"}, test_run)
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.http_request", side_effect=mock_request_fn
+    ), mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.UcModelRegistryStore._get_run_and_headers",
+        # Set the headers and Run retvals when the run_id is set
+        return_value=get_run_and_headers_retval,
     ), mock.patch(
         "mlflow.utils.rest_utils.http_request",
         side_effect=mock_request_fn,
@@ -629,6 +695,15 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         gcs_client_args = gcs_client_class_mock.call_args_list[0]
         credentials = gcs_client_args[1]["credentials"]
         assert credentials.token == fake_oauth_token
+        if "run_id" in create_kwargs:
+            _, run = store._get_run_and_headers("some_run_id")
+            notebook_id = store._get_notebook_id(run)
+            notebook_entity = Notebook(id=str(notebook_id))
+            entity = Entity(notebook=notebook_entity)
+            lineage_header_info = LineageHeaderInfo(entities=[entity])
+            create_kwargs["extra_headers"] = {
+                _DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info),
+            }
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
         )

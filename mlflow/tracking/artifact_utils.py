@@ -4,7 +4,6 @@ Utilities for dealing with artifacts in the context of a Run.
 import os
 import pathlib
 import posixpath
-import shutil
 import tempfile
 import urllib.parse
 import uuid
@@ -130,8 +129,7 @@ def _upload_artifacts_to_databricks(
         uploaded to.
     """
 
-    local_dir = tempfile.mkdtemp()
-    try:
+    with tempfile.TemporaryDirectory() as local_dir:
         source_with_profile = add_databricks_profile_info_to_artifact_uri(source, source_host_uri)
         _download_artifact_from_uri(source_with_profile, local_dir)
         dest_root = "dbfs:/databricks/mlflow/tmp-external-source/"
@@ -146,5 +144,3 @@ def _upload_artifacts_to_databricks(
         dest_repo.log_artifacts(local_dir, artifact_path=dest_artifact_path)
         dirname = pathlib.PurePath(source).name  # innermost directory name
         return posixpath.join(dest_root, dest_artifact_path, dirname)  # new source
-    finally:
-        shutil.rmtree(local_dir)

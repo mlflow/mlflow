@@ -18,11 +18,15 @@ def compute_pandas_digest(df) -> str:
     import numpy as np
     import pandas as pd
 
-    # drop object columns
-    df = df.select_dtypes(exclude=["object"])
-
     # trim to max rows
     trimmed_df = df.head(MAX_ROWS)
+
+    # keep string and number columns, drop other column types
+    string_columns = trimmed_df.columns[(df.applymap(type) == str).all(0)]
+    numeric_columns = trimmed_df.select_dtypes(include=[np.number]).columns
+
+    desired_columns = string_columns.union(numeric_columns)
+    trimmed_df = trimmed_df[desired_columns]
 
     return get_normalized_md5_digest(
         [

@@ -96,13 +96,11 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                  digest, source, source type, schema (optional), profile
                  (optional).
         """
-        base_dict.update(
-            {
-                "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
-                "profile": json.dumps(self.profile),
-            }
-        )
-        return base_dict
+        return {
+            **base_dict,
+            "schema": json.dumps(self.schema.to_dict()) if self.schema else None,
+            "profile": json.dumps(self.profile),
+        }
 
     @property
     def data(self):
