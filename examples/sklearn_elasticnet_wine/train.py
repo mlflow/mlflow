@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import mlflow
 from mlflow.models.signature import infer_signature
 import mlflow.sklearn
+from mlflow.data import from_pandas
 
 import logging
 
@@ -52,6 +53,9 @@ if __name__ == "__main__":
     test_x = test.drop(["quality"], axis=1)
     train_y = train[["quality"]]
     test_y = test[["quality"]]
+    # Create a mlflow dataset
+    train_dataset = from_pandas(train, targets="quality")
+    test_dataset = from_pandas(test, targets="quality")
 
     alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.5
     l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
@@ -74,6 +78,9 @@ if __name__ == "__main__":
         mlflow.log_metric("rmse", rmse)
         mlflow.log_metric("r2", r2)
         mlflow.log_metric("mae", mae)
+
+        mlflow.log_input(train_dataset, "train")
+        mlflow.log_input(test_dataset, "test")
 
         predictions = lr.predict(train_x)
         signature = infer_signature(train_x, predictions)

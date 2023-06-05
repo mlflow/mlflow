@@ -29,6 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import ElasticNet
 from sklearn.linear_model import lasso_path, enet_path
 from sklearn import datasets
+from mlflow.data import from_pandas
 
 # Load Diabetes datasets
 diabetes = datasets.load_diabetes()
@@ -69,6 +70,10 @@ if __name__ == "__main__":
     train_y = train[["progression"]]
     test_y = test[["progression"]]
 
+    # Create a mlflow dataset
+    train_dataset = from_pandas(train, targets="progression")
+    test_dataset = from_pandas(test, targets="progression")
+
     alpha = float(sys.argv[1]) if len(sys.argv) > 1 else 0.05
     l1_ratio = float(sys.argv[2]) if len(sys.argv) > 2 else 0.05
 
@@ -95,6 +100,8 @@ if __name__ == "__main__":
     mlflow.log_metric("r2", r2)
     mlflow.log_metric("mae", mae)
     mlflow.sklearn.log_model(lr, "model", signature=signature)
+    mlflow.log_input(train_dataset, "train")
+    mlflow.log_input(test_dataset, "test")
 
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
