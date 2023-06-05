@@ -1,8 +1,21 @@
-import pytest
 import sys
 from collections import namedtuple
 from io import StringIO
 from unittest import mock
+
+import fastai
+import lightgbm
+import mxnet.gluon
+import pyspark
+import pyspark.ml
+import pytest
+import pytorch_lightning
+import setfit
+import sklearn
+import statsmodels
+import tensorflow
+import transformers
+import xgboost
 
 import mlflow
 from mlflow.utils.autologging_utils import (
@@ -10,21 +23,7 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
     AutologgingEventLogger,
 )
-
-import tensorflow
-import fastai
-import sklearn
-import xgboost
-import lightgbm
-import statsmodels
-import mxnet.gluon
-import pyspark
-import pyspark.ml
-import pytorch_lightning
-import transformers
-import setfit
 from tests.autologging.fixtures import test_mode_off, test_mode_on
-
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
@@ -97,7 +96,7 @@ def disable_new_import_hook_firing_if_module_already_exists(request):
 @pytest.mark.usefixtures(test_mode_off.__name__)
 @pytest.mark.parametrize(("library", "mlflow_module"), library_to_mlflow_module.items())
 def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard_mode(
-    library, mlflow_module
+        library, mlflow_module
 ):
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
@@ -145,8 +144,8 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
 
     for arg_key, arg_value in args_to_test.items():
         assert (
-            get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
-            == arg_value
+                get_autologging_config(mlflow_module.autolog.integration_name, arg_key, None)
+                == arg_value
         )
 
 
@@ -171,7 +170,7 @@ def test_universal_autolog_calls_pyspark_immediately_in_databricks():
 @pytest.mark.parametrize("config", [{"disable": False}, {"disable": True}])
 def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config):
     with mock.patch(
-        "mlflow.spark.autolog", wraps=mlflow.spark.autolog, autospec=True
+            "mlflow.spark.autolog", wraps=mlflow.spark.autolog, autospec=True
     ) as autolog_mock:
         autolog_mock.integration_name = "spark"
 
@@ -270,14 +269,14 @@ def test_autolog_success_message_obeys_disabled():
 @pytest.mark.parametrize("log_input_examples", [False, True])
 @pytest.mark.parametrize("log_model_signatures", [False, True])
 def test_autolog_obeys_silent_mode(
-    library,
-    disable,
-    exclusive,
-    disable_for_unsupported_versions,
-    log_models,
-    log_datasets,
-    log_input_examples,
-    log_model_signatures,
+        library,
+        disable,
+        exclusive,
+        disable_for_unsupported_versions,
+        log_models,
+        log_datasets,
+        log_input_examples,
+        log_model_signatures,
 ):
     stream = StringIO()
     sys.stderr = stream
