@@ -128,6 +128,7 @@ xgboost:
     maximum: "1.7.5"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "< 1.6": ["pandas<2"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
@@ -136,6 +137,7 @@ xgboost:
     maximum: "1.7.5"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      "< 1.6": ["pandas<2"]
     run: |
       pytest tests/xgboost/test_xgboost_autolog.py
 
@@ -180,6 +182,7 @@ catboost:
     maximum: "1.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
+      "< 1.1": ["pandas<2"]
     run: |
       pytest tests/catboost/test_catboost_model_export.py
 
@@ -374,6 +377,7 @@ mleap:
     minimum: "0.18.0"
     maximum: "0.22.0"
     requirements:
+      ">= 0.0.0": ["pandas<2"]
       "< 0.22.0": ["numpy<1.24.0"]
       "> 0.17.0, < 0.21.0": ["pyspark==3.0.2"]
       ">= 0.21.0": ["pyspark<3.4"]
