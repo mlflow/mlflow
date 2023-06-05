@@ -66,7 +66,7 @@ def statsmodels_custom_env(tmp_path):
     return conda_env
 
 
-def _test_models_list(tmpdir, func_to_apply):
+def _test_models_list(tmp_path, func_to_apply):
     from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
     fixtures = [
@@ -84,7 +84,7 @@ def _test_models_list(tmpdir, func_to_apply):
 
     for algorithm in fixtures:
         name = algorithm.__name__
-        path = os.path.join(tmpdir, name)
+        path = os.path.join(tmp_path, name)
         model = algorithm()
         if isinstance(model.alg, TimeSeriesModel):
             start_date, end_date = _get_dates_from_df(model.inference_dataframe)
