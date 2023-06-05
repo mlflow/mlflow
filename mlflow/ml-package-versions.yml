@@ -410,6 +410,7 @@ prophet:
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
       "<= 1.1.3": ["holidays<=0.24"]
+      "< 1.1": ["pandas<2"]
     run: |
       pytest tests/prophet/test_prophet_model_export.py
 
