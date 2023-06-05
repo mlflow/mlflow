@@ -25,15 +25,15 @@ from tests.helper_functions import (
 
 
 @pytest.fixture
-def tf_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def tf_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["tensorflow", "pytest"])
     return conda_env
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 ModelDataInfo = collections.namedtuple(
@@ -48,10 +48,10 @@ ModelDataInfo = collections.namedtuple(
 )
 
 
-def save_or_log_tf_model_by_mlflow128(tmpdir, model_type, task_type, save_path=None):
+def save_or_log_tf_model_by_mlflow128(tmp_path, model_type, task_type, save_path=None):
     tf_tests_dir = os.path.dirname(__file__)
     conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
-    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    output_data_file_path = os.path.join(tmp_path, "output_data.pkl")
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
