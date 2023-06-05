@@ -35,7 +35,7 @@ def tracking_uri_mock(tmp_path, request):
             tracking_uri = path_to_local_sqlite_uri(os.path.join(tmp_path, "mlruns.sqlite"))
             mlflow.set_tracking_uri(tracking_uri)
             os.environ["MLFLOW_TRACKING_URI"] = tracking_uri
-        yield tracking_uri
+        yield str(tmp_path)
     finally:
         mlflow.set_tracking_uri(None)
         if "notrackingurimock" not in request.keywords:
