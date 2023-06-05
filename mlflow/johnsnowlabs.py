@@ -104,6 +104,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
 )
 from mlflow.utils.annotations import experimental
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 
 FLAVOR_NAME = "johnsnowlabs"
@@ -152,7 +153,6 @@ def get_default_pip_requirements():
              that, at minimum, contains these requirements.
     """
     from johnsnowlabs import settings
-    import pyspark
 
     _SPARK_NLP_JSL_WHEEL_URI = (
         "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
@@ -162,7 +162,7 @@ def get_default_pip_requirements():
 
     return [
         f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
-        f"pyspark=={pyspark.__version__}",
+        _get_pinned_requirement("pyspark"),
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
