@@ -1133,7 +1133,7 @@ def test_evaluate_env_manager_params(multiclass_logistic_regressor_model_uri, ir
 
 
 @pytest.mark.parametrize("env_manager", ["virtualenv", "conda"])
-def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
+def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
     class EnvRestoringTestModel(mlflow.pyfunc.PythonModel):
         def __init__(self):
             pass
@@ -1154,7 +1154,7 @@ def test_evaluate_restores_env(tmpdir, env_manager, iris_dataset):
             y = model.predict(pd.DataFrame(dataset.features_data))
             return EvaluationResult(metrics={"test": y[0]}, artifacts={})
 
-    model_path = os.path.join(str(tmpdir), "model")
+    model_path = os.path.join(tmp_path, "model")
 
     mlflow.pyfunc.save_model(
         path=model_path,

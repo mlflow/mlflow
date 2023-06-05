@@ -8,8 +8,8 @@ from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
 
 @pytest.fixture(autouse=True)
-def mock_settings_env_vars(tmpdir):
-    with mock.patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": tmpdir.strpath}):
+def mock_settings_env_vars(tmp_path):
+    with mock.patch.dict(os.environ, {"PROMETHEUS_MULTIPROC_DIR": str(tmp_path)}):
         yield
 
 

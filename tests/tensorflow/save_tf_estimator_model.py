@@ -43,7 +43,7 @@ SavedModelInfo = collections.namedtuple(
 )
 
 
-def save_tf_iris_model(tmpdir):
+def save_tf_iris_model(tmp_path):
     # Following code from
     # https://github.com/tensorflow/models/blob/v1.13.0/samples/core/get_started/premade_estimator.py
     train_x, train_y = iris_data_utils.load_data()[0]
@@ -110,7 +110,7 @@ def save_tf_iris_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    saved_estimator_path = os.path.join(tmp_path, "saved_model")
     os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
@@ -128,7 +128,7 @@ def save_tf_iris_model(tmpdir):
     )
 
 
-def save_tf_categorical_model(tmpdir):
+def save_tf_categorical_model(tmp_path):
     path = os.path.join(args.mlflow_repo_path, "tests/datasets/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
@@ -184,7 +184,7 @@ def save_tf_categorical_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    saved_estimator_path = os.path.join(tmp_path, "saved_model")
     os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
