@@ -169,6 +169,9 @@ setup(
 
         [mlflow.app]
         basic-auth=mlflow.server.auth:app
+
+        [mlflow.app.client]
+        basic-auth=mlflow.server.auth.client:AuthServiceClient
     """,
     cmdclass={
         "dependencies": ListDependencies,

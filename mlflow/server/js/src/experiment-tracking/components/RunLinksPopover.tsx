@@ -1,9 +1,16 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router-dom-v5-compat';
 import Routes from '../routes';
 import { IconButton } from '../../common/components/IconButton';
 import Utils from '../../common/utils/Utils';
-import { Popover } from '@databricks/design-system';
+import { LegacyPopover } from '@databricks/design-system';
 
 type Props = {
   experimentId: string;
@@ -63,7 +70,7 @@ export class RunLinksPopover extends React.Component<Props> {
   render() {
     const { visible, x, y, handleVisibleChange } = this.props;
     return (
-      <Popover
+      <LegacyPopover
         content={this.renderContent()}
         title={this.renderTitle()}
         placement='left'
@@ -77,7 +84,7 @@ export class RunLinksPopover extends React.Component<Props> {
             position: 'absolute',
           }}
         />
-      </Popover>
+      </LegacyPopover>
     );
   }
 }

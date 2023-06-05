@@ -1,4 +1,3 @@
-import { shouldUseNextRunsComparisonUI } from '../../../../common/utils/FeatureUtils';
 import LocalStorageUtils from '../../../../common/utils/LocalStorageUtils';
 import Utils from '../../../../common/utils/Utils';
 import { SearchExperimentRunsFacetsState } from '../models/SearchExperimentRunsFacetsState';
@@ -21,7 +20,7 @@ jest.mock('./persistSearchFacets.serializers.ts', () => ({
 }));
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  shouldUseNextRunsComparisonUI: jest.fn(),
+  shouldEnableExperimentDatasetTracking: jest.fn(),
 }));
 
 jest.mock('../../../../common/utils/LocalStorageUtils', () => ({
@@ -39,7 +38,6 @@ beforeEach(() => {
   (serializeFieldsToLocalStorage as jest.Mock).mockImplementation((identity) => identity);
   (deserializeFieldsFromLocalStorage as jest.Mock).mockImplementation((identity) => identity);
   (deserializeFieldsFromQueryString as jest.Mock).mockImplementation((identity) => identity);
-  (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(false);
 });
 
 describe('persistSearchFacet', () => {
@@ -161,11 +159,12 @@ describe('persistSearchFacet', () => {
       state.orderByKey = 'order-key';
       state.orderByAsc = true;
       state.selectedColumns = ['col1', 'col2'];
+      state.compareRunsMode = 'ARTIFACT';
 
       const queryString = persistExperimentSearchFacetsState(state, 'id-key');
 
       expect(queryString).toEqual(
-        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2&isComparingRuns=false',
+        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2&compareRunsMode=ARTIFACT',
       );
     });
 
@@ -191,7 +190,6 @@ describe('persistSearchFacet', () => {
       expectedQuery += `&selectedColumns=${state.selectedColumns
         .map((c) => encodeURIComponent(c))
         .join(',')}`;
-      expectedQuery += `&isComparingRuns=false`;
 
       expect(queryString).toEqual(expectedQuery);
     });
@@ -199,7 +197,6 @@ describe('persistSearchFacet', () => {
     test('it persists state using custom field serializers', () => {
       const saveLocalStorageState = mockLocalStorageState({});
 
-      (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(true);
       (serializeFieldsToQueryString as jest.Mock).mockImplementation((input) => {
         return {
           ...input,
@@ -230,7 +227,6 @@ describe('persistSearchFacet', () => {
     });
 
     test('it restores the state using custom field deserializers', () => {
-      (shouldUseNextRunsComparisonUI as jest.Mock).mockReturnValue(true);
       (deserializeFieldsFromQueryString as jest.Mock).mockImplementation((input) => {
         return {
           ...input,

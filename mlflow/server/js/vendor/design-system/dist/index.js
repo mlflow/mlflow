@@ -1,228 +1,30 @@
 import * as React from 'react';
-import React__default, { createContext, useContext, useMemo, useEffect, useRef, forwardRef, useState, useImperativeHandle, Children, useCallback } from 'react';
-import AntDIcon from '@ant-design/icons';
-import { ThemeProvider, css, keyframes, ClassNames } from '@emotion/react';
+import React__default, { useRef, useMemo, forwardRef, createContext, useContext, useState, useEffect, useImperativeHandle, Children, useCallback } from 'react';
+import { u as useDesignSystemTheme, I as Icon, D as DesignSystemAntDConfigProvider, R as RestoreAntDDefaultClsPrefix, g as getAnimationCss, C as CloseIcon, a as ChevronRightIcon, b as useDesignSystemFlags, i as importantify, c as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, d as useDesignSystemContext, e as Input, f as CheckIcon, B as Button, h as getValidationStateColor, A as ApplyDesignSystemContextOverrides, T as Typography, j as Title$2, k as ChevronLeftIcon, v as visuallyHidden, l as getDefaultStyles, m as getPrimaryStyles, n as getDisabledStyles, o as getOffsets, p as lightColorList } from './utils-ff3c8ab8.js';
+export { x as ApplyDesignSystemFlags, z as CursorIcon, s as DesignSystemContext, w as DesignSystemProvider, r as DesignSystemThemeContext, t as DesignSystemThemeProvider, F as FaceFrownIcon, E as FaceNeutralIcon, G as FaceSmileIcon, N as NewWindowIcon, W as WithDesignSystemThemeHoc, J as __INTERNAL_DO_NOT_USE_DEDUPE__Group, H as __INTERNAL_DO_NOT_USE__Password, _ as __INTERNAL_DO_NOT_USE__TextArea, q as getButtonEmotionStyles, K as getTypographyColor, y as useAntDConfigProviderContext } from './utils-ff3c8ab8.js';
 import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
-import { g as getTheme, a as getClassNamePrefix, b as getPrefixedClassNameFromTheme, u as useDesignSystemTheme, l as lightColorList } from './useDesignSystemTheme-c867a35d.js';
-export { W as WithDesignSystemThemeHoc, u as useDesignSystemTheme } from './useDesignSystemTheme-c867a35d.js';
-import { notification, ConfigProvider, Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Breadcrumb as Breadcrumb$1, Button as Button$1, Checkbox as Checkbox$1, DatePicker, Tooltip as Tooltip$1, Input as Input$1, Typography as Typography$1, Dropdown as Dropdown$1, Form as Form$1, Radio as Radio$1, Select as Select$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Modal as Modal$1, Popover as Popover$2, Skeleton as Skeleton$1, Switch as Switch$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
+import { css, keyframes, ClassNames, createElement } from '@emotion/react';
+import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Tooltip as Tooltip$1, Dropdown as Dropdown$1, Form as Form$1, Radio as Radio$1, Select as Select$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, notification, Popover as Popover$2, Pagination as Pagination$1, Table as Table$1, Menu as Menu$1, Modal as Modal$1, Skeleton as Skeleton$1, Button as Button$1, Switch as Switch$1, Tabs as Tabs$1, Tree as Tree$1 } from 'antd';
 import classnames from 'classnames';
-import _isNil from 'lodash/isNil';
-import _endsWith from 'lodash/endsWith';
-import _isBoolean from 'lodash/isBoolean';
-import _isNumber from 'lodash/isNumber';
-import _isString from 'lodash/isString';
-import _mapValues from 'lodash/mapValues';
-import unitless from '@emotion/unitless';
 import * as Popover$1 from '@radix-ui/react-popover';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import * as DropdownMenu$1 from '@radix-ui/react-dropdown-menu';
 import { useController } from 'react-hook-form';
 import * as Toast from '@radix-ui/react-toast';
 import { ResizableBox } from 'react-resizable';
+import AntDIcon from '@ant-design/icons';
+import _times from 'lodash/times';
+import _random from 'lodash/random';
 import * as Toggle from '@radix-ui/react-toggle';
+import 'lodash/throttle';
 import 'chroma-js';
-
-const DuboisContextDefaults = {
-  enableAnimation: false,
-  // Prefer to use useDesignSystemTheme.getPrefixedClassName instead
-  getPrefixCls: suffix => suffix ? `du-bois-${suffix}` : 'du-bois',
-  flags: {}
-};
-const DesignSystemThemeContext = /*#__PURE__*/createContext({
-  isDarkMode: false
-});
-const DesignSystemContext = /*#__PURE__*/createContext(DuboisContextDefaults);
-const DU_BOIS_ENABLE_ANIMATION_CLASSNAME = 'du-bois-enable-animation';
-function getAnimationCss(enableAnimation) {
-  const disableAnimationCss = {
-    animationDuration: '0s !important',
-    transition: 'none !important'
-  };
-  return enableAnimation ? {} : {
-    // Apply to the current element
-    ...disableAnimationCss,
-    '&::before': disableAnimationCss,
-    '&::after': disableAnimationCss,
-    // Also apply to all child elements with a class that starts with our prefix
-    [`[class*=du-bois]:not(.${DU_BOIS_ENABLE_ANIMATION_CLASSNAME}, .${DU_BOIS_ENABLE_ANIMATION_CLASSNAME} *)`]: {
-      ...disableAnimationCss,
-      // Also target any pseudo-elements associated with those elements, since these can also be animated.
-      '&::before': disableAnimationCss,
-      '&::after': disableAnimationCss
-    }
-  };
-}
-const DesignSystemProviderPropsContext = /*#__PURE__*/React__default.createContext(null);
-const AntDConfigProviderPropsContext = /*#__PURE__*/React__default.createContext(null);
-
-/** Only to be accessed by SupportsDuBoisThemes, except for special exceptions like tests and storybook. Ask in #dubois first if you need to use it. */
-const DesignSystemThemeProvider = _ref => {
-  let {
-    isDarkMode = false,
-    children
-  } = _ref;
-  return jsx(DesignSystemThemeContext.Provider, {
-    value: {
-      isDarkMode
-    },
-    children: children
-  });
-};
-const DesignSystemProvider = _ref2 => {
-  let {
-    isDarkMode: deprecatedDarkModeProp,
-    children,
-    enableAnimation = false,
-    zIndexBase = 1000,
-    getPopupContainer,
-    flags = {
-      USE_NEW_ICONS: true
-    }
-  } = _ref2;
-  const {
-    isDarkMode: contextDarkModeVal
-  } = useContext(DesignSystemThemeContext);
-  const isDarkMode = deprecatedDarkModeProp !== null && deprecatedDarkModeProp !== void 0 ? deprecatedDarkModeProp : contextDarkModeVal;
-  const theme = useMemo(() => getTheme(isDarkMode, {
-    enableAnimation,
-    zIndexBase
-  }),
-  // TODO: revisit this
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  [isDarkMode, zIndexBase]);
-  const providerPropsContext = useMemo(() => ({
-    isDarkMode,
-    enableAnimation,
-    zIndexBase,
-    getPopupContainer,
-    flags
-  }), [isDarkMode, enableAnimation, zIndexBase, getPopupContainer, flags]);
-  const classNamePrefix = getClassNamePrefix(theme);
-  const value = useMemo(() => {
-    return {
-      enableAnimation,
-      isDarkMode,
-      getPrefixCls: suffix => getPrefixedClassNameFromTheme(theme, suffix),
-      getPopupContainer,
-      flags
-    };
-  }, [enableAnimation, theme, isDarkMode, getPopupContainer, flags]);
-  useEffect(() => {
-    return () => {
-      // when the design system context is unmounted, make sure the notification cache is also cleaned up
-      notification.destroy();
-    };
-  }, []);
-  return jsx(DesignSystemProviderPropsContext.Provider, {
-    value: providerPropsContext,
-    children: jsx(ThemeProvider, {
-      theme: theme,
-      children: jsx(AntDConfigProviderPropsContext.Provider, {
-        value: {
-          prefixCls: classNamePrefix,
-          getPopupContainer
-        },
-        children: jsx(DesignSystemContext.Provider, {
-          value: value,
-          children: children
-        })
-      })
-    })
-  });
-};
-const ApplyDesignSystemContextOverrides = _ref3 => {
-  let {
-    enableAnimation,
-    zIndexBase,
-    getPopupContainer,
-    flags,
-    children
-  } = _ref3;
-  const parentDesignSystemProviderProps = useContext(DesignSystemProviderPropsContext);
-  if (parentDesignSystemProviderProps === null) {
-    throw new Error(`ApplyDesignSystemContextOverrides cannot be used standalone - DesignSystemProvider must exist in the React context`);
-  }
-  const newProps = useMemo(() => ({
-    ...parentDesignSystemProviderProps,
-    enableAnimation: enableAnimation !== null && enableAnimation !== void 0 ? enableAnimation : parentDesignSystemProviderProps.enableAnimation,
-    zIndexBase: zIndexBase !== null && zIndexBase !== void 0 ? zIndexBase : parentDesignSystemProviderProps.zIndexBase,
-    getPopupContainer: getPopupContainer !== null && getPopupContainer !== void 0 ? getPopupContainer : parentDesignSystemProviderProps.getPopupContainer,
-    flags: {
-      ...parentDesignSystemProviderProps.flags,
-      ...flags
-    }
-  }), [parentDesignSystemProviderProps, enableAnimation, zIndexBase, getPopupContainer, flags]);
-  return jsx(DesignSystemProvider, {
-    ...newProps,
-    children: children
-  });
-};
-
-// This is a more-specific version of `ApplyDesignSystemContextOverrides` that only allows overriding the flags.
-const ApplyDesignSystemFlags = _ref4 => {
-  let {
-    flags,
-    children
-  } = _ref4;
-  const parentDesignSystemProviderProps = useContext(DesignSystemProviderPropsContext);
-  if (parentDesignSystemProviderProps === null) {
-    throw new Error(`ApplyDesignSystemFlags cannot be used standalone - DesignSystemProvider must exist in the React context`);
-  }
-  const newProps = useMemo(() => ({
-    ...parentDesignSystemProviderProps,
-    flags: {
-      ...parentDesignSystemProviderProps.flags,
-      ...flags
-    }
-  }), [parentDesignSystemProviderProps, flags]);
-  return jsx(DesignSystemProvider, {
-    ...newProps,
-    children: children
-  });
-};
-const DesignSystemAntDConfigProvider = _ref5 => {
-  let {
-    children
-  } = _ref5;
-  const antdContext = useAntDConfigProviderContext();
-  return jsx(ConfigProvider, {
-    ...antdContext,
-    children: children
-  });
-};
-const useAntDConfigProviderContext = () => {
-  var _useContext;
-  return (_useContext = useContext(AntDConfigProviderPropsContext)) !== null && _useContext !== void 0 ? _useContext : {
-    prefixCls: undefined
-  };
-};
-
-/**
- * When using AntD components inside Design System wrapper components (e.g. Modal, Collapse etc),
- * we don't want Design System's prefix class to override them.
- *
- * Since all Design System's components have are wrapped with DesignSystemAntDConfigProvider,
- * this won't affect their own prefixCls, but just allow nested antd components to keep their ant prefix.
- */
-const RestoreAntDDefaultClsPrefix = _ref6 => {
-  let {
-    children
-  } = _ref6;
-  return jsx(ConfigProvider, {
-    prefixCls: "ant",
-    children: children
-  });
-};
-
-function useDesignSystemContext() {
-  return useContext(DesignSystemContext);
-}
-
-function useDesignSystemFlags() {
-  const context = useDesignSystemContext();
-  return context.flags;
-}
+import 'lodash/isNil';
+import 'lodash/endsWith';
+import 'lodash/isBoolean';
+import 'lodash/isNumber';
+import 'lodash/isString';
+import 'lodash/mapValues';
+import '@emotion/unitless';
 
 /**
  * A helper hook that allows quick creation of theme-dependent styles. 
@@ -261,84 +63,7 @@ const useThemedStyles = styleFactory => {
   return useMemo(() => styleFactoryRef.current(theme), [theme]);
 };
 
-const getIconEmotionStyles = (theme, useNewIcons) => {
-  return /*#__PURE__*/css({
-    ...(useNewIcons && {
-      fontSize: theme.general.iconFontSizeNew
-    })
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getIconEmotionStyles;");
-};
-const getIconValidationColor = (theme, color) => {
-  switch (color) {
-    case 'success':
-      return theme.colors.textValidationSuccess;
-    case 'warning':
-      return theme.colors.textValidationWarning;
-    case 'danger':
-      return theme.colors.textValidationDanger;
-    default:
-      return color;
-  }
-};
-const Icon = props => {
-  const {
-    component: Component,
-    dangerouslySetAntdProps,
-    color,
-    style,
-    ...otherProps
-  } = props;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const MemoizedComponent = useMemo(() => Component ? _ref => {
-    let {
-      fill,
-      ...iconProps
-    } = _ref;
-    return (
-      // We don't rely on top-level fills for our colors. Fills are specified
-      // with "currentColor" on children of the top-most svg.
-      jsx(Component, {
-        fill: "none",
-        ...iconProps
-      })
-    );
-  } : undefined, [Component]);
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(AntDIcon, {
-      css: getIconEmotionStyles(theme, USE_NEW_ICONS),
-      component: MemoizedComponent,
-      style: {
-        color: getIconValidationColor(theme, color),
-        ...style
-      },
-      ...otherProps,
-      ...dangerouslySetAntdProps
-    })
-  });
-};
-
-function SvgAlignCenterIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm3 3c0 .55.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1H8c-.55 0-1 .45-1 1zm13 5H4c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1zM7 16c0 .55.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1H8c-.55 0-1 .45-1 1zm-3 5h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgAlignCenterIconV2(props) {
+function SvgAlignCenterIcon(props) {
   return jsx("svg", {
     width: "1em",
     height: "1em",
@@ -353,33 +78,13 @@ function SvgAlignCenterIconV2(props) {
   });
 }
 function AlignCenterIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgAlignCenterIconV2 : SvgAlignCenterIconV1;
   return jsx(Icon, {
     ...props,
-    component: component
+    component: SvgAlignCenterIcon
   });
 }
 
-function SvgAlignLeftIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm10 2H4c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1zm0 8H4c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1zm6-2H4c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1zM4 21h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgAlignLeftIconV2(props) {
+function SvgAlignLeftIcon(props) {
   return jsx("svg", {
     width: "1em",
     height: "1em",
@@ -394,33 +99,13 @@ function SvgAlignLeftIconV2(props) {
   });
 }
 function AlignLeftIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgAlignLeftIconV2 : SvgAlignLeftIconV1;
   return jsx(Icon, {
     ...props,
-    component: component
+    component: SvgAlignLeftIcon
   });
 }
 
-function SvgAlignRightIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm6 4h10c.55 0 1-.45 1-1s-.45-1-1-1H10c-.55 0-1 .45-1 1s.45 1 1 1zm10 4H4c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1zm-10 4h10c.55 0 1-.45 1-1s-.45-1-1-1H10c-.55 0-1 .45-1 1s.45 1 1 1zm-6 4h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgAlignRightIconV2(props) {
+function SvgAlignRightIcon(props) {
   return jsx("svg", {
     width: "1em",
     height: "1em",
@@ -435,6989 +120,9 @@ function SvgAlignRightIconV2(props) {
   });
 }
 function AlignRightIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgAlignRightIconV2 : SvgAlignRightIconV1;
   return jsx(Icon, {
     ...props,
-    component: component
-  });
-}
-
-function SvgArrowDownIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M11.005 5.209v11.17l-4.88-4.88c-.39-.39-1.03-.39-1.42 0a.996.996 0 000 1.41l6.59 6.59c.39.39 1.02.39 1.41 0l6.59-6.59a.996.996 0 10-1.41-1.41l-4.88 4.88V5.209c0-.55-.45-1-1-1s-1 .45-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgArrowDownIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.03 15.06L1 8.03l1.06-1.06 5.22 5.22V1h1.5v11.19L14 6.97l1.06 1.06-7.03 7.03z",
-      fill: "currentColor"
-    })
-  });
-}
-function ArrowDownIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgArrowDownIconV2 : SvgArrowDownIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgArrowLeftIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M18.791 11.005H7.621l4.88-4.88c.39-.39.39-1.03 0-1.42a.996.996 0 00-1.41 0l-6.59 6.59a.996.996 0 000 1.41l6.59 6.59a.996.996 0 101.41-1.41l-4.88-4.88h11.17c.55 0 1-.45 1-1s-.45-1-1-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgArrowLeftIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 8.03L8.03 1l1.061 1.06-5.22 5.22h11.19v1.5H3.87L9.091 14l-1.06 1.06L1 8.03z",
-      fill: "currentColor"
-    })
-  });
-}
-function ArrowLeftIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgArrowLeftIconV2 : SvgArrowLeftIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgArrowRightIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5.209 13h11.17l-4.88 4.88c-.39.39-.39 1.03 0 1.42.39.39 1.02.39 1.41 0l6.59-6.59a.996.996 0 000-1.41l-6.58-6.6a.996.996 0 00-1.41 0 .996.996 0 000 1.41l4.87 4.89H5.209c-.55 0-1 .45-1 1s.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgArrowRightIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.06 8.03l-7.03 7.03L6.97 14l5.22-5.22H1v-1.5h11.19L6.97 2.06 8.03 1l7.03 7.03z",
-      fill: "currentColor"
-    })
-  });
-}
-function ArrowRightIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgArrowRightIconV2 : SvgArrowRightIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgArrowUpIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M13 18.791V7.621l4.88 4.88c.39.39 1.03.39 1.42 0a.996.996 0 000-1.41l-6.59-6.59a.996.996 0 00-1.41 0l-6.6 6.58a.996.996 0 101.41 1.41L11 7.622v11.17c0 .55.45 1 1 1s1-.45 1-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgArrowUpIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.03 1l7.03 7.03L14 9.091l-5.22-5.22v11.19h-1.5V3.87l-5.22 5.22L1 8.031 8.03 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function ArrowUpIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgArrowUpIconV2 : SvgArrowUpIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgArrowsUpDownIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.856 6.145l2.79-2.79c.19-.19.51-.19.7 0l2.79 2.79c.32.31.1.85-.35.85h-1.79v6.01c0 .55-.45 1-1 1s-1-.45-1-1v-6.01h-1.79c-.45 0-.67-.54-.35-.85zm10.14 4.86v6.01h1.8c.44 0 .67.54.35.85l-2.79 2.78c-.2.19-.51.19-.71 0l-2.79-2.78c-.32-.31-.1-.85.35-.85h1.79v-6.01c0-.55.45-1 1-1s1 .45 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgArrowsUpDownIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5.03 1L1 5.03l1.06 1.061 2.22-2.22v6.19h1.5V3.87L8 6.091l1.06-1.06L5.03 1zM11.03 15.121l4.03-4.03-1.06-1.06-2.22 2.219V6.06h-1.5v6.19l-2.22-2.22L7 11.091l4.03 4.03z",
-      fill: "currentColor"
-    })
-  });
-}
-function ArrowsUpDownIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgArrowsUpDownIconV2 : SvgArrowsUpDownIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBarChartIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 5c.77 0 1.4.63 1.4 1.4v11.2c0 .77-.63 1.4-1.4 1.4-.77 0-1.4-.63-1.4-1.4V6.4c0-.77.63-1.4 1.4-1.4zM6.4 9.2h.2c.77 0 1.4.63 1.4 1.4v7c0 .77-.63 1.4-1.4 1.4h-.2c-.77 0-1.4-.63-1.4-1.4v-7c0-.77.63-1.4 1.4-1.4zM19 14.4c0-.77-.63-1.4-1.4-1.4-.77 0-1.4.63-1.4 1.4v3.2c0 .77.63 1.4 1.4 1.4.77 0 1.4-.63 1.4-1.4v-3.2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBarChartIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1H1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M7 1v11h1.5V1H7zM10 5v7h1.5V5H10zM4 5v7h1.5V5H4zM13 12V8h1.5v4H13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function BarChartIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBarChartIconV2 : SvgBarChartIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBeakerIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M9 2h7v8.37l5.43 7.347c1.463 1.98.05 4.783-2.413 4.783H5.982c-2.462 0-3.876-2.803-2.412-4.783L9 10.37V2zm2 9.03l-5.822 7.876a1 1 0 00.804 1.594h13.035a1 1 0 00.804-1.594L14 11.029V4h-3v7.03z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 3a1 1 0 011-1h7a1 1 0 010 2H9a1 1 0 01-1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M4 19l2-3h13l2 3-1.5 2.5h-14L4 19z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.732 15.5h13.536l2.324 3.486L19.783 22H5.217l-1.808-3.014L5.732 15.5zm.536 1l-1.676 2.514L5.783 21h13.434l1.192-1.986-1.676-2.514H6.268z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgBeakerIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.75 1a.75.75 0 00-.75.75v6.089c0 .38-.173.739-.47.976l-2.678 2.143A2.27 2.27 0 003.27 15h9.46a2.27 2.27 0 001.418-4.042L11.47 8.815A1.25 1.25 0 0111 7.839V1.75a.75.75 0 00-.75-.75h-4.5zm.75 6.839V2.5h3v5.339c0 .606.2 1.188.559 1.661H5.942A2.75 2.75 0 006.5 7.839zM4.2 11L2.79 12.13a.77.77 0 00.48 1.37h9.461a.77.77 0 00.481-1.37L11.8 11H4.201z",
-      fill: "currentColor"
-    })
-  });
-}
-function BeakerIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBeakerIconV2 : SvgBeakerIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBookIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M6 2h12c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2zm5 2H6v8l2.5-1.5L11 12V4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBookIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.75 1a.75.75 0 00-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H2.75zM7.5 2.5h-4v6.055l1.495-1.36a.75.75 0 011.01 0L7.5 8.555V2.5zm-4 8.082l2-1.818 2.245 2.041A.75.75 0 009 10.25V2.5h3.5v12h-9v-3.918z",
-      fill: "currentColor"
-    })
-  });
-}
-function BookIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBookIconV2 : SvgBookIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBookmarkFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBookmarkFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M2.75 0A.75.75 0 002 .75v14.5a.75.75 0 001.28.53L8 11.06l4.72 4.72a.75.75 0 001.28-.53V.75a.75.75 0 00-.75-.75H2.75z",
-      fill: "currentColor"
-    })
-  });
-}
-function BookmarkFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBookmarkFillIconV2 : SvgBookmarkFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBookmarkIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 3h10c1.1 0 2 .9 2 2v16l-7-3-7 3V5c0-1.1.9-2 2-2zm5 12.82L17 18V6c0-.55-.45-1-1-1H8c-.55 0-1 .45-1 1v12l5-2.18z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBookmarkIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 .75A.75.75 0 012.75 0h10.5a.75.75 0 01.75.75v14.5a.75.75 0 01-1.28.53L8 11.06l-4.72 4.72A.75.75 0 012 15.25V.75zm1.5.75v11.94l3.97-3.97a.75.75 0 011.06 0l3.97 3.97V1.5h-9z",
-      fill: "currentColor"
-    })
-  });
-}
-function BookmarkIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBookmarkIconV2 : SvgBookmarkIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBriefcaseFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M16 6.5h4c1.11 0 2 .89 2 2v11c0 1.11-.89 2-2 2H4c-1.11 0-2-.89-2-2l.01-11c0-1.11.88-2 1.99-2h4v-2c0-1.11.89-2 2-2h4c1.11 0 2 .89 2 2v2zm-6 0h4v-2h-4v2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBriefcaseFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5 4V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 01.75.75v9.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75v-9.5A.75.75 0 011.75 4H5zm1.5-1.25a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V4h-3V2.75zm-4 5.423V6.195A7.724 7.724 0 008 8.485c2.15 0 4.095-.875 5.5-2.29v1.978A9.211 9.211 0 018 9.985a9.21 9.21 0 01-5.5-1.812z",
-      fill: "currentColor"
-    })
-  });
-}
-function BriefcaseFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBriefcaseFillIconV2 : SvgBriefcaseFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgBriefcaseIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M22 8.5c0-1.11-.89-2-2-2h-4v-2c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19.5c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2v-11zm-8-2v-2h-4v2h4zm-10 3v9c0 .55.45 1 1 1h14c.55 0 1-.45 1-1v-9c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgBriefcaseIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 4H5V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 01.75.75v9.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75v-9.5A.75.75 0 011.75 4zm5-1.5a.25.25 0 00-.25.25V4h3V2.75a.25.25 0 00-.25-.25h-2.5zM2.5 8.173V13.5h11V8.173A9.211 9.211 0 018 9.985a9.21 9.21 0 01-5.5-1.812zm0-1.978A7.724 7.724 0 008 8.485c2.15 0 4.095-.875 5.5-2.29V5.5h-11v.695z",
-      fill: "currentColor"
-    })
-  });
-}
-function BriefcaseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgBriefcaseIconV2 : SvgBriefcaseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCalendarEventIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M16 3v1H8V3c0-.55-.45-1-1-1s-1 .45-1 1v1H5c-1.11 0-1.99.9-1.99 2L3 20a2 2 0 002 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-1V3c0-.55-.45-1-1-1s-1 .45-1 1zm0 10h-3c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1zM6 20h12c.55 0 1-.45 1-1V9H5v10c0 .55.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCalendarEventIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8.5 10.25a1.75 1.75 0 113.5 0 1.75 1.75 0 01-3.5 0z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10 2H6V0H4.5v2H1.75a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H11.5V0H10v2zM2.5 3.5v2h11v-2h-11zm0 10V7h11v6.5h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CalendarEventIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCalendarEventIconV2 : SvgCalendarEventIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCalendarIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19 3h1c1.1 0 2 .9 2 2v16c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h1V2c0-.55.45-1 1-1s1 .45 1 1v1h10V2c0-.55.45-1 1-1s1 .45 1 1v1zM5 21h14c.55 0 1-.45 1-1V8H4v12c0 .55.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCalendarIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.5 0v2H1.75a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H11.5V0H10v2H6V0H4.5zm9 3.5v2h-11v-2h11zM2.5 7v6.5h11V7h-11z",
-      fill: "currentColor"
-    })
-  });
-}
-function CalendarIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCalendarIconV2 : SvgCalendarIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCaretDownSquareIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5 21h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2zM6 5h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1zm6.703 9.004l2.59-2.59c.63-.63.19-1.71-.7-1.71h-5.18c-.89 0-1.34 1.08-.71 1.71l2.59 2.59c.39.39 1.02.39 1.41 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCaretDownSquareIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8 10a.75.75 0 01-.59-.286l-2.164-2.75a.75.75 0 01.589-1.214h4.33a.75.75 0 01.59 1.214l-2.166 2.75A.75.75 0 018 10z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CaretDownSquareIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCaretDownSquareIconV2 : SvgCaretDownSquareIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCaretUpSquareIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-6.703-9.004l-2.59 2.59c-.63.63-.19 1.71.7 1.71h5.18c.89 0 1.34-1.08.71-1.71l-2.59-2.59a.996.996 0 00-1.41 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCaretUpSquareIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8 5.75a.75.75 0 01.59.286l2.164 2.75A.75.75 0 0110.165 10h-4.33a.75.75 0 01-.59-1.214l2.166-2.75A.75.75 0 018 5.75z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CaretUpSquareIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCaretUpSquareIconV2 : SvgCaretUpSquareIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCheckCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm3.7.7l3.59 3.59c.39.39 1.03.39 1.41 0l7.59-7.59a.996.996 0 10-1.41-1.41L10 14.17l-2.89-2.88A.996.996 0 105.7 12.7z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCheckCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm11.53-1.47l-1.06-1.06L7 8.94 5.53 7.47 4.47 8.53l2 2 .53.53.53-.53 4-4z",
-      fill: "currentColor"
-    })
-  });
-}
-function CheckCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCheckCircleFillIconV2 : SvgCheckCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCheckCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2-5.83l5.88-5.88c.39-.39 1.03-.39 1.42 0 .39.39.39 1.02 0 1.41l-6.59 6.59a.996.996 0 01-1.41 0L6.71 13.7a.996.996 0 111.41-1.41L10 14.17z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCheckCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11.53 6.53L7 11.06 4.47 8.53l1.06-1.06L7 8.94l3.47-3.47 1.06 1.06z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CheckCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCheckCircleIconV2 : SvgCheckCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCheckIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8.795 15.875l-3.47-3.47a.996.996 0 00-1.41 0 .996.996 0 000 1.41l4.18 4.18c.39.39 1.02.39 1.41 0l10.58-10.58a.996.996 0 10-1.41-1.41l-9.88 9.87z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCheckIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.06 3.56l-9.53 9.531L1 8.561 2.06 7.5l3.47 3.47L14 2.5l1.06 1.06z",
-      fill: "currentColor"
-    })
-  });
-}
-function CheckIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCheckIconV2 : SvgCheckIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCheckLineIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.19 13.607a2 2 0 002.82.01l7-6.93c.55-.54.55-1.42.01-1.96l-.04-.04c-.54-.54-1.41-.54-1.95 0l-6.43 6.43-1.65-1.65c-.52-.52-1.38-.54-1.92-.02-.57.53-.58 1.42-.03 1.97l2.19 2.19zm9.81 4.11H6c-.55 0-1 .45-1 1s.45 1 1 1h12c.55 0 1-.45 1-1s-.45-1-1-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCheckLineIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.06 2.06L14 1 5.53 9.47 2.06 6 1 7.06l4.53 4.531 9.53-9.53zM1.03 15.03h14v-1.5h-14v1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function CheckLineIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCheckLineIconV2 : SvgCheckLineIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChecklistIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M4.5 7.914l5.207-5.207-1.414-1.414L4.5 5.086 2.707 3.293 1.293 4.707 4.5 7.914zM11 4h11v2H11V4zM11 11h11v2H11v-2zM22 18H2v2h20v-2zM9.707 9.707L4.5 14.914l-3.207-3.207 1.414-1.414L4.5 12.086l3.793-3.793 1.414 1.414z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChecklistIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5.5 2l1.06 1.06-3.53 3.531L1 4.561 2.06 3.5l.97.97L5.5 2zM15.03 4.53h-7v-1.5h7v1.5zM1.03 14.53v-1.5h14v1.5h-14zM8.03 9.53h7v-1.5h-7v1.5zM6.56 8.06L5.5 7 3.03 9.47l-.97-.97L1 9.56l2.03 2.031 3.53-3.53z",
-      fill: "currentColor"
-    })
-  });
-}
-function ChecklistIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChecklistIconV2 : SvgChecklistIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronDoubleDownIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M9.54 12.71L12 15.17l2.47-2.46a.996.996 0 111.41 1.41l-3.17 3.18a.996.996 0 01-1.41 0l-3.17-3.18a.996.996 0 111.41-1.41zM9.53 6.7l2.46 2.46 2.47-2.45a.996.996 0 111.41 1.41l-3.17 3.17a.996.996 0 01-1.41 0L8.12 8.11A.996.996 0 119.53 6.7z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronDoubleDownIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M10.947 7.954L8 10.891 5.056 7.954 3.997 9.016l4.004 3.993 4.005-3.993-1.06-1.062z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M10.947 3.994L8 6.931 5.056 3.994 3.997 5.056 8.001 9.05l4.005-3.993-1.06-1.062z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ChevronDoubleDownIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronDoubleDownIconV2 : SvgChevronDoubleDownIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronDoubleLeftIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M11.29 9.54L8.83 12l2.46 2.47a.996.996 0 11-1.41 1.41L6.7 12.71a.996.996 0 010-1.41l3.18-3.17a.996.996 0 111.41 1.41zm6.01-.01l-2.46 2.46 2.45 2.47a.996.996 0 11-1.41 1.41l-3.17-3.17a.996.996 0 010-1.41l3.18-3.17a.996.996 0 111.41 1.41z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronDoubleLeftIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8.047 10.944L5.11 8l2.937-2.944-1.062-1.06L2.991 8l3.994 4.003 1.062-1.06z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M12.008 10.944L9.07 8l2.938-2.944-1.062-1.06L6.952 8l3.994 4.003 1.062-1.06z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ChevronDoubleLeftIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronDoubleLeftIconV2 : SvgChevronDoubleLeftIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronDoubleRightIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12.71 14.46L15.17 12l-2.46-2.47a.996.996 0 111.41-1.41l3.18 3.17a.996.996 0 010 1.41l-3.18 3.17a.996.996 0 11-1.41-1.41zm-6.01.01l2.46-2.46-2.45-2.47a.996.996 0 111.41-1.41l3.17 3.17c.39.39.39 1.02 0 1.41l-3.18 3.17a.996.996 0 11-1.41-1.41z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronDoubleRightIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.954 5.056l2.937 2.946-2.937 2.945 1.062 1.059L13.01 8 9.016 3.998l-1.062 1.06z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M3.994 5.056l2.937 2.946-2.937 2.945 1.062 1.059L9.05 8 5.056 3.998l-1.062 1.06z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ChevronDoubleRightIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronDoubleRightIconV2 : SvgChevronDoubleRightIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronDoubleUpIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.46 11.29L12 8.83l-2.47 2.46a.996.996 0 11-1.41-1.41l3.17-3.18a.996.996 0 011.41 0l3.17 3.18a.996.996 0 11-1.41 1.41zm.01 6.01l-2.46-2.46-2.47 2.45a.996.996 0 11-1.41-1.41l3.17-3.17a.996.996 0 011.41 0l3.17 3.18a.996.996 0 11-1.41 1.41z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronDoubleUpIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M5.056 8.047L8 5.11l2.944 2.937 1.06-1.062L8 2.991 3.997 6.985l1.059 1.062z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M5.056 12.008L8 9.07l2.944 2.937 1.06-1.062L8 6.952l-4.003 3.994 1.059 1.062z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ChevronDoubleUpIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronDoubleUpIconV2 : SvgChevronDoubleUpIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronDownIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M15.875 9l-3.88 3.88L8.115 9a.996.996 0 10-1.41 1.41l4.59 4.59c.39.39 1.02.39 1.41 0l4.59-4.59a.996.996 0 000-1.41c-.39-.38-1.03-.39-1.42 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronDownIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 8.917L10.947 6 12 7.042 8 11 4 7.042 5.053 6 8 8.917z",
-      fill: "currentColor"
-    })
-  });
-}
-function ChevronDownIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronDownIconV2 : SvgChevronDownIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronLeftIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M15 15.875l-3.88-3.88L15 8.115a.996.996 0 10-1.41-1.41L9 11.295a.996.996 0 000 1.41l4.59 4.59c.39.39 1.02.39 1.41 0 .38-.39.39-1.03 0-1.42z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronLeftIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.083 8L10 10.947 8.958 12 5 8l3.958-4L10 5.053 7.083 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function ChevronLeftIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronLeftIconV2 : SvgChevronLeftIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronRightIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M9 15.875l3.88-3.88L9 8.115a.996.996 0 111.41-1.41l4.59 4.59c.39.39.39 1.02 0 1.41l-4.59 4.59a.996.996 0 01-1.41 0c-.38-.39-.39-1.03 0-1.42z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronRightIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.917 8L6 5.053 7.042 4 11 8l-3.958 4L6 10.947 8.917 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function ChevronRightIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronRightIconV2 : SvgChevronRightIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgChevronUpIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M11.295 9l-4.59 4.59A.996.996 0 108.115 15l3.89-3.88 3.88 3.88a.996.996 0 101.41-1.41L12.705 9a.996.996 0 00-1.41 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgChevronUpIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 7.083L5.053 10 4 8.958 8 5l4 3.958L10.947 10 8 7.083z",
-      fill: "currentColor"
-    })
-  });
-}
-function ChevronUpIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgChevronUpIconV2 : SvgChevronUpIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M12 4a8 8 0 100 16 8 8 0 000-16z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCircleIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M12.5 8a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function CircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCircleIconV2 : SvgCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgClipboardIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM5 20c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1h-1v1c0 1.1-.9 2-2 2H9c-1.1 0-2-.9-2-2V5H6c-.55 0-1 .45-1 1v14z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgClipboardIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.5 0a.75.75 0 00-.75.75V1h-2a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75h-2V.75A.75.75 0 0010.5 0h-5zm5.75 2.5v.75a.75.75 0 01-.75.75h-5a.75.75 0 01-.75-.75V2.5H3.5v11h9v-11h-1.25zm-5 0v-1h3.5v1h-3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function ClipboardIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgClipboardIconV2 : SvgClipboardIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgClockIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-.28-13h.06c.4 0 .72.32.72.72v4.54l3.87 2.3c.35.2.46.65.25.99-.2.34-.64.44-.98.24l-4.15-2.49a.99.99 0 01-.49-.86V7.72c0-.4.32-.72.72-.72z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgClockIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 4v4c0 .199.079.39.22.53l2 2 1.06-1.06-1.78-1.78V4h-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ClockIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgClockIconV2 : SvgClockIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCloseIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M7.707 6.293a1 1 0 00-1.414 1.414L10.586 12l-4.293 4.293a1 1 0 101.414 1.414L12 13.414l4.293 4.293a1 1 0 001.414-1.414L13.414 12l4.293-4.293a1 1 0 00-1.414-1.414L12 10.586 7.707 6.293z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCloseIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M6.97 8.03L2 3.06 3.06 2l4.97 4.97L13 2l1.06 1.06-4.969 4.97 4.97 4.97L13 14.06 8.03 9.092l-4.97 4.97L2 13l4.97-4.97z",
-      fill: "currentColor"
-    })
-  });
-}
-function CloseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCloseIconV2 : SvgCloseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCloudDownloadIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 4a7.49 7.49 0 017.35 6.04c2.6.18 4.65 2.32 4.65 4.96 0 2.76-2.24 5-5 5H6c-3.31 0-6-2.69-6-6 0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4zm.35 13.65L17 13h-3V9h-4v4H7l4.64 4.65c.2.2.51.2.71 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCloudDownloadIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8 2a4.752 4.752 0 00-4.606 3.586 4.251 4.251 0 00.427 8.393A.75.75 0 004 14v-1.511a2.75 2.75 0 01.077-5.484.75.75 0 00.697-.657 3.25 3.25 0 016.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 11-.188 4.492.75.75 0 00-.062-.002V14a.757.757 0 00.077-.004 3.75 3.75 0 00.668-7.464A4.75 4.75 0 008 2z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M7.25 11.19L5.03 8.97l-1.06 1.06L8 14.06l4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5v5.19z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CloudDownloadIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCloudDownloadIconV2 : SvgCloudDownloadIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCloudIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 4a7.49 7.49 0 017.35 6.04c2.6.18 4.65 2.32 4.65 4.96 0 2.76-2.24 5-5 5H6c-3.31 0-6-2.69-6-6 0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4zM6 18h13c1.66 0 3-1.34 3-3s-1.34-3-3-3h-1.5v-.5C17.5 8.46 15.04 6 12 6c-2.52 0-4.63 1.69-5.29 4H6c-2.21 0-4 1.79-4 4s1.79 4 4 4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCloudIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M3.394 5.586a4.752 4.752 0 019.351.946 3.75 3.75 0 01-.668 7.464A.757.757 0 0112 14H4a.75.75 0 01-.179-.021 4.25 4.25 0 01-.427-8.393zm.72 6.914h7.762a.745.745 0 01.186-.008A2.25 2.25 0 1012.25 8H12a.75.75 0 01-.75-.75v-.5a3.25 3.25 0 00-6.476-.402.75.75 0 01-.697.657 2.75 2.75 0 00-.024 5.488.74.74 0 01.062.007z",
-      fill: "currentColor"
-    })
-  });
-}
-function CloudIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCloudIconV2 : SvgCloudIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCloudOffIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M23.998 14.209c0-2.64-2.05-4.78-4.65-4.96a7.49 7.49 0 00-7.35-6.04c-1.33 0-2.57.36-3.65.97l1.49 1.49c.67-.29 1.39-.46 2.16-.46 3.04 0 5.5 2.46 5.5 5.5v.5h1.5a2.996 2.996 0 011.79 5.4l1.41 1.41c1.09-.92 1.8-2.27 1.8-3.81zM3.708 3.769a.996.996 0 000 1.41l2.06 2.06h-.42a5.99 5.99 0 00-5.29 6.79c.4 3.02 3.13 5.18 6.16 5.18h11.51l1.29 1.29a.996.996 0 101.41-1.41L5.118 3.769a.996.996 0 00-1.41 0zm-1.71 9.44c0 2.21 1.79 4 4 4h9.73l-8-8h-1.73c-2.21 0-4 1.79-4 4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCloudOffIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.97 14.53L2.47 3.03l-1 1 1.628 1.628a4.252 4.252 0 00.723 8.32A.75.75 0 004 14h7.44l1.53 1.53 1-1zM4.077 7.005a.748.748 0 00.29-.078L9.939 12.5H4.115a.74.74 0 00-.062-.007 2.75 2.75 0 01.024-5.488z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M4.8 3.24a4.75 4.75 0 017.945 3.293 3.75 3.75 0 011.928 6.58l-1.067-1.067A2.25 2.25 0 0012.25 8H12a.75.75 0 01-.75-.75v-.5a3.25 3.25 0 00-5.388-2.448L4.8 3.239z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CloudOffIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCloudOffIconV2 : SvgCloudOffIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCloudUploadIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 4a7.49 7.49 0 017.35 6.04c2.6.18 4.65 2.32 4.65 4.96 0 2.76-2.24 5-5 5H6c-3.31 0-6-2.69-6-6 0-3.09 2.34-5.64 5.35-5.96A7.496 7.496 0 0112 4zm2 13v-4h3l-4.64-4.65c-.2-.2-.51-.2-.71 0L7 13h3v4h4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCloudUploadIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8 2a4.752 4.752 0 00-4.606 3.586 4.251 4.251 0 00.427 8.393A.75.75 0 004 14v-1.511a2.75 2.75 0 01.077-5.484.75.75 0 00.697-.657 3.25 3.25 0 016.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 11-.188 4.492.75.75 0 00-.062-.002V14a.757.757 0 00.077-.004 3.75 3.75 0 00.668-7.464A4.75 4.75 0 008 2z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M8.75 8.81l2.22 2.22 1.06-1.06L8 5.94 3.97 9.97l1.06 1.06 2.22-2.22V14h1.5V8.81z",
-      fill: "currentColor"
-    })]
-  });
-}
-function CloudUploadIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCloudUploadIconV2 : SvgCloudUploadIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCodeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19.2 12l-3.9 3.9a.984.984 0 000 1.4c.39.39 1.01.39 1.4 0l4.59-4.6a.996.996 0 000-1.41L16.7 6.7a.984.984 0 00-1.4 0 .984.984 0 000 1.4l3.9 3.9zM4.8 12l3.9 3.9c.39.39.39 1.01 0 1.4a.984.984 0 01-1.4 0l-4.59-4.6a.996.996 0 010-1.41L7.3 6.7a.984.984 0 011.4 0c.39.39.39 1.01 0 1.4L4.8 12z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCodeIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 17 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M4.03 12.06L5.091 11l-2.97-2.97 2.97-2.97L4.031 4 0 8.03l4.03 4.03zM12.091 4l4.03 4.03-4.03 4.03-1.06-1.06L14 8.03l-2.97-2.97L12.091 4z",
-      fill: "currentColor"
-    })
-  });
-}
-function CodeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCodeIconV2 : SvgCodeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgCopyIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.5 1h-11c-1.1 0-2 .9-2 2v13c0 .55.45 1 1 1s1-.45 1-1V4c0-.55.45-1 1-1h10c.55 0 1-.45 1-1s-.45-1-1-1zm.59 4.59l4.83 4.83c.37.37.58.88.58 1.41V21c0 1.1-.9 2-2 2H8.49c-1.1 0-1.99-.9-1.99-2l.01-14c0-1.1.89-2 1.99-2h6.17c.53 0 1.04.21 1.42.59zM20 12h-4.5c-.55 0-1-.45-1-1V6.5L20 12z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgCopyIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75H5v3.25c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H11V1.75a.75.75 0 00-.75-.75h-8.5zM9.5 5V2.5h-7v7H5V5.75A.75.75 0 015.75 5H9.5zm-3 8.5v-7h7v7h-7z",
-      fill: "currentColor"
-    })
-  });
-}
-function CopyIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgCopyIconV2 : SvgCopyIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11.487 16c2.66 0 4.27-1.645 4.27-4.372 0-2.719-1.61-4.355-4.244-4.355h-3.12V16h3.094zm-1.248-1.581V8.854h1.176c1.636 0 2.501.835 2.501 2.774 0 1.947-.865 2.791-2.506 2.791H10.24z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M17 3H7a4 4 0 00-4 4v10a4 4 0 004 4h10a4 4 0 004-4V7a4 4 0 00-4-4zM7 1a6 6 0 00-6 6v10a6 6 0 006 6h10a6 6 0 006-6V7a6 6 0 00-6-6H7z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgDIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.75 4.5a.75.75 0 00-.75.75v5.5c0 .414.336.75.75.75h2a3.5 3.5 0 100-7h-2zM6.5 10V6h1.25a2 2 0 110 4H6.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function DIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDIconV2 : SvgDIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDangerFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 11c-.55 0-1-.45-1-1V8c0-.55.45-1 1-1s1 .45 1 1v4c0 .55-.45 1-1 1zm-1 2v2h2v-2h-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDangerFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.78 11.533l-4.242 4.243a.75.75 0 01-.53.22H4.996a.75.75 0 01-.53-.22L.224 11.533a.75.75 0 01-.22-.53v-6.01a.75.75 0 01.22-.53L4.467.22a.75.75 0 01.53-.22h6.01a.75.75 0 01.53.22l4.243 4.242c.141.141.22.332.22.53v6.011a.75.75 0 01-.22.53zm-8.528-.785a.75.75 0 101.5 0 .75.75 0 00-1.5 0zm1.5-5.75v4h-1.5v-4h1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function DangerFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDangerFillIconV2 : SvgDangerFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDangerIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.47 2 11.99 2 17.52 2 22 6.48 22 12s-4.48 10-10.01 10C6.47 22 2 17.52 2 12zm11-4c0-.55-.45-1-1-1s-1 .45-1 1v4c0 .55.45 1 1 1s1-.45 1-1V8zm-1 12c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-1-5v2h2v-2h-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDangerIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.248 10.748a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM8.748 4.998v4h-1.5v-4h1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M11.533 15.776l4.243-4.243a.75.75 0 00.22-.53v-6.01a.75.75 0 00-.22-.53L11.533.22a.75.75 0 00-.53-.22h-6.01a.75.75 0 00-.53.22L.22 4.462a.75.75 0 00-.22.53v6.011c0 .199.079.39.22.53l4.242 4.243c.141.14.332.22.53.22h6.011a.75.75 0 00.53-.22zm2.963-10.473v5.39l-3.804 3.803H5.303L1.5 10.692V5.303L5.303 1.5h5.39l3.803 3.803z",
-      fill: "currentColor"
-    })]
-  });
-}
-function DangerIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDangerIconV2 : SvgDangerIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDashIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M18 13H6c-.55 0-1-.45-1-1s.45-1 1-1h12c.55 0 1 .45 1 1s-.45 1-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDashIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15 8.75H1v-1.5h14v1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function DashIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDashIconV2 : SvgDashIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDashboardIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDashboardIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5 8.75v3h4.75v-3H2.5zm0-1.5h4.75V2.5H2.5V9zm6.25-6.5v3h4.75v-3H8.75zm0 11V7h4.75v6.5H8.75z",
-      fill: "currentColor"
-    })
-  });
-}
-function DashboardIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDashboardIconV2 : SvgDashboardIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDataIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M21 15h-6v6h6v-6zm-8-2v10h10V13H13zM6 21a3 3 0 100-6 3 3 0 000 6zm0 2a5 5 0 100-10 5 5 0 000 10zM12 0L5.938 11h12.124L12 0zm0 4.144L9.324 9h5.352L12 4.144z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDataIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.646.368a.75.75 0 00-1.292 0l-3.25 5.5A.75.75 0 004.75 7h6.5a.75.75 0 00.646-1.132l-3.25-5.5zM8 2.224L9.936 5.5H6.064L8 2.224zM8.5 9.25a.75.75 0 01.75-.75h5a.75.75 0 01.75.75v5a.75.75 0 01-.75.75h-5a.75.75 0 01-.75-.75v-5zM10 10v3.5h3.5V10H10zM1 11.75a3.25 3.25 0 116.5 0 3.25 3.25 0 01-6.5 0zM4.25 10a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function DataIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDataIconV2 : SvgDataIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDatabaseIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5 7V5c0-1.105 3.134-2 7-2s7 .895 7 2v2c0 1.105-3.134 2-7 2s-7-.895-7-2zM5 10v2.155c0 1.104 3.134 2 7 2s7-.896 7-2V10c-1.65.831-4.173 1.155-7 1.155S6.65 10.83 5 10zM5 17.31v-2.155c1.65.83 4.173 1.154 7 1.154s5.35-.323 7-1.154v2.154c0 1.105-3.134 2-7 2s-7-.895-7-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDatabaseIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.727 3.695c-.225.192-.227.298-.227.305 0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 5.256 6.337 5.5 8 5.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305 0-.007-.002-.113-.227-.305-.223-.19-.59-.394-1.108-.58C11.135 2.744 9.663 2.5 8 2.5c-1.663 0-3.135.244-4.165.615-.519.186-.885.39-1.108.58zM13.5 5.94a6.646 6.646 0 01-.826.358C11.442 6.74 9.789 7 8 7c-1.79 0-3.442-.26-4.673-.703a6.641 6.641 0 01-.827-.358V8c0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 9.256 6.337 9.5 8 9.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V5.939zM15 8V4c0-.615-.348-1.1-.755-1.447-.41-.349-.959-.63-1.571-.85C11.442 1.26 9.789 1 8 1c-1.79 0-3.442.26-4.673.703-.613.22-1.162.501-1.572.85C1.348 2.9 1 3.385 1 4v8c0 .615.348 1.1.755 1.447.41.349.959.63 1.572.85C4.558 14.74 6.21 15 8 15c1.79 0 3.441-.26 4.674-.703.612-.22 1.161-.501 1.571-.85.407-.346.755-.832.755-1.447V8zm-1.5 1.939a6.654 6.654 0 01-.826.358C11.442 10.74 9.789 11 8 11c-1.79 0-3.442-.26-4.673-.703a6.649 6.649 0 01-.827-.358V12c0 .007.002.113.227.305.223.19.59.394 1.108.58 1.03.371 2.502.615 4.165.615 1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V9.939z",
-      fill: "currentColor"
-    })
-  });
-}
-function DatabaseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDatabaseIconV2 : SvgDatabaseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDownloadIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15 9.5h1.59c.89 0 1.33 1.08.7 1.71L12.7 15.8a.996.996 0 01-1.41 0L6.7 11.21c-.63-.63-.18-1.71.71-1.71H9v-5c0-.55.45-1 1-1h4c.55 0 1 .45 1 1v5zm-9 11c-.55 0-1-.45-1-1s.45-1 1-1h12c.55 0 1 .45 1 1s-.45 1-1 1H6z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDownloadIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 13.5h14V15H1v-1.5zM12.53 6.53l-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47 3.47 6.53 8 11.06l4.53-4.53z",
-      fill: "currentColor"
-    })
-  });
-}
-function DownloadIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDownloadIconV2 : SvgDownloadIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgDragIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M9 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-2 8c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2zm2 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm8-14c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2 4c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-2 8c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgDragIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5.25 1a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 1a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM5.25 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM5.25 11.5a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 11.5a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function DragIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgDragIconV2 : SvgDragIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgExpandLessIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.175 4.407a.996.996 0 01.695 1.713L12.7 9.29a.996.996 0 01-1.41 0L8.12 6.12c-.39-.39-.39-1.03 0-1.42a.996.996 0 011.41 0L12 7.17l2.47-2.47a.996.996 0 01.705-.293zM12 16.83L9.53 19.3a.996.996 0 01-1.41 0 .987.987 0 01.01-1.41l3.17-3.17a.996.996 0 011.41 0l3.17 3.17a.996.996 0 11-1.41 1.41L12 16.83z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgExpandLessIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 17",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M12.06 1.06L11 0 8.03 2.97 5.06 0 4 1.06l4.03 4.031 4.03-4.03zM4 15l4.03-4.03L12.06 15 11 16.06l-2.97-2.969-2.97 2.97L4 15z",
-      fill: "currentColor"
-    })
-  });
-}
-function ExpandLessIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgExpandLessIconV2 : SvgExpandLessIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgExpandMoreIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.46 8.29L12 5.83 9.53 8.29a.996.996 0 11-1.41-1.41l3.17-3.18a.996.996 0 011.41 0l3.17 3.18a.996.996 0 11-1.41 1.41zm-4.92 7.42L12 18.17l2.47-2.45a.996.996 0 011.41 0c.39.39.39 1.02 0 1.41l-3.17 3.17a.996.996 0 01-1.41 0l-3.17-3.18a.996.996 0 111.41-1.41z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgExpandMoreIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 17",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M4 4.03l1.06 1.061 2.97-2.97L11 5.091l1.06-1.06L8.03 0 4 4.03zM12.06 12.091l-4.03 4.03L4 12.091l1.06-1.06L8.03 14 11 11.03l1.06 1.061z",
-      fill: "currentColor"
-    })
-  });
-}
-function ExpandMoreIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgExpandMoreIconV2 : SvgExpandMoreIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFileCodeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.17 2c.53 0 1.04.21 1.42.59l4.82 4.83c.38.37.59.88.59 1.41V20c0 1.1-.9 2-2 2H5.99C4.89 22 4 21.1 4 20V4c0-1.1.9-2 2-2h7.17zm2.024 12.592l-1.9 1.9a.984.984 0 000 1.4c.39.39 1.01.39 1.4 0l2.59-2.6a.996.996 0 000-1.41l-2.59-2.59a.984.984 0 00-1.4 0 .984.984 0 000 1.4l1.9 1.9zm-4.487-1.9l-1.9 1.9 1.9 1.9a.984.984 0 010 1.4.984.984 0 01-1.4 0l-2.59-2.59a.996.996 0 010-1.41l2.59-2.6a.984.984 0 011.4 0 .984.984 0 010 1.4zM13 3.5V8c0 .55.45 1 1 1h4.5L13 3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFileCodeIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 17",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M7.47 9.97L4.44 13l3.03 3.03 1.06-1.06L6.56 13l1.97-1.97-1.06-1.06zM11.03 9.97l-1.06 1.06L11.94 13l-1.97 1.97 1.06 1.06L14.06 13l-3.03-3.03z",
-      fill: "currentColor"
-    })]
-  });
-}
-function FileCodeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFileCodeIconV2 : SvgFileCodeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFileDocumentIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.17 2c.53 0 1.04.21 1.42.59l4.82 4.83c.38.37.59.88.59 1.41V20c0 1.1-.9 2-2 2H5.99C4.89 22 4 21.1 4 20V4c0-1.1.9-2 2-2h7.17zM9 18h6c.55 0 1-.45 1-1s-.45-1-1-1H9c-.55 0-1 .45-1 1s.45 1 1 1zm6-4H9c-.55 0-1-.45-1-1s.45-1 1-1h6c.55 0 1 .45 1 1s-.45 1-1 1zM13 3.5V8c0 .55.45 1 1 1h4.5L13 3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFileDocumentIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M5 11.5V13h9v-1.5H5zM14 16H5v-1.5h9V16z",
-      fill: "currentColor"
-    })]
-  });
-}
-function FileDocumentIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFileDocumentIconV2 : SvgFileDocumentIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFileIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.17 2c.53 0 1.04.21 1.42.59l4.82 4.83c.38.37.59.88.59 1.41V20c0 1.1-.9 2-2 2H5.99C4.89 22 4 21.1 4 20V4c0-1.1.9-2 2-2h7.17zM13 3.5V8c0 .55.45 1 1 1h4.5L13 3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFileIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53v9a.75.75 0 01-.75.75H2.75a.75.75 0 01-.75-.75V1.75zm1.5.75v12h9V7H8.75A.75.75 0 018 6.25V2.5H3.5zm6 1.06l1.94 1.94H9.5V3.56z",
-      fill: "currentColor"
-    })
-  });
-}
-function FileIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFileIconV2 : SvgFileIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFileImageIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.59 2.59c-.38-.38-.89-.59-1.42-.59H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8.83c0-.53-.21-1.04-.59-1.41l-4.82-4.83zM16.605 18H7.383a.5.5 0 01-.429-.757l2.217-3.694a.5.5 0 01.782-.096l1.5 1.5a.05.05 0 00.08-.01l1.549-2.711a.5.5 0 01.86-.014l3.089 5.02a.5.5 0 01-.426.762zM13 3.5V8c0 .55.45 1 1 1h4.5L13 3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFileImageIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10.466 10a.75.75 0 00-.542.27l-3.75 4.5A.75.75 0 006.75 16h6.5a.75.75 0 00.75-.75V13.5a.75.75 0 00-.22-.53l-2.75-2.75a.75.75 0 00-.564-.22zm2.034 3.81v.69H8.351l2.2-2.639 1.949 1.95zM6.5 7.25a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM5.75 9.5a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function FileImageIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFileImageIconV2 : SvgFileImageIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFileModelIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M16 17a1 1 0 11-2 0 1 1 0 012 0zM9 12a1 1 0 100-2 1 1 0 000 2z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.59 2.59c-.38-.38-.89-.59-1.42-.59H6c-1.1 0-2 .9-2 2v16c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8.83c0-.53-.21-1.04-.59-1.41l-4.82-4.83zM13 8V3.5L18.5 9H14c-.55 0-1-.45-1-1zm2 12a3 3 0 10-1.293-5.708l-2-1.999a3 3 0 10-1.414 1.414l2 2A3 3 0 0015 20z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgFileModelIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.75 1a.75.75 0 00-.75.75V16h1.5V2.5H8v3.75c0 .414.336.75.75.75h3.75v3H14V6.25a.75.75 0 00-.22-.53l-4.5-4.5A.75.75 0 008.75 1h-6zm8.69 4.5L9.5 3.56V5.5h1.94z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M11.75 11.5a2.25 2.25 0 11-2.03 1.28l-.5-.5a2.25 2.25 0 111.06-1.06l.5.5c.294-.141.623-.22.97-.22zm.75 2.25a.75.75 0 10-1.5 0 .75.75 0 001.5 0zM8.25 9.5a.75.75 0 110 1.5.75.75 0 010-1.5z",
-      fill: "currentColor"
-    })]
-  });
-}
-function FileModelIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFileModelIconV2 : SvgFileModelIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFilterIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M3 7c0 .55.45 1 1 1h16c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1zm8 11h2c.55 0 1-.45 1-1s-.45-1-1-1h-2c-.55 0-1 .45-1 1s.45 1 1 1zm6-5H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFilterIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75V4a.75.75 0 01-.22.53L10 9.31v4.94a.75.75 0 01-.75.75h-2.5a.75.75 0 01-.75-.75V9.31L1.22 4.53A.75.75 0 011 4V1.75zm1.5.75v1.19l4.78 4.78c.141.14.22.331.22.53v4.5h1V9a.75.75 0 01.22-.53l4.78-4.78V2.5h-11z",
-      fill: "currentColor"
-    })
-  });
-}
-function FilterIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFilterIconV2 : SvgFilterIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFolderFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M10.59 4.59C10.21 4.21 9.7 4 9.17 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-1.41-1.41z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFolderFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H7.81L6.617 2.805A2.75 2.75 0 004.672 2H.75z",
-      fill: "currentColor"
-    })
-  });
-}
-function FolderFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFolderFillIconV2 : SvgFolderFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFolderIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 5a3 3 0 013-3h3.93a3 3 0 012.496 1.336L12.536 5H19a3 3 0 013 3v11a3 3 0 01-3 3H5a3 3 0 01-3-3V5zm3-1a1 1 0 00-1 1v14a1 1 0 001 1h14a1 1 0 001-1V8a1 1 0 00-1-1h-7.535L9.762 4.445A1 1 0 008.93 4H5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFolderIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 2.75A.75.75 0 01.75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 01.75.75v8.5a.75.75 0 01-.75.75H.75a.75.75 0 01-.75-.75V2.75zm1.5.75v9h13v-7h-7a.75.75 0 01-.53-.22L5.555 3.866a1.25 1.25 0 00-.883-.366H1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function FolderIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFolderIconV2 : SvgFolderIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgForkIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 6a1 1 0 100-2 1 1 0 000 2zm0 2a3 3 0 100-6 3 3 0 000 6zM8 20a1 1 0 100-2 1 1 0 000 2zm0 2a3 3 0 100-6 3 3 0 000 6zM16 20a1 1 0 100-2 1 1 0 000 2zm0 2a3 3 0 100-6 3 3 0 000 6z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 17V7h2v10H7zM12 12H9v-2h3a5 5 0 015 5v3h-2v-3a3 3 0 00-3-3z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgForkIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 2.75a2.75 2.75 0 113.5 2.646V6.75h3.75A2.75 2.75 0 0112 9.5v.104a2.751 2.751 0 11-1.5 0V9.5c0-.69-.56-1.25-1.25-1.25H5.5v1.354a2.751 2.751 0 11-1.5 0V5.396A2.751 2.751 0 012 2.75zM4.75 1.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zM3.5 12.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zm6.5 0a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function ForkIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgForkIconV2 : SvgForkIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFullscreenExitIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M6 8h2V6c0-.55.45-1 1-1s1 .45 1 1v3c0 .55-.45 1-1 1H6c-.55 0-1-.45-1-1s.45-1 1-1zm2 8H6c-.55 0-1-.45-1-1s.45-1 1-1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1s-1-.45-1-1v-2zm7 3c.55 0 1-.45 1-1v-2h2c.55 0 1-.45 1-1s-.45-1-1-1h-3c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1zm1-13v2h2c.55 0 1 .45 1 1s-.45 1-1 1h-3c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1s1 .45 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFullscreenExitIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M6 1v4.25a.75.75 0 01-.75.75H1V4.5h3.5V1H6zM10 15v-4.25a.75.75 0 01.75-.75H15v1.5h-3.5V15H10zM10.75 6H15V4.5h-3.5V1H10v4.25c0 .414.336.75.75.75zM1 10h4.25a.75.75 0 01.75.75V15H4.5v-3.5H1V10z",
-      fill: "currentColor"
-    })
-  });
-}
-function FullscreenExitIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFullscreenExitIconV2 : SvgFullscreenExitIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgFullscreenIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 9c0 .55-.45 1-1 1s-1-.45-1-1V6c0-.55.45-1 1-1h3c.55 0 1 .45 1 1s-.45 1-1 1H7v2zm-2 6c0-.55.45-1 1-1s1 .45 1 1v2h2c.55 0 1 .45 1 1s-.45 1-1 1H6c-.55 0-1-.45-1-1v-3zm12 2h-2c-.55 0-1 .45-1 1s.45 1 1 1h3c.55 0 1-.45 1-1v-3c0-.55-.45-1-1-1s-1 .45-1 1v2zM15 7c-.55 0-1-.45-1-1s.45-1 1-1h3c.55 0 1 .45 1 1v3c0 .55-.45 1-1 1s-1-.45-1-1V7h-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgFullscreenIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M6 1H1.75a.75.75 0 00-.75.75V6h1.5V2.5H6V1zM10 2.5V1h4.25a.75.75 0 01.75.75V6h-1.5V2.5H10zM10 13.5h3.5V10H15v4.25a.75.75 0 01-.75.75H10v-1.5zM2.5 10v3.5H6V15H1.75a.75.75 0 01-.75-.75V10h1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function FullscreenIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgFullscreenIconV2 : SvgFullscreenIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgGearFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19.502 12c0 .34-.03.66-.07.98l2.11 1.65c.19.15.24.42.12.64l-2 3.46c-.12.22-.38.31-.61.22l-2.49-1c-.52.39-1.08.73-1.69.98l-.38 2.65c-.03.24-.24.42-.49.42h-4c-.25 0-.46-.18-.49-.42l-.38-2.65c-.61-.25-1.17-.58-1.69-.98l-2.49 1c-.22.08-.49 0-.61-.22l-2-3.46a.505.505 0 01.12-.64l2.11-1.65a7.93 7.93 0 01-.07-.98c0-.33.03-.66.07-.98l-2.11-1.65a.493.493 0 01-.12-.64l2-3.46c.12-.22.38-.31.61-.22l2.49 1c.52-.39 1.08-.73 1.69-.98l.38-2.65c.03-.24.24-.42.49-.42h4c.25 0 .46.18.49.42l.38 2.65c.61.25 1.17.58 1.69.98l2.49-1c.22-.08.49 0 .61.22l2 3.46c.12.22.07.49-.12.64l-2.11 1.65c.04.32.07.64.07.98zm-11 0c0 1.93 1.57 3.5 3.5 3.5s3.5-1.57 3.5-3.5-1.57-3.5-3.5-3.5-3.5 1.57-3.5 3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgGearFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 00-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 00-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 00.013.802l1.123 1.713a5.898 5.898 0 00-.15.66L.363 8.07a.75.75 0 00-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 00.635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 00.336.728 7.97 7.97 0 001.812.874.75.75 0 00.778-.192l1.422-1.478a5.924 5.924 0 00.677 0l1.422 1.478a.75.75 0 00.778.192 7.972 7.972 0 001.812-.874.75.75 0 00.335-.728l-.269-2.032a5.94 5.94 0 00.422-.529l2.043-.19a.75.75 0 00.634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 00-.36-.716l-1.756-1.056a5.89 5.89 0 00-.15-.661l1.123-1.713a.75.75 0 00.013-.802 8.034 8.034 0 00-1.255-1.572.75.75 0 00-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 00-.619-.51A8.07 8.07 0 007.965 0zm.02 10.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function GearFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgGearFillIconV2 : SvgGearFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgGearIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.616 2l.68 2.042 1.926-.962 3.698 3.698-.962 1.926 2.042.68v5.232l-2.042.68.963 1.926-3.7 3.698-1.925-.962-.68 2.042H9.384l-.68-2.042-1.926.963-3.698-3.7.962-1.925L2 14.616V9.384l2.042-.68-.962-1.926L6.777 3.08l1.926.962L9.384 2h5.232zm-3.79 2l-.954 2.862-2.699-1.349-1.66 1.66 1.35 2.699L4 10.826v2.348l2.862.954-1.349 2.699 1.66 1.66 2.699-1.35.954 2.863h2.348l.954-2.862 2.699 1.349 1.66-1.66-1.35-2.699L20 13.174v-2.348l-2.862-.954 1.349-2.699-1.66-1.66-2.699 1.35L13.174 4h-2.348z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 14a2 2 0 100-4 2 2 0 000 4zm0 2a4 4 0 100-8 4 4 0 000 8z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgGearIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#GearIcon_svg__clip0_13123_35019)",
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      fill: "currentColor",
-      children: [jsx("path", {
-        d: "M7.984 5a3 3 0 100 6 3 3 0 000-6zm-1.5 3a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"
-      }), jsx("path", {
-        d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 00-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 00-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 00.013.802l1.123 1.713a5.898 5.898 0 00-.15.66L.363 8.07a.75.75 0 00-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 00.635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 00.336.728 7.97 7.97 0 001.812.874.75.75 0 00.778-.192l1.422-1.478a5.924 5.924 0 00.677 0l1.422 1.478a.75.75 0 00.778.192 7.972 7.972 0 001.812-.874.75.75 0 00.335-.728l-.269-2.032a5.94 5.94 0 00.422-.529l2.043-.19a.75.75 0 00.634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 00-.36-.716l-1.756-1.056a5.89 5.89 0 00-.15-.661l1.123-1.713a.75.75 0 00.013-.802 8.034 8.034 0 00-1.255-1.572.75.75 0 00-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 00-.619-.51A8.071 8.071 0 007.965 0zm-.95 3.328l.598-1.819a6.62 6.62 0 01.705 0l.597 1.819a.75.75 0 00.472.476c.345.117.67.275.97.468a.75.75 0 00.668.073l1.795-.668c.156.176.303.36.44.552l-1.05 1.6a.75.75 0 00-.078.667c.12.333.202.685.24 1.05a.75.75 0 00.359.567l1.642.988c-.04.234-.092.463-.156.687l-1.909.178a.75.75 0 00-.569.353c-.19.308-.416.59-.672.843a.75.75 0 00-.219.633l.252 1.901a6.48 6.48 0 01-.635.306l-1.33-1.381a.75.75 0 00-.63-.225 4.483 4.483 0 01-1.08 0 .75.75 0 00-.63.225l-1.33 1.381a6.473 6.473 0 01-.634-.306l.252-1.9a.75.75 0 00-.219-.634 4.449 4.449 0 01-.672-.843.75.75 0 00-.569-.353l-1.909-.178a6.456 6.456 0 01-.156-.687L3.2 8.113a.75.75 0 00.36-.567c.037-.365.118-.717.239-1.05a.75.75 0 00-.078-.666L2.67 4.229c.137-.192.284-.376.44-.552l1.795.668a.75.75 0 00.667-.073c.3-.193.626-.351.97-.468a.75.75 0 00.472-.476z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "GearIcon_svg__clip0_13123_35019",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function GearIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgGearIconV2 : SvgGearIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgGridDashIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 5h2V3H7v2zm0 8h2v-2H7v2zm2 8H7v-2h2v2zm2-4h2v-2h-2v2zm2 4h-2v-2h2v2zM3 21h2v-2H3v2zm2-4H3v-2h2v2zm-2-4h2v-2H3v2zm2-4H3V7h2v2zM3 5h2V3H3v2zm10 8h-2v-2h2v2zm6 4h2v-2h-2v2zm2-4h-2v-2h2v2zm-2 8h2v-2h-2v2zm2-12h-2V7h2v2zM11 9h2V7h-2v2zm8-4V3h2v2h-2zm-8 0h2V3h-2v2zm6 16h-2v-2h2v2zm-2-8h2v-2h-2v2zm2-8h-2V3h2v2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgGridDashIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 00-.75.75zM15 14.25V12h-1.5v1.5H12V15h2.25a.75.75 0 00.75-.75zM12 1h2.25a.75.75 0 01.75.75V4h-1.5V2.5H12V1zM1.75 15H4v-1.5H2.5V12H1v2.25a.75.75 0 00.75.75zM10 2.5H6V1h4v1.5zM6 15h4v-1.5H6V15zM13.5 10V6H15v4h-1.5zM1 6v4h1.5V6H1z",
-      fill: "currentColor"
-    })
-  });
-}
-function GridDashIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgGridDashIconV2 : SvgGridDashIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgGridIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5 6a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H6a1 1 0 01-1-1V6zM5 14a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H6a1 1 0 01-1-1v-4zM13 6a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V6zM13 14a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgGridIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5A.75.75 0 007 6.25v-4.5A.75.75 0 006.25 1h-4.5zm.75 4.5v-3h3v3h-3zM1.75 9a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75v-4.5A.75.75 0 006.25 9h-4.5zm.75 4.5v-3h3v3h-3zM9 1.75A.75.75 0 019.75 1h4.5a.75.75 0 01.75.75v4.49a.75.75 0 01-.75.75h-4.5A.75.75 0 019 6.24V1.75zm1.5.75v2.99h3V2.5h-3zM9.75 9a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75v-4.5a.75.75 0 00-.75-.75h-4.5zm.75 4.5v-3h3v3h-3z",
-      fill: "currentColor"
-    })
-  });
-}
-function GridIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgGridIconV2 : SvgGridIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgH1IconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7 7a1 1 0 011 1v3h3V8a1 1 0 112 0v8a1 1 0 11-2 0v-3H8v3a1 1 0 11-2 0V8a1 1 0 011-1zM15 12a1 1 0 011-1h.5a1.5 1.5 0 011.5 1.5V16a1 1 0 11-2 0v-3a1 1 0 01-1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 1a3 3 0 00-3 3v16a3 3 0 003 3h16a3 3 0 003-3V4a3 3 0 00-3-3H4zM3 4a1 1 0 011-1h16a1 1 0 011 1v16a1 1 0 01-1 1H4a1 1 0 01-1-1V4z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgH1IconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1zM11.25 3A2.25 2.25 0 019 5.25v1.5c.844 0 1.623-.279 2.25-.75v5.5H9V13h6v-1.5h-2.25V3h-1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function H1Icon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgH1IconV2 : SvgH1IconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgH2IconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M6 7a1 1 0 011 1v3h3V8a1 1 0 112 0v8a1 1 0 11-2 0v-3H7v3a1 1 0 11-2 0V8a1 1 0 011-1zM14 10a1 1 0 011-1h2.5c.83 0 1.5.673 1.5 1.5v2a1.5 1.5 0 01-1.5 1.5H16v1h2a1 1 0 110 2h-2.5a1.5 1.5 0 01-1.5-1.5v-2a1.5 1.5 0 011.5-1.5H17v-1h-2a1 1 0 01-1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 1a3 3 0 00-3 3v16a3 3 0 003 3h16a3 3 0 003-3V4a3 3 0 00-3-3H4zM3 4a1 1 0 011-1h16a1 1 0 011 1v16a1 1 0 01-1 1H4a1 1 0 01-1-1V4z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgH2IconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1zM11.75 3A2.75 2.75 0 009 5.75V6h1.5v-.25c0-.69.56-1.25 1.25-1.25h.39a1.36 1.36 0 01.746 2.498L10.692 8.44A3.75 3.75 0 009 11.574V13h6v-1.5h-4.499a2.25 2.25 0 011.014-1.807l2.194-1.44A2.86 2.86 0 0012.14 3h-.389z",
-      fill: "currentColor"
-    })
-  });
-}
-function H2Icon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgH2IconV2 : SvgH2IconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgH3IconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M6 7a1 1 0 011 1v3h3V8a1 1 0 112 0v8a1 1 0 11-2 0v-3H7v3a1 1 0 11-2 0V8a1 1 0 011-1zM17.5 17a1.5 1.5 0 001.5-1.5v-7A1.5 1.5 0 0017.5 7H15a1 1 0 100 2h2v2h-2a1 1 0 100 2h2v2h-2a1 1 0 100 2h2.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 4a3 3 0 013-3h16a3 3 0 013 3v16a3 3 0 01-3 3H4a3 3 0 01-3-3V4zm3-1a1 1 0 00-1 1v16a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H4z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgH3IconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 3h1.5v4.25H6V3h1.5v10H6V8.75H2.5V13H1V3zM9 5.75A2.75 2.75 0 0111.75 3h.375a2.875 2.875 0 011.937 5 2.875 2.875 0 01-1.937 5h-.375A2.75 2.75 0 019 10.25V10h1.5v.25c0 .69.56 1.25 1.25 1.25h.375a1.375 1.375 0 100-2.75H11v-1.5h1.125a1.375 1.375 0 100-2.75h-.375c-.69 0-1.25.56-1.25 1.25V6H9v-.25z",
-      fill: "currentColor"
-    })
-  });
-}
-function H3Icon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgH3IconV2 : SvgH3IconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgHistoryIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.144 12.002c0-5.05 4.17-9.14 9.26-9 4.69.13 8.61 4.05 8.74 8.74.14 5.09-3.95 9.26-9 9.26-2.09 0-4-.71-5.52-1.91-.47-.36-.5-1.07-.08-1.49.36-.36.92-.39 1.32-.08 1.18.93 2.67 1.48 4.28 1.48 3.9 0 7.05-3.19 7-7.1-.05-3.72-3.18-6.85-6.9-6.9-3.92-.05-7.1 3.1-7.1 7h1.79a.5.5 0 01.36.85l-2.79 2.8c-.2.2-.51.2-.71 0l-2.79-2.8c-.32-.31-.1-.85.35-.85h1.79zm8-3.25c0-.41.34-.75.75-.75s.75.34.75.74v3.4l2.88 1.71c.35.21.47.67.26 1.03-.21.35-.67.47-1.03.26l-3.12-1.85c-.3-.18-.49-.51-.49-.86v-3.68z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgHistoryIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#HistoryIcon_svg__clip0_13123_35203)",
-      fill: "currentColor",
-      children: [jsx("path", {
-        d: "M3.507 7.73l.963-.962 1.06 1.06-2.732 2.732L-.03 7.732l1.06-1.06.979.978a7 7 0 112.041 5.3l1.061-1.06a5.5 5.5 0 10-1.604-4.158z"
-      }), jsx("path", {
-        d: "M8.25 8V4h1.5v3.69l1.78 1.78-1.06 1.06-2-2A.75.75 0 018.25 8z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "HistoryIcon_svg__clip0_13123_35203",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function HistoryIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgHistoryIconV2 : SvgHistoryIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgHomeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M9.998 19.328v-5h4v5c0 .55.45 1 1 1h3c.55 0 1-.45 1-1v-7h1.7c.46 0 .68-.57.33-.87l-8.36-7.53c-.38-.34-.96-.34-1.34 0l-8.36 7.53c-.34.3-.13.87.33.87h1.7v7c0 .55.45 1 1 1h3c.55 0 1-.45 1-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgHomeIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.625 1.1a.75.75 0 01.75 0l6.25 3.61a.75.75 0 01.375.65v8.89a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75V10H7v4.25a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75V5.355a.75.75 0 01.375-.65L7.625 1.1zM2.5 5.79V13.5h3V9.25a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v4.25h3V5.792L8 2.616 2.5 5.789z",
-      fill: "currentColor"
-    })
-  });
-}
-function HomeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgHomeIconV2 : SvgHomeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgImageIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M21 5v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2zM11 16.51l-2.1-2.53a.493.493 0 00-.78.02l-2.49 3.2c-.26.33-.03.81.39.81h11.99a.5.5 0 00.4-.8l-3.51-4.68c-.2-.27-.6-.27-.8-.01L11 16.51z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgImageIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M6.25 3.998a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zm-.75 2.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.492a.75.75 0 01-.75.75H5.038l-.009.009-.008-.009H1.75a.75.75 0 01-.75-.75V1.75zm12.5 11.742H6.544l4.455-4.436 2.47 2.469.031-.03v1.997zm0-10.992v6.934l-1.97-1.968a.75.75 0 00-1.06-.001l-6.052 6.027H2.5V2.5h11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ImageIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgImageIconV2 : SvgImageIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgIndentDecreaseIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm2.14 10.14l-2.79-2.79a.492.492 0 01.01-.7l2.79-2.79c.31-.32.85-.1.85.35v5.58c0 .45-.54.67-.86.35zM20 17h-8c-.55 0-1-.45-1-1s.45-1 1-1h8c.55 0 1 .45 1 1s-.45 1-1 1zm0 4c.55 0 1-.45 1-1s-.45-1-1-1H4c-.55 0-1 .45-1 1s.45 1 1 1h16zM12 9h8c.55 0 1-.45 1-1s-.45-1-1-1h-8c-.55 0-1 .45-1 1s.45 1 1 1zm8 4h-8c-.55 0-1-.45-1-1s.45-1 1-1h8c.55 0 1 .45 1 1s-.45 1-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgIndentDecreaseIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M16 2H0v1.5h16V2zM16 5.5H7V7h9V5.5zM16 9H7v1.5h9V9zM16 12.5H0V14h16v-1.5zM3.97 11.03L.94 8l3.03-3.03 1.06 1.06L3.06 8l1.97 1.97-1.06 1.06z",
-      fill: "currentColor"
-    })
-  });
-}
-function IndentDecreaseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgIndentDecreaseIconV2 : SvgIndentDecreaseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgIndentIncreaseIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm-1 9.8V9.21a.5.5 0 01.85-.36l2.79 2.8c.2.2.2.51 0 .71l-2.79 2.79c-.31.32-.85.1-.85-.35zM4 21c-.55 0-1-.45-1-1s.45-1 1-1h16c.55 0 1 .45 1 1s-.45 1-1 1H4zm8-4h8c.55 0 1-.45 1-1s-.45-1-1-1h-8c-.55 0-1 .45-1 1s.45 1 1 1zm0-8h8c.55 0 1-.45 1-1s-.45-1-1-1h-8c-.55 0-1 .45-1 1s.45 1 1 1zm8 4h-8c-.55 0-1-.45-1-1s.45-1 1-1h8c.55 0 1 .45 1 1s-.45 1-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgIndentIncreaseIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M16 2H0v1.5h16V2zM16 5.5H7V7h9V5.5zM16 9H7v1.5h9V9zM16 12.5H0V14h16v-1.5zM2.03 4.97L5.06 8l-3.03 3.03L.97 9.97 2.94 8 .97 6.03l1.06-1.06z",
-      fill: "currentColor"
-    })
-  });
-}
-function IndentIncreaseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgIndentIncreaseIconV2 : SvgIndentIncreaseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgInfinityIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 6.94l1.591-1.592a3.75 3.75 0 110 5.304L8 9.06l-1.591 1.59a3.75 3.75 0 110-5.303L8 6.94zm2.652-.531a2.25 2.25 0 110 3.182L9.06 8l1.59-1.591zM6.939 8L5.35 6.409a2.25 2.25 0 100 3.182l1.588-1.589L6.939 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgInfinityIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 6.94l1.59-1.592a3.75 3.75 0 110 5.304L8 9.06l-1.591 1.59a3.75 3.75 0 110-5.303L8 6.94zm2.652-.531a2.25 2.25 0 110 3.182L9.06 8l1.59-1.591zM6.939 8L5.35 6.409a2.25 2.25 0 100 3.182l1.588-1.589L6.939 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function InfinityIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgInfinityIconV2 : SvgInfinityIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgInfoFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15c-.55 0-1-.45-1-1v-4c0-.55.45-1 1-1s1 .45 1 1v4c0 .55-.45 1-1 1zm-1-8h2V7h-2v2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgInfoFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M16 8A8 8 0 110 8a8 8 0 0116 0zm-8.75 3V7h1.5v4h-1.5zM8 4.5A.75.75 0 118 6a.75.75 0 010-1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function InfoFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgInfoFillIconV2 : SvgInfoFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgInfoIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 5v2h2V7h-2zm2 9c0 .55-.45 1-1 1s-1-.45-1-1v-4c0-.55.45-1 1-1s1 .45 1 1v4zm-9-4c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgInfoIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 11V7h1.5v4h-1.5zM8 4.5A.75.75 0 118 6a.75.75 0 010-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function InfoIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgInfoIconV2 : SvgInfoIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgKeyboardIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 5h16c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2l.01-10c0-1.1.89-2 1.99-2zm9 3h-2v2h2V8zm-2 3h2v2h-2v-2zm-1-3H8v2h2V8zm-2 3h2v2H8v-2zm-3 2h2v-2H5v2zm2-3H5V8h2v2zm2 7h6c.55 0 1-.45 1-1s-.45-1-1-1H9c-.55 0-1 .45-1 1s.45 1 1 1zm7-4h-2v-2h2v2zm-2-3h2V8h-2v2zm5 3h-2v-2h2v2zm-2-3h2V8h-2v2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgKeyboardIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H.75zm.75 10.5v-9h13v9h-13zm2.75-8h-1.5V6h1.5V4.5zm1.5 0V6h1.5V4.5h-1.5zm3 0V6h1.5V4.5h-1.5zm3 0V6h1.5V4.5h-1.5zm-1.5 2.75h-1.5v1.5h1.5v-1.5zm1.5 1.5v-1.5h1.5v1.5h-1.5zm-4.5 0v-1.5h-1.5v1.5h1.5zm-3 0v-1.5h-1.5v1.5h1.5zM11 10H5v1.5h6V10z",
-      fill: "currentColor"
-    })
-  });
-}
-function KeyboardIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgKeyboardIconV2 : SvgKeyboardIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLayerIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M10 3a1 1 0 011-1h8.5A2.5 2.5 0 0122 4.5V13a1 1 0 11-2 0V4.5a.5.5 0 00-.5-.5H11a1 1 0 01-1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M6 7a1 1 0 011-1h8.5A2.5 2.5 0 0118 8.5V17a1 1 0 11-2 0V8.5a.5.5 0 00-.5-.5H7a1 1 0 01-1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2v-8zm2 0h8v8H4v-8z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgLayerIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M13.5 2.5H7V1h7.25a.75.75 0 01.75.75V9h-1.5V2.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 7.75A.75.75 0 011.75 7h6.5a.75.75 0 01.75.75v6.5a.75.75 0 01-.75.75h-6.5a.75.75 0 01-.75-.75v-6.5zm1.5.75v5h5v-5h-5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M4 5.32h6.5V12H12V4.57a.75.75 0 00-.75-.75H4v1.5z",
-      fill: "currentColor"
-    })]
-  });
-}
-function LayerIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLayerIconV2 : SvgLayerIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLightningIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M7.37 3.675v9c0 .55.45 1 1 1h2v7.15c0 .51.67.69.93.25l5.19-8.9a.995.995 0 00-.86-1.5h-2.26l2.49-6.65a.994.994 0 00-.93-1.35H8.37c-.55 0-1 .45-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLightningIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M9.49.04a.75.75 0 01.51.71V6h3.25a.75.75 0 01.596 1.206l-6.5 8.5A.75.75 0 016 15.25V10H2.75a.75.75 0 01-.596-1.206l6.5-8.5A.75.75 0 019.491.04zM4.269 8.5H6.75a.75.75 0 01.75.75v3.785L11.732 7.5H9.25a.75.75 0 01-.75-.75V2.965L4.268 8.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function LightningIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLightningIconV2 : SvgLightningIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLinkIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 15h3c.55 0 1 .45 1 1s-.45 1-1 1H7c-2.76 0-5-2.24-5-5s2.24-5 5-5h3c.55 0 1 .45 1 1s-.45 1-1 1H7c-1.65 0-3 1.35-3 3s1.35 3 3 3zm10-8h-3c-.55 0-1 .45-1 1s.45 1 1 1h3c1.65 0 3 1.35 3 3s-1.35 3-3 3h-3c-.55 0-1 .45-1 1s.45 1 1 1h3c2.76 0 5-2.24 5-5s-2.24-5-5-5zm-9 5c0 .55.45 1 1 1h6c.55 0 1-.45 1-1s-.45-1-1-1H9c-.55 0-1 .45-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLinkIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M4 4h3v1.5H4a2.5 2.5 0 000 5h3V12H4a4 4 0 010-8zM12 10.5H9V12h3a4 4 0 000-8H9v1.5h3a2.5 2.5 0 010 5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M4 8.75h8v-1.5H4v1.5z",
-      fill: "currentColor"
-    })]
-  });
-}
-function LinkIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLinkIconV2 : SvgLinkIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLinkOffIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.119 3.63a.996.996 0 10-1.41 1.41l2.4 2.4c-1.94.8-3.27 2.77-3.09 5.04.21 2.64 2.57 4.59 5.21 4.59h2.82c.52 0 .95-.43.95-.95s-.43-.95-.95-.95h-2.89c-1.63 0-3.1-1.19-3.25-2.82A3.095 3.095 0 016.659 9l2.1 2.1c-.43.09-.76.46-.76.92v.1c0 .52.43.95.95.95h1.78l2.27 2.27v1.73h1.73l3.3 3.3a.996.996 0 101.41-1.41L4.119 3.63zm17.82 7.67c-.37-2.47-2.62-4.23-5.12-4.23h-2.87c-.52 0-.95.43-.95.95s.43.95.95.95h2.9c1.6 0 3.04 1.14 3.22 2.73.17 1.43-.64 2.69-1.85 3.22l1.4 1.4c1.63-1.02 2.64-2.91 2.32-5.02zm-6.89-.23c.52 0 .95.43.95.95v.1c0 .16-.05.31-.12.44l-1.49-1.49h.66z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLinkOffIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M14.035 11.444A4 4 0 0012 4H9v1.5h3a2.5 2.5 0 01.917 4.826l1.118 1.118zM14 13.53L2.47 2l-1 1 1.22 1.22A4.002 4.002 0 004 12h3v-1.5H4a2.5 2.5 0 01-.03-5l1.75 1.75H4v1.5h3.22L13 14.53l1-1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M9.841 7.25l1.5 1.5H12v-1.5H9.841z",
-      fill: "currentColor"
-    })]
-  });
-}
-function LinkOffIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLinkOffIconV2 : SvgLinkOffIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgListBorderIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20 3H4c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h16c.55 0 1-.45 1-1V4c0-.55-.45-1-1-1zM9 7H7v2h2V7zm7 2h-4c-.55 0-1-.45-1-1s.45-1 1-1h4c.55 0 1 .45 1 1s-.45 1-1 1zm0 4h-4c-.55 0-1-.45-1-1s.45-1 1-1h4c.55 0 1 .45 1 1s-.45 1-1 1zm-4 4h4c.55 0 1-.45 1-1s-.45-1-1-1h-4c-.55 0-1 .45-1 1s.45 1 1 1zm-5-6h2v2H7v-2zm2 4H7v2h2v-2zm-4 4h14V5H5v14z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgListBorderIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M12 8.75H7v-1.5h5v1.5zM7 5.5h5V4H7v1.5zM12 12H7v-1.5h5V12zM4.75 5.5a.75.75 0 100-1.5.75.75 0 000 1.5zM5.5 8A.75.75 0 114 8a.75.75 0 011.5 0zM4.75 12a.75.75 0 100-1.5.75.75 0 000 1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v11h11v-11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ListBorderIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgListBorderIconV2 : SvgListBorderIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgListIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M4 9c.55 0 1-.45 1-1s-.45-1-1-1-1 .45-1 1 .45 1 1 1zM5 12c0 .55-.45 1-1 1s-1-.45-1-1 .45-1 1-1 1 .45 1 1zM5 16c0 .55-.45 1-1 1s-1-.45-1-1 .45-1 1-1 1 .45 1 1zM20 13H8c-.55 0-1-.45-1-1s.45-1 1-1h12c.55 0 1 .45 1 1s-.45 1-1 1zM8 17h12c.55 0 1-.45 1-1s-.45-1-1-1H8c-.55 0-1 .45-1 1s.45 1 1 1zM8 9c-.55 0-1-.45-1-1s.45-1 1-1h12c.55 0 1 .45 1 1s-.45 1-1 1H8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgListIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1.5 2.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM3 2h13v1.5H3V2zM3 5.5h13V7H3V5.5zM3 9h13v1.5H3V9zM3 12.5h13V14H3v-1.5zM.75 7a.75.75 0 100-1.5.75.75 0 000 1.5zM1.5 13.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM.75 10.5a.75.75 0 100-1.5.75.75 0 000 1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function ListIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgListIconV2 : SvgListIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLoadingIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M23.212 12a.788.788 0 01-.789-.788 9.57 9.57 0 00-.757-3.751 9.662 9.662 0 00-5.129-5.129 9.587 9.587 0 00-3.749-.755.788.788 0 010-1.577c1.513 0 2.983.296 4.365.882a11.128 11.128 0 013.562 2.403 11.157 11.157 0 013.283 7.927.785.785 0 01-.786.788z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLoadingIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M23.212 12a.788.788 0 01-.789-.788 9.57 9.57 0 00-.757-3.751 9.662 9.662 0 00-5.129-5.129 9.587 9.587 0 00-3.749-.755.788.788 0 010-1.577c1.513 0 2.983.296 4.365.882a11.128 11.128 0 013.562 2.403 11.157 11.157 0 013.283 7.927.785.785 0 01-.786.788z",
-      fill: "currentColor"
-    })
-  });
-}
-function LoadingIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLoadingIconV2 : SvgLoadingIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLockFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M18 8.5h-1v-2c0-2.76-2.24-5-5-5s-5 2.24-5 5v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm-3-11v2h6v-2c0-1.66-1.34-3-3-3s-3 1.34-3 3z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLockFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 6V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H12zM5.5 6h5V4a2.5 2.5 0 00-5 0v2zm1.75 7V9h1.5v4h-1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function LockFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLockFillIconV2 : SvgLockFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLockIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M17 8.5h1c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H6c-1.1 0-2-.9-2-2v-10c0-1.1.9-2 2-2h1v-2c0-2.76 2.24-5 5-5s5 2.24 5 5v2zm-5-5c-1.66 0-3 1.34-3 3v2h6v-2c0-1.66-1.34-3-3-3zm-5 17c-.55 0-1-.45-1-1v-8c0-.55.45-1 1-1h10c.55 0 1 .45 1 1v8c0 .55-.45 1-1 1H7zm7-5c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLockIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 9v4h1.5V9h-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 6V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H12zm.5 1.5v7h-9v-7h9zM5.5 4v2h5V4a2.5 2.5 0 00-5 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function LockIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLockIconV2 : SvgLockIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgLockUnlockedIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M18 8.5h-1v-2c0-2.76-2.24-5-5-5-2.28 0-4.27 1.54-4.84 3.75-.14.54.18 1.08.72 1.22a1 1 0 001.22-.72A2.996 2.996 0 0112 3.5c1.65 0 3 1.35 3 3v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-10c0-1.1-.9-2-2-2zm-6 5c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm5 7c.55 0 1-.45 1-1v-8c0-.55-.45-1-1-1H7c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1h10z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgLockUnlockedIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M10 11.75v-1.5H6v1.5h4z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.25 6H5.5V4a2.5 2.5 0 015 0v.5H12V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75zM3.5 7.5h9v7h-9v-7z",
-      fill: "currentColor"
-    })]
-  });
-}
-function LockUnlockedIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgLockUnlockedIconV2 : SvgLockUnlockedIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgMIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.268 7.273V16h1.79v-5.702h.072l2.259 5.66h1.219l2.258-5.638h.073V16h1.79V7.273h-2.276l-2.403 5.863h-.103L9.544 7.273H7.268z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M17 3H7a4 4 0 00-4 4v10a4 4 0 004 4h10a4 4 0 004-4V7a4 4 0 00-4-4zM7 1a6 6 0 00-6 6v10a6 6 0 006 6h10a6 6 0 006-6V7a6 6 0 00-6-6H7z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgMIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M6.42 5.415A.75.75 0 005 5.75V11h1.5V8.927l.83 1.658a.75.75 0 001.34 0l.83-1.658V11H11V5.75a.75.75 0 00-1.42-.335L8 8.573 6.42 5.415z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function MIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgMIconV2 : SvgMIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgMinusBoxIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 16H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12c0 .55-.45 1-1 1zm-9-5.5c-.55 0-1-.45-1-1s.45-1 1-1h6c.55 0 1 .45 1 1s-.45 1-1 1H9z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgMinusBoxIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11.5 8.75h-7v-1.5h7v1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function MinusBoxIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgMinusBoxIconV2 : SvgMinusBoxIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgMinusCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm6-1c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1H8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgMinusCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm3.5-7.25h-7v-1.5h7v1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function MinusCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgMinusCircleFillIconV2 : SvgMinusCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgMinusCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-4-9c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1H8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgMinusCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M4.5 8.75v-1.5h7v1.5h-7z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function MinusCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgMinusCircleIconV2 : SvgMinusCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgModelsIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20.876 6.87a3.001 3.001 0 10-3.815-3.475L6.741 5.777a3 3 0 10-2.519 4.215l2.636 7.907A3 3 0 1012 20l5.2-2.599a3 3 0 102.913-5.187l.763-5.343zM21 4a1 1 0 11-2 0 1 1 0 012 0zm-4.913 11.72l-4.764 2.382a2.994 2.994 0 00-2.65-1.084L6.094 9.283l9.993 4.997a3.006 3.006 0 000 1.44zM17.2 12.6L7.368 7.684l9.97-2.3c.327.628.87 1.126 1.53 1.395l-.765 5.357a2.99 2.99 0 00-.903.464zM4 8a1 1 0 100-2 1 1 0 000 2zm5 13a1 1 0 100-2 1 1 0 000 2zm10-5a1 1 0 100-2 1 1 0 000 2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgModelsIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#ModelsIcon_svg__clip0_13123_34951)",
-      children: jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M0 4.75a2.75 2.75 0 015.145-1.353l4.372-.95a2.75 2.75 0 113.835 2.823l.282 2.257a2.75 2.75 0 11-2.517 4.46l-2.62 1.145.003.118a2.75 2.75 0 11-4.415-2.19L3.013 7.489A2.75 2.75 0 010 4.75zM2.75 3.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm2.715 1.688c.018-.11.029-.22.033-.333l4.266-.928a2.753 2.753 0 002.102 1.546l.282 2.257c-.377.165-.71.412-.976.719L5.465 5.188zM4.828 6.55a2.767 2.767 0 01-.413.388l1.072 3.573a2.747 2.747 0 012.537 1.19l2.5-1.093a2.792 2.792 0 01.01-.797l-5.706-3.26zM12 10.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zM5.75 12a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zM11 2.75a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "ModelsIcon_svg__clip0_13123_34951",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function ModelsIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgModelsIconV2 : SvgModelsIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgNewWindowIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5 18c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-5c0-.55.45-1 1-1s1 .45 1 1v6c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V5a2 2 0 012-2h6c.55 0 1 .45 1 1s-.45 1-1 1H6c-.55 0-1 .45-1 1v12zM15 5c-.55 0-1-.45-1-1s.45-1 1-1h5c.55 0 1 .45 1 1v5c0 .55-.45 1-1 1s-1-.45-1-1V6.41l-9.13 9.13a.996.996 0 11-1.41-1.41L17.59 5H15z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgNewWindowIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M10 1h5v5h-1.5V3.56L8.53 8.53 7.47 7.47l4.97-4.97H10V1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M1 2.75A.75.75 0 011.75 2H8v1.5H2.5v10h10V8H14v6.25a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V2.75z",
-      fill: "currentColor"
-    })]
-  });
-}
-function NewWindowIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgNewWindowIconV2 : SvgNewWindowIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgNoIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9A7.902 7.902 0 014 12zm3.1 6.31A7.902 7.902 0 0012 20c4.42 0 8-3.58 8-8 0-1.85-.63-3.55-1.69-4.9L7.1 18.31z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgNoIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 0110.535-5.096l-9.131 9.131A6.472 6.472 0 011.5 8zm2.465 5.096a6.5 6.5 0 009.131-9.131l-9.131 9.131z",
-      fill: "currentColor"
-    })
-  });
-}
-function NoIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgNoIconV2 : SvgNoIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgNotebookIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 2v4H2v2h2v3H2v2h2v3H2v2h2v4h16a2 2 0 002-2V4a2 2 0 00-2-2H4zm4 2H6v2h2V4zm2 0v16h10V4H10zM8 20v-2H6v2h2zm0-4v-3H6v3h2zm0-5V8H6v3h2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgNotebookIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M3 1.75A.75.75 0 013.75 1h10.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V12.5H1V11h2V8.75H1v-1.5h2V5H1V3.5h2V1.75zm1.5.75v11H6v-11H4.5zm3 0v11h6v-11h-6z",
-      fill: "currentColor"
-    })
-  });
-}
-function NotebookIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgNotebookIconV2 : SvgNotebookIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgNotificationIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M12 1.917c-3.5 0-6.5 3-6.5 6.083v5.278C5.5 16 3.5 18 3.5 18h17s-2-2-2-4.722V8c0-3.083-3-6.083-6.5-6.083z",
-      stroke: "currentColor",
-      strokeWidth: 2,
-      strokeLinecap: "round",
-      strokeLinejoin: "round"
-    }), jsx("path", {
-      d: "M9.5 21c.5.5 1.5 1 2.5 1s2-.5 2.5-1",
-      stroke: "currentColor",
-      strokeWidth: 2,
-      strokeLinecap: "round"
-    })]
-  });
-}
-function SvgNotificationIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 1a5 5 0 00-5 5v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 001.75 13h3.5v.25a2.75 2.75 0 105.5 0V13h3.5a.75.75 0 00.624-1.166l-1.301-1.952A3.41 3.41 0 0113 7.99V6a5 5 0 00-5-5zm1.25 12h-2.5v.25a1.25 1.25 0 102.5 0V13zM4.5 6a3.5 3.5 0 117 0v1.99c0 .97.287 1.918.825 2.724l.524.786H3.15l.524-.786A4.91 4.91 0 004.5 7.99V6z",
-      fill: "currentColor"
-    })
-  });
-}
-function NotificationIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgNotificationIconV2 : SvgNotificationIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgOfficeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 5v2h8c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V5c0-1.1.9-2 2-2h6c1.1 0 2 .9 2 2zM4 19h2v-2H4v2zm2-4H4v-2h2v2zm-2-4h2V9H4v2zm2-4H4V5h2v2zm2 12h2v-2H8v2zm2-4H8v-2h2v2zm-2-4h2V9H8v2zm2-4H8V5h2v2zm2 12h7c.55 0 1-.45 1-1v-8c0-.55-.45-1-1-1h-7v2h2v2h-2v2h2v2h-2v2zm6-8h-2v2h2v-2zm-2 4h2v2h-2v-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgOfficeIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M4 8.75h8v-1.5H4v1.5zM7 5.75H4v-1.5h3v1.5zM4 11.75h8v-1.5H4v1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V5a.75.75 0 00-.75-.75H10v-2.5A.75.75 0 009.25 1h-7.5zm.75 1.5h6V5c0 .414.336.75.75.75h4.25v7.75h-11v-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function OfficeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgOfficeIconV2 : SvgOfficeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgOverflowIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-2 8c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2-2-.9-2-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgOverflowIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8 1a1.75 1.75 0 100 3.5A1.75 1.75 0 008 1zM8 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM8 11.5A1.75 1.75 0 108 15a1.75 1.75 0 000-3.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function OverflowIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgOverflowIconV2 : SvgOverflowIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPageBottomIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M17 18.001c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h10zm-5-7.82l3.89-3.89c.38-.38 1.02-.38 1.41 0a.996.996 0 010 1.41l-4.6 4.59a.996.996 0 01-1.41 0L6.7 7.701a.996.996 0 111.41-1.41l3.89 3.89z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPageBottomIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 3.06L2.06 2l5.97 5.97L14 2l1.06 1.06-7.03 7.031L1 3.061zm14.03 10.47v1.5h-14v-1.5h14z",
-      fill: "currentColor"
-    })
-  });
-}
-function PageBottomIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPageBottomIconV2 : SvgPageBottomIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPageFirstIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.999 7c0-.55-.45-1-1-1s-1 .45-1 1v10c0 .55.45 1 1 1s1-.45 1-1V7zm5.82 5l3.88 3.89c.39.38.39 1.02.01 1.4a.996.996 0 01-1.41 0l-4.59-4.59a.996.996 0 010-1.41l4.59-4.59a.996.996 0 111.41 1.41L13.819 12z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPageFirstIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12.97 1l1.06 1.06-5.97 5.97L14.03 14l-1.06 1.06-7.03-7.03L12.97 1zM2.5 15.03H1v-14h1.5v14z",
-      fill: "currentColor"
-    })
-  });
-}
-function PageFirstIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPageFirstIconV2 : SvgPageFirstIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPageLastIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M18.001 7c0-.55-.45-1-1-1s-1 .45-1 1v10c0 .55.45 1 1 1s1-.45 1-1V7zm-7.82 5l-3.89-3.89c-.38-.38-.38-1.02 0-1.41a.996.996 0 011.41 0l4.59 4.6c.39.39.39 1.02 0 1.41l-4.59 4.59a.996.996 0 11-1.41-1.41l3.89-3.89z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPageLastIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M3.06 1L2 2.06l5.97 5.97L2 14l1.06 1.06 7.031-7.03L3.061 1zm10.47 14.03h1.5v-14h-1.5v14z",
-      fill: "currentColor"
-    })
-  });
-}
-function PageLastIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPageLastIconV2 : SvgPageLastIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPageTopIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7 5.999c-.55 0-1 .45-1 1s.45 1 1 1h10c.55 0 1-.45 1-1s-.45-1-1-1H7zm5 7.82l-3.89 3.89c-.38.38-1.02.38-1.41 0a.996.996 0 010-1.41l4.6-4.59a.996.996 0 011.41 0l4.59 4.59a.996.996 0 11-1.41 1.41L12 13.819z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPageTopIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 12.97l1.06 1.06 5.97-5.97L14 14.03l1.06-1.06-7.03-7.03L1 12.97zM15.03 2.5V1h-14v1.5h14z",
-      fill: "currentColor"
-    })
-  });
-}
-function PageTopIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPageTopIconV2 : SvgPageTopIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPencilIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20.709 5.631c.39.39.39 1.02 0 1.41l-1.83 1.83-3.75-3.75 1.83-1.83a.996.996 0 011.41 0l2.34 2.34zm-17.71 14.87v-3.04c0-.14.05-.26.15-.36l10.91-10.91 3.75 3.75-10.92 10.91a.47.47 0 01-.35.15h-3.04c-.28 0-.5-.22-.5-.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPencilIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M13.487 1.513a1.75 1.75 0 00-2.474 0L1.22 11.306a.75.75 0 00-.22.53v2.5c0 .414.336.75.75.75h2.5a.75.75 0 00.53-.22l9.793-9.793a1.75 1.75 0 000-2.475l-1.086-1.085zm-1.414 1.06a.25.25 0 01.354 0l1.086 1.086a.25.25 0 010 .354L12 5.525l-1.44-1.44 1.513-1.512zM9.5 5.146l-7 7v1.44h1.44l7-7-1.44-1.44z",
-      fill: "currentColor"
-    })
-  });
-}
-function PencilIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPencilIconV2 : SvgPencilIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPinCancelIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M12 22v-5",
-      stroke: "currentColor",
-      strokeWidth: 2,
-      strokeLinecap: "round"
-    }), jsx("path", {
-      d: "M6.5 17h11c1.236 0 1.942-1.411 1.2-2.4L16 11V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v6l-2.7 3.6c-.742.989-.036 2.4 1.2 2.4z",
-      fill: "currentColor",
-      stroke: "currentColor",
-      strokeWidth: 2
-    }), jsx("path", {
-      d: "M10 14l4-4M10 10l4 4",
-      stroke: "#fff",
-      strokeWidth: 2,
-      strokeLinecap: "round"
-    })]
-  });
-}
-function SvgPinCancelIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5.75 0A.75.75 0 005 .75v1.19l9 9V9a.75.75 0 00-.22-.53l-2.12-2.122a2.25 2.25 0 01-.66-1.59V.75a.75.75 0 00-.75-.75h-4.5zM10.94 12l2.53 2.53 1.06-1.06-11.5-11.5-1.06 1.06 2.772 2.773c-.104.2-.239.383-.4.545L2.22 8.47A.75.75 0 002 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h2.19z",
-      fill: "currentColor"
-    })
-  });
-}
-function PinCancelIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPinCancelIconV2 : SvgPinCancelIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPinFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M7 5a3 3 0 013-3h4a3 3 0 013 3v5.667L19.5 14c1.236 1.648.06 4-2 4H13v4a1 1 0 01-2 0v-4H6.5c-2.06 0-3.236-2.352-2-4L7 10.667V5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPinFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M5 .75A.75.75 0 015.75 0h4.5a.75.75 0 01.75.75v4.007c0 .597.237 1.17.659 1.591L13.78 8.47c.141.14.22.331.22.53v2.25a.75.75 0 01-.75.75h-4.5v4h-1.5v-4h-4.5a.75.75 0 01-.75-.75V9a.75.75 0 01.22-.53L4.34 6.348A2.25 2.25 0 005 4.758V.75z",
-      fill: "currentColor"
-    })
-  });
-}
-function PinFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPinFillIconV2 : SvgPinFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPinIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10 2a3 3 0 00-3 3v5.667L4.5 14c-1.236 1.648-.06 4 2 4H11v4a1 1 0 102 0v-4h4.5c2.06 0 3.236-2.352 2-4L17 10.667V5a3 3 0 00-3-3h-4zm2.004 14H17.5a.5.5 0 00.4-.8L15 11.333V5a1 1 0 00-1-1h-4a1 1 0 00-1 1v6.333L6.1 15.2a.5.5 0 00.4.8h5.504z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPinIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.75 0A.75.75 0 005 .75v4.007a2.25 2.25 0 01-.659 1.591L2.22 8.47A.75.75 0 002 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h4.5a.75.75 0 00.75-.75V9a.75.75 0 00-.22-.53L11.66 6.348A2.25 2.25 0 0111 4.758V.75a.75.75 0 00-.75-.75h-4.5zm.75 4.757V1.5h3v3.257a3.75 3.75 0 001.098 2.652L12.5 9.311V10.5h-9V9.31L5.402 7.41A3.75 3.75 0 006.5 4.757z",
-      fill: "currentColor"
-    })
-  });
-}
-function PinIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPinIconV2 : SvgPinIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlayCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm8.8-3.9a.5.5 0 00-.8.4v7c0 .41.47.65.8.4l4.67-3.5c.27-.2.27-.6 0-.8L10.8 8.1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlayCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm7.125-2.815A.75.75 0 006 5.835v4.33a.75.75 0 001.125.65l3.75-2.166a.75.75 0 000-1.299l-3.75-2.165z",
-      fill: "currentColor"
-    })
-  });
-}
-function PlayCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlayCircleFillIconV2 : SvgPlayCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlayCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.2 13.9l4.67-3.5c.27-.2.27-.6 0-.8L10.8 8.1a.5.5 0 00-.8.4v7c0 .41.47.65.8.4zM4 12c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlayCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11.25 8a.75.75 0 01-.375.65l-3.75 2.165A.75.75 0 016 10.165v-4.33a.75.75 0 011.125-.65l3.75 2.165a.75.75 0 01.375.65z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function PlayCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlayCircleIconV2 : SvgPlayCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlayIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M6.927 6.82v10.36c0 .79.87 1.27 1.54.84l8.14-5.18a1 1 0 000-1.69l-8.14-5.17a.998.998 0 00-1.54.84z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlayIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M12.125 8.864a.75.75 0 000-1.3l-6-3.464A.75.75 0 005 4.75v6.928a.75.75 0 001.125.65l6-3.464z",
-      fill: "currentColor"
-    })
-  });
-}
-function PlayIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlayIconV2 : SvgPlayIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlusCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm11 1h3c.55 0 1-.45 1-1s-.45-1-1-1h-3V8c0-.55-.45-1-1-1s-1 .45-1 1v3H8c-.55 0-1 .45-1 1s.45 1 1 1h3v3c0 .55.45 1 1 1s1-.45 1-1v-3z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlusCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm-.75-4.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function PlusCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlusCircleFillIconV2 : SvgPlusCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlusCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 5c-.55 0-1 .45-1 1v3H8c-.55 0-1 .45-1 1s.45 1 1 1h3v3c0 .55.45 1 1 1s1-.45 1-1v-3h3c.55 0 1-.45 1-1s-.45-1-1-1h-3V8c0-.55-.45-1-1-1zm-8 5c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlusCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 11.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function PlusCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlusCircleIconV2 : SvgPlusCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlusIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M18 13h-5v5c0 .55-.45 1-1 1s-1-.45-1-1v-5H6c-.55 0-1-.45-1-1s.45-1 1-1h5V6c0-.55.45-1 1-1s1 .45 1 1v5h5c.55 0 1 .45 1 1s-.45 1-1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlusIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.25 7.25V1h1.5v6.25H15v1.5H8.75V15h-1.5V8.75H1v-1.5h6.25z",
-      fill: "currentColor"
-    })
-  });
-}
-function PlusIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlusIconV2 : SvgPlusIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgPlusSquareIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 15c0 .55-.45 1-1 1H6c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h12c.55 0 1 .45 1 1v12zM11 8c0-.55.45-1 1-1s1 .45 1 1v3h3c.55 0 1 .45 1 1s-.45 1-1 1h-3v3c0 .55-.45 1-1 1s-1-.45-1-1v-3H8c-.55 0-1-.45-1-1s.45-1 1-1h3V8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgPlusSquareIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 7.25V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5V8.75H4.5v-1.5h2.75z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v11h11v-11h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function PlusSquareIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgPlusSquareIconV2 : SvgPlusSquareIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgQueryEditorIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 19c0 1.652 1.348 3 3 3h14c1.652 0 3-1.348 3-3V5c0-1.652-1.348-3-3-3H5C3.348 2 2 3.348 2 5v14zM5 4c-.548 0-1 .452-1 1v3h16V5c0-.548-.452-1-1-1H5zm15 6H4v9c0 .548.452 1 1 1h14c.548 0 1-.452 1-1v-9z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M7.293 12.293a1 1 0 011.414 0l2 2a1 1 0 010 1.414l-2 2a1 1 0 01-1.414-1.414L8.586 15l-1.293-1.293a1 1 0 010-1.414z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 17a1 1 0 011-1h4a1 1 0 110 2h-4a1 1 0 01-1-1z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgQueryEditorIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M12 12H8v-1.5h4V12zM5.53 11.53L7.56 9.5 5.53 7.47 4.47 8.53l.97.97-.97.97 1.06 1.06z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 3V2.5h11V4h-11zm0 1.5v8h11v-8h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function QueryEditorIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgQueryEditorIconV2 : SvgQueryEditorIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgQueryIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M19.88 18.47c.44-.7.7-1.51.7-2.39 0-2.49-2.01-4.5-4.5-4.5s-4.5 2.01-4.5 4.5 2.01 4.5 4.49 4.5c.88 0 1.7-.26 2.39-.7L21.58 23 23 21.58l-3.12-3.11zm-3.8.11a2.5 2.5 0 010-5 2.5 2.5 0 010 5zm-.36-8.5c-.74.02-1.45.18-2.1.45l-.55-.83-3.8 6.18-3.01-3.52-3.63 5.81L1 17l5-8 3 3.5L13 6l2.72 4.08zm2.59.5c-.64-.28-1.33-.45-2.05-.49L21.38 2 23 3.18l-4.69 7.4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgQueryIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#QueryIcon_svg__clip0_13123_35183)",
-      fill: "currentColor",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16h-.75a.75.75 0 01-.75-.75V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z"
-      }), jsx("path", {
-        d: "M5.53 9.97L8.56 13l-3.03 3.03-1.06-1.06L6.44 13l-1.97-1.97 1.06-1.06zM14 14.5H9V16h5v-1.5z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "QueryIcon_svg__clip0_13123_35183",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function QueryIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgQueryIconV2 : SvgQueryIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgQuestionMarkFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17v-2h2v2h-2zm3.17-6.83l.9-.92c1.02-1.02 1.37-2.77.19-4.4-.9-1.25-2.35-2.04-3.87-1.8-1.55.24-2.8 1.36-3.23 2.83C8 8.44 8.4 9 8.98 9h.3c.39 0 .7-.28.82-.65.33-.95 1.36-1.58 2.47-1.27.7.2 1.26.81 1.39 1.53.13.7-.09 1.36-.55 1.8l-1.24 1.26A3.997 3.997 0 0011 14.5v.5h2c0-.46.05-.82.13-1.14.18-.72.54-1.18 1.04-1.69z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgQuestionMarkFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm2.207-10.189a2.25 2.25 0 01-1.457 2.56V9h-1.5V7.75A.75.75 0 018 7a.75.75 0 10-.75-.75h-1.5a2.25 2.25 0 014.457-.439zM7.25 10.75a.75.75 0 101.5 0 .75.75 0 00-1.5 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function QuestionMarkFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgQuestionMarkFillIconV2 : SvgQuestionMarkFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgQuestionMarkIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm2 0c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8zm9 4v2h-2v-2h2zM8.18 8.83a4.002 4.002 0 014.43-2.79c1.74.26 3.11 1.73 3.35 3.47.228 1.614-.664 2.392-1.526 3.143-.158.139-.315.276-.464.417-.12.11-.23.22-.33.34-.005.005-.01.012-.015.02l-.015.02a2.758 2.758 0 00-.33.48c-.17.3-.28.65-.28 1.07h-2c0-.5.08-.91.2-1.25l.01-.034a.144.144 0 01.01-.036c.005-.015.012-.027.02-.04.008-.013.015-.025.02-.04a3.331 3.331 0 01.265-.525l.015-.025c0-.005.003-.008.005-.01s.005-.005.005-.01c.34-.513.797-.864 1.224-1.193.614-.472 1.167-.897 1.226-1.687.08-.97-.62-1.9-1.57-2.1-1.03-.22-1.98.39-2.3 1.28-.14.38-.47.67-.88.67h-.2a.907.907 0 01-.87-1.17z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgQuestionMarkIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 10.75a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM10.079 7.111A2.25 2.25 0 105.75 6.25h1.5A.75.75 0 118 7a.75.75 0 00-.75.75V9h1.5v-.629a2.25 2.25 0 001.329-1.26z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function QuestionMarkIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgQuestionMarkIconV2 : SvgQuestionMarkIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgReaderModeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M21 3.5H3c-1.1 0-2 .9-2 2v13c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2v-13c0-1.1-.9-2-2-2zm0 14c0 .55-.45 1-1 1h-8v-13h8c.55 0 1 .45 1 1v11zm-6.5-10a1 1 0 100 2h4a1 1 0 100-2h-4zm-1 4.5a1 1 0 011-1h4a1 1 0 110 2h-4a1 1 0 01-1-1zm1 2.5a1 1 0 100 2h4a1 1 0 100-2h-4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgReaderModeIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M13 4.5h-3V6h3V4.5zM13 7.25h-3v1.5h3v-1.5zM13 10h-3v1.5h3V10z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H.75zm.75 10.5v-9h5.75v9H1.5zm7.25 0h5.75v-9H8.75v9z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ReaderModeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgReaderModeIconV2 : SvgReaderModeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgRedoIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#RedoIcon_svg__clip0_13917_34618)",
-      children: jsx("path", {
-        d: "M13.129 6.5h-8.69a3 3 0 100 6h4.5V14h-4.5a4.5 4.5 0 010-9h8.69l-2.72-2.72 1.06-1.06L16 5.75l-4.53 4.53-1.061-1.06 2.72-2.72z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "RedoIcon_svg__clip0_13917_34618",
-        children: jsx("path", {
-          fill: "#fff",
-          transform: "rotate(-180 8 8)",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function SvgRedoIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#RedoIcon_svg__clip0_14136_38626)",
-      children: jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M13.19 5l-2.72-2.72 1.06-1.06 4.53 4.53-4.53 4.53-1.06-1.06 2.72-2.72H4.5a3 3 0 100 6H9V14H4.5a4.5 4.5 0 010-9h8.69z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "RedoIcon_svg__clip0_14136_38626",
-        children: jsx("path", {
-          fill: "#fff",
-          transform: "matrix(1 0 0 -1 0 16)",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function RedoIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgRedoIconV2 : SvgRedoIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgRefreshIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8 2.5a5.48 5.48 0 013.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588a7 7 0 10.114 9.985l-1.064-1.057A5.5 5.5 0 118 2.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgRefreshIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 8a7 7 0 0111.85-5.047l.65.594V2H15v4h-4V4.5h1.32l-.496-.453-.007-.007a5.5 5.5 0 10.083 7.839l1.063 1.058A7 7 0 011 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function RefreshIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgRefreshIconV2 : SvgRefreshIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgReposIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M4 5a1 1 0 011-1h3.93a1 1 0 01.832.445L11.465 7H19a1 1 0 011 1v3h2V8a3 3 0 00-3-3h-6.465l-1.11-1.664A3 3 0 008.93 2H5a3 3 0 00-3 3v14a3 3 0 003 3h4v-2H5a1 1 0 01-1-1V5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M17 12c0 .69-.234 1.327-.626 1.834.376.774.803 1.137 1.198 1.334.265.132.55.212.872.26a3 3 0 11-.42 1.957 4.831 4.831 0 01-1.346-.428c-.653-.327-1.214-.817-1.678-1.507v1.72a3.001 3.001 0 11-2 0v-2.34A3.001 3.001 0 1117 12zm-2 0a1 1 0 11-2 0 1 1 0 012 0zm6 6a1 1 0 110-2 1 1 0 010 2zm-6 2a1 1 0 11-2 0 1 1 0 012 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgReposIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 2.75A.75.75 0 01.75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 01.75.75V8h-1.5V5.5h-7a.75.75 0 01-.53-.22L5.555 3.866a1.25 1.25 0 00-.883-.366H1.5v9H5V14H.75a.75.75 0 01-.75-.75V2.75zM9 8.5a.5.5 0 100 1 .5.5 0 000-1zM7 9a2 2 0 113.778.917c.376.58.888 1.031 1.414 1.227a2 2 0 11-.072 1.54c-.977-.207-1.795-.872-2.37-1.626v1.087a2 2 0 11-1.5 0v-1.29A2 2 0 017 9zm7 2.5a.5.5 0 100 1 .5.5 0 000-1zm-5 2a.5.5 0 100 1 .5.5 0 000-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function ReposIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgReposIconV2 : SvgReposIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSchoolIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.064 8.116l8.43-4.6c.6-.32 1.32-.32 1.92 0l9.52 5.19c.32.18.52.51.52.88v6.41c0 .55-.45 1-1 1s-1-.45-1-1v-5.91l-8.04 4.39c-.6.33-1.32.33-1.92 0l-8.43-4.6c-.69-.38-.69-1.38 0-1.76zm2.39 7.87v-2.81l6.04 3.3c.6.33 1.32.33 1.92 0l6.04-3.3v2.81c0 .73-.4 1.41-1.04 1.76l-5 2.73c-.6.33-1.32.33-1.92 0l-5-2.73a2.011 2.011 0 01-1.04-1.76z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSchoolIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M16 7a.75.75 0 00-.37-.647l-7.25-4.25a.75.75 0 00-.76 0L.37 6.353a.75.75 0 000 1.294L3 9.188V12a.75.75 0 00.4.663l4.25 2.25a.75.75 0 00.7 0l4.25-2.25A.75.75 0 0013 12V9.188l1.5-.879V12H16V7zm-7.62 4.897l3.12-1.83v1.481L8 13.401l-3.5-1.853v-1.48l3.12 1.829a.75.75 0 00.76 0zM8 3.619L2.233 7 8 10.38 13.767 7 8 3.62z",
-      fill: "currentColor"
-    })
-  });
-}
-function SchoolIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSchoolIconV2 : SvgSchoolIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSearchIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.187 14.472h.79l4.24 4.26c.41.41.41 1.08 0 1.49-.41.41-1.08.41-1.49 0l-4.25-4.25v-.79l-.27-.28a6.5 6.5 0 01-5.34 1.48c-2.78-.47-5-2.79-5.34-5.59a6.505 6.505 0 017.27-7.27c2.8.34 5.12 2.56 5.59 5.34a6.5 6.5 0 01-1.48 5.34l.28.27zm-9.71-4.5c0 2.49 2.01 4.5 4.5 4.5s4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5-4.5 2.01-4.5 4.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSearchIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#SearchIcon_svg__clip0_13123_34883)",
-      children: jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M8 1a7 7 0 104.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 008 1zM2.5 8a5.5 5.5 0 1111 0 5.5 5.5 0 01-11 0z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "SearchIcon_svg__clip0_13123_34883",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function SearchIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSearchIconV2 : SvgSearchIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSecurityIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.19 4.376l7-3.11c.51-.23 1.11-.23 1.62 0l7 3.11c.72.32 1.19 1.04 1.19 1.83v4.7c0 5.55-3.84 10.74-9 12-5.16-1.26-9-6.45-9-12v-4.7c0-.79.47-1.51 1.19-1.83zM19 11.896h-7v-8.8l-7 3.11v5.7h7v8.93c3.72-1.15 6.47-4.82 7-8.94z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSecurityIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 1.75A.75.75 0 012.75 1h10.5a.75.75 0 01.75.75v7.465a5.75 5.75 0 01-2.723 4.889l-2.882 1.784a.75.75 0 01-.79 0l-2.882-1.784A5.75 5.75 0 012 9.214V1.75zm1.5.75V7h3.75V2.5H3.5zm5.25 0V7h3.75V2.5H8.75zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0012.5 9.215V8.5zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 002.013 3.613l1.737 1.076z",
-      fill: "currentColor"
-    })
-  });
-}
-function SecurityIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSecurityIconV2 : SvgSecurityIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgShareIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M18 16.12c-.76 0-1.44.3-1.96.77l-7.13-4.15c.05-.23.09-.46.09-.7 0-.24-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.85c-.54-.5-1.25-.81-2.04-.81-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92 0-1.61-1.31-2.92-2.92-2.92z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgShareIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M3.97 5.03L8 1l4.03 4.03-1.06 1.061-2.22-2.22v7.19h-1.5V3.87l-2.22 2.22-1.06-1.06z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M2.5 13.56v-6.5H1v7.25c0 .415.336.75.75.75h12.5a.75.75 0 00.75-.75V7.06h-1.5v6.5h-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ShareIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgShareIconV2 : SvgShareIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSidebarAutoIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10 20h10a1 1 0 110 2H5c-1.652 0-3-1.348-3-3V5c0-1.652 1.348-3 3-3h15a1 1 0 110 2H10v16zm-2 0H5c-.548 0-1-.452-1-1V5c0-.548.452-1 1-1h3v16z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M19.707 8.293a1 1 0 10-1.414 1.414L20.586 12l-2.293 2.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3zM15.707 15.707a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414l3-3a1 1 0 111.414 1.414L13.414 12l2.293 2.293a1 1 0 010 1.414z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgSidebarAutoIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 17 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M9.06 8l1.97 1.97-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06L9.06 8zM11.97 6.03L13.94 8l-1.97 1.97 1.06 1.06L16.06 8l-3.03-3.03-1.06 1.06z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SidebarAutoIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSidebarAutoIconV2 : SvgSidebarAutoIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSidebarCollapseIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20 20H10V4h10a1 1 0 100-2H5C3.348 2 2 3.348 2 5v14c0 1.652 1.348 3 3 3h15a1 1 0 100-2zM5 20h3V4H5c-.548 0-1 .452-1 1v14c0 .548.452 1 1 1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M17.707 16.707a1 1 0 01-1.414 0L12 12c0-.277.112-.527.294-.708l3.999-4a1 1 0 111.414 1.415L15.414 11H21a1 1 0 110 2h-5.586l2.293 2.293a1 1 0 010 1.414z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgSidebarCollapseIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M9.81 8.75l1.22 1.22-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06-1.22 1.22H14v1.5H9.81z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SidebarCollapseIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSidebarCollapseIconV2 : SvgSidebarCollapseIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSidebarExpandIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10 20h10a1 1 0 110 2H5c-1.652 0-3-1.348-3-3V5c0-1.652 1.348-3 3-3h15a1 1 0 110 2H10v16zm-2 0V4H5c-.548 0-1 .452-1 1v14c0 .548.452 1 1 1h3z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M17.707 7.293a1 1 0 10-1.414 1.414L18.586 11H13a1 1 0 100 2h5.586l-2.293 2.293a1 1 0 001.414 1.414l4-3.999.007-.007a.997.997 0 00.286-.698v-.006a.996.996 0 00-.293-.704l-4-4z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgSidebarExpandIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
-      fill: "currentColor"
-    }), jsx("path", {
-      d: "M11.19 8.75L9.97 9.97l1.06 1.06L14.06 8l-3.03-3.03-1.06 1.06 1.22 1.22H7v1.5h4.19z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SidebarExpandIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSidebarExpandIconV2 : SvgSidebarExpandIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSidebarIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5 22c-1.652 0-3-1.348-3-3V5c0-1.652 1.348-3 3-3h14c1.652 0 3 1.348 3 3v14c0 1.652-1.348 3-3 3H5zM4 5c0-.548.452-1 1-1h3v16H5c-.548 0-1-.452-1-1V5zm6 15V4h9c.548 0 1 .452 1 1v14c0 .548-.452 1-1 1h-9z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSidebarIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11H4v11H2.5zm3 0h8v-11h-8v11z",
-      fill: "currentColor"
-    })
-  });
-}
-function SidebarIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSidebarIconV2 : SvgSidebarIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSpeechBubbleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20 2c1.1 0 1.99.9 1.99 2L22 22l-4-4H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h16zM7 14h10c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1zm10-3H7c-.55 0-1-.45-1-1s.45-1 1-1h10c.55 0 1 .45 1 1s-.45 1-1 1zM7 8h10c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSpeechBubbleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8 8.75a.75.75 0 100-1.5.75.75 0 000 1.5zM11.5 8A.75.75 0 1110 8a.75.75 0 011.5 0zM5.25 8.75a.75.75 0 100-1.5.75.75 0 000 1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 15c-.099 0-.197-.002-.295-.006A.762.762 0 017.61 15H1.75a.75.75 0 01-.53-1.28l1.328-1.329A7 7 0 118 15zM2.5 8a5.5 5.5 0 115.156 5.49.75.75 0 00-.18.01H3.56l.55-.55a.75.75 0 000-1.06A5.48 5.48 0 012.5 8z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SpeechBubbleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSpeechBubbleIconV2 : SvgSpeechBubbleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSpeechBubblePlusIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M20 2c1.1 0 2 .9 2 2v18l-4-4H4c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h16zm-7 9h3c.55 0 1-.45 1-1s-.45-1-1-1h-3V6c0-.55-.45-1-1-1s-1 .45-1 1v3H8c-.55 0-1 .45-1 1s.45 1 1 1h3v3c0 .55.45 1 1 1s1-.45 1-1v-3z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSpeechBubblePlusIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 11V8.75H5v-1.5h2.25V5h1.5v2.25H11v1.5H8.75V11h-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 15c-.099 0-.197-.002-.295-.006A.762.762 0 017.61 15H1.75a.75.75 0 01-.53-1.28l1.328-1.329A7 7 0 118 15zM2.5 8a5.5 5.5 0 115.156 5.49.75.75 0 00-.18.01H3.56l.55-.55a.75.75 0 000-1.06A5.48 5.48 0 012.5 8z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SpeechBubblePlusIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSpeechBubblePlusIconV2 : SvgSpeechBubblePlusIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStarFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgStarFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M7.995 0a.75.75 0 01.714.518l1.459 4.492h4.723a.75.75 0 01.44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 01-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 01-1.154-.838L4.48 9.142.66 6.366A.75.75 0 011.1 5.01h4.723L7.282.518A.75.75 0 017.995 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function StarFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStarFillIconV2 : SvgStarFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStarIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M22 9.24l-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03L22 9.24zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28L12 15.4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgStarIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M7.995 0a.75.75 0 01.714.518l1.459 4.492h4.723a.75.75 0 01.44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 01-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 01-1.154-.838L4.48 9.142.66 6.366A.75.75 0 011.1 5.01h4.723L7.282.518A.75.75 0 017.995 0zm0 3.177l-.914 2.814a.75.75 0 01-.713.519h-2.96l2.394 1.739a.75.75 0 01.273.839l-.915 2.814 2.394-1.74a.75.75 0 01.882 0l2.394 1.74-.914-2.814a.75.75 0 01.272-.839l2.394-1.74H9.623a.75.75 0 01-.713-.518l-.915-2.814z",
-      fill: "currentColor"
-    })
-  });
-}
-function StarIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStarIconV2 : SvgStarIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStopCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M21 12a9 9 0 11-18 0 9 9 0 0118 0zM10 8a2 2 0 00-2 2v4a2 2 0 002 2h4a2 2 0 002-2v-4a2 2 0 00-2-2h-4z",
-      fill: "currentColor",
-      stroke: "currentColor",
-      strokeWidth: 2
-    })
-  });
-}
-function SvgStopCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 16A8 8 0 108 0a8 8 0 000 16zM6.125 5.5a.625.625 0 00-.625.625v3.75c0 .345.28.625.625.625h3.75c.345 0 .625-.28.625-.625v-3.75a.625.625 0 00-.625-.625h-3.75z",
-      fill: "currentColor"
-    })
-  });
-}
-function StopCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStopCircleFillIconV2 : SvgStopCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStopCircleIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11 9h3.002A1 1 0 0115 10v4a1 1 0 01-1 1h-3.998A1 1 0 019 14v-4a1 1 0 011-1h1z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 20a8 8 0 100-16 8 8 0 000 16zm0 2c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z",
-      fill: "currentColor"
-    })]
-  });
-}
-function SvgStopCircleIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 0a8 8 0 100 16A8 8 0 008 0zM5.5 6a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5V6z",
-      fill: "currentColor"
-    })
-  });
-}
-function StopCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStopCircleIconV2 : SvgStopCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStopIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8 6h8c1.1 0 2 .9 2 2v8c0 1.1-.9 2-2 2H8c-1.1 0-2-.9-2-2V8c0-1.1.9-2 2-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgStopIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M4.5 4a.5.5 0 00-.5.5v7a.5.5 0 00.5.5h7a.5.5 0 00.5-.5v-7a.5.5 0 00-.5-.5h-7z",
-      fill: "currentColor"
-    })
-  });
-}
-function StopIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStopIconV2 : SvgStopIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgStreamIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M21.984 12.565c.01-.187.016-.375.016-.565 0-5.523-4.477-10-10-10S2 6.477 2 12s4.477 10 10 10c4.572 0 8.428-3.069 9.62-7.258a9.975 9.975 0 00.364-2.177zm-17.83 1.003a8.003 8.003 0 0015.74-.26l-1.773-1.772a3 3 0 00-4.242 0l-2.343 2.343a5 5 0 01-7.072 0l-.31-.311zm-.048-2.876a8.002 8.002 0 0115.74-.26l-.31-.31a5 5 0 00-7.072 0l-2.343 2.342a3 3 0 01-4.242 0l-1.773-1.772z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgStreamIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.52 7.48a6.5 6.5 0 0112.722-1.298l-.09-.091a3.75 3.75 0 00-5.304 0L6.091 8.848a2.25 2.25 0 01-3.182 0L1.53 7.47l-.01.01zm.238 2.338A6.5 6.5 0 0014.48 8.52l-.01.01-1.379-1.378a2.25 2.25 0 00-3.182 0L7.152 9.909a3.75 3.75 0 01-5.304 0l-.09-.09z",
-      fill: "currentColor"
-    })
-  });
-}
-function StreamIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgStreamIconV2 : SvgStreamIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgSyncIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 6c3.31 0 6 2.69 6 6h-1.79a.5.5 0 00-.36.85l2.79 2.79c.2.2.51.2.71 0l2.79-2.79c.32-.31.1-.85-.35-.85H20c0-4.42-3.58-8-8-8-1.04 0-2.04.2-2.95.57-.67.27-.85 1.13-.34 1.64.27.27.68.38 1.04.23C10.44 6.15 11.21 6 12 6zm-3.86 5.14L5.35 8.35a.492.492 0 00-.7.01l-2.79 2.79c-.32.31-.1.85.35.85H4c0 4.42 3.58 8 8 8 1.04 0 2.04-.2 2.95-.57.67-.27.85-1.13.34-1.64-.27-.27-.68-.38-1.04-.23-.69.29-1.46.44-2.25.44-3.31 0-6-2.69-6-6h1.79c.45 0 .67-.54.35-.86z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgSyncIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8 2.5a5.48 5.48 0 013.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7 7 0 001 8h1.5A5.5 5.5 0 018 2.5zM1 10h4v1.5H3.674l.5.451.01.01A5.5 5.5 0 0013.5 8h1.499a7 7 0 01-11.849 5.048L2.5 12.46V14H1v-4z",
-      fill: "currentColor"
-    })
-  });
-}
-function SyncIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgSyncIconV2 : SvgSyncIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgTableIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4 2a2 2 0 00-2 2v17a2 2 0 002 2h16a2 2 0 002-2V4a2 2 0 00-2-2H4zm0 6h4v3H4V8zm6 3V8h4v3h-4zm4 2h-4v3h4v-3zm2 3v-3h4v3h-4zm-2 2h-4v3h4v-3zm2 3v-3h4v3h-4zm0-10V8h4v3h-4zM4 13h4v3H4v-3zm0 5h4v3H4v-3z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgTableIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v3h11v-3h-11zm0 11V7H5v6.5H2.5zm4 0h3V7h-3v6.5zM11 7v6.5h2.5V7H11z",
-      fill: "currentColor"
-    })
-  });
-}
-function TableIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgTableIconV2 : SvgTableIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgTrashIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.5 4H18c.55 0 1 .45 1 1s-.45 1-1 1H6c-.55 0-1-.45-1-1s.45-1 1-1h2.5l.71-.71c.18-.18.44-.29.7-.29h4.18c.26 0 .52.11.7.29l.71.71zM8 21c-1.1 0-2-.9-2-2V9c0-1.1.9-2 2-2h8c1.1 0 2 .9 2 2v10c0 1.1-.9 2-2 2H8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgTrashIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M6 0a.75.75 0 00-.712.513L4.46 3H1v1.5h1.077l1.177 10.831A.75.75 0 004 16h8a.75.75 0 00.746-.669L13.923 4.5H15V3h-3.46L10.712.513A.75.75 0 0010 0H6zm3.96 3l-.5-1.5H6.54L6.04 3h3.92zM3.585 4.5l1.087 10h6.654l1.087-10H3.586z",
-      fill: "currentColor"
-    })
-  });
-}
-function TrashIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgTrashIconV2 : SvgTrashIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgTreeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.5 4.5A3.5 3.5 0 1113 7.855V11.5h5.632c1.334 0 2.368 1.113 2.368 2.412v2.233A3.502 3.502 0 0120 23a3.5 3.5 0 01-1-6.855v-2.233c0-.254-.197-.412-.368-.412H13v2.645A3.502 3.502 0 0112 23a3.5 3.5 0 01-1-6.855V13.5H5.368c-.17 0-.368.158-.368.412v2.233A3.502 3.502 0 014 23a3.5 3.5 0 01-1-6.855v-2.233c0-1.3 1.034-2.412 2.368-2.412H11V7.855A3.502 3.502 0 018.5 4.5zM12 3a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM2.5 19.5a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm8 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm8 0a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgTreeIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.004 9.602a2.751 2.751 0 103.371 3.47 2.751 2.751 0 005.25 0 2.751 2.751 0 103.371-3.47A2.75 2.75 0 0011.25 7h-2.5v-.604a2.751 2.751 0 10-1.5 0V7h-2.5a2.75 2.75 0 00-2.746 2.602zM2.75 11a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm4.5-2.5h-2.5a1.25 1.25 0 00-1.242 1.106 2.756 2.756 0 011.867 1.822A2.756 2.756 0 017.25 9.604V8.5zm1.5 0v1.104c.892.252 1.6.942 1.875 1.824a2.756 2.756 0 011.867-1.822A1.25 1.25 0 0011.25 8.5h-2.5zM12 12.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zm-5.25 0a1.25 1.25 0 102.5 0 1.25 1.25 0 00-2.5 0zM8 5a1.25 1.25 0 110-2.5A1.25 1.25 0 018 5z",
-      fill: "currentColor"
-    })
-  });
-}
-function TreeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgTreeIconV2 : SvgTreeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUndoIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#UndoIcon_svg__clip0_13917_34581)",
-      children: jsx("path", {
-        d: "M2.81 6.5h8.69a3 3 0 010 6H7V14h4.5a4.5 4.5 0 000-9H2.81l2.72-2.72-1.06-1.06-4.53 4.53 4.53 4.53 1.06-1.06L2.81 6.5z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "UndoIcon_svg__clip0_13917_34581",
-        children: jsx("path", {
-          fill: "#fff",
-          transform: "rotate(-180 8 8)",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function SvgUndoIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("g", {
-      clipPath: "url(#UndoIcon_svg__clip0_13917_34581)",
-      children: jsx("path", {
-        d: "M2.81 6.5h8.69a3 3 0 010 6H7V14h4.5a4.5 4.5 0 000-9H2.81l2.72-2.72-1.06-1.06-4.53 4.53 4.53 4.53 1.06-1.06L2.81 6.5z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "UndoIcon_svg__clip0_13917_34581",
-        children: jsx("path", {
-          fill: "#fff",
-          transform: "rotate(-180 8 8)",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function UndoIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUndoIconV2 : SvgUndoIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUploadIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14 16.296h-4c-.55 0-1-.45-1-1v-5H7.41c-.89 0-1.33-1.08-.7-1.71l4.59-4.59a.996.996 0 011.41 0l4.59 4.59c.63.63.18 1.71-.71 1.71H15v5c0 .55-.45 1-1 1zm4 2H6c-.55 0-1 .45-1 1s.45 1 1 1h12c.55 0 1-.45 1-1s-.45-1-1-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUploadIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M1 13.56h14v1.5H1v-1.5zM12.53 5.53l-1.06 1.061-2.72-2.72v7.19h-1.5V3.87l-2.72 2.72-1.06-1.06L8 1l4.53 4.53z",
-      fill: "currentColor"
-    })
-  });
-}
-function UploadIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUploadIconV2 : SvgUploadIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUsbIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M18.095 7.236h-2c-.55 0-1 .45-1 1v2c0 .55.45 1 1 1v2h-3v-8h1a.5.5 0 00.4-.8l-2-2.67c-.2-.27-.6-.27-.8 0l-2 2.67a.5.5 0 00.4.8h1v8h-3v-2.07c.83-.44 1.38-1.36 1.14-2.43-.17-.77-.77-1.4-1.52-1.61-1.47-.41-2.82.7-2.82 2.11 0 .85.5 1.56 1.2 1.93v2.07c0 1.1.9 2 2 2h3v3.05c-.86.45-1.39 1.42-1.13 2.49a2.204 2.204 0 004.34-.54c0-.85-.49-1.58-1.2-1.95v-3.05h3c1.1 0 2-.9 2-2v-2c.55 0 1-.45 1-1v-2c-.01-.55-.46-1-1.01-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUsbIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      d: "M8 0a.75.75 0 01.65.375l1.299 2.25a.75.75 0 01-.65 1.125H8.75V9.5h2.75V8h-.25a.75.75 0 01-.75-.75v-2a.75.75 0 01.75-.75h2a.75.75 0 01.75.75v2a.75.75 0 01-.75.75H13v2.25a.75.75 0 01-.75.75h-3.5v1.668a1.75 1.75 0 11-1.5 0V11h-3.5a.75.75 0 01-.75-.75V7.832a1.75 1.75 0 111.5 0V9.5h2.75V3.75h-.549a.75.75 0 01-.65-1.125l1.3-2.25A.75.75 0 018 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function UsbIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUsbIconV2 : SvgUsbIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUserBadgeIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M14.82 4H19c1.1 0 2 .9 2 2v14c0 1.1-.9 2-2 2H5c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2h4.18C9.6 2.84 10.7 2 12 2c1.3 0 2.4.84 2.82 2zM13 5c0-.55-.45-1-1-1s-1 .45-1 1 .45 1 1 1 1-.45 1-1zm-1 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zM6 18.6V20h12v-1.4c0-2-4-3.1-6-3.1s-6 1.1-6 3.1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUserBadgeIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 5.25a2.75 2.75 0 100 5.5 2.75 2.75 0 000-5.5zM6.75 8a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.401 2.5l.386-.867A2.75 2.75 0 017.3 0h1.4a2.75 2.75 0 012.513 1.633l.386.867h1.651a.75.75 0 01.75.75v12a.75.75 0 01-.75.75H2.75a.75.75 0 01-.75-.75v-12a.75.75 0 01.75-.75h1.651zm1.756-.258A1.25 1.25 0 017.3 1.5h1.4c.494 0 .942.29 1.143.742l.114.258H6.043l.114-.258zM8 12a8.71 8.71 0 00-4.5 1.244V4h9v9.244A8.71 8.71 0 008 12zm0 1.5c1.342 0 2.599.364 3.677 1H4.323A7.216 7.216 0 018 13.5z",
-      fill: "currentColor"
-    })]
-  });
-}
-function UserBadgeIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUserBadgeIconV2 : SvgUserBadgeIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUserCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zM6 15.98a7.2 7.2 0 0012 0c-.03-1.99-4.01-3.08-6-3.08-2 0-5.97 1.09-6 3.08z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUserCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M5.25 6.75a2.75 2.75 0 115.5 0 2.75 2.75 0 01-5.5 0zM8 5.5A1.25 1.25 0 108 8a1.25 1.25 0 000-2.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 00-4.773 10.912A8.728 8.728 0 018 11c1.76 0 3.4.52 4.773 1.412A6.5 6.5 0 008 1.5zm3.568 11.934A7.231 7.231 0 008 12.5a7.23 7.23 0 00-3.568.934A6.47 6.47 0 008 14.5a6.47 6.47 0 003.568-1.066z",
-      fill: "currentColor"
-    })]
-  });
-}
-function UserCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUserCircleIconV2 : SvgUserCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUserGroupIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M10.99 8c0 1.66-1.33 3-2.99 3-1.66 0-3-1.34-3-3s1.34-3 3-3 2.99 1.34 2.99 3zm8 0c0 1.66-1.33 3-2.99 3-1.66 0-3-1.34-3-3s1.34-3 3-3 2.99 1.34 2.99 3zM8 13c-2.33 0-7 1.17-7 3.5V18c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-1.5c0-2.33-4.67-3.5-7-3.5zm7.03.05c.35-.03.68-.05.97-.05 2.33 0 7 1.17 7 3.5V18c0 .55-.45 1-1 1h-5.18c.11-.31.18-.65.18-1v-1.5c0-1.47-.79-2.58-1.93-3.41a.12.12 0 01-.01-.011.092.092 0 00-.03-.029z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUserGroupIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2.25 3.75a2.75 2.75 0 115.5 0 2.75 2.75 0 01-5.5 0zM5 2.5A1.25 1.25 0 105 5a1.25 1.25 0 000-2.5zM9.502 14H.75a.75.75 0 01-.75-.75V11a.75.75 0 01.164-.469C1.298 9.114 3.077 8 5.125 8c1.76 0 3.32.822 4.443 1.952A5.545 5.545 0 0111.75 9.5c1.642 0 3.094.745 4.041 1.73a.75.75 0 01.209.52v1.5a.75.75 0 01-.75.75H9.502zM1.5 12.5v-1.228C2.414 10.228 3.72 9.5 5.125 9.5c1.406 0 2.71.728 3.625 1.772V12.5H1.5zm8.75 0h4.25v-.432A4.168 4.168 0 0011.75 11c-.53 0-1.037.108-1.5.293V12.5zM11.75 3.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM11 5.75a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function UserGroupIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUserGroupIconV2 : SvgUserGroupIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgUserIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M16 8c0 2.21-1.79 4-4 4s-4-1.79-4-4 1.79-4 4-4 4 1.79 4 4zM4 18c0-2.66 5.33-4 8-4s8 1.34 8 4v1c0 .55-.45 1-1 1H5c-.55 0-1-.45-1-1v-1z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgUserIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 1a3.25 3.25 0 100 6.5A3.25 3.25 0 008 1zM6.25 4.25a1.75 1.75 0 113.5 0 1.75 1.75 0 01-3.5 0zM8 9a8.735 8.735 0 00-6.836 3.287.75.75 0 00-.164.469v1.494c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75v-1.494a.75.75 0 00-.164-.469A8.735 8.735 0 008 9zm-5.5 4.5v-.474A7.232 7.232 0 018 10.5c2.2 0 4.17.978 5.5 2.526v.474h-11z",
-      fill: "currentColor"
-    })
-  });
-}
-function UserIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgUserIconV2 : SvgUserIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgVisibleIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#VisibleIcon_svg__clip0_12466_34543)",
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      fill: "currentColor",
-      children: [jsx("path", {
-        d: "M8 5a3 3 0 100 6 3 3 0 000-6zM6.5 8a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"
-      }), jsx("path", {
-        d: "M8 2A8.389 8.389 0 00.028 7.777a.75.75 0 000 .466 8.389 8.389 0 0015.944 0 .749.749 0 000-.466A8.389 8.389 0 008 2zm0 10.52a6.888 6.888 0 01-6.465-4.51 6.888 6.888 0 0112.93 0A6.888 6.888 0 018 12.52z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "VisibleIcon_svg__clip0_12466_34543",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function SvgVisibleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#VisibleIcon_svg__clip0_13123_35205)",
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      fill: "currentColor",
-      children: [jsx("path", {
-        d: "M8 5a3 3 0 100 6 3 3 0 000-6zM6.5 8a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"
-      }), jsx("path", {
-        d: "M8 2A8.389 8.389 0 00.028 7.777a.75.75 0 000 .466 8.389 8.389 0 0015.944 0 .75.75 0 000-.466A8.389 8.389 0 008 2zm0 10.52a6.888 6.888 0 01-6.465-4.51 6.888 6.888 0 0112.93 0A6.888 6.888 0 018 12.52z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "VisibleIcon_svg__clip0_13123_35205",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function VisibleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgVisibleIconV2 : SvgVisibleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgVisibleOffIconV1(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#VisibleOffIcon_svg__clip0_12466_34549)",
-      fill: "currentColor",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M11.634 13.195l1.336 1.335 1.06-1.06-11.5-11.5-1.06 1.06 1.027 1.028a8.395 8.395 0 00-2.469 3.72.75.75 0 000 .465 8.389 8.389 0 0011.606 4.952zm-1.14-1.14l-1.301-1.301a3 3 0 01-3.946-3.946L3.56 5.121A6.898 6.898 0 001.535 8.01a6.888 6.888 0 008.96 4.045z"
-      }), jsx("path", {
-        d: "M15.972 8.244a8.384 8.384 0 01-1.945 3.222l-1.061-1.06a6.886 6.886 0 001.499-2.396 6.888 6.888 0 00-8.187-4.293L5.082 2.522a8.389 8.389 0 0110.89 5.256c.05.15.05.314 0 .466z"
-      }), jsx("path", {
-        d: "M11 8c0 .14-.01.277-.028.411L7.59 5.028A3 3 0 0111 8z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "VisibleOffIcon_svg__clip0_12466_34549",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function SvgVisibleOffIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsxs("g", {
-      clipPath: "url(#VisibleOffIcon_svg__clip0_13123_35207)",
-      fill: "currentColor",
-      children: [jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M11.634 13.194l1.335 1.336 1.061-1.06-11.5-11.5-1.06 1.06 1.027 1.028a8.395 8.395 0 00-2.469 3.72.75.75 0 000 .465 8.389 8.389 0 0011.606 4.951zm-1.14-1.139l-1.301-1.301a3 3 0 01-3.946-3.946L3.56 5.121A6.898 6.898 0 001.535 8.01a6.888 6.888 0 008.96 4.045z"
-      }), jsx("path", {
-        d: "M15.972 8.243a8.384 8.384 0 01-1.946 3.223l-1.06-1.06a6.887 6.887 0 001.499-2.396 6.888 6.888 0 00-8.187-4.293L5.082 2.522a8.389 8.389 0 0110.89 5.256.75.75 0 010 .465z"
-      }), jsx("path", {
-        d: "M11 8c0 .14-.01.277-.028.411L7.589 5.028A3 3 0 0111 8z"
-      })]
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "VisibleOffIcon_svg__clip0_13123_35207",
-        children: jsx("path", {
-          fill: "#fff",
-          d: "M0 0h16v16H0z"
-        })
-      })
-    })]
-  });
-}
-function VisibleOffIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgVisibleOffIconV2 : SvgVisibleOffIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgWarningFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M19.53 20.504c1.54 0 2.5-1.67 1.73-3l-7.53-13.01c-.77-1.33-2.69-1.33-3.46 0l-7.53 13.01c-.77 1.33.19 3 1.73 3h15.06zm-7.53-7c-.55 0-1-.45-1-1v-2c0-.55.45-1 1-1s1 .45 1 1v2c0 .55-.45 1-1 1zm-1 2v2h2v-2h-2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgWarningFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8.649 1.374a.75.75 0 00-1.298 0l-7.25 12.5A.75.75 0 00.75 15h14.5a.75.75 0 00.649-1.126l-7.25-12.5zM7.25 10V6.5h1.5V10h-1.5zm1.5 1.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z",
-      fill: "currentColor"
-    })
-  });
-}
-function WarningFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgWarningFillIconV2 : SvgWarningFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgWarningIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M4.47 20.504c-1.54 0-2.5-1.67-1.73-3l7.53-13.01c.77-1.33 2.69-1.33 3.46 0l7.53 13.01c.77 1.33-.19 3-1.73 3H4.47zm15.06-2L12 5.494l-7.53 13.01h15.06zm-8.53-8v2c0 .55.45 1 1 1s1-.45 1-1v-2c0-.55-.45-1-1-1s-1 .45-1 1zm2 7v-2h-2v2h2z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgWarningIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M7.25 10V6.5h1.5V10h-1.5zM8 12.5A.75.75 0 108 11a.75.75 0 000 1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 1a.75.75 0 01.649.374l7.25 12.5A.75.75 0 0115.25 15H.75a.75.75 0 01-.649-1.126l7.25-12.5A.75.75 0 018 1zm0 2.245L2.052 13.5h11.896L8 3.245z",
-      fill: "currentColor"
-    })]
-  });
-}
-function WarningIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgWarningIconV2 : SvgWarningIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgXCircleFillIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M2 12C2 6.48 6.48 2 12 2s10 4.48 10 10-4.48 10-10 10S2 17.52 2 12zm11.414 0l2.122-2.121a1.003 1.003 0 000-1.415 1.003 1.003 0 00-1.415 0L12 10.586 9.879 8.464a1.003 1.003 0 00-1.415 0 1.003 1.003 0 000 1.415L10.586 12l-2.122 2.121a1.003 1.003 0 000 1.415 1.003 1.003 0 001.415 0L12 13.414l2.121 2.122a1.003 1.003 0 001.415 0 1.003 1.003 0 000-1.415L13.414 12z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgXCircleFillIconV2(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm1.97-4.97L8 9.06l-1.97 1.97-1.06-1.06L6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06z",
-      fill: "currentColor"
-    })
-  });
-}
-function XCircleFillIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgXCircleFillIconV2 : SvgXCircleFillIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgXCircleIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM8.464 8.464a1.003 1.003 0 000 1.415L10.586 12l-2.122 2.121a1.003 1.003 0 000 1.415 1.003 1.003 0 001.415 0L12 13.414l2.121 2.122a1.003 1.003 0 001.415 0 1.003 1.003 0 000-1.415L13.414 12l2.122-2.121a1.003 1.003 0 000-1.415 1.003 1.003 0 00-1.415 0L12 10.586 9.879 8.464a1.003 1.003 0 00-1.415 0zM4 12c0 4.41 3.59 8 8 8s8-3.59 8-8-3.59-8-8-8-8 3.59-8 8z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgXCircleIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 16",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M6.94 8L4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06L8 9.06l-1.97 1.97-1.06-1.06L6.94 8z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
-      fill: "currentColor"
-    })]
-  });
-}
-function XCircleIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgXCircleIconV2 : SvgXCircleIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgZoomInIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.97 14.472h-.79l-.28-.27a6.5 6.5 0 001.48-5.34c-.47-2.78-2.79-5-5.59-5.34-4.23-.52-7.78 3.04-7.27 7.27.34 2.8 2.56 5.12 5.34 5.59a6.5 6.5 0 005.34-1.48l.27.28v.79l4.26 4.25c.41.41 1.07.41 1.48 0l.01-.01c.41-.41.41-1.07 0-1.48l-4.25-4.26zm-6 0c-2.49 0-4.5-2.01-4.5-4.5s2.01-4.5 4.5-4.5 4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm-.5-6.5c0-.28.22-.5.5-.5s.5.22.5.5v1.5h1.5c.28 0 .5.22.5.5s-.22.5-.5.5h-1.5v1.5c0 .28-.22.5-.5.5s-.5-.22-.5-.5v-1.5h-1.5c-.28 0-.5-.22-.5-.5s.22-.5.5-.5h1.5v-1.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgZoomInIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 17",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M8.75 7.25H11v1.5H8.75V11h-1.5V8.75H5v-1.5h2.25V5h1.5v2.25z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M8 1a7 7 0 104.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 008 1zM2.5 8a5.5 5.5 0 1111 0 5.5 5.5 0 01-11 0z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ZoomInIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgZoomInIconV2 : SvgZoomInIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
-  });
-}
-
-function SvgZoomOutIconV1(props) {
-  return jsx("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 24 24",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M15.972 14.472h-.79l-.28-.27a6.5 6.5 0 001.48-5.34c-.47-2.78-2.79-5-5.59-5.34a6.505 6.505 0 00-7.27 7.27c.34 2.8 2.56 5.12 5.34 5.59a6.5 6.5 0 005.34-1.48l.27.28v.79l4.26 4.25c.41.41 1.07.41 1.48 0l.01-.01c.41-.41.41-1.07 0-1.48l-4.25-4.26zm-6 0c-2.49 0-4.5-2.01-4.5-4.5s2.01-4.5 4.5-4.5 4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm2.5-4.5c0-.28-.22-.5-.5-.5h-4c-.28 0-.5.22-.5.5s.22.5.5.5h4c.28 0 .5-.22.5-.5z",
-      fill: "currentColor"
-    })
-  });
-}
-function SvgZoomOutIconV2(props) {
-  return jsxs("svg", {
-    width: "1em",
-    height: "1em",
-    viewBox: "0 0 16 17",
-    fill: "none",
-    xmlns: "http://www.w3.org/2000/svg",
-    ...props,
-    children: [jsx("path", {
-      d: "M11 7.25H5v1.5h6v-1.5z",
-      fill: "currentColor"
-    }), jsx("path", {
-      fillRule: "evenodd",
-      clipRule: "evenodd",
-      d: "M1 8a7 7 0 1112.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 011 8zm7-5.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z",
-      fill: "currentColor"
-    })]
-  });
-}
-function ZoomOutIcon(props) {
-  const {
-    USE_NEW_ICONS
-  } = useDesignSystemFlags();
-  const component = USE_NEW_ICONS ? SvgZoomOutIconV2 : SvgZoomOutIconV1;
-  return jsx(Icon, {
-    ...props,
-    component: component
+    component: SvgAlignRightIcon
   });
 }
 
@@ -7441,6 +146,166 @@ function AppIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgAppIcon
+  });
+}
+
+function SvgArrowDownIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8.03 15.06L1 8.03l1.06-1.06 5.22 5.22V1h1.5v11.19L14 6.97l1.06 1.06-7.03 7.03z",
+      fill: "currentColor"
+    })
+  });
+}
+function ArrowDownIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgArrowDownIcon
+  });
+}
+
+function SvgArrowLeftIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 8.03L8.03 1l1.061 1.06-5.22 5.22h11.19v1.5H3.87L9.091 14l-1.06 1.06L1 8.03z",
+      fill: "currentColor"
+    })
+  });
+}
+function ArrowLeftIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgArrowLeftIcon
+  });
+}
+
+function SvgArrowRightIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M15.06 8.03l-7.03 7.03L6.97 14l5.22-5.22H1v-1.5h11.19L6.97 2.06 8.03 1l7.03 7.03z",
+      fill: "currentColor"
+    })
+  });
+}
+function ArrowRightIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgArrowRightIcon
+  });
+}
+
+function SvgArrowUpIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8.03 1l7.03 7.03L14 9.091l-5.22-5.22v11.19h-1.5V3.87l-5.22 5.22L1 8.031 8.03 1z",
+      fill: "currentColor"
+    })
+  });
+}
+function ArrowUpIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgArrowUpIcon
+  });
+}
+
+function SvgArrowsUpDownIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M5.03 1L1 5.03l1.06 1.061 2.22-2.22v6.19h1.5V3.87L8 6.091l1.06-1.06L5.03 1zM11.03 15.121l4.03-4.03-1.06-1.06-2.22 2.219V6.06h-1.5v6.19l-2.22-2.22L7 11.091l4.03 4.03z",
+      fill: "currentColor"
+    })
+  });
+}
+function ArrowsUpDownIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgArrowsUpDownIcon
+  });
+}
+
+function SvgBarChartIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M1 1v13.25c0 .414.336.75.75.75H15v-1.5H2.5V1H1z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M7 1v11h1.5V1H7zM10 5v7h1.5V5H10zM4 5v7h1.5V5H4zM13 12V8h1.5v4H13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function BarChartIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBarChartIcon
+  });
+}
+
+function SvgBeakerIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5.75 1a.75.75 0 00-.75.75v6.089c0 .38-.173.739-.47.976l-2.678 2.143A2.27 2.27 0 003.27 15h9.46a2.27 2.27 0 001.418-4.042L11.47 8.815A1.25 1.25 0 0111 7.839V1.75a.75.75 0 00-.75-.75h-4.5zm.75 6.839V2.5h3v5.339c0 .606.2 1.188.559 1.661H5.942A2.75 2.75 0 006.5 7.839zM4.2 11L2.79 12.13a.77.77 0 00.48 1.37h9.461a.77.77 0 00.481-1.37L11.8 11H4.201z",
+      fill: "currentColor"
+    })
+  });
+}
+function BeakerIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBeakerIcon
   });
 }
 
@@ -7487,6 +352,101 @@ function BoldIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgBoldIcon
+  });
+}
+
+function SvgBookIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2.75 1a.75.75 0 00-.75.75v13.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H2.75zM7.5 2.5h-4v6.055l1.495-1.36a.75.75 0 011.01 0L7.5 8.555V2.5zm-4 8.082l2-1.818 2.245 2.041A.75.75 0 009 10.25V2.5h3.5v12h-9v-3.918z",
+      fill: "currentColor"
+    })
+  });
+}
+function BookIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBookIcon
+  });
+}
+
+function SvgBookmarkFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M2.75 0A.75.75 0 002 .75v14.5a.75.75 0 001.28.53L8 11.06l4.72 4.72a.75.75 0 001.28-.53V.75a.75.75 0 00-.75-.75H2.75z",
+      fill: "currentColor"
+    })
+  });
+}
+function BookmarkFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBookmarkFillIcon
+  });
+}
+
+function SvgBookmarkIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 .75A.75.75 0 012.75 0h10.5a.75.75 0 01.75.75v14.5a.75.75 0 01-1.28.53L8 11.06l-4.72 4.72A.75.75 0 012 15.25V.75zm1.5.75v11.94l3.97-3.97a.75.75 0 011.06 0l3.97 3.97V1.5h-9z",
+      fill: "currentColor"
+    })
+  });
+}
+function BookmarkIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBookmarkIcon
+  });
+}
+
+function SvgBooksIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 17 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.5 4.5v10h1v-10h-1zM1 3a1 1 0 00-1 1v11a1 1 0 001 1h2a1 1 0 001-1V4a1 1 0 00-1-1H1zM6.5 1.5v13h2v-13h-2zM6 0a1 1 0 00-1 1v14a1 1 0 001 1h3a1 1 0 001-1V1a1 1 0 00-1-1H6z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M11.63 7.74l1.773 6.773.967-.254-1.773-6.771-.967.253zm-.864-1.324a1 1 0 00-.714 1.221l2.026 7.74a1 1 0 001.22.713l1.936-.506a1 1 0 00.714-1.22l-2.026-7.74a1 1 0 00-1.22-.714l-1.936.506z",
+      fill: "currentColor"
+    })]
+  });
+}
+function BooksIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBooksIcon
   });
 }
 
@@ -7568,6 +528,176 @@ function BracketsXIcon(props) {
   });
 }
 
+function SvgBranchIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 4a3 3 0 115.186 2.055 3.229 3.229 0 002 1.155 3.001 3.001 0 11-.152 1.494A4.73 4.73 0 014.911 6.86a2.982 2.982 0 01-.161.046v2.19a3.001 3.001 0 11-1.5 0v-2.19A3.001 3.001 0 011 4zm3-1.5a1.5 1.5 0 100 3 1.5 1.5 0 000-3zM2.5 12a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0zm7-3.75a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function BranchIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBranchIcon
+  });
+}
+
+function SvgBriefcaseFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5 4V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 01.75.75v9.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75v-9.5A.75.75 0 011.75 4H5zm1.5-1.25a.25.25 0 01.25-.25h2.5a.25.25 0 01.25.25V4h-3V2.75zm-4 5.423V6.195A7.724 7.724 0 008 8.485c2.15 0 4.095-.875 5.5-2.29v1.978A9.211 9.211 0 018 9.985a9.21 9.21 0 01-5.5-1.812z",
+      fill: "currentColor"
+    })
+  });
+}
+function BriefcaseFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBriefcaseFillIcon
+  });
+}
+
+function SvgBriefcaseIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 4H5V2.75C5 1.784 5.784 1 6.75 1h2.5c.966 0 1.75.784 1.75 1.75V4h3.25a.75.75 0 01.75.75v9.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75v-9.5A.75.75 0 011.75 4zm5-1.5a.25.25 0 00-.25.25V4h3V2.75a.25.25 0 00-.25-.25h-2.5zM2.5 8.173V13.5h11V8.173A9.211 9.211 0 018 9.985a9.21 9.21 0 01-5.5-1.812zm0-1.978A7.724 7.724 0 008 8.485c2.15 0 4.095-.875 5.5-2.29V5.5h-11v.695z",
+      fill: "currentColor"
+    })
+  });
+}
+function BriefcaseIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgBriefcaseIcon
+  });
+}
+
+function SvgCalendarEventIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8.5 10.25a1.75 1.75 0 113.5 0 1.75 1.75 0 01-3.5 0z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M10 2H6V0H4.5v2H1.75a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H11.5V0H10v2zM2.5 3.5v2h11v-2h-11zm0 10V7h11v6.5h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CalendarEventIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCalendarEventIcon
+  });
+}
+
+function SvgCalendarIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M4.5 0v2H1.75a.75.75 0 00-.75.75v11.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H11.5V0H10v2H6V0H4.5zm9 3.5v2h-11v-2h11zM2.5 7v6.5h11V7h-11z",
+      fill: "currentColor"
+    })
+  });
+}
+function CalendarIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCalendarIcon
+  });
+}
+
+function SvgCaretDownSquareIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8 10a.75.75 0 01-.59-.286l-2.164-2.75a.75.75 0 01.589-1.214h4.33a.75.75 0 01.59 1.214l-2.166 2.75A.75.75 0 018 10z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CaretDownSquareIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCaretDownSquareIcon
+  });
+}
+
+function SvgCaretUpSquareIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8 5.75a.75.75 0 01.59.286l2.164 2.75A.75.75 0 0110.165 10h-4.33a.75.75 0 01-.59-1.214l2.166-2.75A.75.75 0 018 5.75z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CaretUpSquareIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCaretUpSquareIcon
+  });
+}
+
 function SvgCatalogIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -7639,6 +769,358 @@ function CheckCircleBadgeIcon(props) {
   });
 }
 
+function SvgCheckCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm11.53-1.47l-1.06-1.06L7 8.94 5.53 7.47 4.47 8.53l2 2 .53.53.53-.53 4-4z",
+      fill: "currentColor"
+    })
+  });
+}
+function CheckCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCheckCircleFillIcon
+  });
+}
+
+function SvgCheckCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M11.53 6.53L7 11.06 4.47 8.53l1.06-1.06L7 8.94l3.47-3.47 1.06 1.06z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CheckCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCheckCircleIcon
+  });
+}
+
+function SvgCheckLineIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M15.06 2.06L14 1 5.53 9.47 2.06 6 1 7.06l4.53 4.531 9.53-9.53zM1.03 15.03h14v-1.5h-14v1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function CheckLineIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCheckLineIcon
+  });
+}
+
+function SvgChecklistIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M5.5 2l1.06 1.06-3.53 3.531L1 4.561 2.06 3.5l.97.97L5.5 2zM15.03 4.53h-7v-1.5h7v1.5zM1.03 14.53v-1.5h14v1.5h-14zM8.03 9.53h7v-1.5h-7v1.5zM6.56 8.06L5.5 7 3.03 9.47l-.97-.97L1 9.56l2.03 2.031 3.53-3.53z",
+      fill: "currentColor"
+    })
+  });
+}
+function ChecklistIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChecklistIcon
+  });
+}
+
+function SvgChevronDoubleDownIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M10.947 7.954L8 10.891 5.056 7.954 3.997 9.016l4.004 3.993 4.005-3.993-1.06-1.062z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M10.947 3.994L8 6.931 5.056 3.994 3.997 5.056 8.001 9.05l4.005-3.993-1.06-1.062z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ChevronDoubleDownIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronDoubleDownIcon
+  });
+}
+
+function SvgChevronDoubleLeftIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8.047 10.944L5.11 8l2.937-2.944-1.062-1.06L2.991 8l3.994 4.003 1.062-1.06z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M12.008 10.944L9.07 8l2.938-2.944-1.062-1.06L6.952 8l3.994 4.003 1.062-1.06z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ChevronDoubleLeftIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronDoubleLeftIcon
+  });
+}
+
+function SvgChevronDoubleRightIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.954 5.056l2.937 2.946-2.937 2.945 1.062 1.059L13.01 8 9.016 3.998l-1.062 1.06z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M3.994 5.056l2.937 2.946-2.937 2.945 1.062 1.059L9.05 8 5.056 3.998l-1.062 1.06z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ChevronDoubleRightIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronDoubleRightIcon
+  });
+}
+
+function SvgChevronDoubleUpIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M5.056 8.047L8 5.11l2.944 2.937 1.06-1.062L8 2.991 3.997 6.985l1.059 1.062z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M5.056 12.008L8 9.07l2.944 2.937 1.06-1.062L8 6.952l-4.003 3.994 1.059 1.062z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ChevronDoubleUpIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronDoubleUpIcon
+  });
+}
+
+function SvgChevronDownIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 8.917L10.947 6 12 7.042 8 11 4 7.042 5.053 6 8 8.917z",
+      fill: "currentColor"
+    })
+  });
+}
+function ChevronDownIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronDownIcon
+  });
+}
+
+function SvgChevronUpIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 7.083L5.053 10 4 8.958 8 5l4 3.958L10.947 10 8 7.083z",
+      fill: "currentColor"
+    })
+  });
+}
+function ChevronUpIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgChevronUpIcon
+  });
+}
+
+function SvgCircleIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M12.5 8a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function CircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCircleIcon
+  });
+}
+
+function SvgClipboardIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5.5 0a.75.75 0 00-.75.75V1h-2a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75h-2V.75A.75.75 0 0010.5 0h-5zm5.75 2.5v.75a.75.75 0 01-.75.75h-5a.75.75 0 01-.75-.75V2.5H3.5v11h9v-11h-1.25zm-5 0v-1h3.5v1h-3.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function ClipboardIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgClipboardIcon
+  });
+}
+
+function SvgClockIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 4v4c0 .199.079.39.22.53l2 2 1.06-1.06-1.78-1.78V4h-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ClockIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgClockIcon
+  });
+}
+
+function SvgCloudDownloadIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8 2a4.752 4.752 0 00-4.606 3.586 4.251 4.251 0 00.427 8.393A.75.75 0 004 14v-1.511a2.75 2.75 0 01.077-5.484.75.75 0 00.697-.657 3.25 3.25 0 016.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 11-.188 4.492.75.75 0 00-.062-.002V14a.757.757 0 00.077-.004 3.75 3.75 0 00.668-7.464A4.75 4.75 0 008 2z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M7.25 11.19L5.03 8.97l-1.06 1.06L8 14.06l4.03-4.03-1.06-1.06-2.22 2.22V6h-1.5v5.19z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CloudDownloadIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCloudDownloadIcon
+  });
+}
+
+function SvgCloudIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M3.394 5.586a4.752 4.752 0 019.351.946 3.75 3.75 0 01-.668 7.464A.757.757 0 0112 14H4a.75.75 0 01-.179-.021 4.25 4.25 0 01-.427-8.393zm.72 6.914h7.762a.745.745 0 01.186-.008A2.25 2.25 0 1012.25 8H12a.75.75 0 01-.75-.75v-.5a3.25 3.25 0 00-6.476-.402.75.75 0 01-.697.657 2.75 2.75 0 00-.024 5.488.74.74 0 01.062.007z",
+      fill: "currentColor"
+    })
+  });
+}
+function CloudIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCloudIcon
+  });
+}
+
 function SvgCloudKeyIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -7688,6 +1170,77 @@ function CloudModelIcon(props) {
   });
 }
 
+function SvgCloudOffIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M13.97 14.53L2.47 3.03l-1 1 1.628 1.628a4.252 4.252 0 00.723 8.32A.75.75 0 004 14h7.44l1.53 1.53 1-1zM4.077 7.005a.748.748 0 00.29-.078L9.939 12.5H4.115a.74.74 0 00-.062-.007 2.75 2.75 0 01.024-5.488z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M4.8 3.24a4.75 4.75 0 017.945 3.293 3.75 3.75 0 011.928 6.58l-1.067-1.067A2.25 2.25 0 0012.25 8H12a.75.75 0 01-.75-.75v-.5a3.25 3.25 0 00-5.388-2.448L4.8 3.239z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CloudOffIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCloudOffIcon
+  });
+}
+
+function SvgCloudUploadIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8 2a4.752 4.752 0 00-4.606 3.586 4.251 4.251 0 00.427 8.393A.75.75 0 004 14v-1.511a2.75 2.75 0 01.077-5.484.75.75 0 00.697-.657 3.25 3.25 0 016.476.402v.5c0 .414.336.75.75.75h.25a2.25 2.25 0 11-.188 4.492.75.75 0 00-.062-.002V14a.757.757 0 00.077-.004 3.75 3.75 0 00.668-7.464A4.75 4.75 0 008 2z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M8.75 8.81l2.22 2.22 1.06-1.06L8 5.94 3.97 9.97l1.06 1.06 2.22-2.22V14h1.5V8.81z",
+      fill: "currentColor"
+    })]
+  });
+}
+function CloudUploadIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCloudUploadIcon
+  });
+}
+
+function SvgCodeIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 17 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M4.03 12.06L5.091 11l-2.97-2.97 2.97-2.97L4.031 4 0 8.03l4.03 4.03zM12.091 4l4.03 4.03-4.03 4.03-1.06-1.06L14 8.03l-2.97-2.97L12.091 4z",
+      fill: "currentColor"
+    })
+  });
+}
+function CodeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCodeIcon
+  });
+}
+
 function SvgColorFillIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -7708,6 +1261,29 @@ function ColorFillIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgColorFillIcon
+  });
+}
+
+function SvgColumnIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M6.5 9V6h3v3h-3zm3 1.5v3h-3v-3h3zm1.5-.75v-9a.75.75 0 00-.75-.75h-4.5A.75.75 0 005 .75v13.5c0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75v-4.5zM6.5 4.5v-3h3v3h-3z",
+      fill: "currentColor"
+    })
+  });
+}
+function ColumnIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgColumnIcon
   });
 }
 
@@ -7737,7 +1313,30 @@ function ConnectIcon(props) {
   });
 }
 
-function SvgCursorIcon(props) {
+function SvgCopyIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75H5v3.25c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H11V1.75a.75.75 0 00-.75-.75h-8.5zM9.5 5V2.5h-7v7H5V5.75A.75.75 0 015.75 5H9.5zm-3 8.5v-7h7v7h-7z",
+      fill: "currentColor"
+    })
+  });
+}
+function CopyIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgCopyIcon
+  });
+}
+
+function SvgCursorTypeIcon(props) {
   return jsxs("svg", {
     width: "1em",
     height: "1em",
@@ -7745,30 +1344,19 @@ function SvgCursorIcon(props) {
     fill: "none",
     xmlns: "http://www.w3.org/2000/svg",
     ...props,
-    children: [jsx("g", {
-      clipPath: "url(#CursorIcon_svg__clip0_14914_35410)",
-      children: jsx("path", {
-        fillRule: "evenodd",
-        clipRule: "evenodd",
-        d: "M1.22 1.22a.75.75 0 01.802-.169l13.5 5.25a.75.75 0 01-.043 1.413L9.597 9.597l-1.883 5.882a.75.75 0 01-1.413.043l-5.25-13.5a.75.75 0 01.169-.802zm1.847 1.847l3.864 9.937 1.355-4.233a.75.75 0 01.485-.485l4.233-1.355-9.937-3.864z",
-        fill: "currentColor"
-      })
-    }), jsx("defs", {
-      children: jsx("clipPath", {
-        id: "CursorIcon_svg__clip0_14914_35410",
-        children: jsx("path", {
-          fill: "#fff",
-          transform: "matrix(-1 0 0 1 16 0)",
-          d: "M0 0h16v16H0z"
-        })
-      })
+    children: [jsx("path", {
+      d: "M8 3.75h1c.69 0 1.25.56 1.25 1.25v6c0 .69-.56 1.25-1.25 1.25H8v1.5h1c.788 0 1.499-.331 2-.863a2.742 2.742 0 002 .863h1v-1.5h-1c-.69 0-1.25-.56-1.25-1.25V5c0-.69.56-1.25 1.25-1.25h1v-1.5h-1c-.788 0-1.499.331-2 .863a2.742 2.742 0 00-2-.863H8v1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M5.936 8.003L3 5.058 4.062 4l3.993 4.004-3.993 4.005L3 10.948l2.936-2.945z",
+      fill: "currentColor"
     })]
   });
 }
-function CursorIcon(props) {
+function CursorTypeIcon(props) {
   return jsx(Icon, {
     ...props,
-    component: SvgCursorIcon
+    component: SvgCursorTypeIcon
   });
 }
 
@@ -7792,6 +1380,175 @@ function DagIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgDagIcon
+  });
+}
+
+function SvgDIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5.75 4.5a.75.75 0 00-.75.75v5.5c0 .414.336.75.75.75h2a3.5 3.5 0 100-7h-2zM6.5 10V6h1.25a2 2 0 110 4H6.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function DIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDIcon
+  });
+}
+
+function SvgDangerFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M15.78 11.533l-4.242 4.243a.75.75 0 01-.53.22H4.996a.75.75 0 01-.53-.22L.224 11.533a.75.75 0 01-.22-.53v-6.01a.75.75 0 01.22-.53L4.467.22a.75.75 0 01.53-.22h6.01a.75.75 0 01.53.22l4.243 4.242c.141.141.22.332.22.53v6.011a.75.75 0 01-.22.53zm-8.528-.785a.75.75 0 101.5 0 .75.75 0 00-1.5 0zm1.5-5.75v4h-1.5v-4h1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function DangerFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDangerFillIcon
+  });
+}
+
+function SvgDangerIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.248 10.748a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM8.748 4.998v4h-1.5v-4h1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M11.533 15.776l4.243-4.243a.75.75 0 00.22-.53v-6.01a.75.75 0 00-.22-.53L11.533.22a.75.75 0 00-.53-.22h-6.01a.75.75 0 00-.53.22L.22 4.462a.75.75 0 00-.22.53v6.011c0 .199.079.39.22.53l4.242 4.243c.141.14.332.22.53.22h6.011a.75.75 0 00.53-.22zm2.963-10.473v5.39l-3.804 3.803H5.303L1.5 10.692V5.303L5.303 1.5h5.39l3.803 3.803z",
+      fill: "currentColor"
+    })]
+  });
+}
+function DangerIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDangerIcon
+  });
+}
+
+function SvgDashIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M15 8.75H1v-1.5h14v1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function DashIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDashIcon
+  });
+}
+
+function SvgDashboardIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5 8.75v3h4.75v-3H2.5zm0-1.5h4.75V2.5H2.5V9zm6.25-6.5v3h4.75v-3H8.75zm0 11V7h4.75v6.5H8.75z",
+      fill: "currentColor"
+    })
+  });
+}
+function DashboardIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDashboardIcon
+  });
+}
+
+function SvgDataIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8.646.368a.75.75 0 00-1.292 0l-3.25 5.5A.75.75 0 004.75 7h6.5a.75.75 0 00.646-1.132l-3.25-5.5zM8 2.224L9.936 5.5H6.064L8 2.224zM8.5 9.25a.75.75 0 01.75-.75h5a.75.75 0 01.75.75v5a.75.75 0 01-.75.75h-5a.75.75 0 01-.75-.75v-5zM10 10v3.5h3.5V10H10zM1 11.75a3.25 3.25 0 116.5 0 3.25 3.25 0 01-6.5 0zM4.25 10a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function DataIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDataIcon
+  });
+}
+
+function SvgDatabaseIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2.727 3.695c-.225.192-.227.298-.227.305 0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 5.256 6.337 5.5 8 5.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305 0-.007-.002-.113-.227-.305-.223-.19-.59-.394-1.108-.58C11.135 2.744 9.663 2.5 8 2.5c-1.663 0-3.135.244-4.165.615-.519.186-.885.39-1.108.58zM13.5 5.94a6.646 6.646 0 01-.826.358C11.442 6.74 9.789 7 8 7c-1.79 0-3.442-.26-4.673-.703a6.641 6.641 0 01-.827-.358V8c0 .007.002.113.227.305.223.19.59.394 1.108.58C4.865 9.256 6.337 9.5 8 9.5c1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V5.939zM15 8V4c0-.615-.348-1.1-.755-1.447-.41-.349-.959-.63-1.571-.85C11.442 1.26 9.789 1 8 1c-1.79 0-3.442.26-4.673.703-.613.22-1.162.501-1.572.85C1.348 2.9 1 3.385 1 4v8c0 .615.348 1.1.755 1.447.41.349.959.63 1.572.85C4.558 14.74 6.21 15 8 15c1.79 0 3.441-.26 4.674-.703.612-.22 1.161-.501 1.571-.85.407-.346.755-.832.755-1.447V8zm-1.5 1.939a6.654 6.654 0 01-.826.358C11.442 10.74 9.789 11 8 11c-1.79 0-3.442-.26-4.673-.703a6.649 6.649 0 01-.827-.358V12c0 .007.002.113.227.305.223.19.59.394 1.108.58 1.03.371 2.502.615 4.165.615 1.663 0 3.135-.244 4.165-.615.519-.186.885-.39 1.108-.58.225-.192.227-.298.227-.305V9.939z",
+      fill: "currentColor"
+    })
+  });
+}
+function DatabaseIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDatabaseIcon
   });
 }
 
@@ -7857,6 +1614,311 @@ function DotsCircleIcon(props) {
   });
 }
 
+function SvgDownloadIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1 13.5h14V15H1v-1.5zM12.53 6.53l-1.06-1.06-2.72 2.72V1h-1.5v7.19L4.53 5.47 3.47 6.53 8 11.06l4.53-4.53z",
+      fill: "currentColor"
+    })
+  });
+}
+function DownloadIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDownloadIcon
+  });
+}
+
+function SvgDragIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M5.25 1a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 1a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM5.25 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM5.25 11.5a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM10.75 11.5a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function DragIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgDragIcon
+  });
+}
+
+function SvgExpandLessIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M12.06 1.06L11 0 8.03 2.97 5.06 0 4 1.06l4.03 4.031 4.03-4.03zM4 15l4.03-4.03L12.06 15 11 16.06l-2.97-2.969-2.97 2.97L4 15z",
+      fill: "currentColor"
+    })
+  });
+}
+function ExpandLessIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgExpandLessIcon
+  });
+}
+
+function SvgExpandMoreIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M4 4.03l1.06 1.061 2.97-2.97L11 5.091l1.06-1.06L8.03 0 4 4.03zM12.06 12.091l-4.03 4.03L4 12.091l1.06-1.06L8.03 14 11 11.03l1.06 1.061z",
+      fill: "currentColor"
+    })
+  });
+}
+function ExpandMoreIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgExpandMoreIcon
+  });
+}
+
+function SvgFileCodeIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M7.47 9.97L4.44 13l3.03 3.03 1.06-1.06L6.56 13l1.97-1.97-1.06-1.06zM11.03 9.97l-1.06 1.06L11.94 13l-1.97 1.97 1.06 1.06L14.06 13l-3.03-3.03z",
+      fill: "currentColor"
+    })]
+  });
+}
+function FileCodeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFileCodeIcon
+  });
+}
+
+function SvgFileDocumentIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M5 11.5V13h9v-1.5H5zM14 16H5v-1.5h9V16z",
+      fill: "currentColor"
+    })]
+  });
+}
+function FileDocumentIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFileDocumentIcon
+  });
+}
+
+function SvgFileIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53v9a.75.75 0 01-.75.75H2.75a.75.75 0 01-.75-.75V1.75zm1.5.75v12h9V7H8.75A.75.75 0 018 6.25V2.5H3.5zm6 1.06l1.94 1.94H9.5V3.56z",
+      fill: "currentColor"
+    })
+  });
+}
+function FileIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFileIcon
+  });
+}
+
+function SvgFileImageIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16H2V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M10.466 10a.75.75 0 00-.542.27l-3.75 4.5A.75.75 0 006.75 16h6.5a.75.75 0 00.75-.75V13.5a.75.75 0 00-.22-.53l-2.75-2.75a.75.75 0 00-.564-.22zm2.034 3.81v.69H8.351l2.2-2.639 1.949 1.95zM6.5 7.25a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM5.75 9.5a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function FileImageIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFileImageIcon
+  });
+}
+
+function SvgFileModelIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2.75 1a.75.75 0 00-.75.75V16h1.5V2.5H8v3.75c0 .414.336.75.75.75h3.75v3H14V6.25a.75.75 0 00-.22-.53l-4.5-4.5A.75.75 0 008.75 1h-6zm8.69 4.5L9.5 3.56V5.5h1.94z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M11.75 11.5a2.25 2.25 0 11-2.03 1.28l-.5-.5a2.25 2.25 0 111.06-1.06l.5.5c.294-.141.623-.22.97-.22zm.75 2.25a.75.75 0 10-1.5 0 .75.75 0 001.5 0zM8.25 9.5a.75.75 0 110 1.5.75.75 0 010-1.5z",
+      fill: "currentColor"
+    })]
+  });
+}
+function FileModelIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFileModelIcon
+  });
+}
+
+function SvgFilterIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75V4a.75.75 0 01-.22.53L10 9.31v4.94a.75.75 0 01-.75.75h-2.5a.75.75 0 01-.75-.75V9.31L1.22 4.53A.75.75 0 011 4V1.75zm1.5.75v1.19l4.78 4.78c.141.14.22.331.22.53v4.5h1V9a.75.75 0 01.22-.53l4.78-4.78V2.5h-11z",
+      fill: "currentColor"
+    })
+  });
+}
+function FilterIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFilterIcon
+  });
+}
+
+function SvgFolderBranchIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 2.75A.75.75 0 01.75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 01.75.75V8h-1.5V5.5h-7a.75.75 0 01-.53-.22L5.555 3.866a1.25 1.25 0 00-.883-.366H1.5v9H5V14H.75a.75.75 0 01-.75-.75V2.75zM9 8.5a.5.5 0 100 1 .5.5 0 000-1zM7 9a2 2 0 113.778.917c.376.58.888 1.031 1.414 1.227a2 2 0 11-.072 1.54c-.977-.207-1.795-.872-2.37-1.626v1.087a2 2 0 11-1.5 0v-1.29A2 2 0 017 9zm7 2.5a.5.5 0 100 1 .5.5 0 000-1zm-5 2a.5.5 0 100 1 .5.5 0 000-1z",
+      fill: "currentColor"
+    })
+  });
+}
+function FolderBranchIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFolderBranchIcon
+  });
+}
+
+function SvgFolderFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H7.81L6.617 2.805A2.75 2.75 0 004.672 2H.75z",
+      fill: "currentColor"
+    })
+  });
+}
+function FolderFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFolderFillIcon
+  });
+}
+
+function SvgFolderIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 2.75A.75.75 0 01.75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h7.439a.75.75 0 01.75.75v8.5a.75.75 0 01-.75.75H.75a.75.75 0 01-.75-.75V2.75zm1.5.75v9h13v-7h-7a.75.75 0 01-.53-.22L5.555 3.866a1.25 1.25 0 00-.883-.366H1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function FolderIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFolderIcon
+  });
+}
+
 function SvgFontIcon(props) {
   return jsxs("svg", {
     width: "1em",
@@ -7888,6 +1950,71 @@ function FontIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgFontIcon
+  });
+}
+
+function SvgForkIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 2.75a2.75 2.75 0 113.5 2.646V6.75h3.75A2.75 2.75 0 0112 9.5v.104a2.751 2.751 0 11-1.5 0V9.5c0-.69-.56-1.25-1.25-1.25H5.5v1.354a2.751 2.751 0 11-1.5 0V5.396A2.751 2.751 0 012 2.75zM4.75 1.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zM3.5 12.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zm6.5 0a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function ForkIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgForkIcon
+  });
+}
+
+function SvgFullscreenExitIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M6 1v4.25a.75.75 0 01-.75.75H1V4.5h3.5V1H6zM10 15v-4.25a.75.75 0 01.75-.75H15v1.5h-3.5V15H10zM10.75 6H15V4.5h-3.5V1H10v4.25c0 .414.336.75.75.75zM1 10h4.25a.75.75 0 01.75.75V15H4.5v-3.5H1V10z",
+      fill: "currentColor"
+    })
+  });
+}
+function FullscreenExitIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFullscreenExitIcon
+  });
+}
+
+function SvgFullscreenIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M6 1H1.75a.75.75 0 00-.75.75V6h1.5V2.5H6V1zM10 2.5V1h4.25a.75.75 0 01.75.75V6h-1.5V2.5H10zM10 13.5h3.5V10H15v4.25a.75.75 0 01-.75.75H10v-1.5zM2.5 10v3.5H6V15H1.75a.75.75 0 01-.75-.75V10h1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function FullscreenIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgFullscreenIcon
   });
 }
 
@@ -7926,6 +2053,65 @@ function FunctionIcon(props) {
   });
 }
 
+function SvgGearFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 00-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 00-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 00.013.802l1.123 1.713a5.898 5.898 0 00-.15.66L.363 8.07a.75.75 0 00-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 00.635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 00.336.728 7.97 7.97 0 001.812.874.75.75 0 00.778-.192l1.422-1.478a5.924 5.924 0 00.677 0l1.422 1.478a.75.75 0 00.778.192 7.972 7.972 0 001.812-.874.75.75 0 00.335-.728l-.269-2.032a5.94 5.94 0 00.422-.529l2.043-.19a.75.75 0 00.634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 00-.36-.716l-1.756-1.056a5.89 5.89 0 00-.15-.661l1.123-1.713a.75.75 0 00.013-.802 8.034 8.034 0 00-1.255-1.572.75.75 0 00-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 00-.619-.51A8.07 8.07 0 007.965 0zm.02 10.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function GearFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGearFillIcon
+  });
+}
+
+function SvgGearIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsxs("g", {
+      clipPath: "url(#GearIcon_svg__clip0_13123_35019)",
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      fill: "currentColor",
+      children: [jsx("path", {
+        d: "M7.984 5a3 3 0 100 6 3 3 0 000-6zm-1.5 3a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"
+      }), jsx("path", {
+        d: "M7.965 0c-.34 0-.675.021-1.004.063a.75.75 0 00-.62.51l-.639 1.946c-.21.087-.413.185-.61.294L3.172 2.1a.75.75 0 00-.784.165c-.481.468-.903.996-1.255 1.572a.75.75 0 00.013.802l1.123 1.713a5.898 5.898 0 00-.15.66L.363 8.07a.75.75 0 00-.36.716c.067.682.22 1.34.447 1.962a.75.75 0 00.635.489l2.042.19c.13.184.271.36.422.529l-.27 2.032a.75.75 0 00.336.728 7.97 7.97 0 001.812.874.75.75 0 00.778-.192l1.422-1.478a5.924 5.924 0 00.677 0l1.422 1.478a.75.75 0 00.778.192 7.972 7.972 0 001.812-.874.75.75 0 00.335-.728l-.269-2.032a5.94 5.94 0 00.422-.529l2.043-.19a.75.75 0 00.634-.49c.228-.621.38-1.279.447-1.961a.75.75 0 00-.36-.716l-1.756-1.056a5.89 5.89 0 00-.15-.661l1.123-1.713a.75.75 0 00.013-.802 8.034 8.034 0 00-1.255-1.572.75.75 0 00-.784-.165l-1.92.713c-.197-.109-.4-.207-.61-.294L9.589.573a.75.75 0 00-.619-.51A8.071 8.071 0 007.965 0zm-.95 3.328l.598-1.819a6.62 6.62 0 01.705 0l.597 1.819a.75.75 0 00.472.476c.345.117.67.275.97.468a.75.75 0 00.668.073l1.795-.668c.156.176.303.36.44.552l-1.05 1.6a.75.75 0 00-.078.667c.12.333.202.685.24 1.05a.75.75 0 00.359.567l1.642.988c-.04.234-.092.463-.156.687l-1.909.178a.75.75 0 00-.569.353c-.19.308-.416.59-.672.843a.75.75 0 00-.219.633l.252 1.901a6.48 6.48 0 01-.635.306l-1.33-1.381a.75.75 0 00-.63-.225 4.483 4.483 0 01-1.08 0 .75.75 0 00-.63.225l-1.33 1.381a6.473 6.473 0 01-.634-.306l.252-1.9a.75.75 0 00-.219-.634 4.449 4.449 0 01-.672-.843.75.75 0 00-.569-.353l-1.909-.178a6.456 6.456 0 01-.156-.687L3.2 8.113a.75.75 0 00.36-.567c.037-.365.118-.717.239-1.05a.75.75 0 00-.078-.666L2.67 4.229c.137-.192.284-.376.44-.552l1.795.668a.75.75 0 00.667-.073c.3-.193.626-.351.97-.468a.75.75 0 00.472-.476z"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "GearIcon_svg__clip0_13123_35019",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function GearIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGearIcon
+  });
+}
+
 function SvgGiftIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -7949,6 +2135,370 @@ function GiftIcon(props) {
   });
 }
 
+function SvgGitCommitIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 5.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM4.07 7.25a4.001 4.001 0 017.86 0H16v1.5h-4.07a4.001 4.001 0 01-7.86 0H0v-1.5h4.07z",
+      fill: "currentColor"
+    })
+  });
+}
+function GitCommitIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGitCommitIcon
+  });
+}
+
+function SvgGlobeIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#GlobeIcon_svg__clip0_16060_28929)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm5.354-5.393c.088-.231.184-.454.287-.666A6.506 6.506 0 001.543 7.25h2.971c.067-1.777.368-3.399.84-4.643zm.661 4.643c.066-1.627.344-3.062.742-4.11.23-.607.485-1.046.73-1.32.247-.274.421-.32.513-.32.092 0 .266.046.512.32s.501.713.731 1.32c.398 1.048.676 2.483.742 4.11h-3.97zm3.97 1.5h-3.97c.066 1.627.344 3.062.742 4.11.23.607.485 1.046.73 1.32.247.274.421.32.513.32.092 0 .266-.046.512-.32s.501-.713.731-1.32c.398-1.048.676-2.483.742-4.11zm1.501-1.5c-.067-1.777-.368-3.399-.84-4.643a7.912 7.912 0 00-.287-.666 6.506 6.506 0 014.098 5.309h-2.971zm2.971 1.5h-2.971c-.067 1.777-.368 3.399-.84 4.643a7.918 7.918 0 01-.287.666 6.506 6.506 0 004.098-5.309zm-9.943 0H1.543a6.506 6.506 0 004.098 5.309 7.921 7.921 0 01-.287-.666c-.472-1.244-.773-2.866-.84-4.643z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "GlobeIcon_svg__clip0_16060_28929",
+        children: jsx("path", {
+          fill: "#fff",
+          transform: "matrix(1 0 0 -1 0 16)",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function GlobeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGlobeIcon
+  });
+}
+
+function SvgGridDashIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1 1.75V4h1.5V2.5H4V1H1.75a.75.75 0 00-.75.75zM15 14.25V12h-1.5v1.5H12V15h2.25a.75.75 0 00.75-.75zM12 1h2.25a.75.75 0 01.75.75V4h-1.5V2.5H12V1zM1.75 15H4v-1.5H2.5V12H1v2.25a.75.75 0 00.75.75zM10 2.5H6V1h4v1.5zM6 15h4v-1.5H6V15zM13.5 10V6H15v4h-1.5zM1 6v4h1.5V6H1z",
+      fill: "currentColor"
+    })
+  });
+}
+function GridDashIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGridDashIcon
+  });
+}
+
+function SvgGridIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5A.75.75 0 007 6.25v-4.5A.75.75 0 006.25 1h-4.5zm.75 4.5v-3h3v3h-3zM1.75 9a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75v-4.5A.75.75 0 006.25 9h-4.5zm.75 4.5v-3h3v3h-3zM9 1.75A.75.75 0 019.75 1h4.5a.75.75 0 01.75.75v4.49a.75.75 0 01-.75.75h-4.5A.75.75 0 019 6.24V1.75zm1.5.75v2.99h3V2.5h-3zM9.75 9a.75.75 0 00-.75.75v4.5c0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75v-4.5a.75.75 0 00-.75-.75h-4.5zm.75 4.5v-3h3v3h-3z",
+      fill: "currentColor"
+    })
+  });
+}
+function GridIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgGridIcon
+  });
+}
+
+function SvgH1Icon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1zM11.25 3A2.25 2.25 0 019 5.25v1.5c.844 0 1.623-.279 2.25-.75v5.5H9V13h6v-1.5h-2.25V3h-1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function H1Icon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgH1Icon
+  });
+}
+
+function SvgH2Icon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1 3v10h1.5V8.75H6V13h1.5V3H6v4.25H2.5V3H1zM11.75 3A2.75 2.75 0 009 5.75V6h1.5v-.25c0-.69.56-1.25 1.25-1.25h.39a1.36 1.36 0 01.746 2.498L10.692 8.44A3.75 3.75 0 009 11.574V13h6v-1.5h-4.499a2.25 2.25 0 011.014-1.807l2.194-1.44A2.86 2.86 0 0012.14 3h-.389z",
+      fill: "currentColor"
+    })
+  });
+}
+function H2Icon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgH2Icon
+  });
+}
+
+function SvgH3Icon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1 3h1.5v4.25H6V3h1.5v10H6V8.75H2.5V13H1V3zM9 5.75A2.75 2.75 0 0111.75 3h.375a2.875 2.875 0 011.937 5 2.875 2.875 0 01-1.937 5h-.375A2.75 2.75 0 019 10.25V10h1.5v.25c0 .69.56 1.25 1.25 1.25h.375a1.375 1.375 0 100-2.75H11v-1.5h1.125a1.375 1.375 0 100-2.75h-.375c-.69 0-1.25.56-1.25 1.25V6H9v-.25z",
+      fill: "currentColor"
+    })
+  });
+}
+function H3Icon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgH3Icon
+  });
+}
+
+function SvgHistoryIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsxs("g", {
+      clipPath: "url(#HistoryIcon_svg__clip0_13123_35203)",
+      fill: "currentColor",
+      children: [jsx("path", {
+        d: "M3.507 7.73l.963-.962 1.06 1.06-2.732 2.732L-.03 7.732l1.06-1.06.979.978a7 7 0 112.041 5.3l1.061-1.06a5.5 5.5 0 10-1.604-4.158z"
+      }), jsx("path", {
+        d: "M8.25 8V4h1.5v3.69l1.78 1.78-1.06 1.06-2-2A.75.75 0 018.25 8z"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "HistoryIcon_svg__clip0_13123_35203",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function HistoryIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgHistoryIcon
+  });
+}
+
+function SvgHomeIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M7.625 1.1a.75.75 0 01.75 0l6.25 3.61a.75.75 0 01.375.65v8.89a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75V10H7v4.25a.75.75 0 01-.75.75h-4.5a.75.75 0 01-.75-.75V5.355a.75.75 0 01.375-.65L7.625 1.1zM2.5 5.79V13.5h3V9.25a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v4.25h3V5.792L8 2.616 2.5 5.789z",
+      fill: "currentColor"
+    })
+  });
+}
+function HomeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgHomeIcon
+  });
+}
+
+function SvgImageIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M6.25 3.998a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zm-.75 2.25a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.492a.75.75 0 01-.75.75H5.038l-.009.009-.008-.009H1.75a.75.75 0 01-.75-.75V1.75zm12.5 11.742H6.544l4.455-4.436 2.47 2.469.031-.03v1.997zm0-10.992v6.934l-1.97-1.968a.75.75 0 00-1.06-.001l-6.052 6.027H2.5V2.5h11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ImageIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgImageIcon
+  });
+}
+
+function SvgIndentDecreaseIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M16 2H0v1.5h16V2zM16 5.5H7V7h9V5.5zM16 9H7v1.5h9V9zM16 12.5H0V14h16v-1.5zM3.97 11.03L.94 8l3.03-3.03 1.06 1.06L3.06 8l1.97 1.97-1.06 1.06z",
+      fill: "currentColor"
+    })
+  });
+}
+function IndentDecreaseIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgIndentDecreaseIcon
+  });
+}
+
+function SvgIndentIncreaseIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M16 2H0v1.5h16V2zM16 5.5H7V7h9V5.5zM16 9H7v1.5h9V9zM16 12.5H0V14h16v-1.5zM2.03 4.97L5.06 8l-3.03 3.03L.97 9.97 2.94 8 .97 6.03l1.06-1.06z",
+      fill: "currentColor"
+    })
+  });
+}
+function IndentIncreaseIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgIndentIncreaseIcon
+  });
+}
+
+function SvgInfinityIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 6.94l1.59-1.592a3.75 3.75 0 110 5.304L8 9.06l-1.591 1.59a3.75 3.75 0 110-5.303L8 6.94zm2.652-.531a2.25 2.25 0 110 3.182L9.06 8l1.59-1.591zM6.939 8L5.35 6.409a2.25 2.25 0 100 3.182l1.588-1.589L6.939 8z",
+      fill: "currentColor"
+    })
+  });
+}
+function InfinityIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgInfinityIcon
+  });
+}
+
+function SvgInfoFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M16 8A8 8 0 110 8a8 8 0 0116 0zm-8.75 3V7h1.5v4h-1.5zM8 4.5A.75.75 0 118 6a.75.75 0 010-1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function InfoFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgInfoFillIcon
+  });
+}
+
+function SvgInfoIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 11V7h1.5v4h-1.5zM8 4.5A.75.75 0 118 6a.75.75 0 010-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function InfoIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgInfoIcon
+  });
+}
+
 function SvgItalicIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -7969,6 +2519,81 @@ function ItalicIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgItalicIcon
+  });
+}
+
+function SvgKeyIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a4 4 0 017.93-.75h7.32A.75.75 0 0116 8v3h-1.5V8.75H13V11h-1.5V8.75H7.93A4.001 4.001 0 010 8zm4-2.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z",
+      fill: "currentColor"
+    })
+  });
+}
+function KeyIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgKeyIcon
+  });
+}
+
+function SvgKeyboardIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H.75zm.75 10.5v-9h13v9h-13zm2.75-8h-1.5V6h1.5V4.5zm1.5 0V6h1.5V4.5h-1.5zm3 0V6h1.5V4.5h-1.5zm3 0V6h1.5V4.5h-1.5zm-1.5 2.75h-1.5v1.5h1.5v-1.5zm1.5 1.5v-1.5h1.5v1.5h-1.5zm-4.5 0v-1.5h-1.5v1.5h1.5zm-3 0v-1.5h-1.5v1.5h1.5zM11 10H5v1.5h6V10z",
+      fill: "currentColor"
+    })
+  });
+}
+function KeyboardIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgKeyboardIcon
+  });
+}
+
+function SvgLayerIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M13.5 2.5H7V1h7.25a.75.75 0 01.75.75V9h-1.5V2.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 7.75A.75.75 0 011.75 7h6.5a.75.75 0 01.75.75v6.5a.75.75 0 01-.75.75h-6.5a.75.75 0 01-.75-.75v-6.5zm1.5.75v5h5v-5h-5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M4 5.32h6.5V12H12V4.57a.75.75 0 00-.75-.75H4v1.5z",
+      fill: "currentColor"
+    })]
+  });
+}
+function LayerIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLayerIcon
   });
 }
 
@@ -7998,6 +2623,248 @@ function LettersIcon(props) {
   });
 }
 
+function SvgLightningIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M9.49.04a.75.75 0 01.51.71V6h3.25a.75.75 0 01.596 1.206l-6.5 8.5A.75.75 0 016 15.25V10H2.75a.75.75 0 01-.596-1.206l6.5-8.5A.75.75 0 019.491.04zM4.269 8.5H6.75a.75.75 0 01.75.75v3.785L11.732 7.5H9.25a.75.75 0 01-.75-.75V2.965L4.268 8.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function LightningIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLightningIcon
+  });
+}
+
+function SvgLinkIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M4 4h3v1.5H4a2.5 2.5 0 000 5h3V12H4a4 4 0 010-8zM12 10.5H9V12h3a4 4 0 000-8H9v1.5h3a2.5 2.5 0 010 5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M4 8.75h8v-1.5H4v1.5z",
+      fill: "currentColor"
+    })]
+  });
+}
+function LinkIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLinkIcon
+  });
+}
+
+function SvgLinkOffIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M14.035 11.444A4 4 0 0012 4H9v1.5h3a2.5 2.5 0 01.917 4.826l1.118 1.118zM14 13.53L2.47 2l-1 1 1.22 1.22A4.002 4.002 0 004 12h3v-1.5H4a2.5 2.5 0 01-.03-5l1.75 1.75H4v1.5h3.22L13 14.53l1-1z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M9.841 7.25l1.5 1.5H12v-1.5H9.841z",
+      fill: "currentColor"
+    })]
+  });
+}
+function LinkOffIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLinkOffIcon
+  });
+}
+
+function SvgListBorderIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M12 8.75H7v-1.5h5v1.5zM7 5.5h5V4H7v1.5zM12 12H7v-1.5h5V12zM4.75 5.5a.75.75 0 100-1.5.75.75 0 000 1.5zM5.5 8A.75.75 0 114 8a.75.75 0 011.5 0zM4.75 12a.75.75 0 100-1.5.75.75 0 000 1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v11h11v-11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ListBorderIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgListBorderIcon
+  });
+}
+
+function SvgListIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M1.5 2.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM3 2h13v1.5H3V2zM3 5.5h13V7H3V5.5zM3 9h13v1.5H3V9zM3 12.5h13V14H3v-1.5zM.75 7a.75.75 0 100-1.5.75.75 0 000 1.5zM1.5 13.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM.75 10.5a.75.75 0 100-1.5.75.75 0 000 1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function ListIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgListIcon
+  });
+}
+
+function SvgLoadingIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M23.212 12a.788.788 0 01-.789-.788 9.57 9.57 0 00-.757-3.751 9.662 9.662 0 00-5.129-5.129 9.587 9.587 0 00-3.749-.755.788.788 0 010-1.577c1.513 0 2.983.296 4.365.882a11.128 11.128 0 013.562 2.403 11.157 11.157 0 013.283 7.927.785.785 0 01-.786.788z",
+      fill: "currentColor"
+    })
+  });
+}
+function LoadingIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLoadingIcon
+  });
+}
+
+function SvgLockFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M12 6V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H12zM5.5 6h5V4a2.5 2.5 0 00-5 0v2zm1.75 7V9h1.5v4h-1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function LockFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLockFillIcon
+  });
+}
+
+function SvgLockIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 9v4h1.5V9h-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M12 6V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75H12zm.5 1.5v7h-9v-7h9zM5.5 4v2h5V4a2.5 2.5 0 00-5 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function LockIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLockIcon
+  });
+}
+
+function SvgLockUnlockedIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M10 11.75v-1.5H6v1.5h4z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M13.25 6H5.5V4a2.5 2.5 0 015 0v.5H12V4a4 4 0 00-8 0v2H2.75a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 00.75-.75v-8.5a.75.75 0 00-.75-.75zM3.5 7.5h9v7h-9v-7z",
+      fill: "currentColor"
+    })]
+  });
+}
+function LockUnlockedIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgLockUnlockedIcon
+  });
+}
+
+function SvgMIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M6.42 5.415A.75.75 0 005 5.75V11h1.5V8.927l.83 1.658a.75.75 0 001.34 0l.83-1.658V11H11V5.75a.75.75 0 00-1.42-.335L8 8.573 6.42 5.415z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function MIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgMIcon
+  });
+}
+
 function SvgMenuIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -8018,6 +2885,184 @@ function MenuIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgMenuIcon
+  });
+}
+
+function SvgMinusBoxIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M11.5 8.75h-7v-1.5h7v1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11h11v11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function MinusBoxIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgMinusBoxIcon
+  });
+}
+
+function SvgMinusCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm3.5-7.25h-7v-1.5h7v1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function MinusCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgMinusCircleFillIcon
+  });
+}
+
+function SvgMinusCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M4.5 8.75v-1.5h7v1.5h-7z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function MinusCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgMinusCircleIcon
+  });
+}
+
+function SvgModelsIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#ModelsIcon_svg__clip0_13123_34951)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M0 4.75a2.75 2.75 0 015.145-1.353l4.372-.95a2.75 2.75 0 113.835 2.823l.282 2.257a2.75 2.75 0 11-2.517 4.46l-2.62 1.145.003.118a2.75 2.75 0 11-4.415-2.19L3.013 7.489A2.75 2.75 0 010 4.75zM2.75 3.5a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm2.715 1.688c.018-.11.029-.22.033-.333l4.266-.928a2.753 2.753 0 002.102 1.546l.282 2.257c-.377.165-.71.412-.976.719L5.465 5.188zM4.828 6.55a2.767 2.767 0 01-.413.388l1.072 3.573a2.747 2.747 0 012.537 1.19l2.5-1.093a2.792 2.792 0 01.01-.797l-5.706-3.26zM12 10.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zM5.75 12a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zM11 2.75a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "ModelsIcon_svg__clip0_13123_34951",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function ModelsIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgModelsIcon
+  });
+}
+
+function SvgNoIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 0110.535-5.096l-9.131 9.131A6.472 6.472 0 011.5 8zm2.465 5.096a6.5 6.5 0 009.131-9.131l-9.131 9.131z",
+      fill: "currentColor"
+    })
+  });
+}
+function NoIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgNoIcon
+  });
+}
+
+function SvgNotebookIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M3 1.75A.75.75 0 013.75 1h10.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V12.5H1V11h2V8.75H1v-1.5h2V5H1V3.5h2V1.75zm1.5.75v11H6v-11H4.5zm3 0v11h6v-11h-6z",
+      fill: "currentColor"
+    })
+  });
+}
+function NotebookIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgNotebookIcon
+  });
+}
+
+function SvgNotificationIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 1a5 5 0 00-5 5v1.99c0 .674-.2 1.332-.573 1.892l-1.301 1.952A.75.75 0 001.75 13h3.5v.25a2.75 2.75 0 105.5 0V13h3.5a.75.75 0 00.624-1.166l-1.301-1.952A3.41 3.41 0 0113 7.99V6a5 5 0 00-5-5zm1.25 12h-2.5v.25a1.25 1.25 0 102.5 0V13zM4.5 6a3.5 3.5 0 117 0v1.99c0 .97.287 1.918.825 2.724l.524.786H3.15l.524-.786A4.91 4.91 0 004.5 7.99V6z",
+      fill: "currentColor"
+    })
+  });
+}
+function NotificationIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgNotificationIcon
   });
 }
 
@@ -8065,6 +3110,233 @@ function NumbersIcon(props) {
   });
 }
 
+function SvgOfficeIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M4 8.75h8v-1.5H4v1.5zM7 5.75H4v-1.5h3v1.5zM4 11.75h8v-1.5H4v1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V5a.75.75 0 00-.75-.75H10v-2.5A.75.75 0 009.25 1h-7.5zm.75 1.5h6V5c0 .414.336.75.75.75h4.25v7.75h-11v-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function OfficeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgOfficeIcon
+  });
+}
+
+function SvgOverflowIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M8 1a1.75 1.75 0 100 3.5A1.75 1.75 0 008 1zM8 6.25a1.75 1.75 0 100 3.5 1.75 1.75 0 000-3.5zM8 11.5A1.75 1.75 0 108 15a1.75 1.75 0 000-3.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function OverflowIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgOverflowIcon
+  });
+}
+
+function SvgPageBottomIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 3.06L2.06 2l5.97 5.97L14 2l1.06 1.06-7.03 7.031L1 3.061zm14.03 10.47v1.5h-14v-1.5h14z",
+      fill: "currentColor"
+    })
+  });
+}
+function PageBottomIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPageBottomIcon
+  });
+}
+
+function SvgPageFirstIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M12.97 1l1.06 1.06-5.97 5.97L14.03 14l-1.06 1.06-7.03-7.03L12.97 1zM2.5 15.03H1v-14h1.5v14z",
+      fill: "currentColor"
+    })
+  });
+}
+function PageFirstIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPageFirstIcon
+  });
+}
+
+function SvgPageLastIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M3.06 1L2 2.06l5.97 5.97L2 14l1.06 1.06 7.031-7.03L3.061 1zm10.47 14.03h1.5v-14h-1.5v14z",
+      fill: "currentColor"
+    })
+  });
+}
+function PageLastIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPageLastIcon
+  });
+}
+
+function SvgPageTopIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 12.97l1.06 1.06 5.97-5.97L14 14.03l1.06-1.06-7.03-7.03L1 12.97zM15.03 2.5V1h-14v1.5h14z",
+      fill: "currentColor"
+    })
+  });
+}
+function PageTopIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPageTopIcon
+  });
+}
+
+function SvgPencilIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M13.487 1.513a1.75 1.75 0 00-2.474 0L1.22 11.306a.75.75 0 00-.22.53v2.5c0 .414.336.75.75.75h2.5a.75.75 0 00.53-.22l9.793-9.793a1.75 1.75 0 000-2.475l-1.086-1.085zm-1.414 1.06a.25.25 0 01.354 0l1.086 1.086a.25.25 0 010 .354L12 5.525l-1.44-1.44 1.513-1.512zM9.5 5.146l-7 7v1.44h1.44l7-7-1.44-1.44z",
+      fill: "currentColor"
+    })
+  });
+}
+function PencilIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPencilIcon
+  });
+}
+
+function SvgPinCancelIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M5.75 0A.75.75 0 005 .75v1.19l9 9V9a.75.75 0 00-.22-.53l-2.12-2.122a2.25 2.25 0 01-.66-1.59V.75a.75.75 0 00-.75-.75h-4.5zM10.94 12l2.53 2.53 1.06-1.06-11.5-11.5-1.06 1.06 2.772 2.773c-.104.2-.239.383-.4.545L2.22 8.47A.75.75 0 002 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h2.19z",
+      fill: "currentColor"
+    })
+  });
+}
+function PinCancelIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPinCancelIcon
+  });
+}
+
+function SvgPinFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M5 .75A.75.75 0 015.75 0h4.5a.75.75 0 01.75.75v4.007c0 .597.237 1.17.659 1.591L13.78 8.47c.141.14.22.331.22.53v2.25a.75.75 0 01-.75.75h-4.5v4h-1.5v-4h-4.5a.75.75 0 01-.75-.75V9a.75.75 0 01.22-.53L4.34 6.348A2.25 2.25 0 005 4.758V.75z",
+      fill: "currentColor"
+    })
+  });
+}
+function PinFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPinFillIcon
+  });
+}
+
+function SvgPinIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5.75 0A.75.75 0 005 .75v4.007a2.25 2.25 0 01-.659 1.591L2.22 8.47A.75.75 0 002 9v2.25c0 .414.336.75.75.75h4.5v4h1.5v-4h4.5a.75.75 0 00.75-.75V9a.75.75 0 00-.22-.53L11.66 6.348A2.25 2.25 0 0111 4.758V.75a.75.75 0 00-.75-.75h-4.5zm.75 4.757V1.5h3v3.257a3.75 3.75 0 001.098 2.652L12.5 9.311V10.5h-9V9.31L5.402 7.41A3.75 3.75 0 006.5 4.757z",
+      fill: "currentColor"
+    })
+  });
+}
+function PinIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPinIcon
+  });
+}
+
 function SvgPipelineIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -8085,6 +3357,76 @@ function PipelineIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgPipelineIcon
+  });
+}
+
+function SvgPlayCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm7.125-2.815A.75.75 0 006 5.835v4.33a.75.75 0 001.125.65l3.75-2.166a.75.75 0 000-1.299l-3.75-2.165z",
+      fill: "currentColor"
+    })
+  });
+}
+function PlayCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlayCircleFillIcon
+  });
+}
+
+function SvgPlayCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M11.25 8a.75.75 0 01-.375.65l-3.75 2.165A.75.75 0 016 10.165v-4.33a.75.75 0 011.125-.65l3.75 2.165a.75.75 0 01.375.65z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function PlayCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlayCircleIcon
+  });
+}
+
+function SvgPlayIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M12.125 8.864a.75.75 0 000-1.3l-6-3.464A.75.75 0 005 4.75v6.928a.75.75 0 001.125.65l6-3.464z",
+      fill: "currentColor"
+    })
+  });
+}
+function PlayIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlayIcon
   });
 }
 
@@ -8111,6 +3453,299 @@ function PlugIcon(props) {
   });
 }
 
+function SvgPlusCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm-.75-4.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5z",
+      fill: "currentColor"
+    })
+  });
+}
+function PlusCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlusCircleFillIcon
+  });
+}
+
+function SvgPlusCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 11.5V8.75H4.5v-1.5h2.75V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function PlusCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlusCircleIcon
+  });
+}
+
+function SvgPlusIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M7.25 7.25V1h1.5v6.25H15v1.5H8.75V15h-1.5V8.75H1v-1.5h6.25z",
+      fill: "currentColor"
+    })
+  });
+}
+function PlusIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlusIcon
+  });
+}
+
+function SvgPlusSquareIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 7.25V4.5h1.5v2.75h2.75v1.5H8.75v2.75h-1.5V8.75H4.5v-1.5h2.75z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v11h11v-11h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function PlusSquareIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgPlusSquareIcon
+  });
+}
+
+function SvgQueryEditorIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M12 12H8v-1.5h4V12zM5.53 11.53L7.56 9.5 5.53 7.47 4.47 8.53l.97.97-.97.97 1.06 1.06z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 3V2.5h11V4h-11zm0 1.5v8h11v-8h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function QueryEditorIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgQueryEditorIcon
+  });
+}
+
+function SvgQueryIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsxs("g", {
+      clipPath: "url(#QueryIcon_svg__clip0_13123_35183)",
+      fill: "currentColor",
+      children: [jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M2 1.75A.75.75 0 012.75 1h6a.75.75 0 01.53.22l4.5 4.5c.141.14.22.331.22.53V10h-1.5V7H8.75A.75.75 0 018 6.25V2.5H3.5V16h-.75a.75.75 0 01-.75-.75V1.75zm7.5 1.81l1.94 1.94H9.5V3.56z"
+      }), jsx("path", {
+        d: "M5.53 9.97L8.56 13l-3.03 3.03-1.06-1.06L6.44 13l-1.97-1.97 1.06-1.06zM14 14.5H9V16h5v-1.5z"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "QueryIcon_svg__clip0_13123_35183",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function QueryIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgQueryIcon
+  });
+}
+
+function SvgQuestionMarkFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm2.207-10.189a2.25 2.25 0 01-1.457 2.56V9h-1.5V7.75A.75.75 0 018 7a.75.75 0 10-.75-.75h-1.5a2.25 2.25 0 014.457-.439zM7.25 10.75a.75.75 0 101.5 0 .75.75 0 00-1.5 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function QuestionMarkFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgQuestionMarkFillIcon
+  });
+}
+
+function SvgQuestionMarkIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 10.75a.75.75 0 101.5 0 .75.75 0 00-1.5 0zM10.079 7.111A2.25 2.25 0 105.75 6.25h1.5A.75.75 0 118 7a.75.75 0 00-.75.75V9h1.5v-.629a2.25 2.25 0 001.329-1.26z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function QuestionMarkIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgQuestionMarkIcon
+  });
+}
+
+function SvgReaderModeIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M13 4.5h-3V6h3V4.5zM13 7.25h-3v1.5h3v-1.5zM13 10h-3v1.5h3V10z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M.75 2a.75.75 0 00-.75.75v10.5c0 .414.336.75.75.75h14.5a.75.75 0 00.75-.75V2.75a.75.75 0 00-.75-.75H.75zm.75 10.5v-9h5.75v9H1.5zm7.25 0h5.75v-9H8.75v9z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ReaderModeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgReaderModeIcon
+  });
+}
+
+function SvgRedoIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#RedoIcon_svg__clip0_14136_38626)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M13.19 5l-2.72-2.72 1.06-1.06 4.53 4.53-4.53 4.53-1.06-1.06 2.72-2.72H4.5a3 3 0 100 6H9V14H4.5a4.5 4.5 0 010-9h8.69z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "RedoIcon_svg__clip0_14136_38626",
+        children: jsx("path", {
+          fill: "#fff",
+          transform: "matrix(1 0 0 -1 0 16)",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function RedoIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgRedoIcon
+  });
+}
+
+function SvgRefreshIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 8a7 7 0 0111.85-5.047l.65.594V2H15v4h-4V4.5h1.32l-.496-.453-.007-.007a5.5 5.5 0 10.083 7.839l1.063 1.058A7 7 0 011 8z",
+      fill: "currentColor"
+    })
+  });
+}
+function RefreshIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgRefreshIcon
+  });
+}
+
 function SvgSaveIcon(props) {
   return jsxs("svg", {
     width: "1em",
@@ -8134,6 +3769,211 @@ function SaveIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgSaveIcon
+  });
+}
+
+function SvgSchoolIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M16 7a.75.75 0 00-.37-.647l-7.25-4.25a.75.75 0 00-.76 0L.37 6.353a.75.75 0 000 1.294L3 9.188V12a.75.75 0 00.4.663l4.25 2.25a.75.75 0 00.7 0l4.25-2.25A.75.75 0 0013 12V9.188l1.5-.879V12H16V7zm-7.62 4.897l3.12-1.83v1.481L8 13.401l-3.5-1.853v-1.48l3.12 1.829a.75.75 0 00.76 0zM8 3.619L2.233 7 8 10.38 13.767 7 8 3.62z",
+      fill: "currentColor"
+    })
+  });
+}
+function SchoolIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSchoolIcon
+  });
+}
+
+function SvgSearchIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#SearchIcon_svg__clip0_13123_34883)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M8 1a7 7 0 104.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 008 1zM2.5 8a5.5 5.5 0 1111 0 5.5 5.5 0 01-11 0z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "SearchIcon_svg__clip0_13123_34883",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function SearchIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSearchIcon
+  });
+}
+
+function SvgSecurityIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2 1.75A.75.75 0 012.75 1h10.5a.75.75 0 01.75.75v7.465a5.75 5.75 0 01-2.723 4.889l-2.882 1.784a.75.75 0 01-.79 0l-2.882-1.784A5.75 5.75 0 012 9.214V1.75zm1.5.75V7h3.75V2.5H3.5zm5.25 0V7h3.75V2.5H8.75zm3.75 6H8.75v5.404l1.737-1.076A4.25 4.25 0 0012.5 9.215V8.5zm-5.25 5.404V8.5H3.5v.715a4.25 4.25 0 002.013 3.613l1.737 1.076z",
+      fill: "currentColor"
+    })
+  });
+}
+function SecurityIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSecurityIcon
+  });
+}
+
+function SvgShareIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M3.97 5.03L8 1l4.03 4.03-1.06 1.061-2.22-2.22v7.19h-1.5V3.87l-2.22 2.22-1.06-1.06z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M2.5 13.56v-6.5H1v7.25c0 .415.336.75.75.75h12.5a.75.75 0 00.75-.75V7.06h-1.5v6.5h-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ShareIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgShareIcon
+  });
+}
+
+function SvgSidebarAutoIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 17 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M9.06 8l1.97 1.97-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06L9.06 8zM11.97 6.03L13.94 8l-1.97 1.97 1.06 1.06L16.06 8l-3.03-3.03-1.06 1.06z",
+      fill: "currentColor"
+    })]
+  });
+}
+function SidebarAutoIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSidebarAutoIcon
+  });
+}
+
+function SvgSidebarCollapseIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M9.81 8.75l1.22 1.22-1.06 1.06L6.94 8l3.03-3.03 1.06 1.06-1.22 1.22H14v1.5H9.81z",
+      fill: "currentColor"
+    })]
+  });
+}
+function SidebarCollapseIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSidebarCollapseIcon
+  });
+}
+
+function SvgSidebarExpandIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75H15v-1.5H5.5v-11H15V1H1.75zM4 2.5H2.5v11H4v-11z",
+      fill: "currentColor"
+    }), jsx("path", {
+      d: "M11.19 8.75L9.97 9.97l1.06 1.06L14.06 8l-3.03-3.03-1.06 1.06 1.22 1.22H7v1.5h4.19z",
+      fill: "currentColor"
+    })]
+  });
+}
+function SidebarExpandIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSidebarExpandIcon
+  });
+}
+
+function SvgSidebarIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.75 1a.75.75 0 00-.75.75v12.5c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75V1.75a.75.75 0 00-.75-.75H1.75zm.75 12.5v-11H4v11H2.5zm3 0h8v-11h-8v11z",
+      fill: "currentColor"
+    })
+  });
+}
+function SidebarIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSidebarIcon
   });
 }
 
@@ -8225,6 +4065,169 @@ function SortUnsortedIcon(props) {
   });
 }
 
+function SvgSpeechBubbleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8 8.75a.75.75 0 100-1.5.75.75 0 000 1.5zM11.5 8A.75.75 0 1110 8a.75.75 0 011.5 0zM5.25 8.75a.75.75 0 100-1.5.75.75 0 000 1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 15c-.099 0-.197-.002-.295-.006A.762.762 0 017.61 15H1.75a.75.75 0 01-.53-1.28l1.328-1.329A7 7 0 118 15zM2.5 8a5.5 5.5 0 115.156 5.49.75.75 0 00-.18.01H3.56l.55-.55a.75.75 0 000-1.06A5.48 5.48 0 012.5 8z",
+      fill: "currentColor"
+    })]
+  });
+}
+function SpeechBubbleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSpeechBubbleIcon
+  });
+}
+
+function SvgSpeechBubblePlusIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 11V8.75H5v-1.5h2.25V5h1.5v2.25H11v1.5H8.75V11h-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 15c-.099 0-.197-.002-.295-.006A.762.762 0 017.61 15H1.75a.75.75 0 01-.53-1.28l1.328-1.329A7 7 0 118 15zM2.5 8a5.5 5.5 0 115.156 5.49.75.75 0 00-.18.01H3.56l.55-.55a.75.75 0 000-1.06A5.48 5.48 0 012.5 8z",
+      fill: "currentColor"
+    })]
+  });
+}
+function SpeechBubblePlusIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSpeechBubblePlusIcon
+  });
+}
+
+function SvgStarFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M7.995 0a.75.75 0 01.714.518l1.459 4.492h4.723a.75.75 0 01.44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 01-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 01-1.154-.838L4.48 9.142.66 6.366A.75.75 0 011.1 5.01h4.723L7.282.518A.75.75 0 017.995 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function StarFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStarFillIcon
+  });
+}
+
+function SvgStarIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M7.995 0a.75.75 0 01.714.518l1.459 4.492h4.723a.75.75 0 01.44 1.356l-3.82 2.776 1.459 4.492a.75.75 0 01-1.154.838l-3.82-2.776-3.821 2.776a.75.75 0 01-1.154-.838L4.48 9.142.66 6.366A.75.75 0 011.1 5.01h4.723L7.282.518A.75.75 0 017.995 0zm0 3.177l-.914 2.814a.75.75 0 01-.713.519h-2.96l2.394 1.739a.75.75 0 01.273.839l-.915 2.814 2.394-1.74a.75.75 0 01.882 0l2.394 1.74-.914-2.814a.75.75 0 01.272-.839l2.394-1.74H9.623a.75.75 0 01-.713-.518l-.915-2.814z",
+      fill: "currentColor"
+    })
+  });
+}
+function StarIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStarIcon
+  });
+}
+
+function SvgStopCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 16A8 8 0 108 0a8 8 0 000 16zM6.125 5.5a.625.625 0 00-.625.625v3.75c0 .345.28.625.625.625h3.75c.345 0 .625-.28.625-.625v-3.75a.625.625 0 00-.625-.625h-3.75z",
+      fill: "currentColor"
+    })
+  });
+}
+function StopCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStopCircleFillIcon
+  });
+}
+
+function SvgStopCircleIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1.5 8a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0zM8 0a8 8 0 100 16A8 8 0 008 0zM5.5 6a.5.5 0 01.5-.5h4a.5.5 0 01.5.5v4a.5.5 0 01-.5.5H6a.5.5 0 01-.5-.5V6z",
+      fill: "currentColor"
+    })
+  });
+}
+function StopCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStopCircleIcon
+  });
+}
+
+function SvgStopIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M4.5 4a.5.5 0 00-.5.5v7a.5.5 0 00.5.5h7a.5.5 0 00.5-.5v-7a.5.5 0 00-.5-.5h-7z",
+      fill: "currentColor"
+    })
+  });
+}
+function StopIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStopIcon
+  });
+}
+
 function SvgStorefrontIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -8245,6 +4248,153 @@ function StorefrontIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgStorefrontIcon
+  });
+}
+
+function SvgStreamIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 0a8 8 0 100 16A8 8 0 008 0zM1.52 7.48a6.5 6.5 0 0112.722-1.298l-.09-.091a3.75 3.75 0 00-5.304 0L6.091 8.848a2.25 2.25 0 01-3.182 0L1.53 7.47l-.01.01zm.238 2.338A6.5 6.5 0 0014.48 8.52l-.01.01-1.379-1.378a2.25 2.25 0 00-3.182 0L7.152 9.909a3.75 3.75 0 01-5.304 0l-.09-.09z",
+      fill: "currentColor"
+    })
+  });
+}
+function StreamIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgStreamIcon
+  });
+}
+
+function SvgSyncIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M8 2.5a5.48 5.48 0 013.817 1.54l.009.009.5.451H11V6h4V2h-1.5v1.539l-.651-.588A7 7 0 001 8h1.5A5.5 5.5 0 018 2.5zM1 10h4v1.5H3.674l.5.451.01.01A5.5 5.5 0 0013.5 8h1.499a7 7 0 01-11.849 5.048L2.5 12.46V14H1v-4z",
+      fill: "currentColor"
+    })
+  });
+}
+function SyncIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgSyncIcon
+  });
+}
+
+function SvgTableIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75v12.5a.75.75 0 01-.75.75H1.75a.75.75 0 01-.75-.75V1.75zm1.5.75v3h11v-3h-11zm0 11V7H5v6.5H2.5zm4 0h3V7h-3v6.5zM11 7v6.5h2.5V7H11z",
+      fill: "currentColor"
+    })
+  });
+}
+function TableIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTableIcon
+  });
+}
+
+function SvgTableInfinityIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75V9h-1.5V6h-11v7.5H4V15H1.75a.75.75 0 01-.75-.75V1.75zm12.5.75v2H8.75v-2h4.75zm-11 0h4.75v2H2.5v-2zm10.693 9.295a1.01 1.01 0 00-1.417 0l-.002.002-.001.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.001-.002.002-.002.003-.002.002-.002.002-.002.002-.003.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.003-.003.002-.002.002-.002.002-.002.002-.003.003-.002.002-.002.002-.002.002-.003.003-.002.002-.002.002-.003.002-.002.003-.002.002-.003.002-.002.003-.002.002-.003.002-.002.003-.003.002-.002.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.003.003-.002.002-.003.003-.002.002-.003.003-.003.003-.002.002-.003.003-.003.002-.002.003-.003.003-.003.002-.002.003-.003.003-.003.002-.002.003-.003.003-.003.002-.003.003-.002.003-.003.003-.003.002-.003.003-.002.003-.003.003-.003.002-.003.003-.003.003-.003.003-.002.002-.003.003-.003.003-.003.003-.003.003-.003.003-.002.002-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.002-.003.003-.003.003-.002.003-.004.003-.003.003-.003.003-.002.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003.003.003.003.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.004.003.003.003.003.003.003.004.003.003.003.003.004.003.003.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.004.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.002.002.003.003.003.003.003.003.003.003.003.003.003.003.002.003.003.003.003.003.003.002.003.003.003.003.002.003.003.003.003.002.003.003.003.003.002.003.003.003.003.002.003.003.002.003.003.003.003.003.002.002.003.003.003.003.003.002.002.003.003.003.003.003.002.002.003.003.003.003.002.002.003.003.003.003.002.002.003.003.002.002.003.003.002.003.003.002.003.003.002.002.003.003.002.003.003.002.002.003.003.002.002.003.003.002.002.003.003.002.002.003.003.002.002.003.003.002.002.002.002.003.003.002.002.003.003.002.002.002.002.003.003.002.002.003.002.002.003.002.002.003.002.002.003.002.002.002.002.003.002.002.003.002.002.003.002.002.002.002.003.002.002.002.002.003.002.002.002.002.002.002.002a1.01 1.01 0 001.417 0 .983.983 0 000-1.4zm-3.192-.354l-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003L9.556 11l-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.003-.003-.003-.003-.002-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.002-.003-.003-.003-.003-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.003-.003-.003-.003-.002-.002-.003-.003-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.003-.002-.002-.003-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.002-.002-.003-.002-.002-.003-.002-.002-.002-.002-.002-.002-.002-.002a2.53 2.53 0 00-3.55 0c-.981.97-.981 2.54 0 3.51.98.97 2.57.97 3.55 0l.001-.002.002-.002.002-.001.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.003-.002.002-.003.002-.002.002-.002.002-.002.002-.002.003-.002.002-.002.002-.003.002-.002.003-.002.002-.002.002-.003.002-.002.003-.002.002-.002.002-.003.003-.002.002-.002.002-.003.003-.002.002-.002.003-.003.002-.002.002-.003.003-.002.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.002.002-.003.003-.002.002-.003.003-.002.002-.003.003-.003.002-.002.003-.003.003-.002.002-.003.003-.003.002-.002.003-.003.003-.002.002-.003.003-.003.003-.002.002-.003.003-.002.003-.003.003-.003.002-.003.003-.002.003-.003.002-.003.003-.002.003-.003.003-.003.002-.003.003-.002.003-.003.003-.003.003-.003.002-.002.003-.003.003-.003.003-.003.003-.003.003-.002.003-.003.002-.003.003-.003.003-.003.003-.003.003-.003.003-.002.003-.003.003-.003.003-.003.003-.003.002-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.002.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003.002.003.004.003.003.004.003.003.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.004.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.003.003.004.004.003.003.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.004.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.003.003.003.004.003.003.004.003.003.003.003.003.003.003.003.004.003.003.003.003.003.003.004.003.003.003.003.003.003.004.003.003.003.003.003.003.003.003.003.003.003.003.004.003.003.003.003.004.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.002.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.003.002.002.003.003.003.003.003.003.003.003.003.003.003.003.002.003.003.002.003.003.003.003.003.003.002.003.003.002.003.003.003.003.002.003.003.003.003.002.003.003.003.003.002.003.003.002.003.003.002.003.003.003.003.002.002.003.003.003.003.002.002.003.003.003.003.002.002.003.003.003.002.002.003.003.003.002.002.003.003.003.002.002.003.003.002.002.003.003.002.003.003.002.003.002.002.003.002.002.003.003.002.002.003.003.002.002.003.003.002.002.003.003.002.002.002.003.003.002.002.002.003.003.002.002.002.003.003.002.002.002.002.003.003.002.002.002.002.003.002.002.003.002.002.002.002.003.003.002.002.002.002.002.002.003.002.002.003.002.002.002.002.002.002.003.002c.98.97 2.57.97 3.55 0s.98-2.54 0-3.51a2.53 2.53 0 00-3.55 0l-.002.002-.002.001-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.003.002-.002.003-.002.002-.002.002-.002.002-.002.002-.003.002-.002.003-.002.002-.002.002-.003.002-.002.003-.002.002-.003.002-.002.002-.002.003-.003.002-.002.002-.002.003-.003.002-.002.002-.002.003-.003.002-.002.002-.003.003-.002.002-.003.003-.002.002-.002.003-.003.002-.003.002-.002.003-.002.002-.003.003-.002.002-.003.003-.003.002-.002.003-.003.002-.002.003-.003.003-.002.002-.003.003-.003.002-.002.003-.003.003-.003.002-.002.003-.003.002-.003.003-.002.003-.003.002-.003.003-.002.003-.003.002-.003.003-.002.003-.003.003-.003.002-.003.003-.002.003-.003.002-.003.003-.003.003-.003.003-.003.002-.002.003-.003.003-.003.003-.003.003-.003.002-.002.003-.003.003-.003.003-.003.003-.003.003-.003.002-.003.003-.003.003-.003.003-.002.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.002-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003zm-3.192.354a.983.983 0 000 1.402 1.01 1.01 0 001.417 0l.002-.002.002-.002.002-.002.001-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.003-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.002-.002.003-.003.002-.002.002-.002.002-.002.003-.002.002-.003.002-.002.002-.002.003-.002.002-.003.002-.002.002-.002.003-.002.002-.003.002-.002.003-.002.002-.003.003-.002.002-.003.002-.002.003-.002.002-.003.003-.002.002-.002.003-.003.002-.002.002-.003.003-.002.002-.003.003-.002.002-.003.003-.002.003-.003.002-.002.003-.003.002-.002.003-.003.002-.002.003-.003.003-.002.002-.003.003-.003.002-.002.003-.003.003-.003.002-.002.003-.003.003-.002.002-.003.003-.003.003-.002.003-.003.002-.003.003-.003.003-.002.003-.003.002-.003.003-.002.003-.003.003-.003.002-.003.003-.002.003-.003.003-.003.003-.003.002-.003.003-.002.003-.003.003-.003.003-.003.003-.003.003-.003.003-.002.002-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.002.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.004.003-.003.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.003.003-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.004.003-.003.004-.003.003-.003.003-.003.003-.004.004-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.003-.003.004-.004.003-.003.003-.003.003-.003.004-.003.003-.004.003-.003.003-.003-.002-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.004-.003-.003-.003-.003-.004-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.002-.003-.003-.003-.003-.003-.003-.003-.003L8.433 12l-.003-.003-.003-.002-.003-.003-.002-.003-.003-.003-.003-.003-.003-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.003-.003-.002-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.003-.003-.002-.002-.003-.003-.003-.003-.002-.003-.003-.002-.003-.003-.002-.002-.003-.003-.003-.003-.002-.002-.003-.003-.003-.002-.002-.003-.003-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.003-.003-.002-.003-.003-.002-.002-.003-.003-.002-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.002-.003-.003-.002-.002-.003-.003-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.003-.003-.002-.002-.002-.002-.003-.002-.002-.003-.002-.002-.002-.002-.003-.002-.002-.003-.002-.002-.002-.002-.003-.002-.002-.002-.002-.003-.002-.002a1.01 1.01 0 00-1.417 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function TableInfinityIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTableInfinityIcon
+  });
+}
+
+function SvgTableLightningIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75V9h-1.5V6h-11v7.5H8V15H1.75a.75.75 0 01-.75-.75V1.75zm12.5.75v2H8.75v-2h4.75zm-11 0h4.75v2H2.5v-2zm8.43 4.512l-3 3.5a.75.75 0 00.57 1.238h3.37l-1.94 2.262 1.14.976 3-3.5a.75.75 0 00-.57-1.238h-3.37l1.94-2.262-1.14-.976z",
+      fill: "currentColor"
+    })
+  });
+}
+function TableLightningIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTableLightningIcon
+  });
+}
+
+function SvgTableViewIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#TableViewIcon_svg__clip0_16060_28939)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M1 1.75A.75.75 0 011.75 1h12.5a.75.75 0 01.75.75V9h-1.5V6h-11v7.5H4V15H1.75a.75.75 0 01-.75-.75V1.75zm12.5.75v2H8.75v-2h4.75zm-11 0h4.75v2H2.5v-2zm4.048 9.953c.55 1.183 1.862 2.06 3.45 2.06 1.587 0 2.9-.877 3.449-2.06-.55-1.183-1.862-2.06-3.45-2.06-1.587 0-2.9.877-3.449 2.06zM5.033 12.2c.701-1.955 2.688-3.307 4.964-3.307 2.277 0 4.264 1.352 4.965 3.307a.75.75 0 010 .507c-.701 1.954-2.688 3.307-4.965 3.307-2.276 0-4.263-1.353-4.964-3.307a.75.75 0 010-.507zm6.217.3a1.25 1.25 0 11-2.5 0 1.25 1.25 0 012.5 0z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "TableViewIcon_svg__clip0_16060_28939",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function TableViewIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTableViewIcon
   });
 }
 
@@ -8271,6 +4421,120 @@ function TextBoxIcon(props) {
   });
 }
 
+function SvgThumbsDownIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#ThumbsDownIcon_svg__clip0_16319_32223)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M13.655 2.274a.79.79 0 00-.528-.19h-1.044v5.833h1.044a.79.79 0 00.79-.643V2.725a.79.79 0 00-.262-.451zm-3.072 6.233V2.083H3.805a.583.583 0 00-.583.496v.001l-.92 6a.585.585 0 00.583.67h3.782a.75.75 0 01.75.75v2.667a1.25 1.25 0 00.8 1.166l2.366-5.326zm1.238.91L9.352 14.97a.75.75 0 01-.685.446 2.75 2.75 0 01-2.75-2.75V10.75h-3.02A2.082 2.082 0 01.82 8.354l.92-6A2.085 2.085 0 013.816.584h9.29a2.29 2.29 0 012.303 1.982.751.751 0 01.007.1v4.667a.751.751 0 01-.007.1 2.29 2.29 0 01-2.303 1.984h-1.286z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "ThumbsDownIcon_svg__clip0_16319_32223",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function ThumbsDownIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgThumbsDownIcon
+  });
+}
+
+function SvgThumbsUpIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#ThumbsUpIcon_svg__clip0_16319_32215)",
+      children: jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M6.648 1.029a.75.75 0 01.685-.446 2.75 2.75 0 012.75 2.75V5.25h3.02a2.083 2.083 0 012.079 2.396l-.92 6a2.085 2.085 0 01-2.08 1.77H2.668a2.083 2.083 0 01-2.084-2.082V8.667a2.083 2.083 0 012.084-2.083h1.512l2.469-5.555zM3.917 8.084h-1.25a.583.583 0 00-.584.583v4.667a.583.583 0 00.584.583h1.25V8.084zm1.5 5.833h6.778a.583.583 0 00.583-.496l.92-6a.584.584 0 00-.583-.67H9.333a.75.75 0 01-.75-.75V3.332a1.25 1.25 0 00-.8-1.166L5.417 7.493v6.424z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "ThumbsUpIcon_svg__clip0_16319_32215",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function ThumbsUpIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgThumbsUpIcon
+  });
+}
+
+function SvgTrashIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M6 0a.75.75 0 00-.712.513L4.46 3H1v1.5h1.077l1.177 10.831A.75.75 0 004 16h8a.75.75 0 00.746-.669L13.923 4.5H15V3h-3.46L10.712.513A.75.75 0 0010 0H6zm3.96 3l-.5-1.5H6.54L6.04 3h3.92zM3.585 4.5l1.087 10h6.654l1.087-10H3.586z",
+      fill: "currentColor"
+    })
+  });
+}
+function TrashIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTrashIcon
+  });
+}
+
+function SvgTreeIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2.004 9.602a2.751 2.751 0 103.371 3.47 2.751 2.751 0 005.25 0 2.751 2.751 0 103.371-3.47A2.75 2.75 0 0011.25 7h-2.5v-.604a2.751 2.751 0 10-1.5 0V7h-2.5a2.75 2.75 0 00-2.746 2.602zM2.75 11a1.25 1.25 0 100 2.5 1.25 1.25 0 000-2.5zm4.5-2.5h-2.5a1.25 1.25 0 00-1.242 1.106 2.756 2.756 0 011.867 1.822A2.756 2.756 0 017.25 9.604V8.5zm1.5 0v1.104c.892.252 1.6.942 1.875 1.824a2.756 2.756 0 011.867-1.822A1.25 1.25 0 0011.25 8.5h-2.5zM12 12.25a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0zm-5.25 0a1.25 1.25 0 102.5 0 1.25 1.25 0 00-2.5 0zM8 5a1.25 1.25 0 110-2.5A1.25 1.25 0 018 5z",
+      fill: "currentColor"
+    })
+  });
+}
+function TreeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgTreeIcon
+  });
+}
+
 function SvgUnderlineIcon(props) {
   return jsx("svg", {
     width: "1em",
@@ -8294,7 +4558,40 @@ function UnderlineIcon(props) {
   });
 }
 
-function SvgVariableIcon(props) {
+function SvgUndoIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("g", {
+      clipPath: "url(#UndoIcon_svg__clip0_13917_34581)",
+      children: jsx("path", {
+        d: "M2.81 6.5h8.69a3 3 0 010 6H7V14h4.5a4.5 4.5 0 000-9H2.81l2.72-2.72-1.06-1.06-4.53 4.53 4.53 4.53 1.06-1.06L2.81 6.5z",
+        fill: "currentColor"
+      })
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "UndoIcon_svg__clip0_13917_34581",
+        children: jsx("path", {
+          fill: "#fff",
+          transform: "rotate(-180 8 8)",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function UndoIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUndoIcon
+  });
+}
+
+function SvgUploadIcon(props) {
   return jsx("svg", {
     width: "1em",
     height: "1em",
@@ -8303,15 +4600,261 @@ function SvgVariableIcon(props) {
     xmlns: "http://www.w3.org/2000/svg",
     ...props,
     children: jsx("path", {
-      d: "M3.73 13.2h.4v-1.109h-.257c-.78 0-1.084-.345-1.084-1.228v-1.74c0-.858-.507-1.347-1.472-1.448v-.173c.965-.108 1.472-.596 1.472-1.455v-1.71c0-.883.304-1.228 1.084-1.228h.257V2h-.4c-1.638 0-2.353.662-2.353 2.158v1.46c0 .906-.37 1.234-1.377 1.234v1.466c1.013.006 1.377.334 1.377 1.234v1.472c0 1.502.715 2.176 2.353 2.176zM4.994 11.036H6.59L7.92 8.771h.1l1.336 2.265h1.668L8.897 7.74 11 4.521H9.374l-1.288 2.26h-.1L6.691 4.52H4.976l2.127 3.285-2.11 3.23zM12.27 13.2c1.638 0 2.354-.674 2.354-2.176V9.552c0-.9.363-1.228 1.376-1.234V6.852c-1.007 0-1.377-.328-1.377-1.234v-1.46C14.623 2.662 13.909 2 12.27 2h-.4v1.109h.257c.786 0 1.09.345 1.09 1.228v1.71c0 .859.5 1.347 1.466 1.455v.173c-.965.1-1.466.59-1.466 1.448v1.74c0 .883-.31 1.228-1.09 1.228h-.257V13.2h.4z",
+      d: "M1 13.56h14v1.5H1v-1.5zM12.53 5.53l-1.06 1.061-2.72-2.72v7.19h-1.5V3.87l-2.72 2.72-1.06-1.06L8 1l4.53 4.53z",
       fill: "currentColor"
     })
   });
 }
-function VariableIcon(props) {
+function UploadIcon(props) {
   return jsx(Icon, {
     ...props,
-    component: SvgVariableIcon
+    component: SvgUploadIcon
+  });
+}
+
+function SvgUsbIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      d: "M8 0a.75.75 0 01.65.375l1.299 2.25a.75.75 0 01-.65 1.125H8.75V9.5h2.75V8h-.25a.75.75 0 01-.75-.75v-2a.75.75 0 01.75-.75h2a.75.75 0 01.75.75v2a.75.75 0 01-.75.75H13v2.25a.75.75 0 01-.75.75h-3.5v1.668a1.75 1.75 0 11-1.5 0V11h-3.5a.75.75 0 01-.75-.75V7.832a1.75 1.75 0 111.5 0V9.5h2.75V3.75h-.549a.75.75 0 01-.65-1.125l1.3-2.25A.75.75 0 018 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function UsbIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUsbIcon
+  });
+}
+
+function SvgUserBadgeIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 5.25a2.75 2.75 0 100 5.5 2.75 2.75 0 000-5.5zM6.75 8a1.25 1.25 0 112.5 0 1.25 1.25 0 01-2.5 0z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M4.401 2.5l.386-.867A2.75 2.75 0 017.3 0h1.4a2.75 2.75 0 012.513 1.633l.386.867h1.651a.75.75 0 01.75.75v12a.75.75 0 01-.75.75H2.75a.75.75 0 01-.75-.75v-12a.75.75 0 01.75-.75h1.651zm1.756-.258A1.25 1.25 0 017.3 1.5h1.4c.494 0 .942.29 1.143.742l.114.258H6.043l.114-.258zM8 12a8.71 8.71 0 00-4.5 1.244V4h9v9.244A8.71 8.71 0 008 12zm0 1.5c1.342 0 2.599.364 3.677 1H4.323A7.216 7.216 0 018 13.5z",
+      fill: "currentColor"
+    })]
+  });
+}
+function UserBadgeIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUserBadgeIcon
+  });
+}
+
+function SvgUserCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M5.25 6.75a2.75 2.75 0 115.5 0 2.75 2.75 0 01-5.5 0zM8 5.5A1.25 1.25 0 108 8a1.25 1.25 0 000-2.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 00-4.773 10.912A8.728 8.728 0 018 11c1.76 0 3.4.52 4.773 1.412A6.5 6.5 0 008 1.5zm3.568 11.934A7.231 7.231 0 008 12.5a7.23 7.23 0 00-3.568.934A6.47 6.47 0 008 14.5a6.47 6.47 0 003.568-1.066z",
+      fill: "currentColor"
+    })]
+  });
+}
+function UserCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUserCircleIcon
+  });
+}
+
+function SvgUserGroupIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M2.25 3.75a2.75 2.75 0 115.5 0 2.75 2.75 0 01-5.5 0zM5 2.5A1.25 1.25 0 105 5a1.25 1.25 0 000-2.5zM9.502 14H.75a.75.75 0 01-.75-.75V11a.75.75 0 01.164-.469C1.298 9.114 3.077 8 5.125 8c1.76 0 3.32.822 4.443 1.952A5.545 5.545 0 0111.75 9.5c1.642 0 3.094.745 4.041 1.73a.75.75 0 01.209.52v1.5a.75.75 0 01-.75.75H9.502zM1.5 12.5v-1.228C2.414 10.228 3.72 9.5 5.125 9.5c1.406 0 2.71.728 3.625 1.772V12.5H1.5zm8.75 0h4.25v-.432A4.168 4.168 0 0011.75 11c-.53 0-1.037.108-1.5.293V12.5zM11.75 3.5a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM11 5.75a.75.75 0 111.5 0 .75.75 0 01-1.5 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function UserGroupIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUserGroupIcon
+  });
+}
+
+function SvgUserIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 1a3.25 3.25 0 100 6.5A3.25 3.25 0 008 1zM6.25 4.25a1.75 1.75 0 113.5 0 1.75 1.75 0 01-3.5 0zM8 9a8.735 8.735 0 00-6.836 3.287.75.75 0 00-.164.469v1.494c0 .414.336.75.75.75h12.5a.75.75 0 00.75-.75v-1.494a.75.75 0 00-.164-.469A8.735 8.735 0 008 9zm-5.5 4.5v-.474A7.232 7.232 0 018 10.5c2.2 0 4.17.978 5.5 2.526v.474h-11z",
+      fill: "currentColor"
+    })
+  });
+}
+function UserIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgUserIcon
+  });
+}
+
+function SvgVisibleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsxs("g", {
+      clipPath: "url(#VisibleIcon_svg__clip0_13123_35205)",
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      fill: "currentColor",
+      children: [jsx("path", {
+        d: "M8 5a3 3 0 100 6 3 3 0 000-6zM6.5 8a1.5 1.5 0 113 0 1.5 1.5 0 01-3 0z"
+      }), jsx("path", {
+        d: "M8 2A8.389 8.389 0 00.028 7.777a.75.75 0 000 .466 8.389 8.389 0 0015.944 0 .75.75 0 000-.466A8.389 8.389 0 008 2zm0 10.52a6.888 6.888 0 01-6.465-4.51 6.888 6.888 0 0112.93 0A6.888 6.888 0 018 12.52z"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "VisibleIcon_svg__clip0_13123_35205",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function VisibleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgVisibleIcon
+  });
+}
+
+function SvgVisibleOffIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsxs("g", {
+      clipPath: "url(#VisibleOffIcon_svg__clip0_13123_35207)",
+      fill: "currentColor",
+      children: [jsx("path", {
+        fillRule: "evenodd",
+        clipRule: "evenodd",
+        d: "M11.634 13.194l1.335 1.336 1.061-1.06-11.5-11.5-1.06 1.06 1.027 1.028a8.395 8.395 0 00-2.469 3.72.75.75 0 000 .465 8.389 8.389 0 0011.606 4.951zm-1.14-1.139l-1.301-1.301a3 3 0 01-3.946-3.946L3.56 5.121A6.898 6.898 0 001.535 8.01a6.888 6.888 0 008.96 4.045z"
+      }), jsx("path", {
+        d: "M15.972 8.243a8.384 8.384 0 01-1.946 3.223l-1.06-1.06a6.887 6.887 0 001.499-2.396 6.888 6.888 0 00-8.187-4.293L5.082 2.522a8.389 8.389 0 0110.89 5.256.75.75 0 010 .465z"
+      }), jsx("path", {
+        d: "M11 8c0 .14-.01.277-.028.411L7.589 5.028A3 3 0 0111 8z"
+      })]
+    }), jsx("defs", {
+      children: jsx("clipPath", {
+        id: "VisibleOffIcon_svg__clip0_13123_35207",
+        children: jsx("path", {
+          fill: "#fff",
+          d: "M0 0h16v16H0z"
+        })
+      })
+    })]
+  });
+}
+function VisibleOffIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgVisibleOffIcon
+  });
+}
+
+function SvgWarningFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8.649 1.374a.75.75 0 00-1.298 0l-7.25 12.5A.75.75 0 00.75 15h14.5a.75.75 0 00.649-1.126l-7.25-12.5zM7.25 10V6.5h1.5V10h-1.5zm1.5 1.75a.75.75 0 11-1.5 0 .75.75 0 011.5 0z",
+      fill: "currentColor"
+    })
+  });
+}
+function WarningFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgWarningFillIcon
+  });
+}
+
+function SvgWarningIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M7.25 10V6.5h1.5V10h-1.5zM8 12.5A.75.75 0 108 11a.75.75 0 000 1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 1a.75.75 0 01.649.374l7.25 12.5A.75.75 0 0115.25 15H.75a.75.75 0 01-.649-1.126l7.25-12.5A.75.75 0 018 1zm0 2.245L2.052 13.5h11.896L8 3.245z",
+      fill: "currentColor"
+    })]
+  });
+}
+function WarningIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgWarningIcon
   });
 }
 
@@ -8338,6 +4881,107 @@ function WorkspacesIcon(props) {
   return jsx(Icon, {
     ...props,
     component: SvgWorkspacesIcon
+  });
+}
+
+function SvgXCircleFillIcon(props) {
+  return jsx("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 16A8 8 0 108 0a8 8 0 000 16zm1.97-4.97L8 9.06l-1.97 1.97-1.06-1.06L6.94 8 4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06z",
+      fill: "currentColor"
+    })
+  });
+}
+function XCircleFillIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgXCircleFillIcon
+  });
+}
+
+function SvgXCircleIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 16",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M6.94 8L4.97 6.03l1.06-1.06L8 6.94l1.97-1.97 1.06 1.06L9.06 8l1.97 1.97-1.06 1.06L8 9.06l-1.97 1.97-1.06-1.06L6.94 8z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M0 8a8 8 0 1116 0A8 8 0 010 8zm8-6.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13z",
+      fill: "currentColor"
+    })]
+  });
+}
+function XCircleIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgXCircleIcon
+  });
+}
+
+function SvgZoomInIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M8.75 7.25H11v1.5H8.75V11h-1.5V8.75H5v-1.5h2.25V5h1.5v2.25z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M8 1a7 7 0 104.39 12.453l2.55 2.55 1.06-1.06-2.55-2.55A7 7 0 008 1zM2.5 8a5.5 5.5 0 1111 0 5.5 5.5 0 01-11 0z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ZoomInIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgZoomInIcon
+  });
+}
+
+function SvgZoomOutIcon(props) {
+  return jsxs("svg", {
+    width: "1em",
+    height: "1em",
+    viewBox: "0 0 16 17",
+    fill: "none",
+    xmlns: "http://www.w3.org/2000/svg",
+    ...props,
+    children: [jsx("path", {
+      d: "M11 7.25H5v1.5h6v-1.5z",
+      fill: "currentColor"
+    }), jsx("path", {
+      fillRule: "evenodd",
+      clipRule: "evenodd",
+      d: "M1 8a7 7 0 1112.45 4.392l2.55 2.55-1.06 1.061-2.55-2.55A7 7 0 011 8zm7-5.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11z",
+      fill: "currentColor"
+    })]
+  });
+}
+function ZoomOutIcon(props) {
+  return jsx(Icon, {
+    ...props,
+    component: SvgZoomOutIcon
   });
 }
 
@@ -8493,6 +5137,7 @@ const Alert = _ref => {
       // Antd calls this prop `closeText` but we can use it to set any React element to replace the close icon.
       ,
       closeText: mergedProps.closable && jsx(CloseIcon, {
+        "aria-label": "Close alert",
         css: /*#__PURE__*/css({
           fontSize: theme.general.iconSize
         }, process.env.NODE_ENV === "production" ? "" : ";label:Alert;")
@@ -8630,9 +5275,6 @@ const Breadcrumb = /* #__PURE__ */(() => {
       theme,
       classNamePrefix
     } = useDesignSystemTheme();
-    const {
-      USE_NEW_ICONS
-    } = useDesignSystemFlags();
     const separatorClass = `.${classNamePrefix}-breadcrumb-separator`;
     const styles = /*#__PURE__*/css({
       // `antd` forces the last anchor to be black, so that it doesn't look like an anchor
@@ -8652,15 +5294,13 @@ const Breadcrumb = /* #__PURE__ */(() => {
           outlineStyle: 'auto !important'
         }
       },
-      ...(USE_NEW_ICONS && {
-        [separatorClass]: {
-          fontSize: theme.general.iconFontSizeNew
-        },
-        '& > span': {
-          display: 'inline-flex',
-          alignItems: 'center'
-        }
-      })
+      [separatorClass]: {
+        fontSize: theme.general.iconFontSize
+      },
+      '& > span': {
+        display: 'inline-flex',
+        alignItems: 'center'
+      }
     }, process.env.NODE_ENV === "production" ? "" : ";label:styles;");
     return jsx(DesignSystemAntDConfigProvider, {
       children: jsxs(Breadcrumb$1, {
@@ -8677,556 +5317,6 @@ const Breadcrumb = /* #__PURE__ */(() => {
   Breadcrumb.Item = Breadcrumb$1.Item;
   Breadcrumb.Separator = Breadcrumb$1.Separator;
   return Breadcrumb;
-})();
-
-const ColorVars = {
-  primary: 'textPrimary',
-  secondary: 'textSecondary',
-  info: 'textValidationInfo',
-  error: 'textValidationDanger',
-  success: 'textValidationSuccess',
-  warning: 'textValidationWarning'
-};
-
-/**
- * Recursively appends `!important` to all CSS properties in an Emotion `CSSObject`.
- * Used to ensure that we always override Ant styles, without worrying about selector precedence.
- */
-function importantify(obj) {
-  return _mapValues(obj, (value, key) => {
-    if (_isString(value) || _isNumber(value) || _isBoolean(value)) {
-      // Make sure we don't double-append important
-      if (_isString(value) && _endsWith(value, '!important')) {
-        return value;
-      }
-      if (_isNumber(value)) {
-        if (unitless[key]) {
-          return `${value}!important`;
-        }
-        return `${value}px!important`;
-      }
-      return `${value}!important`;
-    }
-    if (_isNil(value)) {
-      return value;
-    }
-    return importantify(value);
-  });
-}
-
-/**
- * Returns a text color, in case of invalid/missing key and missing fallback color it will return textPrimary
- * @param theme
- * @param key - key of TypographyColor
- * @param fallbackColor - color to return as fallback -- used to remove tertiary check inline
- */
-function getTypographyColor(theme, key, fallbackColor) {
-  if (theme && key && Object(theme.colors).hasOwnProperty(ColorVars[key])) {
-    return theme.colors[ColorVars[key]];
-  }
-  return fallbackColor !== null && fallbackColor !== void 0 ? fallbackColor : theme.colors.textPrimary;
-}
-
-/**
- * Returns validation color based on state, has default validation colors if params are not provided
- * @param theme
- * @param validationState
- * @param errorColor
- * @param warningColor
- * @param successColor
- */
-function getValidationStateColor(theme, validationState) {
-  let {
-    errorColor,
-    warningColor,
-    successColor
-  } = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
-  switch (validationState) {
-    case 'error':
-      return errorColor || theme.colors.actionDangerPrimaryBackgroundDefault;
-    case 'warning':
-      return warningColor || theme.colors.textValidationWarning;
-    case 'success':
-      return successColor || theme.colors.textValidationSuccess;
-    default:
-      return undefined;
-  }
-}
-
-function getDefaultStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionDefaultBackgroundDefault,
-    borderColor: theme.colors.actionDefaultBorderDefault,
-    color: theme.colors.actionDefaultTextDefault,
-    lineHeight: theme.typography.lineHeightBase,
-    textDecoration: 'none',
-    '&:hover': {
-      backgroundColor: theme.colors.actionDefaultBackgroundHover,
-      borderColor: theme.colors.actionDefaultBorderHover,
-      color: theme.colors.actionDefaultTextHover
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionDefaultBackgroundPress,
-      borderColor: theme.colors.actionDefaultBorderPress,
-      color: theme.colors.actionDefaultTextPress
-    }
-  };
-}
-function getPrimaryStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-    borderColor: 'transparent',
-    color: theme.colors.actionPrimaryTextDefault,
-    textShadow: 'none',
-    '&:hover': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundHover,
-      borderColor: 'transparent',
-      color: theme.colors.actionPrimaryTextHover
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionPrimaryBackgroundPress,
-      borderColor: 'transparent',
-      color: theme.colors.actionPrimaryTextPress
-    }
-  };
-}
-function getLinkStyles$1(theme) {
-  return {
-    backgroundColor: theme.colors.actionTertiaryBackgroundDefault,
-    borderColor: theme.colors.actionTertiaryBackgroundDefault,
-    color: theme.colors.actionTertiaryTextDefault,
-    '&:hover': {
-      backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-      borderColor: 'transparent',
-      color: theme.colors.actionTertiaryTextHover
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionTertiaryBackgroundPress,
-      borderColor: 'transparent',
-      color: theme.colors.actionTertiaryTextPress
-    },
-    '&[disabled]:hover': {
-      background: 'none',
-      color: theme.colors.actionDisabledText
-    }
-  };
-}
-function getPrimaryDangerStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionDangerPrimaryBackgroundDefault,
-    borderColor: 'transparent',
-    color: theme.colors.white,
-    '&:hover': {
-      backgroundColor: theme.colors.actionDangerPrimaryBackgroundHover,
-      borderColor: 'transparent',
-      color: theme.colors.white
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionDangerPrimaryBackgroundPress,
-      borderColor: 'transparent',
-      color: theme.colors.white
-    },
-    '&:focus-visible': {
-      outlineColor: theme.colors.actionDangerPrimaryBackgroundDefault
-    }
-  };
-}
-function getSecondaryDangerStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionDangerDefaultBackgroundDefault,
-    borderColor: theme.colors.actionDangerDefaultBorderDefault,
-    color: theme.colors.actionDangerDefaultTextDefault,
-    '&:hover': {
-      backgroundColor: theme.colors.actionDangerDefaultBackgroundHover,
-      borderColor: theme.colors.actionDangerDefaultBorderHover,
-      color: theme.colors.actionDangerDefaultTextHover
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionDangerDefaultBackgroundPress,
-      borderColor: theme.colors.actionDangerDefaultBorderPress,
-      color: theme.colors.actionDangerDefaultTextPress
-    },
-    '&:focus-visible': {
-      outlineColor: theme.colors.actionDangerPrimaryBackgroundDefault
-    }
-  };
-}
-function getDisabledStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionDisabledBackground,
-    borderColor: 'transparent',
-    color: theme.colors.actionDisabledText,
-    '&:hover': {
-      backgroundColor: theme.colors.actionDisabledBackground,
-      borderColor: 'transparent',
-      color: theme.colors.actionDisabledText
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionDisabledBackground,
-      borderColor: 'transparent',
-      color: theme.colors.actionDisabledText
-    }
-  };
-}
-function getDisabledTertiaryStyles(theme) {
-  return {
-    backgroundColor: theme.colors.actionTertiaryBackgroundDefault,
-    borderColor: 'transparent',
-    color: theme.colors.actionDisabledText,
-    '&:hover': {
-      backgroundColor: theme.colors.actionTertiaryBackgroundDefault,
-      borderColor: 'transparent',
-      color: theme.colors.actionDisabledText
-    },
-    '&:active': {
-      backgroundColor: theme.colors.actionTertiaryBackgroundDefault,
-      borderColor: 'transparent',
-      color: theme.colors.actionDisabledText
-    }
-  };
-}
-
-function getEndIconClsName(theme) {
-  return `${theme.general.iconfontCssPrefix}-btn-end-icon`;
-}
-const getButtonEmotionStyles = _ref => {
-  let {
-    theme,
-    classNamePrefix,
-    loading,
-    withIcon,
-    onlyIcon,
-    isAnchor,
-    enableAnimation,
-    size,
-    type,
-    isFlex,
-    useNewIcons,
-    useFocusPseudoClass,
-    forceIconStyles
-  } = _ref;
-  const clsIcon = `.${theme.general.iconfontCssPrefix}`;
-  const clsEndIcon = `.${getEndIconClsName(theme)}`;
-  const clsLoadingIcon = `.${classNamePrefix}-btn-loading-icon`;
-  const clsIconOnly = `.${classNamePrefix}-btn-icon-only`;
-  const classPrimary = `.${classNamePrefix}-btn-primary`;
-  const classLink = `.${classNamePrefix}-btn-link`;
-  const classDangerous = `.${classNamePrefix}-btn-dangerous`;
-  const SMALL_BUTTON_HEIGHT = 24;
-  const tertiaryColors = {
-    background: theme.colors.actionTertiaryBackgroundDefault,
-    color: theme.colors.actionTertiaryTextDefault,
-    '&:hover': {
-      background: theme.colors.actionTertiaryBackgroundHover,
-      color: theme.colors.actionTertiaryTextHover
-    },
-    '&:active': {
-      background: theme.colors.actionTertiaryBackgroundPress,
-      color: theme.colors.actionTertiaryTextPress
-    }
-  };
-  const iconCss = {
-    fontSize: useNewIcons ? theme.general.iconFontSizeNew : theme.general.buttonInnerHeight - 4,
-    ...(!isFlex && {
-      // verticalAlign used by AntD to move icon and label to center
-      // TODO(schs): Try to move buttons to flexbox to solve this. Main problem is that flex-inline and inline-block
-      //  behave differently (vertically align of multiple buttons is off). See https://codepen.io/qfactor/pen/JXVzBe
-      verticalAlign: useNewIcons ? -4 : -5,
-      ...(onlyIcon && {
-        verticalAlign: -3
-      }),
-      // verticalAlign used by AntD to move icon and label to center
-      // TODO(schs): Try to move buttons to flexbox to solve this. Main problem is that flex-inline and inline-block
-      //  behave differently (vertically align of multiple buttons is off). See https://codepen.io/qfactor/pen/JXVzBe
-      // Need to make sure not to apply this to regular buttons as it will offset the icons
-      ...(!onlyIcon && {
-        verticalAlign: useNewIcons ? -3 : -4
-      })
-    }),
-    lineHeight: 0,
-    ...(size === 'small' && {
-      lineHeight: theme.typography.lineHeightSm,
-      ...((onlyIcon || forceIconStyles) && {
-        fontSize: 16,
-        ...(isFlex && {
-          height: 16
-        })
-      })
-    })
-  };
-  const inactiveIconCss = {
-    color: theme.colors.grey600
-  };
-  const endIconCssSelector = `span > ${clsEndIcon} > ${clsIcon}`;
-  const styles = {
-    lineHeight: theme.typography.lineHeightBase,
-    boxShadow: 'none',
-    height: theme.general.heightSm,
-    ...(isFlex && {
-      display: 'inline-flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      verticalAlign: 'middle'
-    }),
-    ...(!onlyIcon && !forceIconStyles && {
-      '&&': {
-        padding: '4px 12px',
-        ...(size === 'small' && {
-          padding: '0 8px'
-        })
-      }
-    }),
-    ...((onlyIcon || forceIconStyles) && {
-      width: theme.general.heightSm
-    }),
-    ...(size === 'small' && {
-      height: SMALL_BUTTON_HEIGHT,
-      lineHeight: theme.typography.lineHeightBase,
-      ...((onlyIcon || forceIconStyles) && {
-        width: SMALL_BUTTON_HEIGHT,
-        paddingTop: 0,
-        paddingBottom: 0,
-        verticalAlign: 'middle'
-      })
-    }),
-    '&:focus-visible': {
-      outlineStyle: 'solid',
-      outlineWidth: '2px',
-      outlineOffset: '1px',
-      outlineColor: theme.isDarkMode ? theme.colors.actionDefaultBorderFocus : theme.colors.primary
-    },
-    ...getDefaultStyles(theme),
-    [`&${classPrimary}`]: {
-      ...getPrimaryStyles(theme)
-    },
-    [`&${classLink}`]: {
-      ...getLinkStyles$1(theme),
-      ...(type === 'link' && {
-        padding: 'unset',
-        height: 'auto',
-        border: 'none',
-        boxShadow: 'none',
-        '&[disabled],&:hover': {
-          background: 'none'
-        }
-      })
-    },
-    [`&${classDangerous}${classPrimary}`]: {
-      ...getPrimaryDangerStyles(theme)
-    },
-    [`&${classDangerous}`]: {
-      ...getSecondaryDangerStyles(theme)
-    },
-    [`&[disabled], &${classDangerous}:disabled`]: {
-      ...getDisabledStyles(theme),
-      ...((onlyIcon || forceIconStyles) && {
-        backgroundColor: 'transparent',
-        '&:hover': {
-          backgroundColor: 'transparent'
-        },
-        '&:active': {
-          backgroundColor: 'transparent'
-        }
-      })
-    },
-    // Loading styles
-    ...(loading && {
-      '::before': {
-        opacity: 0
-      },
-      [`${clsLoadingIcon}`]: {
-        ...(onlyIcon ? {
-          // In case of only icon, the icon is already centered but vertically not aligned, this fixes that
-          verticalAlign: 'middle'
-        } : {
-          // Position loading indicator in center
-          // This would break vertical centering of loading circle when onlyIcon is true
-          position: 'absolute'
-        }),
-        ...(!isFlex && !forceIconStyles && {
-          // Normally we'd do `transform: translateX(-50%)` but `antd` crushes that with injected inline `style`.
-          left: 'calc(50% - 7px)'
-        }),
-        // Re-enable animation for the loading spinner, since it can be disabled by the global animation CSS.
-        svg: {
-          animationDuration: '1s !important'
-        }
-      },
-      [`> :not(${clsLoadingIcon})`]: {
-        // Hide all content except loading icon
-        opacity: 0,
-        visibility: 'hidden',
-        // Add horizontal space for icon
-        ...(withIcon && {
-          paddingLeft: theme.spacing.sm * 2 + 14
-        })
-      }
-    }),
-    // Icon styles
-    [`> ${clsIcon} + span, > span + ${clsIcon}`]: {
-      marginRight: 0
-    },
-    [`> ${clsIcon}`]: iconCss,
-    [`> ${endIconCssSelector}`]: {
-      ...iconCss,
-      marginLeft: size === 'small' ? 8 : 12
-    },
-    ...(!type && {
-      [`&:enabled:not(:hover):not(:active) > ${clsIcon}`]: inactiveIconCss
-    }),
-    ...(!type && {
-      [`&:enabled:not(:hover):not(:active) > ${endIconCssSelector}`]: inactiveIconCss
-    }),
-    // Disable animations
-    [`&[${classNamePrefix}-click-animating-without-extra-node='true']::after`]: {
-      display: 'none'
-    },
-    [`&${clsIconOnly}`]: {
-      border: 'none',
-      [`&:enabled:not(${classLink})`]: {
-        ...tertiaryColors,
-        color: theme.colors.textSecondary,
-        '&:hover > .anticon': {
-          color: tertiaryColors['&:hover'].color
-        },
-        '&:active > .anticon': {
-          color: tertiaryColors['&:active'].color
-        }
-      },
-      [`&:enabled:not(${classLink}) > .anticon`]: {
-        color: theme.colors.textSecondary
-      },
-      ...(isAnchor && {
-        lineHeight: `${theme.general.heightSm}px`,
-        ...getLinkStyles$1(theme),
-        '&:disabled': {
-          color: theme.colors.actionDisabledText
-        }
-      }),
-      '&[disabled]:hover': {
-        backgroundColor: 'transparent'
-      }
-    },
-    [`&:focus`]: {
-      ...(useFocusPseudoClass && {
-        outlineStyle: 'solid',
-        outlineWidth: '2px',
-        outlineOffset: '1px',
-        outlineColor: theme.isDarkMode ? theme.colors.actionDefaultBorderFocus : theme.colors.primary
-      }),
-      [`${clsLoadingIcon}`]: {
-        ...(onlyIcon && {
-          // Mitigate wrong left offset for loading state with onlyIcon
-          left: 0
-        })
-      }
-    },
-    ...(forceIconStyles && {
-      padding: '0 6px',
-      lineHeight: theme.typography.lineHeightSm,
-      color: theme.colors.textSecondary,
-      '& > span': {
-        verticalAlign: -1,
-        height: theme.general.heightSm / 2,
-        width: theme.general.heightSm / 2
-      },
-      [`& > ${clsLoadingIcon} .anticon`]: {
-        // left: `calc(50% - 6px)!important`,
-        height: theme.general.heightSm / 2,
-        width: theme.general.heightSm / 2,
-        padding: 0
-      }
-    }),
-    ...getAnimationCss(enableAnimation)
-  };
-
-  // Moved outside main style object because state & selector matching in the already existing object keys can create bugs and unwanted overwrites
-  const typeStyles = {
-    ...(type === 'tertiary' && {
-      [`&:enabled:not(${clsIconOnly})`]: tertiaryColors,
-      [`&${classLink}[disabled]`]: {
-        ...getDisabledTertiaryStyles(theme)
-      }
-    })
-  };
-  const importantStyles = importantify(styles);
-  const importantTypeStyles = importantify(typeStyles);
-  return /*#__PURE__*/css(importantStyles, importantTypeStyles, process.env.NODE_ENV === "production" ? "" : ";label:getButtonEmotionStyles;");
-};
-const Button = /* #__PURE__ */(() => {
-  const Button = /*#__PURE__*/forwardRef(function Button( // Keep size out of props passed to AntD to make deprecation and eventual removal have 0 impact
-  _ref2, ref) {
-    let {
-      dangerouslySetAntdProps,
-      children,
-      size,
-      type,
-      endIcon,
-      dangerouslySetForceIconStyles,
-      dangerouslyUseFocusPseudoClass,
-      ...props
-    } = _ref2;
-    const {
-      theme,
-      classNamePrefix
-    } = useDesignSystemTheme();
-    const {
-      USE_FLEX_BUTTON: isFlex,
-      USE_NEW_ICONS: useNewIcons
-    } = useDesignSystemFlags();
-    const clsEndIcon = getEndIconClsName(theme);
-    return jsx(DesignSystemAntDConfigProvider, {
-      children: jsx(Button$1, {
-        ...props,
-        css: getButtonEmotionStyles({
-          theme,
-          classNamePrefix,
-          loading: Boolean(props.loading),
-          withIcon: Boolean(props.icon),
-          onlyIcon: Boolean((props.icon || endIcon) && !children),
-          isAnchor: Boolean(props.href && !type),
-          danger: Boolean(props.danger),
-          enableAnimation: theme.options.enableAnimation,
-          size: size || 'middle',
-          type,
-          isFlex,
-          useNewIcons,
-          forceIconStyles: Boolean(dangerouslySetForceIconStyles),
-          useFocusPseudoClass: Boolean(dangerouslyUseFocusPseudoClass)
-        }),
-        href: props.disabled ? undefined : props.href,
-        ...dangerouslySetAntdProps,
-        ref: ref,
-        type: type === 'tertiary' ? 'link' : type,
-        children: children && jsxs("span", {
-          style: {
-            visibility: props !== null && props !== void 0 && props.loading ? 'hidden' : 'visible',
-            ...(isFlex && {
-              display: 'inline-flex',
-              alignItems: 'center'
-            })
-          },
-          children: [children, endIcon && jsx("span", {
-            className: clsEndIcon,
-            style: {
-              ...(isFlex && {
-                display: 'inline-flex',
-                alignItems: 'center'
-              })
-            },
-            children: endIcon
-          })]
-        })
-      })
-    });
-  });
-
-  // This is needed for other Ant components that wrap Button, such as Tooltip, to correctly
-  // identify it as an Ant button.
-  // This should be removed if the component is rewritten to no longer be a wrapper around Ant.
-  // See: https://github.com/ant-design/ant-design/blob/6dd39c1f89b4d6632e6ed022ff1bc275ca1e0f1f/components/button/button.tsx#L291
-  Button.__ANT_BUTTON = true;
-  return Button;
 })();
 
 function getCheckboxEmotionStyles(clsPrefix, theme) {
@@ -9704,7 +5794,11 @@ const dialogComboboxContextDefaults = {
   setValue: () => {},
   setIsControlled: () => {},
   stayOpenOnSelection: false,
-  setIsOpen: () => {}
+  setIsOpen: () => {},
+  contentWidth: undefined,
+  setContentWidth: () => {},
+  textOverflowMode: 'multiline',
+  setTextOverflowMode: () => {}
 };
 const DialogComboboxContext = /*#__PURE__*/createContext(dialogComboboxContextDefaults);
 const DialogComboboxContextProvider = _ref => {
@@ -9728,6 +5822,7 @@ const DialogCombobox = _ref => {
     label,
     value = [],
     open,
+    emptyText,
     ...props
   } = _ref;
   // Used to avoid infinite loop when value is controlled from within the component (DialogComboboxOptionControlledList)
@@ -9735,6 +5830,8 @@ const DialogCombobox = _ref => {
   const [isControlled, setIsControlled] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value);
   const [isOpen, setIsOpen] = useState(Boolean(open));
+  const [contentWidth, setContentWidth] = useState();
+  const [textOverflowMode, setTextOverflowMode] = useState('multiline');
   useEffect(() => {
     if ((!Array.isArray(selectedValue) || !Array.isArray(value)) && selectedValue !== value || selectedValue && value && selectedValue.length === value.length && selectedValue.every((v, i) => v === value[i])) {
       return;
@@ -9749,10 +5846,15 @@ const DialogCombobox = _ref => {
       value: selectedValue,
       setValue: setSelectedValue,
       setIsControlled,
+      contentWidth,
+      setContentWidth,
+      textOverflowMode,
+      setTextOverflowMode,
       isInsideDialogCombobox: true,
       multiSelect: props.multiSelect,
       stayOpenOnSelection: props.stayOpenOnSelection,
-      setIsOpen
+      setIsOpen,
+      emptyText
     },
     children: jsx(Root$4, {
       open: open !== undefined ? open : isOpen,
@@ -9816,6 +5918,26 @@ const DialogComboboxButtonContainer = _ref => {
     ...restProps,
     css: getButtonContainerStyles(theme),
     children: children
+  });
+};
+
+const DialogComboboxEmpty = () => {
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    emptyText
+  } = useDialogComboboxContext();
+  return jsx("div", {
+    "aria-live": "assertive",
+    css: /*#__PURE__*/css({
+      color: theme.colors.textSecondary,
+      textAlign: 'center',
+      padding: '6px 12px',
+      width: '100%',
+      boxSizing: 'border-box'
+    }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxEmpty;"),
+    children: emptyText !== undefined ? emptyText : 'No results found'
   });
 };
 
@@ -9898,13 +6020,17 @@ const getContentWrapperStyles = (theme, _ref) => {
     maxHeight = '100vh',
     maxWidth = '100vw',
     minHeight = 0,
-    minWidth = 0
+    minWidth = 0,
+    width
   } = _ref;
   return /*#__PURE__*/css({
     maxHeight,
     maxWidth,
     minHeight,
     minWidth,
+    ...(width ? {
+      width
+    } : {}),
     background: theme.colors.backgroundPrimary,
     color: theme.colors.textPrimary,
     overflow: 'auto',
@@ -9918,7 +6044,7 @@ const getContentWrapperStyles = (theme, _ref) => {
     colorScheme: theme.isDarkMode ? 'dark' : 'light'
   }, process.env.NODE_ENV === "production" ? "" : ";label:getContentWrapperStyles;");
 };
-var _ref3$4 = process.env.NODE_ENV === "production" ? {
+var _ref3$5 = process.env.NODE_ENV === "production" ? {
   name: "1ij1o5n",
   styles: "display:flex;flex-direction:column;align-items:flex-start;justify-content:center"
 } : {
@@ -9930,10 +6056,13 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref2, forwardedRef) => {
   let {
     children,
     loading,
-    maxHeight,
+    matchTriggerWidth,
+    textOverflowMode,
+    maxHeight = 'var(--radix-popover-content-available-height)',
     maxWidth,
     minHeight,
     minWidth = 240,
+    width,
     align = 'start',
     side = 'bottom',
     sideOffset = 4,
@@ -9944,7 +6073,11 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref2, forwardedRef) => {
   } = useDesignSystemTheme();
   const {
     label,
-    isInsideDialogCombobox
+    isInsideDialogCombobox,
+    contentWidth,
+    setContentWidth,
+    textOverflowMode: contextTextOverflowMode,
+    setTextOverflowMode
   } = useDialogComboboxContext();
   const {
     getPopupContainer
@@ -9952,6 +6085,16 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref2, forwardedRef) => {
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxContent` must be used within `DialogCombobox`');
   }
+  useEffect(() => {
+    if (contentWidth !== width) {
+      setContentWidth(width);
+    }
+  }, [width, contentWidth, setContentWidth]);
+  useEffect(() => {
+    if (textOverflowMode !== contextTextOverflowMode) {
+      setTextOverflowMode(textOverflowMode ? textOverflowMode : 'multiline');
+    }
+  }, [textOverflowMode, contextTextOverflowMode, setTextOverflowMode]);
   return jsx(Popover$1.Portal, {
     container: getPopupContainer && getPopupContainer(),
     children: jsx(Popover$1.Content, {
@@ -9961,7 +6104,8 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref2, forwardedRef) => {
         maxHeight,
         maxWidth,
         minHeight,
-        minWidth
+        minWidth,
+        width: matchTriggerWidth ? 'var(--radix-popover-trigger-width)' : width
       }),
       align: align,
       side: side,
@@ -9969,11 +6113,11 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref2, forwardedRef) => {
       ...restProps,
       ref: forwardedRef,
       children: jsx("div", {
-        css: _ref3$4,
+        css: _ref3$5,
         children: loading ? jsx(DialogComboboxLoadingSpinner, {
           "aria-label": "Loading",
           alt: "Loading spinner"
-        }) : children
+        }) : children ? children : jsx(DialogComboboxEmpty, {})
       })
     })
   });
@@ -10007,6 +6151,102 @@ const DialogComboboxCountBadge = props => {
     children: Array.isArray(value) ? countStartAt ? `+${value.length - countStartAt}` : value.length : value ? 1 : 0
   });
 };
+
+const DialogComboboxOptionListContext = /*#__PURE__*/createContext({
+  isInsideDialogComboboxOptionList: false,
+  lookAhead: '',
+  setLookAhead: () => {}
+});
+const DialogComboboxOptionListContextProvider = _ref => {
+  let {
+    children,
+    value
+  } = _ref;
+  return jsx(DialogComboboxOptionListContext.Provider, {
+    value: value,
+    children: children
+  });
+};
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$5 = process.env.NODE_ENV === "production" ? {
+  name: "1pgv7dg",
+  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
+} : {
+  name: "1dtf9pj-DialogComboboxOptionList",
+  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionList;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
+};
+const DialogComboboxOptionList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
+  let {
+    children,
+    loading,
+    withProgressiveLoading,
+    ...restProps
+  } = _ref;
+  const {
+    isInsideDialogCombobox
+  } = useDialogComboboxContext();
+  const ref = useRef(null);
+  useImperativeHandle(forwardedRef, () => ref.current);
+  const [lookAhead, setLookAhead] = useState('');
+  if (!isInsideDialogCombobox) {
+    throw new Error('`DialogComboboxOptionList` must be used within `DialogCombobox`');
+  }
+  const lookAheadTimeout = useRef(null);
+  useEffect(() => {
+    if (lookAheadTimeout.current) {
+      clearTimeout(lookAheadTimeout.current);
+    }
+    lookAheadTimeout.current = setTimeout(() => {
+      setLookAhead('');
+    }, 1500);
+    return () => {
+      if (lookAheadTimeout.current) {
+        clearTimeout(lookAheadTimeout.current);
+      }
+    };
+  }, [lookAhead]);
+  useEffect(() => {
+    var _ref$current;
+    if (loading && !withProgressiveLoading) {
+      return;
+    }
+    const optionItems = (_ref$current = ref.current) === null || _ref$current === void 0 ? void 0 : _ref$current.querySelectorAll('[role="option"]');
+    const hasTabIndexedOption = Array.from(optionItems !== null && optionItems !== void 0 ? optionItems : []).some(optionItem => {
+      return optionItem.getAttribute('tabindex') === '0';
+    });
+    if (!hasTabIndexedOption) {
+      const firstOptionItem = optionItems === null || optionItems === void 0 ? void 0 : optionItems[0];
+      if (firstOptionItem) {
+        firstOptionItem.setAttribute('tabindex', '0');
+      }
+    }
+  }, [loading, withProgressiveLoading]);
+  return jsx("div", {
+    ref: ref,
+    "aria-busy": loading,
+    role: "list",
+    css: _ref2$5,
+    ...restProps,
+    children: jsx(DialogComboboxOptionListContextProvider, {
+      value: {
+        isInsideDialogComboboxOptionList: true,
+        lookAhead,
+        setLookAhead
+      },
+      children: loading ? withProgressiveLoading ? jsxs(Fragment, {
+        children: [children, jsx(DialogComboboxLoadingSpinner, {
+          "aria-label": "Loading",
+          alt: "Loading spinner"
+        })]
+      }) : jsx(DialogComboboxLoadingSpinner, {
+        "aria-label": "Loading",
+        alt: "Loading spinner"
+      }) : children && Children.toArray(children).some(child => /*#__PURE__*/React__default.isValidElement(child)) ? children : jsx(DialogComboboxEmpty, {})
+    })
+  });
+});
 
 const Tooltip = _ref => {
   let {
@@ -10063,22 +6303,19 @@ const Tooltip = _ref => {
   });
 };
 
-const DialogComboboxOptionListContext = /*#__PURE__*/createContext({});
-const DialogComboboxOptionListContextProvider = _ref => {
-  let {
-    children,
-    value
-  } = _ref;
-  return jsx(DialogComboboxOptionListContext.Provider, {
-    value: value,
-    children: children
-  });
-};
-
 const useDialogComboboxOptionListContext = () => {
   return useContext(DialogComboboxOptionListContext);
 };
 
+const getDialogComboboxOptionLabelWidth = (theme, width) => {
+  const paddingLeft = theme.spacing.xs + theme.spacing.sm;
+  const iconWidth = theme.spacing.md;
+  const labelMarginLeft = theme.spacing.sm;
+  if (typeof width === 'string') {
+    return `calc(${width} - ${paddingLeft + iconWidth + labelMarginLeft} px)`;
+  }
+  return width - paddingLeft + iconWidth + labelMarginLeft;
+};
 const getDialogComboboxOptionItemWrapperStyles = theme => {
   return /*#__PURE__*/css(importantify({
     display: 'flex',
@@ -10088,12 +6325,15 @@ const getDialogComboboxOptionItemWrapperStyles = theme => {
     alignSelf: 'stretch',
     padding: '6px 32px 6px 12px',
     lineHeight: theme.typography.lineHeightBase,
-    height: theme.typography.lineHeightBase,
     boxSizing: 'content-box',
     cursor: 'pointer',
     userSelect: 'none',
     '&:hover': {
       background: theme.colors.actionTertiaryBackgroundHover
+    },
+    '&:focus': {
+      background: theme.colors.actionTertiaryBackgroundHover,
+      outline: 'none'
     },
     '&[disabled]': {
       pointerEvents: 'none',
@@ -10109,8 +6349,94 @@ const infoIconStyles$1 = theme => ({
   cursor: 'pointer',
   verticalAlign: 'middle'
 });
+function findClosestOptionSibling(element, direction) {
+  const nextSibling = direction === 'previous' ? element.previousElementSibling : element.nextElementSibling;
+  if ((nextSibling === null || nextSibling === void 0 ? void 0 : nextSibling.getAttribute('role')) === 'option') {
+    return nextSibling;
+  } else if (nextSibling) {
+    let nextOptionSibling = nextSibling;
+    while (nextOptionSibling && nextOptionSibling.getAttribute('role') !== 'option') {
+      nextOptionSibling = direction === 'previous' ? nextOptionSibling.previousElementSibling : nextOptionSibling.nextElementSibling;
+    }
+    return nextOptionSibling;
+  }
+  return null;
+}
+const getKeyboardNavigationFunctions = (handleSelect, _ref) => {
+  let {
+    onKeyDown,
+    onMouseEnter,
+    onDefaultKeyDown
+  } = _ref;
+  return {
+    onKeyDown: e => {
+      onKeyDown === null || onKeyDown === void 0 ? void 0 : onKeyDown(e);
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          const nextSibling = findClosestOptionSibling(e.currentTarget, 'next');
+          if (nextSibling) {
+            e.currentTarget.setAttribute('tabIndex', '-1');
+            nextSibling.focus();
+            nextSibling.setAttribute('tabIndex', '0');
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          const previousSibling = findClosestOptionSibling(e.currentTarget, 'previous');
+          if (previousSibling) {
+            e.currentTarget.setAttribute('tabIndex', '-1');
+            previousSibling.focus();
+            previousSibling.setAttribute('tabIndex', '0');
+          }
+          break;
+        case 'Enter':
+          e.preventDefault();
+          handleSelect();
+          break;
+        default:
+          onDefaultKeyDown === null || onDefaultKeyDown === void 0 ? void 0 : onDefaultKeyDown(e);
+          break;
+      }
+    },
+    onMouseEnter: e => {
+      onMouseEnter === null || onMouseEnter === void 0 ? void 0 : onMouseEnter(e);
+      resetTabIndexToFocusedElement(e.currentTarget);
+    }
+  };
+};
+const resetTabIndexToFocusedElement = elem => {
+  var _elem$closest;
+  (_elem$closest = elem.closest('[role="list"]')) === null || _elem$closest === void 0 ? void 0 : _elem$closest.querySelectorAll('[role="option"]').forEach(el => {
+    el.setAttribute('tabIndex', '-1');
+  });
+  elem.setAttribute('tabIndex', '0');
+  elem.focus();
+};
+const dialogComboboxLookAheadKeyDown = (e, setLookAhead, lookAhead) => {
+  var _e$currentTarget$pare, _e$currentTarget$pare2;
+  if (e.key === 'Escape' || e.key === 'Tab' || e.key === 'Enter') {
+    return;
+  }
+  e.preventDefault();
+  const siblings = Array.from((_e$currentTarget$pare = (_e$currentTarget$pare2 = e.currentTarget.parentElement) === null || _e$currentTarget$pare2 === void 0 ? void 0 : _e$currentTarget$pare2.children) !== null && _e$currentTarget$pare !== void 0 ? _e$currentTarget$pare : []);
+  // Look for the first sibling that starts with the pressed key + recently pressed keys (lookAhead, cleared after 1.5 seconds of inactivity)
+  const nextSiblingIndex = siblings.findIndex(sibling => {
+    var _sibling$textContent$, _sibling$textContent;
+    const siblingLabel = (_sibling$textContent$ = (_sibling$textContent = sibling.textContent) === null || _sibling$textContent === void 0 ? void 0 : _sibling$textContent.toLowerCase()) !== null && _sibling$textContent$ !== void 0 ? _sibling$textContent$ : '';
+    return siblingLabel.startsWith(lookAhead + e.key);
+  });
+  if (nextSiblingIndex !== -1) {
+    const nextSibling = siblings[nextSiblingIndex];
+    nextSibling.focus();
+    if (setLookAhead) {
+      setLookAhead(lookAhead + e.key);
+    }
+    resetTabIndexToFocusedElement(nextSibling);
+  }
+};
 
-const DialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
+const DuboisDialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref) => {
   let {
     value,
     checked,
@@ -10118,13 +6444,20 @@ const DialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref)
     onChange,
     children,
     disabledReason,
+    _TYPE,
     ...props
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
   const {
-    isInsideDialogComboboxOptionList
+    textOverflowMode,
+    contentWidth
+  } = useDialogComboboxContext();
+  const {
+    isInsideDialogComboboxOptionList,
+    setLookAhead,
+    lookAhead
   } = useDialogComboboxOptionListContext();
   if (!isInsideDialogComboboxOptionList) {
     throw new Error('`DialogComboboxOptionListCheckboxItem` must be used within `DialogComboboxOptionList`');
@@ -10153,7 +6486,7 @@ const DialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref)
     // Using aria-selected instead of aria-checked because the parent listbox
     ,
     "aria-selected": indeterminate ? false : checked,
-    css: [getDialogComboboxOptionItemWrapperStyles(theme), process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListCheckboxItem;"],
+    css: [getDialogComboboxOptionItemWrapperStyles(theme), process.env.NODE_ENV === "production" ? "" : ";label:DuboisDialogComboboxOptionListCheckboxItem;"],
     ...props,
     onClick: e => {
       if (props.disabled) {
@@ -10162,17 +6495,41 @@ const DialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref)
         handleSelect();
       }
     },
+    tabIndex: -1,
+    ...getKeyboardNavigationFunctions(handleSelect, {
+      onKeyDown: props.onKeyDown,
+      onMouseEnter: props.onMouseEnter,
+      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead)
+    }),
     children: jsx(Checkbox, {
       disabled: props.disabled,
       isChecked: indeterminate ? null : checked,
       css: /*#__PURE__*/css({
         pointerEvents: 'none',
+        height: 'unset',
+        width: '100%',
         '& > label': {
+          width: '100%',
           fontSize: theme.typography.fontSizeBase,
           fontStyle: 'normal',
-          fontWeight: 400
+          fontWeight: 400,
+          cursor: 'pointer',
+          '& > span:last-of-type': {
+            paddingRight: 0,
+            width: '100%',
+            overflow: 'hidden',
+            wordBreak: 'break-word',
+            ...(textOverflowMode === 'ellipsis' && {
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }),
+            ...(contentWidth ? {
+              width: getDialogComboboxOptionLabelWidth(theme, contentWidth)
+            } : {})
+          }
         }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListCheckboxItem;")
+      }, process.env.NODE_ENV === "production" ? "" : ";label:DuboisDialogComboboxOptionListCheckboxItem;"),
+      tabIndex: -1
       // Needed because Antd handles keyboard inputs as clicks
       ,
       onClick: e => {
@@ -10183,350 +6540,36 @@ const DialogComboboxOptionListCheckboxItem = /*#__PURE__*/forwardRef((_ref, ref)
     })
   });
 });
-
-const getInputEmotionStyles = (clsPrefix, theme, _ref, useNewIcons, useTransparent) => {
-  let {
-    validationState
-  } = _ref;
-  const inputClass = `.${clsPrefix}-input`;
-  const affixClass = `.${clsPrefix}-input-affix-wrapper`;
-  const affixClassFocused = `.${clsPrefix}-input-affix-wrapper-focused`;
-  const clearIcon = `.${clsPrefix}-input-clear-icon`;
-  const prefixIcon = `.${clsPrefix}-input-prefix`;
-  const suffixIcon = `.${clsPrefix}-input-suffix`;
-  const validationColor = getValidationStateColor(theme, validationState);
-  const styles = {
-    '&&': {
-      lineHeight: theme.typography.lineHeightBase,
-      minHeight: theme.general.heightSm,
-      ...(validationState && {
-        borderColor: validationColor
-      }),
-      '&:hover': {
-        borderColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundHover
-      },
-      '&:focus': {
-        outlineColor: validationState ? validationColor : theme.colors.actionPrimaryBackgroundDefault,
-        outlineWidth: 2,
-        outlineOffset: -2,
-        outlineStyle: 'solid',
-        boxShadow: 'none',
-        borderColor: 'transparent'
-      },
-      '&:disabled': {
-        backgroundColor: theme.colors.actionDisabledBackground,
-        color: theme.colors.actionDisabledText
-      }
-    },
-    [`&${inputClass}, ${inputClass}`]: {
-      ...(useTransparent && {
-        backgroundColor: 'transparent'
-      })
-    },
-    [`&${affixClass}`]: {
-      ...(useTransparent && {
-        backgroundColor: 'transparent'
-      }),
-      lineHeight: theme.typography.lineHeightBase,
-      paddingTop: 5,
-      paddingBottom: 5,
-      minHeight: theme.general.heightSm,
-      '::before': {
-        lineHeight: theme.typography.lineHeightBase
-      },
-      '&:hover': {
-        borderColor: theme.colors.actionPrimaryBackgroundHover
-      },
-      [`input.${clsPrefix}-input`]: {
-        borderRadius: 0
-      }
-    },
-    [`&${affixClassFocused}`]: {
-      boxShadow: 'none',
-      '&&, &:focus': {
-        outlineColor: theme.colors.actionPrimaryBackgroundDefault,
-        outlineWidth: 2,
-        outlineOffset: -2,
-        outlineStyle: 'solid',
-        boxShadow: 'none',
-        borderColor: 'transparent'
-      }
-    },
-    ...(useNewIcons && {
-      [clearIcon]: {
-        fontSize: theme.general.iconFontSizeNew
-      },
-      [prefixIcon]: {
-        marginRight: theme.spacing.sm,
-        color: theme.colors.textSecondary
-      },
-      [suffixIcon]: {
-        marginLeft: theme.spacing.sm,
-        color: theme.colors.textSecondary
-      }
-    }),
-    ...getAnimationCss(theme.options.enableAnimation)
-  };
-  return /*#__PURE__*/css(importantify(styles), process.env.NODE_ENV === "production" ? "" : ";label:getInputEmotionStyles;");
+DuboisDialogComboboxOptionListCheckboxItem.defaultProps = {
+  _TYPE: 'DialogComboboxOptionListCheckboxItem'
 };
-const getInputGroupStyling = clsPrefix => {
-  const inputClass = `.${clsPrefix}-input`;
-  const buttonClass = `.${clsPrefix}-btn`;
-  return /*#__PURE__*/css({
-    display: 'inline-flex !important',
-    width: 'auto',
-    [`& > ${inputClass}`]: {
-      flexGrow: 1,
-      '&:disabled': {
-        border: 'none'
-      }
-    },
-    [`& > ${buttonClass} > span`]: {
-      verticalAlign: 'middle'
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getInputGroupStyling;");
-};
-const TextArea = /*#__PURE__*/forwardRef(function TextArea(_ref2, ref) {
-  let {
-    validationState,
-    autoComplete = 'off',
-    dangerouslySetAntdProps,
-    dangerouslyAppendEmotionCSS,
-    ...props
-  } = _ref2;
-  const {
-    classNamePrefix,
-    theme
-  } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS: useNewIcons,
-    USE_TRANSPARENT_INPUT: useTransparent
-  } = useDesignSystemFlags();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Input$1.TextArea, {
-      ref: ref,
-      autoComplete: autoComplete,
-      css: [getInputEmotionStyles(classNamePrefix, theme, {
-        validationState
-      }, useNewIcons, useTransparent), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:TextArea;"],
-      ...props,
-      ...dangerouslySetAntdProps
-    })
-  });
-});
-const Password = /*#__PURE__*/forwardRef(function Password(_ref3, ref) {
-  let {
-    validationState,
-    autoComplete = 'off',
-    dangerouslySetAntdProps,
-    dangerouslyAppendEmotionCSS,
-    ...props
-  } = _ref3;
-  const {
-    classNamePrefix,
-    theme
-  } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS: useNewIcons,
-    USE_TRANSPARENT_INPUT: useTransparent
-  } = useDesignSystemFlags();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Input$1.Password, {
-      visibilityToggle: false,
-      ref: ref,
-      autoComplete: autoComplete,
-      css: [getInputEmotionStyles(classNamePrefix, theme, {
-        validationState
-      }, useNewIcons, useTransparent), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Password;"],
-      ...props,
-      ...dangerouslySetAntdProps
-    })
-  });
-});
-const DuboisInput = /*#__PURE__*/forwardRef(function Input(_ref4, ref) {
-  let {
-    validationState,
-    autoComplete = 'off',
-    dangerouslySetAntdProps,
-    dangerouslyAppendEmotionCSS,
-    ...props
-  } = _ref4;
-  const {
-    classNamePrefix,
-    theme
-  } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS: useNewIcons,
-    USE_TRANSPARENT_INPUT: useTransparent
-  } = useDesignSystemFlags();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Input$1, {
-      autoComplete: autoComplete,
-      ref: ref,
-      css: [getInputEmotionStyles(classNamePrefix, theme, {
-        validationState
-      }, useNewIcons, useTransparent), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:DuboisInput;"],
-      ...props,
-      ...dangerouslySetAntdProps
-    })
-  });
-});
-const Group$2 = _ref5 => {
-  let {
-    dangerouslySetAntdProps,
-    dangerouslyAppendEmotionCSS,
-    compact = true,
-    ...props
-  } = _ref5;
-  const {
-    classNamePrefix
-  } = useDesignSystemTheme();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Input$1.Group, {
-      css: [getInputGroupStyling(classNamePrefix), dangerouslyAppendEmotionCSS, process.env.NODE_ENV === "production" ? "" : ";label:Group;"],
-      compact: compact,
-      ...props,
-      ...dangerouslySetAntdProps
-    })
-  });
-};
+const DialogComboboxOptionListCheckboxItem = DuboisDialogComboboxOptionListCheckboxItem;
 
-// Properly creates the namespace and dot-notation components with correct types.
-const InputNamespace = /* #__PURE__ */Object.assign(DuboisInput, {
-  TextArea,
-  Password,
-  Group: Group$2
-});
-const Input = InputNamespace;
-
-// TODO: I'm doing this to support storybook's docgen;
-// We should remove this once we have a better storybook integration,
-// since these will be exposed in the library's exports.
-const __INTERNAL_DO_NOT_USE__TextArea = TextArea;
-const __INTERNAL_DO_NOT_USE__Password = Password;
-const __INTERNAL_DO_NOT_USE_DEDUPE__Group = Group$2;
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$f() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$5 = process.env.NODE_ENV === "production" ? {
-  name: "1cjitc6",
-  styles: "width:16px"
-} : {
-  name: "gvtsec-DialogComboboxOptionListSelectItem",
-  styles: "width:16px;label:DialogComboboxOptionListSelectItem;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$f
-};
-const DialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, ref) => {
-  let {
-    value,
-    checked,
-    disabledReason,
-    onChange,
-    children,
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  const {
-    stayOpenOnSelection,
-    setIsOpen,
-    value: existingValue
-  } = useDialogComboboxContext();
-  const {
-    isInsideDialogComboboxOptionList
-  } = useDialogComboboxOptionListContext();
-  if (!isInsideDialogComboboxOptionList) {
-    throw new Error('`DialogComboboxOptionListSelectItem` must be used within `DialogComboboxOptionList`');
-  }
-  const handleSelect = () => {
-    if (onChange) {
-      onChange(value);
-
-      // On selecting a previously selected value, manually close the popup, top level logic will not be triggered
-      if (!stayOpenOnSelection && existingValue !== null && existingValue !== void 0 && existingValue.includes(value)) {
-        setIsOpen(false);
-      }
-    }
-  };
-  let content = children !== null && children !== void 0 ? children : value;
-  if (props.disabled && disabledReason) {
-    content = jsxs(Fragment, {
-      children: [content, jsx(Tooltip, {
-        title: disabledReason,
-        placement: "right",
-        children: jsx("span", {
-          css: infoIconStyles$1(theme),
-          children: jsx(InfoIcon, {})
-        })
-      })]
-    });
-  }
-  return jsxs("div", {
-    ref: ref,
-    css: [getDialogComboboxOptionItemWrapperStyles(theme), {
-      '&:focus': {
-        background: theme.colors.actionTertiaryBackgroundHover,
-        outline: 'none'
-      }
-    }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListSelectItem;"],
-    ...props,
-    onClick: e => {
-      if (props.disabled) {
-        e.preventDefault();
-      } else {
-        handleSelect();
-      }
-    },
-    tabIndex: 0,
-    onKeyDown: e => {
-      switch (e.key) {
-        case 'ArrowDown':
-          e.preventDefault();
-          const nextSibling = e.currentTarget.nextElementSibling;
-          nextSibling === null || nextSibling === void 0 ? void 0 : nextSibling.focus();
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          const previousSibling = e.currentTarget.previousElementSibling;
-          previousSibling === null || previousSibling === void 0 ? void 0 : previousSibling.focus();
-          break;
-        case ' ':
-        case 'Enter':
-          e.preventDefault();
-          handleSelect();
-          break;
-      }
-    },
-    role: "option",
-    "aria-selected": checked,
-    "aria-label": value,
-    children: [checked ? jsx(CheckIcon, {}) : jsx("div", {
-      css: _ref2$5
-    }), jsx("label", {
-      style: {
-        fontSize: theme.typography.fontSizeBase,
-        fontStyle: 'normal',
-        fontWeight: 400,
-        marginLeft: theme.spacing.sm,
-        cursor: 'pointer'
-      },
-      children: content
-    })]
-  });
-});
-
+function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const filterChildren = (children, searchValue) => {
   var _React$Children$map;
   return (_React$Children$map = React__default.Children.map(children, child => {
-    if (child.type === DialogComboboxOptionListSelectItem || child.type === DialogComboboxOptionListCheckboxItem) {
-      var _child$props, _child$props$value;
-      if (child !== null && child !== void 0 && (_child$props = child.props) !== null && _child$props !== void 0 && (_child$props$value = _child$props.value) !== null && _child$props$value !== void 0 && _child$props$value.toLowerCase().includes(searchValue)) {
-        return child;
+    if ( /*#__PURE__*/React__default.isValidElement(child)) {
+      var _child$props$__EMOTIO, _child$props$__EMOTIO2;
+      const childType = (_child$props$__EMOTIO = (_child$props$__EMOTIO2 = child.props['__EMOTION_TYPE_PLEASE_DO_NOT_USE__']) === null || _child$props$__EMOTIO2 === void 0 ? void 0 : _child$props$__EMOTIO2.defaultProps._TYPE) !== null && _child$props$__EMOTIO !== void 0 ? _child$props$__EMOTIO : child.props._TYPE;
+      if (childType === 'DialogComboboxOptionListSelectItem' || childType === 'DialogComboboxOptionListCheckboxItem') {
+        var _child$props, _child$props$value;
+        if (child !== null && child !== void 0 && (_child$props = child.props) !== null && _child$props !== void 0 && (_child$props$value = _child$props.value) !== null && _child$props$value !== void 0 && _child$props$value.toLowerCase().includes(searchValue)) {
+          return child;
+        }
+        return null;
       }
-      return null;
     }
     return child;
   })) === null || _React$Children$map === void 0 ? void 0 : _React$Children$map.filter(child => child);
+};
+var _ref2$4 = process.env.NODE_ENV === "production" ? {
+  name: "1d3w5wq",
+  styles: "width:100%"
+} : {
+  name: "csdki6-DialogComboboxOptionListSearch",
+  styles: "width:100%;label:DialogComboboxOptionListSearch;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
 };
 const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   var _filteredChildren, _filteredChildren$pro, _filteredChildren2;
@@ -10561,6 +6604,7 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
       filteredChildren = /*#__PURE__*/React__default.cloneElement(children, {}, filteredChildren);
     }
   }
+  const childrenIsNotEmpty = Children.toArray(hasWrapper ? children.props.children : children).some(child => /*#__PURE__*/React__default.isValidElement(child));
   return jsxs(Fragment, {
     children: [jsx("div", {
       css: /*#__PURE__*/css({
@@ -10578,31 +6622,158 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
         value: searchValue,
         ...restProps
       })
-    }), virtualized ? children : hasWrapper && (_filteredChildren = filteredChildren) !== null && _filteredChildren !== void 0 && (_filteredChildren$pro = _filteredChildren.props.children) !== null && _filteredChildren$pro !== void 0 && _filteredChildren$pro.length || !hasWrapper && (_filteredChildren2 = filteredChildren) !== null && _filteredChildren2 !== void 0 && _filteredChildren2.length ? jsx("div", {
+    }), virtualized ? children : (hasWrapper && (_filteredChildren = filteredChildren) !== null && _filteredChildren !== void 0 && (_filteredChildren$pro = _filteredChildren.props.children) !== null && _filteredChildren$pro !== void 0 && _filteredChildren$pro.length || !hasWrapper && (_filteredChildren2 = filteredChildren) !== null && _filteredChildren2 !== void 0 && _filteredChildren2.length) && childrenIsNotEmpty ? jsx("div", {
       "aria-live": "polite",
+      css: _ref2$4,
       children: filteredChildren
-    }) : jsx("div", {
-      "aria-live": "assertive",
-      css: /*#__PURE__*/css({
-        color: theme.colors.textSecondary,
-        textAlign: 'center',
-        padding: '6px 32px 6px 12px',
-        width: '100%',
-        boxSizing: 'border-box'
-      }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListSearch;"),
-      children: "No results found"
-    })]
+    }) : jsx(DialogComboboxEmpty, {})]
   });
 });
 
-function _EMOTION_STRINGIFIED_CSS_ERROR__$e() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$4 = process.env.NODE_ENV === "production" ? {
-  name: "6kz1wu",
-  styles: "display:flex;flex-direction:column;align-items:flex-start"
+const selectContextDefaults = {
+  isSelect: false
+};
+const SelectContext = /*#__PURE__*/createContext(selectContextDefaults);
+const SelectContextProvider = _ref => {
+  let {
+    children,
+    value
+  } = _ref;
+  return jsx(SelectContext.Provider, {
+    value: value,
+    children: children
+  });
+};
+
+const useSelectContext = () => {
+  return useContext(SelectContext);
+};
+
+const DuboisDialogComboboxOptionListSelectItem = /*#__PURE__*/forwardRef((_ref, ref) => {
+  let {
+    value,
+    checked,
+    disabledReason,
+    onChange,
+    children,
+    _TYPE,
+    ...props
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const {
+    stayOpenOnSelection,
+    setIsOpen,
+    value: existingValue,
+    contentWidth,
+    textOverflowMode
+  } = useDialogComboboxContext();
+  const {
+    isInsideDialogComboboxOptionList,
+    lookAhead,
+    setLookAhead
+  } = useDialogComboboxOptionListContext();
+  const {
+    isSelect
+  } = useSelectContext();
+  if (!isInsideDialogComboboxOptionList) {
+    throw new Error('`DialogComboboxOptionListSelectItem` must be used within `DialogComboboxOptionList`');
+  }
+  const handleSelect = () => {
+    if (onChange) {
+      if (isSelect) {
+        onChange({
+          value,
+          label: typeof children === 'string' ? children : value
+        });
+        return;
+      }
+      onChange(value);
+
+      // On selecting a previously selected value, manually close the popup, top level logic will not be triggered
+      if (!stayOpenOnSelection && existingValue !== null && existingValue !== void 0 && existingValue.includes(value)) {
+        setIsOpen(false);
+      }
+    }
+  };
+  let content = children !== null && children !== void 0 ? children : value;
+  if (props.disabled && disabledReason) {
+    content = jsxs(Fragment, {
+      children: [content, jsx(Tooltip, {
+        title: disabledReason,
+        placement: "right",
+        children: jsx("span", {
+          css: infoIconStyles$1(theme),
+          children: jsx(InfoIcon, {})
+        })
+      })]
+    });
+  }
+  return jsxs("div", {
+    ref: ref,
+    css: [getDialogComboboxOptionItemWrapperStyles(theme), {
+      '&:focus': {
+        background: theme.colors.actionTertiaryBackgroundHover,
+        outline: 'none'
+      }
+    }, process.env.NODE_ENV === "production" ? "" : ";label:DuboisDialogComboboxOptionListSelectItem;"],
+    ...props,
+    onClick: e => {
+      if (props.disabled) {
+        e.preventDefault();
+      } else {
+        handleSelect();
+      }
+    },
+    tabIndex: -1,
+    ...getKeyboardNavigationFunctions(handleSelect, {
+      onKeyDown: props.onKeyDown,
+      onMouseEnter: props.onMouseEnter,
+      onDefaultKeyDown: e => dialogComboboxLookAheadKeyDown(e, setLookAhead, lookAhead)
+    }),
+    role: "option",
+    "aria-selected": checked,
+    "aria-label": value,
+    children: [checked ? jsx(CheckIcon, {}) : jsx("div", {
+      style: {
+        width: 16,
+        flexShrink: 0
+      }
+    }), jsx("label", {
+      style: {
+        marginLeft: theme.spacing.sm,
+        fontSize: theme.typography.fontSizeBase,
+        fontStyle: 'normal',
+        fontWeight: 400,
+        cursor: 'pointer',
+        overflow: 'hidden',
+        wordBreak: 'break-word',
+        ...(textOverflowMode === 'ellipsis' && {
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }),
+        ...(contentWidth ? {
+          width: getDialogComboboxOptionLabelWidth(theme, contentWidth)
+        } : {})
+      },
+      children: content
+    })]
+  });
+});
+DuboisDialogComboboxOptionListSelectItem.defaultProps = {
+  _TYPE: 'DialogComboboxOptionListSelectItem'
+};
+const DialogComboboxOptionListSelectItem = DuboisDialogComboboxOptionListSelectItem;
+
+function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$3 = process.env.NODE_ENV === "production" ? {
+  name: "1pgv7dg",
+  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
 } : {
-  name: "1rbb1tc-DialogComboboxOptionControlledList",
-  styles: "display:flex;flex-direction:column;align-items:flex-start;label:DialogComboboxOptionControlledList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$e
+  name: "18t0chz-DialogComboboxOptionControlledList",
+  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionControlledList;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
 };
 const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   let {
@@ -10621,9 +6792,24 @@ const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwar
     setValue,
     setIsControlled
   } = useDialogComboboxContext();
+  const [lookAhead, setLookAhead] = useState('');
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxOptionControlledList` must be used within `DialogCombobox`');
   }
+  const lookAheadTimeout = useRef(null);
+  useEffect(() => {
+    if (lookAheadTimeout.current) {
+      clearTimeout(lookAheadTimeout.current);
+    }
+    lookAheadTimeout.current = setTimeout(() => {
+      setLookAhead('');
+    }, 1500);
+    return () => {
+      if (lookAheadTimeout.current) {
+        clearTimeout(lookAheadTimeout.current);
+      }
+    };
+  }, [lookAhead]);
   const isOptionChecked = options.reduce((acc, option) => {
     acc[option] = value === null || value === void 0 ? void 0 : value.includes(option);
     return acc;
@@ -10666,14 +6852,14 @@ const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwar
       }
     }
   };
-  const renderedOptions = jsxs(Fragment, {
+  const renderedOptions = jsxs(DialogComboboxOptionList, {
     children: [showSelectAndClearAll && multiSelect && jsx(DialogComboboxOptionListCheckboxItem, {
       value: "all",
       onChange: handleSelectAll,
       checked: value.length === options.length,
       indeterminate: Boolean(value.length) && value.length !== options.length,
       children: value.length === options.length ? 'Clear all' : 'Select all'
-    }), options === null || options === void 0 ? void 0 : options.map((option, key) => multiSelect ? jsx(DialogComboboxOptionListCheckboxItem, {
+    }), options && options.length > 0 ? options.map((option, key) => multiSelect ? jsx(DialogComboboxOptionListCheckboxItem, {
       value: option,
       checked: isOptionChecked[option],
       onChange: handleUpdate,
@@ -10683,16 +6869,18 @@ const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwar
       checked: isOptionChecked[option],
       onChange: handleUpdate,
       children: option
-    }, key))]
+    }, key)) : jsx(DialogComboboxEmpty, {})]
   });
   return jsx("div", {
     ref: forwardedRef,
     "aria-busy": loading,
-    css: _ref2$4,
+    css: _ref2$3,
     ...restProps,
     children: jsx(DialogComboboxOptionListContextProvider, {
       value: {
-        isInsideDialogComboboxOptionList: true
+        isInsideDialogComboboxOptionList: true,
+        lookAhead,
+        setLookAhead
       },
       children: jsx(Fragment, {
         children: loading ? withProgressiveLoading ? jsxs(Fragment, {
@@ -10711,51 +6899,6 @@ const DialogComboboxOptionControlledList = /*#__PURE__*/forwardRef((_ref, forwar
           children: renderedOptions
         }) : renderedOptions
       })
-    })
-  });
-});
-
-function _EMOTION_STRINGIFIED_CSS_ERROR__$d() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-var _ref2$3 = process.env.NODE_ENV === "production" ? {
-  name: "1pgv7dg",
-  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%"
-} : {
-  name: "1dtf9pj-DialogComboboxOptionList",
-  styles: "display:flex;flex-direction:column;align-items:flex-start;width:100%;label:DialogComboboxOptionList;",
-  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$d
-};
-const DialogComboboxOptionList = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
-  let {
-    children,
-    loading,
-    withProgressiveLoading,
-    ...restProps
-  } = _ref;
-  const {
-    isInsideDialogCombobox
-  } = useDialogComboboxContext();
-  if (!isInsideDialogCombobox) {
-    throw new Error('`DialogComboboxOptionList` must be used within `DialogCombobox`');
-  }
-  return jsx("div", {
-    ref: forwardedRef,
-    "aria-busy": loading,
-    role: "list",
-    css: _ref2$3,
-    ...restProps,
-    children: jsx(DialogComboboxOptionListContextProvider, {
-      value: {
-        isInsideDialogComboboxOptionList: true
-      },
-      children: loading ? withProgressiveLoading ? jsxs(Fragment, {
-        children: [children, jsx(DialogComboboxLoadingSpinner, {
-          "aria-label": "Loading",
-          alt: "Loading spinner"
-        })]
-      }) : jsx(DialogComboboxLoadingSpinner, {
-        "aria-label": "Loading",
-        alt: "Loading spinner"
-      }) : children
     })
   });
 });
@@ -10827,7 +6970,7 @@ const getTriggerWrapperStyles = (removable, width) => /*#__PURE__*/css(important
     })
   })
 }), process.env.NODE_ENV === "production" ? "" : ";label:getTriggerWrapperStyles;");
-const getTriggerStyles = (theme, maxWidth, removable, width) => {
+const getTriggerStyles = (theme, maxWidth, minWidth, removable, width, validationState) => {
   const removeButtonInteractionStyles = {
     ...(removable && {
       zIndex: theme.options.zIndexBase + 2,
@@ -10837,11 +6980,13 @@ const getTriggerStyles = (theme, maxWidth, removable, width) => {
       }
     })
   };
+  const validationColor = getValidationStateColor(theme, validationState);
   return /*#__PURE__*/css(importantify({
     position: 'relative',
     display: 'inline-flex',
     alignItems: 'center',
-    maxWidth: maxWidth,
+    maxWidth,
+    minWidth,
     justifyContent: 'flex-start',
     background: 'transparent',
     padding: '6px 8px 6px 12px',
@@ -10871,6 +7016,16 @@ const getTriggerStyles = (theme, maxWidth, removable, width) => {
       borderColor: theme.colors.actionDefaultBorderFocus,
       ...removeButtonInteractionStyles
     },
+    ...(validationState && {
+      borderColor: validationColor,
+      '&:hover': {
+        borderColor: validationColor
+      },
+      '&:focus': {
+        outlineColor: validationColor,
+        outlineOffset: -2
+      }
+    }),
     [`&[disabled]`]: {
       background: theme.colors.actionDisabledBackground,
       color: theme.colors.actionDisabledText,
@@ -10880,10 +7035,12 @@ const getTriggerStyles = (theme, maxWidth, removable, width) => {
   }), process.env.NODE_ENV === "production" ? "" : ";label:getTriggerStyles;");
 };
 const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
+  var _restProps$className;
   let {
     removable = false,
     onRemove,
     children,
+    minWidth = 0,
     maxWidth = 9999,
     showTagAfterValueCount = 3,
     allowClear = true,
@@ -10892,10 +7049,14 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     wrapperProps,
     width,
     withChevronIcon = true,
+    validationState,
+    withInlineLabel = true,
+    placeholder,
     ...restProps
   } = _ref;
   const {
-    theme
+    theme,
+    classNamePrefix
   } = useDesignSystemTheme();
   const {
     label,
@@ -10904,6 +7065,10 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     multiSelect,
     setValue
   } = useDialogComboboxContext();
+  const {
+    isSelect,
+    placeholder: selectPlaceholder
+  } = useSelectContext();
   if (!isInsideDialogCombobox) {
     throw new Error('`DialogComboboxTrigger` must be used within `DialogCombobox`');
   }
@@ -10950,11 +7115,54 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   } else {
     ariaLabel += multiSelect ? ', multiselectable, 0 options selected' : ', no option selected';
   }
-  const triggerContent = children !== null && children !== void 0 ? children : jsxs(Popover$1.Trigger, {
+  const customSelectContent = isSelect && children ? children : null;
+  const dialogComboboxClassname = !isSelect ? `${classNamePrefix}-dialogcombobox` : '';
+  const selectV2Classname = isSelect ? `${classNamePrefix}-selectv2` : '';
+  const triggerContent = isSelect ? jsxs(Popover$1.Trigger, {
     "aria-label": ariaLabel,
     ref: forwardedRef,
     ...restProps,
-    css: getTriggerStyles(theme, maxWidth, removable, width),
+    css: getTriggerStyles(theme, maxWidth, minWidth, removable, width, validationState),
+    role: "listbox",
+    "aria-multiselectable": multiSelect,
+    children: [jsx("span", {
+      css: /*#__PURE__*/css({
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        height: theme.typography.lineHeightBase,
+        marginRight: 'auto'
+      }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
+      ref: triggerContentRef,
+      children: value !== null && value !== void 0 && value.length ? customSelectContent !== null && customSelectContent !== void 0 ? customSelectContent : displayedValues : jsx("span", {
+        css: /*#__PURE__*/css({
+          color: theme.colors.textPlaceholder
+        }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
+        children: selectPlaceholder
+      })
+    }), allowClear && value !== null && value !== void 0 && value.length ? jsx(XCircleFillIcon, {
+      onClick: handleClear,
+      css: /*#__PURE__*/css({
+        color: theme.colors.textPlaceholder,
+        fontSize: theme.typography.fontSizeSm,
+        marginLeft: theme.spacing.xs,
+        ':hover': {
+          color: theme.colors.actionTertiaryTextHover
+        }
+      }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
+      role: "button",
+      "aria-label": "Clear selection"
+    }) : null, jsx(ChevronDownIcon, {
+      css: /*#__PURE__*/css({
+        color: theme.colors.textSecondary,
+        marginLeft: theme.spacing.xs
+      }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;")
+    })]
+  }) : jsxs(Popover$1.Trigger, {
+    "aria-label": ariaLabel,
+    ref: forwardedRef,
+    ...restProps,
+    css: getTriggerStyles(theme, maxWidth, minWidth, removable, width, validationState),
     role: "listbox",
     "aria-multiselectable": multiSelect,
     children: [jsxs("span", {
@@ -10970,7 +7178,7 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
         }
       }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
       ref: triggerContentRef,
-      children: [jsx("span", {
+      children: [withInlineLabel ? jsx("span", {
         css: /*#__PURE__*/css({
           height: theme.typography.lineHeightBase,
           marginRight: theme.spacing.xs,
@@ -10980,6 +7188,11 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
           textOverflow: 'unset'
         }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
         children: label
+      }) : !(value !== null && value !== void 0 && value.length) && jsx("span", {
+        css: /*#__PURE__*/css({
+          color: theme.colors.textPlaceholder
+        }, process.env.NODE_ENV === "production" ? "" : ";label:triggerContent;"),
+        children: placeholder
       }), (value === null || value === void 0 ? void 0 : value.length) > showTagAfterValueCount ? jsxs(Fragment, {
         children: [jsx("span", {
           style: {
@@ -11014,9 +7227,10 @@ const DialogComboboxTrigger = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
   });
   return jsxs("div", {
     ...wrapperProps,
+    className: `${(_restProps$className = restProps === null || restProps === void 0 ? void 0 : restProps.className) !== null && _restProps$className !== void 0 ? _restProps$className : ''} ${dialogComboboxClassname} ${selectV2Classname}`.trim(),
     css: [getTriggerWrapperStyles(removable, width), wrapperProps === null || wrapperProps === void 0 ? void 0 : wrapperProps.css, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxTrigger;"],
     children: [showTooltip && value !== null && value !== void 0 && value.length ? jsx(Tooltip, {
-      title: displayedValues,
+      title: customSelectContent !== null && customSelectContent !== void 0 ? customSelectContent : displayedValues,
       children: triggerContent
     }) : triggerContent, removable && jsx(Button, {
       "aria-label": `Remove ${label}`,
@@ -11053,333 +7267,6 @@ const Spacer = _ref => {
   });
 };
 
-const getLinkStyles = (theme, clsPrefix, useNewIcons) => {
-  const classTypography = `.${clsPrefix}-typography`;
-  const styles = {
-    [`&${classTypography}, &${classTypography}:focus`]: {
-      color: theme.colors.actionTertiaryTextDefault
-    },
-    [`&${classTypography}:hover, &${classTypography}:hover .anticon`]: {
-      color: theme.colors.actionTertiaryTextHover,
-      textDecoration: 'underline'
-    },
-    [`&${classTypography}:active, &${classTypography}:active .anticon`]: {
-      color: theme.colors.actionTertiaryTextPress,
-      textDecoration: 'underline'
-    },
-    [`&${classTypography}:focus-visible`]: {
-      textDecoration: 'underline'
-    },
-    ...(useNewIcons && {
-      '.anticon': {
-        fontSize: 12
-      }
-    })
-  };
-  return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getLinkStyles;");
-};
-const getEllipsisNewTabLinkStyles = () => {
-  const styles = {
-    paddingRight: 'calc(2px + 1em)',
-    // 1em for icon
-    position: 'relative'
-  };
-  return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getEllipsisNewTabLinkStyles;");
-};
-const getIconStyles = theme => {
-  const styles = {
-    marginLeft: 2,
-    color: theme.colors.actionTertiaryTextDefault
-  };
-  return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getIconStyles;");
-};
-const getEllipsisIconStyles = useNewIcons => {
-  const styles = {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    top: 0,
-    display: 'flex',
-    alignItems: 'center',
-    ...(useNewIcons && {
-      fontSize: 12
-    })
-  };
-  return /*#__PURE__*/css(styles, process.env.NODE_ENV === "production" ? "" : ";label:getEllipsisIconStyles;");
-};
-function Link(_ref) {
-  let {
-    dangerouslySetAntdProps,
-    ...props
-  } = _ref;
-  const {
-    children,
-    openInNewTab,
-    ...restProps
-  } = props;
-  const {
-    theme,
-    classNamePrefix
-  } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS: useNewIcons
-  } = useDesignSystemFlags();
-  const newTabProps = {
-    rel: 'noopener noreferrer',
-    target: '_blank'
-  };
-  const linkProps = openInNewTab ? {
-    ...restProps,
-    ...newTabProps
-  } : {
-    ...restProps
-  };
-  const linkStyles = props.ellipsis && openInNewTab ? [getLinkStyles(theme, classNamePrefix, useNewIcons), getEllipsisNewTabLinkStyles()] : getLinkStyles(theme, classNamePrefix, useNewIcons);
-  const iconStyles = props.ellipsis ? [getIconStyles(theme), getEllipsisIconStyles()] : getIconStyles(theme);
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsxs(Typography$1.Link, {
-      "aria-disabled": linkProps.disabled,
-      css: linkStyles,
-      ...linkProps,
-      ...dangerouslySetAntdProps,
-      children: [children, openInNewTab ? jsx(NewWindowIcon, {
-        css: iconStyles,
-        ...newTabProps
-      }) : null]
-    })
-  });
-}
-
-const {
-  Paragraph: AntDParagraph
-} = Typography$1;
-function getParagraphEmotionStyles(theme, props) {
-  return /*#__PURE__*/css({
-    '&&': {
-      fontSize: theme.typography.fontSizeBase,
-      lineHeight: theme.typography.lineHeightBase,
-      color: getTypographyColor(theme, props.color, theme.colors.textPrimary)
-    }
-  }, props.disabled && {
-    '&&': {
-      color: theme.colors.actionDisabledText
-    }
-  }, props.withoutMargins && {
-    '&&': {
-      marginTop: 0,
-      marginBottom: 0
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getParagraphEmotionStyles;");
-}
-function Paragraph$1(userProps) {
-  const {
-    dangerouslySetAntdProps,
-    withoutMargins,
-    color,
-    ...props
-  } = userProps;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(AntDParagraph, {
-      ...props,
-      className: props.className,
-      css: getParagraphEmotionStyles(theme, userProps),
-      ...dangerouslySetAntdProps
-    })
-  });
-}
-
-const {
-  Text: AntDText
-} = Typography$1;
-function getTextEmotionStyles(theme, props) {
-  return /*#__PURE__*/css({
-    '&&': {
-      fontSize: theme.typography.fontSizeBase,
-      lineHeight: theme.typography.lineHeightBase,
-      color: getTypographyColor(theme, props.color, theme.colors.textPrimary)
-    }
-  }, props.disabled && {
-    '&&': {
-      color: theme.colors.actionDisabledText
-    }
-  }, props.hint && {
-    '&&': {
-      fontSize: theme.typography.fontSizeSm,
-      lineHeight: theme.typography.lineHeightSm
-    }
-  }, props.bold && {
-    '&&': {
-      fontSize: theme.typography.fontSizeBase,
-      fontWeight: theme.typography.typographyBoldFontWeight,
-      lineHeight: theme.typography.lineHeightBase
-    }
-  }, props.code && {
-    '&& > code': {
-      fontSize: theme.typography.fontSizeBase,
-      lineHeight: theme.typography.lineHeightBase,
-      background: theme.colors.typographyCodeBg,
-      fontFamily: 'monospace',
-      borderRadius: theme.borders.borderRadiusMd,
-      padding: '2px 4px',
-      border: 'unset',
-      margin: 0
-    }
-  }, props.size && {
-    '&&': (() => {
-      switch (props.size) {
-        case 'xxl':
-          return {
-            fontSize: theme.typography.fontSizeXxl,
-            lineHeight: theme.typography.lineHeightXxl
-          };
-        case 'xl':
-          return {
-            fontSize: theme.typography.fontSizeXl,
-            lineHeight: theme.typography.lineHeightXl
-          };
-        case 'lg':
-          return {
-            fontSize: theme.typography.fontSizeLg,
-            lineHeight: theme.typography.lineHeightLg
-          };
-        case 'sm':
-          return {
-            fontSize: theme.typography.fontSizeSm,
-            lineHeight: theme.typography.lineHeightSm
-          };
-        default:
-          return {
-            fontSize: theme.typography.fontSizeMd,
-            lineHeight: theme.typography.lineHeightMd
-          };
-      }
-    })()
-  }, props.withoutMargins && {
-    '&&': {
-      marginTop: 0,
-      marginBottom: 0
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getTextEmotionStyles;");
-}
-function Text(userProps) {
-  // Omit props that are not supported by `antd`
-  const {
-    dangerouslySetAntdProps,
-    bold,
-    hint,
-    withoutMargins,
-    color,
-    ...props
-  } = userProps;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(AntDText, {
-      ...props,
-      className: props.className,
-      css: getTextEmotionStyles(theme, userProps),
-      ...dangerouslySetAntdProps
-    })
-  });
-}
-
-const {
-  Title: AntDTitle
-} = Typography$1;
-function getLevelStyles(theme, props) {
-  switch (props.level) {
-    case 1:
-      return /*#__PURE__*/css({
-        '&&': {
-          fontSize: theme.typography.fontSizeXxl,
-          lineHeight: theme.typography.lineHeightXxl,
-          fontWeight: theme.typography.typographyBoldFontWeight
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:getLevelStyles;");
-    case 2:
-      return /*#__PURE__*/css({
-        '&&': {
-          fontSize: theme.typography.fontSizeXl,
-          lineHeight: theme.typography.lineHeightXl,
-          fontWeight: theme.typography.typographyBoldFontWeight
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:getLevelStyles;");
-    case 3:
-      return /*#__PURE__*/css({
-        '&&': {
-          fontSize: theme.typography.fontSizeLg,
-          lineHeight: theme.typography.lineHeightLg,
-          fontWeight: theme.typography.typographyBoldFontWeight
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:getLevelStyles;");
-    case 4:
-    default:
-      return /*#__PURE__*/css({
-        '&&': {
-          fontSize: theme.typography.fontSizeMd,
-          lineHeight: theme.typography.lineHeightMd,
-          fontWeight: theme.typography.typographyBoldFontWeight
-        }
-      }, process.env.NODE_ENV === "production" ? "" : ";label:getLevelStyles;");
-  }
-}
-function getTitleEmotionStyles(theme, props) {
-  return /*#__PURE__*/css(getLevelStyles(theme, props), {
-    '&&': {
-      color: getTypographyColor(theme, props.color, theme.colors.textPrimary)
-    }
-  }, props.withoutMargins && {
-    '&&': {
-      marginTop: '0 !important',
-      // override general styling
-      marginBottom: '0 !important' // override general styling
-    }
-  }, process.env.NODE_ENV === "production" ? "" : ";label:getTitleEmotionStyles;");
-}
-function Title$2(userProps) {
-  const {
-    dangerouslySetAntdProps,
-    withoutMargins,
-    color,
-    ...props
-  } = userProps;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(AntDTitle, {
-      ...props,
-      className: props.className,
-      css: getTitleEmotionStyles(theme, userProps),
-      ...dangerouslySetAntdProps
-    })
-  });
-}
-
-const Typography = /* #__PURE__ */(() => {
-  function Typography(_ref) {
-    let {
-      dangerouslySetAntdProps,
-      ...props
-    } = _ref;
-    return jsx(DesignSystemAntDConfigProvider, {
-      children: jsx(Typography$1, {
-        ...props,
-        ...dangerouslySetAntdProps
-      })
-    });
-  }
-  Typography.Text = Text;
-  Typography.Title = Title$2;
-  Typography.Paragraph = Paragraph$1;
-  Typography.Link = Link;
-  return Typography;
-})();
-
 function _EMOTION_STRINGIFIED_CSS_ERROR__$c() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const DEFAULT_WIDTH$1 = 320;
 const MIN_WIDTH = 320;
@@ -11405,7 +7292,8 @@ const Content$4 = _ref => {
     useCustomScrollBehavior,
     expandContentToFullHeight,
     disableOpenAutoFocus,
-    onInteractOutside
+    onInteractOutside,
+    seeThrough
   } = _ref;
   const {
     getPopupContainer
@@ -11465,15 +7353,18 @@ const Content$4 = _ref => {
         position: 'fixed',
         inset: 0,
         // needed so that it covers the PersonaNavSidebar
-        zIndex: theme.options.zIndexBase + ZINDEX_OVERLAY
+        zIndex: theme.options.zIndexBase + ZINDEX_OVERLAY,
+        opacity: seeThrough ? 0 : 1
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;")
     }), jsx(DialogPrimitive.DialogContent, {
       css: dialogPrimitiveContentStyle,
       style: {
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-start'
+        justifyContent: 'flex-start',
+        opacity: seeThrough ? 0 : 1
       },
+      "aria-hidden": seeThrough,
       ref: contentContainerRef,
       onOpenAutoFocus: event => {
         if (disableOpenAutoFocus) {
@@ -11781,12 +7672,11 @@ const CheckboxItem = /*#__PURE__*/forwardRef(function CheckboxItem(_ref8, ref) {
     disabledReason,
     ...props
   } = _ref8;
-  const flags = useDesignSystemFlags();
   const checkboxItemRef = useRef(null);
   useImperativeHandle(ref, () => checkboxItemRef.current);
   return jsx(DropdownMenu$1.CheckboxItem, {
     ref: checkboxItemRef,
-    css: theme => [itemStyles, checkboxItemStyles(theme, flags)],
+    css: theme => [itemStyles, checkboxItemStyles(theme)],
     ...props,
     children: getNewChildren(children, props, disabledReason, checkboxItemRef)
   });
@@ -11796,15 +7686,12 @@ const ItemIndicator = /*#__PURE__*/forwardRef(function ItemIndicator(_ref9, ref)
     children,
     ...props
   } = _ref9;
-  const flags = useDesignSystemFlags();
   return jsx(DropdownMenu$1.ItemIndicator, {
     ref: ref,
     css: theme => ({
-      marginLeft: -(CONSTANTS$1.checkboxIconWidth(theme, flags) + CONSTANTS$1.checkboxPaddingRight(theme, flags)),
+      marginLeft: -(CONSTANTS$1.checkboxIconWidth(theme) + CONSTANTS$1.checkboxPaddingRight(theme)),
       position: 'absolute',
-      ...(!flags.USE_NEW_ICONS && {
-        fontSize: 24
-      })
+      fontSize: theme.general.iconFontSize
     }),
     ...props,
     children: children !== null && children !== void 0 ? children : jsx(CheckIcon, {
@@ -11850,12 +7737,11 @@ const RadioItem = /*#__PURE__*/forwardRef(function RadioItem(_ref11, ref) {
     disabledReason,
     ...props
   } = _ref11;
-  const flags = useDesignSystemFlags();
   const radioItemRef = useRef(null);
   useImperativeHandle(ref, () => radioItemRef.current);
   return jsx(DropdownMenu$1.RadioItem, {
     ref: radioItemRef,
-    css: theme => [itemStyles, checkboxItemStyles(theme, flags)],
+    css: theme => [itemStyles, checkboxItemStyles(theme)],
     ...props,
     children: getNewChildren(children, props, disabledReason, radioItemRef)
   });
@@ -11901,7 +7787,7 @@ const IconWrapper = /*#__PURE__*/forwardRef(function IconWrapper(_ref14, ref) {
     css: theme => ({
       fontSize: 16,
       color: theme.colors.textSecondary,
-      paddingRight: 4
+      paddingRight: theme.spacing.sm
     }),
     ...props,
     children: children
@@ -11951,14 +7837,14 @@ const CONSTANTS$1 = {
   itemPaddingHorizontal(theme) {
     return theme.spacing.sm;
   },
-  checkboxIconWidth(theme, flags) {
-    return flags.USE_NEW_ICONS ? theme.general.iconFontSizeNew : theme.spacing.lg;
+  checkboxIconWidth(theme) {
+    return theme.general.iconFontSize;
   },
   checkboxPaddingLeft(theme) {
-    return theme.spacing.sm;
+    return theme.spacing.sm + theme.spacing.xs;
   },
-  checkboxPaddingRight(theme, flags) {
-    return flags.USE_NEW_ICONS ? theme.spacing.sm : theme.spacing.xs;
+  checkboxPaddingRight(theme) {
+    return theme.spacing.sm;
   },
   subMenuIconMargin(theme) {
     // Negative margin so the icons can be larger without increasing the overall item height
@@ -12039,8 +7925,8 @@ const infoIconStyles = theme => ({
   color: theme.colors.textSecondary,
   pointerEvents: 'all'
 });
-const checkboxItemStyles = (theme, flags) => ({
-  paddingLeft: CONSTANTS$1.checkboxIconWidth(theme, flags) + CONSTANTS$1.checkboxPaddingLeft(theme) + CONSTANTS$1.checkboxPaddingRight(theme, flags)
+const checkboxItemStyles = theme => ({
+  paddingLeft: CONSTANTS$1.checkboxIconWidth(theme) + CONSTANTS$1.checkboxPaddingLeft(theme) + CONSTANTS$1.checkboxPaddingRight(theme)
 });
 const metaTextStyles = theme => ({
   color: theme.colors.textSecondary,
@@ -12052,25 +7938,25 @@ const metaTextStyles = theme => ({
 
 var DropdownMenu = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  Root: Root$2,
-  Content: Content$3,
-  SubContent: SubContent,
-  Trigger: Trigger$1,
-  Item: Item,
-  Label: Label$1,
-  Separator: Separator,
-  SubTrigger: SubTrigger,
-  TriggerItem: TriggerItem,
-  CheckboxItem: CheckboxItem,
-  ItemIndicator: ItemIndicator,
   Arrow: Arrow$1,
-  RadioItem: RadioItem,
+  CheckboxItem: CheckboxItem,
+  Content: Content$3,
   Group: Group$1,
-  RadioGroup: RadioGroup,
-  Sub: Sub,
   HintColumn: HintColumn,
   HintRow: HintRow,
   IconWrapper: IconWrapper,
+  Item: Item,
+  ItemIndicator: ItemIndicator,
+  Label: Label$1,
+  RadioGroup: RadioGroup,
+  RadioItem: RadioItem,
+  Root: Root$2,
+  Separator: Separator,
+  Sub: Sub,
+  SubContent: SubContent,
+  SubTrigger: SubTrigger,
+  Trigger: Trigger$1,
+  TriggerItem: TriggerItem,
   dropdownContentStyles: dropdownContentStyles
 });
 
@@ -12156,8 +8042,7 @@ const Empty = props => {
 const getFormItemEmotionStyles = _ref => {
   let {
     theme,
-    clsPrefix,
-    useNewIcons
+    clsPrefix
   } = _ref;
   const clsFormItemLabel = `.${clsPrefix}-form-item-label`;
   const clsFormItemInputControl = `.${clsPrefix}-form-item-control-input`;
@@ -12167,11 +8052,9 @@ const getFormItemEmotionStyles = _ref => {
     [clsFormItemLabel]: {
       fontWeight: theme.typography.typographyBoldFontWeight,
       lineHeight: theme.typography.lineHeightBase,
-      ...(useNewIcons && {
-        '.anticon': {
-          fontSize: theme.general.iconFontSizeNew
-        }
-      })
+      '.anticon': {
+        fontSize: theme.general.iconFontSize
+      }
     },
     [clsFormItemExplain]: {
       fontSize: theme.typography.fontSizeSm,
@@ -12222,16 +8105,12 @@ const FormItem = _ref3 => {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
-  const {
-    USE_NEW_ICONS: useNewIcons
-  } = useDesignSystemFlags();
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx(Form$1.Item, {
       ...props,
       css: getFormItemEmotionStyles({
         theme,
-        clsPrefix: classNamePrefix,
-        useNewIcons
+        clsPrefix: classNamePrefix
       }),
       ...dangerouslySetAntdProps,
       children: children
@@ -12312,7 +8191,7 @@ const getHintStyles = (classNamePrefix, theme) => {
     color: theme.colors.textSecondary,
     lineHeight: theme.typography.lineHeightSm,
     fontSize: theme.typography.fontSizeSm,
-    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group`]: {
+    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group`]: {
       marginTop: theme.spacing.sm
     }
   };
@@ -12345,7 +8224,7 @@ const getLabelStyles = (classNamePrefix, theme, _ref) => {
       display: inline ? 'inline' : 'block',
       lineHeight: theme.typography.lineHeightBase
     },
-    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group`]: {
+    [`&& + .${classNamePrefix}-input, && + .${classNamePrefix}-select, && + .${classNamePrefix}-selectv2, && + .${classNamePrefix}-dialogcombobox, && + .${classNamePrefix}-checkbox-group, && + .${classNamePrefix}-radio-group`]: {
       marginTop: theme.spacing.sm
     }
   };
@@ -12421,9 +8300,12 @@ const getRadioInputStyles = _ref => {
           background: theme.colors.actionDisabledBackground
         } : {
           borderColor: `${theme.colors.radioDisabled}!important` // Ant uses !important
-        })
-      },
+        }),
 
+        '@media (forced-colors: active)': {
+          borderColor: 'GrayText !important'
+        }
+      },
       // Checked Styles
       [`&.${clsPrefix}-checked`]: {
         '&:after': {
@@ -12438,6 +8320,10 @@ const getRadioInputStyles = _ref => {
             backgroundColor: useNewStyles ? theme.colors.white : theme.colors.radioDefaultBackground,
             width: theme.spacing.xs,
             height: theme.spacing.xs
+          },
+          '@media (forced-colors: active)': {
+            borderColor: 'Highlight !important',
+            backgroundColor: 'Highlight !important'
           }
         },
         // Hover
@@ -12459,13 +8345,17 @@ const getRadioInputStyles = _ref => {
         // Disabled
         [`&.${clsPrefix}-disabled > .${clsPrefix}-input + .${clsPrefix}-inner`]: {
           background: useNewStyles ? theme.colors.actionDisabledBackground : theme.colors.radioDisabled,
-          border: useNewStyles ? 'none !important' : `2px solid ${theme.colors.radioDisabled}!important` // !important inherited from ant
+          border: useNewStyles ? 'none !important' : `2px solid ${theme.colors.radioDisabled}!important`,
+          // !important inherited from ant
+          '@media (forced-colors: active)': {
+            borderColor: 'GrayText !important',
+            backgroundColor: 'GrayText !important'
+          }
         }
       }
     }
   };
 };
-
 const getCommonRadioGroupStyles = _ref2 => {
   let {
     theme,
@@ -12701,8 +8591,7 @@ function getSelectEmotionStyles(_ref) {
   let {
     clsPrefix,
     theme,
-    validationState,
-    useNewIcons
+    validationState
   } = _ref;
   const classFocused = `.${clsPrefix}-focused`;
   const classOpen = `.${clsPrefix}-open`;
@@ -12780,7 +8669,7 @@ function getSelectEmotionStyles(_ref) {
     },
     // Note: This supports search, which we don't support. The styles here support legacy usages.
     [classSearchClear]: {
-      right: useNewIcons ? 24 : 32
+      right: 24
     },
     [`&${classFocused}`]: {
       [classSelector]: {
@@ -12806,25 +8695,23 @@ function getSelectEmotionStyles(_ref) {
       }
     },
     [classArrow]: {
-      height: useNewIcons ? theme.general.iconFontSizeNew : theme.general.iconSize,
-      width: useNewIcons ? theme.general.iconFontSizeNew : theme.general.iconSize,
-      top: useNewIcons ? (theme.general.heightSm - theme.general.iconFontSizeNew) / 2 : 4,
+      height: theme.general.iconFontSize,
+      width: theme.general.iconFontSize,
+      top: (theme.general.heightSm - theme.general.iconFontSize) / 2,
       marginTop: 0,
       color: theme.colors.textSecondary,
-      ...(useNewIcons && {
-        fontSize: theme.general.iconFontSizeNew
-      }),
+      fontSize: theme.general.iconFontSize,
       '.anticon': {
         // For some reason ant sets this to 'auto'. Need to set it back to 'none' to allow the element below to receive
         // the click event.
         pointerEvents: 'none'
       },
       [`&${classArrowLoading}`]: {
-        top: useNewIcons ? (theme.general.heightSm - theme.general.iconFontSizeNew) / 2 : 4,
+        top: (theme.general.heightSm - theme.general.iconFontSize) / 2,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        fontSize: useNewIcons ? theme.general.iconFontSizeNew : theme.general.iconSize
+        fontSize: theme.general.iconFontSize
       }
     },
     [classPlaceholder]: {
@@ -12881,11 +8768,11 @@ function getSelectEmotionStyles(_ref) {
         }
       },
       [classArrow]: {
-        top: useNewIcons ? (theme.general.heightSm - theme.general.iconFontSizeNew) / 2 : 5
+        top: (theme.general.heightSm - theme.general.iconFontSize) / 2
       },
       [`&${classAllowClear}`]: {
         [classSearchClear]: {
-          top: useNewIcons ? (theme.general.heightSm - theme.general.iconFontSizeNew + 4) / 2 : 16
+          top: (theme.general.heightSm - theme.general.iconFontSize + 4) / 2
         }
       },
       [classPlaceholder]: {
@@ -12914,30 +8801,26 @@ function getSelectEmotionStyles(_ref) {
         paddingRight: 52
       },
       [classSearchClear]: {
-        top: useNewIcons ? (theme.general.heightSm - theme.general.iconFontSizeNew + 4) / 2 : 16,
+        top: (theme.general.heightSm - theme.general.iconFontSize + 4) / 2,
         opacity: 100,
-        ...(useNewIcons && {
-          width: theme.general.iconFontSizeNew,
-          height: theme.general.iconFontSizeNew,
-          marginTop: 0
-        })
+        width: theme.general.iconFontSize,
+        height: theme.general.iconFontSize,
+        marginTop: 0
       }
     },
     [classCloseButton]: {
       color: theme.colors.textPrimary,
       borderTopRightRadius: theme.borders.borderRadiusMd,
       borderBottomRightRadius: theme.borders.borderRadiusMd,
-      height: useNewIcons ? theme.general.iconFontSizeNew : 20,
-      width: useNewIcons ? theme.general.iconFontSizeNew : 20,
+      height: theme.general.iconFontSize,
+      width: theme.general.iconFontSize,
       lineHeight: theme.typography.lineHeightBase,
       paddingInlineEnd: 0,
-      marginInlineEnd: useNewIcons ? 0 : -2,
-      ...(useNewIcons && {
-        '& > .anticon': {
-          height: theme.general.iconFontSizeNew - 4,
-          fontSize: theme.general.iconFontSizeNew - 4
-        }
-      }),
+      marginInlineEnd: 0,
+      '& > .anticon': {
+        height: theme.general.iconFontSize - 4,
+        fontSize: theme.general.iconFontSize - 4
+      },
       '&:hover': {
         color: theme.colors.actionTertiaryTextHover,
         backgroundColor: theme.colors.tagHover
@@ -12966,7 +8849,6 @@ function getSelectEmotionStyles(_ref) {
 }
 function getDropdownStyles(clsPrefix, theme) {
   let useNewDropdownStyle = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-  let useNewIcons = arguments.length > 3 ? arguments[3] : undefined;
   const classItem = `.${clsPrefix}-item-option`;
   const classItemActive = `.${clsPrefix}-item-option-active`;
   const classItemSelected = `.${clsPrefix}-item-option-selected`;
@@ -13013,11 +8895,9 @@ function getDropdownStyles(clsPrefix, theme) {
       ...(useNewDropdownStyle && {
         position: 'absolute'
       }),
-      ...(useNewIcons && {
-        '& > span': {
-          verticalAlign: 'middle'
-        }
-      })
+      '& > span': {
+        verticalAlign: 'middle'
+      }
     },
     [`.${clsPrefix}-loading-options`]: {
       pointerEvents: 'none',
@@ -13041,8 +8921,8 @@ function getLoadingIconStyles(theme) {
   }, process.env.NODE_ENV === "production" ? "" : ";label:getLoadingIconStyles;");
 }
 const scrollbarVisibleItemsCount = 8;
-const getIconSizeStyle = (theme, useNewIcons, defaultIconSize, newIconDefault) => importantify({
-  fontSize: useNewIcons ? newIconDefault !== null && newIconDefault !== void 0 ? newIconDefault : theme.general.iconFontSizeNew : defaultIconSize !== null && defaultIconSize !== void 0 ? defaultIconSize : theme.general.iconFontSize
+const getIconSizeStyle = (theme, newIconDefault) => importantify({
+  fontSize: newIconDefault !== null && newIconDefault !== void 0 ? newIconDefault : theme.general.iconFontSize
 });
 function DuboisSelect(_ref2, ref) {
   let {
@@ -13063,8 +8943,7 @@ function DuboisSelect(_ref2, ref) {
     getPrefixedClassName
   } = useDesignSystemTheme();
   const {
-    USE_NEW_SELECT_DROPDOWN_STYLES,
-    USE_NEW_ICONS: useNewIcons
+    USE_NEW_SELECT_DROPDOWN_STYLES
   } = useDesignSystemFlags();
   const clsPrefix = getPrefixedClassName('select');
   return jsx(ClassNames, {
@@ -13077,26 +8956,25 @@ function DuboisSelect(_ref2, ref) {
           css: getSelectEmotionStyles({
             clsPrefix,
             theme,
-            validationState,
-            useNewIcons
+            validationState
           }),
           removeIcon: jsx(CloseIcon, {
-            css: getIconSizeStyle(theme, useNewIcons, 20)
+            css: getIconSizeStyle(theme)
           }),
-          clearIcon: useNewIcons ? jsx(XCircleFillIcon, {
-            css: getIconSizeStyle(theme, useNewIcons, 16, 12),
+          clearIcon: jsx(XCircleFillIcon, {
+            css: getIconSizeStyle(theme, 12),
             "aria-label": "close-circle"
-          }) : undefined,
+          }),
           ref: ref,
           suffixIcon: loading && mode === 'tags' ? jsx(LoadingIcon, {
             spin: true,
             "aria-label": "loading",
-            css: getIconSizeStyle(theme, useNewIcons, 13, 12)
+            css: getIconSizeStyle(theme, 12)
           }) : jsx(ChevronDownIcon, {
-            css: getIconSizeStyle(theme, useNewIcons, 24)
+            css: getIconSizeStyle(theme)
           }),
           menuItemSelectedIcon: jsx(CheckIcon, {
-            css: getIconSizeStyle(theme, useNewIcons, 24)
+            css: getIconSizeStyle(theme)
           }),
           showArrow: true,
           dropdownMatchSelectWidth: true,
@@ -13107,7 +8985,7 @@ function DuboisSelect(_ref2, ref) {
             }),
             children: "No results found"
           }),
-          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme, USE_NEW_SELECT_DROPDOWN_STYLES, useNewIcons), dropdownClassName]),
+          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme, USE_NEW_SELECT_DROPDOWN_STYLES), dropdownClassName]),
           maxTagPlaceholder: items => `+ ${items.length} more`,
           mode: mode,
           options: options,
@@ -13137,6 +9015,9 @@ function DuboisSelect(_ref2, ref) {
     }
   });
 }
+
+/** @deprecated Use `SelectOptionProps` */
+
 const SelectOption = /*#__PURE__*/forwardRef(function Option(props, ref) {
   const {
     dangerouslySetAntdProps,
@@ -13156,6 +9037,9 @@ SelectOption.isSelectOption = true;
  * @deprecated use Select.Option instead
  */
 const Option = SelectOption;
+
+/** @deprecated Use `SelectOptGroupProps` */
+
 const SelectOptGroup = /* #__PURE__ */(() => {
   const OptGroup = /*#__PURE__*/forwardRef(function OptGroup(props, ref) {
     return jsx(Select$1.OptGroup, {
@@ -13179,6 +9063,80 @@ const Select = /* #__PURE__ */(() => {
   DuboisRefForwardedSelect.OptGroup = SelectOptGroup;
   return DuboisRefForwardedSelect;
 })();
+
+const SelectV2 = props => {
+  const {
+    children,
+    placeholder,
+    value,
+    ...restProps
+  } = props;
+  return jsx(SelectContextProvider, {
+    value: {
+      isSelect: true,
+      placeholder
+    },
+    children: jsx(DialogCombobox, {
+      value: value ? [value] : [],
+      ...restProps,
+      children: children
+    })
+  });
+};
+
+const SelectV2Content = /*#__PURE__*/forwardRef((_ref, ref) => {
+  let {
+    children,
+    minWidth = 150,
+    ...restProps
+  } = _ref;
+  return jsx(DialogComboboxContent, {
+    minWidth: minWidth,
+    ...restProps,
+    ref: ref,
+    children: jsx(DialogComboboxOptionList, {
+      children: children
+    })
+  });
+});
+
+const SelectV2Option = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    value
+  } = useDialogComboboxContext();
+  return jsx(DialogComboboxOptionListSelectItem, {
+    checked: value && value[0] === props.value,
+    ...props,
+    ref: ref
+  });
+});
+
+const SelectV2OptionGroup = props => {
+  const {
+    name,
+    children,
+    ...restProps
+  } = props;
+  return jsxs(Fragment, {
+    children: [jsx(DialogComboboxSectionHeader, {
+      ...restProps,
+      children: name
+    }), children]
+  });
+};
+
+const SelectV2Trigger = /*#__PURE__*/forwardRef((props, ref) => {
+  const {
+    children,
+    ...restProps
+  } = props;
+  return jsx(DialogComboboxTrigger, {
+    allowClear: false,
+    ...restProps,
+    ref: ref,
+    children: children
+  });
+});
 
 function RHFControlledInput(_ref) {
   let {
@@ -13264,13 +9222,193 @@ function RHFControlledSelect(_ref4) {
     defaultValue: field.value
   });
 }
-function RHFControlledCheckboxGroup(_ref5) {
+function RHFControlledSelectV2(_ref5) {
+  let {
+    name,
+    control,
+    rules,
+    options,
+    validationState,
+    children,
+    width,
+    triggerProps,
+    contentProps,
+    optionProps,
+    ...restProps
+  } = _ref5;
+  const {
+    field
+  } = useController({
+    name: name,
+    control: control,
+    rules: rules
+  });
+  const [selectedValueLabel, setSelectedValueLabel] = useState(field.value ? field.value.label ? field.value.label : field.value : '');
+  const handleOnChange = option => {
+    setSelectedValueLabel(typeof option === 'object' ? option.label : option);
+    field.onChange(typeof option === 'object' ? option.value : option);
+  };
+  useEffect(() => {
+    if (!field.value) {
+      return;
+    }
+
+    // Find the appropriate label for value selected by default
+    if (!(options !== null && options !== void 0 && options.length) && children) {
+      const renderedChildren = children({
+        onChange: handleOnChange
+      });
+      const child = Children.toArray(renderedChildren.props.children).find(child => /*#__PURE__*/React__default.isValidElement(child) && child.props.value === field.value);
+      if (child) {
+        setSelectedValueLabel(child.props.children);
+      }
+    } else if (options !== null && options !== void 0 && options.length) {
+      const option = options.find(option => option.value === field.value);
+      setSelectedValueLabel(option === null || option === void 0 ? void 0 : option.label);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return jsxs(SelectV2, {
+    ...restProps,
+    value: field.value,
+    children: [jsx(SelectV2Trigger, {
+      ...triggerProps,
+      width: width,
+      onBlur: field.onBlur,
+      validationState: validationState,
+      children: selectedValueLabel
+    }), jsx(SelectV2Content, {
+      ...contentProps,
+      side: "bottom",
+      width: width,
+      children: options && options.length > 0 ? options.map(option => createElement(SelectV2Option, {
+        ...optionProps,
+        key: option.value,
+        value: option.value,
+        onChange: handleOnChange
+      }, option.label)) : // SelectV2Option out of the box gives users control over state and in this case RHF is controlling state
+      // We expose onChange through a children renderer function to let users pass this down to SelectV2Option
+      children === null || children === void 0 ? void 0 : children({
+        onChange: handleOnChange
+      })
+    })]
+  });
+}
+function RHFControlledDialogCombobox(_ref6) {
+  let {
+    name,
+    control,
+    rules,
+    children,
+    allowClear,
+    validationState,
+    placeholder,
+    width,
+    triggerProps,
+    contentProps,
+    optionListProps,
+    ...restProps
+  } = _ref6;
+  const {
+    field
+  } = useController({
+    name: name,
+    control: control,
+    rules: rules
+  });
+  const [valueMap, setValueMap] = useState({}); // Used for multi-select
+
+  const updateValueMap = updatedValue => {
+    if (updatedValue) {
+      if (Array.isArray(updatedValue)) {
+        setValueMap(updatedValue.reduce((acc, value) => {
+          acc[value] = true;
+          return acc;
+        }, {}));
+      } else {
+        setValueMap({
+          [updatedValue]: true
+        });
+      }
+    } else {
+      setValueMap({});
+    }
+  };
+  const handleOnChangeSingleSelect = option => {
+    let updatedValue = field.value;
+    if (field.value === option) {
+      updatedValue = undefined;
+    } else {
+      updatedValue = option;
+    }
+    field.onChange(updatedValue);
+    updateValueMap(updatedValue);
+  };
+  const hanldeOnChangeMultiSelect = option => {
+    var _field$value;
+    let updatedValue = field.value;
+    if ((_field$value = field.value) !== null && _field$value !== void 0 && _field$value.includes(option)) {
+      updatedValue = field.value.filter(value => value !== option);
+    } else {
+      updatedValue = [...field.value, option];
+    }
+    field.onChange(updatedValue);
+    updateValueMap(updatedValue);
+  };
+  const handleOnChange = option => {
+    if (restProps.multiSelect) {
+      hanldeOnChangeMultiSelect(option);
+    } else {
+      handleOnChangeSingleSelect(option);
+    }
+  };
+  useEffect(() => {
+    if (field.value) {
+      updateValueMap(field.value);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const isChecked = option => {
+    return valueMap[option];
+  };
+  const handleOnClear = () => {
+    field.onChange(Array.isArray(field.value) ? [] : '');
+    setValueMap({});
+  };
+  return jsxs(DialogCombobox, {
+    ...restProps,
+    value: field.value ? Array.isArray(field.value) ? field.value : [field.value] : undefined,
+    children: [jsx(DialogComboboxTrigger, {
+      ...triggerProps,
+      onBlur: field.onBlur,
+      allowClear: allowClear,
+      validationState: validationState,
+      onClear: handleOnClear,
+      withInlineLabel: false,
+      placeholder: placeholder,
+      width: width
+    }), jsx(DialogComboboxContent, {
+      ...contentProps,
+      side: "bottom",
+      width: width,
+      children: jsx(DialogComboboxOptionList, {
+        ...optionListProps,
+        children: children === null || children === void 0 ? void 0 : children({
+          onChange: handleOnChange,
+          value: field.value,
+          isChecked
+        })
+      })
+    })]
+  });
+}
+function RHFControlledCheckboxGroup(_ref7) {
   let {
     name,
     control,
     rules,
     ...restProps
-  } = _ref5;
+  } = _ref7;
   const {
     field
   } = useController({
@@ -13284,13 +9422,13 @@ function RHFControlledCheckboxGroup(_ref5) {
     value: field.value
   });
 }
-function RHFControlledCheckbox(_ref6) {
+function RHFControlledCheckbox(_ref8) {
   let {
     name,
     control,
     rules,
     ...restProps
-  } = _ref6;
+  } = _ref8;
   const {
     field
   } = useController({
@@ -13312,13 +9450,13 @@ function RHFControlledCheckbox(_ref6) {
     })
   });
 }
-function RHFControlledRadioGroup(_ref7) {
+function RHFControlledRadioGroup(_ref9) {
   let {
     name,
     control,
     rules,
     ...restProps
-  } = _ref7;
+  } = _ref9;
   const {
     field
   } = useController({
@@ -13336,6 +9474,8 @@ const RHFControlledComponents = {
   Password: RHFControlledPasswordInput,
   TextArea: RHFControlledTextArea,
   Select: RHFControlledSelect,
+  SelectV2: RHFControlledSelectV2,
+  DialogCombobox: RHFControlledDialogCombobox,
   Checkbox: RHFControlledCheckbox,
   CheckboxGroup: RHFControlledCheckboxGroup,
   RadioGroup: RHFControlledRadioGroup
@@ -13413,7 +9553,7 @@ var _ref2$1 = process.env.NODE_ENV === "production" ? {
   styles: "margin-left:8px;label:buttonContainer;",
   toString: _EMOTION_STRINGIFIED_CSS_ERROR__$a
 };
-var _ref3$3 = process.env.NODE_ENV === "production" ? {
+var _ref3$4 = process.env.NODE_ENV === "production" ? {
   name: "s079uh",
   styles: "margin-top:2px"
 } : {
@@ -13460,7 +9600,7 @@ const Header$1 = _ref6 => {
     }, process.env.NODE_ENV === "production" ? "" : ";label:breadcrumbWrapper;"),
     title: _ref4$1,
     // TODO: Look into a more emotion-idomatic way of doing this.
-    titleIfOtherElementsPresent: _ref3$3,
+    titleIfOtherElementsPresent: _ref3$4,
     buttonContainer: _ref2$1,
     titleAddOnsWrapper: _ref$1
   };
@@ -13572,6 +9712,135 @@ const Layout = /* #__PURE__ */(() => {
   };
   return Layout;
 })();
+
+// Note: AntD only exposes context to notifications via the `useNotification` hook, and we need context to apply themes
+// to AntD. As such you can currently only use notifications from within functional components.
+/**
+ * `useLegacyNotification` is deprecated in favor of the new `Notification` component.
+ * @deprecated
+ */
+function useLegacyNotification() {
+  const [notificationInstance, contextHolder] = notification.useNotification();
+  const {
+    getPrefixedClassName,
+    theme
+  } = useDesignSystemTheme();
+  const {
+    getPopupContainer: getContainer
+  } = useDesignSystemContext();
+  const clsPrefix = getPrefixedClassName('notification');
+  const open = useCallback(args => {
+    const mergedArgs = {
+      getContainer,
+      ...defaultProps,
+      ...args,
+      style: {
+        zIndex: theme.options.zIndexBase + 30,
+        boxShadow: theme.general.shadowLow
+      }
+    };
+    const iconClassName = `${clsPrefix}-notice-icon-${mergedArgs.type}`;
+    mergedArgs.icon = jsx(SeverityIcon, {
+      severity: mergedArgs.type,
+      className: iconClassName
+    });
+    mergedArgs.closeIcon = jsx(CloseIcon, {
+      css: /*#__PURE__*/css({
+        cursor: 'pointer',
+        fontSize: theme.general.iconSize
+      }, process.env.NODE_ENV === "production" ? "" : ";label:mergedArgs-closeIcon;"),
+      "aria-label": mergedArgs.closeLabel || 'Close notification'
+    });
+    notificationInstance.open(mergedArgs);
+  }, [notificationInstance, getContainer, theme, clsPrefix]);
+  const wrappedNotificationAPI = useMemo(() => {
+    const error = args => open({
+      ...args,
+      type: 'error'
+    });
+    const warning = args => open({
+      ...args,
+      type: 'warning'
+    });
+    const info = args => open({
+      ...args,
+      type: 'info'
+    });
+    const success = args => open({
+      ...args,
+      type: 'success'
+    });
+    const close = key => notification.close(key);
+    return {
+      open,
+      close,
+      error,
+      warning,
+      info,
+      success
+    };
+  }, [open]);
+
+  // eslint-disable-next-line react/jsx-key -- TODO(FEINF-1756)
+  return [wrappedNotificationAPI, jsx(DesignSystemAntDConfigProvider, {
+    children: contextHolder
+  })];
+}
+const defaultProps = {
+  type: 'info',
+  duration: 3
+};
+
+/**
+ * A type wrapping given component interface with props returned by withNotifications() HOC
+ *
+ * @deprecated Please migrate components to functional components and use useNotification() hook instead.
+ */
+
+/**
+ * A higher-order component factory function, enables using notifications in
+ * class components in a similar way to useNotification() hook. Wrapped component will have
+ * additional "notificationAPI" and "notificationContextHolder" props injected containing
+ * the notification API object and context holder react node respectively.
+ *
+ * The wrapped component can implement WithNotificationsHOCProps<OwnProps> type which
+ * enriches the component's interface with the mentioned props.
+ *
+ * @deprecated Please migrate components to functional components and use useNotification() hook instead.
+ */
+const withNotifications = Component => /*#__PURE__*/forwardRef((props, ref) => {
+  const [notificationAPI, notificationContextHolder] = useLegacyNotification();
+  return jsx(Component, {
+    ref: ref,
+    notificationAPI: notificationAPI,
+    notificationContextHolder: notificationContextHolder,
+    ...props
+  });
+});
+
+/**
+ * `LegacyPopover` is deprecated in favor of the new `Popover` component.
+ * @deprecated
+ */
+const LegacyPopover = _ref => {
+  let {
+    content,
+    dangerouslySetAntdProps,
+    ...props
+  } = _ref;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(DesignSystemAntDConfigProvider, {
+    children: jsx(Popover$2, {
+      zIndex: theme.options.zIndexBase + 30,
+      ...props,
+      content: jsx(RestoreAntDDefaultClsPrefix, {
+        children: content
+      })
+    })
+  });
+};
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$9() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 function getPaginationEmotionStyles(clsPrefix, theme) {
@@ -13710,7 +9979,7 @@ const Pagination = function Pagination(_ref) {
     })
   });
 };
-var _ref3$2 = process.env.NODE_ENV === "production" ? {
+var _ref3$3 = process.env.NODE_ENV === "production" ? {
   name: "1u1zie3",
   styles: "width:120px"
 } : {
@@ -13762,7 +10031,7 @@ const CursorPagination = function CursorPagination(_ref2) {
       children: nextPageText
     }), pageSizeOptions && jsx(Select, {
       value: String(pageSizeValue),
-      css: _ref3$2,
+      css: _ref3$3,
       onChange: pageSize => {
         const updatedPageSize = Number(pageSize);
         onPageSizeChange === null || onPageSizeChange === void 0 ? void 0 : onPageSizeChange(updatedPageSize);
@@ -14137,7 +10406,7 @@ function Modal(_ref2) {
     })
   });
 }
-var _ref3$1 = process.env.NODE_ENV === "production" ? {
+var _ref3$2 = process.env.NODE_ENV === "production" ? {
   name: "b9hrb",
   styles: "position:relative;display:inline-flex;align-items:center"
 } : {
@@ -14158,9 +10427,6 @@ function DangerModal(props) {
     theme
   } = useDesignSystemTheme();
   const {
-    USE_NEW_ICONS: useNewIcons
-  } = useDesignSystemFlags();
-  const {
     title,
     onCancel,
     onOk,
@@ -14170,10 +10436,10 @@ function DangerModal(props) {
     cancelButtonProps,
     ...restProps
   } = props;
-  const iconSize = useNewIcons ? 18 : 20;
-  const iconFontSize = useNewIcons ? 18 : 22;
+  const iconSize = 18;
+  const iconFontSize = 18;
   const titleComp = jsxs("div", {
-    css: _ref3$1,
+    css: _ref3$2,
     children: [jsx(DangerIcon, {
       css: /*#__PURE__*/css({
         color: theme.colors.textValidationDanger,
@@ -14206,107 +10472,6 @@ function DangerModal(props) {
     ...restProps
   });
 }
-
-// Note: AntD only exposes context to notifications via the `useNotification` hook, and we need context to apply themes
-// to AntD. As such you can currently only use notifications from within functional components.
-function useNotification() {
-  const [notificationInstance, contextHolder] = notification.useNotification();
-  const {
-    getPrefixedClassName,
-    theme
-  } = useDesignSystemTheme();
-  const {
-    getPopupContainer: getContainer
-  } = useDesignSystemContext();
-  const clsPrefix = getPrefixedClassName('notification');
-  const open = useCallback(args => {
-    const mergedArgs = {
-      getContainer,
-      ...defaultProps,
-      ...args,
-      style: {
-        zIndex: theme.options.zIndexBase + 30,
-        boxShadow: theme.general.shadowLow
-      }
-    };
-    const iconClassName = `${clsPrefix}-notice-icon-${mergedArgs.type}`;
-    mergedArgs.icon = jsx(SeverityIcon, {
-      severity: mergedArgs.type,
-      className: iconClassName
-    });
-    mergedArgs.closeIcon = jsx(CloseIcon, {
-      css: /*#__PURE__*/css({
-        cursor: 'pointer',
-        fontSize: theme.general.iconSize
-      }, process.env.NODE_ENV === "production" ? "" : ";label:mergedArgs-closeIcon;"),
-      "aria-label": mergedArgs.closeLabel || 'Close notification'
-    });
-    notificationInstance.open(mergedArgs);
-  }, [notificationInstance, getContainer, theme, clsPrefix]);
-  const wrappedNotificationAPI = useMemo(() => {
-    const error = args => open({
-      ...args,
-      type: 'error'
-    });
-    const warning = args => open({
-      ...args,
-      type: 'warning'
-    });
-    const info = args => open({
-      ...args,
-      type: 'info'
-    });
-    const success = args => open({
-      ...args,
-      type: 'success'
-    });
-    const close = key => notification.close(key);
-    return {
-      open,
-      close,
-      error,
-      warning,
-      info,
-      success
-    };
-  }, [open]);
-
-  // eslint-disable-next-line react/jsx-key -- TODO(FEINF-1756)
-  return [wrappedNotificationAPI, jsx(DesignSystemAntDConfigProvider, {
-    children: contextHolder
-  })];
-}
-const defaultProps = {
-  type: 'info',
-  duration: 3
-};
-
-/**
- * A type wrapping given component interface with props returned by withNotifications() HOC
- *
- * @deprecated Please migrate components to functional components and use useNotification() hook instead.
- */
-
-/**
- * A higher-order component factory function, enables using notifications in
- * class components in a similar way to useNotification() hook. Wrapped component will have
- * additional "notificationAPI" and "notificationContextHolder" props injected containing
- * the notification API object and context holder react node respectively.
- *
- * The wrapped component can implement WithNotificationsHOCProps<OwnProps> type which
- * enriches the component's interface with the mentioned props.
- *
- * @deprecated Please migrate components to functional components and use useNotification() hook instead.
- */
-const withNotifications = Component => /*#__PURE__*/forwardRef((props, ref) => {
-  const [notificationAPI, notificationContextHolder] = useNotification();
-  return jsx(Component, {
-    ref: ref,
-    notificationAPI: notificationAPI,
-    notificationContextHolder: notificationContextHolder,
-    ...props
-  });
-});
 
 const hideAnimation = keyframes({
   from: {
@@ -14531,13 +10696,13 @@ const Viewport = props => {
   });
 };
 
-var NotificationV2 = /*#__PURE__*/Object.freeze({
+var Notification = /*#__PURE__*/Object.freeze({
   __proto__: null,
+  Close: Close$1,
+  Description: Description,
+  Provider: Provider,
   Root: Root$1,
   Title: Title,
-  Description: Description,
-  Close: Close$1,
-  Provider: Provider,
   Viewport: Viewport
 });
 
@@ -14560,27 +10725,8 @@ const PageWrapper = _ref => {
   });
 };
 
-const Popover = _ref => {
-  let {
-    content,
-    dangerouslySetAntdProps,
-    ...props
-  } = _ref;
-  const {
-    theme
-  } = useDesignSystemTheme();
-  return jsx(DesignSystemAntDConfigProvider, {
-    children: jsx(Popover$2, {
-      zIndex: theme.options.zIndexBase + 30,
-      ...props,
-      content: jsx(RestoreAntDDefaultClsPrefix, {
-        children: content
-      })
-    })
-  });
-};
-
 const Root = Popover$1.Root; // Behavioral component only
+const Anchor = Popover$1.Anchor; // Behavioral component only
 
 const Content$1 = /*#__PURE__*/forwardRef(function Content(_ref, ref) {
   let {
@@ -14702,13 +10848,14 @@ const contentStyles = theme => ({
   ...popoverContentStyles(theme)
 });
 
-var PopoverV2 = /*#__PURE__*/Object.freeze({
+var Popover = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  Root: Root,
-  Content: Content$1,
-  Trigger: Trigger,
+  Anchor: Anchor,
+  Arrow: Arrow,
   Close: Close,
-  Arrow: Arrow
+  Content: Content$1,
+  Root: Root,
+  Trigger: Trigger
 });
 
 const SMALL_BUTTON_HEIGHT = 24;
@@ -14891,7 +11038,8 @@ function NavButton(_ref2) {
     icon,
     onClick,
     children,
-    dangerouslyAppendEmotionCSS
+    dangerouslyAppendEmotionCSS,
+    'aria-label': ariaLabel
   } = _ref2;
   const {
     theme
@@ -14910,6 +11058,7 @@ function NavButton(_ref2) {
       icon: icon,
       onClick: onClick,
       disabled: disabled,
+      "aria-label": ariaLabel,
       children: children
     })
   });
@@ -14992,7 +11141,8 @@ function Content(_ref3) {
     children: disableResize ? jsx("div", {
       css: [/*#__PURE__*/css(containerStyle, {
         width: width || '100%',
-        height: '100%'
+        height: '100%',
+        overflow: 'hidden'
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"), dangerouslyAppendEmotionCSS, hiddenPanelStyle, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       "aria-hidden": isPanelClosed,
       children: jsx("div", {
@@ -15210,24 +11360,6 @@ const Sidebar = /* #__PURE__ */(() => {
   return Sidebar;
 })();
 
-/**
- * Used to hide text visually, but still be readable by screen-readers
- * and other assistive devices.
- *
- * https://www.tpgi.com/the-anatomy-of-visually-hidden/
- */
-const visuallyHidden = {
-  '&:not(:focus):not(:active)': {
-    clip: 'rect(0 0 0 0)',
-    clipPath: 'inset(50%)',
-    height: '1px',
-    overflow: 'hidden',
-    position: 'absolute',
-    whiteSpace: 'nowrap',
-    width: '1px'
-  }
-};
-
 function _EMOTION_STRINGIFIED_CSS_ERROR__$6() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const Skeleton = /* #__PURE__ */(() => {
   const Skeleton = _ref => {
@@ -15251,7 +11383,7 @@ const Skeleton = /* #__PURE__ */(() => {
   Skeleton.Input = Skeleton$1.Input;
   return Skeleton;
 })();
-var _ref3 = process.env.NODE_ENV === "production" ? {
+var _ref3$1 = process.env.NODE_ENV === "production" ? {
   name: "g8zzui",
   styles: "cursor:progress"
 } : {
@@ -15270,7 +11402,7 @@ function AccessibleContainer(_ref2) {
     });
   }
   return jsxs("div", {
-    css: _ref3,
+    css: _ref3$1,
     children: [jsx("span", {
       css: visuallyHidden,
       children: label
@@ -15470,9 +11602,6 @@ const SplitButton = props => {
     classNamePrefix
   } = useDesignSystemTheme();
   const {
-    USE_NEW_ICONS: useNewIcons
-  } = useDesignSystemFlags();
-  const {
     children,
     icon,
     deprecatedMenu,
@@ -15485,7 +11614,7 @@ const SplitButton = props => {
   } = props;
 
   // Size of button when loading only icon is shown
-  const LOADING_BUTTON_SIZE = (useNewIcons ? theme.general.iconFontSizeNew : theme.general.iconFontSize) + 2 * BUTTON_HORIZONTAL_PADDING + 2 * theme.general.borderWidth;
+  const LOADING_BUTTON_SIZE = theme.general.iconFontSize + 2 * BUTTON_HORIZONTAL_PADDING + 2 * theme.general.borderWidth;
   const [width, setWidth] = useState(LOADING_BUTTON_SIZE);
 
   // Set the width to the button's width in regular state to later use when in loading state
@@ -15503,9 +11632,7 @@ const SplitButton = props => {
         type: type === 'default' ? undefined : type,
         style: {
           width: width,
-          ...(useNewIcons && {
-            fontSize: theme.general.iconFontSizeNew
-          }),
+          fontSize: theme.general.iconFontSize,
           ...loadingButtonStyles
         },
         loading: true,
@@ -15521,7 +11648,8 @@ const SplitButton = props => {
         icon: jsx(ChevronDownIcon, {
           css: /*#__PURE__*/css({
             fontSize: theme.general.iconSize
-          }, process.env.NODE_ENV === "production" ? "" : ";label:SplitButton;")
+          }, process.env.NODE_ENV === "production" ? "" : ";label:SplitButton;"),
+          "aria-hidden": "true"
         }),
         placement: placement || 'bottomRight',
         type: type === 'default' ? undefined : type,
@@ -15667,18 +11795,63 @@ const Switch = _ref2 => {
 };
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$4() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+// Class names that can be used to reference children within
+// Should not be used outside of design system
+// TODO: PE-239 Maybe we could add "dangerous" into the names or make them completely random.
+function randomString() {
+  return _times(20, () => _random(35).toString(36)).join('');
+}
+const tableClassNames = {
+  cell: `js--ds-table-cell-${randomString()}`,
+  header: `js--ds-table-header-${randomString()}`,
+  row: `js--ds-table-row-${randomString()}`
+};
+
+// We do not want to use `css=` for elements that can appear on the screen more than ~100 times.
+// Instead, we define them here and nest the styling in the styles for the table component below.
+// For details see: https://emotion.sh/docs/performance
+const repeatingElementsStyles = {
+  cell: process.env.NODE_ENV === "production" ? {
+    name: "1n3v1dk",
+    styles: "display:inline-grid;position:relative;flex:1;line-height:initial;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;}"
+  } : {
+    name: "q5g0tm-cell",
+    styles: "display:inline-grid;position:relative;flex:1;line-height:initial;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;};label:cell;",
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+  },
+  header: process.env.NODE_ENV === "production" ? {
+    name: "ik7qgz",
+    styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}}"
+  } : {
+    name: "1xg6jn4-header",
+    styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}};label:header;",
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+  },
+  row: process.env.NODE_ENV === "production" ? {
+    name: "gf0r0k",
+    styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:not(.table-row-isGrid)&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > *{border-right:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > :first-of-type{border-left:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid.table-row-isHeader:first-of-type > *{border-top:1px solid;border-color:var(--table-separator-color);}"
+  } : {
+    name: "1nztrlu-row",
+    styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:not(.table-row-isGrid)&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > *{border-right:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid > :first-of-type{border-left:1px solid;border-color:var(--table-separator-color);}&.table-row-isGrid.table-row-isHeader:first-of-type > *{border-top:1px solid;border-color:var(--table-separator-color);};label:row;",
+    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
+  }
+};
 
 // For performance, these styles are defined outside of the component so they are not redefined on every render.
 // We're also using CSS Variables rather than any dynamic styles so that the style object remains static.
 const tableStyles = {
-  tableWrapper: process.env.NODE_ENV === "production" ? {
-    name: "b4b8ls",
-    styles: "&.table-isScrollable{overflow:auto;}display:flex;flex-direction:column;height:100%"
-  } : {
-    name: "1awn1ma-tableWrapper",
-    styles: "&.table-isScrollable{overflow:auto;}display:flex;flex-direction:column;height:100%;label:tableWrapper;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
+  tableWrapper: /*#__PURE__*/css({
+    '&.table-isScrollable': {
+      overflow: 'auto'
+    },
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    // Inline repeating elements styles for performance reasons
+    [`.${tableClassNames.cell}`]: repeatingElementsStyles.cell,
+    [`.${tableClassNames.header}`]: repeatingElementsStyles.header,
+    [`.${tableClassNames.row}`]: repeatingElementsStyles.row
+  }, process.env.NODE_ENV === "production" ? "" : ";label:tableWrapper;"),
   table: /*#__PURE__*/css({
     '.table-isScrollable &': {
       flex: 1,
@@ -15710,7 +11883,7 @@ const tableStyles = {
         // Top and bottom shadows
         radial-gradient(farthest-side at 50% 0%, var(--table-scroll-shadow-color) 0%, rgba(0, 0, 0, 0) 100%),
         radial-gradient(farthest-side at 50% 100%, var(--table-scroll-shadow-color) 0%, rgba(0, 0, 0, 0) 100%),
-        
+
         // Left and right shadows
         radial-gradient(farthest-side at 0% 50%, var(--table-scroll-shadow-color) 0%, rgba(0, 0, 0, 0) 100%),
         radial-gradient(farthest-side at 100% 50%, var(--table-scroll-shadow-color) 0%, rgba(0, 0, 0, 0) 100%)
@@ -15733,30 +11906,6 @@ const tableStyles = {
       backgroundAttachment: 'local, local, local, local, scroll, scroll, scroll, scroll'
     }
   }, process.env.NODE_ENV === "production" ? "" : ";label:table;"),
-  row: process.env.NODE_ENV === "production" ? {
-    name: "1aw6lkf",
-    styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);}"
-  } : {
-    name: "1vx4n96-row",
-    styles: "display:flex;&.table-isHeader{> *{background-color:var(--table-header-background-color);}.table-isScrollable &{position:sticky;top:0;z-index:1;}}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:var(--row-checkbox-opacity, 0);}&:hover{&:not(.table-isHeader){background-color:var(--table-row-hover);}.table-row-select-cell input[type=\"checkbox\"] ~ *{opacity:1;}}.table-row-select-cell input[type=\"checkbox\"]:focus ~ *{opacity:1;}> *{padding-top:var(--table-row-vertical-padding);padding-bottom:var(--table-row-vertical-padding);border-bottom:1px solid;border-color:var(--table-separator-color);};label:row;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
-  cell: process.env.NODE_ENV === "production" ? {
-    name: "1n3v1dk",
-    styles: "display:inline-grid;position:relative;flex:1;line-height:initial;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;}"
-  } : {
-    name: "q5g0tm-cell",
-    styles: "display:inline-grid;position:relative;flex:1;line-height:initial;box-sizing:border-box;padding-left:var(--table-spacing-sm);padding-right:var(--table-spacing-sm);word-break:break-word;overflow:hidden;& .anticon{vertical-align:text-bottom;};label:cell;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
-  header: process.env.NODE_ENV === "production" ? {
-    name: "ik7qgz",
-    styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}}"
-  } : {
-    name: "1xg6jn4-header",
-    styles: "font-weight:bold;align-items:flex-end;display:flex;overflow:hidden;&[aria-sort]{cursor:pointer;user-select:none;}.table-header-text{color:var(--table-header-text-color);}.table-header-icon-container{color:var(--table-header-sort-icon-color);display:none;}&[aria-sort]:hover{.table-header-icon-container, .table-header-text{color:var(--table-header-focus-color);}}&[aria-sort]:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}&:hover, &[aria-sort=\"ascending\"], &[aria-sort=\"descending\"]{.table-header-icon-container{display:inline;}};label:header;",
-    toString: _EMOTION_STRINGIFIED_CSS_ERROR__$4
-  },
   headerButtonTarget: process.env.NODE_ENV === "production" ? {
     name: "sezlox",
     styles: "align-items:flex-end;display:flex;overflow:hidden;width:100%;justify-content:inherit;&:focus{.table-header-text{color:var(--table-header-focus-color);}.table-header-icon-container{color:var(--table-header-focus-color);display:inline;}}&:active{.table-header-icon-container, .table-header-text{color:var(--table-header-active-color);}}"
@@ -15814,7 +11963,8 @@ const tableStyles = {
 var tableStyles$1 = tableStyles;
 
 const TableContext = /*#__PURE__*/createContext({
-  size: 'default'
+  size: 'default',
+  grid: false
 });
 const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
   let {
@@ -15827,6 +11977,7 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
     className,
     scrollable = false,
     headerHeight,
+    grid = false,
     ...rest
   } = _ref;
   const {
@@ -15836,7 +11987,8 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
   return jsx(TableContext.Provider, {
     value: {
       size,
-      someRowsSelected
+      someRowsSelected,
+      grid
     },
     children: jsxs("div", {
       ...rest,
@@ -15862,7 +12014,10 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
         ['--table-spacing-xs']: `${theme.spacing.xs}px`
       },
       css: tableStyles$1.tableWrapper,
-      className: scrollable ? `table-isScrollable ${className}` : className,
+      className: classnames({
+        'table-isScrollable': scrollable,
+        'table-isGrid': grid
+      }, className),
       children: [jsxs("div", {
         role: "table",
         ref: ref,
@@ -15917,36 +12072,62 @@ const TableCell = /*#__PURE__*/forwardRef(function (_ref, ref) {
     ellipsis = false,
     align = 'left',
     style,
+    wrapContent = true,
     ...rest
   } = _ref;
   const {
-    size
+    size,
+    grid
   } = useContext(TableContext);
   let typographySize = 'md';
   if (size === 'small') {
     typographySize = 'sm';
   }
+  const content = wrapContent === true ? jsx(Typography.Text, {
+    ellipsis: ellipsis,
+    size: typographySize,
+    title: ellipsis && typeof children === 'string' && children || undefined,
+    children: children
+  }) : children;
   return jsx("div", {
     ...rest,
-    css: [tableStyles$1.cell, process.env.NODE_ENV === "production" ? "" : ";label:TableCell;"],
     role: "cell",
     style: {
       textAlign: align,
       ...style
     },
-    ref: ref,
-    className: className,
-    children: jsx(Typography.Text, {
-      ellipsis: ellipsis,
-      size: typographySize,
-      title: ellipsis && typeof children === 'string' && children || undefined,
-      children: children
-    })
+    ref: ref
+    // PE-259 Use more performance className for grid but keep css= for compatibility.
+    ,
+    css: !grid ? repeatingElementsStyles.cell : undefined,
+    className: classnames(grid && tableClassNames.cell, className),
+    children: content
   });
 });
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$3() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+const getTableFilterInputStyles = (theme, defaultWidth) => {
+  return /*#__PURE__*/css({
+    [theme.responsive.mediaQueries.sm]: {
+      width: 'auto'
+    },
+    [theme.responsive.mediaQueries.lg]: {
+      width: '30%'
+    },
+    [theme.responsive.mediaQueries.xxl]: {
+      width: defaultWidth
+    }
+  }, process.env.NODE_ENV === "production" ? "" : ";label:getTableFilterInputStyles;");
+};
 var _ref2 = process.env.NODE_ENV === "production" ? {
+  name: "7whenc",
+  styles: "display:flex;width:100%"
+} : {
+  name: "3ktoz7-component",
+  styles: "display:flex;width:100%;label:component;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$3
+};
+var _ref3 = process.env.NODE_ENV === "production" ? {
   name: "82a6rk",
   styles: "flex:1"
 } : {
@@ -15959,47 +12140,28 @@ const TableFilterInput = /*#__PURE__*/forwardRef(function SearchInput(_ref, ref)
     onSubmit,
     showSearchButton,
     className,
-    onChange,
-    onClear,
     ...inputProps
   } = _ref;
-  const DEFAULT_WIDTH = 350;
-  const handleChange = e => {
-    // If the input is cleared, call the onClear handler, but only
-    // if the event is not an input event -- which is the case when you click the
-    // ant-provided (X) button.
-    if (!e.target.value && e.nativeEvent instanceof InputEvent === false && onClear) {
-      onClear === null || onClear === void 0 ? void 0 : onClear();
-    } else {
-      onChange === null || onChange === void 0 ? void 0 : onChange(e);
-    }
-  };
+  const {
+    theme
+  } = useDesignSystemTheme();
+  const DEFAULT_WIDTH = 400;
   let component = jsx(Input, {
     prefix: jsx(SearchIcon, {}),
     allowClear: true,
     ...inputProps,
     className: className,
-    ref: ref,
-    css: /*#__PURE__*/css({
-      width: DEFAULT_WIDTH
-    }, process.env.NODE_ENV === "production" ? "" : ";label:component;"),
-    onChange: handleChange
+    ref: ref
   });
   if (showSearchButton) {
     component = jsxs(Input.Group, {
-      style: {
-        display: 'flex'
-      },
-      css: /*#__PURE__*/css({
-        width: DEFAULT_WIDTH
-      }, process.env.NODE_ENV === "production" ? "" : ";label:component;"),
+      css: _ref2,
       className: className,
       children: [jsx(Input, {
         allowClear: true,
         ...inputProps,
         ref: ref,
-        css: _ref2,
-        onChange: handleChange
+        css: _ref3
       }), jsx(Button, {
         htmlType: "submit",
         children: jsx(SearchIcon, {})
@@ -16007,6 +12169,10 @@ const TableFilterInput = /*#__PURE__*/forwardRef(function SearchInput(_ref, ref)
     });
   }
   return jsx("form", {
+    style: {
+      height: theme.general.heightSm
+    },
+    css: getTableFilterInputStyles(theme, DEFAULT_WIDTH),
     onSubmit: e => {
       e.preventDefault();
       onSubmit === null || onSubmit === void 0 ? void 0 : onSubmit();
@@ -16086,7 +12252,8 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
     ...rest
   } = _ref;
   const {
-    size
+    size,
+    grid
   } = useContext(TableContext);
   const {
     theme
@@ -16109,13 +12276,18 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
     children: jsx("div", {
       ...rest,
       ref: ref,
-      css: [tableStyles$1.row, process.env.NODE_ENV === "production" ? "" : ";label:TableRow;"],
       role: "row",
       style: {
         ...style,
         ['--table-row-vertical-padding']: `${rowPadding}px`
-      },
-      className: `${className} ${isHeader ? 'table-isHeader' : ''}`,
+      }
+      // PE-259 Use more performance className for grid but keep css= for consistency.
+      ,
+      css: !grid ? repeatingElementsStyles.row : undefined,
+      className: classnames(className, grid && tableClassNames.row, {
+        'table-isHeader': isHeader,
+        'table-row-isGrid': grid
+      }),
       children: children
     })
   });
@@ -16159,10 +12331,12 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     resizeHandler,
     isResizing = false,
     align = 'left',
+    wrapContent = true,
     ...rest
   } = _ref2;
   const {
-    size
+    size,
+    grid
   } = useContext(TableContext);
   const {
     isHeader
@@ -16190,23 +12364,27 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
   if (size === 'small') {
     typographySize = 'sm';
   }
-  const textContents = jsx(Typography.Text, {
+  const content = wrapContent ? jsx(Typography.Text, {
     className: "table-header-text",
     ellipsis: ellipsis,
     size: typographySize,
     title: ellipsis && typeof children === 'string' && children || undefined,
     children: children
-  });
+  }) : children;
   const resizeHandle = resizable ? jsx(TableHeaderResizeHandle, {
     resizeHandler: resizeHandler
   }) : null;
   return jsxs("div", {
     ...rest,
-    ref: ref,
-    css: [tableStyles$1.cell, tableStyles$1.header, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
+    ref: ref
+    // PE-259 Use more performance className for grid but keep css= for compatibility.
+    ,
+    css: !grid ? [repeatingElementsStyles.cell, repeatingElementsStyles.header] : undefined,
+    className: classnames(grid && tableClassNames.cell, grid && tableClassNames.header, {
+      'table-header-isGrid': grid
+    }, className),
     role: "columnheader",
     "aria-sort": sortable && ariaSort || undefined,
-    className: className,
     style: {
       justifyContent: align,
       textAlign: align,
@@ -16223,12 +12401,12 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
           return onToggleSort === null || onToggleSort === void 0 ? void 0 : onToggleSort(event);
         }
       },
-      children: [textContents, jsx("span", {
+      children: [content, jsx("span", {
         className: "table-header-icon-container",
         css: [tableStyles$1.sortHeaderIcon, process.env.NODE_ENV === "production" ? "" : ";label:TableHeader;"],
         children: sortIcon
       })]
-    }) : textContents, resizeHandle]
+    }) : content, resizeHandle]
   });
 });
 
@@ -16270,6 +12448,7 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     indeterminate,
     noCheckbox,
     children,
+    isDisabled,
     ...rest
   } = _ref;
   const {
@@ -16298,7 +12477,8 @@ const TableRowSelectCell = /*#__PURE__*/forwardRef(function TableRowSelectCell(_
     className: "table-row-select-cell",
     children: !noCheckbox && jsx(Checkbox, {
       isChecked: checked || indeterminate && null,
-      onChange: (_checked, event) => onChange === null || onChange === void 0 ? void 0 : onChange(event.nativeEvent)
+      onChange: (_checked, event) => onChange === null || onChange === void 0 ? void 0 : onChange(event.nativeEvent),
+      isDisabled: isDisabled
     })
   });
 });
@@ -16336,34 +12516,7 @@ const TableSkeleton = _ref => {
   const {
     size
   } = useContext(TableContext);
-
-  // This is a very simple PRNG that is seeded (so that the output is deterministic).
-  // We need this in order to produce a random ragged edge for the table skeleton.
-  function pseudoRandomNumberGeneratorFromSeed(seed) {
-    // This is a simple way to get a consistent number from a string;
-    // `charCodeAt` returns a number between 0 and 65535, and we then just add them all up.
-    const seedValue = seed.split('').map(char => char.charCodeAt(0)).reduce((prev, curr) => prev + curr, 0);
-
-    // This is a simple sine wave function that will always return a number between 0 and 1.
-    // This produces a value akin to `Math.random()`, but has deterministic output.
-    // Of course, sine curves are not a perfectly random distribution between 0 and 1, but
-    // it's close enough for our purposes.
-    return Math.sin(seedValue) / 2 + 0.5;
-  }
-
-  // This is a simple Fisher-Yates shuffler using the above PRNG.
-  function shuffleArray(arr, seed) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(pseudoRandomNumberGeneratorFromSeed(seed + String(i)) * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  // Finally, we shuffle a list off offsets to apply to the widths of the cells.
-  // This ensures that the cells are not all the same width, but that they are
-  // random to produce a more realistic looking skeleton.
-  const widths = shuffleArray([48, 24, 0], seed);
+  const widths = getOffsets(seed);
   return jsx("div", {
     // TODO: Re-enable this after Clusters fixes tests: https://databricks.slack.com/archives/C04LYE3F8HX/p1679597678339659
     // {...rest}
@@ -16379,6 +12532,39 @@ const TableSkeleton = _ref => {
         width: `calc(100% - ${widths[idx % widths.length]}px)`
       }, process.env.NODE_ENV === "production" ? "" : ";label:TableSkeleton;"]
     }, idx))
+  });
+};
+const TableSkeletonRows = _ref2 => {
+  let {
+    table,
+    actionColumnIds = [],
+    numRows = 3
+  } = _ref2;
+  const {
+    theme
+  } = useDesignSystemTheme();
+  return jsx(Fragment, {
+    children: [...Array(numRows).keys()].map(i => jsx(TableRow, {
+      children: table.getFlatHeaders().map(header => {
+        var _meta$styles, _meta$numSkeletonLine;
+        const meta = header.column.columnDef.meta;
+        return actionColumnIds.includes(header.id) ? jsx(TableRowAction, {
+          children: jsx(TableSkeleton, {
+            style: {
+              width: theme.general.iconSize
+            }
+          })
+        }, `cell-${header.id}-${i}`) : jsx(TableCell, {
+          style: (_meta$styles = meta === null || meta === void 0 ? void 0 : meta.styles) !== null && _meta$styles !== void 0 ? _meta$styles : (meta === null || meta === void 0 ? void 0 : meta.width) !== undefined ? {
+            maxWidth: meta.width
+          } : {},
+          children: jsx(TableSkeleton, {
+            seed: `skeleton-${header.id}-${i}`,
+            lines: (_meta$numSkeletonLine = meta === null || meta === void 0 ? void 0 : meta.numSkeletonLines) !== null && _meta$numSkeletonLine !== void 0 ? _meta$numSkeletonLine : undefined
+          })
+        }, `cell-${header.id}-${i}`);
+      })
+    }, i))
   });
 };
 
@@ -16600,11 +12786,9 @@ const colorMap = {
   teal: 'tagTeal',
   turquoise: 'tagTurquoise'
 };
-const SIZE = 20;
 function getTagEmotionStyles(theme) {
   let color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'default';
   let clickable = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
-  let useNewIcons = arguments.length > 3 ? arguments[3] : undefined;
   let textColor = theme.colors.tagText;
   const backgroundColor = theme.colors[colorMap[color]];
   let iconHover = theme.colors.tagIconHover;
@@ -16643,18 +12827,20 @@ function getTagEmotionStyles(theme) {
       alignItems: 'center'
     },
     close: {
-      height: useNewIcons ? theme.general.iconFontSizeNew : SIZE,
-      width: useNewIcons ? theme.general.iconFontSizeNew : SIZE,
-      lineHeight: useNewIcons ? `${theme.general.iconFontSizeNew}px` : theme.typography.lineHeightMd,
+      height: theme.general.iconFontSize,
+      width: theme.general.iconFontSize,
+      lineHeight: `${theme.general.iconFontSize}px`,
       padding: 0,
       color: textColor,
-      fontSize: useNewIcons ? theme.general.iconFontSizeNew : SIZE,
+      fontSize: theme.general.iconFontSize,
       margin: '-2px -4px -2px 2px',
       borderTopRightRadius: theme.borders.borderRadiusMd,
       borderBottomRightRadius: theme.borders.borderRadiusMd,
       border: 'none',
       background: 'none',
       cursor: 'pointer',
+      marginLeft: theme.spacing.xs,
+      marginRight: -theme.spacing.xs,
       '&:hover': {
         backgroundColor: tagHover,
         color: iconHover
@@ -16671,11 +12857,7 @@ function getTagEmotionStyles(theme) {
       },
       '.anticon': {
         verticalAlign: 0
-      },
-      ...(useNewIcons && {
-        marginLeft: theme.spacing.xs,
-        marginRight: -theme.spacing.xs
-      })
+      }
     },
     text: {
       padding: 0,
@@ -16689,9 +12871,6 @@ function Tag(props) {
     theme
   } = useDesignSystemTheme();
   const {
-    USE_NEW_ICONS: useNewIcons
-  } = useDesignSystemFlags();
-  const {
     color,
     children,
     closable,
@@ -16700,7 +12879,7 @@ function Tag(props) {
     ...attributes
   } = props;
   const isClickable = Boolean(props.onClick);
-  const styles = getTagEmotionStyles(theme, color, isClickable, useNewIcons);
+  const styles = getTagEmotionStyles(theme, color, isClickable);
   return jsx("div", {
     role: role,
     ...attributes,
@@ -16725,7 +12904,7 @@ function Tag(props) {
         },
         children: jsx(CloseIcon, {
           css: /*#__PURE__*/css({
-            fontSize: useNewIcons ? theme.general.iconFontSizeNew - 4 : SIZE
+            fontSize: theme.general.iconFontSize - 4
           }, process.env.NODE_ENV === "production" ? "" : ";label:Tag;")
         })
       })]
@@ -17109,5 +13288,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyDesignSystemFlags, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, ArrowsUpDownIcon, AutoComplete, BarChartIcon, BeakerIcon, BinaryIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, Button, CalendarEventIcon, CalendarIcon, CaretDownSquareIcon, CaretUpSquareIcon, CatalogIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, Checkbox, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, ClipboardIcon, ClockIcon, CloseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ConnectIcon, Content, CopyIcon, CursorIcon, CursorPagination, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon, DangerFillIcon, DangerIcon, DangerModal, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemContext, DesignSystemProvider, DesignSystemThemeContext, DesignSystemThemeProvider, DialogCombobox, DialogComboboxButtonContainer, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxLoadingSpinner, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ExpandLessIcon, ExpandMoreIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileModelIcon, FilterIcon, FolderFillIcon, FolderIcon, FontIcon, ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GiftIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoFillIcon, InfoIcon, Input, ItalicIcon, KeyboardIcon, LayerIcon, Layout, LegacyDatePicker, LegacyTable, LettersIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListIcon, LoadingIcon, LockFillIcon, LockIcon, LockUnlockedIcon, MIcon, Menu, MenuIcon, MinusBoxIcon, MinusCircleFillIcon, MinusCircleIcon, Modal, ModelsIcon, Nav, NavButton, NewWindowIcon, NoIcon, NotebookIcon, NotificationIcon, NotificationOffIcon, NotificationV2, NumbersIcon, OfficeIcon, OptGroup, Option, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, Panel, PanelBody, PanelHeader, PanelHeaderButtons, PanelHeaderTitle, PencilIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusSquareIcon, Popover, PopoverV2, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon, RedoIcon, RefreshIcon, ReposIcon, RestoreAntDDefaultClsPrefix, Row, SaveIcon, SchoolIcon, SearchIcon, SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectOptGroup, SelectOption, ShareIcon, Sidebar, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, Skeleton, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SpeechBubbleIcon, SpeechBubblePlusIcon, Spinner, SplitButton, StarFillIcon, StarIcon, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, Switch, SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableHeader, TableIcon, TableRow, TableRowAction, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, Tabs, Tag, TextBoxIcon, ToggleButton, Tooltip, TrashIcon, Tree, TreeIcon, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, VariableIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkspacesIcon, XCircleFillIcon, XCircleIcon, ZoomInIcon, ZoomOutIcon, __INTERNAL_DO_NOT_USE_DEDUPE__Group, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__Password, __INTERNAL_DO_NOT_USE__TextArea, __INTERNAL_DO_NOT_USE__VerticalGroup, getAnimationCss, getButtonEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getTabEmotionStyles, getWrapperStyle, useAntDConfigProviderContext, useDesignSystemFlags, useNotification, useThemedStyles, visuallyHidden, withNotifications };
+export { Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, ArrowsUpDownIcon, AutoComplete, BarChartIcon, BeakerIcon, BinaryIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, Button, CalendarEventIcon, CalendarIcon, CaretDownSquareIcon, CaretUpSquareIcon, CatalogIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, Checkbox, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, ClipboardIcon, ClockIcon, CloseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ConnectIcon, Content, CopyIcon, CursorPagination, CursorTypeIcon, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagIcon, DangerFillIcon, DangerIcon, DangerModal, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DialogCombobox, DialogComboboxButtonContainer, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxLoadingSpinner, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ExpandLessIcon, ExpandMoreIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileModelIcon, FilterIcon, FolderBranchIcon, FolderFillIcon, FolderIcon, FontIcon, ForkIcon, Form, FormDubois, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoFillIcon, InfoIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerIcon, Layout, LegacyDatePicker, LegacyPopover, LegacyTable, LettersIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListIcon, LoadingIcon, LockFillIcon, LockIcon, LockUnlockedIcon, MIcon, Menu, MenuIcon, MinusBoxIcon, MinusCircleFillIcon, MinusCircleIcon, Modal, ModelsIcon, Nav, NavButton, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, OptGroup, Option, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, Panel, PanelBody, PanelHeader, PanelHeaderButtons, PanelHeaderTitle, PencilIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusSquareIcon, Popover, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, ReaderModeIcon, RedoIcon, RefreshIcon, RestoreAntDDefaultClsPrefix, Row, SaveIcon, SchoolIcon, SearchIcon, SecurityIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectOptGroup, SelectOption, SelectV2, SelectV2Content, SelectV2Option, SelectV2OptionGroup, SelectV2Trigger, ShareIcon, Sidebar, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, Skeleton, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SpeechBubbleIcon, SpeechBubblePlusIcon, Spinner, SplitButton, StarFillIcon, StarIcon, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, Switch, SyncIcon, TabPane, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableHeader, TableIcon, TableInfinityIcon, TableLightningIcon, TableRow, TableRowAction, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableViewIcon, Tabs, Tag, TextBoxIcon, ThumbsDownIcon, ThumbsUpIcon, ToggleButton, Tooltip, TrashIcon, Tree, TreeIcon, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkspacesIcon, XCircleFillIcon, XCircleIcon, ZoomInIcon, ZoomOutIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, getAnimationCss, getPaginationEmotionStyles, getRadioStyles, getTabEmotionStyles, getValidationStateColor, getWrapperStyle, importantify, useDesignSystemFlags, useDesignSystemTheme, useLegacyNotification, useThemedStyles, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

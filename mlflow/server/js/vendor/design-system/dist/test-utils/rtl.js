@@ -1,12 +1,49 @@
 import userEvent from '@testing-library/user-event';
-import { waitFor, screen, within, queryHelpers } from '@testing-library/react';
-import { s as selectClasses, c as createMarkdownTable } from '../common-1fb3eeb9.js';
+import { waitFor, within, queryHelpers } from '@testing-library/react';
+import { s as selectClasses, c as createMarkdownTable } from '../common-31040b66.js';
+
+/**
+ * Allows the helpers in this module to be used when the select element is
+ * queried _semantically_ (as if it were a native <select> element) — i.e.
+ * `ByRole('combobox', { name: '…' })`, rather than by test ID.
+ *
+ * Also checks if <DesignSystemProvider> was used, because many of the helpers
+ * in this module query by class name starting with "du-bois-", which requires
+ * the provider.
+ */
+function getRootElement(element) {
+  if (element.getAttribute('role') === 'combobox') {
+    element = element.closest(`.${selectClasses.selector}`).parentElement;
+  }
+  if (element.classList.contains('ant-select')) {
+    throw new Error('Component must be wrapped by <DesignSystemProvider>');
+  }
+  return element;
+}
+function getOptionsList(select) {
+  const body = select.ownerDocument.body;
+  const input = within(select).getByRole('combobox');
+  const listId = input.getAttribute('aria-owns') || input.getAttribute('aria-controls');
+  if (!listId) {
+    throw new Error(`Options listid not found\n${body.innerHTML}`);
+  }
+  const listbox = select.ownerDocument.getElementById(listId);
+  if (!(listbox !== null && listbox !== void 0 && listbox.parentElement)) {
+    throw new Error(`Options list not found\n${body.innerHTML}`);
+  }
+  const optionsList = listbox.parentElement.querySelector(`.${selectClasses.list}`);
+  if (!optionsList) {
+    throw new Error(`Options list not found\n${body.innerHTML}`);
+  }
+  return optionsList;
+}
 
 /**
  * Opens the dropdown menu for the <Select/> by clicking. Will throw an error if
  * the menu is already opened or if the menu is unable to be opened.
  */
 async function openMenu(select) {
+  select = getRootElement(select);
   if (select.classList.contains(selectClasses.open)) {
     throw new Error(`Select is already open\n${select.innerHTML}`);
   }
@@ -29,6 +66,7 @@ async function openMenu(select) {
  * the menu is already closed or if the menu is unable to be closed.
  */
 async function closeMenu(select) {
+  select = getRootElement(select);
   if (!select.classList.contains(selectClasses.open)) {
     throw new Error(`Select is already closed\n${select.innerHTML}`);
   }
@@ -51,6 +89,7 @@ async function closeMenu(select) {
  */
 function getLabelText(select) {
   var _selector$textContent, _selector$textContent2;
+  select = getRootElement(select);
   const selector = select.querySelector(`.${selectClasses.selector}`);
   if (!selector) {
     throw new Error(`Selector not found\n${select.innerHTML}`);
@@ -69,10 +108,12 @@ function getLabelText(select) {
  * you issues, please let #help-frontend know.
  */
 async function multiSelect(select, options) {
+  select = getRootElement(select);
   await openMenu(select);
+  const optionsList = getOptionsList(select);
   for (let i = 0; i < options.length; i++) {
     const option = options[i];
-    const optionItem = screen.getByTitle(option);
+    const optionItem = within(optionsList).getByTitle(option);
     await userEvent.click(optionItem, {
       pointerEventsCheck: 0
     });
@@ -89,9 +130,11 @@ async function multiSelect(select, options) {
  * you issues, please let #help-frontend know.
  */
 async function singleSelect(select, option) {
+  select = getRootElement(select);
   await openMenu(select);
-  const optionElem = screen.getByTitle(option);
-  await userEvent.click(optionElem, {
+  const optionsList = getOptionsList(select);
+  const optionItem = within(optionsList).getByTitle(option);
+  await userEvent.click(optionItem, {
     pointerEventsCheck: 0
   });
   // Menu automatically closes for a single <Select/> (no mode="multiple")
@@ -102,6 +145,7 @@ async function singleSelect(select, option) {
  * the `allowClear` prop must be set to `true`.
  */
 async function clearAll(select) {
+  select = getRootElement(select);
   const clearBtn = select.querySelector(`.${selectClasses.clear}`);
   if (!clearBtn) {
     throw new Error(`Select not clearable\n${select.innerHTML}`);
@@ -114,11 +158,9 @@ async function clearAll(select) {
  * the menu, and returns a list of the text of each option in order.
  */
 async function getAllOptions(select) {
+  select = getRootElement(select);
   await openMenu(select);
-  const optionsList = select.ownerDocument.body.querySelector(`.${selectClasses.list}`);
-  if (optionsList === null) {
-    throw new Error(`Options list not found\n${select.ownerDocument.body.innerHTML}`);
-  }
+  const optionsList = getOptionsList(select);
   const options = [];
   optionsList.querySelectorAll(`.${selectClasses.option}`).forEach(option => {
     if (option.textContent === null) {
@@ -132,13 +174,13 @@ async function getAllOptions(select) {
 
 var selectEvent = /*#__PURE__*/Object.freeze({
   __proto__: null,
-  openMenu: openMenu,
+  clearAll: clearAll,
   closeMenu: closeMenu,
+  getAllOptions: getAllOptions,
   getLabelText: getLabelText,
   multiSelect: multiSelect,
-  singleSelect: singleSelect,
-  clearAll: clearAll,
-  getAllOptions: getAllOptions
+  openMenu: openMenu,
+  singleSelect: singleSelect
 });
 
 /**

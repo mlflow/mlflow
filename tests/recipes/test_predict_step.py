@@ -28,21 +28,20 @@ from tests.recipes.helper_functions import (
 )  # pylint: enable=unused-import
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
-    spark_warehouse_path = os.path.abspath(tempfile.mkdtemp())
-    session = (
-        SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
-        .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-        .config(
-            "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
-        )
-        .config("spark.sql.warehouse.dir", str(spark_warehouse_path))
-        .getOrCreate()
-    )
-    yield session
-    session.stop()
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with (
+            SparkSession.builder.master("local[*]")
+            .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config(
+                "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+            )
+            .config("spark.sql.warehouse.dir", str(tmpdir))
+            .getOrCreate()
+        ) as session:
+            yield session
 
 
 @pytest.fixture(autouse=True)

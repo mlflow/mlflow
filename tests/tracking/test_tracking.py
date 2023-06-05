@@ -5,7 +5,6 @@ import json
 import os
 import posixpath
 import random
-import tempfile
 import yaml
 import re
 
@@ -210,7 +209,6 @@ def test_metric_timestamp():
     )
 
 
-@pytest.mark.usefixtures("tmpdir")
 def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
@@ -261,7 +259,6 @@ def test_log_batch():
             assert new_tags[tag_key] == tag_value
 
 
-@pytest.mark.usefixtures("tmpdir")
 def test_log_batch_with_many_elements():
     num_metrics = MAX_METRICS_PER_BATCH * 2
     num_params = num_tags = MAX_PARAMS_TAGS_PER_BATCH * 2
@@ -386,7 +383,6 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("tmpdir")
 def get_store_mock():
     with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock
@@ -547,14 +543,14 @@ def test_log_artifact_with_dirs(tmpdir):
         ) == {os.path.basename(str(sub_dir))}
 
 
-def test_log_artifact():
-    artifact_src_dir = tempfile.mkdtemp()
+def test_log_artifact(tmp_path):
     # Create artifacts
-    _, path0 = tempfile.mkstemp(dir=artifact_src_dir)
-    _, path1 = tempfile.mkstemp(dir=artifact_src_dir)
-    for i, path in enumerate([path0, path1]):
-        with open(path, "w") as handle:
-            handle.write("%s" % str(i))
+    artifact_dir = tmp_path.joinpath("artifact_dir")
+    artifact_dir.mkdir()
+    path0 = artifact_dir.joinpath("file0")
+    path1 = artifact_dir.joinpath("file1")
+    path0.write_text("0")
+    path1.write_text("1")
     # Log an artifact, verify it exists in the directory returned by get_artifact_uri
     # after the run finishes
     artifact_parent_dirs = ["some_parent_dir", None]
@@ -577,14 +573,14 @@ def test_log_artifact():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
 
-            mlflow.log_artifacts(artifact_src_dir, parent_dir)
+            mlflow.log_artifacts(artifact_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = (
             os.path.join(run_artifact_dir, parent_dir)
             if parent_dir is not None
             else run_artifact_dir
         )
-        dir_comparison = filecmp.dircmp(artifact_src_dir, expected_artifact_output_dir)
+        dir_comparison = filecmp.dircmp(artifact_dir, expected_artifact_output_dir)
         assert len(dir_comparison.left_only) == 0
         assert len(dir_comparison.right_only) == 0
         assert len(dir_comparison.diff_files) == 0
@@ -968,3 +964,85 @@ def test_log_table_with_subdirectory():
     current_tag_value = json.loads(run.data.tags.get(TAG_NAME, "[]"))
     assert {"path": artifact_file, "type": "table"} in current_tag_value
     assert len(current_tag_value) == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_load_table():
+    table_dict = {
+        "inputs": ["What is MLflow?", "What is Databricks?"],
+        "outputs": ["MLflow is ...", "Databricks is ..."],
+        "toxicity": [0.0, 0.0],
+    }
+    artifact_file = "qabot_eval_results.json"
+    artifact_file_2 = "qabot_eval_results_2.json"
+    run_id_2 = None
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file_2)
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id_2 = run.info.run_id
+
+    with mlflow.start_run() as run:
+        # Log the dictionary as a table
+        mlflow.log_table(data=table_dict, artifact_file=artifact_file)
+        run_id_3 = run.info.run_id
+
+    extra_columns = ["run_id", "tags.mlflow.loggedArtifacts"]
+
+    # test 1: load table with extra columns
+    output_df = mlflow.load_table(artifact_file=artifact_file, extra_columns=extra_columns)
+
+    assert output_df.shape[0] == 6
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 3
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 2
+
+    # test 2: load table with extra columns and single run_id
+    output_df = mlflow.load_table(
+        artifact_file=artifact_file, run_ids=[run_id_2], extra_columns=extra_columns
+    )
+
+    assert output_df.shape[0] == 2
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 1
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    # test 3: load table with extra columns and multiple run_ids
+    output_df = mlflow.load_table(
+        artifact_file=artifact_file, run_ids=[run_id_2, run_id_3], extra_columns=extra_columns
+    )
+
+    assert output_df.shape[0] == 4
+    assert output_df.shape[1] == 5
+    assert output_df["run_id"].nunique() == 2
+    assert output_df["tags.mlflow.loggedArtifacts"].nunique() == 1
+
+    # test 4: load table with no extra columns and run_ids specified but different artifact file
+    output_df = mlflow.load_table(artifact_file=artifact_file_2)
+    import pandas as pd
+
+    pd.testing.assert_frame_equal(output_df, pd.DataFrame(table_dict), check_dtype=False)
+
+    # test 5: load table with no extra columns and run_ids specified
+    output_df = mlflow.load_table(artifact_file=artifact_file)
+
+    assert output_df.shape[0] == 6
+    assert output_df.shape[1] == 3
+
+    # test 6: load table with no matching results found. Error case
+    with pytest.raises(
+        MlflowException, match="No runs found with the corresponding table artifact"
+    ):
+        mlflow.load_table(artifact_file="error_case.json")
+
+    # test 7: load table with no matching extra_column found. Error case
+    with pytest.raises(KeyError, match="error_column"):
+        mlflow.load_table(artifact_file=artifact_file, extra_columns=["error_column"])

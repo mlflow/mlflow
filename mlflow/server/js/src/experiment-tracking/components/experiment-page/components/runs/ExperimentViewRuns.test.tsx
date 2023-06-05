@@ -112,7 +112,9 @@ describe('ExperimentViewRuns', () => {
       runInfos: [EXPERIMENT_RUNS_MOCK_STORE.entities.runInfosByUuid['experiment123456789_run1']],
       paramsList: [[{ key: 'p1', value: 'pv1' }]],
       metricsList: [[{ key: 'm1', value: 'mv1' }]],
+      datasetsList: [[{ dataset: { digest: 'ab12', name: 'dataset_name' } }]],
     } as any,
+    isLoading: false,
   };
   const ProxyComponent = (additionalProps: Partial<ExperimentViewRunsProps> = {}) => (
     <GetExperimentRunsContext.Provider value={contextValue as any}>

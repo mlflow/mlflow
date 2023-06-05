@@ -16,6 +16,7 @@ export const ATTRIBUTE_COLUMN_LABELS = {
   SOURCE: 'Source',
   VERSION: 'Version',
   MODELS: 'Models',
+  DATASET: 'Dataset',
 };
 
 export const ATTRIBUTE_COLUMN_SORT_LABEL = {
@@ -74,4 +75,9 @@ export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_met
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER =
   'mlflow.experiment.primaryMetric.greaterIsBetter';
+export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
+export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
+
+export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
+export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';

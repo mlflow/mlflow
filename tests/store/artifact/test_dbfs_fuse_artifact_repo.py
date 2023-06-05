@@ -12,8 +12,8 @@ TEST_FILE_3_CONTENT = "¡🍆🍆🍔🍆🍆!".encode()
 
 
 @pytest.fixture()
-def artifact_dir(tmpdir):
-    return tmpdir.join("artifacts-to-log").strpath
+def artifact_dir(tmp_path):
+    return os.path.join(tmp_path, "artifacts-to-log")
 
 
 @pytest.fixture()

@@ -1,6 +1,6 @@
 import { isFunction } from 'lodash';
 import React, { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom-v5-compat';
 import RequestStateWrapper from '../../../../common/components/RequestStateWrapper';
 import { loadMoreRunsApi, searchRunsApi, searchRunsPayload } from '../../../actions';
 import { useExperimentIds } from '../hooks/useExperimentIds';
@@ -95,31 +95,25 @@ export const GetExperimentRunsContextProvider = ({
 }: React.PropsWithChildren<{
   actions: GetExperimentRunsContextActions;
 }>) => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const experimentIds = useExperimentIds();
   const dispatch = useAsyncDispatch();
+  const location = useLocation();
 
   const [searchRunsRequestId, setSearchRunsRequestId] = useState<string>('');
   const [isLoadingRuns, setIsLoadingRuns] = useState(false);
+  const [initialSearchPath, setInitialSearchPath] = useState('');
   const [moreRunsAvailable, setMoreRunsAvailable] = useState(false);
   const [requestError, setRequestError] = useState<any>(null);
 
   const experimentIdsHash = useMemo(() => JSON.stringify(experimentIds.sort()), [experimentIds]);
 
-  const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
-    () => {
-      // useState() initialization function that restores current search facets state
-      const { queryString, state } = restoreExperimentSearchFacetsState(
-        history.location.search,
-        experimentIdsHash,
-      );
+  // Value storing the last parsed query string, used
+  // to prevent unnecessary state recalculations.
+  const lastSearchFacetsQueryString = useRef('');
 
-      // If resulting query string differs from the current one, replace it.
-      if (history.location.search !== queryString) {
-        history.replace(`${history.location.pathname}${queryString}`);
-      }
-      return state;
-    },
+  const [searchFacetsState, setSearchFacetsState] = useState<SearchExperimentRunsFacetsState>(
+    new SearchExperimentRunsFacetsState(),
   );
 
   // Let's save the immediate array of active requests so
@@ -215,18 +209,18 @@ export const GetExperimentRunsContextProvider = ({
       const newQueryString = persistExperimentSearchFacetsState(
         sortFilterModelToSave,
         experimentIdsHash,
-        history.location.search,
+        location.search,
       );
-      if (history.location.search !== newQueryString) {
-        const newPath = `${history.location.pathname}${newQueryString}`;
-        if (replaceHistory) {
-          history.replace(newPath);
-        } else {
-          history.push(newPath);
-        }
+
+      // Memoize the last search query so we won't need to
+      // rebuild the search state after the location changes
+      lastSearchFacetsQueryString.current = newQueryString;
+
+      if (location.search !== newQueryString) {
+        navigate(`${location.pathname}${newQueryString}`, { replace: replaceHistory });
       }
     },
-    [history, experimentIdsHash],
+    [navigate, location, experimentIdsHash],
   );
 
   /**
@@ -292,20 +286,16 @@ export const GetExperimentRunsContextProvider = ({
     [experimentIds, internalFetchExperimentRuns, persistState],
   );
 
-  /**
-   * Dynamically restore searchFacets state on history navigation.
-   * Note: MLFlow running in iFrame won't get proper history pop updates
-   * from overrarching router, meaning that history.listen() won't work at all. In this case,
-   * the page will get reloaded and useState()'s initialization function will restore the state instead.
-   */
+  // Update/initialize internal filter/search state after the location has changed
   useEffect(() => {
-    return history.listen((location, action) => {
-      if (action === 'POP') {
-        const { state } = restoreExperimentSearchFacetsState(location.search, experimentIdsHash);
-        updateSearchFacets(state);
-      }
-    });
-  }, [history, experimentIdsHash, updateSearchFacets]);
+    // If we are sure that the fingerprint of the search facets
+    // is already up to date, we can skip the restoration
+    if (location.search && lastSearchFacetsQueryString.current === location.search) {
+      return;
+    }
+    const { state } = restoreExperimentSearchFacetsState(location.search, experimentIdsHash);
+    updateSearchFacets(state, { replaceHistory: true, forceRefresh: true, preservePristine: true });
+  }, [location.search, updateSearchFacets, experimentIdsHash]);
 
   const contextValue = useMemo(
     () => ({

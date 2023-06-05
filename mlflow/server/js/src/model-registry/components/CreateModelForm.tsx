@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 
 import { Form } from 'antd';
@@ -23,7 +30,7 @@ class CreateModelFormImpl extends Component<Props> {
   render() {
     const learnMoreLinkUrl = CreateModelFormImpl.getLearnMoreLinkUrl();
     return (
-      <Form ref={this.props.innerRef} layout='vertical'>
+      <Form ref={this.props.innerRef} layout='vertical' data-testid='create-model-form-modal'>
         <Form.Item
           name={MODEL_NAME_FIELD}
           label={this.props.intl.formatMessage({

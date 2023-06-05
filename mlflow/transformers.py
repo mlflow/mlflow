@@ -2,16 +2,18 @@ import ast
 import base64
 import binascii
 import contextlib
+import functools
 import copy
 from functools import lru_cache
 import json
 import logging
+import numpy as np
+import os
 import pathlib
 import pandas as pd
-import numpy as np
 import re
-import functools
 from typing import Union, List, Optional, Dict, Any, NamedTuple
+from urllib.parse import urlparse
 
 import yaml
 
@@ -33,7 +35,14 @@ from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
 )
-from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
+from mlflow.environment_variables import (
+    MLFLOW_DEFAULT_PREDICTION_DEVICE,
+    MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
+    MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
+    MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
+    MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
+)
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -69,9 +78,10 @@ _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _MODEL_KEY = "model"
+_MODEL_BINARY_KEY = "model_binary"
+_MODEL_TYPE_KEY = "model_type"
+_MODEL_BINARY_FILE_NAME = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
-_PIPELINE_BINARY_KEY = "pipeline"
-_PIPELINE_BINARY_FILE_NAME = "pipeline"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
@@ -101,7 +111,7 @@ def _model_packages(model) -> List[str]:
     """
     engine = _get_engine_type(model)
     if engine == "torch":
-        return ["torch", "torchvision"]
+        return ["torch", "torchvision", "accelerate"]
     else:
         return [engine]
 
@@ -418,8 +428,11 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    # Save the pipeline object
-    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
+    # Save the model object
+    built_pipeline.model.save_pretrained(
+        save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
+        max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
+    )
 
     # Save the components explicitly to the components directory
     if components:
@@ -441,7 +454,7 @@ def save_model(
         with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
             yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
 
-    model_bin_kwargs = {_PIPELINE_BINARY_KEY: _PIPELINE_BINARY_FILE_NAME}
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
@@ -829,11 +842,35 @@ def is_gpu_available():
     return is_gpu
 
 
+def _try_load_model_with_device(model_instance, model_path, device, conf):
+    load_model_conf = {}
+    # Assume if torch_dtype was specified in the conf, then it must be with a
+    # pipeline for which it's compatible.
+    if _TORCH_DTYPE_KEY in conf:
+        load_model_conf[_TORCH_DTYPE_KEY] = conf[_TORCH_DTYPE_KEY]
+
+    try:
+        load_model_conf["device"] = device
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    except (ValueError, TypeError, NotImplementedError):
+        _logger.warning("Could not specify device parameter for this pipeline type")
+        load_model_conf.pop("device", None)
+        model = model_instance.from_pretrained(model_path, **load_model_conf)
+    return model
+
+
 def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
     import transformers
+
+    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
+    local_path = pathlib.Path(path)
+    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
+    conf = {
+        "task": flavor_config[_TASK_KEY],
+    }
 
     if device is None:
         if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
@@ -843,19 +880,42 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
                 device = _TRANSFORMERS_DEFAULT_CPU_DEVICE_ID
         elif is_gpu_available():
             device = _TRANSFORMERS_DEFAULT_GPU_DEVICE_ID
+    # Note that we don't set the device in the conf yet because device is
+    # incompatible with device_map.
+    accelerate_model_conf = {}
+    if MLFLOW_HUGGINGFACE_USE_DEVICE_MAP.get():
+        device_map_strategy = MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY.get()
+        conf["device_map"] = device_map_strategy
+        accelerate_model_conf["device_map"] = device_map_strategy
+        # Cannot use device with device_map
+        device = None
 
-    local_path = pathlib.Path(path)
-    pipeline_path = local_path.joinpath(
-        flavor_config.get(_PIPELINE_BINARY_KEY, _PIPELINE_BINARY_FILE_NAME)
-    )
-
-    model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
-    conf = {
-        "task": flavor_config[_TASK_KEY],
-        "model": model_instance.from_pretrained(pipeline_path),
-    }
     if device is not None:
         conf["device"] = device
+        accelerate_model_conf["device"] = device
+
+    if _TORCH_DTYPE_KEY in flavor_config or _TORCH_DTYPE_KEY in kwargs:
+        if _TORCH_DTYPE_KEY in kwargs:
+            dtype_val = kwargs[_TORCH_DTYPE_KEY]
+        else:
+            dtype_val = _deserialize_torch_dtype_if_exists(flavor_config)
+        conf[_TORCH_DTYPE_KEY] = dtype_val
+        accelerate_model_conf[_TORCH_DTYPE_KEY] = dtype_val
+
+    accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
+
+    if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
+        try:
+            model = model_instance.from_pretrained(model_path, **accelerate_model_conf)
+        except (ValueError, TypeError, NotImplementedError, ImportError):
+            # NB: ImportError is caught here in the event that `accelerate` is not installed
+            # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
+            # `device_map` is set and accelerate is not installed.
+            model = _try_load_model_with_device(model_instance, model_path, device, conf)
+    else:
+        model = _try_load_model_with_device(model_instance, model_path, device, conf)
+
+    conf["model"] = model
 
     if _PROCESSOR_TYPE_KEY in flavor_config:
         conf[_PROCESSOR_KEY] = _load_component(
@@ -866,9 +926,6 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
         component_type_key = f"{component_key}_type"
         component_type = flavor_config[component_type_key]
         conf[component_key] = _load_component(local_path, component_key, component_type)
-
-    if _TORCH_DTYPE_KEY in flavor_config:
-        conf[_TORCH_DTYPE_KEY] = _deserialize_torch_dtype_if_exists(flavor_config)
 
     for key in _METADATA_PIPELINE_SCALAR_CONFIG_KEYS:
         if key in flavor_config:
@@ -989,11 +1046,7 @@ def _save_components(
     root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
 ):
     """
-    Saves non-model pipeline components explicitly to a separate directory path for compatibility
-    with certain older model types. In earlier versions of ``transformers``, inferred feature
-    extractor types could be resolved to their correct processor types. This approach ensures
-    compatibility with the expected pipeline configuration argument assignments in later versions
-    of the ``Pipeline`` class.
+    Saves non-model pipeline components.
     """
     component_types = component_config.get(_COMPONENTS_BINARY_KEY, [])
     for component_name in component_types:
@@ -1654,7 +1707,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-        elif isinstance(
+
+        if isinstance(
             self.pipeline,
             (
                 transformers.AutomaticSpeechRecognitionPipeline,
@@ -1672,6 +1726,7 @@ class _TransformersWrapper:
                         "been saved with a signature that defines a string input type.",
                         error_code=INVALID_PARAMETER_VALUE,
                     ) from e
+                raise
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **predict_config)
         else:
@@ -1709,7 +1764,8 @@ class _TransformersWrapper:
         else:
             output = self._parse_lists_of_dict_to_list_of_str(raw_output, output_key)
 
-        return self._sanitize_output(output, data)
+        sanitized = self._sanitize_output(output, data)
+        return self._wrap_strings_as_list_if_scalar(sanitized)
 
     def _parse_raw_pipeline_input(self, data):
         """
@@ -1973,6 +2029,18 @@ class _TransformersWrapper:
             return {k: v.strip() for k, v in output.items()}
         else:
             return output
+
+    @staticmethod
+    def _wrap_strings_as_list_if_scalar(output_data):
+        """
+        Wraps single string outputs in a list to support batch processing logic in serving.
+        Scalar values are not supported for processing in batch logic as they cannot be coerced
+        to DataFrame representations.
+        """
+        if isinstance(output_data, str):
+            return [output_data]
+        else:
+            return output_data
 
     def _parse_lists_of_dict_to_list_of_str(self, output_data, target_dict_key) -> List[str]:
         """
@@ -2283,8 +2351,7 @@ class _TransformersWrapper:
                     parsed_data.append(entry)
             return parsed_data
 
-    @staticmethod
-    def _convert_audio_input(data):
+    def _convert_audio_input(self, data):
         """
         Conversion utility for decoding the base64 encoded bytes data of a raw soundfile when
         parsed through model serving, if applicable. Direct usage of the pyfunc implementation
@@ -2360,12 +2427,39 @@ class _TransformersWrapper:
         # The output of the conversion present in the conditional structural validation below is
         # to return the only input format that the audio transcription pipeline permits:
         # a bytes input of a single element.
-
         if isinstance(data, list) and all(isinstance(element, dict) for element in data):
             encoded_audio = list(data[0].values())[0]
+            if isinstance(encoded_audio, str):
+                self._validate_str_input_uri_or_file(encoded_audio)
             return decode_audio(encoded_audio)
-        else:
-            return data
+        elif isinstance(data, str):
+            self._validate_str_input_uri_or_file(data)
+        return data
+
+    @staticmethod
+    def _validate_str_input_uri_or_file(input_str):
+        """
+        Validation of blob references to audio files, if a string is input to the ``predict``
+        method, perform validation of the string contents by checking for a valid uri or
+        filesystem reference instead of surfacing the cryptic stack trace that is otherwise raised
+        for an invalid uri input.
+        """
+
+        def is_uri(s):
+            try:
+                result = urlparse(s)
+                return all([result.scheme, result.netloc])
+            except ValueError:
+                return False
+
+        valid_uri = os.path.isfile(input_str) or is_uri(input_str)
+
+        if not valid_uri:
+            raise MlflowException(
+                "An invalid string input was provided. String inputs to "
+                "audio files must be either a file location or a uri.",
+                error_code=BAD_REQUEST,
+            )
 
 
 @experimental
@@ -2374,6 +2468,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
+    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
