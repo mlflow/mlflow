@@ -5,14 +5,25 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import configureStore from 'redux-mock-store';
+import thunk from 'redux-thunk';
+import promiseMiddleware from 'redux-promise-middleware';
 import {
   fetchMissingParents,
+  getEvaluationTableArtifact,
   getParentRunIdsToFetch,
   getParentRunTagName,
   searchRunsPayload,
 } from './actions';
+import { MLFLOW_LOGGED_ARTIFACTS_TAG } from './constants';
+import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import { ViewType } from './sdk/MlflowEnums';
 import { MlflowService } from './sdk/MlflowService';
+import { RunLoggedArtifactType } from './types';
+
+jest.mock('./sdk/EvaluationArtifactService', () => ({
+  fetchEvaluationTableArtifact: jest.fn(),
+}));
 
 const a = {
   info: { run_id: 'a' },
@@ -223,5 +234,51 @@ describe('searchRunsPayload', () => {
       .mockImplementation((data) => Promise.resolve({ run: aParent }));
     const result = await searchRunsPayload({ shouldFetchParents: true });
     expect(result.runsMatchingFilter).toEqual(expect.arrayContaining([aParent]));
+  });
+});
+
+describe('getEvaluationArtifact', () => {
+  const emptyStore = {
+    evaluationData: { evaluationArtifactsByRunUuid: {}, evaluationArtifactsLoadingByRunUuid: {} },
+  };
+  const mockStoreFactory = configureStore([thunk, promiseMiddleware()]);
+
+  beforeEach(() => {
+    (fetchEvaluationTableArtifact as jest.Mock).mockClear();
+  });
+
+  it('should invoke downloading single artifact', () => {
+    const mockStore = mockStoreFactory(emptyStore);
+    mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact'));
+    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/artifact');
+  });
+
+  it('should invoke downloading missing artifacts', () => {
+    const mockStore = mockStoreFactory({
+      evaluationData: {
+        evaluationArtifactsByRunUuid: { run_1: { '/path/to/artifact': {} } },
+        evaluationArtifactsLoadingByRunUuid: {},
+      },
+    });
+    mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact'));
+    mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/other/artifact'));
+    expect(fetchEvaluationTableArtifact).toBeCalledTimes(1);
+    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/other/artifact');
+  });
+
+  it('should invoke downloading all artifacts if force refreshing', () => {
+    const mockStore = mockStoreFactory({
+      evaluationData: {
+        evaluationArtifactsByRunUuid: {
+          run_1: { '/path/to/artifact': {} },
+        },
+        evaluationArtifactsLoadingByRunUuid: {},
+      },
+    });
+    mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/artifact', true));
+    mockStore.dispatch(getEvaluationTableArtifact('run_1', '/path/to/other/artifact', true));
+    expect(fetchEvaluationTableArtifact).toBeCalledTimes(2);
+    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/artifact');
+    expect(fetchEvaluationTableArtifact).toBeCalledWith('run_1', '/path/to/other/artifact');
   });
 });

@@ -5,6 +5,8 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import type { Dispatch, Action } from 'redux';
+import type { ThunkDispatch } from 'redux-thunk';
 import { MlflowService } from './sdk/MlflowService';
 import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
@@ -12,7 +14,15 @@ import { isArray } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
 import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
 import { stringify as queryStringStringify } from 'qs';
-
+import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
+import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
+import {
+  EvaluationArtifactTable,
+  RunLoggedArtifactType,
+  RunLoggedArtifactsDeclaration,
+} from './types';
+import type { RunRowType } from './components/experiment-page/utils/experimentPage.row-types';
+import { MLFLOW_LOGGED_ARTIFACTS_TAG } from './constants';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
 export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
@@ -426,3 +436,33 @@ export const openErrorModal = (text: any) => {
     text,
   };
 };
+
+/**
+ * A thunk action that fetches and stores a single evaluation table artifact for a given run.
+ * Does not download the artifact if it's already present in the store, unless `forceRefresh` is set to `true`.
+ */
+export const getEvaluationTableArtifact =
+  (runUuid: string, artifactPath: string, forceRefresh = false) =>
+  (dispatch: Dispatch, getState: () => { evaluationData: EvaluationDataReduxState }) => {
+    const { evaluationData: existingEvaluationData } = getState();
+    const alreadyInStore = Boolean(
+      existingEvaluationData.evaluationArtifactsByRunUuid[runUuid]?.[artifactPath] ||
+        existingEvaluationData.evaluationArtifactsLoadingByRunUuid[runUuid]?.[artifactPath],
+    );
+    if (forceRefresh || !alreadyInStore) {
+      dispatch({
+        type: GET_EVALUATION_TABLE_ARTIFACT,
+        payload: fetchEvaluationTableArtifact(runUuid, artifactPath),
+        meta: { runUuid, artifactPath },
+      });
+    }
+  };
+
+/**
+ * Defines shape of the fulfilled GET_EVALUATION_ARTIFACT action
+ */
+export interface GetEvaluationTableArtifactAction extends Action {
+  meta: { runUuid: string; artifactPath: string };
+  payload: EvaluationArtifactTable | Error;
+}
+export const GET_EVALUATION_TABLE_ARTIFACT = 'GET_EVALUATION_TABLE_ARTIFACT';
