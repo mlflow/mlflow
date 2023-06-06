@@ -595,7 +595,7 @@ def clear_hub_cache():
     Frees up disk space for cached huggingface transformers models and components.
 
     This function will remove all files within the cache if the total size of objects exceeds
-    1 GiB on disk. It is used only in CI testing to alleviate the disk burden on the runners as
+    1 GB on disk. It is used only in CI testing to alleviate the disk burden on the runners as
     they have limited allocated space and will terminate if the available disk space drops too low.
     """
     try:

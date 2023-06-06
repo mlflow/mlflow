@@ -38,14 +38,11 @@ jobs:
     timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
-      - name: Free Ubuntu Disk Space
-        uses: jlumbroso/free-disk-space@v1.2.0
-        with:
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          swap-storage: true
+      - name: Remove unneeded libraries
+        run: |
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}
