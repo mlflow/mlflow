@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { connect } from 'react-redux';
 import {
@@ -22,10 +29,10 @@ import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import _ from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
-type ModelVersionPageImplProps = {
-  history: any;
-  match: any;
+type ModelVersionPageImplProps = WithRouterNextProps & {
   modelName: string;
   version: string;
   modelVersion?: any;
@@ -41,11 +48,6 @@ type ModelVersionPageImplProps = {
   parseMlModelFile: (...args: any[]) => any;
   schema?: any;
   activities?: Record<string, unknown>[];
-  getModelVersionActivitiesApi: (...args: any[]) => any;
-  createTransitionRequestApi: (...args: any[]) => any;
-  createCommentApi: (...args: any[]) => any;
-  updateCommentApi: (...args: any[]) => any;
-  deleteCommentApi: (...args: any[]) => any;
 };
 
 type ModelVersionPageImplState = any;
@@ -84,14 +86,14 @@ export class ModelVersionPageImpl extends React.Component<
   };
 
   pollData = () => {
-    const { modelName, version, history } = this.props;
+    const { modelName, version, navigate } = this.props;
     if (!this.hasPendingPollingRequest() && Utils.isBrowserTabVisible()) {
       // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
       return this.loadData().catch((e) => {
         if (e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
-          history.push(getModelPageRoute(modelName));
+          navigate(getModelPageRoute(modelName));
         } else {
           console.error(e);
         }
@@ -190,7 +192,7 @@ export class ModelVersionPageImpl extends React.Component<
   }
 
   render() {
-    const { modelName, version, modelVersion, runInfo, runDisplayName, history, schema } =
+    const { modelName, version, modelVersion, runInfo, runDisplayName, navigate, schema } =
       this.props;
 
     return (
@@ -238,7 +240,7 @@ export class ModelVersionPageImpl extends React.Component<
                   runDisplayName={runDisplayName}
                   handleEditDescription={this.handleEditDescription}
                   deleteModelVersionApi={this.props.deleteModelVersionApi}
-                  history={history}
+                  navigate={navigate}
                   handleStageTransitionDropdownSelect={this.handleStageTransitionDropdownSelect}
                   schema={schema}
                 />
@@ -252,9 +254,12 @@ export class ModelVersionPageImpl extends React.Component<
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
-  const modelName = decodeURIComponent(ownProps.match.params.modelName);
-  const { version } = ownProps.match.params;
+const mapStateToProps = (
+  state: any,
+  ownProps: WithRouterNextProps<{ modelName: string; version: string }>,
+) => {
+  const modelName = decodeURIComponent(ownProps.params.modelName);
+  const { version } = ownProps.params;
   const modelVersion = getModelVersion(state, modelName, version);
   const schema = getModelVersionSchemas(state, modelName, version);
   let runInfo = null;
@@ -285,4 +290,6 @@ const mapDispatchToProps = {
   getRunApi,
 };
 
-export const ModelVersionPage = connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl);
+export const ModelVersionPage = withRouterNext(
+  connect(mapStateToProps, mapDispatchToProps)(ModelVersionPageImpl),
+);

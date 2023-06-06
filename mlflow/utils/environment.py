@@ -84,7 +84,7 @@ class _PythonEnv:
     def _get_package_version(package_name):
         try:
             return __import__(package_name).__version__
-        except (ImportError, AttributeError):
+        except (ImportError, AttributeError, AssertionError):
             return None
 
     @staticmethod

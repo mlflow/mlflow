@@ -33,6 +33,20 @@ jest.mock('./i18n/loadMessages', () => ({
   },
 }));
 
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation((query) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(),
+    removeListener: jest.fn(),
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
 beforeEach(() => {
   // Prevent unit tests making actual fetch calls,
   // every test should explicitly mock all the API calls for the tested component.
@@ -41,17 +55,20 @@ beforeEach(() => {
       'No API calls should be made from unit tests. Please explicitly mock all API calls.',
     );
   });
-  Object.defineProperty(window, 'matchMedia', {
-    writable: true,
-    value: jest.fn().mockImplementation((query) => ({
-      matches: false,
-      media: query,
-      onchange: null,
-      addListener: jest.fn(),
-      removeListener: jest.fn(),
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn(),
-      dispatchEvent: jest.fn(),
-    })),
-  });
+
+  global.PerformanceObserver = class PerformanceObserver {
+    callback;
+
+    observe() {
+      return null;
+    }
+
+    disconnect() {
+      return null;
+    }
+
+    constructor(callback) {
+      this.callback = callback;
+    }
+  };
 });

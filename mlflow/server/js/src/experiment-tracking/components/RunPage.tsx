@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import { getExperimentApi, getRunApi, setTagApi } from '../actions';
@@ -11,6 +18,7 @@ import { RunNotFoundView } from './RunNotFoundView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { Spinner } from '../../common/components/Spinner';
 import { PageContainer } from '../../common/components/PageContainer';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 
 type RunPageImplProps = {
   runUuid: string;
@@ -35,7 +43,9 @@ export class RunPageImpl extends Component<RunPageImplProps> {
     const { experimentId, runUuid } = this.props;
     this.props.getRunApi(runUuid, this.getRunRequestId);
     this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
-    this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchModelVersionsRequestId);
+    if (runUuid) {
+      this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchModelVersionsRequestId);
+    }
   }
 
   handleSetRunTag = (tagName: any, value: any) => {
@@ -84,8 +94,8 @@ export class RunPageImpl extends Component<RunPageImplProps> {
 }
 
 const mapStateToProps = (state: any, ownProps: any) => {
-  const { match } = ownProps;
-  const { runUuid, experimentId } = match.params;
+  const { params } = ownProps;
+  const { runUuid, experimentId } = params;
   const { modelVersionsByRunUuid } = state.entities;
   const modelVersions = modelVersionsByRunUuid ? modelVersionsByRunUuid[runUuid] : null;
   return {
@@ -104,4 +114,4 @@ const mapDispatchToProps = {
   setTagApi,
 };
 
-export const RunPage = connect(mapStateToProps, mapDispatchToProps)(RunPageImpl);
+export const RunPage = withRouterNext(connect(mapStateToProps, mapDispatchToProps)(RunPageImpl));

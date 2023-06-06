@@ -4,13 +4,14 @@ import shutil
 import uuid
 import re
 import sys
+import tempfile
 from pathlib import Path
 from packaging.version import Version
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import Model, MLMODEL_FILE_NAME
-from mlflow.utils.file_utils import TempDir, remove_on_error
+from mlflow.utils.file_utils import remove_on_error
 from mlflow.utils.process import _exec_cmd, _join_commands, _IS_UNIX
 from mlflow.utils.requirements_utils import _parse_requirements
 from mlflow.utils.environment import (
@@ -254,18 +255,16 @@ def _create_virtualenv(
 
         _logger.info("Installing dependencies")
         for deps in filter(None, [python_env.build_dependencies, python_env.dependencies]):
-            with TempDir() as t:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 # Create a temporary requirements file in the model directory to resolve the
                 # references in it correctly. To do this, we must first symlink or copy the model
                 # directory's contents to a temporary location for compatibility with deployment
                 # tools that store models in a read-only mount
-                tmp_model_dir = t.path("model")
-                os.makedirs(tmp_model_dir)
                 try:
                     for model_item in os.listdir(local_model_path):
                         os.symlink(
                             src=os.path.join(local_model_path, model_item),
-                            dst=os.path.join(tmp_model_dir, model_item),
+                            dst=os.path.join(tmpdir, model_item),
                         )
                 except Exception as e:
                     _logger.warning(
@@ -273,17 +272,14 @@ def _create_virtualenv(
                         " Copying instead. Exception: %s",
                         e,
                     )
-                    shutil.rmtree(tmp_model_dir)
-                    _copy_model_to_writeable_destination(local_model_path, tmp_model_dir)
+                    _copy_model_to_writeable_destination(local_model_path, tmpdir)
 
                 tmp_req_file = f"requirements.{uuid.uuid4().hex}.txt"
-                Path(tmp_model_dir).joinpath(tmp_req_file).write_text("\n".join(deps))
+                Path(tmpdir).joinpath(tmp_req_file).write_text("\n".join(deps))
                 cmd = _join_commands(
                     activate_cmd, f"python -m pip install --quiet -r {tmp_req_file}"
                 )
-                _exec_cmd(
-                    cmd, capture_output=capture_output, cwd=tmp_model_dir, extra_env=extra_env
-                )
+                _exec_cmd(cmd, capture_output=capture_output, cwd=tmpdir, extra_env=extra_env)
 
     return activate_cmd
 

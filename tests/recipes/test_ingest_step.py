@@ -36,19 +36,18 @@ def pandas_df():
     return df
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
-    session = (
+    with (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
         .getOrCreate()
-    )
-    yield session
-    session.stop()
+    ) as session:
+        yield session
 
 
 @pytest.fixture()
@@ -866,6 +865,7 @@ def test_ingest_skips_profiling_when_specified(pandas_df, tmp_path):
     mock_profiling.assert_not_called()
 
 
+@pytest.mark.skip(reason="https://issues.apache.org/jira/projects/SPARK/issues/SPARK-43194")
 @pytest.mark.usefixtures("enter_test_recipe_directory")
 def test_ingests_spark_sql_datetime_successfully(spark_session, tmp_path):
     from pyspark.sql.functions import (

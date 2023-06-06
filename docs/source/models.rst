@@ -233,7 +233,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
 A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
-Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
@@ -243,9 +243,11 @@ Column-based Signature Example
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -253,7 +255,7 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
@@ -262,6 +264,7 @@ Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch,
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+Tensor-based signatures do not support optional inputs.
 When specifying the shape, -1 is used for axes that may be variable in size.
 The following example displays an MLmodel file excerpt containing the model signature for a
 classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
@@ -289,11 +292,12 @@ particular, it is not applied to models that are loaded in their native format (
 
 Name Ordering Enforcement
 """""""""""""""""""""""""
-The input names are checked against the model signature. If there are any missing inputs,
-MLflow will raise an exception. Extra inputs that were not declared in the signature will be
-ignored. If the input schema in the signature defines input names, input matching is done by name
-and the inputs are reordered to match the signature. If the input schema does not have input
-names, matching is done by position (i.e. MLflow will only check the number of inputs).
+The input names are checked against the model signature. If there are any missing required inputs,
+MLflow will raise an exception. Missing optional inputs will not raise an exception.
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
+signature defines input names, input matching is done by name and the inputs are reordered to match the 
+signature. If the input schema does not have input names, matching is done by position 
+(i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
 """"""""""""""""""""""
@@ -382,6 +386,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
@@ -2522,8 +2527,8 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
 
-    In the current version, text-based large language
-    models are supported for use with ``pyfunc``, while computer vision, audio, multi-modal, timeseries,
+    In the current version, audio and text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
     reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
 
     Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
@@ -2543,25 +2548,25 @@ data type inputs and outputs.
 Supported transformers Pipeline types for Pyfunc
 """"""""""""""""""""""""""""""""""""""""""""""""
 
-================================= ============================== =================
+================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
-================================= ============================== =================
-Instructional Text Generation     str or List[str]               str or List[str]
-Conversational                    str or List[str]               str or List[str]
-Summarization                     str or List[str]               str or List[str]
-Text Classification               str or List[str]               str or List[str]
-Text Generation                   str or List[str]               str or List[str]
-Text2Text Generation              str or List[str]               str or List[str]
-Token Classification              str or List[str]               str or List[str]
-Translation                       str or List[str]               str or List[str]
-ZeroShot Classification*          Dict[str, [List[str] | str]*   str or List[str]
-Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
-Question Answering***             Dict[str, str]***              str or List[str]
-Fill Mask****                     str or List[str]****           str or List[str]
+================================= ============================== ==========================================================================
+Instructional Text Generation     str or List[str]               List[str]
+Conversational                    str or List[str]               List[str]
+Summarization                     str or List[str]               List[str]
+Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
+Text Generation                   str or List[str]               List[str]
+Text2Text Generation              str or List[str]               List[str]
+Token Classification              str or List[str]               List[str]
+Translation                       str or List[str]               List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
+Table Question Answering**        Dict[str, [List[str] | str]**  List[str]
+Question Answering***             Dict[str, str]***              List[str]
+Fill Mask****                     str or List[str]****           List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes***** or np.ndarray       str
-AudioClassification               bytes***** or np.ndarray       pd.DataFrame
-================================= ============================== =================
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray List[str]
+AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
+================================= ============================== ==========================================================================
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
 Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
@@ -2574,7 +2579,7 @@ expected input to the model to ensure your inference request can be read properl
 \**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
 avoid failed inference requests.
 
-\***** If using the `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint.
+\***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
 Example of loading a transformers model as a python function
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
@@ -2615,13 +2620,16 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
     print(response)
 
-    # >> It's a new thing that's been around for a while.
+    # >> [It's a new thing that's been around for a while.]
 
 
 Save and Load options for transformers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
 an easy to use interface that is optimized for inference.
+
+.. note::
+    MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
 
 .. note::
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
@@ -2863,23 +2871,53 @@ In order to use the bitrate transposition and conversion of the audio bytes data
 Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
 Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
 
-The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have two input types available:
+The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have three input types available:
 
-* `bytes`
+* ``str``
+
+The string input type is meant for blob references (uri locations) that are accessible to the instance of the ``pyfunc`` model.
+This input mode is useful when doing large batch processing of audio inference in Spark due to the inherent limitations of handling large ``bytes``
+data in ``Spark`` ``DataFrames``. Ensure that you have ``ffmpeg`` installed in the environment that the ``pyfunc`` model is running in order
+to use ``str`` input uri-based inference. If this package is not properly installed (both from ``pypi`` and from the ``ffmpeg`` binaries), an Exception
+will be thrown at inference time.
+
+.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model that you are intending to host for realtime inference through the `MLflow Model Server`,
+    you *must* specify a custom model signature when logging or saving the model.
+    The default signature input value type of ``bytes`` will, in `MLflow Model serving`, force the conversion of the uri string to ``bytes``, which will cause an Exception
+    to be thrown from the serving process stating that the soundfile is corrupt.
+
+An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
+
+.. code-block:: python
+
+    from mlflow.models.signature import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
+    signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=my_audio_pipeline,
+            artifact_path="my_transcriber",
+            signature=signature,
+        )
+
+
+* ``bytes``
 
 This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
-Pipeline implementations will automatically convert the audio bitrate from the file with the use of `ffmpeg` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
-When using the `pyfunc` representation of the pipeline directly (not through serving), the sound file can be passed directly as `bytes` without any
-modification. When used through serving, the `bytes` data *must be* base64 encoded.
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of ``ffmpeg`` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the ``pyfunc`` representation of the pipeline directly (not through serving), the sound file can be passed directly as ``bytes`` without any
+modification. When used through serving, the ``bytes`` data *must be* base64 encoded.
 
-* `np.ndarray`
+* ``np.ndarray``
 
-This input format requires that both the bitrate has been set prior to conversion to `numpy.ndarray` (i.e., through the use of a package like
-`librosa` or `pydub`) and that the model has been saved with a signature that uses the `np.ndarray` format for the input.
+This input format requires that both the bitrate has been set prior to conversion to ``numpy.ndarray`` (i.e., through the use of a package like
+``librosa`` or ``pydub``) and that the model has been saved with a signature that uses the ``np.ndarray`` format for the input.
 
-.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in `np.ndarray` format
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in ``np.ndarray`` format
     must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
-    audio transformers pipelines being set as expecting `binary` (`bytes`) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
     or the other as an allowed input type.
 
 

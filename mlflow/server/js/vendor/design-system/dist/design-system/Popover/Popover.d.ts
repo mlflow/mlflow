@@ -1,8 +1,12 @@
 /// <reference types="react" />
-import type { PopoverProps as AntDPopoverProps } from 'antd';
-import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
-export interface PopoverProps extends Omit<AntDPopoverProps, 'content'>, DangerouslySetAntdProps<AntDPopoverProps>, HTMLDataAttributes {
-    content?: React.ReactNode;
+import * as Popover from '@radix-ui/react-popover';
+export declare const Root: import("react").FC<Popover.PopoverProps>;
+export declare const Anchor: import("react").ForwardRefExoticComponent<Popover.PopoverAnchorProps & import("react").RefAttributes<HTMLDivElement>>;
+export interface PopoverProps extends Popover.PopoverContentProps {
+    minWidth?: number;
 }
-export declare const Popover: React.FC<PopoverProps>;
+export declare const Content: import("react").ForwardRefExoticComponent<PopoverProps & import("react").RefAttributes<HTMLDivElement>>;
+export declare const Trigger: import("react").ForwardRefExoticComponent<Popover.PopoverTriggerProps & import("react").RefAttributes<HTMLButtonElement>>;
+export declare const Close: import("react").ForwardRefExoticComponent<Popover.PopoverCloseProps & import("react").RefAttributes<HTMLButtonElement>>;
+export declare const Arrow: import("react").ForwardRefExoticComponent<Popover.PopoverArrowProps & import("react").RefAttributes<SVGSVGElement>>;
 //# sourceMappingURL=Popover.d.ts.map

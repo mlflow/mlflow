@@ -1,18 +1,25 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { GenericInputModal } from '../../experiment-tracking/components/modals/GenericInputModal';
 import { CreateModelForm, MODEL_NAME_FIELD } from './CreateModelForm';
 import { connect } from 'react-redux';
 import { createRegisteredModelApi } from '../actions';
 import { getUUID } from '../../common/utils/ActionUtils';
-import { withRouter } from 'react-router-dom';
 import { getModelPageRoute } from '../routes';
 import { debounce } from 'lodash';
 import { modelNameValidator } from '../../common/forms/validations';
 import { injectIntl } from 'react-intl';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
-type Props = {
+type Props = WithRouterNextProps & {
   createRegisteredModelApi: (...args: any[]) => any;
-  history: any;
   modalVisible: boolean;
   hideModal: (...args: any[]) => any;
   navigateBackOnCancel?: boolean;
@@ -31,7 +38,7 @@ export class CreateModelModalImpl extends React.Component<Props> {
     if (newModel) {
       // Jump to the page of newly created model. Here we are yielding to next tick to allow modal
       // and form to finish closing and cleaning up.
-      setTimeout(() => this.props.history.push(getModelPageRoute(newModel.name)));
+      setTimeout(() => this.props.navigate(getModelPageRoute(newModel.name)));
     }
   };
 
@@ -39,7 +46,7 @@ export class CreateModelModalImpl extends React.Component<Props> {
 
   handleOnCancel = () => {
     if (this.props.navigateBackOnCancel) {
-      this.props.history.goBack();
+      this.props.navigate(-1);
     }
   };
 
@@ -75,7 +82,7 @@ const mapDispatchToProps = {
   createRegisteredModelApi,
 };
 
-export const CreateModelModal: TODOBrokenReactRouterType = withRouter(
+export const CreateModelModal: TODOBrokenReactRouterType = withRouterNext(
   // @ts-expect-error TS(2345): Argument of type 'ConnectedComponent<FC<WithIntlPr... Remove this comment to see the full error message
   connect(undefined, mapDispatchToProps)(injectIntl(CreateModelModalImpl)),
 );

@@ -6,6 +6,7 @@ export interface DialogComboboxProps extends Popover.PopoverProps, HTMLDataAttri
     value?: string[];
     stayOpenOnSelection?: boolean;
     multiSelect?: boolean;
+    emptyText?: string;
 }
-export declare const DialogCombobox: ({ children, label, value, open, ...props }: DialogComboboxProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const DialogCombobox: ({ children, label, value, open, emptyText, ...props }: DialogComboboxProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=DialogCombobox.d.ts.map

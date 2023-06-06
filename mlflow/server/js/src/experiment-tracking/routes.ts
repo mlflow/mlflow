@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import { X_AXIS_RELATIVE } from './components/MetricsPlotControls';
 
 class Routes {
@@ -36,7 +43,7 @@ class Routes {
   static directRunPageRoute = '/runs/:runUuid';
 
   static runPageWithArtifactSelectedRoute =
-    '/experiments/:experimentId/runs/:runUuid/artifactPath/:initialSelectedArtifactPath*';
+    '/experiments/:experimentId/runs/:runUuid/artifactPath/*';
 
   /**
    * Get route to the metric plot page
