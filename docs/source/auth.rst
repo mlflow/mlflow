@@ -515,13 +515,21 @@ Custom Authentication
 MLflow authentication is designed to be extensible. If your organization desires more advanced authentication logic 
 (e.g., token-based authentication), it is possible to install a third party plugin or to create your own plugin.
 
-Your plugin should modify the MLflow app and be installed in your Python environment:
+Your plugin should mutate the MLflow app and, optionally, implement a client to manage permissions.
+Then the plugin should be installed in your Python environment:
 
 .. code-block:: python
 
     from mlflow.server import app
     
     app.add_url_rule(...)
+
+    class MyAuthClient:
+        ...
+
+.. code-block:: bash
+
+    pip install my_auth
 
 Then, register your plugin in ``mlflow/setup.py``:
 
@@ -534,6 +542,9 @@ Then, register your plugin in ``mlflow/setup.py``:
 
             [mlflow.app]
             my-auth=my_auth:app
+
+            [mlflow.app.client]
+            my-auth=my_auth:MyAuthClient
         """,
     )
 
