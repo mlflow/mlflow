@@ -281,6 +281,17 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/delete-tag``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
+
+MLflow Authentication introduces several new API endpoints to manage users and permissions.
+
+.. list-table::
+   :widths: 10 10 10 10
+   :header-rows: 1
+
+   * - API
+     - Endpoint
+     - Method
+     - Permission
    * - :ref:`Create User <mlflowAuthServicecreateUser>`
      - ``2.0/mlflow/users/create``
      - ``POST``

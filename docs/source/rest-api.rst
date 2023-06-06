@@ -1802,17 +1802,13 @@ Response Structure
 .. _mlflowAuthServiceCreateUser:
 
 Create User
-=================
+===========
 
 +-----------------------------+-------------+
 |          Endpoint           | HTTP Method |
 +=============================+=============+
 | ``2.0/mlflow/users/create`` | ``POST``    |
 +-----------------------------+-------------+
-
-Create a user in :ref:`MLflow Authentication<auth>`. Returns the User object of the newly created user.
-
-Throws ``RESOURCE_ALREADY_EXISTS`` if a user with the given username exists.
 
 .. _mlflowCreateUser:
 
@@ -1832,11 +1828,99 @@ Request Structure
 Response Structure
 ------------------
 
-+------------+-------------------+---------------+
-| Field Name |       Type        |  Description  |
-+============+===================+===============+
-| user       | :ref:`mlflowuser` | A user object |
-+------------+-------------------+---------------+
++------------+-------------------+----------------+
+| Field Name |       Type        |  Description   |
++============+===================+================+
+| user       | :ref:`mlflowUser` | A user object. |
++------------+-------------------+----------------+
+
+===========================
+
+.. _mlflowAuthServiceGetUser:
+
+Get User
+========
+
++--------------------------+-------------+
+|         Endpoint         | HTTP Method |
++==========================+=============+
+| ``2.0/mlflow/users/get`` | ``GET``     |
++--------------------------+-------------+
+
+.. _mlflowGetUser:
+
+Request Structure
+-----------------
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| username   | ``STRING`` | Username.   |
++------------+------------+-------------+
+
+.. _mlflowGetUserResponse:
+
+Response Structure
+------------------
+
++------------+-------------------+----------------+
+| Field Name |       Type        |  Description   |
++============+===================+================+
+| user       | :ref:`mlflowUser` | A user object. |
++------------+-------------------+----------------+
+
+===========================
+
+.. _mlflowAuthServiceUpdateUserPassword:
+
+Update User Password
+====================
+
++--------------------------------------+-------------+
+|               Endpoint               | HTTP Method |
++======================================+=============+
+| ``2.0/mlflow/users/update-password`` | ``PATCH``   |
++--------------------------------------+-------------+
+
+.. _mlflowUpdateUserPassword:
+
+Request Structure
+-----------------
+
++------------+------------+---------------+
+| Field Name | Type       | Description   |
++============+============+===============+
+| username   | ``STRING`` | Username.     |
++------------+------------+---------------+
+| password   | ``STRING`` | New password. |
++------------+------------+---------------+
+
+===========================
+
+.. _mlflowAuthServiceUpdateUserAdmin:
+
+Update User Admin
+=================
+
++-----------------------------------+-------------+
+|             Endpoint              | HTTP Method |
++===================================+=============+
+| ``2.0/mlflow/users/update-admin`` | ``PATCH``   |
++-----------------------------------+-------------+
+
+.. _mlflowUpdateUserAdmin:
+
+Request Structure
+-----------------
+
++------------+-------------+-------------------+
+| Field Name |    Type     |    Description    |
++============+=============+===================+
+| username   | ``STRING``  | Username.         |
++------------+-------------+-------------------+
+| is_admin   | ``BOOLEAN`` | New admin status. |
++------------+-------------+-------------------+
+
 
 .. _RESTadd:
 
