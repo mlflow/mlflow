@@ -30,7 +30,7 @@ Bug fixes:
 
 - [Tracking] Terminate Spark callback server when Spark Autologging is disabled or Spark Session is shut down (#8508, @WeichenXu123)
 - [Tracking] Fix compatibility of ``mlflow server`` with ``Flask<2.0`` (#8463, @kevingreer)
-- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings for batch inference (#8546, @BenWilson2)
+- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings during batch inference (#8546, @BenWilson2)
 - [Models] Fix a bug causing outdated pyenv versions to be installed by ``mlflow models build-docker`` (#8488, @Hellzed)
 - [Model Registry] Remove aliases from storage when a Model Version is deleted (#8459, @arpitjasa-db)
 
