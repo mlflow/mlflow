@@ -1937,7 +1937,6 @@ def autolog(
         fastai,
         pytorch,
         transformers,
-        johnsnowlabs,
     )
 
     locals_copy = locals().items()
