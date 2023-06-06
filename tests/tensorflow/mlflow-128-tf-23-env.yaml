@@ -7,8 +7,5 @@ dependencies:
       - mlflow==1.28.0
       - h5py<3.0.0
       - tensorflow==2.3.0
-      # pin pandas version to avoid pickling error
-      # AttributeError: Can't get attribute '_unpickle_block'
-      - pandas==1.3.5
       - protobuf<4.0.0
 name: mlflow-128-tf-23-env
