@@ -117,7 +117,7 @@ _logger = logging.getLogger(__name__)
 
 
 def _validate_env_vars():
-    if not os.environ.get(_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY):
+    if _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY not in os.environ:
         raise Exception(
             f"Please set the {_JOHNSNOWLABS_ENV_JSON_LICENSE_KEY}"
             f" environment variable as the raw license.json string from John Snow Labs"
