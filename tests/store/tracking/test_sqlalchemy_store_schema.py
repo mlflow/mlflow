@@ -64,8 +64,9 @@ def expected_schema_file():
 
 
 @pytest.fixture()
-def db_url(tmpdir):
-    return "sqlite:///%s" % tmpdir.join("db_file").strpath
+def db_url(tmp_path):
+    db_file = tmp_path.joinpath("db_file")
+    return f"sqlite:///{db_file}"
 
 
 def test_sqlalchemystore_idempotently_generates_up_to_date_schema(

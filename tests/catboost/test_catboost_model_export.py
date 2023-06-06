@@ -78,13 +78,13 @@ def reg_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return tmpdir.join("model").strpath
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def custom_env(tmpdir):
-    conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yml")
+def custom_env(tmp_path):
+    conda_env_path = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost", "pytest"])
     return conda_env_path
 
@@ -211,11 +211,11 @@ def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_buck
     )
 
 
-def test_log_model(cb_model, tmpdir):
+def test_log_model(cb_model, tmp_path):
     model, inference_dataframe = cb_model
     with mlflow.start_run():
         artifact_path = "model"
-        conda_env = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
         model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
@@ -236,11 +236,11 @@ def test_log_model(cb_model, tmpdir):
         assert os.path.exists(os.path.join(local_path, env_path))
 
 
-def test_log_model_calls_register_model(cb_model, tmpdir):
+def test_log_model_calls_register_model(cb_model, tmp_path):
     artifact_path = "model"
     registered_model_name = "registered_model"
     with mlflow.start_run() as run, mock.patch("mlflow.register_model") as register_model_mock:
-        conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
         mlflow.catboost.log_model(
             cb_model.model,
@@ -254,10 +254,10 @@ def test_log_model_calls_register_model(cb_model, tmpdir):
         )
 
 
-def test_log_model_no_registered_model_name(cb_model, tmpdir):
+def test_log_model_no_registered_model_name(cb_model, tmp_path):
     with mlflow.start_run(), mock.patch("mlflow.register_model") as register_model_mock:
         artifact_path = "model"
-        conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
         mlflow.catboost.log_model(cb_model.model, artifact_path, conda_env=conda_env_path)
         register_model_mock.assert_not_called()

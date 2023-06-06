@@ -395,20 +395,32 @@ message GetModelVersionByAliasResponse {
 }
 
 // Lineage kafka protos
-enum EntityType {
-    JOB = 0;
-    DLT_PIPELINE = 1;
-    NOTEBOOK = 2;
-    DASHBOARD = 3;
+message Entity {
+  oneof value {
+    Job job = 1;
+    Notebook notebook = 2;
+    Pipeline pipeline = 3;
+  }
 }
 
-message EntityInfo {
-    optional EntityType entity_type = 1;
-    optional string entity_id = 2; // A unique identifier to identify an entity
-    optional string query_id = 3; // run level ID (pipeline update_id, job run_id)
-    optional string entity_metadata = 4; // JSON formatted String with entity specific metadata (job task_key)
+message Pipeline {
+  optional string pipeline_id = 1;
+  optional string pipeline_update_id = 2;
+}
+
+message Job {
+  optional string id = 1;
+  optional string task_key = 2;
+  optional string job_run_id = 3;
+  optional string task_run_id = 4;
+}
+
+message Notebook {
+  optional string id = 1;
+  optional string command_id = 2;
+  optional string notebook_run_id = 3;
 }
 
 message LineageHeaderInfo {
-    repeated EntityInfo entity_info = 1;
+  repeated Entity entities = 1;
 }

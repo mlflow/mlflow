@@ -119,6 +119,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -141,6 +143,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true, '321': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -163,6 +167,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 
@@ -176,6 +182,8 @@ describe('ExperimentViewRunsControlsFilters', () => {
         runsSelected: { '123': true, '321': true },
         hiddenChildRunsSelected: {},
         columnSelectorVisible: false,
+        previewPaneVisible: false,
+        artifactViewState: {},
       },
     });
 

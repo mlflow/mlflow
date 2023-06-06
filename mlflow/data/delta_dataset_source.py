@@ -1,4 +1,4 @@
-from typing import TypeVar, Any, Optional, Dict
+from typing import Any, Optional, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
@@ -6,8 +6,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.annotations import experimental
 
-
-DeltaDatasetSourceType = TypeVar("DeltaDatasetSourceType", bound="DeltaDatasetSource")
 
 DATABRICKS_HIVE_METASTORE_NAME = "hive_metastore"
 # these two catalog names both points to the workspace local default HMS (hive metastore).
@@ -77,20 +75,17 @@ class DeltaDatasetSource(DatasetSource):
         return False
 
     @classmethod
-    def _resolve(cls, raw_source: str) -> DeltaDatasetSourceType:
+    def _resolve(cls, raw_source: str) -> "DeltaDatasetSource":
         raise NotImplementedError
 
     # check if table is in the Databricks Unity Catalog
     def _is_databricks_uc_table(self):
         if is_in_databricks_runtime() and self._delta_table_name is not None:
-            try:
-                catalog_name, _, _ = self._delta_table_name.split(".")
-                return (
-                    catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
-                    and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
-                )
-            except ValueError:
-                return False
+            catalog_name = self._delta_table_name.split(".", 1)[0]
+            return (
+                catalog_name not in DATABRICKS_LOCAL_METASTORE_NAMES
+                and catalog_name != DATABRICKS_SAMPLES_CATALOG_NAME
+            )
 
     def _to_dict(self) -> Dict[Any, Any]:
         info = {}
@@ -105,7 +100,7 @@ class DeltaDatasetSource(DatasetSource):
         return info
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> DeltaDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "DeltaDatasetSource":
         return cls(
             path=source_dict.get("path"),
             delta_table_name=source_dict.get("delta_table_name"),

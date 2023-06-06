@@ -8,6 +8,7 @@ from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
 import pytest
+from tests.helper_functions import clear_hub_cache
 from tests.integration.utils import invoke_cli_runner
 
 EXAMPLES_DIR = "examples"
@@ -176,4 +177,7 @@ def test_mlflow_run_example(directory, params, tmp_path):
 def test_command_example(directory, command):
     cwd_dir = Path(EXAMPLES_DIR, directory)
     assert os.environ.get("MLFLOW_HOME") is not None
+    if directory == "transformers":
+        # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
+        clear_hub_cache()
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)

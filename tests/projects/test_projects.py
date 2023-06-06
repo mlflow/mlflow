@@ -217,7 +217,7 @@ def test_run(use_start_run):
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
-def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
+def test_run_with_parent():
     """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
         parent_run_id = mlflow.active_run().info.run_id

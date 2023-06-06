@@ -49,7 +49,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     onDownloadCsv,
     requestError,
   }: ExperimentViewRunsControlsFiltersProps) => {
-    const { isComparingRuns, startTime, lifecycleFilter } = searchFacetsState;
+    const { compareRunsMode, startTime, lifecycleFilter } = searchFacetsState;
     const intl = useIntl();
 
     // List of labels for "start time" filter
@@ -83,9 +83,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
         <div css={styles.groupBar}>
           <div css={styles.controlBar}>
             <ExperimentViewRunsModeSwitch
-              isComparingRuns={isComparingRuns}
-              setIsComparingRuns={(newIsComparingRuns) =>
-                updateSearchFacets({ isComparingRuns: newIsComparingRuns })
+              compareRunsMode={compareRunsMode}
+              setCompareRunsMode={(newCompareRunsMode) =>
+                updateSearchFacets({ compareRunsMode: newCompareRunsMode })
               }
               viewState={viewState}
             />

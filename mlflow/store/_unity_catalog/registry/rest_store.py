@@ -13,9 +13,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
-    EntityInfo,
+    Entity,
+    Notebook,
     LineageHeaderInfo,
-    NOTEBOOK,
     FinalizeModelVersionRequest,
     FinalizeModelVersionResponse,
     UpdateModelVersionRequest,
@@ -422,8 +422,9 @@ class UcModelRegistryStore(BaseRestStore):
         notebook_id = self._get_notebook_id(run)
         extra_headers = None
         if notebook_id is not None:
-            entity_info = EntityInfo(entity_type=NOTEBOOK, entity_id=str(notebook_id))
-            lineage_header_info = LineageHeaderInfo(entity_info=[entity_info])
+            notebook_entity = Notebook(id=str(notebook_id))
+            entity = Entity(notebook=notebook_entity)
+            lineage_header_info = LineageHeaderInfo(entities=[entity])
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info)}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(

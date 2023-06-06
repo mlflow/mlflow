@@ -72,10 +72,17 @@ jobs:
           pip install --no-dependencies tests/resources/mlflow-test-plugin
           pip install -e .
           pip install pyspark
+          # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
+          # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
+          pip uninstall -y datasets
       - name: Download Hadoop winutils for Spark
         run: |
           git clone https://github.com/cdarlint/winutils
       - name: Run tests
+        env:
+          # The default pooling implmentation 'QueuePool' can lead to errors on Windows when
+          # multiple threads access the same SQLite database file simultaneously.
+          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
