@@ -16,4 +16,4 @@ uvicorn:
 
 httpx:
   pip_release: httpx
-  max_major_version: 1
+  max_major_version: 0
