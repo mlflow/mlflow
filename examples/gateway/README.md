@@ -2,13 +2,13 @@
 
 ## Installation
 
-### From PyPI
+From PyPI:
 
 ```shell
 pip install 'mlflow[gateway]'
 ```
 
-### From the source code
+From the source code:
 
 ```shell
 pip install -e '.[gateway]'
