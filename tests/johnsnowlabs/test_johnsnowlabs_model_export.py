@@ -10,9 +10,6 @@ from johnsnowlabs import nlp
 from packaging.version import Version
 
 import mlflow
-import mlflow.johnsnowlabs
-import mlflow.johnsnowlabs
-import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
@@ -46,7 +43,8 @@ def setup_env():
                 "SPARK_NLP_LICENSE": secrets.HC_LICENSE,
             }
         )
-    # mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS needs to be present now either from CI or from JSL_ACCESS_KEY
+    # mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS needs to be present now either from CI or from
+    # JSL_ACCESS_KEY
     mlflow.johnsnowlabs._set_env_vars()
     nlp.install()
 
@@ -63,9 +61,10 @@ def load_and_init_model(model=nlu_model):
 def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
     # When this issue is resolved, we can remove the usage of this function
     # https://github.com/JohnSnowLabs/nlu/issues/new
-    # TODO there may be some changes in confidence and changes in column names after storing/loading a model
-    # these issues in NLU which are not related to MLflow and to be fixed.
-    # For now we are applying a hotfix here on the dataframes to make sure that the tests run the way they should
+    # TODO there may be some changes in confidence and changes in column names after storing/loading
+    # a model these issues in NLU which are not related to MLflow and to be fixed.
+    # For now we are applying a hotfix here on the dataframes to make sure that the tests run the
+    # way they should
     df1 = df1.drop(columns=[c for c in df1.columns if c not in df2.columns or "confidence" in c])
     df2 = df2.drop(columns=[c for c in df2.columns if c not in df1.columns or "confidence" in c])
 
@@ -73,7 +72,7 @@ def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
         for c in df.columns:
             try:
                 df[c] = df[c].str.lower()
-            except:
+            except Exception:
                 pass
         return df
 
@@ -487,14 +486,14 @@ def test_log_model_calls_register_model(tmpdir, jsl_model):
 #     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 #
 #
-# def test_johnsnowlabs_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+# def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
 #     jsl_model, model_path
 # ):
 #     mlflow.johnsnowlabs.save_model(spark_model=jsl_model, path=model_path)
 #     _assert_pip_requirements(model_path, mlflow.johnsnowlabs.get_default_pip_requirements())
 #
 #
-# def test_johnsnowlabs_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
+# def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
 #     jsl_model,
 # ):
 #     artifact_path = "model"
@@ -633,7 +632,9 @@ def test_log_model_calls_register_model(tmpdir, jsl_model):
 #                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
 #             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
 #             mlflow.johnsnowlabs.log_model(spark_model=jsl_model, artifact_path="model")
-#             mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
+#             mock_save.assert_called_once_with(
+#                 expected_uri.format(mlflow.active_run().info.run_id)
+#             )
 #
 #             if expected_uri.startswith("mflowdbfs"):
 #                 # If mlflowdbfs is used, infer_pip_requirements should load the model from the
