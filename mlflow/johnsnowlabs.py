@@ -111,17 +111,8 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 
 FLAVOR_NAME = "johnsnowlabs"
-
-_JOHNSNOWLABS_JSON_VARS = (
-    "SECRET",
-    "AWS_ACCESS_KEY_ID",
-    "AWS_SECRET_ACCESS_KEY",
-    "SPARK_NLP_LICENSE",
-)
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
-
 _JOHNSNOWLABS_MODEL_PATH_SUB = "jsl-model"
-_MLFLOWDBFS_SCHEME = "mlflowdbfs"
 _logger = logging.getLogger(__name__)
 
 
@@ -163,9 +154,18 @@ def get_default_pip_requirements():
     )
     _validate_env_vars()
 
+    if databricks_utils.is_in_databricks_runtime():
+        deps = [
+            f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
+            _get_pinned_requirement("pyspark"),
+        ]
+    else:
+        deps = [
+            f"johnsnowlabs=={settings.raw_version_jsl_lib}",
+        ]
+
     return [
-        f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
-        _get_pinned_requirement("pyspark"),
+        *deps,
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
