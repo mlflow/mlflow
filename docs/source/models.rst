@@ -2629,6 +2629,9 @@ The ``transformers`` flavor for MLflow provides support for saving either compon
 an easy to use interface that is optimized for inference.
 
 .. note::
+    MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
+
+.. note::
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
 
 Logging a components-based model

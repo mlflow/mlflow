@@ -1,8 +1,7 @@
-import base64
-import mlflow
 import transformers
 import requests
 
+import mlflow
 
 # Acquire an audio file
 audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content

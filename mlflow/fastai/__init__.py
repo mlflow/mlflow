@@ -15,7 +15,6 @@ fastai (native) format
 import os
 import yaml
 import tempfile
-import shutil
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -422,6 +421,7 @@ def load_model(model_uri, dst_path=None):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -440,6 +440,8 @@ def autolog(
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the Fastai autologging integration. If ``False``,
                     enables the Fastai autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -578,14 +580,11 @@ def autolog(
         if remove_cbs:
             learner.add_cbs(remove_cbs)
 
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "module_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
         # Check if is trying to fit while fine tuning or not

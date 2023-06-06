@@ -8,7 +8,7 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any, List
+from typing import Dict, Any, List
 from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.recipes.utils import get_recipe_name
 from mlflow.recipes.utils.step import display_html
@@ -47,9 +47,6 @@ class StepClass(Enum):
     PREDICTION = "PREDICTION"
 
 
-StepExecutionStateType = TypeVar("StepExecutionStateType", bound="StepExecutionState")
-
-
 class StepExecutionState:
     """
     Represents execution state for a step, including the current status and
@@ -83,7 +80,7 @@ class StepExecutionState:
         }
 
     @classmethod
-    def from_dict(cls, state_dict) -> StepExecutionStateType:
+    def from_dict(cls, state_dict) -> "StepExecutionState":
         """
         Creates a ``StepExecutionState`` instance from the specified execution state dictionary.
         """
@@ -92,9 +89,6 @@ class StepExecutionState:
             last_updated_timestamp=state_dict[StepExecutionState._KEY_LAST_UPDATED_TIMESTAMP],
             stack_trace=state_dict[StepExecutionState._KEY_STACK_TRACE],
         )
-
-
-StepType = TypeVar("StepType", bound="BaseStep")
 
 
 class BaseStep(metaclass=abc.ABCMeta):
@@ -193,7 +187,7 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str) -> StepType:
+    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str) -> "BaseStep":
         """
         Constructs a step class instance by creating a step config using the recipe
         config.
@@ -207,7 +201,7 @@ class BaseStep(metaclass=abc.ABCMeta):
         pass
 
     @classmethod
-    def from_step_config_path(cls, step_config_path: str, recipe_root: str) -> StepType:
+    def from_step_config_path(cls, step_config_path: str, recipe_root: str) -> "BaseStep":
         """
         Constructs a step class instance using the config specified in the
         configuration file.

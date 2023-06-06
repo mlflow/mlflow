@@ -227,12 +227,12 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
-def test_mlflow_server_with_installed_plugin(tmpdir):
+def test_mlflow_server_with_installed_plugin(tmp_path):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
-        BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
+        BACKEND_STORE_URI_ENV_VAR: f"file-plugin:{tmp_path}",
     }
     with mock.patch.dict(os.environ, env):
         mlflow.server.handlers._tracking_store = None

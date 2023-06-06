@@ -48,8 +48,8 @@ _logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def spark_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def spark_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["pyspark", "pytest"]
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
@@ -160,15 +160,15 @@ def spark_model_estimator(iris_df, spark_context):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return str(tmpdir.mkdir("model"))
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
-def test_hadoop_filesystem(tmpdir):
+def test_hadoop_filesystem(tmp_path):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
 
-    test_dir_0 = os.path.join(str(tmpdir), "expected")
+    test_dir_0 = os.path.join(tmp_path, "expected")
     test_file_0 = os.path.join(test_dir_0, "root", "file_0")
     test_dir_1 = os.path.join(test_dir_0, "root", "subdir")
     test_file_1 = os.path.join(test_dir_1, "file_1")
@@ -182,7 +182,7 @@ def test_hadoop_filesystem(tmpdir):
     # File should not be copied in this case
     assert os.path.abspath(test_dir_0) == FS.maybe_copy_from_local_file(test_dir_0, remote)
     FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
-    local = os.path.join(str(tmpdir), "actual")
+    local = os.path.join(tmp_path, "actual")
     FS.copy_to_local_file(remote, local, remove_src=True)
     assert sorted(os.listdir(os.path.join(local, "root"))) == sorted(
         ["subdir", "file_0", ".file_0.crc"]

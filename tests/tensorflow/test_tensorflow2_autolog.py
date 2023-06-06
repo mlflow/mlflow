@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 import tensorflow as tf
 from packaging.version import Version
+from mlflow.types.utils import _infer_schema
 from tensorflow.keras import layers
 import yaml
 
@@ -96,6 +97,17 @@ def _create_model_for_dict_mapping():
 def fashion_mnist_tf_dataset():
     train, _ = tf.keras.datasets.fashion_mnist.load_data()
     images, labels = train
+    images = images / 255.0
+    labels = labels.astype(np.int32)
+    fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
+    fmnist_train_ds = fmnist_train_ds.shuffle(5000).batch(32)
+    return fmnist_train_ds
+
+
+@pytest.fixture
+def fashion_mnist_tf_dataset_eval():
+    _, eval_dataset = tf.keras.datasets.fashion_mnist.load_data()
+    images, labels = eval_dataset
     images = images / 255.0
     labels = labels.astype(np.int32)
     fmnist_train_ds = tf.data.Dataset.from_tensor_slices((images, labels))
@@ -189,6 +201,145 @@ def test_tf_keras_autolog_log_models_configuration(
     artifacts = client.list_artifacts(run_id)
     artifacts = (x.path for x in artifacts)
     assert ("model" in artifacts) == log_models
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
+    random_train_data, random_one_hot_labels, log_datasets
+):
+    mlflow.tensorflow.autolog(log_datasets=log_datasets)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = create_tf_keras_model()
+
+    model.fit(data, labels, epochs=10)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(data)
+        target_schema = _infer_schema(labels)
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_tf_keras_autolog_log_datasets_configuration_with_tensor(
+    random_train_data, random_one_hot_labels, log_datasets
+):
+    mlflow.tensorflow.autolog(log_datasets=log_datasets)
+
+    data_as_tensor = tf.convert_to_tensor(random_train_data)
+    labels_as_tensor = tf.convert_to_tensor(random_one_hot_labels)
+
+    model = create_tf_keras_model()
+
+    model.fit(data_as_tensor, labels_as_tensor, epochs=10)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(data_as_tensor.numpy())
+        target_schema = _infer_schema(labels_as_tensor.numpy())
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": target_schema.to_json(),
+                }
+            }
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
+    fashion_mnist_tf_dataset, log_datasets
+):
+    mlflow.tensorflow.autolog(log_datasets=log_datasets)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    fashion_mnist_model.fit(fashion_mnist_tf_dataset)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        numpy_data = next(fashion_mnist_tf_dataset.as_numpy_iterator())
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": {
+                    "features": _infer_schema(
+                        {str(i): data_element for i, data_element in enumerate(numpy_data)}
+                    ).to_json(),
+                    "targets": None,
+                }
+            }
+        )
+
+    else:
+        assert len(dataset_inputs) == 0
+
+
+def test_tf_keras_autolog_log_datasets_with_validation_data(
+    fashion_mnist_tf_dataset, fashion_mnist_tf_dataset_eval
+):
+    mlflow.tensorflow.autolog(log_datasets=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    fashion_mnist_model.fit(fashion_mnist_tf_dataset, validation_data=fashion_mnist_tf_dataset_eval)
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
+
+
+def test_tf_keras_autolog_log_datasets_with_validation_data_as_numpy_tuple(
+    fashion_mnist_tf_dataset, fashion_mnist_tf_dataset_eval
+):
+    mlflow.tensorflow.autolog(log_datasets=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    X_eval, y_eval = next(fashion_mnist_tf_dataset_eval.as_numpy_iterator())
+    fashion_mnist_model.fit(fashion_mnist_tf_dataset, validation_data=(X_eval, y_eval))
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
+
+
+def test_tf_keras_autolog_log_datasets_with_validation_data_as_tf_tuple(
+    fashion_mnist_tf_dataset, fashion_mnist_tf_dataset_eval
+):
+    mlflow.tensorflow.autolog(log_datasets=True)
+    fashion_mnist_model = _create_fashion_mnist_model()
+    # convert tensorflow dataset into tensors
+    X_eval, y_eval = next(fashion_mnist_tf_dataset_eval.as_numpy_iterator())
+    X_eval_tensor = tf.convert_to_tensor(X_eval)
+    y_eval_tensor = tf.convert_to_tensor(y_eval)
+    fashion_mnist_model.fit(
+        fashion_mnist_tf_dataset, validation_data=(X_eval_tensor, y_eval_tensor)
+    )
+
+    client = MlflowClient()
+    dataset_inputs = client.get_run(mlflow.last_active_run().info.run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[1].tags[0].value == "eval"
 
 
 def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):

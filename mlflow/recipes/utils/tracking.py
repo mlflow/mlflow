@@ -4,7 +4,7 @@ import pathlib
 import tempfile
 import shutil
 import uuid
-from typing import Dict, Any, TypeVar
+from typing import Dict, Any
 
 import mlflow
 from mlflow.exceptions import MlflowException, RestException
@@ -27,8 +27,6 @@ from mlflow.utils.mlflow_tags import (
 )
 
 _logger = logging.getLogger(__name__)
-
-TrackingConfigType = TypeVar("TrackingConfig")
 
 
 def _get_run_name(run_name_prefix):
@@ -118,7 +116,7 @@ class TrackingConfig:
         return config_dict
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, str]) -> TrackingConfigType:
+    def from_dict(cls, config_dict: Dict[str, str]) -> "TrackingConfig":
         """
         Creates a ``TrackingConfig`` instance from a dictionary representation.
 

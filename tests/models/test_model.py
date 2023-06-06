@@ -394,8 +394,8 @@ def test_model_uuid():
     assert m4.model_uuid is None
 
 
-def test_validate_schema(sklearn_knn_model, iris_data, tmpdir):
-    sk_model_path = os.path.join(str(tmpdir), "sk_model")
+def test_validate_schema(sklearn_knn_model, iris_data, tmp_path):
+    sk_model_path = os.path.join(tmp_path, "sk_model")
     X, y = iris_data
     signature = infer_signature(X, y)
     mlflow.sklearn.save_model(

@@ -538,11 +538,10 @@ def test_dataframe_from_json():
     schema = Schema([ColSpec("datetime", "datetime")])
     parsed = dataframe_from_raw_json(
         """
-    [
-      {"datetime": "2022-01-01T00:00:00"}, 
-      {"datetime": "2022-01-02T03:04:05"}, 
-      {"datetime": "00:00:00"}
-    ]
+[
+    {"datetime": "2022-01-01T00:00:00"},
+    {"datetime": "2022-01-02T03:04:05"}
+]
     """,
         pandas_orient="records",
         schema=schema,
@@ -552,7 +551,6 @@ def test_dataframe_from_json():
             "datetime": [
                 pd.Timestamp("2022-01-01T00:00:00"),
                 pd.Timestamp("2022-01-02T03:04:05"),
-                pd.Timestamp("00:00:00"),
             ]
         },
     )

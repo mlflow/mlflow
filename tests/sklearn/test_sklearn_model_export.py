@@ -76,13 +76,13 @@ def sklearn_custom_transformer_model(sklearn_knn_model):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def sklearn_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def sklearn_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn", "pytest"])
     return conda_env
 
@@ -226,7 +226,7 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
 
 
 def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
-    sklearn_custom_transformer_model, tmpdir
+    sklearn_custom_transformer_model, tmp_path
 ):
     custom_transformer_model = sklearn_custom_transformer_model.model
 
@@ -234,7 +234,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
-    pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
+    pickle_format_model_path = os.path.join(tmp_path, "pickle_model")
     with pytest.raises(AttributeError, match="Can't pickle local object"):
         mlflow.sklearn.save_model(
             sk_model=custom_transformer_model,
@@ -242,7 +242,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
             serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
         )
 
-    cloudpickle_format_model_path = os.path.join(str(tmpdir), "cloud_pickle_model")
+    cloudpickle_format_model_path = os.path.join(tmp_path, "cloud_pickle_model")
     mlflow.sklearn.save_model(
         sk_model=custom_transformer_model,
         path=cloudpickle_format_model_path,

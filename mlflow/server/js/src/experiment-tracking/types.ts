@@ -261,3 +261,36 @@ export enum DatasetSourceTypes {
   CODE = 'code',
   LOCAL = 'local',
 }
+
+/**
+ * Describes a single entry in the text evaluation artifact
+ */
+export interface EvaluationArtifactTableEntry {
+  [fieldName: string]: string;
+}
+
+/**
+ * Descibes a single text evaluation artifact with a set of entries and its name
+ */
+export interface EvaluationArtifactTable {
+  path: string;
+  columns: string[];
+  entries: EvaluationArtifactTableEntry[];
+}
+
+/**
+ * Known artifact types that are useful for the evaluation purposes
+ */
+export enum RunLoggedArtifactType {
+  TABLE = 'table',
+}
+
+/**
+ * Shape of the contents of "mlflow.loggedArtifacts" tag
+ */
+export type RunLoggedArtifactsDeclaration = {
+  path: string;
+  type: RunLoggedArtifactType;
+}[];
+
+export type ExperimentViewRunsCompareMode = undefined | 'ARTIFACT' | 'CHART';

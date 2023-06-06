@@ -8,6 +8,7 @@ export interface DialogComboboxOptionListCheckboxItemProps extends HTMLDataAttri
     indeterminate?: boolean;
     children?: React.ReactNode;
     onChange?: (...args: any[]) => any;
+    _TYPE?: string;
 }
 export declare const DialogComboboxOptionListCheckboxItem: import("react").ForwardRefExoticComponent<DialogComboboxOptionListCheckboxItemProps & import("react").RefAttributes<HTMLDivElement>>;
 //# sourceMappingURL=DialogComboboxOptionListCheckboxItem.d.ts.map

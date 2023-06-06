@@ -26,6 +26,7 @@ export interface NavButtonProps {
     children?: React.ReactNode;
     /** The callback function when nav button is clicked */
     onClick?: () => void;
+    'aria-label'?: string;
     /** Applies emotion styles to the top-level element in the component. Ask in #dubois before using. */
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
@@ -88,7 +89,7 @@ export interface PanelBodyProps {
     dangerouslyAppendEmotionCSS?: Interpolation<EmotionTheme>;
 }
 export declare function Nav({ children, dangerouslyAppendEmotionCSS }: NavProps): JSX.Element;
-export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, }: NavButtonProps): JSX.Element;
+export declare function NavButton({ active, disabled, icon, onClick, children, dangerouslyAppendEmotionCSS, 'aria-label': ariaLabel, }: NavButtonProps): JSX.Element;
 export declare function Content({ disableResize, openPanelId, closable, onClose, onResizeStop, width, minWidth, maxWidth, destroyInactivePanels, children, dangerouslyAppendEmotionCSS, }: ContentProps): JSX.Element;
 export declare function Panel({ panelId, children, forceRender, dangerouslyAppendEmotionCSS, ...delegated }: PanelProps): JSX.Element | null;
 export declare function PanelHeader({ children, dangerouslyAppendEmotionCSS }: PanelHeaderProps): JSX.Element;

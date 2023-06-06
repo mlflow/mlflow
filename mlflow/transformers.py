@@ -40,6 +40,7 @@ from mlflow.environment_variables import (
     MLFLOW_HUGGINGFACE_USE_DEVICE_MAP,
     MLFLOW_HUGGINGFACE_DEVICE_MAP_STRATEGY,
     MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE,
+    MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE,
 )
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -76,9 +77,10 @@ _IMAGE_PROCESSOR_TYPE_KEY = "image_processor_type"
 _INFERENCE_CONFIG_BINARY_KEY = "inference_config.txt"
 _INSTANCE_TYPE_KEY = "instance_type"
 _MODEL_KEY = "model"
+_MODEL_BINARY_KEY = "model_binary"
+_MODEL_TYPE_KEY = "model_type"
+_MODEL_BINARY_FILE_NAME = "model"
 _MODEL_PATH_OR_NAME_KEY = "source_model_name"
-_PIPELINE_BINARY_KEY = "pipeline"
-_PIPELINE_BINARY_FILE_NAME = "pipeline"
 _PIPELINE_MODEL_TYPE_KEY = "pipeline_model_type"
 _PROCESSOR_KEY = "processor"
 _PROCESSOR_TYPE_KEY = "processor_type"
@@ -425,8 +427,11 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
-    # Save the pipeline object
-    built_pipeline.save_pretrained(save_directory=path.joinpath(_PIPELINE_BINARY_FILE_NAME))
+    # Save the model object
+    built_pipeline.model.save_pretrained(
+        save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
+        max_shard_size=MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE.get(),
+    )
 
     # Save the components explicitly to the components directory
     if components:
@@ -447,7 +452,7 @@ def save_model(
         with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
             yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
 
-    model_bin_kwargs = {_PIPELINE_BINARY_KEY: _PIPELINE_BINARY_FILE_NAME}
+    model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
@@ -858,9 +863,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     model_instance = getattr(transformers, flavor_config[_PIPELINE_MODEL_TYPE_KEY])
     local_path = pathlib.Path(path)
-    pipeline_path = local_path.joinpath(
-        flavor_config.get(_PIPELINE_BINARY_KEY, _PIPELINE_BINARY_FILE_NAME)
-    )
+    model_path = local_path.joinpath(flavor_config.get(_MODEL_BINARY_KEY, _MODEL_BINARY_FILE_NAME))
     conf = {
         "task": flavor_config[_TASK_KEY],
     }
@@ -899,14 +902,14 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     if not MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES.get():
         try:
-            model = model_instance.from_pretrained(pipeline_path, **accelerate_model_conf)
+            model = model_instance.from_pretrained(model_path, **accelerate_model_conf)
         except (ValueError, TypeError, NotImplementedError, ImportError):
             # NB: ImportError is caught here in the event that `accelerate` is not installed
             # on the system, which will raise if `low_cpu_mem_usage` is set or the argument
             # `device_map` is set and accelerate is not installed.
-            model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
+            model = _try_load_model_with_device(model_instance, model_path, device, conf)
     else:
-        model = _try_load_model_with_device(model_instance, pipeline_path, device, conf)
+        model = _try_load_model_with_device(model_instance, model_path, device, conf)
 
     conf["model"] = model
 
@@ -1039,11 +1042,7 @@ def _save_components(
     root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
 ):
     """
-    Saves non-model pipeline components explicitly to a separate directory path for compatibility
-    with certain older model types. In earlier versions of ``transformers``, inferred feature
-    extractor types could be resolved to their correct processor types. This approach ensures
-    compatibility with the expected pipeline configuration argument assignments in later versions
-    of the ``Pipeline`` class.
+    Saves non-model pipeline components.
     """
     component_types = component_config.get(_COMPONENTS_BINARY_KEY, [])
     for component_name in component_types:
@@ -1693,7 +1692,8 @@ class _TransformersWrapper:
         if isinstance(self.pipeline, transformers.ConversationalPipeline):
             conversation_output = self.pipeline(self._conversation)
             return conversation_output.generated_responses[-1]
-        elif isinstance(
+
+        if isinstance(
             self.pipeline,
             (
                 transformers.AutomaticSpeechRecognitionPipeline,
@@ -1711,6 +1711,7 @@ class _TransformersWrapper:
                         "been saved with a signature that defines a string input type.",
                         error_code=INVALID_PARAMETER_VALUE,
                     ) from e
+                raise
         elif isinstance(data, dict):
             raw_output = self.pipeline(**data, **self.inference_config)
         else:
@@ -2452,6 +2453,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
+    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
