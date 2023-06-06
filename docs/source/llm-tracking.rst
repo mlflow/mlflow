@@ -1,7 +1,7 @@
-.. _llm-tracking:
+.. _llmops:
 
 =====================
-MLflow LLM Tracking
+MLflow for LLMOps
 =====================
 
 The Mlflow LLM Tracking component consists of two elements for logging and viewing the behavior of LLM's.
