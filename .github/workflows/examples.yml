@@ -39,7 +39,7 @@ jobs:
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - name: Free Ubuntu Disk Space
-        uses: jlumbroso/free-disk-space@main
+        uses: jlumbroso/free-disk-space@v1.2.0
         with:
           android: true
           dotnet: true
