@@ -56,7 +56,6 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
-from urllib.request import urlopen
 
 import yaml
 
@@ -131,14 +130,6 @@ def _set_env_vars():
     os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
 
 
-def _download_url(url, save_path):
-    file_name = url.split("/")[-1]
-    save_path = Path(save_path) / file_name
-    # Download the file from `url` and save it locally under `file_name`:
-    with urlopen(url) as response, open(str(save_path), "wb") as out_file:
-        shutil.copyfileobj(response, out_file)
-
-
 @experimental
 def get_default_pip_requirements():
     """
@@ -152,8 +143,6 @@ def get_default_pip_requirements():
         "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
         + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
-    _validate_env_vars()
-
     if databricks_utils.is_in_databricks_runtime():
         deps = [
             f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
