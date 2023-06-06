@@ -229,7 +229,7 @@ def log_model(
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.8.15',
-                                'pyspark=2.3.0'
+                                'johnsnowlabs=4.4.6'
                             ]
                         }
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
