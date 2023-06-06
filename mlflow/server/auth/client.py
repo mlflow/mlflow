@@ -358,7 +358,7 @@ class AuthServiceClient:
         """
         Create a permission on an registered model for a user.
 
-        :param name: The id of the registered model.
+        :param name: The name of the registered model.
         :param username: The username.
         :param permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
@@ -402,7 +402,7 @@ class AuthServiceClient:
         """
         Get an registered model permission for a user.
 
-        :param name: The id of the registered model.
+        :param name: The name of the registered model.
         :param username: The username.
 
         :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object. 
@@ -446,7 +446,7 @@ class AuthServiceClient:
         """
         Update an existing registered model permission for a user.
 
-        :param name: The id of the registered model.
+        :param name: The name of the registered model.
         :param username: The username.
         :param permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
@@ -478,7 +478,7 @@ class AuthServiceClient:
         """
         Delete an existing registered model permission for a user.
 
-        :param name: The id of the registered model.
+        :param name: The name of the registered model.
         :param username: The username.
 
         :return: None. Raises ``RestException`` if the user does not exist,
