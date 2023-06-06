@@ -286,7 +286,9 @@ def test_server_static_endpoints(update_config_dict, tmp_path):
         }
     }
 
-    search_routes = get_static_endpoint_response("search_routes?filter=''", LOCALHOST, port)
+    search_routes = get_static_endpoint_response(
+        "search_routes?filter_condition=''", LOCALHOST, port
+    )
     assert search_routes == {
         "routes": [
             '{"name": "claude-chat", "type": "llm/v1/chat", "model": {"name": '
