@@ -122,9 +122,9 @@ class SearchUtils:
     NUMERIC_ATTRIBUTES = set(
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
-    DATASET_ATTRIBUTES = set(
-        ["name", "digest", "source_type", "source", "schema", "profile", "context"]
-    )
+    DATASET_ATTRIBUTES = {
+        "name", "digest", "source_type", "source", "schema", "profile", "context"
+    }
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
@@ -377,15 +377,9 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif identifier_type == cls._DATASET_IDENTIFIER:
-            if key in cls.DATASET_ATTRIBUTES:
-                if token.ttype not in cls.STRING_VALUE_TYPES:
-                    raise MlflowException(
-                        "Expected string value type for numeric attribute: {}. "
-                        "Found {}".format(key, token.value),
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                return token.value
-            elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if key in cls.DATASET_ATTRIBUTES and (
+                token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier)
+            ):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
                 if key not in ("name", "digest", "context"):
@@ -397,7 +391,7 @@ class SearchUtils:
                 return cls._parse_run_ids(token)
             else:
                 raise MlflowException(
-                    "Expected a quoted string value for attributes. "
+                    "Expected a quoted string value for dataset attributes. "
                     "Got value {value}".format(value=token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )

@@ -2252,63 +2252,63 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             filter_string="dataset.name = 'name1'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id2, run_id1])
+        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.digest = 'digest2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3, run_id1])
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.name = 'name4'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set(result) == set([])
+        assert set(result) == set()
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'train'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id2, run_id1])
+        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3])
+        assert set(r.info.run_id for r in result) == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.context = 'test' and dataset.name = 'name2'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3])
+        assert set(r.info.run_id for r in result) == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="dataset.name = 'name2' and dataset.context = 'test'",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3])
+        assert set(r.info.run_id for r in result) == {run_id3}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.name IN ('name1', 'name2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3, run_id1, run_id2])
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
         result = self.store.search_runs(
             [exp_id],
             filter_string="datasets.digest IN ('digest1', 'digest2')",
             run_view_type=ViewType.ACTIVE_ONLY,
         )
-        assert set([r.info.run_id for r in result]) == set([run_id3, run_id1, run_id2])
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

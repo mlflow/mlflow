@@ -222,7 +222,7 @@ def test_invalid_clauses(filter_string, error_message):
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
         ("attributes", ["LIKE", "ILIKE"], "start_time", 1234),
-        ("datasets", [">", "<", ">=", "<=", "~"], "abc", "'my-dataset-value'"),
+        ("datasets", [">", "<", ">=", "<=", "~"], "name", "'my-dataset-name'"),
     ],
 )
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
