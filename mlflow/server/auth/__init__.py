@@ -158,6 +158,7 @@ def _get_request_param(param: str) -> str:
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
+
     if param not in args:
         # Special handling for run_id
         if param == "run_id":
