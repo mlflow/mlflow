@@ -8,7 +8,7 @@ import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import PROVIDERS
-from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
@@ -16,12 +16,13 @@ class Provider(str, Enum):
     UNSPECIFIED_PROVIDER = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    DATABRICKS = "databricks"
+    DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
+    MLFLOW = "mlflow"
 
 
 class RouteType(str, Enum):
     UNSPECIFIED = "custom"
-    LLM_V1_INSTRUCT = "llm/v1/instruct"
+    LLM_V1_INSTRUCT = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
 
 
@@ -46,6 +47,10 @@ class DatabricksConfig(BaseModel):
     databricks_api_base: str
 
 
+class MLflowConfig(BaseModel):
+    api_base: str
+
+
 class CustomConfig(BaseModel):
     api_key: Optional[str] = None
     api_key_env_var: Optional[str] = None
@@ -56,7 +61,8 @@ class CustomConfig(BaseModel):
 config_types = {
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
-    Provider.DATABRICKS: DatabricksConfig,
+    Provider.DATABRICKS_SERVING_ENDPOINT: DatabricksConfig,
+    Provider.MLFLOW: MLflowConfig,
     Provider.UNSPECIFIED_PROVIDER: CustomConfig,
 }
 
@@ -79,7 +85,7 @@ def _config_instance_validation(config, provider):
         ),
     }
 
-    api_keys = {
+    required_keys = {
         OpenAIConfig: ["openai_api_key", "openai_api_key_env_var"],
         AnthropicConfig: ["anthropic_api_key", "anthropic_api_key_env_var"],
         DatabricksConfig: ["databricks_api_token", "databricks_api_token_env_var"],
@@ -88,10 +94,12 @@ def _config_instance_validation(config, provider):
     base_route = {
         OpenAIConfig: "openai_api_base",
         AnthropicConfig: "anthropic_api_base",
+        DatabricksConfig: "databricks_api_base",
+        MLflowConfig: "mlflow_api_base",
         CustomConfig: "api_base",
     }
 
-    for config_class, keys in api_keys.items():
+    for config_class, keys in required_keys.items():
         if isinstance(config, config_class) and all(
             getattr(config, key, None) is None for key in keys
         ):
@@ -181,18 +189,19 @@ class Route(BaseModel):
     model: ModelInfo
 
 
-def _load_gateway_config(path: Union[str, Path]) -> List[RouteConfig]:
+def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
-    of the configuration _GatewayConfig class
+    of the configuration RouteConfig class
     """
     if isinstance(path, str):
         path = Path(path)
     configuration = yaml.safe_load(path.read_text())
+    check_configuration_route_name_collisions(configuration)
     return parse_obj_as(List[RouteConfig], configuration)
 
 
-def _save_gateway_config(config: List[RouteConfig], path: Union[str, Path]):
+def _save_route_config(config: List[RouteConfig], path: Union[str, Path]):
     if isinstance(path, str):
         path = Path(path)
     serialized = [
@@ -201,16 +210,16 @@ def _save_gateway_config(config: List[RouteConfig], path: Union[str, Path]):
     path.write_text(yaml.safe_dump(serialized))
 
 
-def _route_config_to_route(route: RouteConfig) -> Route:
+def _route_config_to_route(route_config: RouteConfig) -> Route:
     return Route(
-        name=route.name,
-        type=route.type,
+        name=route_config.name,
+        type=route_config.type,
         model=ModelInfo(
-            name=route.model.name,
-            provider=route.model.provider,
+            name=route_config.model.name,
+            provider=route_config.model.provider,
         ),
     )
 
 
-def _convert_route_config_to_route(route_config: List[RouteConfig]) -> List[Route]:
+def _route_configs_to_routes(route_config: List[RouteConfig]) -> List[Route]:
     return [_route_config_to_route(route) for route in route_config]

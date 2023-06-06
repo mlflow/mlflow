@@ -13,3 +13,7 @@ fastapi:
 uvicorn:
   pip_release: uvicorn
   max_major_version: 0
+
+httpx:
+  pip_release: httpx
+  max_major_version: 1

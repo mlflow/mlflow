@@ -7,7 +7,8 @@ import time
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import CONF_PATH_ENV_VAR, SERVER_HOUSEKEEPING_PAUSE
+from mlflow.gateway.constants import CONF_PATH_ENV_VAR
+from mlflow.gateway.utils import wait_until_server_starts, is_pid_alive
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 import subprocess
@@ -18,15 +19,9 @@ gateway_port: Optional[int] = None
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
-_stream_handler = logging.StreamHandler()
-_stream_handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-_stream_handler.setFormatter(formatter)
-_logger.addHandler(_stream_handler)
-_logger.propagate = False
 
 
-def start_server(config_path: str, host, port):
+def _start_server(config_path: str, host, port):
     """
     Starts the server with the given configuration, host and port.
 
@@ -63,15 +58,9 @@ def start_server(config_path: str, host, port):
     gateway_port = port
     server_process = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    time.sleep(SERVER_HOUSEKEEPING_PAUSE)
+    url = f"http://{host}:{port}/health"
+    wait_until_server_starts(url=url, server_process=server_process, logger=_logger)
 
-    if server_process.poll() is not None:
-        stderr_output = server_process.stderr.read().decode()
-        _logger.error("The gateway server has encountered an error and has terminated:")
-        for stderr_line in stderr_output.split("\n"):
-            _logger.error(stderr_line)
-    else:
-        _logger.info("Gateway server is online and is ready to receive requests...")
     return server_process
 
 
@@ -95,12 +84,13 @@ def _stop_server():
             "There is no currently running gateway server", error_code=BAD_REQUEST
         )
 
-    os.kill(server_process.pid, signal.SIGTERM)
-    server_process = None
-    _logger.info("The Gateway server has been terminated.")
+    if is_pid_alive(server_process.pid):
+        os.kill(server_process.pid, signal.SIGTERM)
+        server_process = None
+        _logger.info("The Gateway server has been terminated.")
 
 
-def update_server(config_path: str):
+def _update_server(config_path: str):
     """
     Updates the server with the new configuration.
 
@@ -130,4 +120,4 @@ def update_server(config_path: str):
 
     time.sleep(2)
 
-    start_server(config_path, gateway_host, gateway_port)
+    _start_server(config_path, gateway_host, gateway_port)

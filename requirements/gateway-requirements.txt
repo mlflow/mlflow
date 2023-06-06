@@ -5,3 +5,4 @@
 pydantic<3,>=1.0
 fastapi<1
 uvicorn<1
+httpx<1

@@ -3,10 +3,10 @@ import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.handlers import (
-    _load_gateway_config,
-    _save_gateway_config,
+    _load_route_config,
+    _save_route_config,
     RouteConfig,
-    _convert_route_config_to_route,
+    _route_configs_to_routes,
 )
 
 
@@ -56,22 +56,22 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
-    loaded_config = _load_gateway_config(conf_path)
+    loaded_config = _load_route_config(conf_path)
 
     save_path = tmp_path.joinpath("config2.yaml")
-    _save_gateway_config(loaded_config, save_path)
-    loaded_from_save = _load_gateway_config(save_path)
+    _save_route_config(loaded_config, save_path)
+    loaded_from_save = _load_route_config(save_path)
     assert loaded_config == loaded_from_save
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
-    loaded = _load_gateway_config(conf_path)
+    loaded = _load_route_config(conf_path)
 
     assert all(isinstance(route, RouteConfig) for route in loaded)
 
-    routes = _convert_route_config_to_route(loaded)
+    routes = _route_configs_to_routes(loaded)
 
     for config in loaded:
         route = [x for x in routes if x.name == config.name][0]
@@ -104,7 +104,7 @@ def test_invalid_route_definition(tmp_path):
         MlflowException,
         match="For the openai provider, the api key must either be specified within the ",
     ):
-        _load_gateway_config(conf_path)
+        _load_route_config(conf_path)
 
     invalid_no_config = [
         {
@@ -123,7 +123,7 @@ def test_invalid_route_definition(tmp_path):
         MlflowException,
         match="A config must be supplied when setting a provider. The provider entry",
     ):
-        _load_gateway_config(conf_path)
+        _load_route_config(conf_path)
 
 
 def test_custom_provider(tmp_path):
@@ -141,7 +141,7 @@ def test_custom_provider(tmp_path):
     conf_path = tmp_path.joinpath("config2.yaml")
     conf_path.write_text(yaml.safe_dump(basic_generic_provider))
 
-    generic_conf = _load_gateway_config(conf_path)
+    generic_conf = _load_route_config(conf_path)
     route = generic_conf[0]
 
     assert route.model.provider == "custom"
@@ -176,7 +176,7 @@ def test_invalid_route_name(tmp_path, route_name):
     with pytest.raises(
         MlflowException, match="The route name provided contains disallowed characters"
     ):
-        _load_gateway_config(conf_path)
+        _load_route_config(conf_path)
 
 
 def test_custom_route(tmp_path):
@@ -209,7 +209,7 @@ def test_custom_route(tmp_path):
     ]
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(custom_routes))
-    loaded_conf = _load_gateway_config(conf_path)
+    loaded_conf = _load_route_config(conf_path)
 
     assert loaded_conf[0].name == "route1"
     assert loaded_conf[0].model.config.get("api_base") == "http://myserver.endpoint.org/"
@@ -232,7 +232,7 @@ def test_default_base_api(tmp_path):
     ]
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(route_no_base))
-    loaded_conf = _load_gateway_config(conf_path)
+    loaded_conf = _load_route_config(conf_path)
 
     assert loaded_conf[0].model.config.get("openai_api_base") == "https://api.openai.com/"
 
@@ -244,7 +244,7 @@ def test_databricks_route_config(tmp_path):
             "type": "llm/v1/classifier",
             "model": {
                 "name": "serving-endpoints/document-classifier/Production/invocations",
-                "provider": "databricks",
+                "provider": "databricks_serving_endpoint",
                 "config": {
                     "databricks_api_token_env_var": "MY_TOKEN",
                     "databricks_api_base": "https://my-shard-001/",
@@ -254,11 +254,46 @@ def test_databricks_route_config(tmp_path):
     ]
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(databricks_route))
-    loaded_conf = _load_gateway_config(conf_path)
+    loaded_conf = _load_route_config(conf_path)
     route = loaded_conf[0]
 
     assert route.type == "custom"
     assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
-    assert route.model.provider == "databricks"
+    assert route.model.provider == "databricks_serving_endpoint"
     assert route.model.config.get("databricks_api_token", None) is None
     assert route.model.config.get("databricks_api_base") == "https://my-shard-001/"
+
+
+def test_duplicate_routes_in_config(tmp_path):
+    route = [
+        {
+            "name": "classifier",
+            "type": "llm/v1/classifier",
+            "model": {
+                "name": "serving-endpoints/document-classifier/Production/invocations",
+                "provider": "databricks_serving_endpoint",
+                "config": {
+                    "databricks_api_token_env_var": "MY_TOKEN",
+                    "databricks_api_base": "https://my-shard-001/",
+                },
+            },
+        },
+        {
+            "name": "classifier",
+            "type": "llm/v1/classifier",
+            "model": {
+                "name": "serving-endpoints/document-classifier/Production/invocations",
+                "provider": "databricks_serving_endpoint",
+                "config": {
+                    "databricks_api_token_env_var": "MY_TOKEN",
+                    "databricks_api_base": "https://my-shard-001/",
+                },
+            },
+        },
+    ]
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(route))
+    with pytest.raises(
+        MlflowException, match="Duplicate names found in route configurations. Please"
+    ):
+        _load_route_config(conf_path)

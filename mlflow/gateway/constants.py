@@ -1,6 +1,5 @@
-GATEWAY_VERSION = "0.1.0"
-CONF_PATH_ENV_VAR = "MLFLOW_GATEWAY_CONFIG_PATH_ENV_VAR_NAME"
-LOCALHOST = "127.0.0.1"
-SERVER_HOUSEKEEPING_PAUSE = 2
+CONF_PATH_ENV_VAR = "MLFLOW_GATEWAY_CONFIG"
+BASE_WAIT_TIME_SECONDS = 0.1
+MAX_WAIT_TIME_SECONDS = 5
 
-PROVIDERS = {"openai", "anthropic", "databricks"}
+PROVIDERS = {"openai", "anthropic", "databricks_serving_endpoint", "mlflow_served_model"}
