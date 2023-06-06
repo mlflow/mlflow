@@ -148,7 +148,7 @@ def make_forbidden_response() -> Response:
     return res
 
 
-def _get_request_param(param: str, optional: bool = False, default=None) -> Optional[str]:
+def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
     elif request.method in ("POST", "PATCH", "DELETE"):
@@ -158,7 +158,7 @@ def _get_request_param(param: str, optional: bool = False, default=None) -> Opti
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
-    if param not in args and not optional:
+    if param not in args:
         # Special handling for run_id
         if param == "run_id":
             return _get_request_param("run_uuid")
@@ -167,7 +167,7 @@ def _get_request_param(param: str, optional: bool = False, default=None) -> Opti
             "See the API docs for more information about request parameters.",
             INVALID_PARAMETER_VALUE,
         )
-    return args.get(param, default)
+    return args[param]
 
 
 def _get_permission_from_store_or_default(store_permission_func: Callable[[], str]) -> Permission:
