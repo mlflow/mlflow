@@ -572,4 +572,8 @@ johnsnowlabs:
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
     run: |
-      pytest tests/johnsnowlabs/test_jsl_api.py
+      if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
+        pytest tests/johnsnowlabs/test_jsl_api.py
+      else
+        echo "Skipping tests due to missing license key"
+      fi
