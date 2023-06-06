@@ -1083,9 +1083,6 @@ message ListDatasets {
   // List of experiment IDs to search over.
   repeated string experiment_ids = 1;
 
-  // Maximum number of datasets desired.
-  optional int32 max_results = 2 [default = 1000];
-
   message Response {
     repeated ExperimentDatasets experiment_datasets = 1;
   }
