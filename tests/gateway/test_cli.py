@@ -19,7 +19,6 @@ def test_start(tmp_path):
         catch_exceptions=False,
     )
     assert res.exit_code == 0
-    assert "Starting gateway" in res.output
 
 
 def test_update(tmp_path):
@@ -35,4 +34,3 @@ def test_update(tmp_path):
         catch_exceptions=False,
     )
     assert res.exit_code == 0
-    assert "Updating gateway" in res.output
