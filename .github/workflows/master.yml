@@ -51,7 +51,9 @@ jobs:
       - run: |
           df -h
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -h
           sudo rm -rf /usr/share/dotnet
+          df -h
           sudo rm -rf /usr/local/lib/android
           df -h
       - uses: ./.github/actions/setup-python
