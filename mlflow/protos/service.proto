@@ -129,6 +129,18 @@ service MlflowService {
     };
   }
 
+  rpc listDatasets (ListDatasets) returns (ListDatasets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/list-datasets"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Datasets",
+    };
+  }
+
   // Create a new run within an experiment. A run is usually a single execution of a
   // machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
   // :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
@@ -650,6 +662,28 @@ message Dataset {
   optional string profile = 6;
 }
 
+// DatasetSummary. Represents a summary of information about a dataset.
+message DatasetSummary {
+  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string name = 1 [(validate_required) = true];
+
+  // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string digest = 2 [(validate_required) = true];
+
+  // Value of "context" tag if set for the given dataset.
+  optional string context = 3;
+}
+
+// ExperimentDatasets. Represents the datasets used in a specific experiment.
+message ExperimentDatasets {
+  // Unique identifier for the experiment.
+  optional string experiment_id = 1;
+
+  // Summaries of the datasets used in the experiment.
+  repeated DatasetSummary dataset_summaries = 2;
+}
+
 message CreateExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -1037,6 +1071,20 @@ message FileInfo {
 
   // Size in bytes. Unset for directories.
   optional int64 file_size = 3;
+}
+
+message ListDatasets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  // Maximum number of datasets desired.
+  optional int32 max_results = 2 [default = 1000];
+
+  message Response {
+    repeated ExperimentDatasets experiment_datasets = 1;
+  }
 }
 
 message GetMetricHistory {
