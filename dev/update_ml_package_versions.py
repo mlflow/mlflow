@@ -75,7 +75,7 @@ def update_max_version(src, key, new_max_version, category):
         minimum: "1.1.1"
         maximum: "1.2.1"
     """
-    pattern = r"({key}:.+?{category}:.+?maximum: )\".+?\"".format(
+    pattern = r"\n({key}:.+?{category}:.+?maximum: )\".+?\"".format(
         key=re.escape(key), category=category
     )
     # Matches the following pattern:
