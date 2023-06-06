@@ -125,11 +125,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/experiments/update``
      - ``POST``
      - ExperimentPermission.can_update
-   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
+   * - Search Experiments
      - ``2.0/mlflow/experiments/search``
      - ``POST``
      - None
-   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
+   * - Search Experiments
      - ``2.0/mlflow/experiments/search``
      - ``GET``
      - None
@@ -181,7 +181,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/runs/log-batch``
      - ``POST``
      - ExperimentPermission.can_update
-   * - :ref:`Log Model <mlflowMlflowServicelogModel>`
+   * - Log Model
      - ``2.0/mlflow/runs/log-model``
      - ``POST``
      - ExperimentPermission.can_update
@@ -197,7 +197,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/create``
      - ``POST``
      - None
-   * - :ref:`Rename Registered Model <mlflowModelRegistryServicerenameRegisteredModel>`
+   * - Rename Registered Model
      - ``2.0/mlflow/registered-models/rename``
      - ``POST``
      - RegisteredModelPermission.can_update
@@ -209,11 +209,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/delete``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - :ref:`Get Registered Model <mlflowModelRegistryServicegetRegisteredModel>`
+   * - Get Registered Model
      - ``2.0/mlflow/registered-models/get``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - :ref:`Search Registered Models <mlflowModelRegistryServicesearchRegisteredModels>`
+   * - Search Registered Models
      - ``2.0/mlflow/registered-models/search``
      - ``GET``
      - None
@@ -225,23 +225,23 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/get-latest-versions``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - :ref:`Set Registered Model Tag <mlflowModelRegistryServicesetRegisteredModelTag>`
+   * - Set Registered Model Tag
      - ``2.0/mlflow/registered-models/set-tag``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - :ref:`Delete Registered Model Tag <mlflowModelRegistryServicedeleteRegisteredModelTag>`
+   * - Delete Registered Model Tag
      - ``2.0/mlflow/registered-models/delete-tag``
      - ``DELETE``
      - RegisteredModelPermission.can_update
-   * - :ref:`Set Registered Model Alias <mlflowModelRegistryServicesetRegisteredModelAlias>`
+   * - Set Registered Model Alias
      - ``2.0/mlflow/registered-models/alias``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - :ref:`Delete Registered Model Alias <mlflowModelRegistryServicedeleteRegisteredModelAlias>`
+   * - Delete Registered Model Alias
      - ``2.0/mlflow/registered-models/alias``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - :ref:`Get Model Version By Alias <mlflowModelRegistryServicegetModelVersionByAlias>`
+   * - Get Model Version By Alias
      - ``2.0/mlflow/registered-models/alias``
      - ``GET``
      - RegisteredModelPermission.can_read
@@ -253,7 +253,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/update``
      - ``PATCH``
      - RegisteredModelPermission.can_update
-   * - :ref:`Transition Model Version Stage <mlflowModelRegistryServicetransitionModelVersionStage>`
+   * - Transition Model Version Stage
      - ``2.0/mlflow/model-versions/transition-stage``
      - ``POST``
      - RegisteredModelPermission.can_update
@@ -261,7 +261,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/delete``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - :ref:`Get Model Version <mlflowModelRegistryServicegetModelVersion>`
+   * - Get Model Version
      - ``2.0/mlflow/model-versions/get``
      - ``GET``
      - RegisteredModelPermission.can_read
@@ -273,11 +273,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/get-download-uri``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - :ref:`Set Model Version Tag <mlflowModelRegistryServicesetModelVersionTag>`
+   * - Set Model Version Tag
      - ``2.0/mlflow/model-versions/set-tag``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - :ref:`Delete Model Version Tag <mlflowModelRegistryServicedeleteModelVersionTag>`
+   * - Delete Model Version Tag
      - ``2.0/mlflow/model-versions/delete-tag``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
@@ -363,11 +363,11 @@ Some APIs will also have their behaviour modified:
      - ``2.0/mlflow/registered-models/create``
      - ``POST``
      - Automatically grants ``MANAGE`` permission to the creator.
-   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
+   * - Search Experiments
      - ``2.0/mlflow/experiments/search``
      - ``POST``
      - Only returns experiments which the user has ``READ`` permission on.
-   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
+   * - Search Experiments
      - ``2.0/mlflow/experiments/search``
      - ``GET``
      - Only returns experiments which the user has ``READ`` permission on.
@@ -375,7 +375,7 @@ Some APIs will also have their behaviour modified:
      - ``2.0/mlflow/runs/search``
      - ``POST``
      - Only returns experiments which the user has ``READ`` permission on.
-   * - :ref:`Search Registered Models <mlflowModelRegistryServicesearchRegisteredModels>`
+   * - Search Registered Models
      - ``2.0/mlflow/registered-models/search``
      - ``GET``
      - Only returns registered models which the user has ``READ`` permission on.
@@ -397,7 +397,7 @@ Managing Permissions
 MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client class 
 :py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage permissions.
 
-To instantiate the client, it is recommended that you use :py:func:`mlflow.server.get_app_client`:
+To instantiate the client, it is recommended that you use ``mlflow.server.get_app_client``:
 
 .. code-block:: python
 
