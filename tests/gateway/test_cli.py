@@ -3,7 +3,7 @@ from mlflow.gateway.cli import start, update
 
 
 def test_start(tmp_path):
-    config_path = tmp_path.joinpath("config.yaml")
+    config_path = tmp_path.joinpath("gateway.yml")
     config_path.write_text("")
     runner = CliRunner()
     res = runner.invoke(
@@ -23,7 +23,7 @@ def test_start(tmp_path):
 
 
 def test_update(tmp_path):
-    config_path = tmp_path.joinpath("config.yaml")
+    config_path = tmp_path.joinpath("gateway.yml")
     config_path.write_text("")
     runner = CliRunner()
     res = runner.invoke(
