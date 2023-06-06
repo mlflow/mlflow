@@ -1,32 +1,36 @@
 """
-The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models. This module
-exports the following flavors:
+The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models.
+This module exports the following flavors:
 
-The flavor gives you access to [20.000+ state-of-the-art enterprise NLP models in 200+ languages](https://nlp.johnsnowlabs.com/models) for
-medical, finance, legal and many more domains.
-Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation Extration, Sentiment Analysis,
-Spell Checking, Image Classification, Automatic Speech Recognition powered by the latest Transformer Architectures.
-The models are provided by [John Snow Labs](https://www.johnsnowlabs.com/) and requires a [John Snow Labs](https://www.johnsnowlabs.com/) Enterprise NLP License.
-[You can reach out to us](https://www.johnsnowlabs.com/schedule-a-demo/) for a research or industry license.
-
-
+The flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
+<https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
+Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
+Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
+powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
+<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`
+Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>
+for a research or industry license.
 
 These keys must be present in your license json
-- `SECRET`: The secret for the John Snow Labs Enterprise NLP Library
-- `SPARK_NLP_LICENSE`: Your John Snow Labs Enterprise NLP License
-- `AWS_ACCESS_KEY_ID`: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
-- `AWS_SECRET_ACCESS_KEY`: Your AWS Secret key for accessing John Snow Labs Enterprise Models
-
+- ``SECRET``: The secret for the John Snow Labs Enterprise NLP Library
+- ``SPARK_NLP_LICENSE``: Your John Snow Labs Enterprise NLP License
+- ``AWS_ACCESS_KEY_ID``: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
+- ``AWS_SECRET_ACCESS_KEY``: Your AWS Secret key for accessing John Snow Labs Enterprise Models
 
 You can set them like this in Python
 
 ```python
 import os
+import json
 
 # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-os.environ[
-    "JOHNSNOWLABS_LICENSE_JSON"
-] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+creds = {
+    "AWS_ACCESS_KEY_ID": "...",
+    "AWS_SECRET_ACCESS_KEY": "...",
+    "SPARK_NLP_LICENSE": "...",
+    "SECRET": "...",
+}
+os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 ```
 
 Johnsnowlabs (native) format
@@ -77,7 +81,6 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -203,13 +206,15 @@ def log_model(
     store_license=False,
 ):
     """
-    Log a ``Johnsnowlabs NLUPipeline`` (created via ``nlp.load()``) model as an MLflow artifact for the current run. This uses the
-    MLlib persistence format and produces an MLflow Model with the ``Johnsnowlabs`` flavor.
+    Log a ``Johnsnowlabs NLUPipeline`` (created via ``nlp.load()``) model as an MLflow artifact for
+    the current run. This uses the MLlib persistence format and produces an MLflow Model with the
+    ``Johnsnowlabs`` flavor.
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
     :param spark_model: NLUPipeline obtained via ``nlp.load()``
-    :param store_license: If True, the license will be stored with the model and used and re-loading it.
+    :param store_license: If True, the license will be stored with the model and used and
+                          re-loading it.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -273,15 +278,21 @@ def log_model(
 
     .. code-block:: python
         :caption: Example
-        from johnsnowlabs import nlp
-        import mlflow
+
         import os
+        import json
         import pandas as pd
+        import mlflow
+        from johnsnowlabs import nlp
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ[
-            "JOHNSNOWLABS_LICENSE_JSON"
-        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        creds = {
+            "AWS_ACCESS_KEY_ID": "...",
+            "AWS_SECRET_ACCESS_KEY": "...",
+            "SPARK_NLP_LICENSE": "...",
+            "SECRET": "...",
+        }
+        os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
@@ -500,7 +511,8 @@ def save_model(
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param store_license: If True, the license will be stored with the model and used and re-loading it.
+    :param store_license: If True, the license will be stored with the model and used and
+                          re-loading it.
     :param spark_model: Spark model to be saved - MLflow can only save descendants of
                         pyspark.ml.Model or pyspark.ml.Transformer which implement
                         MLReadable and MLWritable.
@@ -519,7 +531,7 @@ def save_model(
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.8.15',
-                                'pyspark=2.3.0'
+                                'johnsnowlabs=4.4.6'
                             ]
                         }
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -565,9 +577,13 @@ def save_model(
         import os
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ[
-            "JOHNSNOWLABS_LICENSE_JSON"
-        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        creds = {
+            "AWS_ACCESS_KEY_ID": "...",
+            "AWS_SECRET_ACCESS_KEY": "...",
+            "SPARK_NLP_LICENSE": "...",
+            "SECRET": "...",
+        }
+        os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 
         # Download & Install Jars/Wheels if missing and Start a spark Session
         nlp.start()
@@ -687,14 +703,18 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
         import os
 
         # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-        os.environ[
-            "JOHNSNOWLABS_LICENSE_JSON"
-        ] = '{"AWS_ACCESS_KEY_ID":"...", "AWS_SECRET_ACCESS_KEY":"...", "SPARK_NLP_LICENSE":"...", "SECRET":"..."}'
+        creds = {
+            "AWS_ACCESS_KEY_ID": "...",
+            "AWS_SECRET_ACCESS_KEY": "...",
+            "SPARK_NLP_LICENSE": "...",
+            "SECRET": "...",
+        }
+        os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 
         # start a spark session
         nlp.start()
         # Load you MlFlow Model
-        model = mlflow.spark.load_model("johnsnowlabs_model")
+        model = mlflow.johnsnowlabs.load_model("johnsnowlabs_model")
 
         # Make predictions on test documents
         # supports datatypes defined in https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api#supported-data-types
@@ -735,7 +755,8 @@ def _load_pyfunc(path, spark=None):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``johnsnowlabs`` flavor.
-    :param spark: Optionally pass spark context when using pyfunc as UDF. required, because we cannot fetch the Sparkcontext inside of the Workernode which executes the UDF
+    :param spark: Optionally pass spark context when using pyfunc as UDF. required, because
+                  we cannot fetch the Sparkcontext inside of the Workernode which executes the UDF.
     :return:
     """
     return _PyFuncModelWrapper(
@@ -775,7 +796,7 @@ def _get_or_create_sparksession(model_path=None):
                         {k: str(v) for k, v in loaded_license.items() if v is not None}
                     )
                     os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
-            _logger.info("Starting a new Session with Jars: ", jar_paths)
+            _logger.info("Starting a new Session with Jars: %s", jar_paths)
             spark = nlp.start(
                 nlp=False,
                 spark_nlp=False,
@@ -820,9 +841,10 @@ def _unpack_and_save_model(spark_model, dst):
         spark_model.predict("Init")
         try:
             spark_model.vanilla_transformer_pipe.write().overwrite().save(dst)
-        except:
+        except Exception:
             # for mlflowdbfs_path we cannot use overwrite, gives
-            # org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme "mlflowdbfs"
+            # org.apache.hadoop.fs.UnsupportedFileSystemException: No FileSystem for scheme
+            # "mlflowdbfs"
             spark_model.save(dst)
 
 
