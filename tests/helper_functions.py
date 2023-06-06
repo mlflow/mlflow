@@ -19,8 +19,6 @@ import numbers
 
 import pytest
 
-from huggingface_hub import scan_cache_dir
-
 import mlflow
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
@@ -600,10 +598,19 @@ def clear_hub_cache():
     1 GiB on disk. It is used only in CI testing to alleviate the disk burden on the runners as
     they have limited allocated space and will terminate if the available disk space drops too low.
     """
-    full_cache = scan_cache_dir()
-    cache_size_in_gb = full_cache.size_on_disk / 1000**3
+    try:
+        from huggingface_hub import scan_cache_dir
 
-    if cache_size_in_gb > 1:
-        commits_to_purge = [rev.commit_hash for repo in full_cache.repos for rev in repo.revisions]
-        delete_strategy = full_cache.delete_revisions(*commits_to_purge)
-        delete_strategy.execute()
+        full_cache = scan_cache_dir()
+        cache_size_in_gb = full_cache.size_on_disk / 1000**3
+
+        if cache_size_in_gb > 1:
+            commits_to_purge = [
+                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
+            ]
+            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
+            delete_strategy.execute()
+
+    except ImportError:
+        # Local import check for mlflow-skinny not including huggingface_hub
+        pass
