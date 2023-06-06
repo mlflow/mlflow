@@ -1,7 +1,5 @@
 import transformers
-
 import mlflow
-
 
 task = "text2text-generation"
 

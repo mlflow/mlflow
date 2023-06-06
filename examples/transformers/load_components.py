@@ -1,7 +1,5 @@
 import transformers
-
 import mlflow
-
 
 translation_pipeline = transformers.pipeline(
     task="translation_en_to_fr",

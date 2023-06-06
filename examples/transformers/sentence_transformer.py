@@ -1,6 +1,5 @@
 import torch
 from transformers import BertModel, BertTokenizerFast, pipeline
-
 import mlflow
 
 
