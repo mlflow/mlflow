@@ -143,18 +143,10 @@ def get_default_pip_requirements():
         "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
         + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
-    if databricks_utils.is_in_databricks_runtime():
-        deps = [
-            f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
-            _get_pinned_requirement("pyspark"),
-        ]
-    else:
-        deps = [
-            f"johnsnowlabs=={settings.raw_version_jsl_lib}",
-        ]
 
     return [
-        *deps,
+        f"johnsnowlabs_for_databricks=={settings.raw_version_jsl_lib}",
+        _get_pinned_requirement("pyspark"),
         _SPARK_NLP_JSL_WHEEL_URI.format(secret=os.environ["SECRET"]),
         # TODO remove pandas constraint when NLU supports it
         # https://github.com/JohnSnowLabs/nlu/issues/176
