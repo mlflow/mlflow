@@ -34,9 +34,8 @@ from tests.helper_functions import random_int, random_file, safe_edit_yaml
 
 @pytest.fixture(scope="module")
 def spark_session():
-    session = SparkSession.builder.master("local[*]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 def test_yaml_read_and_write(tmpdir):

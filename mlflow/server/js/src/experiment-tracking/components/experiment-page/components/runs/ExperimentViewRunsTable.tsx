@@ -1,4 +1,5 @@
-import {
+import type {
+  CellClickedEvent,
   ColumnApi,
   GridApi,
   GridReadyEvent,
@@ -43,6 +44,11 @@ import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAd
 import { ExperimentViewRunsTableStatusBar } from './ExperimentViewRunsTableStatusBar';
 import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 import { getDatasetsCellHeight } from './cells/DatasetsCellRenderer';
+import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar';
+import { isCanonicalSortKeyOfType } from '../../utils/experimentPage.column-utils';
+import { COLUMN_TYPES } from '../../../../constants';
+import { Empty } from '@databricks/design-system';
+import { FormattedMessage } from 'react-intl';
 
 const ROW_HEIGHT = 32;
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
@@ -85,8 +91,11 @@ export const ExperimentViewRunsTable = React.memo(
     loadMoreRunsFunc,
     onDatasetSelected,
     expandRows,
+    viewState,
   }: ExperimentViewRunsTableProps) => {
-    const { isComparingRuns } = searchFacetsState;
+    const { compareRunsMode } = searchFacetsState;
+    const isComparingRuns = compareRunsMode !== undefined;
+
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
     const [gridApi, setGridApi] = useState<GridApi>();
@@ -354,57 +363,107 @@ export const ExperimentViewRunsTable = React.memo(
       gridApi?.resetRowHeights();
     }, [gridApi, searchFacetsState.selectedColumns, expandRows]);
 
+    const [sidebarPreviewData, setSidebarPreviewData] = useState<{
+      value: string;
+      header: string;
+    } | null>(null);
+
+    const handleCellClicked = useCallback(
+      ({ column, data, value }: CellClickedEvent) => {
+        const columnGroupId = column.getParent()?.getGroupId();
+        const shouldInvokePreviewSidebar =
+          columnGroupId === COLUMN_TYPES.METRICS || columnGroupId === COLUMN_TYPES.PARAMS;
+
+        if (shouldInvokePreviewSidebar) {
+          setSidebarPreviewData({
+            value,
+            header: `Run name: ${data.runName}, Column name: ${column.getColId()}`,
+          });
+          updateViewState({ previewPaneVisible: true });
+        }
+      },
+      [updateViewState],
+    );
+
+    const displayPreviewSidebar = !isComparingRuns && viewState.previewPaneVisible;
+
     return (
-      <div css={styles.tableAreaWrapper}>
-        <div
-          ref={containerElement}
-          className={cx('ag-theme-balham ag-grid-sticky', {
-            'ag-grid-expanders-visible': expandersVisible,
-          })}
-          css={styles.agGridOverrides}
-        >
-          <MLFlowAgGridLoader
-            defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
-            columnDefs={columnDefs}
-            rowSelection='multiple'
-            onGridReady={gridReadyHandler}
-            onSelectionChanged={onSelectionChange}
-            getRowHeight={rowHeightGetterFn}
-            headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}
-            onRowSelected={handleRowSelected}
-            suppressRowClickSelection
-            suppressColumnMoveAnimation
-            suppressScrollOnNewData
-            isFullWidthRow={getRowIsLoadMore}
-            fullWidthCellRenderer={'LoadMoreRowRenderer'}
-            fullWidthCellRendererParams={{ loadMoreRunsFunc }}
-            suppressFieldDotNotation
-            enableCellTextSelection
-            components={getFrameworkComponents()}
-            suppressNoRowsOverlay
-            loadingOverlayComponent='loadingOverlayComponent'
-            loadingOverlayComponentParams={{ showImmediately: true }}
-            getRowId={getRowId}
-            rowBuffer={ROW_BUFFER}
-          />
-          {displayAddColumnsCTA && (
-            <ExperimentViewRunsTableAddColumnCTA
-              gridContainerElement={containerElement.current}
-              isInitialized={Boolean(gridApi)}
-              onClick={onAddColumnClicked}
-              visible={!isLoading}
-              moreRunsAvailable={moreRunsAvailable}
-              moreAvailableRunsTableColumnCount={moreAvailableRunsTableColumnCount}
+      <div
+        css={(theme) => ({
+          display: 'grid',
+          gridTemplateColumns: displayPreviewSidebar ? '1fr auto' : '1fr',
+          borderTop: `1px solid ${theme.colors.border}`,
+        })}
+      >
+        <div css={styles.tableAreaWrapper}>
+          <div
+            ref={containerElement}
+            className={cx('ag-theme-balham ag-grid-sticky', {
+              'ag-grid-expanders-visible': expandersVisible,
+            })}
+            css={styles.agGridOverrides}
+          >
+            <MLFlowAgGridLoader
+              defaultColDef={EXPERIMENTS_DEFAULT_COLUMN_SETUP}
+              columnDefs={columnDefs}
+              rowSelection='multiple'
+              onGridReady={gridReadyHandler}
+              onSelectionChanged={onSelectionChange}
+              getRowHeight={rowHeightGetterFn}
+              headerHeight={EXPERIMENT_RUNS_TABLE_ROW_HEIGHT}
+              onRowSelected={handleRowSelected}
+              suppressRowClickSelection
+              suppressColumnMoveAnimation
+              suppressScrollOnNewData
+              isFullWidthRow={getRowIsLoadMore}
+              fullWidthCellRenderer={'LoadMoreRowRenderer'}
+              fullWidthCellRendererParams={{ loadMoreRunsFunc }}
+              suppressFieldDotNotation
+              enableCellTextSelection
+              components={getFrameworkComponents()}
+              suppressNoRowsOverlay
+              loadingOverlayComponent='loadingOverlayComponent'
+              loadingOverlayComponentParams={{ showImmediately: true }}
+              getRowId={getRowId}
+              rowBuffer={ROW_BUFFER}
+              onCellClicked={handleCellClicked}
+            />
+            {displayAddColumnsCTA && (
+              <ExperimentViewRunsTableAddColumnCTA
+                gridContainerElement={containerElement.current}
+                isInitialized={Boolean(gridApi)}
+                onClick={onAddColumnClicked}
+                visible={!isLoading}
+                moreRunsAvailable={moreRunsAvailable}
+                moreAvailableRunsTableColumnCount={moreAvailableRunsTableColumnCount}
+              />
+            )}
+          </div>
+          {rowsData.length < 1 && !isLoading && (
+            <ExperimentViewRunsEmptyTable
+              onClearFilters={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
+              isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
             />
           )}
+          <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />
         </div>
-        {rowsData.length < 1 && !isLoading && (
-          <ExperimentViewRunsEmptyTable
-            onClearFilters={() => updateSearchFacets(clearSearchExperimentsFacetsFilters)}
-            isFiltered={isSearchFacetsFilterUsed(searchFacetsState)}
+        {displayPreviewSidebar && (
+          <PreviewSidebar
+            content={sidebarPreviewData?.value}
+            copyText={sidebarPreviewData?.value}
+            headerText={sidebarPreviewData?.header}
+            empty={
+              <Empty
+                description={
+                  <FormattedMessage
+                    defaultMessage='Select a cell to display preview'
+                    description='Experiment page > table view > preview sidebar > nothing selected'
+                  />
+                }
+              />
+            }
           />
         )}
-        <ExperimentViewRunsTableStatusBar allRunsCount={allRunsCount} isLoading={isLoading} />
       </div>
     );
   },
@@ -430,7 +489,11 @@ const getGridColors = (theme: Theme) => ({
 });
 
 const styles = {
-  tableAreaWrapper: { display: 'flex', flexDirection: 'column' as const },
+  tableAreaWrapper: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    position: 'relative' as const,
+  },
   agGridOverrides: (theme: Theme): Interpolation<Theme> => {
     const gridColors = getGridColors(theme);
     return {
@@ -545,6 +608,11 @@ const styles = {
           '.is-multiline-cell .ag-cell-value': {
             height: '100%',
           },
+        },
+
+        // Change appearance of the previewable cells
+        '.is-previewable-cell': {
+          cursor: 'pointer',
         },
 
         // Header checkbox cell will get the same background as header only if it's unchecked

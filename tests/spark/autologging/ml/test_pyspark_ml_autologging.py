@@ -62,9 +62,8 @@ MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId"
 
 @pytest.fixture(scope="module")
 def spark_session():
-    session = SparkSession.builder.master("local[*]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")

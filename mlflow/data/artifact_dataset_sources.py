@@ -1,3 +1,4 @@
+import re
 import warnings
 from pathlib import Path
 from typing import TypeVar, Any, Dict
@@ -48,16 +49,11 @@ def register_artifact_dataset_sources():
             # appending ArtifactRepository
             scheme = str(scheme)
 
-            def camelcase_scheme(scheme, separator):
-                return "".join([part.capitalize() for part in scheme.split(separator)])
+            def camelcase_scheme(scheme):
+                parts = re.split(r"[-_]", scheme)
+                return "".join([part.capitalize() for part in parts])
 
-            if "-" in scheme:
-                source_name_prefix = camelcase_scheme(scheme, "-")
-            elif "_" in scheme:
-                source_name_prefix = camelcase_scheme(scheme, "_")
-            else:
-                source_name_prefix = scheme.capitalize()
-
+            source_name_prefix = camelcase_scheme(scheme)
             dataset_source_name = source_name_prefix + "ArtifactDatasetSource"
 
         try:

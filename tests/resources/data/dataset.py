@@ -43,13 +43,11 @@ class TestDataset(Dataset):
                  digest, source, source type, schema (optional), profile
                  (optional).
         """
-        base_dict.update(
-            {
-                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
-                "profile": json.dumps(self.profile),
-            }
-        )
-        return base_dict
+        return {
+            **base_dict,
+            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+            "profile": json.dumps(self.profile),
+        }
 
     @property
     def data_list(self) -> List[int]:

@@ -31,8 +31,8 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-mana
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(tmpdir.strpath, "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture(scope="module")

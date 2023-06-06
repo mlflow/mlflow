@@ -1,10 +1,7 @@
-from typing import TypeVar, Any, Dict
+from typing import Any, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
-
-
-CodeDatasetSourceType = TypeVar("CodeDatasetSourceType", bound="CodeDatasetSource")
 
 
 @experimental
@@ -30,14 +27,14 @@ class CodeDatasetSource(DatasetSource):
         return False
 
     @classmethod
-    def _resolve(cls, raw_source: str) -> CodeDatasetSourceType:
+    def _resolve(cls, raw_source: str) -> "CodeDatasetSource":
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
         return {"tags": self._tags}
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> CodeDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "CodeDatasetSource":
         return cls(
             tags=source_dict.get("tags"),
         )

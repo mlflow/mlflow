@@ -1,4 +1,4 @@
-import type { ColDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
+import type { ColDef, ColGroupDef, ColumnApi, IsFullWidthRowParams } from '@ag-grid-community/core';
 import { Spinner } from '@databricks/design-system';
 import { useEffect, useMemo, useRef } from 'react';
 import { isEqual } from 'lodash';
@@ -240,7 +240,7 @@ export const useRunsColumnDefinitions = ({
     const getCellClassName = ({ colDef }: { colDef: ColDef }) =>
       getOrderedByClassName(colDef.headerComponentParams.canonicalSortKey);
 
-    const columns: ColDefWithChildren[] = [];
+    const columns: (ColDef | ColGroupDef)[] = [];
 
     // Checkbox selection column
     columns.push({
@@ -413,7 +413,7 @@ export const useRunsColumnDefinitions = ({
     if (metricKeys.length) {
       columns.push({
         headerName: 'Metrics',
-        colId: COLUMN_TYPES.METRICS,
+        groupId: COLUMN_TYPES.METRICS,
         children: metricKeys.map((metricKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.METRICS, metricKey);
           return {
@@ -430,7 +430,7 @@ export const useRunsColumnDefinitions = ({
               canonicalSortKey,
               getClassName: getHeaderClassName,
             },
-            cellClass: getCellClassName,
+            cellClass: (def) => `${getCellClassName(def)} is-previewable-cell`,
           };
         }),
       });
@@ -440,7 +440,7 @@ export const useRunsColumnDefinitions = ({
     if (paramKeys.length) {
       columns.push({
         headerName: 'Parameters',
-        colId: COLUMN_TYPES.PARAMS,
+        groupId: COLUMN_TYPES.PARAMS,
         children: paramKeys.map((paramKey) => {
           const canonicalSortKey = makeCanonicalSortKey(COLUMN_TYPES.PARAMS, paramKey);
           return {
@@ -457,7 +457,7 @@ export const useRunsColumnDefinitions = ({
               canonicalSortKey,
               getClassName: getHeaderClassName,
             },
-            cellClass: getCellClassName,
+            cellClass: (def) => `${getCellClassName(def)} is-previewable-cell`,
           };
         }),
       });
@@ -521,10 +521,6 @@ export const useRunsColumnDefinitions = ({
   }, [selectedColumns, columnApi, canonicalSortKeys, isComparingRuns]);
 
   return columnSet;
-};
-
-type ColDefWithChildren = ColDef & {
-  children?: ColDef[];
 };
 
 export const EXPERIMENTS_DEFAULT_COLUMN_SETUP = {

@@ -21,6 +21,7 @@ export type DatasetWithRunType = {
   datasetWithTags: RunDatasetWithTags;
   runData: {
     experimentId: string;
+    tags: Record<string, { key: string; value: string }>;
     runUuid: string;
     runName: string;
     color?: string;
@@ -192,7 +193,10 @@ export const ExperimentViewDatasetDrawer = ({
                 </Typography.Title>
               </div>
               <div css={{ display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-                <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
+                <ExperimentViewDatasetLink
+                  datasetWithTags={datasetWithTags}
+                  runTags={runData.tags}
+                />
               </div>
             </div>
             {/* dataset schema */}

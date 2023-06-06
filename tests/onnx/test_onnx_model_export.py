@@ -99,8 +99,8 @@ def model(dataset):
 
 
 @pytest.fixture
-def onnx_model(model, sample_input, tmpdir):
-    model_path = os.path.join(str(tmpdir), "torch_onnx")
+def onnx_model(model, sample_input, tmp_path):
+    model_path = os.path.join(tmp_path, "torch_onnx")
     dynamic_axes = {"input": {0: "batch"}}
     torch.onnx.export(
         model, sample_input, model_path, dynamic_axes=dynamic_axes, input_names=["input"]
@@ -154,8 +154,8 @@ def multi_tensor_model_prediction(multi_tensor_model, data):
 
 
 @pytest.fixture
-def multi_tensor_onnx_model(multi_tensor_model, sample_input, tmpdir):
-    model_path = os.path.join(str(tmpdir), "multi_tensor_onnx")
+def multi_tensor_onnx_model(multi_tensor_model, sample_input, tmp_path):
+    model_path = os.path.join(tmp_path, "multi_tensor_onnx")
     _sample_input = torch.split(sample_input, 2, 1)
     torch.onnx.export(
         multi_tensor_model,
@@ -226,13 +226,13 @@ def predicted_multiple_inputs(data_multiple_inputs):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(tmpdir.strpath, "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def onnx_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def onnx_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["onnx", "pytest", "torch"])
     return conda_env
 
