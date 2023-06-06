@@ -80,18 +80,3 @@ Jinja2-windows:
 matplotlib:
   pip_release: matplotlib
   max_major_version: 3
-
-fastapi:
-  pip_release: fastapi
-  minimum: "0.89.1"
-  max_major_version: 1
-
-uvicorn:
-  pip_release: uvicorn
-  minimum: "0.20.0"
-  max_major_version: 1
-
-watchdog:
-  pip_release: watchdog
-  minimum: "3.0.0"
-  max_major_version: 4

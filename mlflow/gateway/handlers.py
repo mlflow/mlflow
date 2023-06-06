@@ -1,42 +1,64 @@
 from enum import Enum
-from pathlib import Path
-from pydantic import BaseModel, Field, validator, parse_obj_as
-from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List
-import yaml
 import json
+from pathlib import Path
+from pydantic import BaseModel, validator, parse_obj_as
+from pydantic.json import pydantic_encoder
+from typing import Optional, Union, List, Dict, Any
+import yaml
+
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import PROVIDERS
+from mlflow.gateway.utils import is_valid_endpoint_name
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
 class Provider(str, Enum):
-    UNSPECIFIED_PROVIDER = "unspecified"
+    UNSPECIFIED_PROVIDER = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    BARD = "bard"
+    DATABRICKS = "databricks"
 
 
 class RouteType(str, Enum):
-    UNSPECIFIED = "unspecified"
+    UNSPECIFIED = "custom"
     LLM_V1_INSTRUCT = "llm/v1/instruct"
     LLM_V1_CHAT = "llm/v1/chat"
 
 
 class OpenAIConfig(BaseModel):
-    openai_api_key: str = Field(..., alias="openai_api_key")
-    openai_api_type: Optional[str] = Field(None, alias="openai_api_type")
-    openai_api_base: Optional[str] = Field("https://api.openai.com/", alias="openai_api_base")
-    openai_api_version: Optional[str] = Field(None, alias="openai_api_version")
+    openai_api_key: Optional[str] = None
+    openai_api_key_env_var: Optional[str] = None
+    openai_api_type: Optional[str] = None
+    openai_api_base: Optional[str] = "https://api.openai.com/"
+    openai_api_version: Optional[str] = None
+    openai_organization: Optional[str] = None
 
 
 class AnthropicConfig(BaseModel):
-    anthropic_api_key: str = Field(..., alias="anthropic_api_key")
-    anthropic_api_base: Optional[str] = Field(
-        "https://api.anthropic.com/", alias="anthropic_api_base"
-    )
+    anthropic_api_key: Optional[str] = None
+    anthropic_api_key_env_var: Optional[str] = None
+    anthropic_api_base: Optional[str] = "https://api.anthropic.com/"
 
 
-class BardConfig(BaseModel):
-    bard_api_key: str = Field(..., alias="bard_api_key")
-    bard_api_base: str = Field("https://bard.google.com/", alias="bard_api_base")
+class DatabricksConfig(BaseModel):
+    databricks_api_token: Optional[str] = None
+    databricks_api_token_env_var: Optional[str] = None
+    databricks_api_base: str
+
+
+class CustomConfig(BaseModel):
+    api_key: Optional[str] = None
+    api_key_env_var: Optional[str] = None
+    api_base: str
+    api_version: Optional[str] = None
+
+
+config_types = {
+    Provider.OPENAI: OpenAIConfig,
+    Provider.ANTHROPIC: AnthropicConfig,
+    Provider.DATABRICKS: DatabricksConfig,
+    Provider.UNSPECIFIED_PROVIDER: CustomConfig,
+}
 
 
 class ModelInfo(BaseModel):
@@ -44,22 +66,107 @@ class ModelInfo(BaseModel):
     provider: Provider = Provider.UNSPECIFIED_PROVIDER
 
 
+def _config_instance_validation(config, provider):
+    exceptions = {
+        "api_key_exception": (
+            f"For the {provider} provider, the api key must either be specified within the "
+            "configuration supplied or an environment variable set whose key is "
+            "defined within the configuration"
+        ),
+        "config_exception": (
+            f"For the {provider} provider, the configuration is not set correctly. Verify "
+            f"that a config is set and that the base url and api key information is provided."
+        ),
+    }
+
+    api_keys = {
+        OpenAIConfig: ["openai_api_key", "openai_api_key_env_var"],
+        AnthropicConfig: ["anthropic_api_key", "anthropic_api_key_env_var"],
+        DatabricksConfig: ["databricks_api_token", "databricks_api_token_env_var"],
+        CustomConfig: ["api_key", "api_key_env_var"],
+    }
+    base_route = {
+        OpenAIConfig: "openai_api_base",
+        AnthropicConfig: "anthropic_api_base",
+        CustomConfig: "api_base",
+    }
+
+    for config_class, keys in api_keys.items():
+        if isinstance(config, config_class) and all(
+            getattr(config, key, None) is None for key in keys
+        ):
+            raise MlflowException(
+                exceptions["api_key_exception"], error_code=INVALID_PARAMETER_VALUE
+            )
+    for config_class, base in base_route.items():
+        if isinstance(config, config_class) and getattr(config, base, None) is None:
+            raise MlflowException(
+                exceptions["config_exception"], error_code=INVALID_PARAMETER_VALUE
+            )
+
+
+# pylint: disable=no-self-argument
 class Model(BaseModel):
     name: Optional[str] = None
-    provider: Provider = Provider.UNSPECIFIED_PROVIDER
-    config: Optional[Union[OpenAIConfig, AnthropicConfig, BardConfig]] = None
+    provider: Union[str, Provider] = Provider.UNSPECIFIED_PROVIDER
+    config: Optional[Dict[str, Any]] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
-        if value in Provider._value2member_map_:
+        if isinstance(value, Provider):
             return value
-        return Provider.UNSPECIFIED_PROVIDER.value
+        return (
+            Provider[value.upper()]
+            if value.upper() in Provider.__members__
+            else Provider.UNSPECIFIED_PROVIDER
+        )
+
+    @validator("config", pre=True)
+    def validate_config(cls, config, values):
+        provider = values.get("provider")
+        if provider:
+            config_type = config_types[provider]
+            config_instance = config_type(**config)
+
+            # validate that the configuration fields are defined properly
+            _config_instance_validation(config_instance, provider)
+
+            return config_instance
+        else:
+            raise MlflowException(
+                "A provider must be provided for each gateway route.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
+# pylint: disable=no-self-argument
 class RouteConfig(BaseModel):
-    name: Optional[str] = None
+    name: str
     type: RouteType = RouteType.UNSPECIFIED
-    model: Optional[Model] = None
+    model: Model
+
+    @validator("name")
+    def validate_endpoint_name(cls, route_name):
+        if not is_valid_endpoint_name(route_name):
+            raise MlflowException(
+                "The route name provided contains disallowed characters for a url endpoint. "
+                f"'{route_name}' is invalid. Names cannot contain spaces or any non "
+                "alphanumeric characters other than hyphen and underscore",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        return route_name
+
+    @validator("model", pre=True)
+    def validate_model(cls, model):
+        if model:
+            model_instance = Model(**model)
+            if model_instance.provider in PROVIDERS and model_instance.config is None:
+                raise MlflowException(
+                    "A config must be supplied when setting a provider. The provider entry for "
+                    f"{model_instance.provider} is incorrect.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        return model
 
     @validator("type", pre=True)
     def validate_route_type(cls, value):

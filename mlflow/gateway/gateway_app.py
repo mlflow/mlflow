@@ -1,14 +1,14 @@
 import argparse
 from fastapi import FastAPI, Request, HTTPException
 import os
-from pydantic import BaseModel
 from traceback import format_exc
-from typing import List, Optional
+from typing import List
 import uvicorn
 
 from mlflow.gateway.constants import GATEWAY_VERSION, CONF_PATH_ENV_VAR
 from mlflow.gateway.handlers import Route, RouteConfig, _route_config_to_route, _load_gateway_config
 from mlflow.gateway.utils import _parse_url_path_for_base_url
+
 
 # Configured and initialized Gateway Routes state index
 ACTIVE_ROUTES: List[Route] = []
@@ -44,7 +44,7 @@ async def get_route(route: str):
 
 
 @app.get("/search_routes")
-async def search_routes(filter: str):
+async def search_routes(filter_condition: str):
     # placeholder route listing functionality
     routes = [route.json() for route in ACTIVE_ROUTES]
     return {"routes": routes}
@@ -52,35 +52,22 @@ async def search_routes(filter: str):
 
 @app.get("/list_all_routes")
 async def list_all_routes():
-    routes = []
-    for route in app.routes:
-        routes.append(
-            {
-                "path": route.path,
-                "name": route.name,
-                "methods": sorted(route.methods),
-            }
-        )
-    return routes
+    return [
+        {
+            "path": route.path,
+            "name": route.name,
+            "methods": sorted(route.methods),
+        }
+        for route in app.routes
+    ]
 
 
-# Placeholder logic for dynamic route configuration
 def _add_dynamic_route(route: RouteConfig):
-    # TODO: Provide a mapping that returns the constructed async endpoint config from the
-    # provider within the RouteConfig. The `route_endpoint` configuration below is a
-    # placeholder only and should be generated based on the expected endpoint configuration
-    # within the given RouteConfig. The pydantic class below is also a placeholder and should
-    # be externalized.
-
-    class RouteInput(BaseModel):
-        input: str
-        temperature: Optional[float]
-
-    async def route_endpoint(data: RouteInput):
+    async def route_endpoint(request: Request):
         try:
             # TODO: handle model-specific route logic by mapping the provider to plugin logic
 
-            return {"response": data.input}
+            return await request.json()
         except Exception as e:
             raise HTTPException(status_code=500, detail=format_exc()) from e
 
