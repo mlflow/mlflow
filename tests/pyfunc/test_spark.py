@@ -121,8 +121,8 @@ def spark():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])

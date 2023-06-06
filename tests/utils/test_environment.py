@@ -19,8 +19,8 @@ from tests.helper_functions import _mlflow_major_version_string
 
 
 @pytest.fixture
-def conda_env_path(tmpdir):
-    return os.path.join(tmpdir.strpath, "conda_env.yaml")
+def conda_env_path(tmp_path):
+    return os.path.join(tmp_path, "conda_env.yaml")
 
 
 def test_mlflow_conda_env_returns_none_when_output_path_is_specified(conda_env_path):

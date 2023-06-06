@@ -1,14 +1,9 @@
 import datasets
 
-from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
+from typing import Any, Union, Optional, Mapping, Sequence, Dict
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
-
-
-HuggingFaceDatasetSourceType = TypeVar(
-    "HuggingFaceDatasetSourceType", bound="HuggingFaceDatasetSource"
-)
 
 
 @experimental
@@ -82,7 +77,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         return False
 
     @classmethod
-    def _resolve(cls, raw_source: str) -> HuggingFaceDatasetSourceType:
+    def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
@@ -97,7 +92,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> HuggingFaceDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),
