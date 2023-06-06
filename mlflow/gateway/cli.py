@@ -17,6 +17,6 @@ import click
     default=5000,
     help="The port to listen on (default: 5000).",
 )
-def start_gateway(config_path, host, port):
-    # Implement this
-    pass
+def start_gateway(config_path: str, host: str, port: str):
+    # TODO: Implement this command
+    click.echo("Starting gateway...")
