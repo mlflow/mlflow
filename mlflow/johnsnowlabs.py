@@ -466,20 +466,19 @@ def _save_jars_and_lic(dst_dir, store_license=False):
     from johnsnowlabs.py_models.jsl_secrets import JslSecrets
 
     deps_data_path = Path(dst_dir) / _JOHNSNOWLABS_MODEL_PATH_SUB / "jars.jsl"
-    Path(deps_data_path).mkdir(parents=True, exist_ok=True)
+    deps_data_path.mkdir(parents=True, exist_ok=True)
 
     suite = get_install_suite_from_jsl_home(False)
     if suite.hc.get_java_path():
-        shutil.copyfile(suite.hc.get_java_path(), str(Path(deps_data_path) / "hc_jar.jar"))
+        shutil.copyfile(suite.hc.get_java_path(), deps_data_path / "hc_jar.jar")
     if suite.nlp.get_java_path():
-        shutil.copyfile(suite.nlp.get_java_path(), str(Path(deps_data_path) / "os_jar.jar"))
+        shutil.copyfile(suite.nlp.get_java_path(), deps_data_path / "os_jar.jar")
 
     if store_license:
         # Read the secrets from env vars and write to license.json
         secrets = JslSecrets.build_or_try_find_secrets()
         if secrets.HC_LICENSE:
-            with open(str(Path(deps_data_path) / "license.json"), "w") as f:
-                f.write(secrets.json())
+            deps_data_path.joinpath("license.json").write(secrets.json())
 
 
 @experimental
