@@ -6,7 +6,7 @@ MLflow 2.4.0 includes several major features and improvements
 
 Features:
 
-- [Tracking] Introduce dataset tracking APIs - ``mlflow.data`` and ``mlflow.log_input()`` (#8186, @prithvikannan)
+- [Tracking] Introduce dataset tracking APIs: ``mlflow.data`` and ``mlflow.log_input()`` (#8186, @prithvikannan)
 - [Tracking] Add ``mlflow.log_table()`` and ``mlflow.load_table()`` APIs for logging evaluation tables (#8523, #8467, @sunishsheth2009)
 - [Tracking] Introduce ``mlflow.get_parent_run()`` fluent API (#8493, @annzhang-db)
 - [Tracking / Model Registry] Re-introduce faster artifact downloads on Databricks (#8352, @dbczumar; #8561, @harupy)
