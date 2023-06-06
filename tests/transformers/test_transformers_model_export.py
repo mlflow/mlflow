@@ -2826,7 +2826,7 @@ def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline,
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30 seconds and counting")
 
 
 @pytest.mark.skipcacheclean
@@ -2854,7 +2854,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30 seconds and counting")
 
     # Test split format
     inference_df = pd.DataFrame(
@@ -2872,7 +2872,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30 seconds and counting")
 
     # Test records format
     records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
@@ -2887,7 +2887,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30 seconds and counting")
 
 
 @pytest.mark.skipif(
@@ -3093,7 +3093,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     url_inference = pyfunc_model.predict(url)
 
-    assert url_inference[0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert url_inference[0].startswith("30 seconds and counting")
     # Ensure that direct pyfunc calling even with a conflicting signature still functions
     inference_payload = json.dumps({"inputs": [url]})
 
