@@ -3,5 +3,5 @@
 # dev/generate_requirements.py script to regenerate this file.
 
 pydantic<3,>=1.0
-fastapi<2
-fastapi<2
+fastapi<1
+uvicorn<1

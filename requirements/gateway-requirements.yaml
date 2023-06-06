@@ -8,8 +8,8 @@ pydantic:
 
 fastapi:
   pip_release: fastapi
-  max_major_version: 1
+  max_major_version: 0
 
 uvicorn:
-  pip_release: fastapi
-  max_major_version: 1
+  pip_release: uvicorn
+  max_major_version: 0
