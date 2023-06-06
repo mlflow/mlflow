@@ -1,0 +1,15 @@
+# These are the extra requirements for MLflow Model Gateway that can be installed
+# on top of the core requirements using `pip install mlflow[gateway]`.
+
+pydantic:
+  pip_release: pydantic
+  minimum: "1.0"
+  max_major_version: 2
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 1
+
+uvicorn:
+  pip_release: fastapi
+  max_major_version: 1
