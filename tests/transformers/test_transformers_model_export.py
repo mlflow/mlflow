@@ -335,7 +335,7 @@ def raw_audio_file():
 
 @pytest.fixture()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-small")
+    return transformers.pipeline(model="openai/whisper-tiny")
 
 
 @pytest.fixture()
