@@ -1,6 +1,6 @@
+import torch
 from transformers import BertModel, BertTokenizerFast, pipeline
 import mlflow
-import torch
 
 
 sentence_transformers_architecture = "sentence-transformers/all-MiniLM-L12-v2"
