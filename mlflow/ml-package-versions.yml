@@ -444,14 +444,11 @@ diviner:
     maximum: "0.1.1"
     requirements:
       # https://github.com/alan-turing-institute/sktime/issues/2898
-      ">= 0.0": [
-        "cmdstanpy!=1.0.2",
-        # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-        "holidays!=0.25",
-        # Diviner <= 0.1.1 isn't compatible with pandas<2
-        "pandas<2"
-      ]
+      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+      ">= 0.0": ["cmdstanpy!=1.0.2", "holidays!=0.25"]
       "<= 0.1.0": ["pmdarima<2.0.0"]
+      # Diviner <= 0.1.1 isn't compatible with pandas>=2
+      "<= 0.1.1": ["pandas<2"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
 
