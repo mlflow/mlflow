@@ -159,6 +159,9 @@ def _get_request_param(param: str, optional: bool = False, default=None) -> Opti
             BAD_REQUEST,
         )
     if param not in args and not optional:
+        # Special handling for run_id
+        if param == "run_id":
+            return _get_request_param("run_uuid")
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
@@ -207,7 +210,7 @@ def _get_permission_from_experiment_name() -> Permission:
 def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
-    run_id = _get_request_param("run_id", optional=True) or _get_request_param("run_uuid")
+    run_id = _get_request_param("run_id")
     run = get_run(run_id)
     experiment_id = run.info.experiment_id
     username = request.authorization.username
