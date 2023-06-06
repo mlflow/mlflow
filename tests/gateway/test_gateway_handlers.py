@@ -10,7 +10,7 @@ from mlflow.gateway.handlers import (
 )
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def basic_config_dict():
     return [
         {
