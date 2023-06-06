@@ -1,11 +1,11 @@
 import logging
 import click
+import contextlib
 
 from mlflow.models import build_docker as build_docker_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import cli_args
 from mlflow.utils import env_manager as _EnvManager
-
 
 _logger = logging.getLogger(__name__)
 
@@ -275,3 +275,9 @@ def build_docker(model_uri, name, env_manager, mlflow_home, install_mlflow, enab
         install_mlflow=install_mlflow,
         enable_mlserver=enable_mlserver,
     )
+
+
+with contextlib.suppress(ImportError):
+    from mlflow.gateway.cli import start_gateway
+
+    commands.add_command(start_gateway)
