@@ -260,6 +260,7 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
         ("datasets.name = 'name1'", [0, 1]),
         ("datasets.name IN ('name1', 'name2')", [0, 1, 2]),
+        ("datasets.digest IN ('digest1', 'digest2')", [0, 1, 2]),
         ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
         ("datasets.context = 'train'", [0]),
         ("datasets.name = 'name1' AND datasets.context = 'train'", [0]),

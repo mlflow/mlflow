@@ -381,7 +381,7 @@ class SearchUtils:
             elif token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "name":
+                if key not in ("name", "digest", "context"):
                     raise MlflowException(
                         "Only the dataset 'name' and 'digest' supports comparison with a list of "
                         "quoted string values.",
