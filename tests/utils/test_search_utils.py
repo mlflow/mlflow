@@ -152,7 +152,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.time != 1", "Invalid attribute key"),
         ("attribute._status != 'RUNNING'", "Invalid attribute key"),
         ("attribute.status = true", "Invalid clause(s) in filter string"),
-        ("dataset.status = true", "Invalid clause(s) in filter string"),
+        ("dataset.status = 'true'", "Invalid dataset key"),
     ],
 )
 def test_error_filter(filter_string, error_message):

@@ -122,6 +122,9 @@ class SearchUtils:
     NUMERIC_ATTRIBUTES = set(
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
+    DATASET_ATTRIBUTES = set(
+        ["name", "digest", "source_type", "source", "schema", "profile", "context"]
+    )
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
@@ -314,7 +317,7 @@ class SearchUtils:
         except ValueError:
             raise MlflowException(
                 "Invalid identifier '%s'. Columns should be specified as "
-                "'attribute.<key>', 'metric.<key>', 'tag.<key>', or "
+                "'attribute.<key>', 'metric.<key>', 'tag.<key>', 'dataset.<key>', or "
                 "'param.'." % identifier,
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -323,6 +326,10 @@ class SearchUtils:
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
+            )
+        elif identifier == cls._DATASET_IDENTIFIER and key not in cls.DATASET_ATTRIBUTES:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid dataset key '{key}' specified. Valid keys are '{cls.DATASET_ATTRIBUTES}'"
             )
         return {"type": identifier, "key": key}
 
@@ -370,10 +377,10 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
         elif identifier_type == cls._DATASET_IDENTIFIER:
-            if key in cls.NUMERIC_ATTRIBUTES:
-                if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+            if key in cls.DATASET_ATTRIBUTES:
+                if token.ttype not in cls.STRING_VALUE_TYPES:
                     raise MlflowException(
-                        "Expected numeric value type for numeric attribute: {}. "
+                        "Expected string value type for numeric attribute: {}. "
                         "Found {}".format(key, token.value),
                         error_code=INVALID_PARAMETER_VALUE,
                     )
