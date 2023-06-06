@@ -1984,6 +1984,227 @@ Response Structure
 | experiment_permission | :ref:`mlflowExperimentPermission` | An experiment permission object. |
 +-----------------------+-----------------------------------+----------------------------------+
 
+===========================
+
+.. _mlflowAuthServiceGetExperimentPermission:
+
+Get Experiment Permission
+=========================
+
++--------------------------------------------+-------------+
+|                  Endpoint                  | HTTP Method |
++============================================+=============+
+| ``2.0/mlflow/experiments/permissions/get`` | ``GET``     |
++--------------------------------------------+-------------+
+
+.. _mlflowGetExperimentPermission:
+
+Request Structure
+-----------------
+
++---------------+------------+----------------+
+|  Field Name   |    Type    |  Description   |
++===============+============+================+
+| experiment_id | ``STRING`` | Experiment id. |
++---------------+------------+----------------+
+| username      | ``STRING`` | Username.      |
++---------------+------------+----------------+
+
+.. _mlflowGetExperimentPermissionResponse:
+
+Response Structure
+------------------
+
++-----------------------+-----------------------------------+----------------------------------+
+|      Field Name       |               Type                |           Description            |
++=======================+===================================+==================================+
+| experiment_permission | :ref:`mlflowExperimentPermission` | An experiment permission object. |
++-----------------------+-----------------------------------+----------------------------------+
+
+===========================
+
+.. _mlflowAuthServiceUpdateExperimentPermission:
+
+Update Experiment Permission
+============================
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/experiments/permissions/update`` | ``PATCH``   |
++-----------------------------------------------+-------------+
+
+.. _mlflowUpdateExperimentPermission:
+
+Request Structure
+-----------------
+
++---------------+-------------------------+--------------------------+
+|  Field Name   |          Type           |       Description        |
++===============+=========================+==========================+
+| experiment_id | ``STRING``              | Experiment id.           |
++---------------+-------------------------+--------------------------+
+| username      | ``STRING``              | Username.                |
++---------------+-------------------------+--------------------------+
+| permission    | :ref:`mlflowPermission` | New permission to grant. |
++---------------+-------------------------+--------------------------+
+
+===========================
+
+.. _mlflowAuthServiceDeleteExperimentPermission:
+
+Delete Experiment Permission
+============================
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/experiments/permissions/delete`` | ``DELETE``  |
++-----------------------------------------------+-------------+
+
+.. _mlflowDeleteExperimentPermission:
+
+Request Structure
+-----------------
+
++---------------+------------+----------------+
+|  Field Name   |    Type    |  Description   |
++===============+============+================+
+| experiment_id | ``STRING`` | Experiment id. |
++---------------+------------+----------------+
+| username      | ``STRING`` | Username.      |
++---------------+------------+----------------+
+
+===========================
+
+.. _mlflowAuthServiceCreateRegisteredModelPermission:
+
+Create Registered Model Permission
+==================================
+
++-----------------------------------------------------+-------------+
+|                      Endpoint                       | HTTP Method |
++=====================================================+=============+
+| ``2.0/mlflow/registered-models/permissions/create`` | ``CREATE``  |
++-----------------------------------------------------+-------------+
+
+.. _mlflowCreateRegisteredModelPermission:
+
+Request Structure
+-----------------
+
++------------+-------------------------+------------------------+
+| Field Name |          Type           |      Description       |
++============+=========================+========================+
+| name       | ``STRING``              | Registered model name. |
++------------+-------------------------+------------------------+
+| username   | ``STRING``              | Username.              |
++------------+-------------------------+------------------------+
+| permission | :ref:`mlflowPermission` | Permission to grant.   |
++------------+-------------------------+------------------------+
+
+.. _mlflowCreateRegisteredModelPermissionResponse:
+
+Response Structure
+------------------
+
++-----------------------------+----------------------------------------+----------------------------------------+
+|         Field Name          |                  Type                  |              Description               |
++=============================+========================================+========================================+
+| registered_model_permission | :ref:`mlflowRegisteredModelPermission` | An registered model permission object. |
++-----------------------------+----------------------------------------+----------------------------------------+
+
+===========================
+
+.. _mlflowAuthServiceGetRegisteredModelPermission:
+
+Get Registered Model Permission
+===============================
+
++--------------------------------------------------+-------------+
+|                     Endpoint                     | HTTP Method |
++==================================================+=============+
+| ``2.0/mlflow/registered-models/permissions/get`` | ``GET``     |
++--------------------------------------------------+-------------+
+
+.. _mlflowGetRegisteredModelPermission:
+
+Request Structure
+-----------------
+
++------------+------------+------------------------+
+| Field Name |    Type    |      Description       |
++============+============+========================+
+| name       | ``STRING`` | Registered model name. |
++------------+------------+------------------------+
+| username   | ``STRING`` | Username.              |
++------------+------------+------------------------+
+
+.. _mlflowGetRegisteredModelPermissionResponse:
+
+Response Structure
+------------------
+
++-----------------------------+----------------------------------------+----------------------------------------+
+|         Field Name          |                  Type                  |              Description               |
++=============================+========================================+========================================+
+| registered_model_permission | :ref:`mlflowRegisteredModelPermission` | An registered model permission object. |
++-----------------------------+----------------------------------------+----------------------------------------+
+
+===========================
+
+.. _mlflowAuthServiceUpdateRegisteredModelPermission:
+
+Update Registered Model Permission
+==================================
+
++-----------------------------------------------------+-------------+
+|                      Endpoint                       | HTTP Method |
++=====================================================+=============+
+| ``2.0/mlflow/registered-models/permissions/update`` | ``PATCH``   |
++-----------------------------------------------------+-------------+
+
+.. _mlflowUpdateRegisteredModelPermission:
+
+Request Structure
+-----------------
+
++------------+-------------------------+--------------------------+
+| Field Name |          Type           |       Description        |
++============+=========================+==========================+
+| name       | ``STRING``              | Registered model name.   |
++------------+-------------------------+--------------------------+
+| username   | ``STRING``              | Username.                |
++------------+-------------------------+--------------------------+
+| permission | :ref:`mlflowPermission` | New permission to grant. |
++------------+-------------------------+--------------------------+
+
+===========================
+
+.. _mlflowAuthServiceDeleteRegisteredModelPermission:
+
+Delete Registered Model Permission
+==================================
+
++-----------------------------------------------------+-------------+
+|                      Endpoint                       | HTTP Method |
++=====================================================+=============+
+| ``2.0/mlflow/registered-models/permissions/delete`` | ``DELETE``  |
++-----------------------------------------------------+-------------+
+
+.. _mlflowDeleteRegisteredModelPermission:
+
+Request Structure
+-----------------
+
++------------+------------+------------------------+
+| Field Name |    Type    |      Description       |
++============+============+========================+
+| name       | ``STRING`` | Registered model name. |
++------------+------------+------------------------+
+| username   | ``STRING`` | Username.              |
++------------+------------+------------------------+
+
 
 .. _RESTadd:
 
