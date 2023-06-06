@@ -3,14 +3,14 @@ from mlflow.gateway.cli import start, update
 
 
 def test_start(tmp_path):
-    config = tmp_path.joinpath("config.yaml")
-    config.write_text("")
+    config_path = tmp_path.joinpath("config.yaml")
+    config_path.write_text("")
     runner = CliRunner()
     res = runner.invoke(
         start,
         [
             "--config-path",
-            config,
+            config_path,
             "--host",
             "localhost",
             "--port",
@@ -23,12 +23,15 @@ def test_start(tmp_path):
 
 
 def test_update(tmp_path):
-    config = tmp_path.joinpath("config.yaml")
-    config.write_text("")
+    config_path = tmp_path.joinpath("config.yaml")
+    config_path.write_text("")
     runner = CliRunner()
     res = runner.invoke(
         update,
-        [],
+        [
+            "--config-path",
+            config_path,
+        ],
         catch_exceptions=False,
     )
     assert res.exit_code == 0
