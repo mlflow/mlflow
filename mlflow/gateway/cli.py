@@ -6,7 +6,7 @@ def commands():
     pass
 
 
-CONFIG_OPTION = click.option(
+CONFIG_PATH_OPTION = click.option(
     "--config-path",
     required=True,
     help="The path to the gateway configuration file.",
@@ -14,7 +14,7 @@ CONFIG_OPTION = click.option(
 
 
 @commands.command("start", help="Start the MLflow Model Gateway service")
-@CONFIG_OPTION
+@CONFIG_PATH_OPTION
 @click.option(
     "--host",
     default="127.0.0.1",
@@ -31,7 +31,7 @@ def start(config_path: str, host: str, port: str):
 
 
 @commands.command("update", help="Update the MLflow Model Gateway service")
-@CONFIG_OPTION
+@CONFIG_PATH_OPTION
 def update(config_path: str):
     # TODO: Implement this command
     click.echo("Updating gateway...")
