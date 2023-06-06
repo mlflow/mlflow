@@ -19,19 +19,19 @@ These keys must be present in your license json
 
 You can set them like this in Python
 
-```python
-import os
-import json
+.. code-block:: python
 
-# Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
-creds = {
-    "AWS_ACCESS_KEY_ID": "...",
-    "AWS_SECRET_ACCESS_KEY": "...",
-    "SPARK_NLP_LICENSE": "...",
-    "SECRET": "...",
-}
-os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
-```
+    import os
+    import json
+
+    # Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable
+    creds = {
+        "AWS_ACCESS_KEY_ID": "...",
+        "AWS_SECRET_ACCESS_KEY": "...",
+        "SPARK_NLP_LICENSE": "...",
+        "SECRET": "...",
+    }
+    os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 
 Johnsnowlabs (native) format
     Allows models to be loaded as Spark Transformers for scoring in a Spark session.
