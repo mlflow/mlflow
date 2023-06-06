@@ -1,5 +1,50 @@
 # CHANGELOG
 
+## 2.4.0 (2023-06-06)
+
+MLflow 2.4.0 includes several major features and improvements
+
+Features:
+
+- [Tracking] Introduce dataset tracking APIs: ``mlflow.data`` and ``mlflow.log_input()`` (#8186, @prithvikannan)
+- [Tracking] Add ``mlflow.log_table()`` and ``mlflow.load_table()`` APIs for logging evaluation tables (#8523, #8467, @sunishsheth2009)
+- [Tracking] Introduce ``mlflow.get_parent_run()`` fluent API (#8493, @annzhang-db)
+- [Tracking / Model Registry] Re-introduce faster artifact downloads on Databricks (#8352, @dbczumar; #8561, @harupy)
+- [UI] Add dataset tracking information to MLflow Tracking UI (#8602, @prithvikannan, @hubertzub-db)
+- [UI] Introduce Artifact View for comparing inputs, outputs, and metadata across models (#8602, @hubertzub-db)
+- [Models] Extend ``mlflow.evaluate()`` to support LLM tasks (#8484, @harupy)
+- [Models] Support logging subclasses of ``Chain`` and ``LLMChain`` in ``mlflow.langchain`` flavor (#8453, @liangz1)
+- [Models] Add support for LangChain Agents to the ``mlflow.langchain`` flavor (#8297, @sunishsheth2009)
+- [Models] Add a ``mlflow.sentence_transformers`` flavor for SentenceTransformers (#8479, @BenWilson2; #8547, @Loquats)
+- [Models] Add support for multi-GPU inference and efficient weight loading for ``mlflow.transformers`` flavor (#8448, @ankit-db)
+- [Models] Support the ``max_shard_size`` parameter in the ``mlflow.transformers`` flavor (#8567, @wenfeiy-db)
+- [Models] Add support for audio transcription pipelines in the ``mlflow.transformers`` flavor (#8464, @BenWilson2)
+- [Models] Add support for audio classification to ``mlflow.transformers`` flavor (#8492, @BenWilson2)
+- [Models] Add support for URI inputs in audio models logged with the ``mlflow.transformers`` flavor (#8495, @BenWilson2)
+- [Models] Add support for returning classifier scores in ``mlflow.transformers`` pyfunc outputs (#8512, @BenWilson2)
+- [Models] Support optional inputs in model signatures (#8438, @apurva-koti)
+- [Models] Introduce an ``mlflow.models.set_signature()`` API to set the signature of a logged model (#8476, @jerrylian-db)
+- [Models] Persist ONNX Runtime InferenceSession options when logging a model with ``mlflow.onnx.log_model()`` (#8433, @leqiao-1)
+
+Bug fixes:
+
+- [Tracking] Terminate Spark callback server when Spark Autologging is disabled or Spark Session is shut down (#8508, @WeichenXu123)
+- [Tracking] Fix compatibility of ``mlflow server`` with ``Flask<2.0`` (#8463, @kevingreer)
+- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings during batch inference (#8546, @BenWilson2)
+- [Models] Fix a bug causing outdated pyenv versions to be installed by ``mlflow models build-docker`` (#8488, @Hellzed)
+- [Model Registry] Remove aliases from storage when a Model Version is deleted (#8459, @arpitjasa-db)
+
+Documentation updates:
+
+- [Docs] Publish a new MLOps Quickstart for model selection and deployment (#8462, @lobrien)
+- [Docs] Add MLflavors library to Community Model Flavors documentation (#8420, @benjaminbluhm)
+- [Docs] Add documentation for Registered Model Aliases (#8445, @arpitjasa-db)
+- [Docs] Fix errors in documented ``mlflow models`` CLI command examples (#8480, @vijethmoudgalya)
+
+Small bug fixes and documentation updates:
+
+#8611, #8587, @dbczumar; #8617, #8620, #8615, #8603, #8604, #8601, #8596, #8598, #8597, #8589, #8580, #8581, #8575, #8582, #8577, #8576, #8578, #8561, #8568, #8551, #8528, #8550, #8489, #8530, #8534, #8533, #8532, #8524, #8520, #8517, #8516, #8515, #8514, #8506, #8503, #8500, #8504, #8496, #8486, #8485, #8468, #8471, #8473, #8470, #8458, #8447, #8446, #8434, @harupy; #8607, #8538, #8513, #8452, #8466, #8465, @serena-ruan; #8586, #8595, @prithvikannan; #8593, #8541, @kriscon-db; #8592, #8566, @annzhang-db; #8588, #8565, #8559, #8537, @BenWilson2; #8545, @apurva-koti; #8564, @DavidSpek; #8436, #8490, @jerrylian-db; #8505, @eliaskoromilas; #8483, @WeichenXu123; #8472, @leqiao-1; #8429, @jinzhang21; #8581, #8548, #8499, @gabrielfu;
+
 ## 2.3.2 (2023-05-12)
 
 MLflow 2.3.2 is a patch release containing the following features, bug fixes and changes:
