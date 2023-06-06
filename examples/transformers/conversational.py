@@ -1,10 +1,7 @@
 import transformers
 
 import mlflow
-from mlflow.utils._cache_utils import _clear_hub_cache
 
-# Used only for CI testing - disregard for examples purposes
-_clear_hub_cache()
 
 conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
 

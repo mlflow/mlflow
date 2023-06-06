@@ -2,10 +2,7 @@ import torch
 from transformers import BertModel, BertTokenizerFast, pipeline
 
 import mlflow
-from mlflow.utils._cache_utils import _clear_hub_cache
 
-# Used only for CI testing - disregard for examples purposes
-_clear_hub_cache()
 
 sentence_transformers_architecture = "sentence-transformers/all-MiniLM-L12-v2"
 task = "feature-extraction"
