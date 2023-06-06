@@ -573,7 +573,7 @@ johnsnowlabs:
       ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
     run: |
       if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
-        pytest tests/johnsnowlabs/test_jsl_api.py
+        pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py
       else
         echo "Skipping tests due to missing license key"
       fi
