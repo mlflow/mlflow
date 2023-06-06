@@ -1,7 +1,12 @@
 import click
 
 
-@click.command("start-gateway", help="Start the MLflow Model Gateway service.")
+@click.group("gateway", help="Manage MLflow Model Gateway")
+def commands():
+    pass
+
+
+@commands.command("start", help="Start the MLflow Model Gateway service")
 @click.option(
     "--config-path",
     required=True,
@@ -17,6 +22,12 @@ import click
     default=5000,
     help="The port to listen on (default: 5000).",
 )
-def start_gateway(config_path: str, host: str, port: str):
+def start(config_path: str, host: str, port: str):
     # TODO: Implement this command
     click.echo("Starting gateway...")
+
+
+@commands.command("update", help="Update the MLflow Model Gateway service")
+def update():
+    # TODO: Implement this command
+    click.echo("Updating gateway...")
