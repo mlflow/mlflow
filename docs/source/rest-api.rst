@@ -1921,6 +1921,69 @@ Request Structure
 | is_admin   | ``BOOLEAN`` | New admin status. |
 +------------+-------------+-------------------+
 
+===========================
+
+.. _mlflowAuthServiceDeleteUser:
+
+Delete User
+===========
+
++-----------------------------+-------------+
+|          Endpoint           | HTTP Method |
++=============================+=============+
+| ``2.0/mlflow/users/delete`` | ``DELETE``  |
++-----------------------------+-------------+
+
+.. _mlflowDeleteUser:
+
+Request Structure
+-----------------
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| username   | ``STRING`` | Username.   |
++------------+------------+-------------+
+
+===========================
+
+.. _mlflowAuthServiceCreateExperimentPermission:
+
+Create Experiment Permission
+============================
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/experiments/permissions/create`` | ``POST``    |
++-----------------------------------------------+-------------+
+
+.. _mlflowCreateExperimentPermission:
+
+Request Structure
+-----------------
+
++---------------+-------------------------+----------------------+
+|  Field Name   |          Type           |     Description      |
++===============+=========================+======================+
+| experiment_id | ``STRING``              | Experiment id.       |
++---------------+-------------------------+----------------------+
+| username      | ``STRING``              | Username.            |
++---------------+-------------------------+----------------------+
+| permission    | :ref:`mlflowPermission` | Permission to grant. |
++---------------+-------------------------+----------------------+
+
+.. _mlflowCreateExperimentPermissionResponse:
+
+Response Structure
+------------------
+
++-----------------------+-----------------------------------+----------------------------------+
+|      Field Name       |               Type                |           Description            |
++=======================+===================================+==================================+
+| experiment_permission | :ref:`mlflowExperimentPermission` | An experiment permission object. |
++-----------------------+-----------------------------------+----------------------------------+
+
 
 .. _RESTadd:
 
@@ -2288,3 +2351,55 @@ User
 +------------------------------+----------------------------------+---------------+
 | registered_model_permissions | An array of :ref:`mlflowrundata` | Run data.     |
 +------------------------------+----------------------------------+---------------+
+
+
+
+.. _mlflowPermission:
+
+Permission
+----------
+
+
+Permission of a user to an experiment or a registered model.
+
++----------------+--------------------------------------------+
+|      Name      |                Description                 |
++================+============================================+
+| READ           | Can read.                                  |
++----------------+--------------------------------------------+
+| EDIT           | Can read and update.                       |
++----------------+--------------------------------------------+
+| MANAGE         | Can read and update and delete and manage. |
++----------------+--------------------------------------------+
+| NO_PERMISSIONS | No permissions.                            |
++----------------+--------------------------------------------+
+
+.. _mlflowExperimentPermission:
+
+ExperimentPermission
+--------------------
+
++---------------+-------------------------+---------------------+
+|  Field Name   |          Type           |     Description     |
++===============+=========================+=====================+
+| experiment_id | ``STRING``              | Experiment id.      |
++---------------+-------------------------+---------------------+
+| user_id       | ``STRING``              | User id.            |
++---------------+-------------------------+---------------------+
+| permission    | :ref:`mlflowPermission` | Permission granted. |
++---------------+-------------------------+---------------------+
+
+.. _mlflowRegisteredModelPermission:
+
+RegisteredModelPermission
+-------------------------
+
++------------+-------------------------+------------------------+
+| Field Name |          Type           |      Description       |
++============+=========================+========================+
+| name       | ``STRING``              | Registered model name. |
++------------+-------------------------+------------------------+
+| user_id    | ``STRING``              | User id.               |
++------------+-------------------------+------------------------+
+| permission | :ref:`mlflowPermission` | Permission granted.    |
++------------+-------------------------+------------------------+
