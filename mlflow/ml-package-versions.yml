@@ -557,7 +557,7 @@ sentence_transformers:
       pip install -e git+https://github.com/UKPLab/sentence-transformers
   models:
     minimum: "2.2.2"
-    maximum: "4.29.2"
+    maximum: "2.2.2"
     requirements:
       ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25"]
     run: |
