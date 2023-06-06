@@ -21,11 +21,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.6.0",
-            "maximum": "2.0.0"
+            "maximum": "2.0.1"
         },
         "autologging": {
             "minimum": "1.6.0",
-            "maximum": "2.0.0"
+            "maximum": "2.0.1"
         }
     },
     "pytorch-lightning": {
@@ -34,7 +34,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.0.5",
-            "maximum": "2.0.1.post0"
+            "maximum": "2.0.2"
         }
     },
     "tensorflow": {
@@ -82,7 +82,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.23.1",
-            "maximum": "1.1.1"
+            "maximum": "1.2"
         }
     },
     "gluon": {
@@ -117,7 +117,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.7.0",
-            "maximum": "1.13.1"
+            "maximum": "1.14.0"
         }
     },
     "spacy": {
@@ -126,7 +126,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.2.4",
-            "maximum": "3.5.2"
+            "maximum": "3.5.3"
         }
     },
     "statsmodels": {
@@ -135,11 +135,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.11.1",
-            "maximum": "0.13.5"
+            "maximum": "0.14.0"
         },
         "autologging": {
             "minimum": "0.11.1",
-            "maximum": "0.13.5"
+            "maximum": "0.14.0"
         }
     },
     "spark": {
@@ -170,7 +170,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.1.2"
+            "maximum": "1.1.4"
         }
     },
     "pmdarima": {
@@ -197,7 +197,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.40.0.1",
-            "maximum": "3.40.0.3"
+            "maximum": "3.40.0.4"
         }
     },
     "shap": {
@@ -224,11 +224,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.25.1",
-            "maximum": "4.28.1"
+            "maximum": "4.29.2"
         },
         "autologging": {
             "minimum": "4.25.1",
-            "maximum": "4.28.1"
+            "maximum": "4.29.2"
         }
     },
     "openai": {
@@ -237,7 +237,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.27.2",
-            "maximum": "0.27.4"
+            "maximum": "0.27.7"
         }
     },
     "langchain": {
@@ -246,7 +246,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.0.169",
-            "maximum": "0.0.169"
+            "maximum": "0.0.190"
         }
     },
     "sentence_transformers": {
