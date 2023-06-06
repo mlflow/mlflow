@@ -68,6 +68,9 @@ other capabilities.
 with open(os.path.join("requirements", "core-requirements.txt")) as f:
     CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
 
+with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
+    GATEWAY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
+
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
@@ -160,6 +163,7 @@ setup(
             "google-cloud-storage>=1.30.0",
             "boto3>1",
         ],
+        "gateway": GATEWAY_REQUIREMENTS,
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
