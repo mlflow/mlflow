@@ -160,6 +160,11 @@ setup(
             "google-cloud-storage>=1.30.0",
             "boto3>1",
         ],
+        "gateway": [
+            "fastapi",
+            "pydantic",
+            "uvicorn",
+        ],
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
