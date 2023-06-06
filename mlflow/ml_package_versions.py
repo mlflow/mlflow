@@ -249,7 +249,7 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "0.0.169"
         }
     },
-    "sentence-transformers": {
+    "sentence_transformers": {
         "package_info": {
             "pip_release": "sentence-transformers"
         },
