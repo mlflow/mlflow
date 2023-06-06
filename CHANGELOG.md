@@ -6,48 +6,44 @@ MLflow 2.4.0 includes several major features and improvements
 
 Features:
 
-- [Models / Scoring] Pyfunc support for SentenceTransformers (#8547, @Loquats)
-- [Tracking] Adding load table to load table artifacts as dataframe (#8523, @sunishsheth2009)
-- [Docs / Examples / Sqlalchemy / Tracking] MLflow Dataset Tracking (#8186, @prithvikannan)
-- [Models] Support `max_shard_size` parameter for HuggingFace flavor (#8567, @wenfeiy-db)
-- [] Extend `mlflow.evaluate` to support language model tasks (#8484, @harupy)
-- [Build] feat(docker): build multi-arch images (#8564, @DavidSpek)
-- [Model Registry / Tracking] Use subprocess for multi-part download execution (#8352, @dbczumar)
-- [Tracking] Basic auth: filter search experiment / registered model results (#8518, @gabrielfu)
+- [Tracking] Introduce dataset tracking APIs - ``mlflow.data`` and ``mlflow.log_input()`` (#8186, @prithvikannan)
+- [Tracking] Add ``mlflow.log_table()`` and ``mlflow.load_table()`` APIs for logging evaluation tables (#8523, #8467, @sunishsheth2009)
+- [Tracking] Introduce ``mlflow.get_parent_run()`` fluent API (#8493, @annzhang-db)
+- [Tracking / Model Registry] Re-introduce faster artifact downloads on Databricks (#8352, @dbczumar; #8561, @harupy)
+- [UI] Add dataset tracking information to MLflow Tracking UI (#8602, @prithvikannan, @hubertzub-db)
+- [UI] Introduce Artifact View for comparing inputs, outputs, and metadata across models (#8602, @hubertzub-db)
+- [Models] Extend ``mlflow.evaluate()`` to support LLM tasks (#8484, @harupy)
+- [Models] Support logging subclasses of ``Chain`` and ``LLMChain`` in ``mlflow.langchain`` flavor (#8453, @liangz1)
+- [Models] Add support for LangChain Agents to the ``mlflow.langchain`` flavor (#8297, @sunishsheth2009)
+- [Models] Add a ``mlflow.sentence_transformers`` flavor for SentenceTransformers (#8479, @BenWilson2; #8547, @Loquats)
+- [Models] Add support for multi-GPU inference and efficient weight loading for ``mlflow.transformers`` flavor (#8448, @ankit-db)
+- [Models] Support the ``max_shard_size`` parameter in the ``mlflow.transformers`` flavor (#8567, @wenfeiy-db)
+- [Models] Add support for audio transcription pipelines in the ``mlflow.transformers`` flavor (#8464, @BenWilson2)
+- [Models] Add support for audio classification to ``mlflow.transformers`` flavor (#8492, @BenWilson2)
+- [Models] Add support for URI inputs in audio models logged with the ``mlflow.transformers`` flavor (#8495, @BenWilson2)
+- [Models] Add support for returning classifier scores in ``mlflow.transformers`` pyfunc outputs (#8512, @BenWilson2)
 - [Models] Support optional inputs in model signatures (#8438, @apurva-koti)
-- [Models] Add support for multi-GPU inference and efficient weight loading for HuggingFace flavor (#8448, @ankit-db)
-- [Models] Support subclasses of chains for langchain flavor (#8453, @liangz1)
-- [Models] Add support for uri inputs in audio models for transformers (#8495, @BenWilson2)
-- [Models] Add support for returning classifier scores in transformers output (#8512, @BenWilson2)
-- [Tracking] Introduce get_parent_run fluent API (#8493, @annzhang-db)
-- [Tracking] Adding log table to log dictionary or df as artifacts in MLflow run (#8467, @sunishsheth2009)
-- [Models] Add support for audio classification to transformers (#8492, @BenWilson2)
-- [Models] Add sentence-transformers as a named flavor (#8479, @BenWilson2)
-- [Models] `set_signature` API to set the signature for model artifacts (#8476, @jerrylian-db)
-- [Models] Add support for audio transcription pipelines in transformers (#8464, @BenWilson2)
-- [Models] add ort session options (#8433, @leqiao-1)
-- [Tracking] Adding agent support to LangChain flavor (#8297, @sunishsheth2009)
+- [Models] Introduce an ``mlflow.models.set_signature()`` API to set the signature of a logged model (#8476, @jerrylian-db)
+- [Models] Persist ONNX Runtime InferenceSession options when logging a model with ``mlflow.onnx.log_model()`` (#8433, @leqiao-1)
 
 Bug fixes:
 
-- [Models] Convert transformers scalar string output to list of strings for batch inference (#8546, @BenWilson2)
-- [Tracking / UI] Shut down spark callback server when spark autologging is disabled or spark session is shut down (#8508, @WeichenXu123)
-- [Tracking] Add missing `basic_auth.ini` in PyPI package (#8499, @gabrielfu)
-- [Docker] Sort pyenv tags as versions (#8488, @Hellzed)
-- [Server-infra / UI] Don't use `max_age` if Flask version is <2.0 (#8463, @kevingreer)
-- [Model Registry] Propagate Model Version Deletion to Associated Aliases (#8459, @arpitjasa-db)
+- [Tracking] Terminate Spark callback server when Spark Autologging is disabled or Spark Session is shut down (#8508, @WeichenXu123)
+- [Tracking] Fix compatibility of ``mlflow server`` with ``Flask<2.0`` (#8463, @kevingreer)
+- [Models] Convert ``mlflow.transformers`` pyfunc scalar string output to list of strings for batch inference (#8546, @BenWilson2)
+- [Models] Fix a bug causing outdated pyenv versions to be installed by ``mlflow models build-docker`` (#8488, @Hellzed)
+- [Model Registry] Remove aliases from storage when a Model Version is deleted (#8459, @arpitjasa-db)
 
 Documentation updates:
 
-- [Tracking] Implement auth client to manage permissions (#8548, @gabrielfu)
-- [Docs] MLOps Quickstart (#8462, @lobrien)
-- [Docs] Update models.rst (#8480, @vijethmoudgalya)
-- [] Add MLflavors library to Community Model Flavors docs (#8420, @benjaminbluhm)
-- [Docs / Model Registry] Add Registered Model Alias to the Model Registry Doc Section (#8445, @arpitjasa-db)
+- [Docs] Publish a new MLOps Quickstart for model selection and deployment (#8462, @lobrien)
+- [Docs] Add MLflavors library to Community Model Flavors documentation (#8420, @benjaminbluhm)
+- [Docs] Add documentation for Registered Model Aliases (#8445, @arpitjasa-db)
+- [Docs] Fix errors in documented ``mlflow models`` CLI command examples (#8480, @vijethmoudgalya)
 
 Small bug fixes and documentation updates:
 
-#8611, #8587, @dbczumar; #8617, #8620, #8615, #8603, #8604, #8601, #8602, #8596, #8598, #8597, #8589, #8580, #8581, #8575, #8582, #8577, #8576, #8578, #8561, #8568, #8551, #8528, #8550, #8489, #8530, #8534, #8533, #8532, #8524, #8520, #8517, #8516, #8515, #8514, #8506, #8503, #8500, #8504, #8496, #8486, #8485, #8468, #8471, #8473, #8470, #8458, #8447, #8446, #8434, @harupy; #8607, #8538, #8513, #8452, #8466, #8465, @serena-ruan; #8586, #8595, @prithvikannan; #8593, #8541, @kriscon-db; #8592, #8566, @annzhang-db; #8588, #8565, #8559, #8537, @BenWilson2; #8545, @apurva-koti; #8436, #8490, @jerrylian-db; #8505, @eliaskoromilas; #8483, @WeichenXu123; #8472, @leqiao-1; #8429, @jinzhang21
+#8611, #8587, @dbczumar; #8617, #8620, #8615, #8603, #8604, #8601, #8596, #8598, #8597, #8589, #8580, #8581, #8575, #8582, #8577, #8576, #8578, #8561, #8568, #8551, #8528, #8550, #8489, #8530, #8534, #8533, #8532, #8524, #8520, #8517, #8516, #8515, #8514, #8506, #8503, #8500, #8504, #8496, #8486, #8485, #8468, #8471, #8473, #8470, #8458, #8447, #8446, #8434, @harupy; #8607, #8538, #8513, #8452, #8466, #8465, @serena-ruan; #8586, #8595, @prithvikannan; #8593, #8541, @kriscon-db; #8592, #8566, @annzhang-db; #8588, #8565, #8559, #8537, @BenWilson2; #8545, @apurva-koti; #8564, @DavidSpek; #8436, #8490, @jerrylian-db; #8505, @eliaskoromilas; #8483, @WeichenXu123; #8472, @leqiao-1; #8429, @jinzhang21; #8581, #8548, #8499, @gabrielfu;
 
 ## 2.3.2 (2023-05-12)
 
