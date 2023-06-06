@@ -7,7 +7,7 @@ import mlflow
 from mlflow import cli
 from mlflow.utils import process
 from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
-from mlflow.utils._cache_utils import _clear_hub_cache
+from tests.helper_functions import clear_hub_cache
 import pytest
 from tests.integration.utils import invoke_cli_runner
 
@@ -179,5 +179,5 @@ def test_command_example(directory, command):
     assert os.environ.get("MLFLOW_HOME") is not None
     if directory == "transformers":
         # NB: Clearing the huggingface_hub cache is to lower the disk storage pressure for CI
-        _clear_hub_cache()
+        clear_hub_cache()
     process._exec_cmd(command, cwd=cwd_dir, env=os.environ)
