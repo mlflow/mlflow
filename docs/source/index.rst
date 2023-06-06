@@ -34,6 +34,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     model-registry
     recipes
     plugins
+    auth
     cli
     search-runs
     search-experiments

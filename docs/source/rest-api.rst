@@ -1797,6 +1797,47 @@ Response Structure
 | artifact_uri | ``STRING`` | URI corresponding to where artifacts for this model version are stored. |
 +--------------+------------+-------------------------------------------------------------------------+
 
+===========================
+
+.. _mlflowAuthServiceCreateUser:
+
+Create User
+=================
+
++-----------------------------+-------------+
+|          Endpoint           | HTTP Method |
++=============================+=============+
+| ``2.0/mlflow/users/create`` | ``POST``    |
++-----------------------------+-------------+
+
+Create a user in :ref:`MLflow Authentication<auth>`. Returns the User object of the newly created user.
+
+Throws ``RESOURCE_ALREADY_EXISTS`` if a user with the given username exists.
+
+.. _mlflowCreateUser:
+
+Request Structure
+-----------------
+
++------------+------------+-------------+
+| Field Name |    Type    | Description |
++============+============+=============+
+| username   | ``STRING`` | Username.   |
++------------+------------+-------------+
+| password   | ``STRING`` | Password.   |
++------------+------------+-------------+
+
+.. _mlflowCreateUserResponse:
+
+Response Structure
+------------------
+
++------------+-------------------+---------------+
+| Field Name |       Type        |  Description  |
++============+===================+===============+
+| user       | :ref:`mlflowuser` | A user object |
++------------+-------------------+---------------+
+
 .. _RESTadd:
 
 Data Structures
@@ -2144,3 +2185,22 @@ View type for ListExperiments query.
 +--------------+------------------------------------------+
 | ALL          | Get all experiments.                     |
 +--------------+------------------------------------------+
+
+.. _mlflowUser:
+
+User
+----
+
++------------------------------+----------------------------------+---------------+
+|          Field Name          |               Type               |  Description  |
++==============================+==================================+===============+
+| id                           | ``STRING``                       | Run metadata. |
++------------------------------+----------------------------------+---------------+
+| username                     | ``STRING``                       | Run data.     |
++------------------------------+----------------------------------+---------------+
+| is_admin                     | ``BOOLEAN``                      | Run data.     |
++------------------------------+----------------------------------+---------------+
+| experiment_permissions       | An array of :ref:`mlflowrundata` | Run data.     |
++------------------------------+----------------------------------+---------------+
+| registered_model_permissions | An array of :ref:`mlflowrundata` | Run data.     |
++------------------------------+----------------------------------+---------------+
