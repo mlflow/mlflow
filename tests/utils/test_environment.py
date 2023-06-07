@@ -14,6 +14,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _process_conda_env,
     _get_pip_requirement_specifier,
+    _check_for_duplicate_requirements,
 )
 from tests.helper_functions import _mlflow_major_version_string
 
@@ -326,3 +327,23 @@ def test_process_conda_env(tmpdir):
 
     with pytest.raises(TypeError, match=r"Expected .+, but got `int`"):
         _process_conda_env(0)
+
+
+def test_duplicate_pip_requirements():
+    packages = [
+        "numpy==1.21.0",
+        "pandas>=1.3.0",
+        "scikit-learn",
+        "matplotlib<=3.4.2",
+        "seaborn",
+        "package!=1.2.3",
+        "package~=1.2.3",
+        "package>1.2.3",
+        "package<1.2.3",
+        "package[extra]==1.2.3",
+        "package ===1.2.3",
+        "numpy<1.24.0",
+    ]
+    evaluation = _check_for_duplicate_requirements(packages)
+
+    assert sorted(evaluation) == ["numpy", "package"]

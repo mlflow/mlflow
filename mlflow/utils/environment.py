@@ -1,3 +1,4 @@
+from collections import Counter
 import yaml
 import os
 import logging
@@ -498,6 +499,17 @@ def _process_pip_requirements(
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
     return conda_env, pip_reqs, constraints
+
+
+def _check_for_duplicate_requirements(requirements):
+    """
+    Checks if duplicate base package requirements are specified in any list of requirements
+    and returns the list of duplicate base package names
+    """
+    base_package_names = [Requirement(package).name for package in requirements]
+    package_counts = Counter(base_package_names)
+    duplicates = [package for package, count in package_counts.items() if count > 1]
+    return duplicates
 
 
 def _process_conda_env(conda_env):
