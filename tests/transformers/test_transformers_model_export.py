@@ -86,7 +86,7 @@ def report_free_disk_space(capsys):
     yield
 
     with capsys.disabled():
-        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB", end="")
+        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(autouse=True)
