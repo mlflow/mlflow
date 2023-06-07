@@ -56,7 +56,7 @@ def _start_server(config_path: str, host, port):
     server_cmd = [sys.executable, str(cmd_path), "--host", host, "--port", str(port)]
     gateway_host = host
     gateway_port = port
-    server_process = subprocess.Popen(server_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    server_process = subprocess.Popen(server_cmd, stderr=subprocess.PIPE)
 
     url = f"http://{host}:{port}/health"
     wait_until_server_starts(url=url, server_process=server_process, logger=_logger)

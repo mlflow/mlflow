@@ -21,8 +21,8 @@ class Provider(str, Enum):
 
 
 class RouteType(str, Enum):
-    UNSPECIFIED = "custom"
-    LLM_V1_INSTRUCT = "llm/v1/completions"
+    CUSTOM = "custom"
+    LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
 
 
@@ -30,7 +30,7 @@ class OpenAIConfig(BaseModel):
     openai_api_key: Optional[str] = None
     openai_api_key_env_var: Optional[str] = None
     openai_api_type: Optional[str] = None
-    openai_api_base: Optional[str] = "https://api.openai.com/"
+    openai_api_base: Optional[str] = "https://api.openai.com/v1"
     openai_api_version: Optional[str] = None
     openai_organization: Optional[str] = None
 
@@ -150,7 +150,7 @@ class Model(BaseModel):
 # pylint: disable=no-self-argument
 class RouteConfig(BaseModel):
     name: str
-    type: RouteType = RouteType.UNSPECIFIED
+    type: RouteType = RouteType.CUSTOM
     model: Model
 
     @validator("name")
@@ -180,7 +180,7 @@ class RouteConfig(BaseModel):
     def validate_route_type(cls, value):
         if value in RouteType._value2member_map_:
             return value
-        return RouteType.UNSPECIFIED.value
+        return RouteType.CUSTOM.value
 
 
 class Route(BaseModel):

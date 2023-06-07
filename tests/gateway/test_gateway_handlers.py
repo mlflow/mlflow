@@ -234,7 +234,7 @@ def test_default_base_api(tmp_path):
     conf_path.write_text(yaml.safe_dump(route_no_base))
     loaded_conf = _load_route_config(conf_path)
 
-    assert loaded_conf[0].model.config.get("openai_api_base") == "https://api.openai.com/"
+    assert loaded_conf[0].model.config.get("openai_api_base") == "https://api.openai.com/v1"
 
 
 def test_databricks_route_config(tmp_path):

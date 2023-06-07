@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 
 import pytest
 import requests
@@ -12,6 +13,25 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway import _start_server, _stop_server, _update_server
 from mlflow.gateway.constants import CONF_PATH_ENV_VAR
 from tests.helper_functions import get_safe_port, LOCALHOST
+
+
+class ServerManager:
+    """
+    Safe context manager to terminate server processes if an error raises in a test
+    """
+
+    def __init__(self, config_path, host=LOCALHOST, port=None):
+        self.config_path = config_path
+        self.host = host
+        self.port = port or get_safe_port()
+
+    def __enter__(self):
+        _start_server(self.config_path, self.host, self.port)
+        return self.port
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        _stop_server()
+        wait()
 
 
 @pytest.fixture
@@ -116,24 +136,16 @@ def get_test_client(config, path):
 
 
 def test_server_start(basic_config_dict, tmp_path):
-    conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
+    conf_path = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     assert gateway.server_process is None
 
-    port = get_safe_port()
+    with ServerManager(conf_path) as port:
+        assert gateway.server_process is not None
+        response = requests.get(f"http://{LOCALHOST}:{port}/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "OK"}
 
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
-
-    assert gateway.server_process is not None
-    # Test static endpoints
-    response = requests.get(f"http://{LOCALHOST}:{port}/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "OK"}
-
-    _stop_server()
-
-    # test that the health check fails (server is down)
-    wait()
     with pytest.raises(
         requests.exceptions.ConnectionError, match=r"HTTPConnectionPool\(host='127.0.0.1',"
     ):
@@ -147,100 +159,68 @@ def test_cycle_server(basic_config_dict, tmp_path):
 
     port = get_safe_port()
 
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
+    with ServerManager(str(conf_path), LOCALHOST, port):
+        response = requests.get(f"http://{LOCALHOST}:{port}/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "OK"}
 
-    assert gateway.server_process is not None
+    with ServerManager(str(conf_path), LOCALHOST, port):
+        response = requests.get(f"http://{LOCALHOST}:{port}/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "OK"}
 
-    response = requests.get(f"http://{LOCALHOST}:{port}/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "OK"}
-
-    _stop_server()
-    wait()
-
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
-
-    assert gateway.server_process is not None
-
-    response = requests.get(f"http://{LOCALHOST}:{port}/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "OK"}
-    _stop_server()
-    wait()
-
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
-
-    assert gateway.server_process is not None
-
-    response = requests.get(f"http://{LOCALHOST}:{port}/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "OK"}
-    _stop_server()
+    with ServerManager(str(conf_path), LOCALHOST, port):
+        response = requests.get(f"http://{LOCALHOST}:{port}/health")
+        assert response.status_code == 200
+        assert response.json() == {"status": "OK"}
 
 
 def test_server_update(basic_config_dict, update_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
-
-    assert gateway.server_process is None
+    updated_conf = store_conf(tmp_path, "config2.yaml", update_config_dict)
 
     port = get_safe_port()
 
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
+    with ServerManager(str(conf_path), port=port):
+        # List all routes
+        response = requests.get(f"http://{LOCALHOST}:{port}/gateway/routes/")
+        assert response.status_code == 200
 
-    assert gateway.server_process is not None
+        route_data = response.json()
+        active_routes = set(route["name"] for route in route_data["routes"])
+        assert {"claude-chat", "instruct-gpt4"}.issubset(active_routes)
 
-    # List all routes
-    response = requests.get(f"http://{LOCALHOST}:{port}/gateway/routes/")
-    assert response.status_code == 200
-
-    route_data = response.json()
-    active_routes = set(route["name"] for route in route_data["routes"])
-    assert {"claude-chat", "instruct-gpt4"}.issubset(active_routes)
-
-    _stop_server()
-    wait()
-
-    assert gateway.server_process is None
-
+    # Test that the health check fails (server is down)
     with pytest.raises(
         requests.exceptions.ConnectionError, match=r"HTTPConnectionPool\(host='127.0.0.1',"
     ):
         requests.get(f"http://{LOCALHOST}:{port}/health")
 
-    updated_conf = store_conf(tmp_path, "config2.yaml", update_config_dict)
-
     with pytest.raises(MlflowException, match="There is no currently running gateway server"):
         _update_server(str(updated_conf))
 
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
+    with ServerManager(str(conf_path), port=port):
+        _update_server(str(updated_conf))
 
-    _update_server(str(updated_conf))
+        response = requests.get(f"http://{LOCALHOST}:{port}/gateway/routes/")
+        assert response.status_code == 200
 
-    response = requests.get(f"http://{LOCALHOST}:{port}/gateway/routes/")
-    assert response.status_code == 200
-
-    route_data = response.json()
-    active_routes = set(route["name"] for route in route_data["routes"])
-    assert {"claude-chat"}.issubset(active_routes)
-    assert not {"instruct-gpt4"}.issubset(active_routes)
-
-    _stop_server()
+        route_data = response.json()
+        active_routes = set(route["name"] for route in route_data["routes"])
+        assert {"claude-chat"}.issubset(active_routes)
+        assert not {"instruct-gpt4"}.issubset(active_routes)
 
 
 def test_invalid_server_state_commands(basic_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
-    assert gateway.server_process is None
 
     port = get_safe_port()
 
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
+    with ServerManager(str(conf_path), host=LOCALHOST, port=port):
+        with pytest.raises(MlflowException, match="There is a currently running server instance"):
+            _start_server(str(conf_path), host=LOCALHOST, port=port)
 
-    with pytest.raises(MlflowException, match="There is a currently running server instance"):
-        _start_server(str(conf_path), host=LOCALHOST, port=port)
-
-    _stop_server()
-    wait()
-
+    # At this point, the server should have stopped due to the context manager
     with pytest.raises(MlflowException, match="There is no currently running gateway server"):
         _stop_server()
 
@@ -251,78 +231,72 @@ def test_invalid_server_state_commands(basic_config_dict, tmp_path):
 def test_server_static_endpoints(update_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", update_config_dict)
     port = get_safe_port()
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
 
-    health = get_static_endpoint_response("health", LOCALHOST, port)
-    assert health == {"status": "OK"}
+    with ServerManager(str(conf_path), host=LOCALHOST, port=port):
+        health = get_static_endpoint_response("health", LOCALHOST, port)
+        assert health == {"status": "OK"}
 
-    get_route = get_static_endpoint_response("gateway/routes/claude-chat", LOCALHOST, port)
-    assert get_route == {
-        "route": {
-            "model": {"name": "claude-v1", "provider": "anthropic"},
-            "name": "claude-chat",
-            "type": "llm/v1/chat",
-        }
-    }
-
-    search_routes = get_static_endpoint_response("gateway/routes/", LOCALHOST, port)
-    assert search_routes == {
-        "routes": [
-            {
+        get_route = get_static_endpoint_response("gateway/routes/claude-chat", LOCALHOST, port)
+        assert get_route == {
+            "route": {
                 "model": {"name": "claude-v1", "provider": "anthropic"},
                 "name": "claude-chat",
                 "type": "llm/v1/chat",
             }
-        ]
-    }
+        }
 
-    _stop_server()
+        search_routes = get_static_endpoint_response("gateway/routes/", LOCALHOST, port)
+        assert search_routes == {
+            "routes": [
+                {
+                    "model": {"name": "claude-v1", "provider": "anthropic"},
+                    "name": "claude-chat",
+                    "type": "llm/v1/chat",
+                }
+            ]
+        }
 
 
 def test_request_dynamic_route(basic_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
     port = get_safe_port()
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
 
-    valid_route = get_dynamic_route_request(
-        "gateway/routes/instruct-gpt4", {"input": "Tell me a joke"}, LOCALHOST, port
-    )
-    assert valid_route == {"input": "Tell me a joke"}
+    with ServerManager(str(conf_path), host=LOCALHOST, port=port):
+        valid_route = get_dynamic_route_request(
+            "gateway/routes/instruct-gpt4", {"input": "Tell me a joke"}, LOCALHOST, port
+        )
+        assert valid_route == {"input": "Tell me a joke"}
 
-    valid_route = get_dynamic_route_request(
-        "gateway/routes/instruct-gpt4",
-        {"input": "Tell me a joke", "temperature": 0.45},
-        LOCALHOST,
-        port,
-    )
-    assert valid_route == {"input": "Tell me a joke", "temperature": 0.45}
-
-    _stop_server()
+        valid_route = get_dynamic_route_request(
+            "gateway/routes/instruct-gpt4",
+            {"input": "Tell me a joke", "temperature": 0.45},
+            LOCALHOST,
+            port,
+        )
+        assert valid_route == {"input": "Tell me a joke", "temperature": 0.45}
 
 
 def test_post_to_invalid_route(basic_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
     port = get_safe_port()
-    _start_server(str(conf_path), host=LOCALHOST, port=port)
 
-    invalid_get = get_invalid_route_request(
-        route="not_a_real_endpoint", route_type="get", error_code=404, host=LOCALHOST, port=port
-    )
+    with ServerManager(str(conf_path), host=LOCALHOST, port=port):
+        invalid_get = get_invalid_route_request(
+            route="not_a_real_endpoint", route_type="get", error_code=404, host=LOCALHOST, port=port
+        )
 
-    assert json.loads(invalid_get) == {"detail": "Not Found"}
+        assert json.loads(invalid_get) == {"detail": "Not Found"}
 
-    invalid_post = get_invalid_route_request(
-        route="also/not/real",
-        route_type="post",
-        error_code=404,
-        host=LOCALHOST,
-        port=port,
-        data={"some": "bogus data"},
-    )
+        invalid_post = get_invalid_route_request(
+            route="also/not/real",
+            route_type="post",
+            error_code=404,
+            host=LOCALHOST,
+            port=port,
+            data={"some": "bogus data"},
+        )
 
-    assert json.loads(invalid_post) == {"detail": "Not Found"}
-
-    _stop_server()
+        assert json.loads(invalid_post) == {"detail": "Not Found"}
 
 
 def test_invalid_route_config_terminates_server(invalid_config_dict, tmp_path):
@@ -330,7 +304,15 @@ def test_invalid_route_config_terminates_server(invalid_config_dict, tmp_path):
     os.environ[CONF_PATH_ENV_VAR] = str(conf_path)
     port = get_safe_port()
     process = subprocess.Popen(
-        ["python", "-m", "mlflow.gateway.gateway_app", "--host", LOCALHOST, "--port", str(port)],
+        [
+            sys.executable,
+            "-m",
+            "mlflow.gateway.gateway_app",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(port),
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,

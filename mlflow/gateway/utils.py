@@ -23,7 +23,7 @@ def is_valid_endpoint_name(name: str) -> bool:
 
     Returns True if the string doesn't contain any of these characters.
     """
-    if re.search(RESERVED_CHARACTERS, name) or " " in name or not re.match(r"^[\w-]+$", name):
+    if not re.match(r"^[\w-]+$", name):
         return False
     return True
 

@@ -28,14 +28,14 @@ async def health():
 
 @app.get("/gateway/routes/{route_name}")
 async def get_route(route_name: str):
-    filtered = [x for x in ACTIVE_ROUTES if x.name == route_name]
+    filtered = next((x for x in ACTIVE_ROUTES if x.name == route_name), None)
     if not filtered:
         raise HTTPException(
             status_code=404,
             detail=f"The route '{route_name}' is not present or active on the server. Please "
             "verify the route name.",
         )
-    return {"route": filtered[0]}
+    return {"route": filtered}
 
 
 @app.get("/gateway/routes/")
@@ -65,6 +65,16 @@ def _add_routes(routes: List[RouteConfig]):
         _add_dynamic_route(route)
 
 
+def create_app(route_config: List[RouteConfig]) -> FastAPI:
+    _add_routes(route_config)
+    return app
+
+
+def initialize_server(host: str, port: int, route_config: List[RouteConfig]):
+    server_app = create_app(route_config)
+    uvicorn.run(server_app, host=host, port=port)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str)
@@ -73,6 +83,5 @@ if __name__ == "__main__":
 
     conf_path = os.environ.get(CONF_PATH_ENV_VAR)
     route_config = _load_route_config(conf_path)
-    _add_routes(route_config)
 
-    uvicorn.run(app, host=args.host, port=args.port)
+    initialize_server(args.host, args.port, route_config)
