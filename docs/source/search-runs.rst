@@ -94,7 +94,7 @@ Identifier
 
 Required in the LHS of a search expression. Signifies an entity to compare against.
 
-An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, or ``tags``. The entity name can contain alphanumeric characters and special characters.
+An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, ``datasets``, or ``tags``. The entity name can contain alphanumeric characters and special characters.
 
 This section describes supported entity names and how to specify such names in search expressions.
 
@@ -155,6 +155,20 @@ You can search using the following run attributes contained in :py:class:`mlflow
   attributes.run_name = 'my-run'
   attributes.run_id = 'a1b2c3d4'
   attributes.run_id IN ('a1b2c3d4', 'e5f6g7h8')
+
+Datasets
+~~~~~~~~~~~~~~
+
+You can search using the following dataset attributes contained in :py:class:`mlflow.entities.Dataset`: ``name``, ``digest``. Additionally, you may search for a specific :py:class:`mlflow.entities.InputTag`: with ``key`` ``mlflow.data.context`` under the alias ``context``. All dataset attributes are string values. Other fields in :py:class:`mlflow.entities.Dataset` are not searchable.
+
+.. rubric:: Example
+
+.. code-block:: sql
+
+  datasets.name = 'mydataset'
+  datasets.digest = 's8ds293b'
+  datasets.digest IN ('s8ds293b', 'jks834s2')
+  datasets.context = 'train'
 
 .. _mlflow_tags:
 
