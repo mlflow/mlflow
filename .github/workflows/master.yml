@@ -113,6 +113,8 @@ jobs:
   python:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
     steps:
       - uses: actions/checkout@v3
         with:

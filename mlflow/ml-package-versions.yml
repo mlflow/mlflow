@@ -564,3 +564,18 @@ sentence_transformers:
       ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
+
+johnsnowlabs:
+  package_info:
+    pip_release: "johnsnowlabs"
+  models:
+    minimum: "4.4.6"
+    maximum: "4.4.6"
+    requirements:
+      ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
+    run: |
+      if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
+        pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py
+      else
+        echo "Skipping tests due to missing license key"
+      fi
