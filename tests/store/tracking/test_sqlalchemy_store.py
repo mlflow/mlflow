@@ -2310,6 +2310,27 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         )
         assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.name LIKE 'Name%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == set()
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.name ILIKE 'Name%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.context ILIKE 'test%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3}
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id

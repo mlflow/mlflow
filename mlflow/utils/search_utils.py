@@ -122,7 +122,7 @@ class SearchUtils:
     NUMERIC_ATTRIBUTES = set(
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
-    DATASET_ATTRIBUTES = {"name", "digest", "source_type", "source", "schema", "profile", "context"}
+    DATASET_ATTRIBUTES = {"name", "digest", "context"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)

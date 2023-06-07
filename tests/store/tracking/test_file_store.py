@@ -1448,6 +1448,27 @@ def test_search_runs_datasets(store):
     )
     assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name LIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == set()
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name ILIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context ILIKE 'test%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
 
 def test_weird_param_names(store):
     WEIRD_PARAM_NAME = "this is/a weird/but valid param"

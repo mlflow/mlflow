@@ -1529,7 +1529,9 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                             and_(
                                 SqlInputTag.input_uuid == SqlInput.input_uuid,
                                 SqlInputTag.name == MLFLOW_DATASET_CONTEXT,
-                                SqlInputTag.value == value,
+                                SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                                    getattr(SqlInputTag, "value"), value
+                                ),
                             ),
                         )
                         .subquery()

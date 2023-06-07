@@ -159,11 +159,7 @@ You can search using the following run attributes contained in :py:class:`mlflow
 Datasets
 ~~~~~~~~~~~~~~
 
-You can search using the following dataset attributes contained in :py:class:`mlflow.entities.Dataset`: ``name``, ``digest``, ``source_type``, ``source``, ``schema``, and ``profile``. 
-
-Additionally, you may search for a specific :py:class:`mlflow.entities.InputTag`: with ``key`` ``mlflow.data.context`` under the alias ``context``.
-
-All dataset attributes are string values. Other fields in :py:class:`mlflow.entities.Dataset` are not searchable.
+You can search using the following dataset attributes contained in :py:class:`mlflow.entities.Dataset`: ``name``, ``digest``. Additionally, you may search for a specific :py:class:`mlflow.entities.InputTag`: with ``key`` ``mlflow.data.context`` under the alias ``context``. All dataset attributes are string values. Other fields in :py:class:`mlflow.entities.Dataset` are not searchable.
 
 .. rubric:: Example
 
@@ -172,6 +168,7 @@ All dataset attributes are string values. Other fields in :py:class:`mlflow.enti
   datasets.name = 'mydataset'
   datasets.digest = 's8ds293b'
   datasets.digest IN ('s8ds293b', 'jks834s2')
+  datasets.context = 'train'
 
 .. _mlflow_tags:
 
