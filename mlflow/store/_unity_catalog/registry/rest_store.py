@@ -1,3 +1,4 @@
+import base64
 import functools
 import json
 import logging
@@ -428,7 +429,8 @@ class UcModelRegistryStore(BaseRestStore):
             lineage_header_info = LineageHeaderInfo(entities=[entity])
             header_dict = json.loads(message_to_json(lineage_header_info))
             header_json = json.dumps(header_dict)
-            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_json}
+            header_base64 = base64.b64encode(header_json.encode())
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
