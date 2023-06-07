@@ -425,7 +425,9 @@ class UcModelRegistryStore(BaseRestStore):
             notebook_entity = Notebook(id=str(notebook_id))
             entity = Entity(notebook=notebook_entity)
             lineage_header_info = LineageHeaderInfo(entities=[entity])
-            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info)}
+            header_dict = json.loads(message_to_json(lineage_header_info))
+            header_json = json.dumps(header_dict)
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_json}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
