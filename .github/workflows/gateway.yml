@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e .[gateway]
-          pip install pytest pytest-timeout httpx
+          pip install pytest pytest-timeout httpx psutil
       - name: Run tests
         run: |
           pytest tests/gateway
