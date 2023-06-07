@@ -44,7 +44,7 @@ def start(config_path):
             "--workers",
             "4",
             "--worker-class",
-            "uvicorn.workers.UvicornH11Worker",
+            "uvicorn.workers.UvicornWorker",
             "app:create_app()",
             "--reload",
         ],
