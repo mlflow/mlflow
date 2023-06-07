@@ -506,7 +506,9 @@ def _check_for_duplicate_requirements(requirements):
     Checks if duplicate base package requirements are specified in any list of requirements
     and returns the list of duplicate base package names
     """
-    base_package_names = [Requirement(package).name for package in requirements]
+    base_package_names = [
+        Requirement(package).name for package in requirements if not package.startswith("-")
+    ]
     package_counts = Counter(base_package_names)
     duplicates = [package for package, count in package_counts.items() if count > 1]
     return duplicates

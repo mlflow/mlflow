@@ -343,6 +343,7 @@ def test_duplicate_pip_requirements():
         "package[extra]==1.2.3",
         "package ===1.2.3",
         "numpy<1.24.0",
+        "-c constrains.txt",
     ]
     evaluation = _check_for_duplicate_requirements(packages)
 
