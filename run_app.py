@@ -9,6 +9,7 @@ from pydantic import BaseModel
 import click
 import yaml
 import logging
+import sys
 from typing import List
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ def is_valid(config_path):
 def start(config_path):
     with subprocess.Popen(
         [
+            sys.executable,
+            "-m",
             "gunicorn",
             "--workers",
             "4",
