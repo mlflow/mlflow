@@ -36,7 +36,7 @@ pytorch:
 
   models:
     minimum: "1.6.0"
-    maximum: "2.0.0"
+    maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn", "transformers"]
     run: |
@@ -44,7 +44,7 @@ pytorch:
 
   autologging:
     minimum: "1.6.0"
-    maximum: "2.0.0"
+    maximum: "2.0.1"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -59,7 +59,7 @@ pytorch-lightning:
 
   autologging:
     minimum: "1.0.5"
-    maximum: "2.0.1.post0"
+    maximum: "2.0.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard"]
       "< 1.2.0": ["torch<1.11.0"]
@@ -179,7 +179,7 @@ catboost:
 
   models:
     minimum: "0.23.1"
-    maximum: "1.1.1"
+    maximum: "1.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
       "< 1.1": ["pandas<2"]
@@ -263,7 +263,7 @@ onnx:
 
   models:
     minimum: "1.7.0"
-    maximum: "1.13.1"
+    maximum: "1.14.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn", "protobuf<4.0.0"]
       "< 1.11.0": ["numpy<1.24.0"]
@@ -278,7 +278,7 @@ spacy:
 
   models:
     minimum: "2.2.4"
-    maximum: "3.5.2"
+    maximum: "3.5.3"
     requirements:
       ">= 0.0.0": ["scikit-learn", "click<8.1.0"]
       "<= 3.0.9": ["flask<2.1.0"]
@@ -294,7 +294,7 @@ statsmodels:
 
   models:
     minimum: "0.11.1"
-    maximum: "0.13.5"
+    maximum: "0.14.0"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -302,7 +302,7 @@ statsmodels:
 
   autologging:
     minimum: "0.11.1"
-    maximum: "0.13.5"
+    maximum: "0.14.0"
     requirements:
       "< 0.13.0": ["pandas==1.3.5", "scipy==1.7.3"]
     run: |
@@ -404,7 +404,7 @@ prophet:
 
   models:
     minimum: "1.0.1"
-    maximum: "1.1.2"
+    maximum: "1.1.4"
     requirements:
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
@@ -457,7 +457,7 @@ h2o:
     pip_release: "h2o"
   models:
     minimum: "3.40.0.1"
-    maximum: "3.40.0.3"
+    maximum: "3.40.0.4"
     run: |
       pytest tests/h2o
 
@@ -493,7 +493,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.25.1"
-    maximum: "4.28.1"
+    maximum: "4.29.2"
     requirements:
       ">= 0.0.0": [
           "datasets",
@@ -509,7 +509,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py
   autologging:
     minimum: "4.25.1"
-    maximum: "4.28.1"
+    maximum: "4.29.2"
     requirements:
       ">= 0.0.0":
         [
@@ -532,7 +532,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "0.27.2"
-    maximum: "0.27.4"
+    maximum: "0.27.7"
     requirements:
       ">= 0.0.0": ["pyspark", "tiktoken", "aiohttp", "tenacity"]
     run: |
@@ -545,7 +545,7 @@ langchain:
       pip install git+https://github.com/hwchase17/langchain
   models:
     minimum: "0.0.169"
-    maximum: "0.0.169"
+    maximum: "0.0.190"
     requirements:
       ">= 0.0.0":
         ["pyspark", "transformers", "tensorflow", "openai", "google-search-results", "psutil"]
@@ -564,3 +564,18 @@ sentence_transformers:
       ">= 0.0.0": ["pyspark", "torch>1.6", "transformers>4.25"]
     run: |
       pytest tests/sentence_transformers/test_sentence_transformers_model_export.py
+
+johnsnowlabs:
+  package_info:
+    pip_release: "johnsnowlabs"
+  models:
+    minimum: "4.4.6"
+    maximum: "4.4.6"
+    requirements:
+      ">= 0.0.0": ["pandas<=1.5.3", "pyspark<3.4"]
+    run: |
+      if [ ! -z "$JOHNSNOWLABS_LICENSE_JSON" ]; then
+        pytest tests/johnsnowlabs/test_johnsnowlabs_model_export.py
+      else
+        echo "Skipping tests due to missing license key"
+      fi
