@@ -8,6 +8,7 @@ import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
+import sys
 import textwrap
 from unittest import mock
 import yaml
@@ -56,6 +57,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    get_free_disk_space_in_GiB,
 )
 
 pytestmark = pytest.mark.large
@@ -77,6 +79,14 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - TextClassifier pipeline tests
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
+
+
+@pytest.fixture(autouse=True)
+def report_free_disk_space(capsys):
+    yield
+
+    with capsys.disabled():
+        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB", end="")
 
 
 @pytest.fixture(autouse=True)
