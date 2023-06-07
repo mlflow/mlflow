@@ -1,3 +1,4 @@
+import base64
 import functools
 import logging
 import tempfile
@@ -425,7 +426,11 @@ class UcModelRegistryStore(BaseRestStore):
             notebook_entity = Notebook(id=str(notebook_id))
             entity = Entity(notebook=notebook_entity)
             lineage_header_info = LineageHeaderInfo(entities=[entity])
-            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info)}
+            # Base64-encode the header value to ensure it's valid ASCII,
+            # similar to JWT (see https://stackoverflow.com/a/40347926)
+            header_json = message_to_json(lineage_header_info)
+            header_base64 = base64.b64encode(header_json.encode())
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
