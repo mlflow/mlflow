@@ -1,5 +1,6 @@
 import argparse
 from fastapi import FastAPI, Request, HTTPException
+import logging
 import os
 from traceback import format_exc
 from typing import List
@@ -9,6 +10,8 @@ from mlflow.version import VERSION
 from mlflow.gateway.constants import CONF_PATH_ENV_VAR
 from mlflow.gateway.handlers import Route, RouteConfig, _route_config_to_route, _load_route_config
 
+
+_logger = logging.getLogger(__name__)
 
 # Configured and initialized Gateway Routes state index
 ACTIVE_ROUTES: List[Route] = []
@@ -71,7 +74,9 @@ def create_app(route_config: List[RouteConfig]) -> FastAPI:
 
 
 def initialize_server(host: str, port: int, route_config: List[RouteConfig]):
+    _logger.info("Creating gateway routes app")
     server_app = create_app(route_config)
+    _logger.info("Gateway app created. Starting Gateway server...")
     uvicorn.run(server_app, host=host, port=port)
 
 

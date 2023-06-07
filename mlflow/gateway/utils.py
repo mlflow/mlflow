@@ -1,14 +1,23 @@
 import errno
+import logging
 import os
+from pathlib import Path
+import psutil
 import re
 import requests
 import time
+import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import MAX_WAIT_TIME_SECONDS, BASE_WAIT_TIME_SECONDS
+from mlflow.gateway.constants import (
+    MAX_WAIT_TIME_SECONDS,
+    BASE_WAIT_TIME_SECONDS,
+    GATEWAY_SERVER_STATE_FILE,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
-RESERVED_CHARACTERS = r"[!\*'();:@&=+\$,/?#\[\]]"
+
+_logger = logging.getLogger(__name__)
 
 
 def _parse_url_path_for_base_url(url_string):
@@ -23,9 +32,7 @@ def is_valid_endpoint_name(name: str) -> bool:
 
     Returns True if the string doesn't contain any of these characters.
     """
-    if not re.match(r"^[\w-]+$", name):
-        return False
-    return True
+    return bool(re.fullmatch(r"^[\w-]+", name))
 
 
 def check_configuration_route_name_collisions(config):
@@ -85,6 +92,9 @@ def wait_until_server_starts(
 
 
 def is_pid_alive(pid):
+    """
+    Determine if a given process id is still running on the system
+    """
     try:
         os.kill(pid, 0)
     except OSError as err:
@@ -102,3 +112,56 @@ def is_pid_alive(pid):
             )
     else:
         return True
+
+
+def kill_parent_and_child_processes(parent_pid):
+    """
+    Gracefully terminate all processes associated with the server process if possible, else
+    kill them if too much time has elapsed.
+    """
+    parent = psutil.Process(parent_pid)
+    for child in parent.children(recursive=True):
+        child.terminate()
+    _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
+    for p in still_alive:
+        p.kill()
+    parent.terminate()
+    try:
+        parent.wait(timeout=5)
+    except psutil.TimeoutExpired:
+        parent.kill()
+
+
+def write_server_state(host: str, port: int, pid: int, server_state_file: str):
+    """
+    Write the server state information to disk to ensure that subsequent calls to the server
+    process (i.e., update) will access the appropriate parent process and preserve host and
+    port information for the running server.
+    """
+    state_path = Path(server_state_file)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+
+    state_data = {"host": host, "port": port, "pid": pid}
+
+    state_path.write_text(yaml.safe_dump(state_data))
+
+
+def read_server_state(server_state_file: str):
+    """
+    Read the server state information from disk for server update commands to ensure that the
+    server management stops the appropriate process id and restarts the server with the correct
+    host and port information
+    """
+    state_path = Path(server_state_file)
+    if state_path.exists():
+        return yaml.safe_load(state_path.read_text())
+
+
+def _delete_server_state(file: str = GATEWAY_SERVER_STATE_FILE):
+    """
+    Internal utility for deleting the server state file whether it exists or not (cleanup for
+    errors in updating the server)
+    """
+    state_path = Path(file)
+
+    state_path.unlink(missing_ok=True)

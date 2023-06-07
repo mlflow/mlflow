@@ -8,10 +8,10 @@ import subprocess
 import time
 import yaml
 
-from mlflow import gateway
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import _start_server, _stop_server, _update_server
 from mlflow.gateway.constants import CONF_PATH_ENV_VAR
+from mlflow.gateway.utils import _delete_server_state
 from tests.helper_functions import get_safe_port, LOCALHOST
 
 
@@ -24,13 +24,16 @@ class ServerManager:
         self.config_path = config_path
         self.host = host
         self.port = port or get_safe_port()
+        self.pid = None
 
     def __enter__(self):
-        _start_server(self.config_path, self.host, self.port)
-        return self.port
+        _delete_server_state()
+        server_process = _start_server(self.config_path, self.host, self.port)
+        self.pid = server_process.pid
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _stop_server()
+        _stop_server(self.pid)
         wait()
 
 
@@ -138,24 +141,20 @@ def get_test_client(config, path):
 def test_server_start(basic_config_dict, tmp_path):
     conf_path = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
-    assert gateway.server_process is None
-
-    with ServerManager(conf_path) as port:
-        assert gateway.server_process is not None
-        response = requests.get(f"http://{LOCALHOST}:{port}/health")
+    with ServerManager(conf_path) as sm:
+        response = requests.get(f"http://{LOCALHOST}:{sm.port}/health")
         assert response.status_code == 200
         assert response.json() == {"status": "OK"}
 
+    wait()
     with pytest.raises(
         requests.exceptions.ConnectionError, match=r"HTTPConnectionPool\(host='127.0.0.1',"
     ):
-        requests.get(f"http://{LOCALHOST}:{port}/health")
+        requests.get(f"http://{LOCALHOST}:{sm.port}/health")
 
 
 def test_cycle_server(basic_config_dict, tmp_path):
     conf_path = store_conf(tmp_path, "config.yaml", basic_config_dict)
-
-    assert gateway.server_process is None
 
     port = get_safe_port()
 
@@ -196,11 +195,15 @@ def test_server_update(basic_config_dict, update_config_dict, tmp_path):
     ):
         requests.get(f"http://{LOCALHOST}:{port}/health")
 
-    with pytest.raises(MlflowException, match="There is no currently running gateway server"):
+    with pytest.raises(MlflowException, match="Unable to update server configuration. There is no"):
         _update_server(str(updated_conf))
 
-    with ServerManager(str(conf_path), port=port):
-        _update_server(str(updated_conf))
+    with ServerManager(str(conf_path), port=port) as sm:
+        server_process = _update_server(str(updated_conf))
+        # NB: the update func call will generate a new pid other than the pid that was
+        # initiated during server start from the context manager. Update it so that the
+        # on exit server shutdown has reference to the newly started process id.
+        sm.pid = server_process.pid
 
         response = requests.get(f"http://{LOCALHOST}:{port}/gateway/routes/")
         assert response.status_code == 200
@@ -216,13 +219,14 @@ def test_invalid_server_state_commands(basic_config_dict, tmp_path):
 
     port = get_safe_port()
 
-    with ServerManager(str(conf_path), host=LOCALHOST, port=port):
+    with ServerManager(str(conf_path), host=LOCALHOST, port=port) as sm:
         with pytest.raises(MlflowException, match="There is a currently running server instance"):
             _start_server(str(conf_path), host=LOCALHOST, port=port)
 
+    wait()
     # At this point, the server should have stopped due to the context manager
     with pytest.raises(MlflowException, match="There is no currently running gateway server"):
-        _stop_server()
+        _stop_server(sm.pid)
 
     with pytest.raises(MlflowException, match="Unable to update server configuration. There is no"):
         _update_server(basic_config_dict)

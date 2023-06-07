@@ -34,5 +34,3 @@ shap
 evaluate
 nltk
 rouge_score
-# Required for FastAPI test app for Gateway
-httpx

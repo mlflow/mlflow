@@ -79,7 +79,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider
         # Pydantic doesn't allow undefined elements to be a part of its serialized object.
-        # This test is a guard for devs only in case we inadvertantly add sensitive keys to the
+        # This test is a guard for devs only in case we inadvertently add sensitive keys to the
         # Route definition that would be returned via the GetRoute or SearchRoutes APIs
         assert not hasattr(route.model, "config")
 
