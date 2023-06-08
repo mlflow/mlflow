@@ -123,7 +123,7 @@ routes:
             assert response.json() == {"message": char}
         time.sleep(2.5)
 
-        # Re-create config
+        # Recreate config
         config.write_text(
             """
 routes:
