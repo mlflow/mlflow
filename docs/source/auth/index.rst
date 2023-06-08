@@ -353,7 +353,9 @@ MLflow Authentication introduces several new API endpoints to manage users and p
      - ``DELETE``
      - RegisteredModelPermission.can_manage
 
-Some APIs will also have their behaviour modified:
+Some APIs will also have their behaviour modified.
+For example, the creator of an experiment will automatically be granted ``MANAGE`` permission
+on that experiment, so that the creator can grant or revoke other users' access to that experiment.
 
 .. list-table::
    :widths: 10 10 10 10
@@ -403,16 +405,30 @@ Managing Permissions
 --------------------
 
 MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client class 
-:py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage permissions.
-
-To instantiate the client, it is recommended that you use ``mlflow.server.get_app_client``:
+:py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage users and permissions.
+To instantiate ``AuthServiceClient``, it is recommended that you use ``mlflow.server.get_app_client``.
 
 .. code-block:: python
+    :caption: Example
 
-    import mlflow
+    import os
+    from mlflow import MlflowClient
+    from mlflow.server import get_app_client
 
-    client = mlflow.server.get_app_client("basic-auth", tracking_uri="https://mlflow_tracking.uri/")
-    client.create_user(...)
+    tracking_uri = "http://localhost:5000/"
+
+    auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+    auth_client.create_user(username="user1", password="pw1")
+    auth_client.create_user(username="user2", password="pw2")
+
+    os.environ["MLFLOW_TRACKING_USERNAME"] = "user1"
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = "pw1"
+
+    client = MlflowClient(tracking_uri=tracking_uri)
+    experiment_id = client.create_experiment(name="experiment")
+
+    auth_client.create_experiment_permission(experiment_id=experiment_id, username="user2", permission="MANAGE")
+
 
 Authenticating to MLflow
 ========================
