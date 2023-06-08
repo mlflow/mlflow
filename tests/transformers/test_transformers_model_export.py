@@ -2,7 +2,6 @@ import base64
 import gc
 import json
 
-import huggingface_hub
 import librosa
 import numpy as np
 import os
@@ -16,7 +15,7 @@ from unittest import mock
 import yaml
 
 import transformers
-import huggingface_hub as hub
+import huggingface_hub
 from huggingface_hub import ModelCard, scan_cache_dir
 from datasets import load_dataset
 
@@ -3152,12 +3151,12 @@ def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
         "\U0001F970 \U0001F60E \U0001F917 \U0001F9D0"
     )
 
-    card_data: ModelCard = hub.ModelCard.load(model_name)
+    card_data: ModelCard = huggingface_hub.ModelCard.load(model_name)
     card_data.text = card_data.text + "\n\n" + test_text
     custom_data = card_data.data.to_dict()
     custom_data["emojis"] = test_text
 
-    card_data.data = hub.CardData(**custom_data)
+    card_data.data = huggingface_hub.CardData(**custom_data)
     _write_card_data(card_data, tmp_path)
 
     txt = tmp_path.joinpath(_CARD_TEXT_FILE_NAME).read_text()
