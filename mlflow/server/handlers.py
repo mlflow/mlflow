@@ -1373,15 +1373,12 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     while (unquoted := urllib.parse.unquote_plus(source)) != source:
         source = unquoted
     source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
-    try:
-        resolved_source = pathlib.Path(source_path).resolve().as_posix()
-        # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
-        # drive path of the pwd to a given path. We don't care about the drive here, though.
-        _, resolved_path = os.path.splitdrive(resolved_source)
-    except ValueError as e:
-        if e.args[0] == "embedded null byte":
-            raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
-        raise
+    if "\x00" in source_path:
+        raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
+    resolved_source = pathlib.Path(source_path).resolve().as_posix()
+    # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
+    # drive path of the pwd to a given path. We don't care about the drive here, though.
+    _, resolved_path = os.path.splitdrive(resolved_source)
 
     if resolved_path != source_path:
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
