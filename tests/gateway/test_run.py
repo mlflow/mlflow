@@ -121,7 +121,6 @@ routes:
             response = gateway.request(char)
             assert response.status_code == 200
             assert response.json() == {"message": char}
-        time.sleep(2.5)
 
         # Recreate config
         config.write_text(
