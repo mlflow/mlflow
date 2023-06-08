@@ -13,3 +13,11 @@ fastapi:
 uvicorn:
   pip_release: uvicorn
   max_major_version: 0
+
+watchfiles:
+  pip_release: watchfiles
+  max_major_version: 0
+
+psutil:
+  pip_release: psutil
+  max_major_version: 5
