@@ -176,7 +176,6 @@ def test_server_update(
     config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     with Gateway(config) as gateway:
-
         response = gateway.request("gateway/routes/")
         assert response.json() == basic_routes
 
@@ -240,7 +239,6 @@ def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
     config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     with Gateway(config) as gateway:
-
         response = gateway.post(
             f"gateway/routes/{basic_config_dict[0]['name']}", {"input": "Tell me a joke"}
         )
@@ -262,7 +260,7 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
         assert response.status_code == 404
         assert response.json() == {
             "detail": "The route 'invalid' is not present or active on the server. Please "
-                      "verify the route name."
+            "verify the route name."
         }
 
         # Test post
