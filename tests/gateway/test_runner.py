@@ -47,8 +47,8 @@ class Gateway(subprocess.Popen):
         return requests.get(f"http://{self.host}:{self.port}/{path}")
 
     def __exit__(self, *args, **kwargs):
-        os.kill(self.pid, signal.SIGTERM)  # master process
-        os.killpg(os.getpgid(self.pid), signal.SIGTERM)  # worker processes
+        os.kill(self.pid, signal.SIGTERM)  # kill the master process first
+        os.killpg(os.getpgid(self.pid), signal.SIGTERM)  # then kill the child processes
         return super().__exit__(*args, **kwargs)
 
 
