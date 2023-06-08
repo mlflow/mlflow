@@ -449,6 +449,8 @@ diviner:
       "<= 0.1.0": ["pmdarima<2.0.0"]
       # Diviner <= 0.1.1 isn't compatible with pandas>=2
       "<= 0.1.1": ["pandas<2"]
+      # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
+      "== dev": ["pandas<2"]
     run: |
       pytest tests/diviner/test_diviner_model_export.py
 
