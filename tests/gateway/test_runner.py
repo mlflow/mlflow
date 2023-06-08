@@ -230,9 +230,9 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             response = gateway.request(route)
             assert response.status_code == 200
 
-        for i in range(len(basic_config_dict)):
-            response = gateway.request(f"gateway/routes/{basic_config_dict[i]['name']}")
-            assert response.json() == {"route": basic_routes["routes"][i]}
+        for index, route in enumerate(basic_config_dict):
+            response = gateway.request(f"gateway/routes/{route['name']}")
+            assert response.json() == {"route": basic_routes["routes"][index]}
 
 
 def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
