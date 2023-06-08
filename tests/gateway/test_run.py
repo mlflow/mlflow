@@ -1,24 +1,26 @@
 import subprocess
 import time
 import requests
-import signal
-import os
+import psutil
+import sys
 from pathlib import Path
 
 from tests.helper_functions import get_safe_port
 
 
-class Gateway(subprocess.Popen):
+class Gateway:
     def __init__(self, config_path: str, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "localhost"
-        super().__init__(
+        self.process = subprocess.Popen(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "gateway",
                 "start",
                 "--config-path",
-                str(config_path),
+                config_path,
                 "--host",
                 self.host,
                 "--port",
@@ -28,7 +30,6 @@ class Gateway(subprocess.Popen):
             ],
             *args,
             **kwargs,
-            preexec_fn=os.setsid,
         )
         self.wait_until_ready()
 
@@ -39,17 +40,22 @@ class Gateway(subprocess.Popen):
                 if self.request("health").ok:
                     return
             except requests.exceptions.ConnectionError:
-                time.sleep(0.1)
+                time.sleep(0.5)
 
         raise Exception("Gateway failed to start")
 
     def request(self, path: str) -> requests.Response:
         return requests.get(f"http://{self.host}:{self.port}/{path}")
 
-    def __exit__(self, *args, **kwargs):
-        os.kill(self.pid, signal.SIGTERM)  # kill the master process first
-        os.killpg(os.getpgid(self.pid), signal.SIGTERM)  # then kill the child processes
-        return super().__exit__(*args, **kwargs)
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        parent = psutil.Process(self.process.pid)
+        for child in parent.children(recursive=True):
+            child.kill()
+        self.process.terminate()
+        self.process.wait()
 
 
 def test_run_app(tmp_path: Path):

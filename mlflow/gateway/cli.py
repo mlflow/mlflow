@@ -1,5 +1,5 @@
 import click
-from .runner import run_app
+from .run import run
 from .config import _validate_config
 
 
@@ -26,17 +26,20 @@ def commands():
 @click.option(
     "--host",
     default="127.0.0.1",
-    help="The network address to listen on (default: 127.0.0.1).",
+    show_default=True,
+    help="The network address to listen on.",
 )
 @click.option(
     "--port",
     default=5000,
-    help="The port to listen on (default: 5000).",
+    show_default=True,
+    help="The port to listen on.",
 )
 @click.option(
     "--workers",
     default=2,
+    show_default=True,
     help="The number of workers.",
 )
 def start(config_path: str, host: str, port: str, workers: int):
-    run_app(config_path=config_path, host=host, port=port, workers=workers)
+    run(config_path=config_path, host=host, port=port, workers=workers)

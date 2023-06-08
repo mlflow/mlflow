@@ -34,5 +34,5 @@ def create_app(config_path: str) -> FastAPI:
 def create_app_from_env():
     config_path = os.environ.get(MLFLOW_GATEWAY_CONFIG)
     if not config_path:
-        raise MlflowException("MLFLOW_GATEWAY_CONFIG environment variable is not set")
+        raise MlflowException(f"{MLFLOW_GATEWAY_CONFIG} environment variable is not set")
     return create_app(config_path)
