@@ -1,0 +1,22 @@
+# Cancel workflow runs on pull request close
+name: Cancel
+
+on:
+  pull_request_target:
+    types:
+      - closed
+
+jobs:
+  cancel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.MLFLOW_AUTOMATION_TOKEN }}
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/cancel.js`
+            );
+            await script({ context, github });
