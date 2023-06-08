@@ -14,7 +14,7 @@ from mlflow.utils.environment import (
     _process_pip_requirements,
     _process_conda_env,
     _get_pip_requirement_specifier,
-    _check_for_duplicate_requirements,
+    _find_duplicate_requirements,
 )
 from tests.helper_functions import _mlflow_major_version_string
 
@@ -331,20 +331,27 @@ def test_process_conda_env(tmpdir):
 
 def test_duplicate_pip_requirements():
     packages = [
-        "numpy==1.21.0",
-        "pandas>=1.3.0",
-        "scikit-learn",
-        "matplotlib<=3.4.2",
-        "seaborn",
-        "package!=1.2.3",
-        "package~=1.2.3",
-        "package>1.2.3",
-        "package<1.2.3",
-        "package[extra]==1.2.3",
-        "package ===1.2.3",
-        "numpy<1.24.0",
-        "-c constrains.txt",
+        "numpy==1.21.0",  # specific version
+        "pandas>=1.3.0",  # minimum version
+        "scikit-learn",  # any version
+        "matplotlib<=3.4.2",  # maximum version
+        "seaborn",  # any version
+        "package!=1.2.3",  # any version but this one
+        "package~=1.2.3",  # compatible version (i.e., >= 1.2.3, == 1.2.*)
+        "package>1.2.3",  # version greater than
+        "package<1.2.3",  # version less than
+        "package[extra]==1.2.3",  # specific version with extras
+        "fastapi ===0.21.0",  # specific version (PEP 440: version with spaces around ===)
+        "fastapi @ https://my.package.repo/fastapi-0.21.0-py3-none-any.whl",  # private repo
+        "-e git+https://github.com/mlflow/mlflow@master",  # editable mode, direct from a git repo
+        "-r requirements.txt",  # from a requirements file
+        "pytest-cov; python_version < '3.8'",  # conditional requirements
+        "fastapi @ file:///local/path/to/numpy-0.22.0-py3-none-any.whl",  # wheel from a local file
+        "-c constraints.txt",  # constraint file
+        "--no-binary :all:",  # no binary packages, source code only
+        "--prefer-binary",  # prefer binary packages over source code
+        "numpy<1.24.0",  # maximum version
+        "numpy",  # any version
     ]
-    evaluation = _check_for_duplicate_requirements(packages)
-
+    evaluation = _find_duplicate_requirements(packages)
     assert sorted(evaluation) == ["numpy", "package"]

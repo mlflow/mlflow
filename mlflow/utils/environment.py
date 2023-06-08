@@ -501,14 +501,24 @@ def _process_pip_requirements(
     return conda_env, pip_reqs, constraints
 
 
-def _check_for_duplicate_requirements(requirements):
+def _find_duplicate_requirements(requirements):
     """
     Checks if duplicate base package requirements are specified in any list of requirements
-    and returns the list of duplicate base package names
+    and returns the list of duplicate base package names.
+    Note that git urls and paths to local files are not being considered for duplication checking.
     """
-    base_package_names = [
-        Requirement(package).name for package in requirements if not package.startswith("-")
-    ]
+    base_package_names = []
+
+    for package in requirements:
+        if package.startswith("-") or package.startswith("/") or "://" in package:
+            # Skip flags, local file paths, and urls
+            continue
+        try:
+            base_package_names.append(Requirement(package).name)
+        except InvalidRequirement:
+            # Skip anything that's not a valid package requirement
+            continue
+
     package_counts = Counter(base_package_names)
     duplicates = [package for package, count in package_counts.items() if count > 1]
     return duplicates
