@@ -5,12 +5,11 @@ import sys
 import pytest
 import requests
 import subprocess
-import time
 import yaml
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import _start_server, _stop_server, _update_server
-from mlflow.gateway.constants import CONF_PATH_ENV_VAR
+from mlflow.gateway.constants import CONF_PATH_ENV_VAR, GATEWAY_SERVER_STATE_FILE
 from mlflow.gateway.utils import _delete_server_state
 from tests.helper_functions import get_safe_port, LOCALHOST
 
@@ -33,8 +32,7 @@ class ServerManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        _stop_server(self.pid)
-        wait()
+        _stop_server(self.pid, GATEWAY_SERVER_STATE_FILE)
 
 
 @pytest.fixture
@@ -42,13 +40,13 @@ def basic_config_dict():
     return [
         {
             "name": "instruct-gpt4",
-            "type": "llm/v1/instruct",
+            "type": "llm/v1/completions",
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
                 "config": {
                     "openai_api_key": "mykey",
-                    "openai_api_base": "https://api.openai.com/",
+                    "openai_api_base": "https://api.openai.com/v1",
                     "openai_api_version": "v1",
                     "openai_api_type": "completions",
                 },
@@ -78,7 +76,7 @@ def update_config_dict():
                 "name": "claude-v1",
                 "provider": "anthropic",
                 "config": {
-                    "anthropic_api_key_env_var": "MY_ANTHROPIC_KEY",
+                    "anthropic_api_key": "MY_ANTHROPIC_KEY",
                 },
             },
         },
@@ -100,10 +98,6 @@ def store_conf(path, name, conf):
     conf_path = path.joinpath(name)
     conf_path.write_text(yaml.safe_dump(conf))
     return conf_path
-
-
-def wait(delay: int = 2) -> None:
-    time.sleep(delay)
 
 
 def get_static_endpoint_response(endpoint, host, port):
@@ -146,7 +140,6 @@ def test_server_start(basic_config_dict, tmp_path):
         assert response.status_code == 200
         assert response.json() == {"status": "OK"}
 
-    wait()
     with pytest.raises(
         requests.exceptions.ConnectionError, match=r"HTTPConnectionPool\(host='127.0.0.1',"
     ):
@@ -195,7 +188,7 @@ def test_server_update(basic_config_dict, update_config_dict, tmp_path):
     ):
         requests.get(f"http://{LOCALHOST}:{port}/health")
 
-    with pytest.raises(MlflowException, match="Unable to update server configuration. There is no"):
+    with pytest.raises(MlflowException, match="There is no server_state_file present"):
         _update_server(str(updated_conf))
 
     with ServerManager(str(conf_path), port=port) as sm:
@@ -223,12 +216,11 @@ def test_invalid_server_state_commands(basic_config_dict, tmp_path):
         with pytest.raises(MlflowException, match="There is a currently running server instance"):
             _start_server(str(conf_path), host=LOCALHOST, port=port)
 
-    wait()
     # At this point, the server should have stopped due to the context manager
     with pytest.raises(MlflowException, match="There is no currently running gateway server"):
-        _stop_server(sm.pid)
+        _stop_server(sm.pid, GATEWAY_SERVER_STATE_FILE)
 
-    with pytest.raises(MlflowException, match="Unable to update server configuration. There is no"):
+    with pytest.raises(MlflowException, match="There is no server_state_file present at"):
         _update_server(basic_config_dict)
 
 

@@ -1,3 +1,6 @@
+import os
+import pathlib
+from pydantic import ValidationError
 import pytest
 import yaml
 
@@ -7,6 +10,7 @@ from mlflow.gateway.handlers import (
     _save_route_config,
     RouteConfig,
     _route_configs_to_routes,
+    _resolve_api_key_from_input,
 )
 
 
@@ -15,13 +19,13 @@ def basic_config_dict():
     return [
         {
             "name": "instruct-gpt4",
-            "type": "llm/v1/instruct",
+            "type": "llm/v1/completions",
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
                 "config": {
                     "openai_api_key": "mykey",
-                    "openai_api_base": "https://api.openai.com/",
+                    "openai_api_base": "https://api.openai.com/v1",
                     "openai_api_version": "2023-05-10",
                     "openai_api_type": "openai/v1/chat/completions",
                     "openai_organization": "my_company",
@@ -34,7 +38,7 @@ def basic_config_dict():
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
-                "config": {"openai_api_key_env_var": "MY_API_KEY"},
+                "config": {"openai_api_key": "$MY_API_KEY"},
             },
         },
         {
@@ -44,11 +48,35 @@ def basic_config_dict():
                 "name": "claude-v1",
                 "provider": "anthropic",
                 "config": {
-                    "anthropic_api_key": "claudekey",
+                    "anthropic_api_key": "/tmp/claudekey.conf",
                 },
             },
         },
     ]
+
+
+def test_api_key_parsing():
+    os.environ["KEY_AS_ENV"] = "my_key"
+    env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
+
+    for key in env_keys:
+        assert _resolve_api_key_from_input(key) == "my_key"
+
+    string_key = "my_key_as_a_string"
+
+    assert _resolve_api_key_from_input(string_key) == string_key
+
+    path_for_file = "~/mlflow/gateway/mykey.conf"
+    file_key = "Here is my key that sits safely in a file"
+
+    file_dir = pathlib.Path(path_for_file)
+    file_dir.parent.mkdir(parents=True, exist_ok=True)
+    file_dir.write_text(file_key)
+
+    assert _resolve_api_key_from_input(path_for_file) == file_key
+
+    del os.environ["KEY_AS_ENV"]
+    file_dir.unlink()
 
 
 def test_route_configuration_parsing(basic_config_dict, tmp_path):
@@ -56,12 +84,61 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
+    # Write a file in /tmp/claudekey that contains a string
+    path_for_file = "/tmp/claudekey.conf"
+    file_key = "Here is my key that sits safely in a file"
+
+    file_dir = pathlib.Path(path_for_file)
+    file_dir.parent.mkdir(parents=True, exist_ok=True)
+    file_dir.write_text(file_key)
+
+    # Set an environment variable
+    os.environ["MY_API_KEY"] = "my_env_var_key"
+
     loaded_config = _load_route_config(conf_path)
 
     save_path = tmp_path.joinpath("config2.yaml")
     _save_route_config(loaded_config, save_path)
     loaded_from_save = _load_route_config(save_path)
-    assert loaded_config == loaded_from_save
+
+    instruct_gpt4 = loaded_from_save[0]
+    assert instruct_gpt4.name == "instruct-gpt4"
+    assert instruct_gpt4.type == "llm/v1/completions"
+    assert instruct_gpt4.model.name == "gpt-4"
+    assert instruct_gpt4.model.provider == "openai"
+    instruct_conf = instruct_gpt4.model.config
+    assert instruct_conf["openai_api_key"] == "mykey"
+    assert instruct_conf["openai_api_base"] == "https://api.openai.com/v1"
+    assert instruct_conf["openai_api_version"] == "2023-05-10"
+    assert instruct_conf["openai_api_type"] == "openai/v1/chat/completions"
+    assert instruct_conf["openai_organization"] == "my_company"
+
+    chat_gpt4 = loaded_from_save[1]
+
+    assert chat_gpt4.name == "chat-gpt4"
+    assert chat_gpt4.type == "llm/v1/chat"
+    assert chat_gpt4.model.name == "gpt-4"
+    assert chat_gpt4.model.provider == "openai"
+    chat_conf = chat_gpt4.model.config
+    assert chat_conf["openai_api_key"] == "my_env_var_key"
+    assert chat_conf["openai_api_base"] == "https://api.openai.com/v1"
+    assert chat_conf.get("openai_api_version", None) is None
+    assert chat_conf.get("openai_api_type", None) is None
+    assert chat_conf.get("openai_organization", None) is None
+
+    claude = loaded_from_save[2]
+    assert claude.name == "claude-chat"
+    assert claude.type == "llm/v1/chat"
+    assert claude.model.name == "claude-v1"
+    assert claude.model.provider == "anthropic"
+    claude_conf = claude.model.config
+    assert claude_conf["anthropic_api_key"] == file_key
+    assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
+
+    # Delete the environment variable
+    del os.environ["MY_API_KEY"]
+    # Delete the file
+    file_dir.unlink()
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
@@ -105,6 +182,44 @@ def test_invalid_route_definition(tmp_path):
         match="For the openai provider, the api key must either be specified within the ",
     ):
         _load_route_config(conf_path)
+
+    invalid_format_config_key_is_not_string = [
+        {
+            "name": "some_name",
+            "type": "invalid",
+            "model": {
+                "name": "invalid",
+                "provider": "openai",
+                "config": {"openai_api_type": "chat", "openai_api_key": [42]},
+            },
+        }
+    ]
+
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(invalid_format_config_key_is_not_string))
+
+    with pytest.raises(
+        ValidationError,
+        match="1 validation error for ParsingModel",
+    ):
+        _load_route_config(conf_path)
+
+    invalid_format_config_key_invalid_path = [
+        {
+            "name": "some_name",
+            "type": "invalid",
+            "model": {
+                "name": "invalid",
+                "provider": "openai",
+                "config": {"openai_api_type": "chat", "openai_api_key": "/not/a/real/path"},
+            },
+        }
+    ]
+
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
+
+    assert _load_route_config(conf_path)[0].model.config["openai_api_key"] == "/not/a/real/path"
 
     invalid_no_config = [
         {
@@ -188,7 +303,7 @@ def test_custom_route(tmp_path):
                 "name": "prod",
                 "provider": "hosted",
                 "config": {
-                    "api_key_env_var": "MY_KEY",
+                    "api_key": "MY_KEY",
                     "api_base": "http://myserver.endpoint.org/",
                 },
             },
@@ -226,7 +341,7 @@ def test_default_base_api(tmp_path):
             "model": {
                 "name": "gpt-4",
                 "provider": "openai",
-                "config": {"openai_api_key_env_var": "MY_API_KEY"},
+                "config": {"openai_api_key": "MY_API_KEY"},
             },
         },
     ]
@@ -246,7 +361,7 @@ def test_databricks_route_config(tmp_path):
                 "name": "serving-endpoints/document-classifier/Production/invocations",
                 "provider": "databricks_serving_endpoint",
                 "config": {
-                    "databricks_api_token_env_var": "MY_TOKEN",
+                    "databricks_api_token": "MY_TOKEN",
                     "databricks_api_base": "https://my-shard-001/",
                 },
             },
@@ -260,7 +375,7 @@ def test_databricks_route_config(tmp_path):
     assert route.type == "custom"
     assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
     assert route.model.provider == "databricks_serving_endpoint"
-    assert route.model.config.get("databricks_api_token", None) is None
+    assert route.model.config.get("databricks_api_token") == "MY_TOKEN"
     assert route.model.config.get("databricks_api_base") == "https://my-shard-001/"
 
 
@@ -273,7 +388,7 @@ def test_duplicate_routes_in_config(tmp_path):
                 "name": "serving-endpoints/document-classifier/Production/invocations",
                 "provider": "databricks_serving_endpoint",
                 "config": {
-                    "databricks_api_token_env_var": "MY_TOKEN",
+                    "databricks_api_token": "MY_TOKEN",
                     "databricks_api_base": "https://my-shard-001/",
                 },
             },
@@ -285,7 +400,7 @@ def test_duplicate_routes_in_config(tmp_path):
                 "name": "serving-endpoints/document-classifier/Production/invocations",
                 "provider": "databricks_serving_endpoint",
                 "config": {
-                    "databricks_api_token_env_var": "MY_TOKEN",
+                    "databricks_api_token": "MY_TOKEN",
                     "databricks_api_base": "https://my-shard-001/",
                 },
             },

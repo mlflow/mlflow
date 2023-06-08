@@ -114,7 +114,7 @@ def is_pid_alive(pid):
         return True
 
 
-def kill_parent_and_child_processes(parent_pid):
+def kill_parent_and_child_processes(parent_pid, server_state_file):
     """
     Gracefully terminate all processes associated with the server process if possible, else
     kill them if too much time has elapsed.
@@ -130,6 +130,9 @@ def kill_parent_and_child_processes(parent_pid):
         parent.wait(timeout=5)
     except psutil.TimeoutExpired:
         parent.kill()
+    # Remove the server state file when the server is terminated / killed so that we don't have
+    # hanging references for shell-killed (manually terminated) processes
+    _delete_server_state(server_state_file)
 
 
 def write_server_state(host: str, port: int, pid: int, server_state_file: str):

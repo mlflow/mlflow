@@ -1,5 +1,7 @@
+import pathlib
 from enum import Enum
 import json
+import os
 from pathlib import Path
 from pydantic import BaseModel, validator, parse_obj_as
 from pydantic.json import pydantic_encoder
@@ -28,7 +30,6 @@ class RouteType(str, Enum):
 
 class OpenAIConfig(BaseModel):
     openai_api_key: Optional[str] = None
-    openai_api_key_env_var: Optional[str] = None
     openai_api_type: Optional[str] = None
     openai_api_base: Optional[str] = "https://api.openai.com/v1"
     openai_api_version: Optional[str] = None
@@ -37,13 +38,11 @@ class OpenAIConfig(BaseModel):
 
 class AnthropicConfig(BaseModel):
     anthropic_api_key: Optional[str] = None
-    anthropic_api_key_env_var: Optional[str] = None
     anthropic_api_base: Optional[str] = "https://api.anthropic.com/"
 
 
 class DatabricksConfig(BaseModel):
     databricks_api_token: Optional[str] = None
-    databricks_api_token_env_var: Optional[str] = None
     databricks_api_base: str
 
 
@@ -53,7 +52,6 @@ class MLflowConfig(BaseModel):
 
 class CustomConfig(BaseModel):
     api_key: Optional[str] = None
-    api_key_env_var: Optional[str] = None
     api_base: str
     api_version: Optional[str] = None
 
@@ -72,25 +70,67 @@ class ModelInfo(BaseModel):
     provider: Provider = Provider.UNSPECIFIED_PROVIDER
 
 
-def _config_instance_validation(config, provider):
-    exceptions = {
-        "api_key_exception": (
-            f"For the {provider} provider, the api key must either be specified within the "
-            "configuration supplied or an environment variable set whose key is "
-            "defined within the configuration"
-        ),
-        "config_exception": (
-            f"For the {provider} provider, the configuration is not set correctly. Verify "
-            f"that a config is set and that the base url and api key information is provided."
-        ),
+def _resolve_api_key_from_input(api_key_input):
+    """
+    Resolves the provided API key.
+
+    Input formats accepted:
+
+    - Path to a file as a string which will have the key loaded from it
+    - environment variable name that stores the api key
+    - the api key itself
+    """
+
+    if not isinstance(api_key_input, str):
+        raise MlflowException(
+            "The api key provided is not a string. Please provide either an environment "
+            "variable key, a path to a file containing the api key, or the api key itself",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    # try reading as an environment variable
+    env_var_attempt = api_key_input[1:] if api_key_input.startswith("$") else api_key_input
+
+    env_var = os.getenv(env_var_attempt)
+    if env_var:
+        return env_var
+
+    # try reading from a local path
+    file = pathlib.Path(api_key_input)
+    if file.is_file():
+        return file.read_text()
+
+    # if the key itself is passed, return
+    return api_key_input
+
+
+def _extract_and_set_api_key(config, provider):
+    required_keys = {
+        OpenAIConfig: "openai_api_key",
+        AnthropicConfig: "anthropic_api_key",
+        DatabricksConfig: "databricks_api_token",
+        CustomConfig: "api_key",
     }
 
-    required_keys = {
-        OpenAIConfig: ["openai_api_key", "openai_api_key_env_var"],
-        AnthropicConfig: ["anthropic_api_key", "anthropic_api_key_env_var"],
-        DatabricksConfig: ["databricks_api_token", "databricks_api_token_env_var"],
-        CustomConfig: ["api_key", "api_key_env_var"],
-    }
+    config_dict = config.dict()
+
+    for config_class, key in required_keys.items():
+        if isinstance(config, config_class):
+            if getattr(config, key, None) is None:
+                raise MlflowException(
+                    f"For the {provider} provider, the api key must either be specified within the "
+                    "configuration supplied or an environment variable set whose key is "
+                    "defined within the configuration",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            else:
+                # set the config key
+                config_dict[key] = _resolve_api_key_from_input(config_dict[key])
+
+    return config_types[provider](**config_dict)
+
+
+def _validate_base_route(config, provider):
     base_route = {
         OpenAIConfig: "openai_api_base",
         AnthropicConfig: "anthropic_api_base",
@@ -99,17 +139,12 @@ def _config_instance_validation(config, provider):
         CustomConfig: "api_base",
     }
 
-    for config_class, keys in required_keys.items():
-        if isinstance(config, config_class) and all(
-            getattr(config, key, None) is None for key in keys
-        ):
-            raise MlflowException(
-                exceptions["api_key_exception"], error_code=INVALID_PARAMETER_VALUE
-            )
     for config_class, base in base_route.items():
         if isinstance(config, config_class) and getattr(config, base, None) is None:
             raise MlflowException(
-                exceptions["config_exception"], error_code=INVALID_PARAMETER_VALUE
+                f"For the {provider} provider, the configuration is not set correctly. Verify "
+                "that a config is set and that the base url and api key information is provided.",
+                error_code=INVALID_PARAMETER_VALUE,
             )
 
 
@@ -136,8 +171,11 @@ class Model(BaseModel):
             config_type = config_types[provider]
             config_instance = config_type(**config)
 
-            # validate that the configuration fields are defined properly
-            _config_instance_validation(config_instance, provider)
+            # set the api_key
+            config_instance = _extract_and_set_api_key(config_instance, provider)
+
+            # validate the base_route
+            _validate_base_route(config_instance, provider)
 
             return config_instance
         else:
@@ -159,7 +197,7 @@ class RouteConfig(BaseModel):
             raise MlflowException(
                 "The route name provided contains disallowed characters for a url endpoint. "
                 f"'{route_name}' is invalid. Names cannot contain spaces or any non "
-                "alphanumeric characters other than hyphen and underscore",
+                "alphanumeric characters other than hyphen and underscore.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         return route_name

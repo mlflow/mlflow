@@ -2,7 +2,6 @@ import logging
 import os
 import pathlib
 import sys
-import time
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import CONF_PATH_ENV_VAR, GATEWAY_SERVER_STATE_FILE
@@ -11,7 +10,6 @@ from mlflow.gateway.utils import (
     is_pid_alive,
     write_server_state,
     read_server_state,
-    _delete_server_state,
     kill_parent_and_child_processes,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
@@ -44,7 +42,7 @@ def _start_server(config_path: str, host, port, server_state_file: str = GATEWAY
     """
     server_state = read_server_state(server_state_file)
 
-    if server_state:
+    if server_state and is_pid_alive(server_state["pid"]):
         raise MlflowException(
             f"There is a currently running server instance at pid '{server_state['pid']}'. Please "
             "terminate the running server instance prior to starting a new instance within this "
@@ -70,7 +68,7 @@ def _start_server(config_path: str, host, port, server_state_file: str = GATEWAY
     return server_process
 
 
-def _stop_server(server_pid: int):
+def _stop_server(server_pid: int, server_state_file: str):
     """
     Stops the currently running server.
 
@@ -78,6 +76,7 @@ def _stop_server(server_pid: int):
     variable to None.
 
     Args:
+        server_pid (int): The process id of a server instance main process
         server_state_file (str): The location on the local file system to store the server state
 
     Returns:
@@ -85,7 +84,7 @@ def _stop_server(server_pid: int):
     """
 
     if is_pid_alive(server_pid):
-        kill_parent_and_child_processes(server_pid)
+        kill_parent_and_child_processes(server_pid, server_state_file)
         _logger.info("The Gateway server has been terminated.")
     else:
         raise MlflowException(
@@ -115,7 +114,7 @@ def _update_server(config_path: str, server_state_file: str = GATEWAY_SERVER_STA
     if not server_state:
         raise MlflowException(
             f"There is no server_state_file present at {server_state_file}. Verify that the "
-            f"server has been started",
+            "server has been started",
             error_code=BAD_REQUEST,
         )
 
@@ -123,14 +122,11 @@ def _update_server(config_path: str, server_state_file: str = GATEWAY_SERVER_STA
 
     if not is_pid_alive(server_pid):
         raise MlflowException(
-            f"Unable to update server configuration. There is no server currently running at "
+            "Unable to update server configuration. There is no server currently running at "
             f"process id {server_pid}",
             error_code=BAD_REQUEST,
         )
 
-    _stop_server(server_pid)
-    _delete_server_state(server_state_file)
-
-    time.sleep(2)
+    _stop_server(server_pid, server_state_file)
 
     return _start_server(config_path, server_state["host"], server_state["port"], server_state_file)
