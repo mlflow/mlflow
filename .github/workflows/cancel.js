@@ -9,7 +9,7 @@ module.exports = async ({ context, github }) => {
     event: "pull_request",
     per_page: 100,
   });
-  const unfinishedRuns = prRuns.filter((run) => run.status !== "completed");
+  const unfinishedRuns = prRuns.filter(({ status }) => status !== "completed");
   for (const run of unfinishedRuns) {
     try {
       // Some runs may have already completed, so we need to handle errors.
