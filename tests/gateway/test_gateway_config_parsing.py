@@ -1,6 +1,5 @@
 import os
 import pathlib
-from pydantic import ValidationError
 import pytest
 import yaml
 
@@ -199,8 +198,8 @@ def test_invalid_route_definition(tmp_path):
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_is_not_string))
 
     with pytest.raises(
-        ValidationError,
-        match="1 validation error for ParsingModel",
+        MlflowException,
+        match="The gateway configuration is invalid",
     ):
         _load_route_config(conf_path)
 

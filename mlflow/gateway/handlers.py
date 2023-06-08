@@ -1,9 +1,10 @@
 import pathlib
 from enum import Enum
 import json
+import logging
 import os
 from pathlib import Path
-from pydantic import BaseModel, validator, parse_obj_as
+from pydantic import BaseModel, validator, parse_obj_as, Extra, ValidationError
 from pydantic.json import pydantic_encoder
 from typing import Optional, Union, List, Dict, Any
 import yaml
@@ -11,11 +12,13 @@ import yaml
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import PROVIDERS
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+
+_logger = logging.getLogger(__name__)
 
 
 class Provider(str, Enum):
-    UNSPECIFIED_PROVIDER = "custom"
+    CUSTOM = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
     DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
@@ -28,7 +31,7 @@ class RouteType(str, Enum):
     LLM_V1_CHAT = "llm/v1/chat"
 
 
-class OpenAIConfig(BaseModel):
+class OpenAIConfig(BaseModel, extra=Extra.forbid):
     openai_api_key: Optional[str] = None
     openai_api_type: Optional[str] = None
     openai_api_base: Optional[str] = "https://api.openai.com/v1"
@@ -36,21 +39,21 @@ class OpenAIConfig(BaseModel):
     openai_organization: Optional[str] = None
 
 
-class AnthropicConfig(BaseModel):
+class AnthropicConfig(BaseModel, extra=Extra.forbid):
     anthropic_api_key: Optional[str] = None
     anthropic_api_base: Optional[str] = "https://api.anthropic.com/"
 
 
-class DatabricksConfig(BaseModel):
+class DatabricksConfig(BaseModel, extra=Extra.forbid):
     databricks_api_token: Optional[str] = None
     databricks_api_base: str
 
 
-class MLflowConfig(BaseModel):
+class MLflowConfig(BaseModel, extra=Extra.forbid):
     api_base: str
 
 
-class CustomConfig(BaseModel):
+class CustomConfig(BaseModel, extra=Extra.forbid):
     api_key: Optional[str] = None
     api_base: str
     api_version: Optional[str] = None
@@ -61,13 +64,13 @@ config_types = {
     Provider.ANTHROPIC: AnthropicConfig,
     Provider.DATABRICKS_SERVING_ENDPOINT: DatabricksConfig,
     Provider.MLFLOW: MLflowConfig,
-    Provider.UNSPECIFIED_PROVIDER: CustomConfig,
+    Provider.CUSTOM: CustomConfig,
 }
 
 
-class ModelInfo(BaseModel):
+class ModelInfo(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
-    provider: Provider = Provider.UNSPECIFIED_PROVIDER
+    provider: Provider = Provider.CUSTOM
 
 
 def _resolve_api_key_from_input(api_key_input):
@@ -82,10 +85,9 @@ def _resolve_api_key_from_input(api_key_input):
     """
 
     if not isinstance(api_key_input, str):
-        raise MlflowException(
+        raise MlflowException.invalid_parameter_value(
             "The api key provided is not a string. Please provide either an environment "
-            "variable key, a path to a file containing the api key, or the api key itself",
-            error_code=INVALID_PARAMETER_VALUE,
+            "variable key, a path to a file containing the api key, or the api key itself"
         )
 
     # try reading as an environment variable
@@ -117,11 +119,10 @@ def _extract_and_set_api_key(config, provider):
     for config_class, key in required_keys.items():
         if isinstance(config, config_class):
             if getattr(config, key, None) is None:
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     f"For the {provider} provider, the api key must either be specified within the "
                     "configuration supplied or an environment variable set whose key is "
-                    "defined within the configuration",
-                    error_code=INVALID_PARAMETER_VALUE,
+                    "defined within the configuration"
                 )
             else:
                 # set the config key
@@ -141,28 +142,23 @@ def _validate_base_route(config, provider):
 
     for config_class, base in base_route.items():
         if isinstance(config, config_class) and getattr(config, base, None) is None:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"For the {provider} provider, the configuration is not set correctly. Verify "
-                "that a config is set and that the base url and api key information is provided.",
-                error_code=INVALID_PARAMETER_VALUE,
+                "that a config is set and that the base url and api key information is provided."
             )
 
 
 # pylint: disable=no-self-argument
-class Model(BaseModel):
+class Model(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
-    provider: Union[str, Provider] = Provider.UNSPECIFIED_PROVIDER
+    provider: Union[str, Provider] = Provider.CUSTOM
     config: Optional[Dict[str, Any]] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
         if isinstance(value, Provider):
             return value
-        return (
-            Provider[value.upper()]
-            if value.upper() in Provider.__members__
-            else Provider.UNSPECIFIED_PROVIDER
-        )
+        return Provider[value.upper()] if value.upper() in Provider.__members__ else Provider.CUSTOM
 
     @validator("config", pre=True)
     def validate_config(cls, config, values):
@@ -179,14 +175,13 @@ class Model(BaseModel):
 
             return config_instance
         else:
-            raise MlflowException(
-                "A provider must be provided for each gateway route.",
-                error_code=INVALID_PARAMETER_VALUE,
+            raise MlflowException.invalid_parameter_value(
+                "A provider must be provided for each gateway route."
             )
 
 
 # pylint: disable=no-self-argument
-class RouteConfig(BaseModel):
+class RouteConfig(BaseModel, extra=Extra.forbid):
     name: str
     type: RouteType = RouteType.CUSTOM
     model: Model
@@ -194,11 +189,10 @@ class RouteConfig(BaseModel):
     @validator("name")
     def validate_endpoint_name(cls, route_name):
         if not is_valid_endpoint_name(route_name):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "The route name provided contains disallowed characters for a url endpoint. "
                 f"'{route_name}' is invalid. Names cannot contain spaces or any non "
-                "alphanumeric characters other than hyphen and underscore.",
-                error_code=INVALID_PARAMETER_VALUE,
+                "alphanumeric characters other than hyphen and underscore."
             )
         return route_name
 
@@ -207,10 +201,9 @@ class RouteConfig(BaseModel):
         if model:
             model_instance = Model(**model)
             if model_instance.provider in PROVIDERS and model_instance.config is None:
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     "A config must be supplied when setting a provider. The provider entry for "
-                    f"{model_instance.provider} is incorrect.",
-                    error_code=INVALID_PARAMETER_VALUE,
+                    f"{model_instance.provider} is incorrect."
                 )
         return model
 
@@ -221,7 +214,7 @@ class RouteConfig(BaseModel):
         return RouteType.CUSTOM.value
 
 
-class Route(BaseModel):
+class Route(BaseModel, extra=Extra.forbid):
     name: str
     type: RouteType
     model: ModelInfo
@@ -234,9 +227,19 @@ def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
     """
     if isinstance(path, str):
         path = Path(path)
-    configuration = yaml.safe_load(path.read_text())
+    try:
+        configuration = yaml.safe_load(path.read_text())
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            f"The file at {path} is not a valid yaml file"
+        ) from e
     check_configuration_route_name_collisions(configuration)
-    return parse_obj_as(List[RouteConfig], configuration)
+    try:
+        return parse_obj_as(List[RouteConfig], configuration)
+    except ValidationError as e:
+        raise MlflowException.invalid_parameter_value(
+            f"The gateway configuration is invalid: {e}"
+        ) from e
 
 
 def _save_route_config(config: List[RouteConfig], path: Union[str, Path]):

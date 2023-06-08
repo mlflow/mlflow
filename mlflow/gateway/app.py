@@ -1,17 +1,17 @@
-import argparse
 from fastapi import FastAPI, Request, HTTPException
 import logging
 import os
+from pathlib import Path
 from traceback import format_exc
-from typing import List
-import uvicorn
+from typing import List, Union
 
 from mlflow.version import VERSION
-from mlflow.gateway.constants import CONF_PATH_ENV_VAR
 from mlflow.gateway.handlers import Route, RouteConfig, _route_config_to_route, _load_route_config
 
 
 _logger = logging.getLogger(__name__)
+
+MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
 # Configured and initialized Gateway Routes state index
 ACTIVE_ROUTES: List[Route] = []
@@ -68,25 +68,20 @@ def _add_routes(routes: List[RouteConfig]):
         _add_dynamic_route(route)
 
 
-def create_app(route_config: List[RouteConfig]) -> FastAPI:
+def create_app(gateway_conf_path: Union[str, Path]) -> FastAPI:
+    """
+    Create the FastAPI app by loading the dynamic route configuration file from the
+    specified local path and generating POST methods
+    """
+    route_config = _load_route_config(gateway_conf_path)
     _add_routes(route_config)
     return app
 
 
-def initialize_server(host: str, port: int, route_config: List[RouteConfig]):
-    _logger.info("Creating gateway routes app")
-    server_app = create_app(route_config)
-    _logger.info("Gateway app created. Starting Gateway server...")
-    uvicorn.run(server_app, host=host, port=port)
+def create_app_from_env() -> FastAPI:
+    """
+    Load the path from the environment variable and generate the FastAPI app instance
+    """
+    gateway_conf_path = os.environ.get(MLFLOW_GATEWAY_CONFIG)
 
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--host", type=str)
-    parser.add_argument("--port", type=int)
-    args = parser.parse_args()
-
-    conf_path = os.environ.get(CONF_PATH_ENV_VAR)
-    route_config = _load_route_config(conf_path)
-
-    initialize_server(args.host, args.port, route_config)
+    return create_app(gateway_conf_path)

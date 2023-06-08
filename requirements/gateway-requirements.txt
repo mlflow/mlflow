@@ -4,4 +4,6 @@
 
 pydantic<3,>=1.0
 fastapi<1
-uvicorn<1
+uvicorn[standard]<1
+watchfiles<1
+psutil<6
