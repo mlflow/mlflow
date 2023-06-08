@@ -38,28 +38,6 @@ requests to the server via REST APIs.
 How It Works
 ============
 
-Built-in Admin User
--------------------
-
-MLflow has a built-in admin user who has unrestricted access to all MLflow resources,
-including creating or deleting users, updating password and admin status of other users,
-and grating or revoking permissions from other users.
-The default admin user credential is as follow:
-
-.. list-table::
-   :widths: 10 10
-   :header-rows: 1
-
-   * - Username
-     - Password
-   * - ``admin``
-     - ``password``
-
-The admin will be created the first time MLflow authentication feature is enabled.
-It is recommended that you update the password as soon as possible after the admin is created.
-
-Multiple admin users can exist by promoting other users to admin.
-
 Permissions
 -----------
 
@@ -401,6 +379,46 @@ Permissions Database
 All users and permissions are stored in a database in ``basic_auth.db``, relative to the directory where MLflow server is launched.
 The location can be change in the :ref:`configuration <configuration>` file.
 
+Admin User
+----------
+
+Admin users have unrestricted access to all MLflow resources,
+**including creating or deleting users, updating password and admin status of other users,
+grating or revoking permissions from other users, and managing permissions for all 
+MLflow resources,** even if ``NO_PERMISSIONS`` is explicitly set to an admin.
+
+MLflow has a built-in admin user that will be created the first time MLflow authentication feature is enabled.
+The default admin user credential is as follow.
+It is recommended that you update the password as soon as possible after it is created.
+
+.. list-table::
+   :widths: 10 10
+   :header-rows: 1
+
+   * - Username
+     - Password
+   * - ``admin``
+     - ``password``
+
+
+Multiple admin users can exist by promoting other users to admin, using the ``2.0/mlflow/users/update-admin`` endpoint.
+
+.. code-block:: python
+    :caption: Example
+
+    import os
+    from mlflow.server import get_app_client
+
+    # authenticate as built-in admin user
+    os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
+    os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+    tracking_uri = "http://localhost:5000/"
+
+    auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+    auth_client.create_user(username="user1", password="pw1")
+    auth_client.update_user_admin(username="user1", is_admin=True)
+
+
 Managing Permissions
 --------------------
 
@@ -519,8 +537,8 @@ provides a function to create new users easily.
 
     import mlflow
 
-    client = mlflow.server.get_app_client("basic-auth", tracking_uri="https://mlflow_tracking.uri/")
-    client.create_user(username="username", password="password")
+    auth_client = mlflow.server.get_app_client("basic-auth", tracking_uri="https://mlflow_tracking.uri/")
+    auth_client.create_user(username="username", password="password")
 
 .. _configuration:
 
