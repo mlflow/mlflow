@@ -445,7 +445,9 @@ To instantiate ``AuthServiceClient``, it is recommended that you use ``mlflow.se
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment(name="experiment")
 
-    auth_client.create_experiment_permission(experiment_id=experiment_id, username="user2", permission="MANAGE")
+    auth_client.create_experiment_permission(
+        experiment_id=experiment_id, username="user2", permission="MANAGE"
+    )
 
 
 Authenticating to MLflow
@@ -522,7 +524,7 @@ In Python, you can use the ``requests`` library:
     response = requests.post(
         "https://mlflow_tracking.uri/api/2.0/mlflow/users/create",
         json={
-            "username": "username", 
+            "username": "username",
             "password": "password",
         },
     )
@@ -537,7 +539,9 @@ provides a function to create new users easily.
 
     import mlflow
 
-    auth_client = mlflow.server.get_app_client("basic-auth", tracking_uri="https://mlflow_tracking.uri/")
+    auth_client = mlflow.server.get_app_client(
+        "basic-auth", tracking_uri="https://mlflow_tracking.uri/"
+    )
     auth_client.create_user(username="username", password="password")
 
 .. _configuration:
@@ -574,8 +578,9 @@ Then the plugin should be installed in your Python environment:
 .. code-block:: python
 
     from mlflow.server import app
-    
+
     app.add_url_rule(...)
+
 
     class MyAuthClient:
         ...
