@@ -2,7 +2,7 @@ import os
 import requests
 import urllib3
 
-from functools import lru_cache
+# from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -52,7 +52,7 @@ def download_chunk(index, chunk_size, headers, download_path, http_uri):
                 f.write(content)
 
 
-@lru_cache(maxsize=64)
+# @lru_cache(maxsize=64)
 def _cached_get_request_session(
     max_retries,
     backoff_factor,
