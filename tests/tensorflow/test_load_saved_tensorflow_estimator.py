@@ -49,7 +49,9 @@ class ModelDataInfo(NamedTuple):
 
         inference_df = pd.read_json(os.path.join(path, "inference_df.json"), orient="split")
         raw_df = pd.read_json(os.path.join(path, "raw_df.json"), orient="split")
-        expected_results_df = pd.read_json(os.path.join(path, "expected_results_df.json"), orient="split")
+        expected_results_df = pd.read_json(
+            os.path.join(path, "expected_results_df.json"), orient="split"
+        )
 
         return cls(
             raw_results=info["raw_results"],

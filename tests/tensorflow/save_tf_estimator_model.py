@@ -31,12 +31,13 @@ args = parser.parse_args()
 
 mlflow.set_tracking_uri(args.tracking_uri)
 
+
 class SavedModelInfo(NamedTuple):
-    meta_graph_tags 
-    signature_def_key 
-    inference_df 
-    raw_results 
-    raw_df 
+    meta_graph_tags
+    signature_def_key
+    inference_df
+    raw_results
+    raw_df
     expected_results_df
 
     def save(self, path):
@@ -44,14 +45,16 @@ class SavedModelInfo(NamedTuple):
             "meta_graph_tags": self.meta_graph_tags,
             "signature_def_key": self.signature_def_key,
             "raw_results": self.raw_results,
-            "run_id": run_id, 
+            "run_id": run_id,
         }
         with open(os.path.join(path, "info.json"), "w") as f:
             json.dump(info_dict, f)
 
         self.inference_df.to_json(os.path.join(path, "inference_df.json"), orient="split")
         self.raw_df.to_json(os.path.join(path, "raw_df.json"), orient="split")
-        self.expected_results_df.to_json(os.path.join(path, "expected_results_df.json"), orient="split")
+        self.expected_results_df.to_json(
+            os.path.join(path, "expected_results_df.json"), orient="split"
+        )
 
 
 def save_tf_iris_model(tmp_path):
