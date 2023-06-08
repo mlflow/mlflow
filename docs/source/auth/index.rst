@@ -379,8 +379,8 @@ Permissions Database
 All users and permissions are stored in a database in ``basic_auth.db``, relative to the directory where MLflow server is launched.
 The location can be change in the :ref:`configuration <configuration>` file.
 
-Admin User
-----------
+Admin Users
+-----------
 
 Admin users have unrestricted access to all MLflow resources,
 **including creating or deleting users, updating password and admin status of other users,
@@ -388,7 +388,7 @@ grating or revoking permissions from other users, and managing permissions for a
 MLflow resources,** even if ``NO_PERMISSIONS`` is explicitly set to an admin.
 
 MLflow has a built-in admin user that will be created the first time MLflow authentication feature is enabled.
-The default admin user credential is as follow.
+The default admin user credentials are as follows.
 It is recommended that you update the password as soon as possible after it is created.
 
 .. list-table::
