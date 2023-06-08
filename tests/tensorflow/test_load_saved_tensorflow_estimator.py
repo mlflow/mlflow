@@ -1,8 +1,7 @@
-import collections
 import os
-import pickle
 import pytest
 import json
+from typing import NamedTuple, Dict
 
 import numpy as np
 import pandas as pd
@@ -36,22 +35,35 @@ def model_path(tmp_path):
     return os.path.join(tmp_path, "model")
 
 
-ModelDataInfo = collections.namedtuple(
-    "ModelDataInfo",
-    [
-        "inference_df",
-        "expected_results_df",
-        "raw_results",
-        "raw_df",
-        "run_id",
-    ],
-)
+class ModelDataInfo(NamedTuple):
+    inference_df: pd.DataFrame
+    raw_results: Dict
+    raw_df: pd.DataFrame
+    expected_results_df: pd.DataFrame
+    run_id: str
+
+    @classmethod
+    def load(cls, path: str):
+        with open(os.path.join(path, "info.json"), "r") as f:
+            info = json.load(f)
+
+        inference_df = pd.read_json(os.path.join(path, "inference_df.json"), orient="split")
+        raw_df = pd.read_json(os.path.join(path, "raw_df.json"), orient="split")
+        expected_results_df = pd.read_json(os.path.join(path, "expected_results_df.json"), orient="split")
+
+        return cls(
+            raw_results=info["raw_results"],
+            inference_df=inference_df,
+            raw_df=raw_df,
+            expected_results_df=expected_results_df,
+            run_id=info["run_id"],
+        )
 
 
 def save_or_log_tf_model_by_mlflow128(tmp_path, model_type, task_type, save_path=None):
     tf_tests_dir = os.path.dirname(__file__)
     conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
-    output_data_file_path = os.path.join(tmp_path, "output_data.pkl")
+    output_data_dir_path = os.path.join(tmp_path, "tf_model_output_data")
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_tf_estimator_model.py")
     mlflow_repo_path = os.path.dirname(os.path.dirname(tf_tests_dir))
@@ -64,8 +76,7 @@ def save_or_log_tf_model_by_mlflow128(tmp_path, model_type, task_type, save_path
         f"--task_type {task_type} "
         f"--save_path {save_path if save_path else 'none'}",
     )
-    with open(output_data_file_path, "rb") as f:
-        return ModelDataInfo(*pickle.load(f))
+    return ModelDataInfo.load(output_data_dir_path)
 
 
 def test_load_model_from_remote_uri_succeeds(tmp_path, model_path, mock_s3_bucket, monkeypatch):

@@ -1,6 +1,8 @@
 import collections
+import json
 import os
 import copy
+from typing import NamedTuple, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -29,18 +31,27 @@ args = parser.parse_args()
 
 mlflow.set_tracking_uri(args.tracking_uri)
 
-SavedModelInfo = collections.namedtuple(
-    "SavedModelInfo",
-    [
-        "path",
-        "meta_graph_tags",
-        "signature_def_key",
-        "inference_df",
-        "expected_results_df",
-        "raw_results",
-        "raw_df",
-    ],
-)
+class SavedModelInfo(NamedTuple):
+    meta_graph_tags 
+    signature_def_key 
+    inference_df 
+    raw_results 
+    raw_df 
+    expected_results_df
+
+    def save(self, path):
+        info_dict = {
+            "meta_graph_tags": self.meta_graph_tags,
+            "signature_def_key": self.signature_def_key,
+            "raw_results": self.raw_results,
+            "run_id": run_id, 
+        }
+        with open(os.path.join(path, "info.json"), "w") as f:
+            json.dump(info_dict, f)
+
+        self.inference_df.to_json(os.path.join(path, "inference_df.json"), orient="split")
+        self.raw_df.to_json(os.path.join(path, "raw_df.json"), orient="split")
+        self.expected_results_df.to_json(os.path.join(path, "expected_results_df.json"), orient="split")
 
 
 def save_tf_iris_model(tmp_path):
@@ -207,7 +218,7 @@ elif args.model_type == "categorical":
 else:
     raise ValueError("Illegal argument.")
 
-output_data_file_path = "output_data.pkl"
+output_data_dir_path = "tf_model_output_data"
 
 with TempDir() as tmp:
     saved_model = gen_model_fn(tmp.path())
@@ -236,13 +247,5 @@ with TempDir() as tmp:
     else:
         raise ValueError("Illegal argument.")
 
-output_data_info = (
-    saved_model.inference_df,
-    saved_model.expected_results_df,
-    saved_model.raw_results,
-    saved_model.raw_df,
-    run_id,
-)
 
-with open(output_data_file_path, "wb") as f:
-    pickle.dump(output_data_info, f)
+saved_model.save(path=output_data_dir_path, run_id=run_id)
