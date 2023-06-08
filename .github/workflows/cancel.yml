@@ -1,4 +1,4 @@
-# Cancel workflow runs on pull request close
+# Cancel workflow runs associated with a pull request when it is closed or merged.
 name: Cancel
 
 on:
