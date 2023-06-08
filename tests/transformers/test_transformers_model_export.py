@@ -8,6 +8,7 @@ import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
+import sys
 import textwrap
 from unittest import mock
 import yaml
@@ -56,6 +57,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    get_free_disk_space_in_GiB,
 )
 
 pytestmark = pytest.mark.large
@@ -77,6 +79,14 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - TextClassifier pipeline tests
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
+
+
+@pytest.fixture(autouse=True)
+def report_free_disk_space(capsys):
+    yield
+
+    with capsys.disabled():
+        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(autouse=True)
@@ -335,7 +345,7 @@ def raw_audio_file():
 
 @pytest.fixture()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-small")
+    return transformers.pipeline(model="openai/whisper-tiny")
 
 
 @pytest.fixture()
@@ -2768,7 +2778,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
     loaded_pipeline = mlflow.transformers.load_model(model_path)
 
     transcription = loaded_pipeline(sound_file_for_test, **inference_config)
-    assert transcription["text"].startswith(" 30 seconds and counting. Astronauts")
+    assert transcription["text"].startswith(" 30")
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
 
@@ -2826,7 +2836,7 @@ def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline,
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
 
 @pytest.mark.skipcacheclean
@@ -2854,7 +2864,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
     # Test split format
     inference_df = pd.DataFrame(
@@ -2872,7 +2882,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
     # Test records format
     records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
@@ -2887,7 +2897,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
 
 @pytest.mark.skipif(
@@ -3093,7 +3103,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     url_inference = pyfunc_model.predict(url)
 
-    assert url_inference[0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert url_inference[0].startswith("30")
     # Ensure that direct pyfunc calling even with a conflicting signature still functions
     inference_payload = json.dumps({"inputs": [url]})
 

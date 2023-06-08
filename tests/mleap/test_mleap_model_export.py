@@ -44,15 +44,14 @@ def get_mleap_jars():
     )
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark_context():
     conf = pyspark.SparkConf()
     conf.set(key="spark.jars.packages", value=get_mleap_jars())
     # Exclude `net.sourceforge.f2j` to avoid `java.io.FileNotFoundException`
     conf.set(key="spark.jars.excludes", value="net.sourceforge.f2j:arpack_combined_all")
-    spark_session = get_spark_session(conf)
-    yield spark_session.sparkContext
-    spark_session.stop()
+    with get_spark_session(conf) as spark_session:
+        yield spark_session.sparkContext
 
 
 @pytest.mark.skipif(

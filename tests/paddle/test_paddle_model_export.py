@@ -469,31 +469,27 @@ def test_log_model_built_in_high_level_api(
         mlflow.end_run()
 
 
-def test_log_model_with_pip_requirements(pd_model, tmpdir):
+def test_log_model_with_pip_requirements(pd_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.paddle.log_model(pd_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.paddle.log_model(
-            pd_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
-        )
+        mlflow.paddle.log_model(pd_model.model, "model", pip_requirements=[f"-r {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.paddle.log_model(
-            pd_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
-        )
+        mlflow.paddle.log_model(pd_model.model, "model", pip_requirements=[f"-c {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, "b", "-c constraints.txt"],
@@ -502,15 +498,15 @@ def test_log_model_with_pip_requirements(pd_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(pd_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.paddle.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.paddle.log_model(pd_model.model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.paddle.log_model(pd_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -518,7 +514,7 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.paddle.log_model(
-            pd_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            pd_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -527,7 +523,7 @@ def test_log_model_with_extra_pip_requirements(pd_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.paddle.log_model(
-            pd_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            pd_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

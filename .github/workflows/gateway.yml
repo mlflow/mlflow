@@ -1,0 +1,31 @@
+name: ⛩ Gateway ⛩
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - branch-[0-9]+.[0-9]+
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -exo pipefail {0}
+
+jobs:
+  gateway:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          pip install -e .[gateway]
+          pip install pytest pytest-timeout
+      - name: Run tests
+        run: |
+          pytest tests/gateway
