@@ -1370,8 +1370,8 @@ def _validate_non_local_source_contains_relative_paths(source: str):
         "Please provide an absolute path."
     )
 
-    while urllib.parse.unquote_plus(source) != source:
-        source = urllib.parse.unquote_plus(source)
+    while (unquoted := urllib.parse.unquote_plus(source)) != source:
+        source = unquoted
     source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
     try:
         resolved_source = pathlib.Path(source_path).resolve().as_posix()
