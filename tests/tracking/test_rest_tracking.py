@@ -1236,6 +1236,28 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
     assert response.status_code == 400
     assert "If supplying a source as an http, https," in response.json()["message"]
 
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/..%2f..%2fartifacts",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/artifact%00",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
 
 def test_create_model_version_with_file_uri(mlflow_client):
     name = "test"

@@ -1360,20 +1360,34 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "/models/artifacts/../../../"
     "s3:/my_bucket/models/path/../../other/path"
     "file://path/to/../../../../some/where/you/should/not/be"
+    "mlflow-artifacts://host:port/..%2f..%2f..%2f..%2f"
+    "http://host:port/api/2.0/mlflow-artifacts/artifacts%00"
     """
+    invalid_source_error_message = (
+        f"Invalid model version source: '{source}'. If supplying a source as an http, https,"
+        "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be"
+        "provided without relative path references present."
+        "Please provide an absolute path."
+    )
+
+    while urllib.parse.unquote_plus(source) != source:
+        source = urllib.parse.unquote_plus(source)
     source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
-    resolved_source = pathlib.Path(source_path).resolve().as_posix()
-    # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
-    # drive path of the pwd to a given path. We don't care about the drive here, though.
-    _, resolved_path = os.path.splitdrive(resolved_source)
+    try:
+        resolved_source = pathlib.Path(source_path).resolve().as_posix()
+        # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
+        # drive path of the pwd to a given path. We don't care about the drive here, though.
+        _, resolved_path = os.path.splitdrive(resolved_source)
+    except ValueError as e:
+        if e.args[0] == "embedded null byte":
+            raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
+        raise
 
     if resolved_path != source_path:
-        raise MlflowException(
-            f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
-            "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
-            "provided without relative path references present. Please provide an absolute path.",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
+
+    if len(source_path.split("/")) > 2:
+        _validate_non_local_source_contains_relative_paths("/".join(source_path.split("/")[:-1]))
 
 
 def _validate_source(source: str, run_id: str) -> None:
