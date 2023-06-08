@@ -43,7 +43,7 @@ class AuthServiceClient:
         :param username: The username.
         :param password: The user's password. Must not be empty string.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.User` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.User` object.
                  Raises ``RestException`` if the username is already taken.
 
         .. code-block:: python
@@ -79,7 +79,7 @@ class AuthServiceClient:
 
         :param username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.User` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.User` object.
                  Raises ``RestException`` if the user does not exist.
 
         .. code-block:: python
@@ -207,9 +207,10 @@ class AuthServiceClient:
 
         :param experiment_id: The id of the experiment.
         :param username: The username.
-        :param permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        :param permission: Permission to grant.
+            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
-        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
                  Raises ``RestException`` if the user does not exist,
                  or a permission already exists for this experiment user pair,
                  or if the permission is invalid.
@@ -252,10 +253,10 @@ class AuthServiceClient:
         :param experiment_id: The id of the experiment.
         :param username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.ExperimentPermission` object.
                  Raises ``RestException`` if the user does not exist,
                  or no permission exists for this experiment user pair.
-                 Note that the default permission will still be effective even if 
+                 Note that the default permission will still be effective even if
                  no permission exists.
 
         .. code-block:: python
@@ -295,7 +296,8 @@ class AuthServiceClient:
 
         :param experiment_id: The id of the experiment.
         :param username: The username.
-        :param permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        :param permission: New permission to grant.
+            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
         :return: None. Raises ``RestException`` if the user does not exist,
                  or no permission exists for this experiment user pair,
@@ -331,7 +333,7 @@ class AuthServiceClient:
         :return: None. Raises ``RestException`` if the user does not exist,
                  or no permission exists for this experiment user pair,
                  or if the permission is invalid.
-                 Note that the default permission will still be effective even 
+                 Note that the default permission will still be effective even
                  after the permission has been deleted.
 
         .. code-block:: python
@@ -360,9 +362,10 @@ class AuthServiceClient:
 
         :param name: The name of the registered model.
         :param username: The username.
-        :param permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        :param permission: Permission to grant.
+            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
-        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
                  Raises ``RestException`` if the user does not exist,
                  or a permission already exists for this registered model user pair,
                  or if the permission is invalid.
@@ -405,10 +408,10 @@ class AuthServiceClient:
         :param name: The name of the registered model.
         :param username: The username.
 
-        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object. 
+        :return: A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
                  Raises ``RestException`` if the user does not exist,
                  or no permission exists for this registered model user pair.
-                 Note that the default permission will still be effective even if 
+                 Note that the default permission will still be effective even if
                  no permission exists.
 
         .. code-block:: python
@@ -448,7 +451,8 @@ class AuthServiceClient:
 
         :param name: The name of the registered model.
         :param username: The username.
-        :param permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
+        :param permission: New permission to grant.
+            Must be one of "READ", "EDIT", "MANAGE" and "NO_PERMISSIONS".
 
         :return: None. Raises ``RestException`` if the user does not exist,
                  or no permission exists for this registered model user pair,
@@ -484,7 +488,7 @@ class AuthServiceClient:
         :return: None. Raises ``RestException`` if the user does not exist,
                  or no permission exists for this registered model user pair,
                  or if the permission is invalid.
-                 Note that the default permission will still be effective even 
+                 Note that the default permission will still be effective even
                  after the permission has been deleted.
 
         .. code-block:: python
