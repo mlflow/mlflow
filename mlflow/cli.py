@@ -658,6 +658,13 @@ try:
 except ImportError as e:
     pass
 
+try:
+    import mlflow.proxy.cli  # pylint: disable=unused-import
+
+    cli.add_command(mlflow.proxy.cli.commands)
+except ImportError as e:
+    pass
+
 
 if __name__ == "__main__":
     cli()
