@@ -19,9 +19,3 @@ pip install -e '.[gateway]'
 ```shell
 mlflow gateway start --config-path gateway.yml
 ```
-
-## Updating the gateway service
-
-```shell
-mlflow gateway update --config-path gateway.yml
-```

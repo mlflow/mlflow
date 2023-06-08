@@ -1,4 +1,14 @@
 import click
+from .runner import run_app
+from .config import _validate_config
+
+
+def validate_config_path(_ctx, _param, value):
+    try:
+        _validate_config(value)
+        return value
+    except Exception as e:
+        raise click.BadParameter(str(e))
 
 
 @click.group("gateway", help="Manage MLflow Model Gateway")
@@ -6,15 +16,13 @@ def commands():
     pass
 
 
-CONFIG_PATH_OPTION = click.option(
+@commands.command("start", help="Start the MLflow Model Gateway service")
+@click.option(
     "--config-path",
+    callback=validate_config_path,
     required=True,
     help="The path to the gateway configuration file.",
 )
-
-
-@commands.command("start", help="Start the MLflow Model Gateway service")
-@CONFIG_PATH_OPTION
 @click.option(
     "--host",
     default="127.0.0.1",
@@ -25,13 +33,10 @@ CONFIG_PATH_OPTION = click.option(
     default=5000,
     help="The port to listen on (default: 5000).",
 )
-def start(config_path: str, host: str, port: str):
-    # TODO: Implement this command
-    click.echo("Starting gateway...")
-
-
-@commands.command("update", help="Update the MLflow Model Gateway service")
-@CONFIG_PATH_OPTION
-def update(config_path: str):
-    # TODO: Implement this command
-    click.echo("Updating gateway...")
+@click.option(
+    "--workers",
+    default=2,
+    help="The number of workers.",
+)
+def start(config_path: str, host: str, port: str, workers: int):
+    run_app(config_path=config_path, host=host, port=port, workers=workers)
