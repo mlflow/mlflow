@@ -73,8 +73,8 @@ def basic_config_dict():
                 "config": {
                     "openai_api_key": "mykey",
                     "openai_api_base": "https://api.openai.com/v1",
-                    "openai_api_version": "v1",
-                    "openai_api_type": "completions",
+                    "openai_api_version": "2023-05-15",
+                    "openai_api_type": "open_ai",
                 },
             },
         },
