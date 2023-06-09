@@ -54,7 +54,7 @@ class Gateway:
     def get(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
         return self.request("GET", path, *args, **kwargs)
 
-    def assert_healthy(self):
+    def assert_health(self):
         assert self.get("health").ok
 
     def post(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
@@ -186,7 +186,7 @@ def test_server_update(
         store_conf(tmp_path, "config.yaml", update_config_dict)
 
         # Ensure there is no server downtime
-        gateway.assert_healthy()
+        gateway.assert_health()
 
         # Wait for the app to restart
         wait()
@@ -196,7 +196,7 @@ def test_server_update(
 
         # push the original file back
         store_conf(tmp_path, "config.yaml", basic_config_dict)
-        gateway.assert_healthy()
+        gateway.assert_health()
         wait()
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
@@ -214,10 +214,10 @@ def test_server_update_with_invalid_config(
         wait()
         # push an invalid config
         store_conf(tmp_path, "config.yaml", invalid_config_dict)
-        gateway.assert_healthy()
+        gateway.assert_health()
         # ensure that filewatch has run through the aborted config change logic
         wait()
-        gateway.assert_healthy()
+        gateway.assert_health()
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
@@ -235,7 +235,7 @@ def test_server_update_config_removed_then_recreated(
         # remove config
         tmp_path.joinpath("config.yaml").unlink()
         wait()
-        gateway.assert_healthy()
+        gateway.assert_health()
 
         store_conf(tmp_path, "config.yaml", basic_config_dict[1:])
         wait()
