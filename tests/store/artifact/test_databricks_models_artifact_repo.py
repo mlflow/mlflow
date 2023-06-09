@@ -8,7 +8,10 @@ from unittest.mock import ANY
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.databricks_models_artifact_repo import (
+    DatabricksModelsArtifactRepository,
+    _DOWNLOAD_CHUNK_SIZE,
+)
 from mlflow import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
@@ -263,7 +266,7 @@ def test_parallelized_download_file_using_http_uri_succcess(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
@@ -301,7 +304,7 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
@@ -339,7 +342,7 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
