@@ -1015,6 +1015,38 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
         )
 
 
+def test_transformers_log_with_duplicate_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            pip_requirements=["transformers==99.99.99", "transformers", "mlflow"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
+
+
+def test_transformers_log_with_duplicate_extra_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            extra_pip_requirements=["transformers==99.99.99"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
+
+
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_seq2seq_pipeline, model_path
 ):
