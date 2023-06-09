@@ -333,6 +333,7 @@ class Schema:
         """Get list of required data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if not x.optional]
 
+    @experimental
     def optional_input_names(self) -> List[Union[str, int]]:
         """Get list of optional data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if x.optional]
