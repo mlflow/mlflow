@@ -3,7 +3,7 @@ import pytest
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.handlers import (
+from mlflow.gateway.config import (
     _load_route_config,
     _save_route_config,
     RouteConfig,
@@ -16,7 +16,7 @@ from mlflow.gateway.handlers import (
 def basic_config_dict():
     return [
         {
-            "name": "instruct-gpt4",
+            "name": "completions-gpt4",
             "type": "llm/v1/completions",
             "model": {
                 "name": "gpt-4",
@@ -46,7 +46,7 @@ def basic_config_dict():
                 "name": "claude-v1",
                 "provider": "anthropic",
                 "config": {
-                    "anthropic_api_key": "/tmp/claudekey.conf",
+                    "anthropic_api_key": "api_key",
                 },
             },
         },
@@ -55,6 +55,7 @@ def basic_config_dict():
 
 def test_api_key_parsing(monkeypatch):
     monkeypatch.setenv("KEY_AS_ENV", "my_key")
+
     env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
 
     for key in env_keys:
@@ -64,14 +65,12 @@ def test_api_key_parsing(monkeypatch):
 
     assert _resolve_api_key_from_input(string_key) == string_key
 
-    path_for_file = "~/mlflow/gateway/mykey.conf"
+    conf_path = tmp_path.joinpath("mykey.conf")
     file_key = "Here is my key that sits safely in a file"
 
-    file_dir = pathlib.Path(path_for_file)
-    file_dir.parent.mkdir(parents=True, exist_ok=True)
-    file_dir.write_text(file_key)
+    conf_path.write_text(file_key)
 
-    assert _resolve_api_key_from_input(path_for_file) == file_key
+    assert _resolve_api_key_from_input(str(conf_path)) == file_key
 
     file_dir.unlink()
 
@@ -80,14 +79,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     conf_path = tmp_path.joinpath("config.yaml")
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
-
-    # Write a file in /tmp/claudekey that contains a string
-    path_for_file = "/tmp/claudekey.conf"
-    file_key = "Here is my key that sits safely in a file"
-
-    file_dir = pathlib.Path(path_for_file)
-    file_dir.parent.mkdir(parents=True, exist_ok=True)
-    file_dir.write_text(file_key)
 
     # Set an environment variable
     monkeypatch.setenv("MY_API_KEY", "my_env_var_key")
@@ -98,17 +89,17 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     _save_route_config(loaded_config, save_path)
     loaded_from_save = _load_route_config(save_path)
 
-    instruct_gpt4 = loaded_from_save[0]
-    assert instruct_gpt4.name == "instruct-gpt4"
-    assert instruct_gpt4.type == "llm/v1/completions"
-    assert instruct_gpt4.model.name == "gpt-4"
-    assert instruct_gpt4.model.provider == "openai"
-    instruct_conf = instruct_gpt4.model.config
-    assert instruct_conf["openai_api_key"] == "mykey"
-    assert instruct_conf["openai_api_base"] == "https://api.openai.com/v1"
-    assert instruct_conf["openai_api_version"] == "2023-05-10"
-    assert instruct_conf["openai_api_type"] == "openai/v1/chat/completions"
-    assert instruct_conf["openai_organization"] == "my_company"
+    completions_gpt4 = loaded_from_save[0]
+    assert completions_gpt4.name == "completions-gpt4"
+    assert completions_gpt4.type == "llm/v1/completions"
+    assert completions_gpt4.model.name == "gpt-4"
+    assert completions_gpt4.model.provider == "openai"
+    completions_conf = completions_gpt4.model.config
+    assert completions_conf["openai_api_key"] == "mykey"
+    assert completions_conf["openai_api_base"] == "https://api.openai.com/v1"
+    assert completions_conf["openai_api_version"] == "2023-05-10"
+    assert completions_conf["openai_api_type"] == "openai/v1/chat/completions"
+    assert completions_conf["openai_organization"] == "my_company"
 
     chat_gpt4 = loaded_from_save[1]
 
@@ -129,7 +120,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert claude.model.name == "claude-v1"
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
-    assert claude_conf["anthropic_api_key"] == file_key
+    assert claude_conf["anthropic_api_key"] == "api_key"
     assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
 
     # Delete the file
@@ -164,7 +155,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat"},
+                "config": {"openai_api_type": "open_ai"},
             },
         }
     ]
@@ -185,7 +176,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat", "openai_api_key": [42]},
+                "config": {"openai_api_type": "open_ai", "openai_api_key": [42]},
             },
         }
     ]
@@ -206,7 +197,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat", "openai_api_key": "/not/a/real/path"},
+                "config": {"openai_api_type": "open_ai", "openai_api_key": "/not/a/real/path"},
             },
         }
     ]
