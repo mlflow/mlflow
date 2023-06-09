@@ -148,11 +148,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
-        # Use an isolated thread pool executor for chunk uploads to avoid a deadlock
-        # caused by waiting for a chunk-upload task within a file-upload task.
+        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
         # for more details
-        self.chunk_upload_thread_pool = self._create_thread_pool()
+        self.chunk_thread_pool = self._create_thread_pool()
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -273,7 +273,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.chunk_upload_thread_pool.submit(
+                future = self.chunk_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
                     headers=headers,
@@ -351,7 +351,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.chunk_upload_thread_pool.submit(
+                future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
                     artifact_path=artifact_path,
@@ -434,6 +434,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
     ):
         try:
             failed_downloads = parallelized_download_file_using_http_uri(
+                thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
                 download_path=dst_local_file_path,
                 file_size=file_size,
@@ -568,7 +569,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
             start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-            future = self.chunk_upload_thread_pool.submit(
+            future = self.chunk_thread_pool.submit(
                 self._upload_part_retry,
                 cred_info=cred_info,
                 upload_id=create_mpu_resp.upload_id,
