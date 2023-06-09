@@ -4,7 +4,7 @@ import pytest
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.handlers import (
+from mlflow.gateway.config import (
     _load_route_config,
     _save_route_config,
     RouteConfig,
