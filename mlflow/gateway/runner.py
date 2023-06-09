@@ -29,13 +29,14 @@ def monitor_config(config_path: str) -> Generator[None, None, None]:
             config = f.read()
         if config == prev_config:
             continue
-        prev_config = config
 
         try:
             _load_route_config(config_path)
         except Exception as e:
             _logger.warning("Invalid configuration: %s", e)
             continue
+        else:
+            prev_config = config
 
         yield
 
