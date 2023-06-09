@@ -46,7 +46,7 @@ def basic_config_dict():
                 "name": "claude-v1",
                 "provider": "anthropic",
                 "config": {
-                    "anthropic_api_key": "/tmp/claudekey.conf",
+                    "anthropic_api_key": "api_key",
                 },
             },
         },
@@ -74,15 +74,34 @@ def test_api_key_parsing(tmp_path):
     del os.environ["KEY_AS_ENV"]
 
 
+def test_api_key_parsing_file(tmp_path):
+    key_path = tmp_path.joinpath("api.key")
+    config = [
+        {
+            "name": "claude-chat",
+            "type": "llm/v1/chat",
+            "model": {
+                "name": "claude-v1",
+                "provider": "anthropic",
+                "config": {
+                    "anthropic_api_key": str(key_path),
+                },
+            },
+        },
+    ]
+
+    key_path.write_text("abc")
+    config_path = tmp_path.joinpath("config.yaml")
+    config_path.write_text(yaml.safe_dump(config))
+    loaded_config = _load_route_config(config_path)
+
+    assert loaded_config[0].model.config["anthropic_api_key"] == "abc"
+
+
 def test_route_configuration_parsing(basic_config_dict, tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
-
-    # Write a file in /tmp/claudekey that contains a string
-    conf_path = tmp_path.joinpath("claudekey.conf")
-    file_key = "Here is my key that sits safely in a file"
-    conf_path.write_text(file_key)
 
     # Set an environment variable
     os.environ["MY_API_KEY"] = "my_env_var_key"
@@ -124,7 +143,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     assert claude.model.name == "claude-v1"
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
-    assert claude_conf["anthropic_api_key"] == file_key
+    assert claude_conf["anthropic_api_key"] == "api_key"
     assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
 
     # Delete the environment variable
