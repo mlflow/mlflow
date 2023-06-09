@@ -1364,9 +1364,9 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "http://host:port/api/2.0/mlflow-artifacts/artifacts%00"
     """
     invalid_source_error_message = (
-        f"Invalid model version source: '{source}'. If supplying a source as an http, https,"
-        "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be"
-        "provided without relative path references present."
+        f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
+        "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
+        "provided without relative path references present. "
         "Please provide an absolute path."
     )
 
