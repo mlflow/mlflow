@@ -7,7 +7,7 @@ from typing import Union
 from watchfiles import watch
 
 from mlflow.gateway import app
-from mlflow.gateway.handlers import _load_route_config
+from mlflow.gateway.config import _load_route_config
 from mlflow.gateway.utils import kill_child_processes
 
 
