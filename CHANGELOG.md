@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## 2.4.1 (2023-06-09)
+
+MLflow 2.4.1 includes several major features and improvements
+
+Features:
+
+- [Models] Add duplicate requirements validation (#8678, @BenWilson2)
+- [Docs / Tracking] Extend SearchRuns to support datasets (#8622, @prithvikannan)
+- [Model Registry] add johnsnowlabs flavor (#8556, @C-K-Loan)
+
+Bug fixes:
+
+- [Models] Ignore encoding errors with transformers model cards (#8652, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#8677, #8674, #8646, #8647, @dbczumar; #8654, #8653, #8660, #8650, #8642, #8636, #8599, #8637, #8608, #8633, #8623, #8628, #8619, @harupy; #8655, #8609, @BenWilson2; #8648, @serena-ruan; #8521, @ka1mar; #8638, @smurching; #8634, @PenHsuanWang
+
 ## 2.4.0 (2023-06-06)
 
 MLflow 2.4.0 includes several major features and improvements
