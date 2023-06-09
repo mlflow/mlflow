@@ -60,7 +60,7 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
