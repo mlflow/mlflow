@@ -10,7 +10,7 @@ from typing import List, Optional
 import math
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import sql
+from sqlalchemy import and_, sql, text
 from sqlalchemy.future import select
 
 from mlflow.entities import RunTag, Metric, DatasetInput
@@ -61,7 +61,12 @@ from mlflow.utils.validation import (
     _validate_param,
     _validate_experiment_name,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+    _get_run_name_from_tags,
+)
 from mlflow.utils.time_utils import get_current_time_millis
 
 _logger = logging.getLogger(__name__)
@@ -1212,11 +1217,19 @@ class SqlAlchemyStore(AbstractStore):
             cases_orderby, parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             stmt = select(SqlRun, *cases_orderby)
-            attribute_filters, non_attribute_filters = _get_sqlalchemy_filter_clauses(
-                parsed_filters, session, self._get_dialect()
-            )
+            (
+                attribute_filters,
+                non_attribute_filters,
+                dataset_filters,
+            ) = _get_sqlalchemy_filter_clauses(parsed_filters, session, self._get_dialect())
             for non_attr_filter in non_attribute_filters:
                 stmt = stmt.join(non_attr_filter)
+            for idx, dataset_filter in enumerate(dataset_filters):
+                # need to reference the anon table in the join condition
+                anon_table_name = f"anon_{idx+1}"
+                stmt = stmt.join(
+                    dataset_filter, text(f"runs.run_uuid = {anon_table_name}.destination_id")
+                )
             # using an outer join is necessary here because we want to be able to sort
             # on a column (tag, metric or param) without removing the lines that
             # do not have a value for this column (which is what inner join would do)
@@ -1459,6 +1472,7 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """
     attribute_filters = []
     non_attribute_filters = []
+    dataset_filters = []
 
     for sql_statement in parsed:
         key_type = sql_statement.get("type")
@@ -1497,21 +1511,51 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                 entity = SqlParam
             elif SearchUtils.is_tag(key_type, comparator):
                 entity = SqlTag
+            elif SearchUtils.is_dataset(key_type, comparator):
+                entity = SqlDataset
             else:
                 raise MlflowException(
                     "Invalid search expression type '%s'" % key_type,
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
-            val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
-                entity.value, value
-            )
-            non_attribute_filters.append(
-                session.query(entity).filter(key_filter, val_filter).subquery()
-            )
+            if entity == SqlDataset:
+                if key_name == "context":
+                    dataset_filters.append(
+                        session.query(entity, SqlInput, SqlInputTag)
+                        .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                        .join(
+                            SqlInputTag,
+                            and_(
+                                SqlInputTag.input_uuid == SqlInput.input_uuid,
+                                SqlInputTag.name == MLFLOW_DATASET_CONTEXT,
+                                SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                                    getattr(SqlInputTag, "value"), value
+                                ),
+                            ),
+                        )
+                        .subquery()
+                    )
+                else:
+                    dataset_attr_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                        getattr(SqlDataset, key_name), value
+                    )
+                    dataset_filters.append(
+                        session.query(entity, SqlInput)
+                        .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                        .filter(dataset_attr_filter)
+                        .subquery()
+                    )
+            else:
+                key_filter = SearchUtils.get_sql_comparison_func("=", dialect)(entity.key, key_name)
+                val_filter = SearchUtils.get_sql_comparison_func(comparator, dialect)(
+                    entity.value, value
+                )
+                non_attribute_filters.append(
+                    session.query(entity).filter(key_filter, val_filter).subquery()
+                )
 
-    return attribute_filters, non_attribute_filters
+    return attribute_filters, non_attribute_filters, dataset_filters
 
 
 def _get_orderby_clauses(order_by_list, session):

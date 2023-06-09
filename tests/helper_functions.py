@@ -1,6 +1,7 @@
 import os
 import random
 import functools
+import shutil
 from unittest import mock
 from contextlib import ExitStack, contextmanager
 from packaging.version import Version
@@ -614,3 +615,7 @@ def clear_hub_cache():
     except ImportError:
         # Local import check for mlflow-skinny not including huggingface_hub
         pass
+
+
+def get_free_disk_space_in_GiB():
+    return shutil.disk_usage("/").free / (1024**3)

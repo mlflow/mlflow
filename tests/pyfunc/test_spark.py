@@ -114,10 +114,8 @@ def get_spark_session(conf):
 
 @pytest.fixture(scope="module")
 def spark():
-    conf = pyspark.SparkConf()
-    session = get_spark_session(conf)
-    yield session
-    session.stop()
+    with get_spark_session(pyspark.SparkConf()) as session:
+        yield session
 
 
 @pytest.fixture

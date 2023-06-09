@@ -77,6 +77,7 @@ try:
     from mlflow import llm
     from mlflow import openai
     from mlflow import sentence_transformers
+    from mlflow import johnsnowlabs
 
     _model_flavors_supported = [
         "catboost",
@@ -105,6 +106,7 @@ try:
         "llm",
         "openai",
         "sentence_transformers",
+        "johnsnowlabs",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does

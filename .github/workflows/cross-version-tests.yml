@@ -30,7 +30,7 @@ on:
     - cron: "0 13 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -198,6 +198,7 @@ jobs:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           PACKAGE_VERSION: ${{ matrix.version }}
+          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
