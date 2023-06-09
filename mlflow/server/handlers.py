@@ -1383,9 +1383,6 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     if resolved_path != source_path:
         raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
-    if len(source_path.split("/")) > 2:
-        _validate_non_local_source_contains_relative_paths("/".join(source_path.split("/")[:-1]))
-
 
 def _validate_source(source: str, run_id: str) -> None:
     if is_local_uri(source):
