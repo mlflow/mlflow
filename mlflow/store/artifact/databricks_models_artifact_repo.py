@@ -21,6 +21,7 @@ from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
@@ -177,7 +178,11 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+            if (
+                not file_size
+                or file_size <= _DOWNLOAD_CHUNK_SIZE
+                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+            ):
                 download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
             else:
                 self._parallelized_download_from_cloud(
