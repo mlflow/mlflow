@@ -53,7 +53,7 @@ def basic_config_dict():
     ]
 
 
-def test_api_key_parsing(tmp_path):
+def test_api_key_parsing_env(tmp_path):
     os.environ["KEY_AS_ENV"] = "my_key"
     env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
 
