@@ -1,10 +1,9 @@
 import subprocess
+import sys
 import time
 import requests
-import signal
-import os
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any
 import yaml
 
 from tests.helper_functions import get_safe_port
@@ -13,17 +12,19 @@ import pytest
 from mlflow.gateway.utils import kill_child_processes
 
 
-class Gateway(subprocess.Popen):
+class Gateway:
     def __init__(self, config_path: str, *args, **kwargs):
         self.port = get_safe_port()
         self.host = "localhost"
-        super().__init__(
+        self.process = subprocess.Popen(
             [
+                sys.executable,
+                "-m",
                 "mlflow",
                 "gateway",
                 "start",
                 "--config-path",
-                str(config_path),
+                config_path,
                 "--host",
                 self.host,
                 "--port",
@@ -33,7 +34,6 @@ class Gateway(subprocess.Popen):
             ],
             *args,
             **kwargs,
-            preexec_fn=os.setsid,
         )
         self.wait_until_ready()
 
@@ -41,24 +41,32 @@ class Gateway(subprocess.Popen):
         s = time.time()
         while time.time() - s < 10:
             try:
-                if self.request("health").ok:
+                if self.get("health").ok:
                     return
             except requests.exceptions.ConnectionError:
-                time.sleep(0.1)
+                time.sleep(0.5)
 
         raise Exception("Gateway failed to start")
 
-    def request(self, path: str) -> requests.Response:
-        return requests.get(f"http://{self.host}:{self.port}/{path}")
+    def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
+        return requests.request(method, f"http://{self.host}:{self.port}/{path}", *args, **kwargs)
 
-    def post(self, path: str, query: Dict[str, Any]) -> requests.Response:
-        return requests.post(f"http://{self.host}:{self.port}/{path}", json=query)
+    def get(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
+        return self.request("GET", path, *args, **kwargs)
 
-    def __exit__(self, *args, **kwargs):
-        kill_child_processes(self.pid)
-        os.kill(self.pid, signal.SIGTERM)  # kill the master process first
+    def assert_health(self):
+        assert self.get("health").ok
 
-        return super().__exit__(*args, **kwargs)
+    def post(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
+        return self.request("POST", path, *args, **kwargs)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        kill_child_processes(self.process.pid)
+        self.process.terminate()
+        self.process.wait()
 
 
 @pytest.fixture
@@ -165,37 +173,32 @@ def wait():
     time.sleep(2)
 
 
-def check_health(gateway: Gateway):
-    health_check = gateway.request("health/")
-    assert health_check.status_code == 200
-
-
 def test_server_update(
     tmp_path: Path, basic_config_dict, update_config_dict, basic_routes, update_routes
 ):
     config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     with Gateway(config) as gateway:
-        response = gateway.request("gateway/routes/")
+        response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
         # push an update to the config file
         store_conf(tmp_path, "config.yaml", update_config_dict)
 
         # Ensure there is no server downtime
-        check_health(gateway)
+        gateway.assert_health()
 
         # Wait for the app to restart
         wait()
-        response = gateway.request("gateway/routes/")
+        response = gateway.get("gateway/routes/")
 
         assert response.json() == update_routes
 
         # push the original file back
         store_conf(tmp_path, "config.yaml", basic_config_dict)
-        check_health(gateway)
+        gateway.assert_health()
         wait()
-        response = gateway.request("gateway/routes/")
+        response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
 
@@ -205,33 +208,54 @@ def test_server_update_with_invalid_config(
     config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     with Gateway(config) as gateway:
-        response = gateway.request("gateway/routes/")
+        response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
         wait()
         # push an invalid config
         store_conf(tmp_path, "config.yaml", invalid_config_dict)
-        check_health(gateway)
+        gateway.assert_health()
         # ensure that filewatch has run through the aborted config change logic
         wait()
-        check_health(gateway)
-        response = gateway.request("gateway/routes/")
+        gateway.assert_health()
+        response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
+
+
+def test_server_update_config_removed_then_recreated(
+    tmp_path: Path, basic_config_dict, basic_routes
+):
+    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+
+    with Gateway(config) as gateway:
+        response = gateway.get("gateway/routes/")
+        assert response.json() == basic_routes
+        # Give filewatch a moment to cycle
+        wait()
+        # remove config
+        tmp_path.joinpath("config.yaml").unlink()
+        wait()
+        gateway.assert_health()
+
+        store_conf(tmp_path, "config.yaml", basic_config_dict[1:])
+        wait()
+        response = gateway.get("gateway/routes/")
+        assert response.json() == {"routes": basic_routes["routes"][1:]}
 
 
 def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
     config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
 
     with Gateway(config) as gateway:
-        response = gateway.request("gateway/routes/")
+        response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
         for route in ["docs", "redoc"]:
-            response = gateway.request(route)
+            response = gateway.get(route)
             assert response.status_code == 200
 
         for index, route in enumerate(basic_config_dict):
-            response = gateway.request(f"gateway/routes/{route['name']}")
+            response = gateway.get(f"gateway/routes/{route['name']}")
             assert response.json() == {"route": basic_routes["routes"][index]}
 
 
@@ -240,13 +264,13 @@ def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
 
     with Gateway(config) as gateway:
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict[0]['name']}", {"input": "Tell me a joke"}
+            f"gateway/routes/{basic_config_dict[0]['name']}", json={"input": "Tell me a joke"}
         )
         assert response.json() == {"input": "Tell me a joke"}
 
         response = gateway.post(
             f"gateway/routes/{basic_config_dict[1]['name']}",
-            {"input": "Say hello", "temperature": 0.35},
+            json={"input": "Say hello", "temperature": 0.35},
         )
         assert response.json() == {"input": "Say hello", "temperature": 0.35}
 
@@ -256,7 +280,7 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
 
     with Gateway(config) as gateway:
         # Test get
-        response = gateway.request("gateway/routes/invalid/")
+        response = gateway.get("gateway/routes/invalid/")
         assert response.status_code == 404
         assert response.json() == {
             "detail": "The route 'invalid' is not present or active on the server. Please "
@@ -264,6 +288,6 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
         }
 
         # Test post
-        response = gateway.post("gateway/routes/invalid", {"input": "should fail"})
+        response = gateway.post("gateway/routes/invalid", json={"input": "should fail"})
         assert response.status_code == 405
         assert response.json() == {"detail": "Method Not Allowed"}
