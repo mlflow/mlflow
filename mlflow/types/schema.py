@@ -100,8 +100,8 @@ class ColSpec:
         """The column name or None if the columns is unnamed."""
         return self._name
 
-    @property
     @experimental
+    @property
     def optional(self) -> bool:
         """Whether this column is optional."""
         return self._optional
@@ -225,10 +225,10 @@ class TensorSpec:
         """The tensor shape"""
         return self._tensorInfo.shape
 
-    @property
     @experimental
+    @property
     def optional(self) -> bool:
-        """Whether this column is optional."""
+        """Whether this tensor is optional."""
         return False
 
     def to_dict(self) -> Dict[str, Any]:
