@@ -11,7 +11,7 @@ import tarfile
 import tempfile
 import stat
 import pathlib
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from contextlib import contextmanager
 import uuid
 import fnmatch
@@ -597,7 +597,13 @@ def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, 
 
 
 def parallelized_download_file_using_http_uri(
-    http_uri, download_path, file_size, uri_type, chunk_size, headers=None
+    thread_pool_executor,
+    http_uri,
+    download_path,
+    file_size,
+    uri_type,
+    chunk_size,
+    headers=None,
 ):
     """
     Downloads a file specified using the `http_uri` to a local `download_path`. This function
@@ -635,26 +641,25 @@ def parallelized_download_file_using_http_uri(
             starting_index = 1
 
     num_requests = int(math.ceil(file_size / float(chunk_size)))
-    with ThreadPoolExecutor(max_workers=MAX_PARALLEL_DOWNLOAD_WORKERS) as p:
-        futures = {}
-        for index in range(starting_index, num_requests):
-            future = p.submit(
-                download_chunk,
-                index=index,
-                chunk_size=chunk_size,
-                headers=headers,
-                download_path=download_path,
-                http_uri=http_uri,
-            )
-            futures[future] = index
+    futures = {}
+    for index in range(starting_index, num_requests):
+        future = thread_pool_executor.submit(
+            download_chunk,
+            index=index,
+            chunk_size=chunk_size,
+            headers=headers,
+            download_path=download_path,
+            http_uri=http_uri,
+        )
+        futures[future] = index
 
-        failed_downloads = {}
-        for future in as_completed(futures):
-            try:
-                future.result()
-            except requests.HTTPError as e:
-                index = futures[future]
-                failed_downloads[index] = e
+    failed_downloads = {}
+    for future in as_completed(futures):
+        try:
+            future.result()
+        except requests.HTTPError as e:
+            index = futures[future]
+            failed_downloads[index] = e
 
     return failed_downloads
 
