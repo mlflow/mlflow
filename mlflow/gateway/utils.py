@@ -20,7 +20,7 @@ def is_valid_endpoint_name(name: str) -> bool:
 
     Returns True if the string doesn't contain any of these characters.
     """
-    return bool(re.fullmatch(r"^[\w\-\.]+", name))
+    return bool(re.fullmatch(r"[\w\-\.]+", name))
 
 
 def check_configuration_route_name_collisions(config):
