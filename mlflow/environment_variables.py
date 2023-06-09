@@ -268,6 +268,6 @@ MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
 )
 
 # Specifies whether or not to use multipart download when downloading a large file on Databricks.
-MLFLOW_DISABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
-    "MLFLOW_DISABLE_MULTIPART_DOWNLOAD", False
+MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
 )

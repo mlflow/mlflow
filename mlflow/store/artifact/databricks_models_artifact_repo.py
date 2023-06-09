@@ -21,7 +21,7 @@ from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
-from mlflow.environment_variables import MLFLOW_DISABLE_MULTIPART_DOWNLOAD
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
@@ -175,7 +175,7 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if (
                 not file_size
                 or file_size <= _DOWNLOAD_CHUNK_SIZE
-                or MLFLOW_DISABLE_MULTIPART_DOWNLOAD.get()
+                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             ):
                 download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
             else:
