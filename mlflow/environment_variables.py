@@ -266,3 +266,8 @@ MLFLOW_OPENAI_RETRIES_ENABLED = _BooleanEnvironmentVariable("MLFLOW_OPENAI_RETRI
 MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
     "MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS", str, "--only-binary=:all:"
 )
+
+# Specifies whether or not to use multipart download when downloading a large file on Databricks.
+MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
+)
