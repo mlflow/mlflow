@@ -2,17 +2,18 @@
 
 ## 2.4.1 (2023-06-09)
 
-MLflow 2.4.1 includes several major features and improvements
+MLflow 2.4.1 is a patch release containing the following features, bug fixes and changes:
 
 Features:
 
-- [Models] Add duplicate requirements validation (#8678, @BenWilson2)
+- [Models] Add a ``johnsnowlabs`` flavor for the ``johnsnowlabs`` package (#8556, @C-K-Loan)
+- [Models] Add a warning for duplicate pip requirements specified in ``save_model`` and ``log_model`` for the ``transformers`` flavor (#8678, @BenWilson2)
 - [Docs / Tracking] Extend SearchRuns to support datasets (#8622, @prithvikannan)
-- [Model Registry] add johnsnowlabs flavor (#8556, @C-K-Loan)
 
 Bug fixes:
-
-- [Models] Ignore encoding errors with transformers model cards (#8652, @BenWilson2)
+- [Security] Fix LFI attack vulnerability (#8648, @serena-ruan)
+    * __If you  are using ``mlflow server`` or ``mlflow ui``, we recommend upgrading to MLflow 2.4.1 as soon as possible.
+- [Models] Fix an issue with ``transformers`` serialization for ModelCards that contain invalid characters (#8652, @BenWilson2)
 
 Small bug fixes and documentation updates:
 
