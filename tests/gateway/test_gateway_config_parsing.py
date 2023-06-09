@@ -168,7 +168,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat"},
+                "config": {"openai_api_type": "open_ai"},
             },
         }
     ]
@@ -189,7 +189,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat", "openai_api_key": [42]},
+                "config": {"openai_api_type": "open_ai", "openai_api_key": [42]},
             },
         }
     ]
@@ -210,7 +210,7 @@ def test_invalid_route_definition(tmp_path):
             "model": {
                 "name": "invalid",
                 "provider": "openai",
-                "config": {"openai_api_type": "chat", "openai_api_key": "/not/a/real/path"},
+                "config": {"openai_api_type": "open_ai", "openai_api_key": "/not/a/real/path"},
             },
         }
     ]
