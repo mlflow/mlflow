@@ -73,7 +73,7 @@ class Gateway:
 def basic_config_dict():
     return [
         {
-            "name": "instruct-gpt4",
+            "name": "completions-gpt4",
             "type": "llm/v1/completions",
             "model": {
                 "name": "gpt-4",
@@ -105,7 +105,7 @@ def basic_routes():
     return {
         "routes": [
             {
-                "name": "instruct-gpt4",
+                "name": "completions-gpt4",
                 "type": "llm/v1/completions",
                 "model": {"name": "gpt-4", "provider": "openai"},
             },

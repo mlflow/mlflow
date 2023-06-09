@@ -16,7 +16,7 @@ from mlflow.gateway.config import (
 def basic_config_dict():
     return [
         {
-            "name": "instruct-gpt4",
+            "name": "completions-gpt4",
             "type": "llm/v1/completions",
             "model": {
                 "name": "gpt-4",
@@ -112,17 +112,17 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     _save_route_config(loaded_config, save_path)
     loaded_from_save = _load_route_config(save_path)
 
-    instruct_gpt4 = loaded_from_save[0]
-    assert instruct_gpt4.name == "instruct-gpt4"
-    assert instruct_gpt4.type == "llm/v1/completions"
-    assert instruct_gpt4.model.name == "gpt-4"
-    assert instruct_gpt4.model.provider == "openai"
-    instruct_conf = instruct_gpt4.model.config
-    assert instruct_conf["openai_api_key"] == "mykey"
-    assert instruct_conf["openai_api_base"] == "https://api.openai.com/v1"
-    assert instruct_conf["openai_api_version"] == "2023-05-10"
-    assert instruct_conf["openai_api_type"] == "openai/v1/chat/completions"
-    assert instruct_conf["openai_organization"] == "my_company"
+    completions_gpt4 = loaded_from_save[0]
+    assert completions_gpt4.name == "completions-gpt4"
+    assert completions_gpt4.type == "llm/v1/completions"
+    assert completions_gpt4.model.name == "gpt-4"
+    assert completions_gpt4.model.provider == "openai"
+    completions_conf = completions_gpt4.model.config
+    assert completions_conf["openai_api_key"] == "mykey"
+    assert completions_conf["openai_api_base"] == "https://api.openai.com/v1"
+    assert completions_conf["openai_api_version"] == "2023-05-10"
+    assert completions_conf["openai_api_type"] == "openai/v1/chat/completions"
+    assert completions_conf["openai_organization"] == "my_company"
 
     chat_gpt4 = loaded_from_save[1]
 
