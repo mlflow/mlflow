@@ -510,9 +510,6 @@ def _find_duplicate_requirements(requirements):
     base_package_names = []
 
     for package in requirements:
-        if package.startswith("-") or package.startswith("/") or "://" in package:
-            # Skip flags, local file paths, and urls
-            continue
         try:
             base_package_names.append(Requirement(package).name)
         except InvalidRequirement:

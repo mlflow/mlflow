@@ -354,4 +354,4 @@ def test_duplicate_pip_requirements():
         "numpy",  # any version
     ]
     evaluation = _find_duplicate_requirements(packages)
-    assert sorted(evaluation) == ["numpy", "package"]
+    assert sorted(evaluation) == ["fastapi", "numpy", "package"]
