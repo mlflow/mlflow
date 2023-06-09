@@ -6,6 +6,7 @@ import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
 
 
 class DataType(Enum):
@@ -100,6 +101,7 @@ class ColSpec:
         return self._name
 
     @property
+    @experimental
     def optional(self) -> bool:
         """Whether this column is optional."""
         return self._optional
@@ -224,6 +226,7 @@ class TensorSpec:
         return self._tensorInfo.shape
 
     @property
+    @experimental
     def optional(self) -> bool:
         """Whether this column is optional."""
         return False
