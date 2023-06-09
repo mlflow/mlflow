@@ -1,9 +1,8 @@
 import logging
 import os
-from pathlib import Path
 import subprocess
 import sys
-from typing import Union
+from typing import Generator
 from watchfiles import watch
 
 from mlflow.gateway import app
@@ -14,68 +13,96 @@ from mlflow.gateway.utils import kill_child_processes
 _logger = logging.getLogger(__name__)
 
 
-def _monitor_config(config_path: str):
-    config_path = Path(config_path)
-    prev_config = config_path.read_text()
-    for changes in watch(
-        config_path,
-    ):
-        if not any((path == str(config_path)) for _, path in changes):
+def monitor_config(config_path: str) -> Generator[None, None, None]:
+    with open(config_path) as f:
+        prev_config = f.read()
+
+    for changes in watch(os.path.dirname(config_path)):
+        if not any((path == config_path) for _, path in changes):
             continue
 
-        if not config_path.exists():
-            _logger.warning("Configuration file does not exist")
+        if not os.path.exists(config_path):
+            _logger.warning(f"{config_path} deleted")
             continue
 
-        cfg = config_path.read_text()
+        with open(config_path) as f:
+            config = f.read()
+        if config == prev_config:
+            continue
 
         try:
             _load_route_config(config_path)
-            load_successful = True
         except Exception as e:
             _logger.warning("Invalid configuration: %s", e)
-            load_successful = False
-
-        if cfg == prev_config:
             continue
-        if load_successful:
-            prev_config = cfg
+        else:
+            prev_config = config
 
-        yield load_successful
+        yield
 
 
-def run_app(config_path: str, host: str, port: Union[int, str], workers: int = 4):
-    """
-    Execute uvicorn servers as subprocesses to the gunicorn process manager.
+class Runner:
+    def __init__(
+        self,
+        config_path: str,
+        host: str,
+        port: int,
+        workers: int,
+    ) -> None:
+        self.config_path = config_path
+        self.host = host
+        self.port = port
+        self.workers = workers
+        self.process = None
 
-    While running, a polling file watcher will execute to detect changes in
-    the route configuration yaml file. If changes are detected, the subprocesses (the uvicorn
-    server instances) will restart, loading a new FastAPI app configuration for the updated
-    routes in the replaced configuration yaml file.
-    """
+    def start(self) -> None:
+        self.process = subprocess.Popen(
+            [
+                sys.executable,
+                "-m",
+                "gunicorn",
+                "--bind",
+                f"{self.host}:{self.port}",
+                "--workers",
+                str(self.workers),
+                "--worker-class",
+                "uvicorn.workers.UvicornWorker",
+                f"{app.__name__}:create_app_from_env()",
+                "--reload",
+                "--log-level",
+                "debug",
+            ],
+            env={
+                **os.environ,
+                app.MLFLOW_GATEWAY_CONFIG: self.config_path,
+            },
+        )
+
+    def stop(self) -> None:
+        if self.process is not None:
+            self.process.terminate()
+            self.process.wait()
+            self.process = None
+
+    def reload(self) -> None:
+        kill_child_processes(self.process.pid)
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.stop()
+
+
+def run_app(config_path: str, host: str, port: int, workers: int) -> None:
     config_path = os.path.abspath(os.path.normpath(os.path.expanduser(config_path)))
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "gunicorn",
-            "-b",
-            f"{host}:{port}",
-            "--workers",
-            str(workers),
-            "--worker-class",
-            "uvicorn.workers.UvicornWorker",
-            f"{app.__name__}:create_app_from_env()",
-            "--reload",
-            "--log-level",
-            "debug",
-        ],
-        env={
-            **os.environ,
-            app.MLFLOW_GATEWAY_CONFIG: config_path,
-        },
-    ) as proc:
-        for load_successful in _monitor_config(config_path):
-            if load_successful:
-                _logger.info("Configuration updated, reloading workers")
-                kill_child_processes(proc.pid)
+    with Runner(
+        config_path=config_path,
+        host=host,
+        port=port,
+        workers=workers,
+    ) as runner:
+        for _ in monitor_config(config_path):
+            _logger.info("Configuration updated, reloading workers")
+            runner.reload()
