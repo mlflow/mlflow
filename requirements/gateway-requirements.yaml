@@ -1,4 +1,4 @@
-# These are the extra requirements for MLflow Model Gateway, which can be installed
+# These are the extra requirements for MLflow Gateway, which can be installed
 # on top of the core requirements using `pip install mlflow[gateway]`.
 
 pydantic:

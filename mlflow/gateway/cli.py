@@ -11,12 +11,12 @@ def validate_config_path(_ctx, _param, value):
         raise click.BadParameter(str(e))
 
 
-@click.group("gateway", help="Manage the MLflow Model Gateway service")
+@click.group("gateway", help="Manage the MLflow Gateway service")
 def commands():
     pass
 
 
-@commands.command("start", help="Start the MLflow Model Gateway service")
+@commands.command("start", help="Start the MLflow Gateway service")
 @click.option(
     "--config-path",
     callback=validate_config_path,

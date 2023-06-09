@@ -17,7 +17,7 @@ MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 ACTIVE_ROUTES: List[Route] = []
 
 app = FastAPI(
-    title="MLflow Model Gateway API",
+    title="MLflow Gateway API",
     description="The core gateway API for reverse proxy interface using remote inference "
     "endpoints within MLflow",
     version=VERSION,
