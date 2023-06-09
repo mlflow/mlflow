@@ -1,5 +1,4 @@
 import os
-import pathlib
 import pytest
 import yaml
 
@@ -54,7 +53,7 @@ def basic_config_dict():
     ]
 
 
-def test_api_key_parsing():
+def test_api_key_parsing(tmp_path):
     os.environ["KEY_AS_ENV"] = "my_key"
     env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
 
@@ -65,17 +64,14 @@ def test_api_key_parsing():
 
     assert _resolve_api_key_from_input(string_key) == string_key
 
-    path_for_file = "~/mlflow/gateway/mykey.conf"
+    conf_path = tmp_path.joinpath("mykey.conf")
     file_key = "Here is my key that sits safely in a file"
 
-    file_dir = pathlib.Path(path_for_file)
-    file_dir.parent.mkdir(parents=True, exist_ok=True)
-    file_dir.write_text(file_key)
+    conf_path.write_text(file_key)
 
-    assert _resolve_api_key_from_input(path_for_file) == file_key
+    assert _resolve_api_key_from_input(str(conf_path)) == file_key
 
     del os.environ["KEY_AS_ENV"]
-    file_dir.unlink()
 
 
 def test_route_configuration_parsing(basic_config_dict, tmp_path):
@@ -84,12 +80,9 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
     # Write a file in /tmp/claudekey that contains a string
-    path_for_file = "/tmp/claudekey.conf"
+    conf_path = tmp_path.joinpath("claudekey.conf")
     file_key = "Here is my key that sits safely in a file"
-
-    file_dir = pathlib.Path(path_for_file)
-    file_dir.parent.mkdir(parents=True, exist_ok=True)
-    file_dir.write_text(file_key)
+    conf_path.write_text(file_key)
 
     # Set an environment variable
     os.environ["MY_API_KEY"] = "my_env_var_key"
@@ -136,8 +129,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
 
     # Delete the environment variable
     del os.environ["MY_API_KEY"]
-    # Delete the file
-    file_dir.unlink()
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
