@@ -16,11 +16,11 @@ def _parse_url_path_for_base_url(url_string):
 def is_valid_endpoint_name(name: str) -> bool:
     """
     Check whether a string contains any URL reserved characters, spaces, or characters other
-    than alphanumeric, underscore, and hyphen.
+    than alphanumeric, underscore, hyphen, and dot.
 
     Returns True if the string doesn't contain any of these characters.
     """
-    return bool(re.fullmatch(r"^[\w-]+", name))
+    return bool(re.fullmatch(r"^[\w\-\.]+", name))
 
 
 def check_configuration_route_name_collisions(config):
