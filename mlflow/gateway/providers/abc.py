@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Union, Tuple
-from ..models import chat, embeddings
+from ..schemas import chat, embeddings
 
 
 class AbstractGatewayClient(ABC):
