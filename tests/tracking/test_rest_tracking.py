@@ -1180,6 +1180,17 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
     )
     assert response.status_code == 200
 
+    # Multiple dots
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/artifact/..../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
     # Test that invalid remote uri's cannot be created
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
