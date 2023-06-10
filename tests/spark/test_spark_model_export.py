@@ -337,15 +337,15 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
-def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_tmpdir):
+def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
     if use_dfs_tmpdir:
         dfs_tmpdir = None
     else:
-        dfs_tmpdir = tmpdir.join("test").strpath
+        dfs_tmpdir = str(tmp_path.join("test"))
 
     try:
-        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        tracking_dir = os.path.abspath(str(tmp_path.joinpath("mlruns")))
         mlflow.set_tracking_uri("file://%s" % tracking_dir)
         if should_start_run:
             mlflow.start_run()
@@ -371,16 +371,16 @@ def test_sparkml_model_log(tmpdir, spark_model_iris, should_start_run, use_dfs_t
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
 def test_sparkml_estimator_model_log(
-    tmpdir, spark_model_estimator, should_start_run, use_dfs_tmpdir
+    tmp_path, spark_model_estimator, should_start_run, use_dfs_tmpdir
 ):
     old_tracking_uri = mlflow.get_tracking_uri()
     if use_dfs_tmpdir:
         dfs_tmpdir = None
     else:
-        dfs_tmpdir = tmpdir.join("test").strpath
+        dfs_tmpdir = str(tmp_path.joinpath("test"))
 
     try:
-        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        tracking_dir = os.path.abspath(str(tmp_path.joinpath("mlruns")))
         mlflow.set_tracking_uri("file://%s" % tracking_dir)
         if should_start_run:
             mlflow.start_run()
@@ -403,9 +403,9 @@ def test_sparkml_estimator_model_log(
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-def test_log_model_calls_register_model(tmpdir, spark_model_iris):
+def test_log_model_calls_register_model(tmp_path, spark_model_iris):
     artifact_path = "model"
-    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    dfs_tmp_dir = os.path.join(tmp_path, "test")
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         sparkm.log_model(
@@ -422,9 +422,9 @@ def test_log_model_calls_register_model(tmpdir, spark_model_iris):
         )
 
 
-def test_log_model_no_registered_model_name(tmpdir, spark_model_iris):
+def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
     artifact_path = "model"
-    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    dfs_tmp_dir = os.path.join(tmp_path, "test")
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         sparkm.log_model(
@@ -480,13 +480,13 @@ def test_sparkml_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spark_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
+def test_log_model_with_pip_requirements(spark_model_iris, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=req_file.strpath)
+        mlflow.spark.log_model(spark_model_iris.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -494,7 +494,7 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.spark.log_model(
-            spark_model_iris.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            spark_model_iris.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -503,7 +503,7 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.spark.log_model(
-            spark_model_iris.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            spark_model_iris.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -513,16 +513,16 @@ def test_log_model_with_pip_requirements(spark_model_iris, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
+def test_log_model_with_extra_pip_requirements(spark_model_iris, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.spark.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.spark.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=req_file.strpath
+            spark_model_iris.model, "model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -531,7 +531,7 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.spark.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -540,7 +540,7 @@ def test_log_model_with_extra_pip_requirements(spark_model_iris, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.spark.log_model(
-            spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            spark_model_iris.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

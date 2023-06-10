@@ -220,8 +220,8 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
@@ -610,16 +610,14 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=req_file.strpath
-        )
+        mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -627,7 +625,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -636,7 +634,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -646,23 +644,25 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+def test_log_model_with_extra_pip_requirements(
+    sklearn_knn_model, main_scoped_model_class, tmp_path
+):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    sklearn_model_path = tmp_path.joinpath("sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
             python_model=python_model,
             artifacts={"sk_model": sklearn_model_path},
-            extra_pip_requirements=req_file.strpath,
+            extra_pip_requirements=req_file,
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -674,7 +674,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -686,7 +686,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
