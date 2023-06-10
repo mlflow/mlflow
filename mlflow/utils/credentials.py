@@ -34,7 +34,7 @@ def _read_mlflow_creds_from_env() -> Tuple[Optional[str], Optional[str]]:
     return MLFLOW_TRACKING_USERNAME.get(), MLFLOW_TRACKING_PASSWORD.get()
 
 
-def read_mlflow_creds() -> Optional[MlflowCreds]:
+def read_mlflow_creds() -> MlflowCreds:
     username_file, password_file = _read_mlflow_creds_from_file()
     username_env, password_env = _read_mlflow_creds_from_env()
     return MlflowCreds(
