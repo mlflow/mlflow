@@ -1,8 +1,9 @@
-import os
+# DO NO IMPORT MLFLOW IN THIS FILE.
+# This file is imported by download_cloud_file_chunk.py.
+# Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import requests
 import urllib3
 
-from functools import lru_cache
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -36,34 +37,30 @@ def augmented_raise_for_status(response):
             raise e
 
 
-def download_chunk(index, chunk_size, headers, download_path, http_uri):
-    range_start = index * chunk_size
-    range_end = range_start + chunk_size - 1
-    ranged_headers = {"Range": f"bytes={range_start}-{range_end}", **headers}
+def download_chunk(range_start, range_end, headers, download_path, http_uri):
+    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
+
     with cloud_storage_http_request(
-        "get", http_uri, stream=True, headers=ranged_headers
+        "get", http_uri, stream=False, headers=combined_headers
     ) as response:
         # File will have been created upstream. Use r+b to ensure chunks
         # don't overwrite the entire file.
         augmented_raise_for_status(response)
         with open(download_path, "r+b") as f:
             f.seek(range_start)
-            for content in response.iter_content(chunk_size=1_000_000):
-                f.write(content)
+            f.write(response.content)
 
 
-@lru_cache(maxsize=64)
-def _cached_get_request_session(
-    max_retries,
-    backoff_factor,
-    retry_codes,
-    # To create a new Session object for each process, we use the process id as the cache key.
-    # This is to avoid sharing the same Session object across processes, which can lead to issues
-    # such as https://stackoverflow.com/q/3724900.
-    _pid,
-):
+def _get_request_session(max_retries, backoff_factor, retry_codes):
     """
-    This function should not be called directly. Instead, use `_get_request_session` below.
+    Returns a `Requests.Session` object for making an HTTP request.
+
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :return: requests.Session object.
     """
     assert 0 <= max_retries < 10
     assert 0 <= backoff_factor < 120
@@ -88,25 +85,6 @@ def _cached_get_request_session(
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
-
-
-def _get_request_session(max_retries, backoff_factor, retry_codes):
-    """
-    Returns a `Requests.Session` object for making an HTTP request.
-
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :return: requests.Session object.
-    """
-    return _cached_get_request_session(
-        max_retries,
-        backoff_factor,
-        retry_codes,
-        _pid=os.getpid(),
-    )
 
 
 def _get_http_response_with_retries(

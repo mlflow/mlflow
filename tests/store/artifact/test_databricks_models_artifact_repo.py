@@ -2,14 +2,16 @@ import json
 import re
 
 import pytest
-import requests
 from unittest import mock
 from unittest.mock import ANY
 
 from mlflow.entities import FileInfo
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from mlflow.store.artifact.databricks_models_artifact_repo import (
+    DatabricksModelsArtifactRepository,
+    _DOWNLOAD_CHUNK_SIZE,
+)
 from mlflow import MlflowClient
 
 DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE = (
@@ -264,7 +266,7 @@ def test_parallelized_download_file_using_http_uri_succcess(
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
@@ -277,12 +279,6 @@ def test_parallelized_download_file_using_http_uri_succcess(
     ) as download_file_mock:
         databricks_model_artifact_repo._download_file(remote_file_path, "")
         download_file_mock.assert_called()
-
-
-def make_http_error(msg, code):
-    response = requests.Response()
-    response.status_code = code
-    return requests.exceptions.HTTPError(msg, response=response)
 
 
 @pytest.mark.parametrize(
@@ -299,21 +295,31 @@ def test_parallelized_download_file_using_http_uri_with_error_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    error_downloads = {1: make_http_error("error", 500)}
+    error_downloads = {
+        1: {
+            "error_status_code": 500,
+            "error_text": "Internal Server Error",
+        }
+    }
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_env_vars",
+        return_value={},
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
         return_value=error_downloads,
     ):
         with pytest.raises(
             MlflowException,
-            match=re.escape(f"Failed to download artifact {remote_file_path}: {error_downloads}"),
+            match=re.escape(
+                f"Failed to download artifact {remote_file_path}: [{error_downloads[1]}]"
+            ),
         ):
             databricks_model_artifact_repo._download_file(remote_file_path, "")
 
@@ -332,14 +338,17 @@ def test_parallelized_download_file_using_http_uri_with_failed_downloads(
         "signed_uri": "https://my-amazing-signed-uri-to-rule-them-all.com/1234-numbers-yay-567",
         "headers": [{"name": "header_name", "value": "header_value"}],
     }
-    failed_downloads = {1: make_http_error("Unauthorized", 401)}
+    failed_downloads = {1: {"error_status_code": 401, "error_text": "Unauthorized"}}
 
     with mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + ".list_artifacts",
-        return_value=[FileInfo(remote_file_path, True, 200_000_000)],
+        return_value=[FileInfo(remote_file_path, True, _DOWNLOAD_CHUNK_SIZE + 1)],
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._get_signed_download_uri",
         return_value=(signed_uri_mock["signed_uri"], signed_uri_mock["headers"]),
+    ), mock.patch(
+        "mlflow.utils.databricks_utils.get_databricks_env_vars",
+        return_value={},
     ), mock.patch(
         DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".parallelized_download_file_using_http_uri",
         return_value=failed_downloads,
