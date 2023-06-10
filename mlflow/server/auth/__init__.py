@@ -801,7 +801,7 @@ def delete_registered_model_permission():
     return make_response({})
 
 
-def enable_auth(app: Flask = app):
+def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
 
