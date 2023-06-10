@@ -806,6 +806,7 @@ def enable_auth(app: Flask = app):
     A factory to enable authentication and authorization for the MLflow server.
 
     :param app: The Flask app to enable authentication and authorization for.
+    :return: The app with authentication and authorization enabled.
     """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
