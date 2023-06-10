@@ -216,6 +216,8 @@ def test_server_update_with_invalid_config(
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
+        # Give filewatch a moment to cycle
+        wait()
 
         # push an invalid config
         store_conf(config, invalid_config_dict)
