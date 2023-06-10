@@ -2,20 +2,27 @@
 The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models.
 This module exports the following flavors:
 
-The flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
+To get started quickly, we recommend checking out
+1. The Google Colab tutorial Notebook TODO
+2. The Databricks tutorial Notebook TODO
+
+
+
+This flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
 Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
-Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
+Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition and much more,
 powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
-<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`
-Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>
+<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`_
+Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>`_
 for a research or industry license.
 
-These keys must be present in your license json
-- ``SECRET``: The secret for the John Snow Labs Enterprise NLP Library
-- ``SPARK_NLP_LICENSE``: Your John Snow Labs Enterprise NLP License
-- ``AWS_ACCESS_KEY_ID``: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
-- ``AWS_SECRET_ACCESS_KEY``: Your AWS Secret key for accessing John Snow Labs Enterprise Models
+These keys must be present in your license json:
+
+1. ``SECRET``: The secret for the John Snow Labs Enterprise NLP Library
+2. ``SPARK_NLP_LICENSE``: Your John Snow Labs Enterprise NLP License
+3. ``AWS_ACCESS_KEY_ID``: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
+4. ``AWS_SECRET_ACCESS_KEY``: Your AWS Secret key for accessing John Snow Labs Enterprise Models
 
 You can set them like this in Python
 
@@ -80,6 +87,7 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
+from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -97,6 +105,7 @@ from mlflow.utils.model_utils import (
     _get_flavor_configuration_from_uri,
     _validate_and_copy_code_paths,
 )
+from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.uri import (
     append_to_uri_path,
     dbfs_hdfs_uri_to_fuse_path,
@@ -105,9 +114,6 @@ from mlflow.utils.uri import (
     is_local_uri,
     is_valid_dbfs_uri,
 )
-from mlflow.utils.annotations import experimental
-from mlflow.utils.requirements_utils import _get_pinned_requirement
-
 
 FLAVOR_NAME = "johnsnowlabs"
 _JOHNSNOWLABS_ENV_JSON_LICENSE_KEY = "JOHNSNOWLABS_LICENSE_JSON"
@@ -140,8 +146,8 @@ def get_default_pip_requirements():
     from johnsnowlabs import settings
 
     _SPARK_NLP_JSL_WHEEL_URI = (
-        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
-        + f"{settings.raw_version_medical}-py3-none-any.whl"
+            "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+            + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
     return [
@@ -166,31 +172,30 @@ def get_default_conda_env():
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
-    spark_model,
-    artifact_path,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    registered_model_name=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        artifact_path,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        registered_model_name=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
 ):
     """
-    Log a ``Johnsnowlabs NLUPipeline`` (created via ``nlp.load()``) model as an MLflow artifact for
+    Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load() <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_, as an MLflow artifact for
     the current run. This uses the MLlib persistence format and produces an MLflow Model with the
     ``Johnsnowlabs`` flavor.
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
-    :param spark_model: NLUPipeline obtained via ``nlp.load()``
-    :param store_license: If True, the license will be stored with the model and used and
-                          re-loading it.
+    :param spark_model: NLUPipeline obtained via `nlp.load() <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
+    :param store_license: If True, the license will be stored with the model and used and re-loading it.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -205,7 +210,7 @@ def log_model(
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.8.15',
-                                'johnsnowlabs=4.4.6'
+                                'johnsnowlabs'
                             ]
                         }
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -299,7 +304,7 @@ def log_model(
         )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+                get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
             try:
                 _unpack_and_save_model(spark_model, mlflowdbfs_path)
@@ -314,8 +319,8 @@ def log_model(
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-        spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+            spark_model,
+            append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -363,18 +368,18 @@ def log_model(
 
 
 def _save_model_metadata(
-    dst_dir,
-    spark_model,
-    mlflow_model,
-    sample_input,
-    conda_env,
-    code_paths,
-    signature=None,
-    input_example=None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    remote_model_path=None,
-    store_license=False,
+        dst_dir,
+        spark_model,
+        mlflow_model,
+        sample_input,
+        conda_env,
+        code_paths,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        remote_model_path=None,
+        store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -465,19 +470,19 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
-    spark_model,
-    path,
-    mlflow_model=None,
-    conda_env=None,
-    code_paths=None,
-    dfs_tmpdir=None,
-    sample_input=None,
-    signature: ModelSignature = None,
-    input_example: ModelInputExample = None,
-    pip_requirements=None,
-    extra_pip_requirements=None,
-    metadata=None,
-    store_license=False,
+        spark_model,
+        path,
+        mlflow_model=None,
+        conda_env=None,
+        code_paths=None,
+        dfs_tmpdir=None,
+        sample_input=None,
+        signature: ModelSignature = None,
+        input_example: ModelInputExample = None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        metadata=None,
+        store_license=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -488,9 +493,8 @@ def save_model(
 
     :param store_license: If True, the license will be stored with the model and used and
                           re-loading it.
-    :param spark_model: Spark model to be saved - MLflow can only save descendants of
-                        pyspark.ml.Model or pyspark.ml.Transformer which implement
-                        MLReadable and MLWritable.
+    :param spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be saved.
+                         `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_ is a PipelineModel and loadable as nlu.NLUPipeline.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -506,7 +510,7 @@ def save_model(
                             'channels': ['defaults'],
                             'dependencies': [
                                 'python=3.8.15',
-                                'johnsnowlabs=4.4.6'
+                                'johnsnowlabs'
                             ]
                         }
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
@@ -592,7 +596,7 @@ def save_model(
     # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
     # like "/my-directory")
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
     if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -669,7 +673,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
-    :return: nlu.NLUPipeline
+    :return: `nlu.NLUPipeline <https://nlp.johnsnowlabs.com/docs/en/jsl/predict_api>`_
 
     .. code-block:: python
         :caption: Example
@@ -713,7 +717,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
         with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(root_uri)
+                get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
@@ -829,9 +833,9 @@ class _PyFuncModelWrapper:
     """
 
     def __init__(
-        self,
-        spark_model,
-        spark=None,
+            self,
+            spark_model,
+            spark=None,
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
