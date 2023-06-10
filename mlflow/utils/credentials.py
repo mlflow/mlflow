@@ -18,6 +18,7 @@ def _read_mlflow_creds_from_file() -> Tuple[Optional[str], Optional[str]]:
     path = _get_credentials_path()
     if not os.path.exists(path):
         return None, None
+
     config = configparser.ConfigParser()
     config.read(path)
     if "mlflow" not in config:
