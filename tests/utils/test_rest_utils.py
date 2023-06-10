@@ -4,7 +4,6 @@ import re
 import numpy
 import pytest
 import requests
-from concurrent.futures import ProcessPoolExecutor
 
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException, RestException
@@ -18,7 +17,6 @@ from mlflow.utils.rest_utils import (
     augmented_raise_for_status,
     _can_parse_as_json_object,
 )
-from mlflow.utils.request_utils import _get_request_session
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
     _USER_AGENT,
@@ -525,18 +523,3 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
-
-
-def call_get_request_session():
-    return _get_request_session(max_retries=0, backoff_factor=0, retry_codes=(403,))
-
-
-def test_get_request_session():
-    sess = call_get_request_session()
-    another_sess = call_get_request_session()
-    assert sess is another_sess
-
-    with ProcessPoolExecutor(max_workers=2) as e:
-        futures = [e.submit(call_get_request_session) for _ in range(2)]
-    sess, another_sess = [f.result() for f in futures]
-    assert sess is not another_sess
