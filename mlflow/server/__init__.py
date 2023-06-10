@@ -118,7 +118,7 @@ def _find_app(app_name: str) -> str:
     apps = importlib.metadata.entry_points().get("mlflow.app", [])
     for app in apps:
         if app.name == app_name:
-            return f"{app.value}()" if _is_factory(app.value) else app.value
+            return app.value
 
     raise MlflowException(
         f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
@@ -205,10 +205,15 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    app_spec = f"{__name__}:app" if app_name is None else _find_app(app_name)
+    if app_name is None:
+        app = f"{__name__}:app"
+    else:
+        app = _find_app(app_name)
+        app = f"{app}()" if _is_factory(app) else app
+
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app_spec)
+        full_command = _build_waitress_command(waitress_opts, host, port, app)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_spec)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)
