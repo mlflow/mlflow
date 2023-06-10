@@ -54,6 +54,7 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.ser
             "flask",
             "--app",
             app,
+            "run",
             "--host",
             LOCALHOST,
             "--port",
