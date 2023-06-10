@@ -998,7 +998,7 @@ def test_save_model_emits_deprecation_warning_for_requirements_file(tmp_path):
         mlflow.pytorch.save_model(
             get_sequential_model(),
             tmp_path.joinpath("model"),
-            requirements_file=reqs_file,
+            requirements_file=str(reqs_file),
         )
 
 
