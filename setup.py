@@ -172,7 +172,7 @@ setup(
         mlflow=mlflow.cli:cli
 
         [mlflow.app]
-        basic-auth=mlflow.server.auth:app
+        basic-auth=mlflow.server.auth:enable_auth
 
         [mlflow.app.client]
         basic-auth=mlflow.server.auth.client:AuthServiceClient

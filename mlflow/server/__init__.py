@@ -3,6 +3,8 @@ import shlex
 import sys
 import textwrap
 import importlib.metadata
+import importlib
+import types
 
 from packaging.version import Version
 from flask import __version__ as flask_version
@@ -116,11 +118,23 @@ def _find_app(app_name: str) -> str:
     apps = importlib.metadata.entry_points().get("mlflow.app", [])
     for app in apps:
         if app.name == app_name:
-            return app.value
+            return f"{app.value}()" if _is_factory(app.value) else app.value
 
     raise MlflowException(
         f"Failed to find app '{app_name}'. Available apps: {[a.name for a in apps]}"
     )
+
+
+def _is_factory(app: str) -> bool:
+    """
+    Returns True if the given app is a factory function, False otherwise.
+
+    :param app: The app to check, e.g. "mlflow.server.app:app"
+    """
+    module, obj_name = app.rsplit(":", 1)
+    mod = importlib.import_module(module)
+    obj = getattr(mod, obj_name)
+    return isinstance(obj, types.FunctionType)
 
 
 def get_app_client(app_name: str, *args, **kwargs):
