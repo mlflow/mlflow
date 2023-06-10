@@ -5,26 +5,31 @@ import yaml
 
 def test_create_app(tmp_path):
     config = tmp_path.joinpath("config.yml")
-    conf = [
-        {
-            "name": "some_name",
-            "type": "some/type",
-            "model": {
-                "name": "my_custom_provider",
-                "provider": "my_provider",
-                "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
+    conf = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "some/type",
+                "model": {
+                    "name": "my_custom_provider",
+                    "provider": "my_provider",
+                    "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
+                },
             },
-        },
-        {
-            "name": "another_custom",
-            "type": "another/type",
-            "model": {
-                "name": "another_model_type",
-                "provider": "another_provider",
-                "config": {"api_key": "a_key_for_my_route", "api_base": "http://my.endpoint.com/"},
+            {
+                "name": "another_custom",
+                "type": "another/type",
+                "model": {
+                    "name": "another_model_type",
+                    "provider": "another_provider",
+                    "config": {
+                        "api_key": "a_key_for_my_route",
+                        "api_base": "http://my.endpoint.com/",
+                    },
+                },
             },
-        },
-    ]
+        ]
+    }
     config.write_text(yaml.safe_dump(conf))
 
     app = create_app(config)
