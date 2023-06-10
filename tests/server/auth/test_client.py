@@ -46,7 +46,7 @@ def client(tmp_path):
     url, process = _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
-        app_module="mlflow.server.auth",
+        app="mlflow.server.auth:enable_auth",
     )
     yield AuthServiceClient(url)
     _terminate_server(process)
