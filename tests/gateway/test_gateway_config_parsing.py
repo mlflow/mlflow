@@ -1,4 +1,3 @@
-import os
 import pytest
 import yaml
 
@@ -53,8 +52,9 @@ def basic_config_dict():
     ]
 
 
-def test_api_key_parsing_env(tmp_path):
-    os.environ["KEY_AS_ENV"] = "my_key"
+def test_api_key_parsing_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("KEY_AS_ENV", "my_key")
+
     env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
 
     for key in env_keys:
@@ -70,8 +70,6 @@ def test_api_key_parsing_env(tmp_path):
     conf_path.write_text(file_key)
 
     assert _resolve_api_key_from_input(str(conf_path)) == file_key
-
-    del os.environ["KEY_AS_ENV"]
 
 
 def test_api_key_parsing_file(tmp_path):
@@ -98,13 +96,13 @@ def test_api_key_parsing_file(tmp_path):
     assert loaded_config[0].model.config["anthropic_api_key"] == "abc"
 
 
-def test_route_configuration_parsing(basic_config_dict, tmp_path):
+def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     conf_path = tmp_path.joinpath("config.yaml")
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
     # Set an environment variable
-    os.environ["MY_API_KEY"] = "my_env_var_key"
+    monkeypatch.setenv("MY_API_KEY", "my_env_var_key")
 
     loaded_config = _load_route_config(conf_path)
 
@@ -145,9 +143,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     claude_conf = claude.model.config
     assert claude_conf["anthropic_api_key"] == "api_key"
     assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
-
-    # Delete the environment variable
-    del os.environ["MY_API_KEY"]
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
