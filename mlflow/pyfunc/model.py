@@ -34,7 +34,6 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
-from mlflow.pyfunc import PARAMETERS
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -315,7 +314,7 @@ def _load_pyfunc(model_path: str, **kwargs):
             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
         )
 
-    parameters = _update_inference_params(pyfunc_config.get(PARAMETERS, None), kwargs)
+    parameters = _update_inference_params(pyfunc_config.get(mlflow.pyfunc.PARAMETERS, None), kwargs)
 
     context = PythonModelContext(artifacts=artifacts, parameters=parameters)
     python_model.load_context(context=context)

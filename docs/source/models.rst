@@ -207,7 +207,7 @@ Model Signature
 ^^^^^^^^^^^^^^^
 Model signatures define input and output schemas for MLflow models, providing a standard 
 interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
-UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+UI and Model Registry UI to display model inputs, outputs, and parameters. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
 for more details).
@@ -232,11 +232,12 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
-A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based.
 Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
+Signatures may also indicate an inference schema, specifying inference parameters accepted by the model to compute predictions.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -339,6 +340,20 @@ signature containing ``Tensor('object', (-1,))``. A similar signature can be man
 containing a more detailed representation of a ragged array, for a more expressive signature,
 such as ``Tensor('float64', (-1, -1, -1, 3))``. Enforcement will then be done on as much detail
 as possible given the signature provided, and will support ragged input arrays as well.
+
+Inference parameters
+""""""""""""""""""""
+Inference parameters can be indicated by using the property ``parameters`` in the signature class
+in the form of a dictionary. Inference parameters are then indicated at prediction time using kwargs
+in the predict function. Inference servers supporting inference parameters can accept them in
+the payload of the request.
+
+.. code-block:: yaml
+
+  signature:
+      inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
+      outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
+      parameters: '[{"name": "temperature", "dtype": "float32"}]'
 
 
 .. _how-to-log-models-with-signatures:
