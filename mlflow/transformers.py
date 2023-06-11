@@ -201,7 +201,7 @@ def save_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
+    parameters: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     mlflow_model: Optional[Model] = None,
     signature: Optional[ModelSignature] = None,
@@ -282,7 +282,7 @@ def save_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
-    :param inference_config:
+    :param parameters:
         A dict of valid overrides that can be applied to a pipeline instance during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
@@ -313,7 +313,7 @@ def save_model(
             prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
             # validation of config prior to save or log
-            inference_config = {
+            parameters = {
                 "top_k": 2,
                 "num_beams": 5,
                 "max_length": 30,
@@ -323,13 +323,13 @@ def save_model(
             }
 
             # Verify that no exceptions are thrown
-            sentence_pipeline(prompts, **inference_config)
+            sentence_pipeline(prompts, **parameters)
 
             mlflow.transformers.save_model(
                 transformers_model=sentence_pipeline,
                 path="/path/for/model",
                 task=task,
-                inference_config=inference_config,
+                parameters=parameters,
             )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -428,6 +428,18 @@ def save_model(
     if processor:
         flavor_conf.update({_PROCESSOR_TYPE_KEY: _get_instance_type(processor)})
 
+    inference_config = kwargs.pop("inference_config", None)
+    if inference_config:
+        if parameters:
+            raise MlflowException(
+                "``inference_config`` is deprecated in favor of ``parameters`` \
+                                  but both were specified. Use ``parameters`` key only."
+            )
+        _logger.warning(
+            "``inference_config`` is deprecated and will be removed soon. Use ``parameters`` \
+            instead."
+        )
+
     # Save the model object
     built_pipeline.model.save_pretrained(
         save_directory=path.joinpath(_MODEL_BINARY_FILE_NAME),
@@ -441,8 +453,6 @@ def save_model(
             component_config=components,
             pipeline=built_pipeline,
             processor=processor,
-            # inference_config is moved to the pyfunc flavor general construct
-            inference_config=None,
         )
 
     # Get the model card from either the argument or the HuggingFace marketplace
@@ -471,7 +481,7 @@ def save_model(
             conda_env=_CONDA_ENV_FILE_NAME,
             python_env=_PYTHON_ENV_FILE_NAME,
             code=code_dir_subpath,
-            inference_config=inference_config,
+            parameters=parameters or inference_config,
             **model_bin_kwargs,
         )
     else:
@@ -491,7 +501,7 @@ def save_model(
         FLAVOR_NAME,
         transformers_version=transformers.__version__,
         code=code_dir_subpath,
-        # TODO: We can also pass inference_config here and use it on transformers flavor
+        # TODO: We can also pass parameters here and use it on transformers flavor
         **flavor_conf,
     )
     mlflow_model.save(str(path.joinpath(MLMODEL_FILE_NAME)))
@@ -529,7 +539,7 @@ def log_model(
     processor=None,
     task: Optional[str] = None,
     model_card=None,
-    inference_config: Optional[Dict[str, Any]] = None,
+    parameters: Optional[Dict[str, Any]] = None,
     code_paths: Optional[List[str]] = None,
     registered_model_name: str = None,
     signature: Optional[ModelSignature] = None,
@@ -611,7 +621,7 @@ def log_model(
                                  the huggingface_hub package must be installed and the version
                                  must be >=0.10.0
 
-    :param inference_config:
+    :param parameters:
         A dict of valid overrides that can be applied to a pipeline instance during inference.
         These arguments are used exclusively for the case of loading the model as a ``pyfunc``
         Model or for use in Spark.
@@ -642,7 +652,7 @@ def log_model(
           prompts = ["Generative models are", "I'd like a coconut so that I can"]
 
           # validation of config prior to save or log
-          inference_config = {
+          parameters = {
               "top_k": 2,
               "num_beams": 5,
               "max_length": 30,
@@ -652,14 +662,14 @@ def log_model(
           }
 
           # Verify that no exceptions are thrown
-          sentence_pipeline(prompts, **inference_config)
+          sentence_pipeline(prompts, **parameters)
 
           with mlflow.start_run():
               mlflow.transformers.log_model(
                   transformers_model=sentence_pipeline,
                   artifact_path="my_sentence_generator",
                   task=task,
-                  inference_config=inference_config,
+                  parameters=parameters,
               )
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
@@ -724,6 +734,18 @@ def log_model(
                                              release without warning.
     :param kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
+    inference_config = kwargs.pop("inference_config", None)
+    if inference_config:
+        if parameters:
+            raise MlflowException(
+                "``inference_config`` is deprecated in favor of ``parameters`` \
+                                  but both were specified. Use ``parameters`` key only."
+            )
+        _logger.warning(
+            "``inference_config`` is deprecated and will be removed soon. Use ``parameters`` \
+            instead."
+        )
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.transformers,
@@ -734,7 +756,7 @@ def log_model(
         processor=processor,
         task=task,
         model_card=model_card,
-        inference_config=inference_config,
+        parameters=parameters or inference_config,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -1043,7 +1065,7 @@ def _record_pipeline_components(pipeline) -> Dict[str, Any]:
 
 
 def _save_components(
-    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor, inference_config
+    root_path: pathlib.Path, component_config: Dict[str, Any], pipeline, processor
 ):
     """
     Saves non-model pipeline components.
@@ -1054,9 +1076,6 @@ def _save_components(
         component.save_pretrained(root_path.joinpath(component_name))
     if processor:
         processor.save_pretrained(root_path.joinpath(_PROCESSOR_KEY))
-    if inference_config:
-        # TODO: Remove
-        root_path.joinpath(_INFERENCE_CONFIG_BINARY_KEY).write_text(json.dumps(inference_config))
 
 
 def _load_component(root_path: pathlib.Path, component_key: str, component_type):
@@ -1487,38 +1506,39 @@ class _TransformersModel(NamedTuple):
         return _TransformersModel(model, tokenizer, feature_extractor, image_processor, processor)
 
 
-def _get_inference_config(local_path, pyfunc_inference_config):
+def _get_inference_params(local_path, pyfunc_inference_params):
     """
     Load the inference config if it was provided for use in the `_TransformersWrapper` pyfunc
     Model wrapper.
     """
     config_path = local_path.joinpath("inference_config.txt")
     if config_path.exists():
-        _logger.warning("Inference config stored in file ``inference_config.txt`` is deprecated.")
+        _logger.warning(
+            "Inference config stored in file ``inference_config.txt`` is deprecated. Use \
+                ``parameters`` instead."
+        )
         return json.loads(config_path.read_text())
     else:
-        return pyfunc_inference_config
+        return pyfunc_inference_params
 
 
-def _load_pyfunc(model_path: str, inference_config: Dict[str, Any] = None):
+def _load_pyfunc(model_path: str, **kwargs):
     """
     Loads the model as pyfunc model
     """
     local_path = pathlib.Path(model_path)
     flavor_configuration = _get_flavor_configuration(local_path, FLAVOR_NAME)
-    inference_config = _get_inference_config(
-        local_path.joinpath(_COMPONENTS_BINARY_KEY), inference_config
-    )
+    parameters = _get_inference_params(local_path.joinpath(_COMPONENTS_BINARY_KEY), kwargs)
 
     return _TransformersWrapper(
         _load_model(str(local_path), flavor_configuration, "pipeline"),
         flavor_configuration,
-        inference_config,
+        parameters,
     )
 
 
 @experimental
-def generate_signature_output(pipeline, data, inference_config=None):
+def generate_signature_output(pipeline, data, parameters=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
@@ -1527,7 +1547,7 @@ def generate_signature_output(pipeline, data, inference_config=None):
     :param pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
                      inputs are not permitted for extracting an output example.
     :param data: An example input that is compatible with the given pipeline
-    :param inference_config: Any additional inference configuration, provided as kwargs, to inform
+    :param parameters: Any additional inference configuration, provided as kwargs, to inform
                              the format of the output type from a pipeline inference call.
     :return: The output from the ``pyfunc`` pipeline wrapper's ``predict`` method
     """
@@ -1540,14 +1560,14 @@ def generate_signature_output(pipeline, data, inference_config=None):
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return _TransformersWrapper(pipeline=pipeline, inference_config=inference_config).predict(data)
+    return _TransformersWrapper(pipeline=pipeline, parameters=parameters).predict(data)
 
 
 class _TransformersWrapper:
-    def __init__(self, pipeline, flavor_config=None, inference_config=None):
+    def __init__(self, pipeline, flavor_config=None, parameters=None):
         self.pipeline = pipeline
         self.flavor_config = flavor_config
-        self.inference_config = inference_config or {}
+        self.parameters = parameters or {}
         self._conversation = None
         # NB: Current special-case custom pipeline types that have not been added to
         # the native-supported transformers package but require custom parsing:
@@ -1629,7 +1649,7 @@ class _TransformersWrapper:
     def _predict(self, data, device, kwargs):
         import transformers
 
-        predict_config = copy.deepcopy(self.inference_config)
+        predict_config = copy.deepcopy(self.parameters)
         if kwargs:
             predict_config.update(**kwargs)
 
@@ -1692,7 +1712,7 @@ class _TransformersWrapper:
             )
 
         # Optional input preservation for specific pipeline types. This is True (include raw
-        # formatting output), but if `include_prompt` is set to False in the `inference_config`
+        # formatting output), but if `include_prompt` is set to False in the `parameters`
         # option during model saving, excess newline characters and the fed-in prompt will be
         # trimmed out from the start of the response.
         include_prompt = predict_config.pop("include_prompt", True)
@@ -1971,7 +1991,7 @@ class _TransformersWrapper:
             # return statements, followed by the start of the response to the prompt. We only
             # want to left-trim these types of pipelines output values if the user has indicated
             # the removal action of the input prompt in the returned str or List[str] by applying
-            # the optional inference_config entry of `{"include_prompt": False}`.
+            # the optional parameters entry of `{"include_prompt": False}`.
             # By default, the prompt is included in the response.
             # Stripping out additional carriage returns (\n) is another additional optional flag
             # that can be set for these generator pipelines. It is off by default (False).
