@@ -662,7 +662,7 @@ def test_log_model_with_extra_pip_requirements(
             "model",
             python_model=python_model,
             artifacts={"sk_model": sklearn_model_path},
-            extra_pip_requirements=req_file,
+            extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]

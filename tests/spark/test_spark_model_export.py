@@ -342,10 +342,10 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
     if use_dfs_tmpdir:
         dfs_tmpdir = None
     else:
-        dfs_tmpdir = str(tmp_path.join("test"))
+        dfs_tmpdir = tmp_path.joinpath("test")
 
     try:
-        tracking_dir = os.path.abspath(str(tmp_path.joinpath("mlruns")))
+        tracking_dir = tmp_path.joinpath("mlruns")
         mlflow.set_tracking_uri("file://%s" % tracking_dir)
         if should_start_run:
             mlflow.start_run()
@@ -377,10 +377,10 @@ def test_sparkml_estimator_model_log(
     if use_dfs_tmpdir:
         dfs_tmpdir = None
     else:
-        dfs_tmpdir = str(tmp_path.joinpath("test"))
+        dfs_tmpdir = tmp_path.joinpath("test")
 
     try:
-        tracking_dir = os.path.abspath(str(tmp_path.joinpath("mlruns")))
+        tracking_dir = tmp_path.joinpath("mlruns")
         mlflow.set_tracking_uri("file://%s" % tracking_dir)
         if should_start_run:
             mlflow.start_run()
@@ -405,7 +405,7 @@ def test_sparkml_estimator_model_log(
 
 def test_log_model_calls_register_model(tmp_path, spark_model_iris):
     artifact_path = "model"
-    dfs_tmp_dir = os.path.join(tmp_path, "test")
+    dfs_tmp_dir = tmp_path.joinpath("test")
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         sparkm.log_model(
