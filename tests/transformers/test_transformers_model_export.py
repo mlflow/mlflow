@@ -1,6 +1,7 @@
 import base64
 import gc
 import json
+
 import librosa
 import numpy as np
 import os
@@ -14,6 +15,7 @@ from unittest import mock
 import yaml
 
 import transformers
+import huggingface_hub
 from huggingface_hub import ModelCard, scan_cache_dir
 from datasets import load_dataset
 
@@ -47,6 +49,9 @@ from mlflow.transformers import (
     _should_add_pyfunc_to_model,
     _TransformersModel,
     _FRAMEWORK_KEY,
+    _write_card_data,
+    _CARD_TEXT_FILE_NAME,
+    _CARD_DATA_FILE_NAME,
 )
 from mlflow.utils.environment import _mlflow_conda_env
 import torch
@@ -1013,6 +1018,38 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
             ["coolpackage"],
             strict=True,
         )
+
+
+def test_transformers_log_with_duplicate_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            pip_requirements=["transformers==99.99.99", "transformers", "mlflow"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
+
+
+def test_transformers_log_with_duplicate_extra_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            extra_pip_requirements=["transformers==99.99.99"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
 
 
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -3134,3 +3171,27 @@ def test_whisper_model_with_malformed_audio(whisper_pipeline):
 
     with pytest.raises(MlflowException, match="Failed to process the input audio data. Either"):
         pyfunc_model.predict([invalid_audio])
+
+
+@pytest.mark.parametrize(
+    "model_name", ["tiiuae/falcon-7b", "databricks/dolly-v2-7b", "runwayml/stable-diffusion-v1-5"]
+)
+def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
+    # non-ascii unicode characters
+    test_text = (
+        "Emoji testing! \u2728 \U0001F600 \U0001F609 \U0001F606 "
+        "\U0001F970 \U0001F60E \U0001F917 \U0001F9D0"
+    )
+
+    card_data: ModelCard = huggingface_hub.ModelCard.load(model_name)
+    card_data.text = card_data.text + "\n\n" + test_text
+    custom_data = card_data.data.to_dict()
+    custom_data["emojis"] = test_text
+
+    card_data.data = huggingface_hub.CardData(**custom_data)
+    _write_card_data(card_data, tmp_path)
+
+    txt = tmp_path.joinpath(_CARD_TEXT_FILE_NAME).read_text()
+    assert txt == card_data.text
+    data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
+    assert data == card_data.data.to_dict()

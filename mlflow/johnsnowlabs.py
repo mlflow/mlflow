@@ -146,8 +146,8 @@ def get_default_pip_requirements():
     from johnsnowlabs import settings
 
     _SPARK_NLP_JSL_WHEEL_URI = (
-            "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
-            + f"{settings.raw_version_medical}-py3-none-any.whl"
+        "https://pypi.johnsnowlabs.com/{secret}/spark-nlp-jsl/spark_nlp_jsl-"
+        + f"{settings.raw_version_medical}-py3-none-any.whl"
     )
 
     return [
@@ -172,20 +172,20 @@ def get_default_conda_env():
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
-        spark_model,
-        artifact_path,
-        conda_env=None,
-        code_paths=None,
-        dfs_tmpdir=None,
-        sample_input=None,
-        registered_model_name=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        metadata=None,
-        store_license=False,
+    spark_model,
+    artifact_path,
+    conda_env=None,
+    code_paths=None,
+    dfs_tmpdir=None,
+    sample_input=None,
+    registered_model_name=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    metadata=None,
+    store_license=False,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load() <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_, as an MLflow artifact for
@@ -304,7 +304,7 @@ def log_model(
         )
         mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
-                get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
+            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
         ):
             try:
                 _unpack_and_save_model(spark_model, mlflowdbfs_path)
@@ -319,8 +319,8 @@ def log_model(
     # If the artifact URI is not a local filesystem path we attempt to write directly to the
     # artifact repo via Spark. If this fails, we defer to Model.log().
     elif is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
-            spark_model,
-            append_to_uri_path(run_root_artifact_uri, artifact_path),
+        spark_model,
+        append_to_uri_path(run_root_artifact_uri, artifact_path),
     ):
         return Model.log(
             artifact_path=artifact_path,
@@ -368,18 +368,18 @@ def log_model(
 
 
 def _save_model_metadata(
-        dst_dir,
-        spark_model,
-        mlflow_model,
-        sample_input,
-        conda_env,
-        code_paths,
-        signature=None,
-        input_example=None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        remote_model_path=None,
-        store_license=False,
+    dst_dir,
+    spark_model,
+    mlflow_model,
+    sample_input,
+    conda_env,
+    code_paths,
+    signature=None,
+    input_example=None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    remote_model_path=None,
+    store_license=False,
 ):
     """
     Saves model metadata into the passed-in directory.
@@ -470,19 +470,19 @@ def _save_jars_and_lic(dst_dir, store_license=False):
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
-        spark_model,
-        path,
-        mlflow_model=None,
-        conda_env=None,
-        code_paths=None,
-        dfs_tmpdir=None,
-        sample_input=None,
-        signature: ModelSignature = None,
-        input_example: ModelInputExample = None,
-        pip_requirements=None,
-        extra_pip_requirements=None,
-        metadata=None,
-        store_license=False,
+    spark_model,
+    path,
+    mlflow_model=None,
+    conda_env=None,
+    code_paths=None,
+    dfs_tmpdir=None,
+    sample_input=None,
+    signature: ModelSignature = None,
+    input_example: ModelInputExample = None,
+    pip_requirements=None,
+    extra_pip_requirements=None,
+    metadata=None,
+    store_license=False,
 ):
     """
     Save a Spark johnsnowlabs Model to a local path.
@@ -596,7 +596,7 @@ def save_model(
     # on a Databricks cluster and the URI is schemeless (e.g. looks like a filesystem absolute path
     # like "/my-directory")
     copying_from_dbfs = is_valid_dbfs_uri(tmp_path) or (
-            databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
+        databricks_utils.is_in_cluster() and posixpath.abspath(tmp_path) == tmp_path
     )
     if copying_from_dbfs and databricks_utils.is_dbfs_fuse_available():
         tmp_path_fuse = dbfs_hdfs_uri_to_fuse_path(tmp_path)
@@ -717,7 +717,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
             DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
         )
         with databricks_utils.MlflowCredentialContext(
-                get_databricks_profile_uri_from_artifact_uri(root_uri)
+            get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):
             return PipelineModel.load(mlflowdbfs_path)
 
@@ -833,9 +833,9 @@ class _PyFuncModelWrapper:
     """
 
     def __init__(
-            self,
-            spark_model,
-            spark=None,
+        self,
+        spark_model,
+        spark=None,
     ):
         # we have this `or`, so we support _PyFuncModelWrapper(nlu_ref)
         self.spark = spark or _get_or_create_sparksession()
