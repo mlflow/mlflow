@@ -47,7 +47,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_RUN_NAME
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.time_utils import get_current_time_millis
@@ -2193,6 +2193,150 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert result == []
+
+    def test_search_runs_datasets(self):
+        exp_id = self._experiment_factory("test_search_runs_datasets")
+        # Set start_time to ensure the search result is deterministic
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=3))
+        run3 = self._run_factory(dict(self._get_run_configs(exp_id), start_time=2))
+
+        dataset1 = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+            schema="schema1",
+            profile="profile1",
+        )
+        dataset2 = entities.Dataset(
+            name="name2",
+            digest="digest2",
+            source_type="st2",
+            source="source2",
+            schema="schema2",
+            profile="profile2",
+        )
+        dataset3 = entities.Dataset(
+            name="name3",
+            digest="digest3",
+            source_type="st3",
+            source="source3",
+            schema="schema3",
+            profile="profile3",
+        )
+
+        test_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+        train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+        eval_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+
+        inputs_run1 = [
+            entities.DatasetInput(dataset1, train_tag),
+            entities.DatasetInput(dataset2, eval_tag),
+        ]
+        inputs_run2 = [
+            entities.DatasetInput(dataset1, train_tag),
+            entities.DatasetInput(dataset3, eval_tag),
+        ]
+        inputs_run3 = [entities.DatasetInput(dataset2, test_tag)]
+
+        self.store.log_inputs(run1.info.run_id, inputs_run1)
+        self.store.log_inputs(run2.info.run_id, inputs_run2)
+        self.store.log_inputs(run3.info.run_id, inputs_run3)
+        run_id1 = run1.info.run_id
+        run_id2 = run2.info.run_id
+        run_id3 = run3.info.run_id
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.name = 'name1'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.digest = 'digest2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.name = 'name4'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(result) == set()
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.context = 'train'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.context = 'test'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.context = 'test' and dataset.name = 'name2'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="dataset.name = 'name2' and dataset.context = 'test'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.name IN ('name1', 'name2')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.digest IN ('digest1', 'digest2')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.name LIKE 'Name%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == set()
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.name ILIKE 'Name%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.context ILIKE 'test%'",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3}
+
+        result = self.store.search_runs(
+            [exp_id],
+            filter_string="datasets.context IN ('test', 'train')",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+        assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

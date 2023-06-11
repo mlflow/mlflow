@@ -1,9 +1,8 @@
 import json
 import logging
 from functools import cached_property
-from typing import Any, Union, Optional, Mapping, Sequence, Dict
+from typing import Any, Union, Optional, Mapping, Sequence, Dict, TYPE_CHECKING
 
-import datasets
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.digest_utils import compute_pandas_digest
@@ -20,6 +19,9 @@ _logger = logging.getLogger(__name__)
 
 _MAX_ROWS_FOR_DIGEST_COMPUTATION_AND_SCHEMA_INFERENCE = 10000
 
+if TYPE_CHECKING:
+    import datasets
+
 
 @experimental
 class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
@@ -29,7 +31,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def __init__(
         self,
-        ds: datasets.Dataset,
+        ds: "datasets.Dataset",
         source: HuggingFaceDatasetSource,
         targets: Optional[str] = None,
         name: Optional[str] = None,
@@ -85,7 +87,7 @@ class HuggingFaceDataset(Dataset, PyFuncConvertibleDatasetMixin):
         }
 
     @property
-    def ds(self) -> datasets.Dataset:
+    def ds(self) -> "datasets.Dataset":
         """
         The Hugging Face ``datasets.Dataset`` instance.
 
@@ -219,6 +221,7 @@ def from_huggingface(
     :param digest: The digest (hash, fingerprint) of the dataset. If unspecified, a digest
                    is automatically computed.
     """
+    import datasets
     from mlflow.data.code_dataset_source import CodeDatasetSource
     from mlflow.tracking.context import registry
 

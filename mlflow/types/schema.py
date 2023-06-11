@@ -168,6 +168,7 @@ class ColSpec:
         """The column name or None if the columns is unnamed."""
         return self._name
 
+    @experimental
     @property
     def optional(self) -> bool:
         """Whether this column is optional."""
@@ -292,9 +293,10 @@ class TensorSpec:
         """The tensor shape"""
         return self._tensorInfo.shape
 
+    @experimental
     @property
     def optional(self) -> bool:
-        """Whether this column is optional."""
+        """Whether this tensor is optional."""
         return False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -399,6 +401,7 @@ class Schema:
         """Get list of required data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if not x.optional]
 
+    @experimental
     def optional_input_names(self) -> List[Union[str, int]]:
         """Get list of optional data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if x.optional]

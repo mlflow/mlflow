@@ -1,9 +1,11 @@
-import datasets
-
-from typing import Any, Union, Optional, Mapping, Sequence, Dict
+from typing import Any, Union, Optional, Mapping, Sequence, Dict, TYPE_CHECKING
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
+
+
+if TYPE_CHECKING:
+    import datasets
 
 
 @experimental
@@ -20,9 +22,9 @@ class HuggingFaceDatasetSource(DatasetSource):
         data_files: Optional[
             Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
         ] = None,
-        split: Optional[Union[str, datasets.Split]] = None,
-        revision: Optional[Union[str, datasets.Version]] = None,
-        task: Optional[Union[str, datasets.TaskTemplate]] = None,
+        split: Optional[Union[str, "datasets.Split"]] = None,
+        revision: Optional[Union[str, "datasets.Version"]] = None,
+        task: Optional[Union[str, "datasets.TaskTemplate"]] = None,
     ):
         """
         :param path: The path of the Hugging Face dataset.
@@ -56,6 +58,8 @@ class HuggingFaceDatasetSource(DatasetSource):
                        ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.
         :return: An instance of ``datasets.Dataset``.
         """
+        import datasets
+
         load_kwargs = {
             "path": self._path,
             "name": self._config_name,

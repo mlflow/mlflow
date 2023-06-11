@@ -238,87 +238,77 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(xgb_custom_env, saved_pip_req_path)
 
 
-def test_save_model_with_pip_requirements(xgb_model, tmpdir):
+def test_save_model_with_pip_requirements(xgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.xgboost.save_model(xgb_model.model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1, pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
-    mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
-    )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
+    tmpdir2 = tmp_path.joinpath("2")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir2, pip_requirements=[f"-r {req_file}", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
-    mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
-    )
+    tmpdir3 = tmp_path.joinpath("3")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir3, pip_requirements=[f"-c {req_file}", "b"])
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
-def test_save_model_with_extra_pip_requirements(xgb_model, tmpdir):
+def test_save_model_with_extra_pip_requirements(xgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
-    )
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.xgboost.save_model(xgb_model.model, tmpdir1, extra_pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
+    tmpdir2 = tmp_path.joinpath("2")
     mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        xgb_model.model, tmpdir2, extra_pip_requirements=[f"-r {req_file}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
+    tmpdir3 = tmp_path.joinpath("3")
     mlflow.xgboost.save_model(
-        xgb_model.model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        xgb_model.model, tmpdir3, extra_pip_requirements=[f"-c {req_file}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
-def test_log_model_with_pip_requirements(xgb_model, tmpdir):
+def test_log_model_with_pip_requirements(xgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
-            xgb_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
-        )
+        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=[f"-r {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
         )
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.xgboost.log_model(
-            xgb_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
-        )
+        mlflow.xgboost.log_model(xgb_model.model, "model", pip_requirements=[f"-c {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, "b", "-c constraints.txt"],
@@ -327,15 +317,15 @@ def test_log_model_with_pip_requirements(xgb_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(xgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.xgboost.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.xgboost.log_model(xgb_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -343,7 +333,7 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.xgboost.log_model(
-            xgb_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            xgb_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -352,7 +342,7 @@ def test_log_model_with_extra_pip_requirements(xgb_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.xgboost.log_model(
-            xgb_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            xgb_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

@@ -32,7 +32,7 @@ from mlflow.models import Model
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri, TempDir
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS
 from mlflow.utils.os import is_windows
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.name_utils import _GENERATOR_PREDICATES, _EXPERIMENT_ID_FIXED_WIDTH
@@ -1318,6 +1318,163 @@ def test_search_runs_start_time_alias(store):
         run_view_type=ViewType.ACTIVE_ONLY,
     )
     assert result == []
+
+
+def test_search_runs_datasets(store):
+    exp_id = store.create_experiment("12345dataset")
+
+    run1 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user1",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user2",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id,
+        user_id="user3",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+
+    test_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+    train_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+    eval_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+
+    inputs_run1 = [DatasetInput(dataset1, train_tag), DatasetInput(dataset2, eval_tag)]
+    inputs_run2 = [DatasetInput(dataset1, train_tag), DatasetInput(dataset3, eval_tag)]
+    inputs_run3 = [DatasetInput(dataset2, test_tag)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+    run_id1 = run1.info.run_id
+    run_id2 = run2.info.run_id
+    run_id3 = run3.info.run_id
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name1'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.digest = 'digest2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name4'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == set()
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'train'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id2, run_id1}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'test'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.context = 'test' and dataset.name = 'name2'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="dataset.name = 'name2' and dataset.context = 'test'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name IN ('name1', 'name2')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.digest IN ('digest1', 'digest2')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name LIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == set()
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.name ILIKE 'Name%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context ILIKE 'test%'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3}
+
+    result = store.search_runs(
+        [exp_id],
+        filter_string="datasets.context IN ('test', 'train')",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
 
 def test_weird_param_names(store):
