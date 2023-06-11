@@ -297,6 +297,13 @@ class Model:
         """
         return self.signature.outputs if self.signature is not None else None
 
+    def get_inference_schema(self):
+        """
+        Retrieves the inference schema of the Model iff the model was saved with an inference
+        schema definition.
+        """
+        return self.signature.parameters if self.signature is not None else None
+
     def load_input_example(self, path: str):
         """
         Load the input example saved along a model. Returns None if there is no example metadata

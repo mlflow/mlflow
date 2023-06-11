@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
 from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types.schema import InferenceSchema
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
@@ -728,6 +729,32 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
         return _enforce_named_col_schema(pf_input, input_schema)
     else:
         return _enforce_unnamed_col_schema(pf_input, input_schema)
+
+
+def _enforce_inference_schema(params: Dict[str, Any], schema: InferenceSchema):
+    schema_params = set(schema.parameter_names())
+    schema_required_params = set(schema.required_parameter_names())
+    predict_params = set(params)
+
+    if len(schema_required_params.difference(predict_params)) > 0:
+        raise MlflowException(
+            f"Required inference parameters \
+                {','.join(schema_required_params.difference(predict_params))} are missing."
+        )
+
+    if len(predict_params.difference(schema_params)) > 0:
+        raise MlflowException(
+            f"Inference parameters \
+                {','.join(predict_params.difference(schema_params))} are not allowed."
+        )
+
+    schema_dict = schema.parameter_types_dict()
+    for param, value in params:
+        if type(value) != schema_dict[param].type:
+            raise TypeError(
+                f"Parameter {param} requires type \
+                    {schema_dict[param].type}, but {type(value)} was received."
+            )
 
 
 def validate_schema(data: PyFuncInput, expected_schema: Schema) -> None:

@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import Schema, InferenceSchema, ColSpec, TensorSpec, ParamSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -203,6 +203,15 @@ def _infer_schema(data: Any) -> Schema:
             stacklevel=2,
         )
     return schema
+
+
+def _infer_inference_schema(params: Dict[str, Any]):
+    if isinstance(params, dict):
+        return InferenceSchema(
+            [ParamSpec(name=name, type=type(value)) for name, value in params.items()]
+        )
+    else:
+        raise TypeError("Expected inference configuration to be of type dictionary")
 
 
 def _infer_numpy_dtype(dtype) -> DataType:

@@ -34,6 +34,7 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
+from mlflow.pyfunc import PARAMETERS
 
 CONFIG_KEY_ARTIFACTS = "artifacts"
 CONFIG_KEY_ARTIFACT_RELATIVE_PATH = "path"
@@ -116,8 +117,8 @@ class _FunctionPythonModel(PythonModel):
         return _extract_type_hints(self.func, input_arg_index=0)
 
     def predict(self, context, model_input):
-        if len(context.inference_config) > 0:
-            return self.func(model_input, **context.inference_config)
+        if context.parameters and len(context.parameters) > 0:
+            return self.func(model_input, **context.parameters)
         else:
             return self.func(model_input)
 
@@ -131,13 +132,13 @@ class PythonModelContext:
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts, inference_config):
+    def __init__(self, artifacts, parameters):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
         """
         self._artifacts = artifacts
-        self._inference_config = inference_config
+        self._parameters = parameters
 
     @property
     def artifacts(self):
@@ -148,13 +149,13 @@ class PythonModelContext:
         return self._artifacts
 
     @property
-    def inference_config(self):
+    def parameters(self):
         """
         A dictionary containing ``<parameter, value>`` entries, where ``parameter`` is the name
         of the inference parameter and ``value`` is the value of the parameter to pass as argument.
         """
 
-        return self._inference_config
+        return self._parameters
 
 
 def _save_model_with_class_artifacts_params(
@@ -168,7 +169,7 @@ def _save_model_with_class_artifacts_params(
     mlflow_model=None,
     pip_requirements=None,
     extra_pip_requirements=None,
-    inference_config=None,
+    parameters=None,
 ):
     """
     :param path: The path to which to save the Python model.
@@ -238,7 +239,7 @@ def _save_model_with_class_artifacts_params(
         code=saved_code_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
-        inference_config=inference_config,
+        parameters=parameters,
         **custom_model_config_kwargs,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -277,7 +278,7 @@ def _save_model_with_class_artifacts_params(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_pyfunc(model_path: str, inference_config: Dict[str, Any] = None):
+def _load_pyfunc(model_path: str, **kwargs):
     pyfunc_config = _get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME
     )
@@ -314,12 +315,45 @@ def _load_pyfunc(model_path: str, inference_config: Dict[str, Any] = None):
             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
         )
 
-    context = PythonModelContext(artifacts=artifacts, inference_config=inference_config or {})
+    parameters = _update_inference_params(pyfunc_config.get(PARAMETERS, None), kwargs)
+
+    context = PythonModelContext(artifacts=artifacts, parameters=parameters)
     python_model.load_context(context=context)
     signature = mlflow.models.Model.load(model_path).signature
     return _PythonModelPyfuncWrapper(
         python_model=python_model, context=context, signature=signature
     )
+
+
+def _update_inference_params(parameters: Dict[str, Any], inference_args: Dict[str, Any]):
+    """
+    Filters the inference arguments according to the inference configuration of the model. Only
+    arguments already present in the inference configuration can be indicated at loading time.
+    """
+    if not inference_args:
+        return parameters
+
+    if len(inference_args) > 0 and (not parameters or len(parameters) == 0):
+        mlflow.pyfunc._logger.warning(
+            "Argument(s) %s, are invalid inference arguments for the model and were ignored.",
+            ", ".joing(inference_args.keys()),
+        )
+
+        return None
+
+    allowed_kargs = {
+        key: value for key, value in inference_args.items() if key in parameters.keys()
+    }
+    if len(allowed_kargs) < len(inference_args):
+        ignored_args = list(inference_args.keys() not in allowed_kargs.keys())
+        mlflow.pyfunc._logger.warning(
+            "Argument(s) %s, are invalid inference arguments for the model and were ignored. \
+                Allowed arguments include %s",
+            ", ".join(ignored_args),
+            ", ".join(parameters.keys()),
+        )
+
+    return parameters.update(allowed_kargs)
 
 
 def _get_first_string_column(pdf):
@@ -381,7 +415,7 @@ class _PythonModelPyfuncWrapper:
         if kwargs:
             # Coping to restore original configuration on subsequent calls.
             predict_context = copy.deepcopy(self.context)
-            predict_context.inference_config.update(**kwargs)
+            predict_context.parameters.update(**kwargs)
         else:
             predict_context = self.context
 

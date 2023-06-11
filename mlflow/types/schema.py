@@ -6,6 +6,7 @@ import string
 from typing import Dict, Any, List, Union, Optional
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
 
 
 class DataType(Enum):
@@ -61,6 +62,74 @@ class DataType(Enum):
     @classmethod
     def get_spark_types(cls):
         return [dt.to_spark() for dt in cls._member_map_.values()]
+
+
+@experimental
+class ParamSpec:
+    """
+    Specification of name and type of a model inference parameter
+    """
+
+    def __init__(
+        self,
+        name: str,
+        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        optional: bool = False,
+    ):
+        self._name = name
+        self._optional = optional
+        if name is None:
+            # TODO: Charset check
+            raise TypeError("Parameter name can not be None")
+        try:
+            self._type = DataType[type] if isinstance(type, str) else type
+        except KeyError:
+            raise MlflowException(
+                "Unsupported type '{}', expected instance of DataType or "
+                "one of {}".format(type, [t.name for t in DataType])
+            )
+        if not isinstance(self.type, DataType):
+            raise TypeError(
+                "Expected mlflow.models.signature.Datatype or str for the 'type' "
+                "argument, but got {}".format(self.type.__class__)
+            )
+
+    @property
+    def type(self) -> DataType:
+        """The parameter data type."""
+        return self._type
+
+    @property
+    def name(self) -> str:
+        """The parameter's name"""
+        return self._name
+
+    @property
+    def optional(self) -> bool:
+        """Whether this column is optional."""
+        return self._optional
+
+    def to_dict(self) -> Dict[str, Any]:
+        d = {"type": self.type.name, "name": self.name}
+        if self.optional:
+            d["optional"] = self.optional
+        return d
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, ParamSpec):
+            return (
+                self.name == other.name
+                and self.type == other.type
+                and self.optional == other.optional
+            )
+        return False
+
+    def __repr__(self) -> str:
+        return "{name}: {type}{optional}".format(
+            name=repr(self.name),
+            type=repr(self.type),
+            optional=" (optional)" if self.optional else "",
+        )
 
 
 class ColSpec:
@@ -404,3 +473,69 @@ class Schema:
 
     def __repr__(self) -> str:
         return repr(self.inputs)
+
+
+@experimental
+class InferenceSchema:
+    """
+    Specification of a model's inference parameters.
+
+    InferenceSchema is represented as a list of :py:class:`ParamSpec`
+    """
+
+    def __init__(self, parameters: List[ParamSpec]):
+        self._parameters = parameters
+
+    def __len__(self):
+        return len(self._parameters)
+
+    def __iter__(self):
+        return iter(self._parameters)
+
+    @property
+    def parameters(self) -> List[ParamSpec]:
+        """Representation of an indeference set of parameters that defines this schema."""
+        return self._inputs
+
+    def parameter_names(self) -> List[str]:
+        """Get list of supported parameters by this inference schema."""
+        return [x.name or i for i, x in enumerate(self.parameters)]
+
+    def required_parameter_names(self) -> List[str]:
+        """Get list of required parameters by this inference schema."""
+        return [x.name or i for i, x in enumerate(self.parameters) if not x.optional]
+
+    def optional_parameter_names(self) -> List[str]:
+        """Get list of optional parameters by this inference schema."""
+        return [x.name or i for i, x in enumerate(self.parameters) if x.optional]
+
+    def parameter_types(self) -> List[Union[DataType, np.dtype]]:
+        """Get types for each parameter in the schema."""
+        return [x.type for x in self.parameters]
+
+    def parameter_types_dict(self) -> Dict[str, Union[DataType, np.dtype]]:
+        """Maps column names to types"""
+        return {x.name: x.type for x in self.parameters}
+
+    def to_json(self) -> str:
+        """Serialize into json string."""
+        return json.dumps([x.to_dict() for x in self.parameters])
+
+    def to_dict(self) -> List[Dict[str, Any]]:
+        """Serialize into a jsonable dictionary."""
+        return [x.to_dict() for x in self.parameters]
+
+    @classmethod
+    def from_json(cls, json_str: str):
+        """Deserialize from a json string."""
+
+        return cls([ParamSpec(**x) for x in json.loads(json_str)])
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, Schema):
+            return self.parameters == other.parameters
+        else:
+            return False
+
+    def __repr__(self) -> str:
+        return repr(self.parameters)

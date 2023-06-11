@@ -20,8 +20,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
-from mlflow.types.schema import Schema
-from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.schema import Schema, InferenceSchema
+from mlflow.types.utils import _infer_schema, _infer_schema_from_type_hint, _infer_inference_schema
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -48,7 +48,7 @@ class ModelSignature:
     :py:class:`Schema <mlflow.types.Schema>`.
     """
 
-    def __init__(self, inputs: Schema, outputs: Schema = None):
+    def __init__(self, inputs: Schema, outputs: Schema = None, parameters: InferenceSchema = None):
         if not isinstance(inputs, Schema):
             raise TypeError(
                 "inputs must be mlflow.models.signature.Schema, got '{}'".format(type(inputs))
@@ -60,6 +60,7 @@ class ModelSignature:
             )
         self.inputs = inputs
         self.outputs = outputs
+        self.parameters = parameters
 
     def to_dict(self) -> Dict[str, Any]:
         """
@@ -74,6 +75,7 @@ class ModelSignature:
         return {
             "inputs": self.inputs.to_json(),
             "outputs": self.outputs.to_json() if self.outputs is not None else None,
+            "parameters": self.parameters.to_json() if self.parameters is not None else None,
         }
 
     @classmethod
@@ -90,15 +92,21 @@ class ModelSignature:
         inputs = Schema.from_json(signature_dict["inputs"])
         if "outputs" in signature_dict and signature_dict["outputs"] is not None:
             outputs = Schema.from_json(signature_dict["outputs"])
-            return cls(inputs, outputs)
         else:
-            return cls(inputs)
+            outputs = None
+        if "parameters" in signature_dict and signature_dict["parameters"] is not None:
+            parameters = InferenceSchema.from_json(signature_dict["parameters"])
+        else:
+            parameters = None
+
+        return cls(inputs, outputs, parameters)
 
     def __eq__(self, other) -> bool:
         return (
             isinstance(other, ModelSignature)
             and self.inputs == other.inputs
             and self.outputs == other.outputs
+            and self.parameters == other.parameters
         )
 
     def __repr__(self) -> str:
@@ -106,12 +114,16 @@ class ModelSignature:
             "inputs: \n"
             "  {}\n"
             "outputs: \n"
-            "  {}\n".format(repr(self.inputs), repr(self.outputs))
+            "  {}\n"
+            "parameters: \n"
+            "  {}\n".format(repr(self.inputs), repr(self.outputs), repr(self.parameters))
         )
 
 
 def infer_signature(
-    model_input: Any, model_output: "MlflowInferableDataset" = None
+    model_input: Any,
+    model_output: "MlflowInferableDataset" = None,
+    inference_config: Dict[str, Any] = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
@@ -143,7 +155,8 @@ def infer_signature(
     """
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
-    return ModelSignature(inputs, outputs)
+    parameters = _infer_inference_schema(inference_config) if inference_config is not None else None
+    return ModelSignature(inputs, outputs, parameters)
 
 
 # `t\w*\.` matches the `typing` module or its alias
