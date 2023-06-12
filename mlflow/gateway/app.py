@@ -53,20 +53,58 @@ async def search_routes():
     return {"routes": ACTIVE_ROUTES}
 
 
-async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
-    return chat.ResponsePayload(**{"candidates": request.messages})
+async def _chat(_request: chat.RequestPayload) -> chat.ResponsePayload:
+    return chat.ResponsePayload(
+        **{
+            "candidates": [
+                {
+                    "message": {"role": "system", "content": "Hello!"},
+                    "metadata": {},
+                },
+            ],
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+                "model": "gpt-3.5-turbo",
+                "route_type": "llm/v1/chat",
+            },
+        }
+    )
 
 
-async def _completions(request: completions.RequestPayload) -> completions.ResponsePayload:
-    return completions.ResponsePayload(**{"candidates": request.messages})
+async def _completions(_request: completions.RequestPayload) -> completions.ResponsePayload:
+    return completions.ResponsePayload(
+        **{
+            "candidates": [
+                {
+                    "message": {"role": "system", "content": "Hello!"},
+                    "metadata": {},
+                },
+            ],
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+                "model": "gpt-3.5-turbo",
+                "route_type": "llm/v1/completions",
+            },
+        }
+    )
 
 
-async def _embeddings(request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-    import random
-
-    length = len(request.text)
+async def _embeddings(_request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
     return embeddings.ResponsePayload(
-        **{"embeddings": [random.randint(0, length - 1) / length for _ in range(10)]}
+        **{
+            "embeddings": [0.1, 0.2, 0.3],
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+                "model": "gpt-3.5-turbo",
+                "route_type": "llm/v1/embeddings",
+            },
+        }
     )
 
 
