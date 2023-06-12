@@ -1,18 +1,18 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException
 import logging
 import os
 from pathlib import Path
-from traceback import format_exc
 from typing import List, Union
 
 from mlflow.version import VERSION
 from mlflow.gateway.config import (
     Route,
     RouteConfig,
+    RouteType,
     _route_config_to_route,
     _load_route_config,
 )
-
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 _logger = logging.getLogger(__name__)
 
@@ -53,17 +53,37 @@ async def search_routes():
     return {"routes": ACTIVE_ROUTES}
 
 
+async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
+    return chat.ResponsePayload(**{"candidates": request.messages})
+
+
+async def _completions(request: completions.RequestPayload) -> completions.ResponsePayload:
+    return completions.ResponsePayload(**{"candidates": request.messages})
+
+
+async def _embeddings(request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    import random
+
+    length = len(request.text)
+    return embeddings.ResponsePayload(
+        **{"embeddings": [random.randint(0, length - 1) / length for _ in range(10)]}
+    )
+
+
+def _route_type_to_endpoint(route_type: RouteType):
+    if route_type == RouteType.Chat:
+        return _chat
+    elif route_type == RouteType.Completions:
+        return _completions
+    # elif route_type == RouteType.Embeddings:
+    #     return _embeddings
+
+
 def _add_dynamic_route(route: RouteConfig):
-    async def route_endpoint(request: Request):
-        try:
-            # TODO: handle model-specific route logic by mapping the provider to plugin logic
-
-            return await request.json()
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=format_exc()) from e
-
     app.add_api_route(
-        path=f"/gateway/routes/{route.name}", endpoint=route_endpoint, methods=["POST"]
+        path=f"/gateway/routes/{route.name}",
+        endpoint=_route_type_to_endpoint(route.type),
+        methods=["POST"],
     )
     ACTIVE_ROUTES.append(_route_config_to_route(route))
 
