@@ -2312,8 +2312,8 @@ John Snow Labs (``johnsnowlabs``) (Experimental)
 The ``johnsnowlabs`` model flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
 
-You can use :py:func:`mlflow.johnsnowlabs.save_model()` and :py:func:`mlflow.johnsnowlabs.log_model()`
-to log and export your model as :py:class:`mlflow.pyfunc.PyFuncModel`.
+You can use :py:func:`mlflow.johnsnowlabs.log_model()` to log and export your model as
+:py:class:`mlflow.pyfunc.PyFuncModel`.
 
 This enables you to integrate `any John Snow Labs model <https://nlp.johnsnowlabs.com/models>`_
 into the MLflow framework. You can easily deploy your models for inference with MLflows serve functionalities.
