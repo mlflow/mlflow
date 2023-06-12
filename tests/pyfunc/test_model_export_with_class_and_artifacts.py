@@ -648,7 +648,7 @@ def test_log_model_with_extra_pip_requirements(
     sklearn_knn_model, main_scoped_model_class, tmp_path
 ):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_model_path = tmp_path.joinpath("sklearn_model")
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     python_model = main_scoped_model_class(predict_fn=None)
