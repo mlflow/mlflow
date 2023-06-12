@@ -2358,7 +2358,7 @@ To deploy the John Snow Labs model without a container
 .. code-block:: bash
 
     export JOHNSNOWLABS_LICENSE_JSON=your_json_string
-    mlflow models serve -m /my_model
+    mlflow models serve -m <model_uri>
 
 2. Query server
 
@@ -2367,7 +2367,7 @@ To deploy the John Snow Labs model without a container
     curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
       "dataframe_split": {
           "columns": ["text"],
-          "data": [ [ "I hate covid"], ["I love covid"]]
+          "data": [[ "I hate covid"], ["I love covid"]]
       }
     }'
 
