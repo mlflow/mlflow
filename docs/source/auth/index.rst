@@ -477,7 +477,7 @@ In Python, you can use the ``requests`` library:
     import requests
 
     response = requests.get(
-        "https://mlflow_tracking.uri/",
+        "https://<mlflow_tracking_uri>/",
         auth=("username", "password"),
     )
 
@@ -495,7 +495,7 @@ To use basic authentication, you must set both environment variables.
     os.environ["MLFLOW_TRACKING_USERNAME"] = "username"
     os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
 
-    mlflow.set_tracking_uri("https://mlflow_tracking.uri/")
+    mlflow.set_tracking_uri("https://<mlflow_tracking_uri>/")
     with mlflow.start_run():
         ...
 
@@ -522,7 +522,7 @@ In Python, you can use the ``requests`` library:
     import requests
 
     response = requests.post(
-        "https://mlflow_tracking.uri/api/2.0/mlflow/users/create",
+        "https://<mlflow_tracking_uri>/api/2.0/mlflow/users/create",
         json={
             "username": "username",
             "password": "password",
@@ -540,7 +540,7 @@ provides a function to create new users easily.
     import mlflow
 
     auth_client = mlflow.server.get_app_client(
-        "basic-auth", tracking_uri="https://mlflow_tracking.uri/"
+        "basic-auth", tracking_uri="https://<mlflow_tracking_uri>/"
     )
     auth_client.create_user(username="username", password="password")
 
