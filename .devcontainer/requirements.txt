@@ -463,7 +463,7 @@ traitlets==5.5.0
     # via
     #   ipython
     #   matplotlib-inline
-transformers==4.24.0
+transformers==4.30.0
     # via -r test-requirements.txt
 typer[all]==0.7.0
     # via rstcheck
