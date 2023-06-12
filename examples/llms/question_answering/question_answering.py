@@ -49,7 +49,11 @@ system_prompt_1 = "Your job is to answer questions about MLflow."
 print(f"Building and evaluating model with prompt: '{system_prompt_1}'")
 build_and_evalute_model_with_prompt(system_prompt_1)
 
-system_prompt_2 = "Your job is to answer questions about MLflow. When you are asked a question about MLflow respond to it. Make sure to include code examples. If the question is not related to MLflow, refuse to answer and say that the question is unrelated."
+system_prompt_2 = (
+    "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
+    " respond to it. Make sure to include code examples. If the question is not related to"
+    " MLflow, refuse to answer and say that the question is unrelated."
+)
 print(f"Building and evaluating model with prompt: '{system_prompt_2}'")
 build_and_evalute_model_with_prompt(system_prompt_2)
 

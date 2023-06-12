@@ -2991,7 +2991,70 @@ and behavior:
 
 Evaluating with LLMs
 ^^^^^^^^^^^^^^^^^^^^
-:py:func:`mlflow.evaluate()` has built-in support for 
+As of MLflow 2.4.0, :py:func:`mlflow.evaluate()` has built-in support for a variety of tasks with
+LLMs, including text summarization, text classification, question answering, and text generation.
+The following examples uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
+questions about MLflow (note that you must have the ``OPENAI_API_TOKEN`` environment variable set
+in your current system environment in order to run the example):
+
+.. code-block:: python
+
+    import os
+    import pandas as pd
+
+    import mlflow
+    import openai
+
+    # Create a question answering model using prompt engineering with OpenAI. Log the 
+    # prompt and the model to MLflow Tracking
+    mlflow.start_run()
+    system_prompt = (
+        "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
+        " respond to it. Make sure to include code examples. If the question is not related to"
+        " MLflow, refuse to answer and say that the question is unrelated."
+    )
+    mlflow.log_param("system_prompt", system_prompt)
+    logged_model = mlflow.openai.log_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        artifact_path="model",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "{question}"},
+        ],
+    )
+
+    # Evaluate the model on some example questions
+    questions = pd.DataFrame(
+        {
+            "question": [
+                "How do you create a run with MLflow?",
+                "How do you log a model with MLflow?",
+                "What is the capital of France?",
+            ]
+        }
+    )
+    mlflow.evaluate(
+        model=logged_model.model_uri,
+        model_type="question-answering",
+        data=questions,
+    )
+    
+    # Load and inspect the evaluation results
+    results: pd.DataFrame = mlflow.load_table(
+        "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
+    )
+    results_grouped_by_question = results.sort_values(by="question")
+    print("Evaluation results:")
+    print(results_grouped_by_question[["run_id", "params.system_prompt", "question", "outputs"]])
+
+
+MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
+built with LLMs. For example, after evaluating multiple prompts for question answering
+(see
+`MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
+
+, you can navigate to the Artifact View 
 
 
 For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
