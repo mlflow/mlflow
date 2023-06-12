@@ -732,28 +732,28 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema):
 
 
 def _enforce_inference_schema(params: Dict[str, Any], schema: InferenceSchema):
-    schema_params = set(schema.parameter_names())
-    schema_required_params = set(schema.required_parameter_names())
     predict_params = set(params)
+    not_schema_params = predict_params - set(schema.parameter_names())
+    missing_schema_params = set(schema.required_parameter_names()) - predict_params
 
-    if len(schema_required_params.difference(predict_params)) > 0:
+    if missing_schema_params:
         raise MlflowException(
             f"Required inference parameters \
-                {','.join(schema_required_params.difference(predict_params))} are missing."
+                {','.join(missing_schema_params)} are missing."
         )
 
-    if len(predict_params.difference(schema_params)) > 0:
+    if not_schema_params:
         raise MlflowException(
             f"Inference parameters \
-                {','.join(predict_params.difference(schema_params))} are not allowed."
+                {','.join(not_schema_params)} are not allowed according to the inference schema."
         )
 
     schema_dict = schema.parameter_types_dict()
     for param, value in params:
-        if type(value) != schema_dict[param].type:
+        if str(type(value)) != schema_dict[param].type:
             raise TypeError(
                 f"Parameter {param} requires type \
-                    {schema_dict[param].type}, but {type(value)} was received."
+                    {schema_dict[param].type}, but {type(value)} was provided."
             )
 
 

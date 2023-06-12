@@ -426,9 +426,15 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        inference_schema = self.metadata.get_inference_schema()
-        if input_schema is not None:
-            _enforce_inference_schema(params=kwargs, schema=inference_schema)
+        if kwargs:
+            inference_schema = self.metadata.get_inference_schema()
+            if inference_schema:
+                _enforce_inference_schema(kwargs, inference_schema)
+            else:
+                raise MlflowException(
+                    "Providing arguments in the predict method requires models\
+                                      to have a signature with an inference schema."
+                )
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
