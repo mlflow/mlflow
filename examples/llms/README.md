@@ -36,4 +36,4 @@ To run the example as a Python script, simply execute the following command from
 $ cd question_answering && python question_answering.py
 ```
 
-Note that this example requires MLflow 2.4.0 or greater to run. Additionally, you must have the [OpenAI Python client](https://pypi.org/project/openai/) installed in order to run the example. Finally, you must specify a valid OpenAI API key in the ``OPENAI_API_KEY`` environment variable.
+Note that this example requires MLflow 2.4.0 or greater to run. Additionally, you must have the [OpenAI Python client](https://pypi.org/project/openai/), [tiktoken](https://pypi.org/project/tiktoken/), and [tenacity](https://pypi.org/project/tenacity/) installed in order to run the example. Finally, you must specify a valid OpenAI API key in the ``OPENAI_API_KEY`` environment variable.
