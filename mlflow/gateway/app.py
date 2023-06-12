@@ -71,9 +71,9 @@ async def _embeddings(request: embeddings.RequestPayload) -> embeddings.Response
 
 
 def _route_type_to_endpoint(route_type: RouteType):
-    if route_type == RouteType.Chat:
+    if route_type == RouteType.LLM_V1_CHAT:
         return _chat
-    elif route_type == RouteType.Completions:
+    elif route_type == RouteType.LLM_V1_COMPLETIONS:
         return _completions
     # elif route_type == RouteType.Embeddings:
     #     return _embeddings

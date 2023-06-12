@@ -2,10 +2,10 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Extra
 
-from .chat import CommonRequestPayload
+from .chat import BaseRequestPayload
 
 
-class RequestPayload(CommonRequestPayload):
+class RequestPayload(BaseRequestPayload):
     prompt: str
 
 
