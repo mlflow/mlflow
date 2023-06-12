@@ -1,3 +1,4 @@
+from contextlib import suppress
 import inspect
 import entrypoints
 import warnings
@@ -122,34 +123,26 @@ def get_registered_constructors() -> Dict[str, callable]:
 
 _dataset_registry = DatasetRegistry()
 _dataset_registry.register_entrypoints()
-try:
+
+# use contextlib suppress to ignore import errors
+with suppress(ImportError):
     from mlflow.data.pandas_dataset import from_pandas
 
     _dataset_registry.register_constructor(from_pandas)
-except ImportError:
-    pass
-try:
+with suppress(ImportError):
     from mlflow.data.numpy_dataset import from_numpy
 
     _dataset_registry.register_constructor(from_numpy)
-except ImportError:
-    pass
-try:
+with suppress(ImportError):
     from mlflow.data.huggingface_dataset import from_huggingface
 
     _dataset_registry.register_constructor(from_huggingface)
-except ImportError:
-    pass
-try:
+with suppress(ImportError):
     from mlflow.data.tensorflow_dataset import from_tensorflow
 
     _dataset_registry.register_constructor(from_tensorflow)
-except ImportError:
-    pass
-try:
+with suppress(ImportError):
     from mlflow.data.spark_dataset import load_delta, from_spark
 
     _dataset_registry.register_constructor(load_delta)
     _dataset_registry.register_constructor(from_spark)
-except ImportError:
-    pass

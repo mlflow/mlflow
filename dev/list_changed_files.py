@@ -9,7 +9,8 @@ $ python dev/list_changed_files.py --repository mlflow/mlflow --pr-num 3191
 """
 import argparse
 import os
-import requests
+import urllib.request
+import json
 
 
 def parse_args():
@@ -25,13 +26,14 @@ def main():
     per_page = 100
     page = 1
     token = os.environ.get("GITHUB_TOKEN")
-    headers = {"Authorization": f"token {token}"} if token else None
+    headers = {"Authorization": f"token {token}"} if token else {}
     # Ref: https://docs.github.com/en/rest/reference/pulls#list-pull-requests-files
     url = f"https://api.github.com/repos/{args.repository}/pulls/{args.pr_num}/files"
     while True:
-        resp = requests.get(url, params={"per_page": per_page, "page": page}, headers=headers)
-        resp.raise_for_status()
-        files = resp.json()
+        full_url = f"{url}?per_page={per_page}&page={page}"
+        req = urllib.request.Request(full_url, headers=headers)
+        with urllib.request.urlopen(req) as resp:
+            files = json.loads(resp.read().decode())
         changed_files.extend(f["filename"] for f in files)
         if len(files) < per_page:
             break

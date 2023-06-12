@@ -3,16 +3,13 @@ import posixpath
 import re
 import tempfile
 
-from typing import TypeVar, Any, Dict
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.rest_utils import cloud_storage_http_request, augmented_raise_for_status
-
-
-HTTPDatasetSourceType = TypeVar("HTTPDatasetSourceType", bound="HTTPDatasetSource")
 
 
 class HTTPDatasetSource(DatasetSource):
@@ -50,17 +47,17 @@ class HTTPDatasetSource(DatasetSource):
         resp = cloud_storage_http_request(
             method="GET",
             url=self.url,
+            stream=True,
         )
         augmented_raise_for_status(resp)
 
         path = urlparse(self.url).path
         content_disposition = resp.headers.get("Content-Disposition")
-        if (
-            content_disposition is not None
-            and len(file_names := re.findall("filename=(.+)", content_disposition)) > 0
+        if content_disposition is not None and (
+            file_name := next(re.finditer(r"filename=(.+)", content_disposition), None)
         ):
             # NB: If the filename is quoted, unquote it
-            basename = file_names[0].lstrip('"').rstrip('"').lstrip("'").rstrip("'")
+            basename = file_name[1].strip("'\"")
         elif path is not None and len(posixpath.basename(path)) > 0:
             basename = posixpath.basename(path)
         else:
@@ -93,7 +90,7 @@ class HTTPDatasetSource(DatasetSource):
             return False
 
     @classmethod
-    def _resolve(cls, raw_source: Any) -> HTTPDatasetSourceType:
+    def _resolve(cls, raw_source: Any) -> "HTTPDatasetSource":
         """
         :param raw_source: The raw source, e.g. a string like "http://mysite/mydata.tar.gz".
         """
@@ -108,7 +105,7 @@ class HTTPDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> HTTPDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HTTPDatasetSource":
         """
         :param source_dict: A dictionary representation of the HTTPDatasetSource.
         """

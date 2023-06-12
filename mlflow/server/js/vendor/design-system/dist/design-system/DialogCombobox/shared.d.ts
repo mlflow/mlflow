@@ -1,5 +1,6 @@
 import type { Theme, SerializedStyles, Interpolation } from '@emotion/react';
 import type React from 'react';
+export declare const getDialogComboboxOptionLabelWidth: (theme: Theme, width: number | string) => number | string;
 export declare const getDialogComboboxOptionItemWrapperStyles: (theme: Theme) => SerializedStyles;
 export declare const infoIconStyles: (theme: Theme) => Interpolation<Theme>;
 export declare const getKeyboardNavigationFunctions: (handleSelect: (...args: any[]) => any, { onKeyDown, onMouseEnter, onDefaultKeyDown, }: {

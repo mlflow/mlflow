@@ -67,13 +67,13 @@ def lgb_sklearn_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def lgb_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def lgb_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["lightgbm", "pytest"])
     return conda_env
 
@@ -243,13 +243,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(lgb_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(lgb_model, tmpdir):
+def test_log_model_with_pip_requirements(lgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(lgb_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.lightgbm.log_model(lgb_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -257,7 +257,7 @@ def test_log_model_with_pip_requirements(lgb_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
-            lgb_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            lgb_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -266,7 +266,7 @@ def test_log_model_with_pip_requirements(lgb_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
-            lgb_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            lgb_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -276,15 +276,15 @@ def test_log_model_with_pip_requirements(lgb_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(lgb_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(lgb_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.lightgbm.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.lightgbm.log_model(lgb_model.model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.lightgbm.log_model(lgb_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -292,7 +292,7 @@ def test_log_model_with_extra_pip_requirements(lgb_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
-            lgb_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            lgb_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -301,7 +301,7 @@ def test_log_model_with_extra_pip_requirements(lgb_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.lightgbm.log_model(
-            lgb_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            lgb_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

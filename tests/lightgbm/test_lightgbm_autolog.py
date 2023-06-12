@@ -655,17 +655,18 @@ def test_lgb_autolog_infers_model_signature_correctly(bst_params):
     ]
 
 
-def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmpdir):
-    tmp_csv = tmpdir.join("data.csv")
-    tmp_csv.write("2,6.4,2.8,5.6,2.2\n")
-    tmp_csv.write("1,5.0,2.3,3.3,1.0\n")
-    tmp_csv.write("2,4.9,2.5,4.5,1.7\n")
-    tmp_csv.write("0,4.9,3.1,1.5,0.1\n")
-    tmp_csv.write("0,5.7,3.8,1.7,0.3\n")
+def test_lgb_autolog_continues_logging_even_if_signature_inference_fails(tmp_path):
+    tmp_csv = tmp_path.joinpath("data.csv")
+    with tmp_csv.open("w") as f:
+        f.write("2,6.4,2.8,5.6,2.2\n")
+        f.write("1,5.0,2.3,3.3,1.0\n")
+        f.write("2,4.9,2.5,4.5,1.7\n")
+        f.write("0,4.9,3.1,1.5,0.1\n")
+        f.write("0,5.7,3.8,1.7,0.3\n")
 
     # signature and input example inference should fail here since the dataset is given
     #   as a file path
-    dataset = lgb.Dataset(tmp_csv.strpath)
+    dataset = lgb.Dataset(str(tmp_csv))
 
     bst_params = {
         "objective": "multiclass",

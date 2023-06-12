@@ -209,7 +209,6 @@ def test_metric_timestamp():
     )
 
 
-@pytest.mark.usefixtures("tmpdir")
 def test_log_batch():
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
@@ -260,7 +259,6 @@ def test_log_batch():
             assert new_tags[tag_key] == tag_value
 
 
-@pytest.mark.usefixtures("tmpdir")
 def test_log_batch_with_many_elements():
     num_metrics = MAX_METRICS_PER_BATCH * 2
     num_params = num_tags = MAX_PARAMS_TAGS_PER_BATCH * 2
@@ -385,7 +383,6 @@ def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
 
 
 @pytest.fixture
-@pytest.mark.usefixtures("tmpdir")
 def get_store_mock():
     with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock

@@ -6,7 +6,7 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, TypeVar, Optional, Union
+from typing import Dict, Any, List, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -32,7 +32,6 @@ from mlflow.utils._spark_utils import (
 
 _logger = logging.getLogger(__name__)
 
-_DatasetType = TypeVar("_Dataset")
 
 _USER_DEFINED_INGEST_STEP_MODULE = "steps.ingest"
 
@@ -59,7 +58,7 @@ class _Dataset:
         pass
 
     @classmethod
-    def from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         """
         Constructs a dataset instance from the specified dataset configuration
         and recipe root path.
@@ -79,7 +78,7 @@ class _Dataset:
 
     @classmethod
     @abstractmethod
-    def _from_config(cls, dataset_config, recipe_root) -> _DatasetType:
+    def _from_config(cls, dataset_config, recipe_root) -> "_Dataset":
         """
         Constructs a dataset instance from the specified dataset configuration
         and recipe root path.
@@ -164,7 +163,7 @@ class _LocationBasedDataset(_Dataset):
         pass
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             recipe_root=recipe_root,
@@ -498,7 +497,7 @@ class CustomDataset(_PandasConvertibleDataset):
             ) from e
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
@@ -597,7 +596,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         return dataset_format == "delta"
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             recipe_root=recipe_root,
@@ -641,7 +640,7 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             sql=dataset_config.get("sql"),
             location=dataset_config.get("location"),

@@ -28,6 +28,69 @@ export async function getArtifactBlob(artifactLocation: any) {
   return response.blob();
 }
 
+class TextArtifactTooLargeError extends Error {}
+
+/**
+ * Async function to fetch and return the specified text artifact.
+ * Avoids unnecessary conversion to blob, parses chunked responses directly to text.
+ */
+export const getArtifactChunkedText = async (
+  artifactLocation: string,
+  limitBytes: number = 25 * 1024 * 1024,
+) =>
+  new Promise<string>(async (resolve, reject) => {
+    const headRequest = new Request(artifactLocation, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
+    });
+    const headResponse = await fetch(headRequest);
+    const contentLength = parseInt(headResponse.headers.get('content-length') || '0', 10) || 0;
+
+    if (contentLength > limitBytes) {
+      reject(
+        new TextArtifactTooLargeError(
+          `The artifact is too large, it should not exceed ${limitBytes} bytes`,
+        ),
+      );
+      return;
+    }
+
+    const getArtifactRequest = new Request(artifactLocation, {
+      method: HTTPMethods.GET,
+      redirect: 'follow',
+      headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
+    });
+    const response = await fetch(getArtifactRequest);
+
+    if (!response.ok) {
+      const errorMessage = (await response.text()) || response.statusText;
+      reject(new ErrorWrapper(errorMessage, response.status));
+      return;
+    }
+    const reader = response.body?.getReader();
+
+    if (reader) {
+      let resultData = '';
+      const decoder = new TextDecoder();
+      const appendChunk = async (result: ReadableStreamReadResult<Uint8Array>) => {
+        const decodedChunk = decoder.decode(result.value || new Uint8Array(), {
+          stream: !result.done,
+        });
+        resultData += decodedChunk;
+        if (result.done) {
+          resolve(resultData);
+        } else {
+          reader.read().then(appendChunk).catch(reject);
+        }
+      };
+
+      reader.read().then(appendChunk).catch(reject);
+    } else {
+      reject(new Error("Can't get artifact data from the server"));
+    }
+  });
+
 /**
  * Fetches the specified artifact, returning a Promise that resolves with
  * the raw content converted to text of the artifact if the fetch is

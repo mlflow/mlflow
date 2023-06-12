@@ -1,14 +1,11 @@
-import datasets
-
-from typing import TypeVar, Any, Union, Optional, Mapping, Sequence, Dict
+from typing import Any, Union, Optional, Mapping, Sequence, Dict, TYPE_CHECKING
 
 from mlflow.data.dataset_source import DatasetSource
 from mlflow.utils.annotations import experimental
 
 
-HuggingFaceDatasetSourceType = TypeVar(
-    "HuggingFaceDatasetSourceType", bound="HuggingFaceDatasetSource"
-)
+if TYPE_CHECKING:
+    import datasets
 
 
 @experimental
@@ -25,9 +22,9 @@ class HuggingFaceDatasetSource(DatasetSource):
         data_files: Optional[
             Union[str, Sequence[str], Mapping[str, Union[str, Sequence[str]]]]
         ] = None,
-        split: Optional[Union[str, datasets.Split]] = None,
-        revision: Optional[Union[str, datasets.Version]] = None,
-        task: Optional[Union[str, datasets.TaskTemplate]] = None,
+        split: Optional[Union[str, "datasets.Split"]] = None,
+        revision: Optional[Union[str, "datasets.Version"]] = None,
+        task: Optional[Union[str, "datasets.TaskTemplate"]] = None,
     ):
         """
         :param path: The path of the Hugging Face dataset.
@@ -61,6 +58,8 @@ class HuggingFaceDatasetSource(DatasetSource):
                        ``data_dir``, ``data_files``, ``split``, ``revision``, ``task``.
         :return: An instance of ``datasets.Dataset``.
         """
+        import datasets
+
         load_kwargs = {
             "path": self._path,
             "name": self._config_name,
@@ -82,7 +81,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         return False
 
     @classmethod
-    def _resolve(cls, raw_source: str) -> HuggingFaceDatasetSourceType:
+    def _resolve(cls, raw_source: str) -> "HuggingFaceDatasetSource":
         raise NotImplementedError
 
     def _to_dict(self) -> Dict[Any, Any]:
@@ -97,7 +96,7 @@ class HuggingFaceDatasetSource(DatasetSource):
         }
 
     @classmethod
-    def _from_dict(cls, source_dict: Dict[Any, Any]) -> HuggingFaceDatasetSourceType:
+    def _from_dict(cls, source_dict: Dict[Any, Any]) -> "HuggingFaceDatasetSource":
         return cls(
             path=source_dict.get("path"),
             config_name=source_dict.get("config_name"),

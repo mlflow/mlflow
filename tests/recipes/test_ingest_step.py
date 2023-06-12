@@ -36,9 +36,9 @@ def pandas_df():
     return df
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
-    session = (
+    with (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -46,9 +46,8 @@ def spark_session():
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
         .getOrCreate()
-    )
-    yield session
-    session.stop()
+    ) as session:
+        yield session
 
 
 @pytest.fixture()

@@ -17,11 +17,11 @@ from mlflow.types.schema import Schema
 from mlflow.types.utils import _infer_schema
 
 
-@pytest.fixture(scope="class", autouse=True)
+@pytest.fixture(scope="module")
 def spark_session():
     from pyspark.sql import SparkSession
 
-    session = (
+    with (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -29,9 +29,8 @@ def spark_session():
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
         )
         .getOrCreate()
-    )
-    yield session
-    session.stop()
+    ) as session:
+        yield session
 
 
 def test_conversion_to_json():
@@ -239,3 +238,22 @@ def test_to_evaluation_dataset():
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert evaluation_dataset.features_data.equals(df.drop("c", axis=1))
     assert np.array_equal(evaluation_dataset.labels_data, df["c"].to_numpy())
+
+
+def test_df_hashing_with_strings():
+    source_uri = "test:/my/test/uri"
+    source = TestDatasetSource._resolve(source_uri)
+
+    dataset1 = PandasDataset(
+        df=pd.DataFrame([["a", 2, 3], ["a", 2, 3]], columns=["text_column", "b", "c"]),
+        source=source,
+        name="testname",
+    )
+
+    dataset2 = PandasDataset(
+        df=pd.DataFrame([["b", 2, 3], ["b", 2, 3]], columns=["text_column", "b", "c"]),
+        source=source,
+        name="testname",
+    )
+
+    assert dataset1.digest != dataset2.digest
