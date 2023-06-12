@@ -8,7 +8,15 @@ class Message(BaseModel):
     content: str
 
 
-class RequestPayload(BaseModel, extra=Extra.allow):
+class CommonRequestPayload(BaseModel, extra=Extra.allow):
+    temperature: int = Field(0, ge=0, le=1)
+    top_p: int = Field(1, ge=0, le=1)
+    stop: List[str] = Field([])
+    max_tokens: Optional[int] = Field(None, ge=0)
+    candidate_count: Optional[int] = Field(None, ge=1, le=5)
+
+
+class RequestPayload(CommonRequestPayload):
     messages: List[Message] = Field(..., min_items=1)
 
 

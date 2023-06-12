@@ -28,9 +28,18 @@ def test_chat_response():
     chat.ResponsePayload(
         **{
             "candidates": [
-                {"message": {"role": "user", "content": "content"}, "metadata": {}},
+                {
+                    "message": {"role": "user", "content": "content"},
+                    "metadata": {},
+                },
             ],
-            "metadata": {},
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "chat",
+            },
         }
     )
     chat.ResponsePayload(
@@ -38,10 +47,16 @@ def test_chat_response():
             "candidates": [
                 {
                     "message": {"role": "user", "content": "content"},
-                    "metadata": {"i": 0, "f": 0.1, "s": "s", "b": True},
+                    "metadata": {"finish_reason": "unknown"},
                 },
             ],
-            "metadata": {"i": 0, "f": 0.1, "s": "s", "b": True},
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "chat",
+            },
         }
     )
 

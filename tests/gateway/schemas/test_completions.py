@@ -20,7 +20,13 @@ def test_completions_response():
     completions.ResponsePayload(
         **{
             "candidates": [{"text": "text", "metadata": {}}],
-            "metadata": {},
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "completions",
+            },
         }
     )
     completions.ResponsePayload(
@@ -28,10 +34,16 @@ def test_completions_response():
             "candidates": [
                 {
                     "text": "text",
-                    "metadata": {"i": 0, "f": 0.1, "s": "s", "b": True},
+                    "metadata": {"finish_reason": "unknown"},
                 }
             ],
-            "metadata": {"i": 0, "f": 0.1, "s": "s", "b": True},
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "completions",
+            },
         }
     )
 

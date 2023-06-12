@@ -17,16 +17,24 @@ def test_embeddings_response():
     embeddings.ResponsePayload(
         **{
             "embeddings": [0.1, 0.2, 0.3],
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "completions",
+            },
         }
     )
     embeddings.ResponsePayload(
         **{
             "embeddings": [0.1, 0.2, 0.3],
             "metadata": {
-                "i": 0,
-                "f": 0.1,
-                "s": "s",
-                "b": True,
+                "input_tokens": 1,
+                "output_tokens": 1,
+                "total_tokens": 1,
+                "model": "gpt-4",
+                "route_type": "completions",
             },
         }
     )
