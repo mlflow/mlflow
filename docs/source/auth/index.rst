@@ -462,7 +462,7 @@ There is no limit to how many login attempts can be made.
 Currently, MLflow UI does not display any information of the current user.
 Once a user is logged in, the only way to log out is to close the browser.
 
-    .. image:: ../_static/images/auth_ui.png
+    .. image:: ../_static/images/auth_prompt.png
 
 Using REST API
 --------------
@@ -508,7 +508,7 @@ Using MLflow UI
 
 MLflow UI provides a simple page for creating new users at ``<tracking_uri>/signup``.
 
-    .. image:: ../_static/images/auth_signup.png
+    .. image:: ../_static/images/auth_signup_form.png
 
 Using REST API
 --------------
