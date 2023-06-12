@@ -580,11 +580,13 @@ See https://flask.palletsprojects.com/en/latest/cli/#application-discovery for m
 .. code-block:: python
     :caption: Example: ``my_auth/__init__.py``
 
+    from flask import Flask
     from mlflow.server import app
 
 
-    def create_app(app):
+    def create_app(app: Flask = app):
         app.add_url_rule(...)
+        return app
 
 
     class MyAuthClient:
