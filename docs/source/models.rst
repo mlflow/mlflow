@@ -2346,7 +2346,7 @@ To deploy the John Snow Labs model as a container
     curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json' -d '{
       "dataframe_split": {
           "columns": ["text"],
-          "data": [ [ "I hate covid"], ["I love covid"]]
+          "data": [[ "I hate covid"], ["I love covid"]]
       }
     }'
 
