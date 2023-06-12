@@ -132,9 +132,6 @@ def _is_factory(app: str) -> bool:
 
     :param app: The app to check, e.g. "mlflow.server.app:app"
     """
-    if is_windows():
-        # waitress does not need `()` for a factory
-        return False
     module, obj_name = app.rsplit(":", 1)
     mod = importlib.import_module(module)
     obj = getattr(mod, obj_name)
@@ -153,12 +150,13 @@ def get_app_client(app_name: str, *args, **kwargs):
     )
 
 
-def _build_waitress_command(waitress_opts, host, port, app_name):
+def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return (
         ["waitress-serve"]
         + opts
         + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", app_name]
+        + (["--call"] if is_factory else [])
     )
 
 
@@ -211,13 +209,15 @@ def _run_server(
 
     if app_name is None:
         app = f"{__name__}:app"
+        is_factory = False
     else:
         app = _find_app(app_name)
-        app = f"{app}()" if _is_factory(app) else app
+        is_factory = _is_factory(app)
+        app = f"{app}()" if (not is_windows() and is_factory) else app
 
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app)
+        full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
     else:
         full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)
