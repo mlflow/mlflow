@@ -220,7 +220,11 @@ class Route(BaseModel, extra=Extra.forbid):
     model: ModelInfo
 
 
-def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
+class GatewayConfig(BaseModel, extra=Extra.forbid):
+    routes: List[RouteConfig]
+
+
+def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -235,20 +239,17 @@ def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
         ) from e
     check_configuration_route_name_collisions(configuration)
     try:
-        return parse_obj_as(List[RouteConfig], configuration)
+        return parse_obj_as(GatewayConfig, configuration)
     except ValidationError as e:
         raise MlflowException.invalid_parameter_value(
             f"The gateway configuration is invalid: {e}"
         ) from e
 
 
-def _save_route_config(config: List[RouteConfig], path: Union[str, Path]):
+def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
     if isinstance(path, str):
         path = Path(path)
-    serialized = [
-        json.loads(json.dumps(route.dict(), default=pydantic_encoder)) for route in config
-    ]
-    path.write_text(yaml.safe_dump(serialized))
+    path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
 
 
 def _route_config_to_route(route_config: RouteConfig) -> Route:
