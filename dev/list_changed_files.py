@@ -32,16 +32,12 @@ def main():
     while True:
         full_url = f"{url}?per_page={per_page}&page={page}"
         req = urllib.request.Request(full_url, headers=headers)
-        try:
-            resp = urllib.request.urlopen(req)
-            files = json.loads(resp.read().decode())
-            changed_files.extend(f["filename"] for f in files)
-            if len(files) < per_page:
-                break
-            page += 1
-        except urllib.error.HTTPError as e:
-            print(f"HTTP Error occurred: {e.reason}")
+        resp = urllib.request.urlopen(req)
+        files = json.loads(resp.read().decode())
+        changed_files.extend(f["filename"] for f in files)
+        if len(files) < per_page:
             break
+        page += 1
 
     print("\n".join(changed_files))
 
