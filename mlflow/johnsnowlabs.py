@@ -28,7 +28,7 @@ These keys must be present in your license json:
 3. ``AWS_ACCESS_KEY_ID``: Your AWS Secret ID for accessing John Snow Labs Enterprise Models
 4. ``AWS_SECRET_ACCESS_KEY``: Your AWS Secret key for accessing John Snow Labs Enterprise Models
 
-You can set them like this in Python
+You can set them using the following code:
 
 .. code-block:: python
 
