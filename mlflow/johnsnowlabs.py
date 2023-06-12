@@ -2,20 +2,24 @@
 The ``mlflow.johnsnowlabs`` module provides an API for logging and loading Spark NLP and NLU models.
 This module exports the following flavors:
 
-To get started quickly, we recommend checking out
-1. The Google Colab tutorial Notebook TODO
-2. The Databricks tutorial Notebook TODO
-
-
+Johnsnowlabs (native) format
+    Allows models to be loaded as Spark Transformers for scoring in a Spark session.
+    Models with this flavor can be loaded as NluPipelines, with underlying Spark MLlib PipelineModel
+    This is the main flavor and is always produced.
+:py:mod:`mlflow.pyfunc`
+    Supports deployment outside of Spark by instantiating a SparkContext and reading
+    input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
+    as a Spark UDF. Models with this flavor can be loaded as Python functions
+    for performing inference. This flavor is always produced.
 
 This flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
 Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
-Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition and much more,
-powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
-<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`_
-Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>`_
-for a research or industry license.
+Extration, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition
+and much more, powered by the latest Transformer Architectures. The models are provided by
+`John Snow Labs <https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs
+<https://www.johnsnowlabs.com/>`_ Enterprise NLP License. `You can reach out to us
+<https://www.johnsnowlabs.com/schedule-a-demo/>`_ for a research or industry license.
 
 These keys must be present in your license json:
 
@@ -39,22 +43,6 @@ You can set them like this in Python
         "SECRET": "...",
     }
     os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
-
-Johnsnowlabs (native) format
-    Allows models to be loaded as Spark Transformers for scoring in a Spark session.
-    Models with this flavor can be loaded as NluPipelines, with underlying Spark MLlib PipelineModel
-    This is the main flavor and is always produced.
-:py:mod:`mlflow.pyfunc`
-    Supports deployment outside of Spark by instantiating a SparkContext and reading
-    input data as a Spark DataFrame prior to scoring. Also supports deployment in Spark
-    as a Spark UDF. Models with this flavor can be loaded as Python functions
-    for performing inference. This flavor is always produced.
-:py:mod:`mlflow.mleap`
-    Enables high-performance deployment outside of Spark by leveraging MLeap's
-    custom dataframe and pipeline representations. Models with this flavor *cannot* be loaded
-    back as Python objects. Rather, they must be deserialized in Java using the
-    ``mlflow/java`` package. This flavor is produced only if you specify
-    MLeap-compatible arguments.
 """
 import json
 import logging
@@ -188,14 +176,17 @@ def log_model(
     store_license=False,
 ):
     """
-    Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load() <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_, as an MLflow artifact for
-    the current run. This uses the MLlib persistence format and produces an MLflow Model with the
-    ``Johnsnowlabs`` flavor.
+    Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
+    <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_, as an MLflow artifact for the current
+    run. This uses the MLlib persistence format and produces an MLflow Model with the
+    ``johnsnowlabs`` flavor.
 
     Note: If no run is active, it will instantiate a run to obtain a run_id.
 
-    :param spark_model: NLUPipeline obtained via `nlp.load() <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-    :param store_license: If True, the license will be stored with the model and used and re-loading it.
+    :param spark_model: NLUPipeline obtained via `nlp.load()
+                        <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
+    :param store_license: If True, the license will be stored with the model and used and re-loading
+                          it.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this describes the environment
@@ -493,8 +484,9 @@ def save_model(
 
     :param store_license: If True, the license will be stored with the model and used and
                           re-loading it.
-    :param spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be saved.
-                         `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_ is a PipelineModel and loadable as nlu.NLUPipeline.
+    :param spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
+                        saved. `Every johnsnowlabs model <https://nlp.johnsnowlabs.com/models>`_
+                        is a PipelineModel and loadable as nlu.NLUPipeline.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -551,6 +543,7 @@ def save_model(
 
     .. code-block:: python
         :caption: Example
+
         from johnsnowlabs import nlp
         import mlflow
         import os
@@ -677,6 +670,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None, **kwargs):
 
     .. code-block:: python
         :caption: Example
+
         import mlflow
         from johnsnowlabs import nlp
         import os

@@ -18,25 +18,24 @@ os.environ["JOHNSNOWLABS_LICENSE_JSON"] = json.dumps(creds)
 
 # 2) Install enterprise libraries
 nlp.install()
-# 3) Start a Sparksession with enterprise libraries
+# 3) Start a Spark session with enterprise libraries
 spark = nlp.start()
 
 # 4) Load a model and test it
 nlu_model = "en.classify.bert_sequence.covid_sentiment"
-model_save_path = 'my_model'
+model_save_path = "my_model"
 johnsnowlabs_model = nlp.load(nlu_model)
-johnsnowlabs_model.predict(['I hate COVID,', 'I love COVID'])
+johnsnowlabs_model.predict(["I hate COVID,", "I love COVID"])
 
 # 5) Export model with pyfunc and johnsnowlabs flavors
-mlflow.johnsnowlabs.save_model(johnsnowlabs_model, model_save_path)
+with mlflow.start_run():
+    model_info = mlflow.johnsnowlabs.log_model(johnsnowlabs_model, model_save_path)
 
 # 6) Load model with johnsnowlabs flavor
-mlflow.johnsnowlabs.load_model(model_save_path)
+mlflow.johnsnowlabs.load_model(model_info.model_uri)
 
 # 7) Load model with pyfunc flavor
 mlflow.pyfunc.load_model(model_save_path)
-
-# 8) use  the model as UDF
 
 pandas_df = pd.DataFrame({"text": ["Hello World"]})
 spark_df = spark.createDataFrame(pandas_df).coalesce(1)
@@ -44,7 +43,7 @@ pyfunc_udf = spark_udf(
     spark=spark,
     model_uri=model_save_path,
     env_manager="virtualenv",
-    result_type='string',
+    result_type="string",
 )
 new_df = spark_df.withColumn("prediction", pyfunc_udf(*pandas_df.columns))
 
