@@ -7,6 +7,7 @@ from typing import List, Union
 
 from mlflow.version import VERSION
 from mlflow.gateway.config import Route, RouteConfig, _route_config_to_route, _load_route_config
+from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
 
 
 _logger = logging.getLogger(__name__)
@@ -24,7 +25,7 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
+@app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
 async def health():
     return {"status": "OK"}
 
