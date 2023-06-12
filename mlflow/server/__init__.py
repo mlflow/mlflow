@@ -213,6 +213,8 @@ def _run_server(
     else:
         app = _find_app(app_name)
         is_factory = _is_factory(app)
+        # `waitress` doesn't support `()` syntax for factory functions.
+        # Instead, we need to use the `--call` flag.
         app = f"{app}()" if (not is_windows() and is_factory) else app
 
     # TODO: eventually may want waitress on non-win32
