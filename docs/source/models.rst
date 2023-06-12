@@ -2302,7 +2302,7 @@ Example: Log a LangChain Agent
 
 
 John Snow Labs (``johnsnowlabs``) (Experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. attention::
     The ``johnsnowlabs`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
@@ -2311,7 +2311,6 @@ John Snow Labs (``johnsnowlabs``) (Experimental)
 
 The ``johnsnowlabs`` model flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
 <https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
-
 
 You can use :py:func:`mlflow.johnsnowlabs.save_model()` and :py:func:`mlflow.johnsnowlabs.log_model()`
 to log and export your model as :py:class:`mlflow.pyfunc.PyFuncModel`.
@@ -2322,15 +2321,12 @@ Models are interpreted as a generic Python function for inference via :py:func:`
 You can also use the :py:func:`mlflow.johnsnowlabs.load_model()` function to load a saved or logged MLflow
 Model with the ``johnsnowlabs`` flavor from an stored artifact.
 
-
 Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
 Extraction, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition and much more,
 powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
 <https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`_
 Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>`_
 for a research or industry license.
-
-
 
 Example: Export a John Snow Labs to MLflow format
 
@@ -2339,14 +2335,14 @@ Example: Export a John Snow Labs to MLflow format
 
 
 To deploy the John Snow Labs model as a container
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1) Start the Docker Container
 
 .. code-block:: bash
 
     docker run -p 5001:8080 -e JOHNSNOWLABS_LICENSE_JSON=your_json_string "mlflow-pyfunc"
 
-2) Query server
+2. Query server
 
 .. code-block:: bash
 
@@ -2357,18 +2353,17 @@ To deploy the John Snow Labs model as a container
       }
     }'
 
-
 To deploy the John Snow Labs model without a container
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-1) Export env variable and start server
+1. Export env variable and start server
 
 .. code-block:: bash
 
     export JOHNSNOWLABS_LICENSE_JSON=your_json_string
     mlflow models serve -m /my_model
 
-2) Query server
+2. Query server
 
 .. code-block:: bash
 
@@ -2378,10 +2373,6 @@ To deploy the John Snow Labs model without a container
           "data": [ [ "I hate covid"], ["I love covid"]]
       }
     }'
-
-
-
-
 
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
