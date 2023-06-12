@@ -50,13 +50,12 @@ jobs:
           submodules: recursive
       - name: Check diff
         id: check-diff
+        if: github.event_name == 'pull_request'
         run: |
-          if [ ! "$(git branch --show-current)" == "master" ]; then
-            git fetch origin master:master
-          fi
-
-          REGEXP="tests/examples\|examples"
-          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          BASE_REF="${{ github.base_ref }}"
+          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
           EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
           echo -e "CHANGED_FILES:\nCHANGED_FILES"
@@ -101,15 +100,12 @@ jobs:
 
       - name: Check diff
         id: check-diff
+        if: github.event_name == 'pull_request'
         run: |
-          if [ ! "$(git branch --show-current)" == "master" ]; then
-            git fetch origin master:master
-          fi
-
-          REGEXP="Dockerfile\|\.dockerignore"
-          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "Dockerfile\|\.dockerignore" || true);
           DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-
           echo -e "CHANGED_FILES:\nCHANGED_FILES"
           echo "DOCKER_CHANGED: $DOCKER_CHANGED"
           echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
