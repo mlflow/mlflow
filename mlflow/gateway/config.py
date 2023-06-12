@@ -114,21 +114,18 @@ def _extract_and_set_api_key(config, provider):
         CustomConfig: "api_key",
     }
 
-    config_dict = config.dict()
-
     for config_class, key in required_keys.items():
         if isinstance(config, config_class):
-            if getattr(config, key, None) is None:
-                raise MlflowException.invalid_parameter_value(
-                    f"For the {provider} provider, the api key must either be specified within the "
-                    "configuration supplied or an environment variable set whose key is "
-                    "defined within the configuration"
-                )
-            else:
+            if value := getattr(config, key, None):
                 # set the config key
-                config_dict[key] = _resolve_api_key_from_input(config_dict[key])
+                value = _resolve_api_key_from_input(value)
+                return config_class(**{**config.dict(), key: value})
 
-    return config_types[provider](**config_dict)
+            raise MlflowException.invalid_parameter_value(
+                f"For the {provider} provider, the api key must either be specified within the "
+                "configuration supplied or an environment variable set whose key is "
+                "defined within the configuration"
+            )
 
 
 def _validate_base_route(config, provider):
@@ -220,7 +217,11 @@ class Route(BaseModel, extra=Extra.forbid):
     model: ModelInfo
 
 
-def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
+class GatewayConfig(BaseModel, extra=Extra.forbid):
+    routes: List[RouteConfig]
+
+
+def _load_route_config(path: Union[str, Path]) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -235,20 +236,17 @@ def _load_route_config(path: Union[str, Path]) -> List[RouteConfig]:
         ) from e
     check_configuration_route_name_collisions(configuration)
     try:
-        return parse_obj_as(List[RouteConfig], configuration)
+        return parse_obj_as(GatewayConfig, configuration)
     except ValidationError as e:
         raise MlflowException.invalid_parameter_value(
             f"The gateway configuration is invalid: {e}"
         ) from e
 
 
-def _save_route_config(config: List[RouteConfig], path: Union[str, Path]):
+def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
     if isinstance(path, str):
         path = Path(path)
-    serialized = [
-        json.loads(json.dumps(route.dict(), default=pydantic_encoder)) for route in config
-    ]
-    path.write_text(yaml.safe_dump(serialized))
+    path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
 
 
 def _route_config_to_route(route_config: RouteConfig) -> Route:
@@ -266,7 +264,7 @@ def _route_configs_to_routes(route_config: List[RouteConfig]) -> List[Route]:
     return [_route_config_to_route(route) for route in route_config]
 
 
-def _validate_config(config_path: str) -> List[RouteConfig]:
+def _validate_config(config_path: str) -> GatewayConfig:
     if not os.path.exists(config_path):
         raise MlflowException.invalid_parameter_value(f"{config_path} does not exist")
 

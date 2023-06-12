@@ -6,8 +6,13 @@ from traceback import format_exc
 from typing import List, Union
 
 from mlflow.version import VERSION
-from mlflow.gateway.config import Route, RouteConfig, _route_config_to_route, _load_route_config
 from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
+from mlflow.gateway.config import (
+    Route,
+    RouteConfig,
+    _route_config_to_route,
+    _load_route_config,
+)
 
 
 _logger = logging.getLogger(__name__)
@@ -75,7 +80,7 @@ def create_app(gateway_conf_path: Union[str, Path]) -> FastAPI:
     specified local path and generating POST methods
     """
     route_config = _load_route_config(gateway_conf_path)
-    _add_routes(route_config)
+    _add_routes(route_config.routes)
     return app
 
 

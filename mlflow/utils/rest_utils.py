@@ -13,7 +13,7 @@ from mlflow.utils.request_utils import (  # pylint: disable=unused-import
     cloud_storage_http_request,
 )
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import get_error_code, MlflowException, RestException
+from mlflow.exceptions import get_error_code, MlflowException, RestException, InvalidUrlException
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
@@ -107,6 +107,8 @@ def http_request(
             f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
             " to a larger value."
         )
+    except requests.exceptions.InvalidURL as iu:
+        raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 

@@ -385,60 +385,54 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.parametrize("scripted_model", [False])
-def test_save_model_with_pip_requirements(sequential_model, tmpdir):
+def test_save_model_with_pip_requirements(sequential_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.pytorch.save_model(sequential_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.pytorch.save_model(sequential_model, tmpdir1, pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
-    )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
+    tmpdir2 = tmp_path.joinpath("2")
+    mlflow.pytorch.save_model(sequential_model, tmpdir2, pip_requirements=[f"-r {req_file}", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
-    )
+    tmpdir3 = tmp_path.joinpath("3")
+    mlflow.pytorch.save_model(sequential_model, tmpdir3, pip_requirements=[f"-c {req_file}", "b"])
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
 @pytest.mark.parametrize("scripted_model", [False])
-def test_save_model_with_extra_pip_requirements(sequential_model, tmpdir):
+def test_save_model_with_extra_pip_requirements(sequential_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.pytorch.get_default_pip_requirements()
 
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
-    )
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.pytorch.save_model(sequential_model, tmpdir1, extra_pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
+    tmpdir2 = tmp_path.joinpath("2")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        sequential_model, tmpdir2, extra_pip_requirements=[f"-r {req_file}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
+    tmpdir3 = tmp_path.joinpath("3")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        sequential_model, tmpdir3, extra_pip_requirements=[f"-c {req_file}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
@@ -904,12 +898,12 @@ def test_pyfunc_serve_and_score_transformers():
 
 
 @pytest.fixture
-def create_requirements_file(tmpdir):
+def create_requirements_file(tmp_path):
     requirement_file_name = "requirements.txt"
-    fp = tmpdir.join(requirement_file_name)
+    fp = tmp_path.joinpath(requirement_file_name)
     test_string = "mlflow"
-    fp.write(test_string)
-    return fp.strpath, test_string
+    fp.write_text(test_string)
+    return str(fp), test_string
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -997,24 +991,24 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
         )
 
 
-def test_save_model_emits_deprecation_warning_for_requirements_file(tmpdir):
-    reqs_file = tmpdir.join("requirements.txt")
-    reqs_file.write("torch")
+def test_save_model_emits_deprecation_warning_for_requirements_file(tmp_path):
+    reqs_file = tmp_path.joinpath("requirements.txt")
+    reqs_file.write_text("torch")
     with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
         mlflow.pytorch.save_model(
             get_sequential_model(),
-            tmpdir.join("model"),
-            requirements_file=reqs_file.strpath,
+            tmp_path.joinpath("model"),
+            requirements_file=str(reqs_file),
         )
 
 
 @pytest.fixture
-def create_extra_files(tmpdir):
-    fp1 = tmpdir.join("extra1.txt")
-    fp2 = tmpdir.join("extra2.txt")
-    fp1.write("1")
-    fp2.write("2")
-    return [fp1.strpath, fp2.strpath], ["1", "2"]
+def create_extra_files(tmp_path):
+    fp1 = tmp_path.joinpath("extra1.txt")
+    fp2 = tmp_path.joinpath("extra2.txt")
+    fp1.write_text("1")
+    fp2.write_text("2")
+    return [str(fp1), str(fp2)], ["1", "2"]
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])

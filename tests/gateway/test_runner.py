@@ -8,33 +8,35 @@ import pytest
 
 @pytest.fixture
 def basic_config_dict():
-    return [
-        {
-            "name": "completions-gpt4",
-            "type": "llm/v1/completions",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-                "config": {
-                    "openai_api_key": "mykey",
-                    "openai_api_base": "https://api.openai.com/v1",
-                    "openai_api_version": "2023-05-15",
-                    "openai_api_type": "open_ai",
+    return {
+        "routes": [
+            {
+                "name": "completions-gpt4",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-15",
+                        "openai_api_type": "open_ai",
+                    },
                 },
             },
-        },
-        {
-            "name": "claude-chat",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "claudekey",
+            {
+                "name": "claude-chat",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "claudekey",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
 
 
 @pytest.fixture
@@ -57,19 +59,21 @@ def basic_routes():
 
 @pytest.fixture
 def update_config_dict():
-    return [
-        {
-            "name": "claude-completions",
-            "type": "llm/v1/completions",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "MY_ANTHROPIC_KEY",
+    return {
+        "routes": [
+            {
+                "name": "claude-completions",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "MY_ANTHROPIC_KEY",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
 
 
 @pytest.fixture
@@ -87,19 +91,19 @@ def update_routes():
 
 @pytest.fixture
 def invalid_config_dict():
-    return [
-        {
-            "invalid_name": "invalid",
-            "type": "llm/v1/chat",
-            "model": {"invalidkey": "invalid", "invalid_provider": "invalid"},
-        }
-    ]
+    return {
+        "routes": [
+            {
+                "invalid_name": "invalid",
+                "type": "llm/v1/chat",
+                "model": {"invalidkey": "invalid", "invalid_provider": "invalid"},
+            }
+        ]
+    }
 
 
-def store_conf(path, name, conf):
-    conf_path = path.joinpath(name)
-    conf_path.write_text(yaml.safe_dump(conf))
-    return conf_path
+def store_conf(path, conf):
+    path.write_text(yaml.safe_dump(conf))
 
 
 def wait():
@@ -113,14 +117,15 @@ def wait():
 def test_server_update(
     tmp_path: Path, basic_config_dict, update_config_dict, basic_routes, update_routes
 ):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
         # push an update to the config file
-        store_conf(tmp_path, "config.yaml", update_config_dict)
+        store_conf(config, update_config_dict)
 
         # Ensure there is no server downtime
         gateway.assert_health()
@@ -132,7 +137,7 @@ def test_server_update(
         assert response.json() == update_routes
 
         # push the original file back
-        store_conf(tmp_path, "config.yaml", basic_config_dict)
+        store_conf(config, basic_config_dict)
         gateway.assert_health()
         wait()
         response = gateway.get("gateway/routes/")
@@ -142,7 +147,8 @@ def test_server_update(
 def test_server_update_with_invalid_config(
     tmp_path: Path, basic_config_dict, invalid_config_dict, basic_routes
 ):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -150,7 +156,7 @@ def test_server_update_with_invalid_config(
         # Give filewatch a moment to cycle
         wait()
         # push an invalid config
-        store_conf(tmp_path, "config.yaml", invalid_config_dict)
+        store_conf(config, invalid_config_dict)
         gateway.assert_health()
         # ensure that filewatch has run through the aborted config change logic
         wait()
@@ -162,7 +168,8 @@ def test_server_update_with_invalid_config(
 def test_server_update_config_removed_then_recreated(
     tmp_path: Path, basic_config_dict, basic_routes
 ):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -170,18 +177,19 @@ def test_server_update_config_removed_then_recreated(
         # Give filewatch a moment to cycle
         wait()
         # remove config
-        tmp_path.joinpath("config.yaml").unlink()
+        config.unlink()
         wait()
         gateway.assert_health()
 
-        store_conf(tmp_path, "config.yaml", basic_config_dict[1:])
+        store_conf(config, {"routes": basic_config_dict["routes"][1:]})
         wait()
         response = gateway.get("gateway/routes/")
         assert response.json() == {"routes": basic_routes["routes"][1:]}
 
 
 def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -191,29 +199,32 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             response = gateway.get(route)
             assert response.status_code == 200
 
-        for index, route in enumerate(basic_config_dict):
+        for index, route in enumerate(basic_config_dict["routes"]):
             response = gateway.get(f"gateway/routes/{route['name']}")
             assert response.json() == {"route": basic_routes["routes"][index]}
 
 
 def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict[0]['name']}", json={"input": "Tell me a joke"}
+            f"gateway/routes/{basic_config_dict['routes'][0]['name']}",
+            json={"input": "Tell me a joke"},
         )
         assert response.json() == {"input": "Tell me a joke"}
 
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict[1]['name']}",
+            f"gateway/routes/{basic_config_dict['routes'][1]['name']}",
             json={"input": "Say hello", "temperature": 0.35},
         )
         assert response.json() == {"input": "Say hello", "temperature": 0.35}
 
 
 def test_request_invalid_route(tmp_path, basic_config_dict):
-    config = str(store_conf(tmp_path, "config.yaml", basic_config_dict))
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         # Test get

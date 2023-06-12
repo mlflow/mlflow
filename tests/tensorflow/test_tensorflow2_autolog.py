@@ -919,7 +919,7 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
 
 @pytest.mark.parametrize("positional", [True, False])
 def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
-    tmpdir, random_train_data, random_one_hot_labels, positional
+    tmp_path, random_train_data, random_one_hot_labels, positional
 ):
     """
     TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
@@ -929,7 +929,7 @@ def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
     """
     mlflow.tensorflow.autolog()
 
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmp_path)
     callbacks = [tensorboard_callback]
 
     model = create_tf_keras_model()

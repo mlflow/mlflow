@@ -270,3 +270,8 @@ MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
 #: (Experimental, may be changed or removed)
 #: Specifies the uri of an Mlflow Gateway Server instance to be used with the Gateway Client APIs
 MLFLOW_GATEWAY_URI = _EnvironmentVariable("MLFLOW_GATEWAY_URI", str, None)
+
+# Specifies whether or not to use multipart download when downloading a large file on Databricks.
+MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
+)

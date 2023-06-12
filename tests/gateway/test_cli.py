@@ -32,7 +32,13 @@ def test_start_invalid_config(tmp_path):
     assert res.exit_code == 2
     assert "not a valid yaml file" in res.output
 
-    config.write_text("- model:\n  name: invalid")
+    config.write_text(
+        """
+routes:
+  - model:
+    name: invalid
+"""
+    )
     res = runner.invoke(
         start,
         ["--config-path", config],

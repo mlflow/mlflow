@@ -1,4 +1,3 @@
-import os
 import pytest
 import yaml
 
@@ -14,47 +13,50 @@ from mlflow.gateway.config import (
 
 @pytest.fixture
 def basic_config_dict():
-    return [
-        {
-            "name": "completions-gpt4",
-            "type": "llm/v1/completions",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-                "config": {
-                    "openai_api_key": "mykey",
-                    "openai_api_base": "https://api.openai.com/v1",
-                    "openai_api_version": "2023-05-10",
-                    "openai_api_type": "openai/v1/chat/completions",
-                    "openai_organization": "my_company",
+    return {
+        "routes": [
+            {
+                "name": "completions-gpt4",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_organization": "my_company",
+                    },
                 },
             },
-        },
-        {
-            "name": "chat-gpt4",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-                "config": {"openai_api_key": "$MY_API_KEY"},
-            },
-        },
-        {
-            "name": "claude-chat",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "api_key",
+            {
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {"openai_api_key": "$MY_API_KEY"},
                 },
             },
-        },
-    ]
+            {
+                "name": "claude-chat",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "api_key",
+                    },
+                },
+            },
+        ]
+    }
 
 
-def test_api_key_parsing_env(tmp_path):
-    os.environ["KEY_AS_ENV"] = "my_key"
+def test_api_key_parsing_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("KEY_AS_ENV", "my_key")
+
     env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
 
     for key in env_keys:
@@ -71,40 +73,40 @@ def test_api_key_parsing_env(tmp_path):
 
     assert _resolve_api_key_from_input(str(conf_path)) == file_key
 
-    del os.environ["KEY_AS_ENV"]
-
 
 def test_api_key_parsing_file(tmp_path):
     key_path = tmp_path.joinpath("api.key")
-    config = [
-        {
-            "name": "claude-chat",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": str(key_path),
+    config = {
+        "routes": [
+            {
+                "name": "claude-chat",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": str(key_path),
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
 
     key_path.write_text("abc")
     config_path = tmp_path.joinpath("config.yaml")
     config_path.write_text(yaml.safe_dump(config))
     loaded_config = _load_route_config(config_path)
 
-    assert loaded_config[0].model.config["anthropic_api_key"] == "abc"
+    assert loaded_config.routes[0].model.config["anthropic_api_key"] == "abc"
 
 
-def test_route_configuration_parsing(basic_config_dict, tmp_path):
+def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     conf_path = tmp_path.joinpath("config.yaml")
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
     # Set an environment variable
-    os.environ["MY_API_KEY"] = "my_env_var_key"
+    monkeypatch.setenv("MY_API_KEY", "my_env_var_key")
 
     loaded_config = _load_route_config(conf_path)
 
@@ -112,7 +114,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     _save_route_config(loaded_config, save_path)
     loaded_from_save = _load_route_config(save_path)
 
-    completions_gpt4 = loaded_from_save[0]
+    completions_gpt4 = loaded_from_save.routes[0]
     assert completions_gpt4.name == "completions-gpt4"
     assert completions_gpt4.type == "llm/v1/completions"
     assert completions_gpt4.model.name == "gpt-4"
@@ -124,8 +126,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     assert completions_conf["openai_api_type"] == "openai/v1/chat/completions"
     assert completions_conf["openai_organization"] == "my_company"
 
-    chat_gpt4 = loaded_from_save[1]
-
+    chat_gpt4 = loaded_from_save.routes[1]
     assert chat_gpt4.name == "chat-gpt4"
     assert chat_gpt4.type == "llm/v1/chat"
     assert chat_gpt4.model.name == "gpt-4"
@@ -137,7 +138,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     assert chat_conf.get("openai_api_type", None) is None
     assert chat_conf.get("openai_organization", None) is None
 
-    claude = loaded_from_save[2]
+    claude = loaded_from_save.routes[2]
     assert claude.name == "claude-chat"
     assert claude.type == "llm/v1/chat"
     assert claude.model.name == "claude-v1"
@@ -146,20 +147,17 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path):
     assert claude_conf["anthropic_api_key"] == "api_key"
     assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
 
-    # Delete the environment variable
-    del os.environ["MY_API_KEY"]
-
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
     loaded = _load_route_config(conf_path)
 
-    assert all(isinstance(route, RouteConfig) for route in loaded)
+    assert all(isinstance(route, RouteConfig) for route in loaded.routes)
 
-    routes = _route_configs_to_routes(loaded)
+    routes = _route_configs_to_routes(loaded.routes)
 
-    for config in loaded:
+    for config in loaded.routes:
         route = [x for x in routes if x.name == config.name][0]
         assert route.type == config.type
         assert route.model.name == config.model.name
@@ -171,17 +169,19 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
 
 def test_invalid_route_definition(tmp_path):
-    invalid_partial_config = [
-        {
-            "name": "some_name",
-            "type": "invalid",
-            "model": {
-                "name": "invalid",
-                "provider": "openai",
-                "config": {"openai_api_type": "open_ai"},
-            },
-        }
-    ]
+    invalid_partial_config = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "invalid",
+                "model": {
+                    "name": "invalid",
+                    "provider": "openai",
+                    "config": {"openai_api_type": "open_ai"},
+                },
+            }
+        ]
+    }
 
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_partial_config))
@@ -192,17 +192,19 @@ def test_invalid_route_definition(tmp_path):
     ):
         _load_route_config(conf_path)
 
-    invalid_format_config_key_is_not_string = [
-        {
-            "name": "some_name",
-            "type": "invalid",
-            "model": {
-                "name": "invalid",
-                "provider": "openai",
-                "config": {"openai_api_type": "open_ai", "openai_api_key": [42]},
-            },
-        }
-    ]
+    invalid_format_config_key_is_not_string = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "invalid",
+                "model": {
+                    "name": "invalid",
+                    "provider": "openai",
+                    "config": {"openai_api_type": "open_ai", "openai_api_key": [42]},
+                },
+            }
+        ]
+    }
 
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_is_not_string))
@@ -213,33 +215,39 @@ def test_invalid_route_definition(tmp_path):
     ):
         _load_route_config(conf_path)
 
-    invalid_format_config_key_invalid_path = [
-        {
-            "name": "some_name",
-            "type": "invalid",
-            "model": {
-                "name": "invalid",
-                "provider": "openai",
-                "config": {"openai_api_type": "open_ai", "openai_api_key": "/not/a/real/path"},
-            },
-        }
-    ]
+    invalid_format_config_key_invalid_path = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "invalid",
+                "model": {
+                    "name": "invalid",
+                    "provider": "openai",
+                    "config": {"openai_api_type": "open_ai", "openai_api_key": "/not/a/real/path"},
+                },
+            }
+        ]
+    }
 
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
-    assert _load_route_config(conf_path)[0].model.config["openai_api_key"] == "/not/a/real/path"
+    assert (
+        _load_route_config(conf_path).routes[0].model.config["openai_api_key"] == "/not/a/real/path"
+    )
 
-    invalid_no_config = [
-        {
-            "name": "some_name",
-            "type": "invalid",
-            "model": {
-                "name": "invalid",
-                "provider": "anthropic",
-            },
-        }
-    ]
+    invalid_no_config = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "invalid",
+                "model": {
+                    "name": "invalid",
+                    "provider": "anthropic",
+                },
+            }
+        ]
+    }
     conf_path = tmp_path.joinpath("config2.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_no_config))
 
@@ -251,22 +259,24 @@ def test_invalid_route_definition(tmp_path):
 
 
 def test_custom_provider(tmp_path):
-    basic_generic_provider = [
-        {
-            "name": "some_name",
-            "type": "some/type",
-            "model": {
-                "name": "my_custom_provider",
-                "provider": "my_provider",
-                "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
-            },
-        }
-    ]
+    basic_generic_provider = {
+        "routes": [
+            {
+                "name": "some_name",
+                "type": "some/type",
+                "model": {
+                    "name": "my_custom_provider",
+                    "provider": "my_provider",
+                    "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
+                },
+            }
+        ]
+    }
     conf_path = tmp_path.joinpath("config2.yaml")
     conf_path.write_text(yaml.safe_dump(basic_generic_provider))
 
     generic_conf = _load_route_config(conf_path)
-    route = generic_conf[0]
+    route = generic_conf.routes[0]
 
     assert route.model.provider == "custom"
     assert route.name == "some_name"
@@ -280,19 +290,21 @@ def test_custom_provider(tmp_path):
     "route_name", ["Space Name", "bang!name", "query?name", "redirect#name", "bracket[]name"]
 )
 def test_invalid_route_name(tmp_path, route_name):
-    bad_name = [
-        {
-            "name": route_name,
-            "type": "bad/naming",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "claudekey",
+    bad_name = {
+        "routes": [
+            {
+                "name": route_name,
+                "type": "bad/naming",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "claudekey",
+                    },
                 },
-            },
-        }
-    ]
+            }
+        ]
+    }
 
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(bad_name))
@@ -304,82 +316,88 @@ def test_invalid_route_name(tmp_path, route_name):
 
 
 def test_custom_route(tmp_path):
-    custom_routes = [
-        {
-            "name": "route1",
-            "type": "document/classification",
-            "model": {
-                "name": "prod",
-                "provider": "hosted",
-                "config": {
-                    "api_key": "MY_KEY",
-                    "api_base": "http://myserver.endpoint.org/",
+    custom_routes = {
+        "routes": [
+            {
+                "name": "route1",
+                "type": "document/classification",
+                "model": {
+                    "name": "prod",
+                    "provider": "hosted",
+                    "config": {
+                        "api_key": "MY_KEY",
+                        "api_base": "http://myserver.endpoint.org/",
+                    },
                 },
             },
-        },
-        {
-            "name": "route2",
-            "type": "document/sentiment",
-            "model": {
-                "name": "staging",
-                "provider": "hosted",
-                "config": {
-                    "api_key": "MY_KEY",
-                    "api_base": "http://myserver.endpoint.org/",
-                    "api_version": "3",
+            {
+                "name": "route2",
+                "type": "document/sentiment",
+                "model": {
+                    "name": "staging",
+                    "provider": "hosted",
+                    "config": {
+                        "api_key": "MY_KEY",
+                        "api_base": "http://myserver.endpoint.org/",
+                        "api_version": "3",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(custom_routes))
     loaded_conf = _load_route_config(conf_path)
 
-    assert loaded_conf[0].name == "route1"
-    assert loaded_conf[0].model.config.get("api_base") == "http://myserver.endpoint.org/"
-    assert loaded_conf[0].model.config.get("api_version", None) is None
-    assert loaded_conf[1].model.provider == "custom"
-    assert loaded_conf[1].model.config.get("api_key") == "MY_KEY"
+    assert loaded_conf.routes[0].name == "route1"
+    assert loaded_conf.routes[0].model.config.get("api_base") == "http://myserver.endpoint.org/"
+    assert loaded_conf.routes[0].model.config.get("api_version", None) is None
+    assert loaded_conf.routes[1].model.provider == "custom"
+    assert loaded_conf.routes[1].model.config.get("api_key") == "MY_KEY"
 
 
 def test_default_base_api(tmp_path):
-    route_no_base = [
-        {
-            "name": "chat-gpt4",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-                "config": {"openai_api_key": "MY_API_KEY"},
+    route_no_base = {
+        "routes": [
+            {
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {"openai_api_key": "MY_API_KEY"},
+                },
             },
-        },
-    ]
+        ]
+    }
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(route_no_base))
     loaded_conf = _load_route_config(conf_path)
 
-    assert loaded_conf[0].model.config.get("openai_api_base") == "https://api.openai.com/v1"
+    assert loaded_conf.routes[0].model.config.get("openai_api_base") == "https://api.openai.com/v1"
 
 
 def test_databricks_route_config(tmp_path):
-    databricks_route = [
-        {
-            "name": "classifier",
-            "type": "llm/v1/classifier",
-            "model": {
-                "name": "serving-endpoints/document-classifier/Production/invocations",
-                "provider": "databricks_serving_endpoint",
-                "config": {
-                    "databricks_api_token": "MY_TOKEN",
-                    "databricks_api_base": "https://my-shard-001/",
+    databricks_route = {
+        "routes": [
+            {
+                "name": "classifier",
+                "type": "llm/v1/classifier",
+                "model": {
+                    "name": "serving-endpoints/document-classifier/Production/invocations",
+                    "provider": "databricks_serving_endpoint",
+                    "config": {
+                        "databricks_api_token": "MY_TOKEN",
+                        "databricks_api_base": "https://my-shard-001/",
+                    },
                 },
-            },
-        }
-    ]
+            }
+        ]
+    }
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(databricks_route))
     loaded_conf = _load_route_config(conf_path)
-    route = loaded_conf[0]
+    route = loaded_conf.routes[0]
 
     assert route.type == "custom"
     assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
@@ -389,32 +407,34 @@ def test_databricks_route_config(tmp_path):
 
 
 def test_duplicate_routes_in_config(tmp_path):
-    route = [
-        {
-            "name": "classifier",
-            "type": "llm/v1/classifier",
-            "model": {
-                "name": "serving-endpoints/document-classifier/Production/invocations",
-                "provider": "databricks_serving_endpoint",
-                "config": {
-                    "databricks_api_token": "MY_TOKEN",
-                    "databricks_api_base": "https://my-shard-001/",
+    route = {
+        "routes": [
+            {
+                "name": "classifier",
+                "type": "llm/v1/classifier",
+                "model": {
+                    "name": "serving-endpoints/document-classifier/Production/invocations",
+                    "provider": "databricks_serving_endpoint",
+                    "config": {
+                        "databricks_api_token": "MY_TOKEN",
+                        "databricks_api_base": "https://my-shard-001/",
+                    },
                 },
             },
-        },
-        {
-            "name": "classifier",
-            "type": "llm/v1/classifier",
-            "model": {
-                "name": "serving-endpoints/document-classifier/Production/invocations",
-                "provider": "databricks_serving_endpoint",
-                "config": {
-                    "databricks_api_token": "MY_TOKEN",
-                    "databricks_api_base": "https://my-shard-001/",
+            {
+                "name": "classifier",
+                "type": "llm/v1/classifier",
+                "model": {
+                    "name": "serving-endpoints/document-classifier/Production/invocations",
+                    "provider": "databricks_serving_endpoint",
+                    "config": {
+                        "databricks_api_token": "MY_TOKEN",
+                        "databricks_api_base": "https://my-shard-001/",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(route))
     with pytest.raises(
