@@ -7,7 +7,7 @@ from johnsnowlabs import nlp
 import mlflow
 from mlflow.pyfunc import spark_udf
 
-# 1) Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable for ML-Flow
+# 1) Write your raw license.json string into the 'JOHNSNOWLABS_LICENSE_JSON' env variable for MLflow
 creds = {
     "AWS_ACCESS_KEY_ID": "...",
     "AWS_SECRET_ACCESS_KEY": "...",
