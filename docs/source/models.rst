@@ -2371,7 +2371,6 @@ To deploy the John Snow Labs model without a container
       }
     }'
 
-
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
