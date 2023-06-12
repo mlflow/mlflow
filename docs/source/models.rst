@@ -2298,9 +2298,6 @@ Example: Log a LangChain Agent
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
-
-
-
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
