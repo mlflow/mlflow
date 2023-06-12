@@ -3,5 +3,6 @@ build_dependencies:
   - pip
 dependencies:
   - langchain>=0.0.169
+  - openai>=0.27.2
   - evaluate>=0.4.0
   - mlflow>=2.4.0

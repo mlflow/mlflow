@@ -24,7 +24,13 @@ The ``question_answering/question_answering.py`` script uses prompt engineering 
 
 It leverages the ``mlflow.openai`` flavor to package and log the models to MLflow, ``mlflow.evaluate()`` to evaluate each model's performance on some example questions, and ``mlflow.pyfunc.load_model()`` to load and score the best packaged model on a new example question.
 
-To run the example, simply execute the following command from this directory:
+To run the example as an MLflow Project, simply execute the following command from this directory:
+
+```
+$ cd question_answering && mlflow run .
+```
+
+To run the example as a Python script, simply execute the following command from this directory:
 
 ```
 $ cd question_answering && python question_answering.py
