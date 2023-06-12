@@ -34,6 +34,7 @@ from mlflow.utils.docstring_utils import (
     LOG_MODEL_PARAM_DOCS,
     docstring_version_compatibility_warning,
 )
+from mlflow.utils.environment import _find_duplicate_requirements
 from mlflow.environment_variables import (
     MLFLOW_DEFAULT_PREDICTION_DEVICE,
     MLFLOW_HUGGINGFACE_DISABLE_ACCELERATE_FEATURES,
@@ -447,10 +448,7 @@ def save_model(
     card_data = model_card if model_card is not None else _fetch_model_card(transformers_model)
 
     # If the card data can be acquired, save the text and the data separately
-    if card_data:
-        path.joinpath(_CARD_TEXT_FILE_NAME).write_text(card_data.text)
-        with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
-            yaml.safe_dump(card_data.data.to_dict(), stream=file, default_flow_style=False)
+    _write_card_data(card_data, path)
 
     model_bin_kwargs = {_MODEL_BINARY_KEY: _MODEL_BINARY_FILE_NAME}
 
@@ -504,6 +502,14 @@ def save_model(
         )
     else:
         conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+    if duplicates := _find_duplicate_requirements(pip_requirements):
+        _logger.warning(
+            "Duplicate packages are present within the pip requirements. Duplicate packages: "
+            f"{duplicates}. Please manually specify the requirements by using the "
+            "`pip_requirements` argument in order to prevent unexpected installation "
+            "issues for this model."
+        )
 
     with path.joinpath(_CONDA_ENV_FILE_NAME).open("w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
@@ -994,6 +1000,22 @@ def _fetch_model_card(model_or_pipeline):
             f"ModelCard functionality. You have version {hub.__version__} installed. "
             f"Update huggingface_hub to >= '0.10.0' to retrieve the ModelCard data."
         )
+
+
+def _write_card_data(card_data, path):
+    """
+    Writes the card data, if specified or available, to the provided path in two separate files
+    """
+    if card_data:
+        try:
+            path.joinpath(_CARD_TEXT_FILE_NAME).write_text(card_data.text, encoding="utf-8")
+        except UnicodeError as e:
+            _logger.warning(f"Unable to save the model card text due to: {e}")
+
+        with path.joinpath(_CARD_DATA_FILE_NAME).open("w") as file:
+            yaml.safe_dump(
+                card_data.data.to_dict(), stream=file, default_flow_style=False, encoding="utf-8"
+            )
 
 
 def _build_pipeline_from_model_input(model, task: str):
@@ -2453,6 +2475,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=False,
     log_models=False,
+    log_datasets=False,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,

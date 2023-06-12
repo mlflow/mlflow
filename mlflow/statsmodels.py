@@ -431,6 +431,7 @@ def _get_autolog_metrics(fitted_model):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -451,6 +452,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the statsmodels autologging integration. If ``False``,
                     enables the statsmodels autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

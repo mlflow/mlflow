@@ -11,6 +11,7 @@ import {
   EXPERIMENT_FIELD_PREFIX_PARAM,
   EXPERIMENT_FIELD_PREFIX_TAG,
 } from './experimentPage.common-utils';
+import { ColDef, ColGroupDef } from '@ag-grid-community/core';
 
 const getHookResult = (params: UseRunsColumnDefinitionsParams) => {
   let result = null;
@@ -178,16 +179,18 @@ describe('ExperimentViewRuns column utils', () => {
       ...MOCK_HOOK_PARAMS,
       metricKeyList: ['metric_1'],
     };
-    let result: ReturnType<typeof useRunsColumnDefinitions> = [];
+    let result: ColGroupDef[] = [];
     const Component = (props: { hookParams: UseRunsColumnDefinitionsParams }) => {
-      result = useRunsColumnDefinitions(props.hookParams);
+      result = useRunsColumnDefinitions(props.hookParams) as ColGroupDef[];
       return null;
     };
     const wrapper = mount(<Component hookParams={hookParams} />);
 
     // Assert single metric column in the result set
     expect(
-      result.find((r) => r.colId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }) => colId),
+      result
+        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
+        ?.children?.map(({ colId }: ColDef) => colId),
     ).toEqual(['metrics.`metric_1`']);
 
     // Next, add a new set of two metrics
@@ -197,7 +200,9 @@ describe('ExperimentViewRuns column utils', () => {
 
     // Assert two metric columns in the result set
     expect(
-      result.find((r) => r.colId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }) => colId),
+      result
+        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
+        ?.children?.map(({ colId }: ColDef) => colId),
     ).toEqual(['metrics.`metric_1`', 'metrics.`metric_2`']);
 
     // Finally, retract the first metric and leavy "metric_2" only
@@ -208,7 +213,9 @@ describe('ExperimentViewRuns column utils', () => {
     // We expect previous metric column to still exist - this ensures that columns won't
     // disappear on the new dataset without certain metric/param/tag keys
     expect(
-      result.find((r) => r.colId === COLUMN_TYPES.METRICS)?.children?.map(({ colId }) => colId),
+      result
+        .find((r) => r.groupId === COLUMN_TYPES.METRICS)
+        ?.children?.map(({ colId }: ColDef) => colId),
     ).toEqual(['metrics.`metric_1`', 'metrics.`metric_2`']);
   });
 });

@@ -76,13 +76,13 @@ def sklearn_custom_transformer_model(sklearn_knn_model):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def sklearn_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def sklearn_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn", "pytest"])
     return conda_env
 
@@ -226,7 +226,7 @@ def test_log_model_no_registered_model_name(sklearn_logreg_model):
 
 
 def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
-    sklearn_custom_transformer_model, tmpdir
+    sklearn_custom_transformer_model, tmp_path
 ):
     custom_transformer_model = sklearn_custom_transformer_model.model
 
@@ -234,7 +234,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
     # current test module, we expect pickle to fail when attempting to serialize it. In contrast,
     # we expect cloudpickle to successfully locate the transformer definition and serialize the
     # model successfully.
-    pickle_format_model_path = os.path.join(str(tmpdir), "pickle_model")
+    pickle_format_model_path = os.path.join(tmp_path, "pickle_model")
     with pytest.raises(AttributeError, match="Can't pickle local object"):
         mlflow.sklearn.save_model(
             sk_model=custom_transformer_model,
@@ -242,7 +242,7 @@ def test_custom_transformer_can_be_saved_and_loaded_with_cloudpickle_format(
             serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
         )
 
-    cloudpickle_format_model_path = os.path.join(str(tmpdir), "cloud_pickle_model")
+    cloudpickle_format_model_path = os.path.join(tmp_path, "cloud_pickle_model")
     mlflow.sklearn.save_model(
         sk_model=custom_transformer_model,
         path=cloudpickle_format_model_path,
@@ -289,15 +289,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(sklearn_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
+def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", pip_requirements=req_file.strpath
-        )
+        mlflow.sklearn.log_model(sklearn_knn_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -305,7 +303,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            sklearn_knn_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -314,7 +312,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            sklearn_knn_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -324,16 +322,16 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", extra_pip_requirements=req_file.strpath
+            sklearn_knn_model.model, "model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -342,7 +340,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -351,7 +349,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.sklearn.log_model(
-            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            sklearn_knn_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

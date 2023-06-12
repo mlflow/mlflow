@@ -78,13 +78,13 @@ def reg_model():
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return tmpdir.join("model").strpath
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def custom_env(tmpdir):
-    conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yml")
+def custom_env(tmp_path):
+    conda_env_path = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost", "pytest"])
     return conda_env_path
 
@@ -211,11 +211,11 @@ def test_model_load_from_remote_uri_succeeds(reg_model, model_path, mock_s3_buck
     )
 
 
-def test_log_model(cb_model, tmpdir):
+def test_log_model(cb_model, tmp_path):
     model, inference_dataframe = cb_model
     with mlflow.start_run():
         artifact_path = "model"
-        conda_env = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["catboost"])
 
         model_info = mlflow.catboost.log_model(model, artifact_path, conda_env=conda_env)
@@ -236,11 +236,11 @@ def test_log_model(cb_model, tmpdir):
         assert os.path.exists(os.path.join(local_path, env_path))
 
 
-def test_log_model_calls_register_model(cb_model, tmpdir):
+def test_log_model_calls_register_model(cb_model, tmp_path):
     artifact_path = "model"
     registered_model_name = "registered_model"
     with mlflow.start_run() as run, mock.patch("mlflow.register_model") as register_model_mock:
-        conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
         mlflow.catboost.log_model(
             cb_model.model,
@@ -254,10 +254,10 @@ def test_log_model_calls_register_model(cb_model, tmpdir):
         )
 
 
-def test_log_model_no_registered_model_name(cb_model, tmpdir):
+def test_log_model_no_registered_model_name(cb_model, tmp_path):
     with mlflow.start_run(), mock.patch("mlflow.register_model") as register_model_mock:
         artifact_path = "model"
-        conda_env_path = os.path.join(tmpdir.strpath, "conda_env.yaml")
+        conda_env_path = os.path.join(tmp_path, "conda_env.yaml")
         _mlflow_conda_env(conda_env_path, additional_pip_deps=["catboost"])
         mlflow.catboost.log_model(cb_model.model, artifact_path, conda_env=conda_env_path)
         register_model_mock.assert_not_called()
@@ -319,13 +319,13 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(reg_model, cu
     _compare_conda_env_requirements(custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(reg_model, tmpdir):
+def test_log_model_with_pip_requirements(reg_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, "model", pip_requirements=req_file.strpath)
+        mlflow.catboost.log_model(reg_model.model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -333,7 +333,7 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            reg_model.model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
+            reg_model.model, "model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -342,7 +342,7 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            reg_model.model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
+            reg_model.model, "model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -352,15 +352,15 @@ def test_log_model_with_pip_requirements(reg_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(reg_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.catboost.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.catboost.log_model(reg_model.model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.catboost.log_model(reg_model.model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
         )
@@ -368,7 +368,7 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            reg_model.model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            reg_model.model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -377,7 +377,7 @@ def test_log_model_with_extra_pip_requirements(reg_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.catboost.log_model(
-            reg_model.model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            reg_model.model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),

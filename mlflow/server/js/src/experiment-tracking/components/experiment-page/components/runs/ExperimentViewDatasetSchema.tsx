@@ -11,7 +11,6 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { DatasetSourceTypes, RunDatasetWithTags } from '../../../../types';
-import { ExperimentViewDatasetLink } from './ExperimentViewDatasetLink';
 import { useEffect, useMemo, useState } from 'react';
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -32,8 +31,6 @@ export const ExperimentViewDatasetSchema = ({
       <div css={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.md, width: '100%' }}>
         <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
           <Header title={<div css={{ color: theme.colors.grey600 }}>No schema available</div>} />
-          <Spacer />
-          <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
         </div>
       </div>
     );
@@ -79,10 +76,6 @@ export const ExperimentViewDatasetSchema = ({
                 ))}
               </Table>
             </div>
-            <Spacer />
-            <div css={{ display: 'flex', justifyContent: 'center' }}>
-              <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
-            </div>
           </div>
         </div>
       );
@@ -99,8 +92,6 @@ export const ExperimentViewDatasetSchema = ({
                 description='Notification when the dataset is an array data source in the experiment run dataset schema'
               />
             </Typography.Text>
-            <Spacer />
-            <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
           </div>
         </div>
       );
@@ -119,8 +110,6 @@ export const ExperimentViewDatasetSchema = ({
               />
               {JSON.stringify(schema)}
             </Typography.Text>
-            <Spacer />
-            <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
           </div>
         </div>
       );
@@ -130,8 +119,6 @@ export const ExperimentViewDatasetSchema = ({
       <div css={{ marginLeft: theme.spacing.lg, marginTop: theme.spacing.md, width: '100%' }}>
         <div css={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
           <Header title={<div css={{ color: theme.colors.grey600 }}>No schema available</div>} />
-          <Spacer />
-          <ExperimentViewDatasetLink datasetWithTags={datasetWithTags} />
         </div>
       </div>
     );

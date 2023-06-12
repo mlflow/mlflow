@@ -22,7 +22,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -38,6 +38,11 @@ jobs:
     timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
+      - name: Remove unneeded libraries
+        run: |
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
       - uses: actions/checkout@v3
         with:
           repository: ${{ github.event.inputs.repository }}

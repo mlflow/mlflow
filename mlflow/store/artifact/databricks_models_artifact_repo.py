@@ -8,7 +8,6 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.databricks_artifact_repo import _DOWNLOAD_CHUNK_SIZE
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import (
     download_file_using_http_uri,
@@ -21,8 +20,10 @@ from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
     is_using_databricks_registry,
 )
+from mlflow.environment_variables import MLFLOW_ENABLE_MULTIPART_DOWNLOAD
 
 _logger = logging.getLogger(__name__)
+_DOWNLOAD_CHUNK_SIZE = 500_000_000  # 500 MB
 # The constant REGISTRY_LIST_ARTIFACT_ENDPOINT is defined as @developer_stable
 REGISTRY_LIST_ARTIFACTS_ENDPOINT = "/api/2.0/mlflow/model-versions/list-artifacts"
 # The constant REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT is defined as @developer_stable
@@ -60,6 +61,11 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
         )
         client = MlflowClient(registry_uri=self.databricks_profile_uri)
         self.model_name, self.model_version = get_model_name_and_version(client, artifact_uri)
+        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
+        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
+        # for more details
+        self.chunk_thread_pool = self._create_thread_pool()
 
     def _call_endpoint(self, json, endpoint):
         db_creds = get_databricks_host_creds(self.databricks_profile_uri)
@@ -128,33 +134,40 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, signed_uri, headers, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
+        from mlflow.utils.databricks_utils import get_databricks_env_vars
+
         try:
+            parallel_download_subproc_env = os.environ.copy()
+            parallel_download_subproc_env.update(
+                get_databricks_env_vars(self.databricks_profile_uri)
+            )
             failed_downloads = parallelized_download_file_using_http_uri(
+                thread_pool_executor=self.chunk_thread_pool,
                 http_uri=signed_uri,
                 download_path=dst_local_file_path,
                 file_size=file_size,
                 # URI type is not known in this context
                 uri_type=None,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
                 headers=headers,
             )
-            if any(e.response.status_code not in (401, 403) for e in failed_downloads.values()):
+            download_errors = [
+                e for e in failed_downloads.values() if e["error_status_code"] not in (401, 403)
+            ]
+            if download_errors:
                 raise MlflowException(
                     f"Failed to download artifact {dst_run_relative_artifact_path}: "
-                    f"{failed_downloads}"
+                    f"{download_errors}"
                 )
             if failed_downloads:
                 new_signed_uri, new_headers = self._get_signed_download_uri(
                     dst_run_relative_artifact_path
                 )
-                for index in failed_downloads:
-                    download_chunk(
-                        index=index,
-                        chunk_size=_DOWNLOAD_CHUNK_SIZE,
-                        headers=new_headers,
-                        download_path=dst_local_file_path,
-                        http_uri=new_signed_uri,
-                    )
+            for i in failed_downloads:
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
         except Exception as err:
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)
@@ -171,7 +184,11 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
             if raw_headers is not None:
                 # Don't send None to _extract_headers_from_signed_url
                 headers = self._extract_headers_from_signed_url(raw_headers)
-            if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+            if (
+                not file_size
+                or file_size <= _DOWNLOAD_CHUNK_SIZE
+                or not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
+            ):
                 download_file_using_http_uri(signed_uri, local_path, _DOWNLOAD_CHUNK_SIZE, headers)
             else:
                 self._parallelized_download_from_cloud(

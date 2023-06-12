@@ -13,4 +13,4 @@ export const shouldEnableExperimentDatasetTracking = () => false;
 /**
  * UI feature preview: enables artifact-based ML experiment output data analysis, used for evaluating LLM prediction data
  */
-export const shouldEnableArtifactBasedEvaluation = () => false;
+export const shouldEnableArtifactBasedEvaluation = () => true;

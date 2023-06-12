@@ -55,18 +55,18 @@ def _get_dates_from_df(df):
 
 
 @pytest.fixture
-def model_path(tmpdir, subdir="model"):
-    return os.path.join(str(tmpdir), subdir)
+def model_path(tmp_path, subdir="model"):
+    return os.path.join(tmp_path, subdir)
 
 
 @pytest.fixture
-def statsmodels_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def statsmodels_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "statsmodels"])
     return conda_env
 
 
-def _test_models_list(tmpdir, func_to_apply):
+def _test_models_list(tmp_path, func_to_apply):
     from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
     fixtures = [
@@ -84,7 +84,7 @@ def _test_models_list(tmpdir, func_to_apply):
 
     for algorithm in fixtures:
         name = algorithm.__name__
-        path = os.path.join(tmpdir, name)
+        path = os.path.join(tmp_path, name)
         model = algorithm()
         if isinstance(model.alg, TimeSeriesModel):
             start_date, end_date = _get_dates_from_df(model.inference_dataframe)

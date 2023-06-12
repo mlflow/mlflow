@@ -1,4 +1,4 @@
-import { Button, Checkbox, Option, Select } from '@databricks/design-system';
+import { Button, Checkbox, Option, Select, SidebarIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -15,7 +15,11 @@ import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector
 import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
 import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
 import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
-import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
+import {
+  shouldEnableArtifactBasedEvaluation,
+  shouldEnableExperimentDatasetTracking,
+} from '../../../../../common/utils/FeatureUtils';
+import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
 
 export type ExperimentViewRunsControlsActionsProps = {
   viewState: SearchExperimentRunsViewState;
@@ -43,7 +47,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
   }: ExperimentViewRunsControlsActionsProps) => {
     const { runsSelected } = viewState;
     const { runInfos } = runsData;
-    const { lifecycleFilter, isComparingRuns } = searchFacetsState;
+    const { lifecycleFilter, compareRunsMode } = searchFacetsState;
+
+    const isComparingRuns = compareRunsMode !== undefined;
 
     const navigate = useNavigate();
 
@@ -116,6 +122,10 @@ export const ExperimentViewRunsControlsActions = React.memo(
       () => updateExpandRows(!expandRows),
       [expandRows, updateExpandRows],
     );
+
+    // Show preview sidebar only on table view and artifact view
+    const displaySidebarToggleButton =
+      compareRunsMode === undefined || compareRunsMode === 'ARTIFACT';
 
     return (
       <div css={styles.controlBar}>
@@ -213,6 +223,14 @@ export const ExperimentViewRunsControlsActions = React.memo(
               </Button>
             </CompareRunsButtonWrapper>
           </>
+        )}
+        <div css={{ flex: '1' }} />
+        {shouldEnableArtifactBasedEvaluation() && displaySidebarToggleButton && (
+          <ToggleIconButton
+            pressed={viewState.previewPaneVisible}
+            icon={<SidebarIcon />}
+            onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
+          />
         )}
       </div>
     );
