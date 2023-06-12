@@ -499,6 +499,23 @@ To use basic authentication, you must set both environment variables.
     with mlflow.start_run():
         ...
 
+Using Credentials File
+----------------------
+
+You can save your credentials in a file to remove the need of setting environment variables every time.
+The credentials should be saved in ``~/.mlflow/credentials`` using INI format. Note that the password 
+will be stored unencrypted on disk, and is protected only by filesystem permissions.
+
+If the environment variables ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` are configured,
+they override any credentials provided in the credentials file.
+
+.. code-block:: ini
+    :caption: Credentials file format
+
+    [mlflow]
+    mlflow_tracking_username = username
+    mlflow_tracking_password = password
+
 
 Creating New User
 =================
