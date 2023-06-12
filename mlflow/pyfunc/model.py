@@ -324,15 +324,15 @@ def _load_pyfunc(model_path: str, **kwargs):
     )
 
 
-def _update_inference_params(parameters: Dict[str, Any], overrides: Dict[str, Any]):
+def _update_inference_params(inference_params: Dict[str, Any], overrides: Dict[str, Any]):
     """
     Filters the inference arguments according to the inference configuration of the model. Only
     arguments already present in the inference configuration can be indicated at loading time.
     """
     if not overrides:
-        return parameters
+        return inference_params
 
-    if not parameters:
+    if not inference_params:
         mlflow.pyfunc._logger.warning(
             "Argument(s) %s, are invalid inference arguments for the model and were ignored.",
             ", ".joing(overrides.keys()),
@@ -340,17 +340,19 @@ def _update_inference_params(parameters: Dict[str, Any], overrides: Dict[str, An
 
         return None
 
-    allowed_kargs = {key: value for key, value in overrides.items() if key in parameters.keys()}
+    allowed_kargs = {
+        key: value for key, value in overrides.items() if key in inference_params.keys()
+    }
     if len(allowed_kargs) < len(overrides):
         ignored_args = list(overrides.keys() not in allowed_kargs.keys())
         mlflow.pyfunc._logger.warning(
             "Argument(s) %s, are invalid inference arguments for the model and were ignored. \
                 Allowed arguments include %s",
             ", ".join(ignored_args),
-            ", ".join(parameters.keys()),
+            ", ".join(inference_params.keys()),
         )
 
-    return parameters.update(allowed_kargs)
+    return inference_params.update(allowed_kargs)
 
 
 def _get_first_string_column(pdf):
