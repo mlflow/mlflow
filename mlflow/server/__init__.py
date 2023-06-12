@@ -166,7 +166,15 @@ def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
 def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, app_name]
+    return [
+        "gunicorn",
+        *opts,
+        "-b",
+        bind_address,
+        "-w",
+        str(workers),
+        app_name,
+    ]
 
 
 def _run_server(
