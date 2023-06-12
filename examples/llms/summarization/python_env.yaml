@@ -1,0 +1,7 @@
+python: "3.10"
+build_dependencies:
+  - pip
+dependencies:
+  - langchain>=0.0.169
+  - evaluate>=0.4.0
+  - mlflow>=2.4.0
