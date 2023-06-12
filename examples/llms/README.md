@@ -8,20 +8,20 @@ The ``summarization/summarization.py`` script uses prompt engineering to build t
 To run the example, simply execute the following command from this directory:
 
 ```
-$ python summarization/summarization.py
+$ cd summarization && python summarization.py
 ```
 
 You must have [LangChain](https://python.langchain.com/en/latest/index.html) installed in order to run the example, and we recommend installing the [Hugging Face Evaluate library](https://huggingface.co/docs/evaluate/index) in order to compute [ROUGE metrics](https://en.wikipedia.org/wiki/ROUGE_(metric) for summary quality. Additionally, you must specify a valid OpenAI API key in the ``OPENAI_API_KEY`` environment variable.
 
 ## Question answering
-The ``question_answering.py`` script uses prompt engineering to build two models that answer questions about MLflow.
+The ``question_answering/question_answering.py`` script uses prompt engineering to build two models that answer questions about MLflow.
 
 It leverages the ``mlflow.openai`` flavor to package and log the models to MLflow, ``mlflow.evaluate()`` to evaluate each model's performance on some example questions, and ``mlflow.pyfunc.load_model()`` to load and score the best packaged model on a new example question.
 
 To run the example, simply execute the following command from this directory:
 
 ```
-$ python question_answering/question_answering.py
+$ cd question_answering && python question_answering.py
 ```
 
 You must have the [OpenAI Python client](https://pypi.org/project/openai/) installed in order to run the example. Additionally, you must specify a valid OpenAI API key in the ``OPENAI_API_KEY`` environment variable.

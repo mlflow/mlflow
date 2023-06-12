@@ -10,7 +10,7 @@ assert "OPENAI_API_KEY" in os.environ, (
     "Please set the OPENAI_API_KEY environment variable to run this example."
 )
 
-def evaluate_prompt(system_prompt):
+def build_and_evalute_model_with_prompt(system_prompt):
     mlflow.start_run()
     mlflow.log_param("system_prompt", system_prompt)
 
@@ -43,12 +43,12 @@ def evaluate_prompt(system_prompt):
 
 
 system_prompt_1 = "Your job is to answer questions about MLflow."
-print(f"Evaluating model with prompt: '{system_prompt_1}'")
-evaluate_prompt(system_prompt_1)
+print(f"Building and evaluating model with prompt: '{system_prompt_1}'")
+build_and_evalute_model_with_prompt(system_prompt_1)
 
 system_prompt_2 = "Your job is to answer questions about MLflow. When you are asked a question about MLflow respond to it. Make sure to include code examples. If the question is not related to MLflow, refuse to answer and say that the question is unrelated."
-print(f"Evaluating model with prompt: '{system_prompt_2}'")
-evaluate_prompt(system_prompt_2)
+print(f"Building and evaluating model with prompt: '{system_prompt_2}'")
+build_and_evalute_model_with_prompt(system_prompt_2)
 
 # Load and inspect the evaluation results
 results: pd.DataFrame = mlflow.load_table("eval_results_table.json", extra_columns=["run_id", "params.system_prompt"])
