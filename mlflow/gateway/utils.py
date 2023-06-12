@@ -4,7 +4,6 @@ import re
 
 from mlflow.exceptions import MlflowException
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -19,9 +18,9 @@ def is_valid_endpoint_name(name: str) -> bool:
 
 
 def check_configuration_route_name_collisions(config):
-    if len(config) < 2:
+    if len(config["routes"]) < 2:
         return
-    names = [route["name"] for route in config]
+    names = [route["name"] for route in config["routes"]]
     if len(names) != len(set(names)):
         raise MlflowException.invalid_parameter_value(
             "Duplicate names found in route configurations. Please remove the duplicate route "

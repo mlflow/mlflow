@@ -71,33 +71,35 @@ class Gateway:
 
 @pytest.fixture
 def basic_config_dict():
-    return [
-        {
-            "name": "completions-gpt4",
-            "type": "llm/v1/completions",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-                "config": {
-                    "openai_api_key": "mykey",
-                    "openai_api_base": "https://api.openai.com/v1",
-                    "openai_api_version": "2023-05-15",
-                    "openai_api_type": "open_ai",
+    return {
+        "routes": [
+            {
+                "name": "completions-gpt4",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-15",
+                        "openai_api_type": "open_ai",
+                    },
                 },
             },
-        },
-        {
-            "name": "claude-chat",
-            "type": "llm/v1/chat",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "claudekey",
+            {
+                "name": "claude-chat",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "claudekey",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
 
 
 @pytest.fixture
@@ -120,19 +122,21 @@ def basic_routes():
 
 @pytest.fixture
 def update_config_dict():
-    return [
-        {
-            "name": "claude-completions",
-            "type": "llm/v1/completions",
-            "model": {
-                "name": "claude-v1",
-                "provider": "anthropic",
-                "config": {
-                    "anthropic_api_key": "MY_ANTHROPIC_KEY",
+    return {
+        "routes": [
+            {
+                "name": "claude-completions",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "claude-v1",
+                    "provider": "anthropic",
+                    "config": {
+                        "anthropic_api_key": "MY_ANTHROPIC_KEY",
+                    },
                 },
             },
-        },
-    ]
+        ]
+    }
 
 
 @pytest.fixture
@@ -150,13 +154,15 @@ def update_routes():
 
 @pytest.fixture
 def invalid_config_dict():
-    return [
-        {
-            "invalid_name": "invalid",
-            "type": "llm/v1/chat",
-            "model": {"invalidkey": "invalid", "invalid_provider": "invalid"},
-        }
-    ]
+    return {
+        "routes": [
+            {
+                "invalid_name": "invalid",
+                "type": "llm/v1/chat",
+                "model": {"invalidkey": "invalid", "invalid_provider": "invalid"},
+            }
+        ]
+    }
 
 
 def store_conf(path, name, conf):
@@ -237,7 +243,7 @@ def test_server_update_config_removed_then_recreated(
         wait()
         gateway.assert_health()
 
-        store_conf(tmp_path, "config.yaml", basic_config_dict[1:])
+        store_conf(tmp_path, "config.yaml", {"routes": basic_config_dict["routes"][1:]})
         wait()
         response = gateway.get("gateway/routes/")
         assert response.json() == {"routes": basic_routes["routes"][1:]}
@@ -254,7 +260,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             response = gateway.get(route)
             assert response.status_code == 200
 
-        for index, route in enumerate(basic_config_dict):
+        for index, route in enumerate(basic_config_dict["routes"]):
             response = gateway.get(f"gateway/routes/{route['name']}")
             assert response.json() == {"route": basic_routes["routes"][index]}
 
@@ -264,12 +270,13 @@ def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
 
     with Gateway(config) as gateway:
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict[0]['name']}", json={"input": "Tell me a joke"}
+            f"gateway/routes/{basic_config_dict['routes'][0]['name']}",
+            json={"input": "Tell me a joke"},
         )
         assert response.json() == {"input": "Tell me a joke"}
 
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict[1]['name']}",
+            f"gateway/routes/{basic_config_dict['routes'][1]['name']}",
             json={"input": "Say hello", "temperature": 0.35},
         )
         assert response.json() == {"input": "Say hello", "temperature": 0.35}
