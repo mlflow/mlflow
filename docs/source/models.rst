@@ -2330,29 +2330,36 @@ Example: Export a John Snow Labs to MLflow format
 .. literalinclude:: ../../examples/johnsnowlabs/export.py
     :language: python
 
+
 To deploy the John Snow Labs model as a container
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 1) Start the Docker Container
 
 .. code-block:: bash
+
     docker run -p 5001:8080 -e JOHNSNOWLABS_LICENSE_JSON=your_json_string "mlflow-pyfunc"
+
 2. Query server
 
 .. code-block:: bash
+
     curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json' -d '{
       "dataframe_split": {
           "columns": ["text"],
           "data": [["I hate covid"], ["I love covid"]]
       }
     }'
+
 To deploy the John Snow Labs model without a container
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 1. Export env variable and start server
 
 .. code-block:: bash
+
     export JOHNSNOWLABS_LICENSE_JSON=your_json_string
     mlflow models serve -m <model_uri>
+
 2. Query server
 
 .. code-block:: bash
