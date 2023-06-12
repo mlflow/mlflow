@@ -12,7 +12,7 @@ class RequestPayload(BaseModel, extra=Extra.allow):
     messages: List[Message] = Field(..., min_items=1)
 
 
-class CandidateMetadata(BaseModel):
+class CandidateMetadata(BaseModel, extra=Extra.forbid):
     finish_reason: Optional[str]
 
 
@@ -21,7 +21,7 @@ class Candidate(BaseModel):
     metadata: CandidateMetadata
 
 
-class Metadata(BaseModel):
+class Metadata(BaseModel, extra=Extra.forbid):
     input_tokens: int
     output_tokens: int
     total_tokens: int
@@ -29,6 +29,6 @@ class Metadata(BaseModel):
     route_type: str
 
 
-class ResponsePayload(BaseModel, extra=Extra.allow):
+class ResponsePayload(BaseModel, extra=Extra.forbid):
     candidates: List[Candidate]
     metadata: Metadata

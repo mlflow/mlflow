@@ -7,16 +7,16 @@ class RequestPayload(BaseModel, extra=Extra.allow):
     prompt: str
 
 
-class CandidateMetadata(BaseModel):
+class CandidateMetadata(BaseModel, extra=Extra.forbid):
     finish_reason: Optional[str]
 
 
-class Candidate(BaseModel, extra=Extra.allow):
+class Candidate(BaseModel, extra=Extra.forbid):
     text: str
     metadata: CandidateMetadata
 
 
-class Metadata(BaseModel):
+class Metadata(BaseModel, extra=Extra.forbid):
     input_tokens: int
     output_tokens: int
     total_tokens: int

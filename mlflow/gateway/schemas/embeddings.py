@@ -7,7 +7,7 @@ class RequestPayload(BaseModel, extra=Extra.allow):
     text: str
 
 
-class Metadata(BaseModel):
+class Metadata(BaseModel, extra=Extra.forbid):
     input_tokens: int
     output_tokens: int
     total_tokens: int
@@ -15,6 +15,6 @@ class Metadata(BaseModel):
     route_type: str
 
 
-class ResponsePayload(BaseModel, extra=Extra.allow):
+class ResponsePayload(BaseModel, extra=Extra.forbid):
     embeddings: List[float]
     metadata: Metadata
