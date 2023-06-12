@@ -238,7 +238,8 @@ def test_server_update_config_removed_then_recreated(
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
-
+        # Give filewatch a moment to cycle
+        wait()
         # remove config
         config.unlink()
         wait()
