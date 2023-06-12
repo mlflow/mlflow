@@ -38,5 +38,14 @@ def commands():
     default=2,
     help="The number of workers.",
 )
-def start(config_path: str, host: str, port: str, workers: int):
-    run_app(config_path=config_path, host=host, port=port, workers=workers)
+@click.option(
+    "--dev",
+    is_flag=True,
+    default=False,
+    help=(
+        "If True, run the service with options suitable for development. "
+        "Should not be used in production."
+    ),
+)
+def start(config_path: str, host: str, port: str, workers: int, dev: bool):
+    run_app(config_path=config_path, host=host, port=port, workers=workers, dev=dev)

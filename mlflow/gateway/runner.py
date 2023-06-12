@@ -48,11 +48,13 @@ class Runner:
         host: str,
         port: int,
         workers: int,
+        dev: bool,
     ) -> None:
         self.config_path = config_path
         self.host = host
         self.port = port
         self.workers = workers
+        self.dev = dev
         self.process = None
 
     def start(self) -> None:
@@ -68,9 +70,7 @@ class Runner:
                 "--worker-class",
                 "uvicorn.workers.UvicornWorker",
                 f"{app.__name__}:create_app_from_env()",
-                "--reload",
-                "--log-level",
-                "debug",
+                *(["--reload", "--log-level", "debug"] if self.dev else []),
             ],
             env={
                 **os.environ,
@@ -95,13 +95,14 @@ class Runner:
         self.stop()
 
 
-def run_app(config_path: str, host: str, port: int, workers: int) -> None:
+def run_app(config_path: str, host: str, port: int, workers: int, dev: bool) -> None:
     config_path = os.path.abspath(os.path.normpath(os.path.expanduser(config_path)))
     with Runner(
         config_path=config_path,
         host=host,
         port=port,
         workers=workers,
+        dev=dev,
     ) as runner:
         for _ in monitor_config(config_path):
             _logger.info("Configuration updated, reloading workers")
