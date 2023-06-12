@@ -124,6 +124,14 @@ def _find_app(app_name: str) -> str:
 
 
 def get_app_client(app_name: str, *args, **kwargs):
+    """
+    Instantiate a client provided by an app.
+    
+    :param app_name: The app name defined in `setup.py`, e.g., "basic-auth".
+    :param \*args: Additional arguments to be passed to the app client constructor.
+    :param \*\*kwargs: Additional keyword arguments to be passed to the app client constructor.
+    :return: An app client instance.
+    """
     clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
     for client in clients:
         if client.name == app_name:

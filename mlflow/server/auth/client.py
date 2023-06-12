@@ -21,7 +21,7 @@ from mlflow.utils.rest_utils import http_request_safe
 class AuthServiceClient:
     """
     Client of an MLflow Tracking Server that enabled the default basic authentication plugin.
-    It is recommended to use ``mlflow.server.get_app_client()`` to instantiate this class.
+    It is recommended to use :py:func:`mlflow.server.get_app_client()` to instantiate this class.
     See https://mlflow.org/docs/latest/auth.html for more information.
     """
 

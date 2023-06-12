@@ -424,7 +424,7 @@ Managing Permissions
 
 MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client class 
 :py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage users and permissions.
-To instantiate ``AuthServiceClient``, it is recommended that you use ``mlflow.server.get_app_client``.
+To instantiate ``AuthServiceClient``, it is recommended that you use :py:func:`mlflow.server.get_app_client`.
 
 .. code-block:: python
     :caption: Example
