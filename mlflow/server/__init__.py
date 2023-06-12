@@ -19,6 +19,7 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
 )
 from mlflow.utils.process import _exec_cmd
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 # NB: These are internal environment variables used for communication between
@@ -131,6 +132,9 @@ def _is_factory(app: str) -> bool:
 
     :param app: The app to check, e.g. "mlflow.server.app:app"
     """
+    if is_windows():
+        # waitress does not need `()` for a factory
+        return False
     module, obj_name = app.rsplit(":", 1)
     mod = importlib.import_module(module)
     obj = getattr(mod, obj_name)
