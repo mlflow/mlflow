@@ -7,9 +7,10 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.llms import OpenAI
 
-assert "OPENAI_API_KEY" in os.environ, (
-    "Please set the OPENAI_API_KEY environment variable to run this example."
-)
+assert (
+    "OPENAI_API_KEY" in os.environ
+), "Please set the OPENAI_API_KEY environment variable to run this example."
+
 
 def build_and_evalute_model_with_prompt(prompt_template):
     mlflow.start_run()
@@ -17,24 +18,24 @@ def build_and_evalute_model_with_prompt(prompt_template):
     # Create a news summarization model using prompt engineering with LangChain. Log the model
     # to MLflow Tracking
     llm = OpenAI(temperature=0.9)
-    prompt = PromptTemplate(
-        input_variables=["article"],
-        template=prompt_template
-    )
+    prompt = PromptTemplate(input_variables=["article"], template=prompt_template)
     chain = LLMChain(llm=llm, prompt=prompt)
     logged_model = mlflow.langchain.log_model(chain, artifact_path="model")
 
     # Evaluate the model on a small sample dataset
     sample_data = pd.read_csv("summarization_example_data.csv")
     mlflow.evaluate(
-        model = logged_model.model_uri,
+        model=logged_model.model_uri,
         model_type="text-summarization",
         data=sample_data,
         targets="highlights",
     )
     mlflow.end_run()
 
-prompt_template_1 = "Write a summary of the following article that is between triple backticks: ```{article}```"
+
+prompt_template_1 = (
+    "Write a summary of the following article that is between triple backticks: ```{article}```"
+)
 print(f"Bulding and evaluating model with prompt: '{prompt_template_1}'")
 build_and_evalute_model_with_prompt(prompt_template_1)
 
@@ -43,7 +44,9 @@ print(f"Building and evaluating model with prompt: '{prompt_template_2}'")
 build_and_evalute_model_with_prompt(prompt_template_2)
 
 # Load the evaluation results
-results: pd.DataFrame = mlflow.load_table("eval_results_table.json", extra_columns=["run_id", "params.prompt_template"])
+results: pd.DataFrame = mlflow.load_table(
+    "eval_results_table.json", extra_columns=["run_id", "params.prompt_template"]
+)
 results_grouped_by_article = results.sort_values(by="id")
 print("Evaluation results:")
 print(results_grouped_by_article[["run_id", "params.prompt_template", "article", "outputs"]])
@@ -65,9 +68,9 @@ Neil Robertson or Barry Hawkins. Januzaj turned out for Under 21s in the 4-1 vic
 Tuesday night.
 """
 
-print(f"Scoring the model with prompt '{prompt_template_2}' on the article '{new_article[:70] + '...'}'")
+print(
+    f"Scoring the model with prompt '{prompt_template_2}' on the article '{new_article[:70] + '...'}'"
+)
 best_model = mlflow.pyfunc.load_model(f"runs:/{mlflow.last_active_run().info.run_id}/model")
-summary = best_model.predict({
-    "article": new_article
-})
+summary = best_model.predict({"article": new_article})
 print(f"Summary: {summary}")

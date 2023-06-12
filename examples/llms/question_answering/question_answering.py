@@ -6,9 +6,10 @@ import mlflow
 import openai
 
 
-assert "OPENAI_API_KEY" in os.environ, (
-    "Please set the OPENAI_API_KEY environment variable to run this example."
-)
+assert (
+    "OPENAI_API_KEY" in os.environ
+), "Please set the OPENAI_API_KEY environment variable to run this example."
+
 
 def build_and_evalute_model_with_prompt(system_prompt):
     mlflow.start_run()
@@ -22,18 +23,20 @@ def build_and_evalute_model_with_prompt(system_prompt):
         artifact_path="model",
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": "{question}"}
-        ]
+            {"role": "user", "content": "{question}"},
+        ],
     )
 
     # Evaluate the model on some example questions
-    questions = pd.DataFrame({
-        "question": [
-            "How do you create a run with MLflow?",
-            "How do you log a model with MLflow?",
-            "What is the capital of France?",
-        ]
-    })
+    questions = pd.DataFrame(
+        {
+            "question": [
+                "How do you create a run with MLflow?",
+                "How do you log a model with MLflow?",
+                "What is the capital of France?",
+            ]
+        }
+    )
     mlflow.evaluate(
         model=logged_model.model_uri,
         model_type="question-answering",
@@ -51,7 +54,9 @@ print(f"Building and evaluating model with prompt: '{system_prompt_2}'")
 build_and_evalute_model_with_prompt(system_prompt_2)
 
 # Load and inspect the evaluation results
-results: pd.DataFrame = mlflow.load_table("eval_results_table.json", extra_columns=["run_id", "params.system_prompt"])
+results: pd.DataFrame = mlflow.load_table(
+    "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
+)
 results_grouped_by_question = results.sort_values(by="question")
 print("Evaluation results:")
 print(results_grouped_by_question[["run_id", "params.system_prompt", "question", "outputs"]])
