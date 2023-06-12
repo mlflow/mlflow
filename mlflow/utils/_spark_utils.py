@@ -35,12 +35,6 @@ def _prepare_subprocess_environ_for_creating_local_spark_session():
     os.environ.pop("PYSPARK_GATEWAY_SECRET", None)
 
 
-def _get_delta_core_version_for_local_spark_session():
-    """
-    :return: The string version of delta-core to install when creating a local PySpark session
-    """
-
-
 def _create_local_spark_session_for_recipes():
     """Create a sparksession to be used within an recipe step run in a subprocess locally."""
 
@@ -50,7 +44,7 @@ def _create_local_spark_session_for_recipes():
         # Return None if user doesn't have PySpark installed
         return None
     _prepare_subprocess_environ_for_creating_local_spark_session()
-    sess = (
+    return (
         SparkSession.builder.master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
@@ -60,8 +54,6 @@ def _create_local_spark_session_for_recipes():
         .config("spark.sql.execution.arrow.pyspark.enabled", "true")
         .getOrCreate()
     )
-    sess.sparkContext.setLogLevel("TRACE")
-    return sess
 
 
 def _create_local_spark_session_for_loading_spark_model():
