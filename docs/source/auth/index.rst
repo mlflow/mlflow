@@ -111,11 +111,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/experiments/update``
      - ``POST``
      - ExperimentPermission.can_update
-   * - Search Experiments
+   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
      - ``2.0/mlflow/experiments/search``
      - ``POST``
      - None
-   * - Search Experiments
+   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
      - ``2.0/mlflow/experiments/search``
      - ``GET``
      - None
@@ -167,7 +167,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/runs/log-batch``
      - ``POST``
      - ExperimentPermission.can_update
-   * - Log Model
+   * - :ref:`Log Model <mlflowMlflowServicelogModel>`
      - ``2.0/mlflow/runs/log-model``
      - ``POST``
      - ExperimentPermission.can_update
@@ -183,7 +183,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/create``
      - ``POST``
      - None
-   * - Rename Registered Model
+   * - :ref:`Rename Registered Model <mlflowModelRegistryServicerenameRegisteredModel>`
      - ``2.0/mlflow/registered-models/rename``
      - ``POST``
      - RegisteredModelPermission.can_update
@@ -195,11 +195,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/delete``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - Get Registered Model
+   * - :ref:`Get Registered Model <mlflowModelRegistryServicegetRegisteredModel>`
      - ``2.0/mlflow/registered-models/get``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - Search Registered Models
+   * - :ref:`Search Registered Models <mlflowModelRegistryServicesearchRegisteredModels>`
      - ``2.0/mlflow/registered-models/search``
      - ``GET``
      - None
@@ -211,23 +211,23 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/registered-models/get-latest-versions``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - Set Registered Model Tag
+   * - :ref:`Set Registered Model Tag <mlflowModelRegistryServicesetRegisteredModelTag>`
      - ``2.0/mlflow/registered-models/set-tag``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - Delete Registered Model Tag
+   * - :ref:`Delete Registered Model Tag <mlflowModelRegistryServicedeleteRegisteredModelTag>`
      - ``2.0/mlflow/registered-models/delete-tag``
      - ``DELETE``
      - RegisteredModelPermission.can_update
-   * - Set Registered Model Alias
+   * - :ref:`Set Registered Model Alias <mlflowModelRegistryServicesetRegisteredModelAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - Delete Registered Model Alias
+   * - :ref:`Delete Registered Model Alias <mlflowModelRegistryServicedeleteRegisteredModelAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - Get Model Version By Alias
+   * - :ref:`Get Model Version By Alias <mlflowModelRegistryServicegetModelVersionByAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``GET``
      - RegisteredModelPermission.can_read
@@ -239,7 +239,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/update``
      - ``PATCH``
      - RegisteredModelPermission.can_update
-   * - Transition Model Version Stage
+   * - :ref:`Transition Model Version Stage <mlflowModelRegistryServicetransitionModelVersionStage>`
      - ``2.0/mlflow/model-versions/transition-stage``
      - ``POST``
      - RegisteredModelPermission.can_update
@@ -247,7 +247,7 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/delete``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
-   * - Get Model Version
+   * - :ref:`Get Model Version <mlflowModelRegistryServicegetModelVersion>`
      - ``2.0/mlflow/model-versions/get``
      - ``GET``
      - RegisteredModelPermission.can_read
@@ -259,11 +259,11 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/model-versions/get-download-uri``
      - ``GET``
      - RegisteredModelPermission.can_read
-   * - Set Model Version Tag
+   * - :ref:`Set Model Version Tag <mlflowModelRegistryServicesetModelVersionTag>`
      - ``2.0/mlflow/model-versions/set-tag``
      - ``POST``
      - RegisteredModelPermission.can_update
-   * - Delete Model Version Tag
+   * - :ref:`Delete Model Version Tag <mlflowModelRegistryServicedeleteModelVersionTag>`
      - ``2.0/mlflow/model-versions/delete-tag``
      - ``DELETE``
      - RegisteredModelPermission.can_delete
@@ -351,11 +351,11 @@ on that experiment, so that the creator can grant or revoke other users' access 
      - ``2.0/mlflow/registered-models/create``
      - ``POST``
      - Automatically grants ``MANAGE`` permission to the creator.
-   * - Search Experiments
+   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
      - ``2.0/mlflow/experiments/search``
      - ``POST``
      - Only returns experiments which the user has ``READ`` permission on.
-   * - Search Experiments
+   * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
      - ``2.0/mlflow/experiments/search``
      - ``GET``
      - Only returns experiments which the user has ``READ`` permission on.
@@ -363,7 +363,7 @@ on that experiment, so that the creator can grant or revoke other users' access 
      - ``2.0/mlflow/runs/search``
      - ``POST``
      - Only returns experiments which the user has ``READ`` permission on.
-   * - Search Registered Models
+   * - :ref:`Search Registered Models <mlflowModelRegistryServicesearchRegisteredModels>`
      - ``2.0/mlflow/registered-models/search``
      - ``GET``
      - Only returns registered models which the user has ``READ`` permission on.
