@@ -6,7 +6,7 @@ import pytest
 import requests
 
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import MlflowException, RestException, InvalidUrlException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
     http_request,
@@ -379,6 +379,24 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
             headers=expected_headers,
             timeout=120,
         )
+
+
+@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
+def test_http_request_with_invalid_url_raise_invalid_url_exception(request):
+    """InvalidURL exception can be caught by a custom InvalidUrlException"""
+    host_only = MlflowHostCreds("http://my-host")
+
+    with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
+        http_request(host_only, "/invalid_url", "GET")
+
+
+@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
+def test_http_request_with_invalid_url_raise_mlflow_exception(request):
+    """The InvalidUrlException can be caught by the MlflowException"""
+    host_only = MlflowHostCreds("http://my-host")
+
+    with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
+        http_request(host_only, "/invalid_url", "GET")
 
 
 def test_ignore_tls_verification_not_server_cert_path():
