@@ -21,6 +21,7 @@ CatBoost (native) format
 
 import os
 import yaml
+import contextlib
 
 import mlflow
 from mlflow import pyfunc
@@ -287,12 +288,10 @@ def _init_model(model_type):
 
     model_types = {c.__name__: c for c in [CatBoost, CatBoostClassifier, CatBoostRegressor]}
 
-    try:
+    with contextlib.suppress(ImportError):
         from catboost import CatBoostRanker
 
         model_types[CatBoostRanker.__name__] = CatBoostRanker
-    except ImportError:
-        pass
 
     if model_type not in model_types:
         raise TypeError(
