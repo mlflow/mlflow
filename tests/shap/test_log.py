@@ -158,7 +158,7 @@ def test_log_explanation_doesnt_create_autologged_run():
         mlflow.sklearn.autolog(disable=True)
 
 
-def test_load_pyfunc(tmpdir):
+def test_load_pyfunc(tmp_path):
     X, y = get_housing_data()
 
     model = sklearn.ensemble.RandomForestRegressor(n_estimators=100)
@@ -166,7 +166,7 @@ def test_load_pyfunc(tmpdir):
 
     explainer_original = shap.Explainer(model.predict, X, algorithm="permutation")
     shap_values_original = explainer_original(X[:2])
-    path = tmpdir.join("pyfunc_test").strpath
+    path = str(tmp_path.joinpath("pyfunc_test"))
     mlflow.shap.save_explainer(explainer_original, path)
 
     explainer_pyfunc = mlflow.shap._load_pyfunc(path)
@@ -223,14 +223,14 @@ def test_merge_environment():
     assert sorted(expected_conda_deps) == sorted(actual_conda_deps)
 
 
-def test_log_model_with_pip_requirements(shap_model, tmpdir):
+def test_log_model_with_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=req_file.strpath)
+        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, "a", *sklearn_default_reqs],
@@ -239,9 +239,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
 
     # List of requirements
     with mlflow.start_run():
-        mlflow.shap.log_explainer(
-            shap_model, "model", pip_requirements=[f"-r {req_file.strpath}", "b"]
-        )
+        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=[f"-r {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, "a", "b", *sklearn_default_reqs],
@@ -250,9 +248,7 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
 
     # Constraints file
     with mlflow.start_run():
-        mlflow.shap.log_explainer(
-            shap_model, "model", pip_requirements=[f"-c {req_file.strpath}", "b"]
-        )
+        mlflow.shap.log_explainer(shap_model, "model", pip_requirements=[f"-c {req_file}", "b"])
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, "b", "-c constraints.txt", *sklearn_default_reqs],
@@ -261,16 +257,16 @@ def test_log_model_with_pip_requirements(shap_model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
+def test_log_model_with_extra_pip_requirements(shap_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     shap_default_reqs = mlflow.shap.get_default_pip_requirements()
     sklearn_default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.shap.log_explainer(shap_model, "model", extra_pip_requirements=req_file.strpath)
+        mlflow.shap.log_explainer(shap_model, "model", extra_pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
             [expected_mlflow_version, *shap_default_reqs, "a", *sklearn_default_reqs],
@@ -279,7 +275,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.shap.log_explainer(
-            shap_model, "model", extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+            shap_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -289,7 +285,7 @@ def test_log_model_with_extra_pip_requirements(shap_model, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.shap.log_explainer(
-            shap_model, "model", extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+            shap_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -360,8 +356,8 @@ def test_log_model_with_code_paths(shap_model):
         add_mock.assert_called()
 
 
-def test_model_save_load_with_metadata(shap_model, tmpdir):
-    model_path = tmpdir.join("pyfunc_test").strpath
+def test_model_save_load_with_metadata(shap_model, tmp_path):
+    model_path = str(tmp_path.joinpath("pyfunc_test"))
     mlflow.shap.save_explainer(
         shap_model, path=model_path, metadata={"metadata_key": "metadata_value"}
     )
