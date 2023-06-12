@@ -114,21 +114,18 @@ def _extract_and_set_api_key(config, provider):
         CustomConfig: "api_key",
     }
 
-    config_dict = config.dict()
-
     for config_class, key in required_keys.items():
         if isinstance(config, config_class):
-            if getattr(config, key, None) is None:
-                raise MlflowException.invalid_parameter_value(
-                    f"For the {provider} provider, the api key must either be specified within the "
-                    "configuration supplied or an environment variable set whose key is "
-                    "defined within the configuration"
-                )
-            else:
+            if value := getattr(config, key, None):
                 # set the config key
-                config_dict[key] = _resolve_api_key_from_input(config_dict[key])
+                value = _resolve_api_key_from_input(value)
+                return config_class(**{**config.dict(), key: value})
 
-    return config_types[provider](**config_dict)
+            raise MlflowException.invalid_parameter_value(
+                f"For the {provider} provider, the api key must either be specified within the "
+                "configuration supplied or an environment variable set whose key is "
+                "defined within the configuration"
+            )
 
 
 def _validate_base_route(config, provider):
