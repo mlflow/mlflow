@@ -1072,21 +1072,14 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_tag(self, run_id, tag):
         """
-        Set a tag on a run.
+        Call _set_tags in order to set a tag on a run.
+        (_set_tags is almost thread safe, there is a very low
+        probability of failing the operation 3 times in a row)
 
         :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
-        with self.ManagedSessionMaker() as session:
-            _validate_tag(tag.key, tag.value)
-            run = self._get_run(run_uuid=run_id, session=session)
-            self._check_run_is_active(run)
-            if tag.key == MLFLOW_RUN_NAME:
-                run_status = RunStatus.from_string(run.status)
-                self.update_run_info(run_id, run_status, run.end_time, tag.value)
-            else:
-                # NB: Updating the run_info will set the tag. No need to do it twice.
-                session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
+        self._set_tags(run_id, [tag])
 
     def _set_tags(self, run_id, tags):
         """
