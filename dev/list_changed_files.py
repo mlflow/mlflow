@@ -32,8 +32,8 @@ def main():
     while True:
         full_url = f"{url}?per_page={per_page}&page={page}"
         req = urllib.request.Request(full_url, headers=headers)
-        resp = urllib.request.urlopen(req)
-        files = json.loads(resp.read().decode())
+        with urllib.request.urlopen(req) as resp:
+            files = json.loads(resp.read().decode())
         changed_files.extend(f["filename"] for f in files)
         if len(files) < per_page:
             break
