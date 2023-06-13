@@ -141,8 +141,7 @@ class OpenAIProvider(BaseProvider):
                 "embeddings": resp["data"][0]["embedding"],
                 "metadata": {
                     "input_tokens": resp["usage"]["prompt_tokens"],
-                    # The output tokens are not defined for embeddings
-                    "output_tokens": 0,
+                    "output_tokens": 0,  # output_tokens is not available for embeddings
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
                     "route_type": self.config.type,
