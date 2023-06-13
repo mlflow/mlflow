@@ -82,14 +82,15 @@ class AuthServiceClient:
         :return: A single :py:class:`mlflow.server.auth.entities.User` object.
                  Raises ``RestException`` if the user does not exist.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -124,14 +125,15 @@ class AuthServiceClient:
 
         :return: None. Raises ``RestException`` if the user does not exist.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -153,14 +155,15 @@ class AuthServiceClient:
 
         :return: None. Raises ``RestException`` if the user does not exist.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -181,14 +184,15 @@ class AuthServiceClient:
 
         :return: None. Raises ``RestException`` if the user does not exist.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -216,14 +220,15 @@ class AuthServiceClient:
                  or if the permission is invalid.
                  Does not require ``experiment_id`` to be an existing experiment.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -259,14 +264,15 @@ class AuthServiceClient:
                  Note that the default permission will still be effective even if
                  no permission exists.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -303,14 +309,15 @@ class AuthServiceClient:
                  or no permission exists for this experiment user pair,
                  or if the permission is invalid.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -336,14 +343,15 @@ class AuthServiceClient:
                  Note that the default permission will still be effective even
                  after the permission has been deleted.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -371,14 +379,15 @@ class AuthServiceClient:
                  or if the permission is invalid.
                  Does not require ``name`` to be an existing registered model.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -414,14 +423,15 @@ class AuthServiceClient:
                  Note that the default permission will still be effective even if
                  no permission exists.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -458,14 +468,15 @@ class AuthServiceClient:
                  or no permission exists for this registered model user pair,
                  or if the permission is invalid.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")
@@ -491,14 +502,15 @@ class AuthServiceClient:
                  Note that the default permission will still be effective even
                  after the permission has been deleted.
 
-        .. code-block:: python
+        .. code-block:: bash
             :caption: Example
 
-            import os
-            from mlflow.server.auth.client import AuthServiceClient
+            export MLFLOW_TRACKING_USERNAME=admin
+            export MLFLOW_TRACKING_PASSWORD=password
 
-            os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-            os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
+        .. code-block:: python
+
+            from mlflow.server.auth.client import AuthServiceClient
 
             client = AuthServiceClient("tracking_uri")
             client.create_user("newuser", "newpassword")

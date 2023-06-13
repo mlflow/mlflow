@@ -423,15 +423,17 @@ The default admin user credentials are as follows:
 
 Multiple admin users can exist by promoting other users to admin, using the ``2.0/mlflow/users/update-admin`` endpoint.
 
-.. code-block:: python
+.. code-block:: bash
     :caption: Example
 
-    import os
+    # authenticate as built-in admin user
+    export MLFLOW_TRACKING_USERNAME=admin
+    export MLFLOW_TRACKING_PASSWORD=password
+ 
+.. code-block:: python
+
     from mlflow.server import get_app_client
 
-    # authenticate as built-in admin user
-    os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
     tracking_uri = "http://localhost:5000/"
 
     auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
@@ -446,10 +448,14 @@ MLflow provides :ref:`REST APIs <mlflowAuthServiceCreateUser>` and a client clas
 :py:func:`AuthServiceClient<mlflow.server.auth.client.AuthServiceClient>` to manage users and permissions.
 To instantiate ``AuthServiceClient``, it is recommended that you use :py:func:`mlflow.server.get_app_client`.
 
-.. code-block:: python
+.. code-block:: bash
     :caption: Example
 
-    import os
+    export MLFLOW_TRACKING_USERNAME=admin
+    export MLFLOW_TRACKING_PASSWORD=password
+
+.. code-block:: python
+
     from mlflow import MlflowClient
     from mlflow.server import get_app_client
 
@@ -458,9 +464,6 @@ To instantiate ``AuthServiceClient``, it is recommended that you use :py:func:`m
     auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
     auth_client.create_user(username="user1", password="pw1")
     auth_client.create_user(username="user2", password="pw2")
-
-    os.environ["MLFLOW_TRACKING_USERNAME"] = "user1"
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = "pw1"
 
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment(name="experiment")
