@@ -35,11 +35,30 @@ _TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+_tracking_username = None
+_tracking_password = None
+_tracking_token = None
 
 
 def is_tracking_uri_set():
     """Returns True if the tracking URI has been set, False otherwise."""
     if _tracking_uri or env.get_env(_TRACKING_URI_ENV_VAR):
+        return True
+    return False
+
+
+def are_tracking_credentials_set():
+    """Returns True if the tracking username and password have been set, False otherwise."""
+    if (_tracking_username and _tracking_password) or (
+        env.get_env(_TRACKING_USERNAME_ENV_VAR) and env.get_env(_TRACKING_PASSWORD_ENV_VAR)
+    ):
+        return True
+    return False
+
+
+def is_tracking_token_set():
+    """Returns True if the tracking token has been set, False otherwise."""
+    if _tracking_token or env.get_env(_TRACKING_TOKEN_ENV_VAR):
         return True
     return False
 
@@ -82,6 +101,32 @@ def set_tracking_uri(uri: Union[str, Path]) -> None:
         uri = uri.absolute().resolve().as_uri()
     global _tracking_uri
     _tracking_uri = uri
+
+
+def set_tracking_credentials(username: str, password: str) -> None:
+    """
+    Sets the username and password for HTTP Basic Authorization to the tracking server. This does
+    not affect the currently active run (if one exists), but takes effect for successive runs.
+
+    :param username: username to use for HTTP Basic Authorization.
+    :param password: password to use for HTTP Basic Authorization.
+
+    """
+    global _tracking_username
+    global _tracking_password
+    _tracking_username = username
+    _tracking_password = password
+
+
+def set_tracking_token(token: str) -> None:
+    """
+    Sets the bearer token for HTTP Bearer Authorization to the tracking server. This does not
+    affect the currently active run (if one exists), but takes effect for successive runs.
+
+    :param token: token to use for HTTP Bearer Authorization.
+    """
+    global _tracking_token
+    _tracking_token = token
 
 
 @contextmanager
@@ -138,6 +183,30 @@ def get_tracking_uri() -> str:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
+def _get_tracking_username() -> str:
+    global _tracking_username
+    if _tracking_username is not None:
+        return _tracking_username
+    else:
+        return os.environ.get(_TRACKING_USERNAME_ENV_VAR)
+
+
+def _get_tracking_password() -> str:
+    global _tracking_password
+    if _tracking_password is not None:
+        return _tracking_password
+    else:
+        return os.environ.get(_TRACKING_PASSWORD_ENV_VAR)
+
+
+def _get_tracking_token() -> str:
+    global _tracking_token
+    if _tracking_token is not None:
+        return _tracking_token
+    else:
+        return os.environ.get(_TRACKING_TOKEN_ENV_VAR)
+
+
 def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
@@ -153,9 +222,9 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
 def _get_default_host_creds(store_uri):
     return rest_utils.MlflowHostCreds(
         host=store_uri,
-        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
-        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        username=_get_tracking_username(),
+        password=_get_tracking_password(),
+        token=_get_tracking_token(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
         client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
