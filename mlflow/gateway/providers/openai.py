@@ -15,6 +15,7 @@ class OpenAIProvider(BaseProvider):
             messages=jsonable_encoder(payload.messages),
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
+        # ```
         # {
         #    "id":"chatcmpl-abc123",
         #    "object":"chat.completion",
@@ -36,6 +37,7 @@ class OpenAIProvider(BaseProvider):
         #       }
         #    ]
         # }
+        # ```
         return chat.ResponsePayload(
             **{
                 "candidates": [
@@ -66,6 +68,7 @@ class OpenAIProvider(BaseProvider):
             prompt=payload.prompt,
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
+        # ```
         # {
         #   "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         #   "object": "text_completion",
@@ -85,6 +88,7 @@ class OpenAIProvider(BaseProvider):
         #     "total_tokens": 12
         #   }
         # }
+        # ```
         return completions.ResponsePayload(
             **{
                 "candidates": [
