@@ -1,8 +1,7 @@
-from ..config import Provider
-
 from mlflow.exceptions import MlflowException
 from .base import BaseProvider
 from .openai import OpenAIProvider
+from ..config import Provider
 
 
 def get_provider(provider: Provider) -> BaseProvider:
