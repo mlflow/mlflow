@@ -219,7 +219,7 @@ import threading
 import inspect
 import functools
 from copy import deepcopy
-from typing import Any, Dict, Union, Iterator, Tuple
+from typing import Any, Dict, Optional, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
@@ -388,7 +388,9 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    def predict(self, data: PyFuncInput, parameters: Dict[str, Any] = None) -> PyFuncOutput:
+    def predict(
+        self, data: PyFuncInput, parameters: Optional[Dict[str, Any]] = None
+    ) -> PyFuncOutput:
         """
         Generate model predictions.
 
