@@ -4,6 +4,9 @@
 MLflow Authentication
 =====================
 
+.. note::
+    This feature is still experimental and may change in a future release without warning.
+
 MLflow supports basic HTTP authentication to enable access control over experiments and registered models.
 Once enabled, any visitor will be required to login before they can view any resource from the Tracking Server.
 
@@ -78,6 +81,8 @@ The default permission for all users is ``READ``. It can be changed in the :ref:
 Permissions can be set on two MLflow components: Experiments and Registered Models.
 Certain APIs can only be requested if the user has the required permission.
 Otherwise, a "Permission Denied" response will be returned.
+
+Required Permissions for accessing experiments:
 
 .. list-table::
    :widths: 10 10 10 10
@@ -179,6 +184,17 @@ Otherwise, a "Permission Denied" response will be returned.
      - ``2.0/mlflow/metrics/get-history``
      - ``GET``
      - ExperimentPermission.can_read
+
+Required Permissions for accessing registered models:
+
+.. list-table::
+   :widths: 10 10 10 10
+   :header-rows: 1
+
+   * - API
+     - Endpoint
+     - Method
+     - Required permission
    * - :ref:`Create Registered Model <mlflowModelRegistryServicecreateRegisteredModel>`
      - ``2.0/mlflow/registered-models/create``
      - ``POST``
@@ -277,7 +293,7 @@ MLflow Authentication introduces several new API endpoints to manage users and p
    * - API
      - Endpoint
      - Method
-     - Permission
+     - Required permission
    * - :ref:`Create User <mlflowAuthServicecreateUser>`
      - ``2.0/mlflow/users/create``
      - ``POST``
@@ -468,36 +484,21 @@ Once a user is logged in, the only way to log out is to close the browser.
 
     .. image:: ../_static/images/auth_prompt.png
 
-Using REST API
---------------
-
-A user can authenticate using the HTTP ``Authorization`` request header.
-See https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication for more information.
-
-In Python, you can use the ``requests`` library:
-
-.. code-block:: python
-
-    import requests
-
-    response = requests.get(
-        "https://<mlflow_tracking_uri>/",
-        auth=("username", "password"),
-    )
-
-Using MLflow Client
--------------------
+Using Environment Variables
+---------------------------
 
 MLflow provides two environment variables for authentication: ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD``.
 To use basic authentication, you must set both environment variables.
 
+.. code-block:: bash
+
+    export MLFLOW_TRACKING_USERNAME=username
+    export MLFLOW_TRACKING_PASSWORD=password
+
+
 .. code-block:: python
 
-    import os
     import mlflow
-
-    os.environ["MLFLOW_TRACKING_USERNAME"] = "username"
-    os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
 
     mlflow.set_tracking_uri("https://<mlflow_tracking_uri>/")
     with mlflow.start_run():
@@ -520,9 +521,26 @@ they override any credentials provided in the credentials file.
     mlflow_tracking_username = username
     mlflow_tracking_password = password
 
+Using REST API
+--------------
+
+A user can authenticate using the HTTP ``Authorization`` request header.
+See https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication for more information.
+
+In Python, you can use the ``requests`` library:
+
+.. code-block:: python
+
+    import requests
+
+    response = requests.get(
+        "https://<mlflow_tracking_uri>/",
+        auth=("username", "password"),
+    )
+
 
 Creating a New User
-=================
+===================
 
 Using MLflow UI
 ---------------
