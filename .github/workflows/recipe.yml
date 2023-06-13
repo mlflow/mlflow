@@ -57,7 +57,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
-      - uses: ./.github/actions/untrakced
+      - uses: ./.github/actions/untracked
 
   recipes-windows:
     runs-on: windows-latest
@@ -91,4 +91,4 @@ jobs:
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
-      - uses: ./.github/actions/untrakced
+      - uses: ./.github/actions/untracked
