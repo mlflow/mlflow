@@ -282,8 +282,7 @@ class UCIHousing(paddle.nn.Layer):
         self.fc_ = paddle.nn.Linear(13, 1, None)
 
     def forward(self, inputs):  # pylint: disable=arguments-differ
-        pred = self.fc_(inputs)
-        return pred
+        return self.fc_(inputs)
 
 
 @pytest.fixture
