@@ -86,7 +86,7 @@ Otherwise, a "Permission Denied" response will be returned.
    * - API
      - Endpoint
      - Method
-     - Permission
+     - Required permission
    * - :ref:`Create Experiment <mlflowMlflowServicecreateExperiment>`
      - ``2.0/mlflow/experiments/create``
      - ``POST``
@@ -384,12 +384,16 @@ Admin Users
 
 Admin users have unrestricted access to all MLflow resources,
 **including creating or deleting users, updating password and admin status of other users,
-grating or revoking permissions from other users, and managing permissions for all 
-MLflow resources,** even if ``NO_PERMISSIONS`` is explicitly set to an admin.
+granting or revoking permissions from other users, and managing permissions for all 
+MLflow resources,** even if ``NO_PERMISSIONS`` is explicitly set to that admin account.
 
-MLflow has a built-in admin user that will be created the first time MLflow authentication feature is enabled.
-The default admin user credentials are as follows.
-It is recommended that you update the password as soon as possible after it is created.
+MLflow has a built-in admin user that will be created the first time that the MLflow authentication feature is enabled.
+
+.. note::
+    It is recommended that you update the default admin password as soon as possible after creation.
+
+The default admin user credentials are as follows:
+
 
 .. list-table::
    :widths: 10 10
@@ -459,7 +463,7 @@ Using MLflow UI
 When a user first visits the MLflow UI on a browser, they will be prompted to login. 
 There is no limit to how many login attempts can be made.
 
-Currently, MLflow UI does not display any information of the current user.
+Currently, MLflow UI does not display any information about the current user.
 Once a user is logged in, the only way to log out is to close the browser.
 
     .. image:: ../_static/images/auth_prompt.png
@@ -502,8 +506,8 @@ To use basic authentication, you must set both environment variables.
 Using Credentials File
 ----------------------
 
-You can save your credentials in a file to remove the need of setting environment variables every time.
-The credentials should be saved in ``~/.mlflow/credentials`` using INI format. Note that the password 
+You can save your credentials in a file to remove the need for setting environment variables every time.
+The credentials should be saved in ``~/.mlflow/credentials`` using ``INI`` format. Note that the password 
 will be stored unencrypted on disk, and is protected only by filesystem permissions.
 
 If the environment variables ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` are configured,
@@ -517,7 +521,7 @@ they override any credentials provided in the credentials file.
     mlflow_tracking_password = password
 
 
-Creating New User
+Creating a New User
 =================
 
 Using MLflow UI
