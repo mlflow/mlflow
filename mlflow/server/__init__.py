@@ -137,8 +137,11 @@ def get_app_client(app_name: str, *args, **kwargs):
 
 def _build_waitress_command(waitress_opts, host, port, app_name):
     opts = shlex.split(waitress_opts) if waitress_opts else []
+    pathexe = sys.exec_prefix + "/Scripts/waitress-serve.exe"
+    if not os.path.exists(pathexe):
+        pathexe = "waitress-serve"
     return (
-        ["waitress-serve"]
+        [pathexe]
         + opts
         + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", app_name]
     )
