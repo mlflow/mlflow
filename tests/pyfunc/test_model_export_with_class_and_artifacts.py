@@ -62,7 +62,7 @@ def get_model_class():
             # pylint: disable=attribute-defined-outside-init
             self.model = mlflow.sklearn.load_model(model_uri=context.artifacts["sk_model"])
 
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             return self.predict_fn(self.model, model_input)
 
     return CustomSklearnModel
@@ -818,7 +818,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         f.write(nested_file_text)
 
     class ArtifactValidationModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             expected_file_path = os.path.join(
                 context.artifacts["testdir"], nested_file_relative_path
             )
@@ -969,7 +969,7 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
     model_path,
 ):
     class TestModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             return model_input
 
     mlflow.pyfunc.save_model(path=model_path, python_model=TestModel())
@@ -1004,7 +1004,7 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
 
 def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     class TestModel(mlflow.pyfunc.PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             return model_input
 
     mlflow.pyfunc.save_model(path=model_path, python_model=TestModel())
@@ -1064,7 +1064,7 @@ class CustomModel(mlflow.pyfunc.PythonModel):
     def __init__(self):
         pass
 
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, parameters=None):
         import custom_module
 
         return custom_module.predict()
@@ -1164,7 +1164,7 @@ class SklearnModel(mlflow.pyfunc.PythonModel):
 
         self.model = LinearRegression()
 
-    def predict(self, context, model_input):
+    def predict(self, context, model_input, parameters=None):
         return self.model.predict(model_input)
 
 
@@ -1421,7 +1421,9 @@ def test_functional_python_model_throws_when_required_arguments_are_missing(tmp_
 
 
 class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context: Dict[str, Any], model_input: List[str]) -> List[str]:
+    def predict(
+        self, context: Dict[str, Any], model_input: List[str], parameters=None
+    ) -> List[str]:
         assert isinstance(model_input, list)
         assert all(isinstance(x, str) for x in model_input)
         return model_input

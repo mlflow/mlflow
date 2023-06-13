@@ -424,12 +424,12 @@ class PyFuncModel:
 
             try:
                 with openai_auto_retry_patch():
-                    return self._predict_fn(data)
+                    return self._predict_fn(data, **parameters)
             except Exception:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data, parameters)
+        return self._predict_fn(data, **parameters)
 
     @experimental
     def unwrap_python_model(self):
@@ -449,7 +449,7 @@ class PyFuncModel:
 
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input):
+                def predict(self, context, model_input, parameters=None):
                     return self.my_custom_function(model_input)
 
                 def my_custom_function(self, model_input):
@@ -1429,7 +1429,7 @@ def save_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str]) -> List[str]:
+                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
                     return [i.upper() for i in model_input]
 
 
@@ -1682,7 +1682,7 @@ def log_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str]) -> List[str]:
+                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
                     return [i.upper() for i in model_input]
 
 
