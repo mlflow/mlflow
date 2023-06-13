@@ -32,7 +32,7 @@ from mlflow.utils.server_cli_utils import (
     artifacts_only_config_validation,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, InvalidUrlException
 
 _logger = logging.getLogger(__name__)
 
@@ -487,6 +487,8 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
+    If the provided artifact URL is invalid, the artifact deletion will be bypassed,
+    and the gc process will continue.
     """
     from mlflow.utils.time_utils import get_current_time_millis
 
@@ -605,7 +607,24 @@ def gc(older_than, backend_store_uri, run_ids, experiment_ids):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.delete_artifacts()
+        try:
+            artifact_repo.delete_artifacts()
+        except InvalidUrlException as iue:
+            click.echo(
+                click.style(
+                    f"An exception {repr(iue)} was raised during the deletion of a model artifact",
+                    fg="yellow",
+                )
+            )
+            click.echo(
+                click.style(
+                    f"Unable to resolve the provided artifact URL: '{artifact_repo}'. "
+                    "The gc process will continue and bypass artifact deletion. "
+                    "Please ensure that the artifact exists "
+                    "and consider manually deleting any unused artifacts. ",
+                    fg="yellow",
+                ),
+            )
         backend_store._hard_delete_run(run_id)
         click.echo("Run with ID %s has been permanently deleted." % str(run_id))
 

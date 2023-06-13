@@ -86,6 +86,18 @@ export interface RunInfoEntity {
   getStatus(): string;
 }
 
+export interface RunDatasetWithTags {
+  dataset: {
+    digest: string;
+    name: string;
+    profile: string;
+    schema: string;
+    source: string;
+    source_type: string;
+  };
+  tags: KeyValueEntity[];
+}
+
 export interface MetricEntity {
   key: string;
   step: number;
@@ -131,6 +143,11 @@ export interface ExperimentStoreEntities {
    * Dictionary with run UUID as key and run info object as a value
    */
   runInfosByUuid: Record<string, RunInfoEntity>;
+
+  /**
+   * Dictionary of recorded input datasets by run UUIDs
+   */
+  runDatasetsByUuid: Record<string, RunDatasetWithTags[]>;
 
   /**
    * Dictionary with run UUID as key and metric sub-dictionary as a value.
@@ -234,3 +251,46 @@ export type UpdateExperimentSearchFacetsFn = (
 export type UpdateExperimentViewStateFn = (
   newPartialViewState: Partial<SearchExperimentRunsViewState>,
 ) => void;
+
+/**
+ * Enum representing the different types of dataset sources.
+ */
+export enum DatasetSourceTypes {
+  DELTA = 'delta_table',
+  EXTERNAL = 'external',
+  CODE = 'code',
+  LOCAL = 'local',
+}
+
+/**
+ * Describes a single entry in the text evaluation artifact
+ */
+export interface EvaluationArtifactTableEntry {
+  [fieldName: string]: string;
+}
+
+/**
+ * Descibes a single text evaluation artifact with a set of entries and its name
+ */
+export interface EvaluationArtifactTable {
+  path: string;
+  columns: string[];
+  entries: EvaluationArtifactTableEntry[];
+}
+
+/**
+ * Known artifact types that are useful for the evaluation purposes
+ */
+export enum RunLoggedArtifactType {
+  TABLE = 'table',
+}
+
+/**
+ * Shape of the contents of "mlflow.loggedArtifacts" tag
+ */
+export type RunLoggedArtifactsDeclaration = {
+  path: string;
+  type: RunLoggedArtifactType;
+}[];
+
+export type ExperimentViewRunsCompareMode = undefined | 'ARTIFACT' | 'CHART';

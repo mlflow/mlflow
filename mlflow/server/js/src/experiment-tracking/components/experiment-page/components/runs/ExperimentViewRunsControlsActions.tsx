@@ -1,23 +1,35 @@
-import { Button, Option, Select } from '@databricks/design-system';
+import { Button, Checkbox, Option, Select, SidebarIcon } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 import React, { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useHistory } from 'react-router-dom';
-import { LIFECYCLE_FILTER } from '../../../../constants';
+import { useNavigate } from 'react-router-dom-v5-compat';
+import { COLUMN_SORT_BY_ASC, LIFECYCLE_FILTER, SORT_DELIMITER_SYMBOL } from '../../../../constants';
 import Routes from '../../../../routes';
-import { UpdateExperimentSearchFacetsFn } from '../../../../types';
+import { UpdateExperimentSearchFacetsFn, UpdateExperimentViewStateFn } from '../../../../types';
 import { SearchExperimentRunsFacetsState } from '../../models/SearchExperimentRunsFacetsState';
 import { SearchExperimentRunsViewState } from '../../models/SearchExperimentRunsViewState';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunModals } from './ExperimentViewRunModals';
+import { ExperimentViewRunsSortSelector } from './ExperimentViewRunsSortSelector';
+import { ExperimentViewRunsColumnSelector } from './ExperimentViewRunsColumnSelector';
+import { TAGS_TO_COLUMNS_MAP } from '../../utils/experimentPage.column-utils';
+import type { ExperimentRunSortOption } from '../../hooks/useRunSortOptions';
+import {
+  shouldEnableArtifactBasedEvaluation,
+  shouldEnableExperimentDatasetTracking,
+} from '../../../../../common/utils/FeatureUtils';
+import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
 
 export type ExperimentViewRunsControlsActionsProps = {
   viewState: SearchExperimentRunsViewState;
-
+  sortOptions: ExperimentRunSortOption[];
+  updateViewState: UpdateExperimentViewStateFn;
   searchFacetsState: SearchExperimentRunsFacetsState;
   updateSearchFacets: UpdateExperimentSearchFacetsFn;
   runsData: ExperimentRunsSelectorResult;
+  expandRows: boolean;
+  updateExpandRows: (expandRows: boolean) => void;
 };
 
 const CompareRunsButtonWrapper: React.FC = ({ children }) => <>{children}</>;
@@ -26,18 +38,50 @@ export const ExperimentViewRunsControlsActions = React.memo(
   ({
     viewState,
     runsData,
+    sortOptions,
     searchFacetsState,
     updateSearchFacets,
+    updateViewState,
+    expandRows,
+    updateExpandRows,
   }: ExperimentViewRunsControlsActionsProps) => {
     const { runsSelected } = viewState;
     const { runInfos } = runsData;
-    const { lifecycleFilter, startTime } = searchFacetsState;
+    const { lifecycleFilter, compareRunsMode } = searchFacetsState;
 
-    const history = useHistory();
-    const intl = useIntl();
+    const isComparingRuns = compareRunsMode !== undefined;
 
-    // List of labels for "start time" filter
-    const startTimeColumnLabels = useMemo(() => getStartTimeColumnDisplayName(intl), [intl]);
+    const navigate = useNavigate();
+
+    // Callback fired when the sort column value changes
+    const sortKeyChanged = useCallback(
+      ({ value: compiledOrderByKey }) => {
+        const [newOrderBy, newOrderAscending] = compiledOrderByKey.split(SORT_DELIMITER_SYMBOL);
+
+        const columnToAdd = TAGS_TO_COLUMNS_MAP[newOrderBy] || newOrderBy;
+        const isOrderAscending = newOrderAscending === COLUMN_SORT_BY_ASC;
+
+        updateSearchFacets((currentFacets) => {
+          const { selectedColumns } = currentFacets;
+          if (!selectedColumns.includes(columnToAdd)) {
+            selectedColumns.push(columnToAdd);
+          }
+          return {
+            ...currentFacets,
+            selectedColumns,
+            orderByKey: newOrderBy,
+            orderByAsc: isOrderAscending,
+          };
+        });
+      },
+      [updateSearchFacets],
+    );
+
+    // Shows or hides the column selector
+    const changeColumnSelectorVisible = useCallback(
+      (value: boolean) => updateViewState({ columnSelectorVisible: value }),
+      [updateViewState],
+    );
 
     const [showDeleteRunModal, setShowDeleteRunModal] = useState(false);
     const [showRestoreRunModal, setShowRestoreRunModal] = useState(false);
@@ -58,10 +102,9 @@ export const ExperimentViewRunsControlsActions = React.memo(
       const experimentIds = runInfos
         .filter(({ run_uuid }: any) => runsSelectedList.includes(run_uuid))
         .map(({ experiment_id }: any) => experiment_id);
-      history.push(
-        Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()),
-      );
-    }, [history, runInfos, runsSelected]);
+
+      navigate(Routes.getCompareRunPageRoute(runsSelectedList, [...new Set(experimentIds)].sort()));
+    }, [navigate, runInfos, runsSelected]);
 
     const onDeleteRun = useCallback(() => setShowDeleteRunModal(true), []);
     const onRestoreRun = useCallback(() => setShowRestoreRunModal(true), []);
@@ -75,25 +118,14 @@ export const ExperimentViewRunsControlsActions = React.memo(
     const canCompareRuns = selectedRunsCount > 1;
     const showActionButtons = canCompareRuns || canRenameRuns || canRestoreRuns;
 
-    const currentLifecycleFilterLabel = (
-      <>
-        <FormattedMessage
-          defaultMessage='State:'
-          description='Filtering label to filter experiments based on state of active or deleted'
-        />{' '}
-        {lifecycleFilter}
-      </>
+    const toggleExpandedRows = useCallback(
+      () => updateExpandRows(!expandRows),
+      [expandRows, updateExpandRows],
     );
 
-    const currentStartTimeFilterLabel = (
-      <>
-        <FormattedMessage
-          defaultMessage='Time created'
-          description='Label for the start time select dropdown for experiment runs view'
-        />
-        : {startTimeColumnLabels[startTime as keyof typeof startTimeColumnLabels]}
-      </>
-    );
+    // Show preview sidebar only on table view and artifact view
+    const displaySidebarToggleButton =
+      compareRunsMode === undefined || compareRunsMode === 'ARTIFACT';
 
     return (
       <div css={styles.controlBar}>
@@ -110,50 +142,30 @@ export const ExperimentViewRunsControlsActions = React.memo(
 
         {!showActionButtons && (
           <>
-            <Select
-              className='start-time-select'
-              value={{ value: startTime, label: currentStartTimeFilterLabel }}
-              labelInValue
-              onChange={({ value: newStartTime }) => {
-                updateSearchFacets({ startTime: newStartTime });
-              }}
-              data-test-id='start-time-select-dropdown'
-              // Temporarily we're disabling virtualized list to maintain
-              // backwards compatibility. Functional unit tests rely heavily
-              // on non-virtualized values.
-              virtual={false}
-            >
-              {Object.keys(startTimeColumnLabels).map((startTimeKey) => (
-                <Option
-                  key={startTimeKey}
-                  title={startTimeColumnLabels[startTimeKey as keyof typeof startTimeColumnLabels]}
-                  data-test-id={`start-time-select-${startTimeKey}`}
-                  value={startTimeKey}
-                >
-                  {startTimeColumnLabels[startTimeKey as keyof typeof startTimeColumnLabels]}
-                </Option>
-              ))}
-            </Select>
+            <ExperimentViewRunsSortSelector
+              onSortKeyChanged={sortKeyChanged}
+              searchFacetsState={searchFacetsState}
+              sortOptions={sortOptions}
+            />
+            {!isComparingRuns && (
+              <ExperimentViewRunsColumnSelector
+                columnSelectorVisible={viewState.columnSelectorVisible}
+                onChangeColumnSelectorVisible={changeColumnSelectorVisible}
+                runsData={runsData}
+              />
+            )}
 
-            <Select
-              value={{ value: lifecycleFilter, label: currentLifecycleFilterLabel }}
-              labelInValue
-              data-testid='lifecycle-filter'
-              onChange={({ value }) => updateSearchFacets({ lifecycleFilter: value })}
-            >
-              <Select.Option data-testid='active-runs-menu-item' value={LIFECYCLE_FILTER.ACTIVE}>
-                <FormattedMessage
-                  defaultMessage='Active'
-                  description='Linked model dropdown option to show active experiment runs'
-                />
-              </Select.Option>
-              <Select.Option data-testid='deleted-runs-menu-item' value={LIFECYCLE_FILTER.DELETED}>
-                <FormattedMessage
-                  defaultMessage='Deleted'
-                  description='Linked model dropdown option to show deleted experiment runs'
-                />
-              </Select.Option>
-            </Select>
+            {!isComparingRuns && shouldEnableExperimentDatasetTracking() && (
+              <Button onClick={() => toggleExpandedRows()}>
+                <div css={{ display: 'flex' }}>
+                  <Checkbox isChecked={expandRows} />
+                  <FormattedMessage
+                    defaultMessage='Expand rows'
+                    description='Label for the expand rows button above the experiment runs table'
+                  />
+                </div>
+              </Button>
+            )}
           </>
         )}
 
@@ -211,6 +223,14 @@ export const ExperimentViewRunsControlsActions = React.memo(
               </Button>
             </CompareRunsButtonWrapper>
           </>
+        )}
+        <div css={{ flex: '1' }} />
+        {shouldEnableArtifactBasedEvaluation() && displaySidebarToggleButton && (
+          <ToggleIconButton
+            pressed={viewState.previewPaneVisible}
+            icon={<SidebarIcon />}
+            onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
+          />
         )}
       </div>
     );

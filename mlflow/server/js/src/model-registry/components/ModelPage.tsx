@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { connect } from 'react-redux';
 import {
@@ -18,10 +25,10 @@ import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { injectIntl } from 'react-intl';
 import { ErrorWrapper } from './../../common/utils/ErrorWrapper';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
-type ModelPageImplProps = {
-  history: any;
-  match: any;
+type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   modelName: string;
   model?: any;
   modelVersions?: any[];
@@ -85,14 +92,14 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   };
 
   pollData = () => {
-    const { modelName, history } = this.props;
+    const { modelName, navigate } = this.props;
     if (!this.hasUnfilledRequests && Utils.isBrowserTabVisible()) {
       // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
       return this.loadData().catch((e) => {
         if (e instanceof ErrorWrapper && e.getErrorCode() === 'RESOURCE_DOES_NOT_EXIST') {
           Utils.logErrorAndNotifyUser(e);
           this.props.deleteRegisteredModelApi(modelName, undefined, true);
-          history.push(modelListPageRoute);
+          navigate(modelListPageRoute);
         } else {
           console.error(e);
         }
@@ -113,7 +120,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   }
 
   render() {
-    const { model, modelVersions, history, modelName } = this.props;
+    const { model, modelVersions, navigate, modelName } = this.props;
     return (
       <PageContainer>
         <RequestStateWrapper
@@ -152,7 +159,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
                   modelVersions={modelVersions}
                   handleEditDescription={this.handleEditDescription}
                   handleDelete={this.handleDelete}
-                  history={history}
+                  navigate={navigate}
                 />
               );
             }
@@ -164,8 +171,8 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps> {
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
-  const modelName = decodeURIComponent(ownProps.match.params.modelName);
+const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ modelName: string }>) => {
+  const modelName = decodeURIComponent(ownProps.params.modelName);
   const model = state.entities.modelByName[modelName];
   const modelVersions = getModelVersions(state, modelName);
   return {
@@ -182,5 +189,7 @@ const mapDispatchToProps = {
   deleteRegisteredModelApi,
 };
 
-// @ts-expect-error TS(2769): No overload matches this call.
-export const ModelPage = connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl));
+export const ModelPage = withRouterNext(
+  // @ts-expect-error TS(2769): No overload matches this call.
+  connect(mapStateToProps, mapDispatchToProps)(injectIntl(ModelPageImpl)),
+);

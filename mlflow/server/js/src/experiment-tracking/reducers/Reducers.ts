@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import { combineReducers } from 'redux';
 import {
   CLOSE_ERROR_MODAL,
@@ -33,6 +40,7 @@ import {
 import { SEARCH_MODEL_VERSIONS } from '../../model-registry/actions';
 import { getProtoField } from '../../model-registry/utils';
 import Utils from '../../common/utils/Utils';
+import { evaluationDataReducer as evaluationData } from './EvaluationDataReducer';
 
 export const getExperiments = (state: any) => {
   return Object.values(state.entities.experimentsById);
@@ -85,6 +93,10 @@ export const getRunInfo = (runUuid: any, state: any) => {
   return state.entities.runInfosByUuid[runUuid];
 };
 
+export const getRunDatasets = (runUuid: string, state: any) => {
+  return state.entities.runDatasetsByUuid[runUuid];
+};
+
 export const runUuidsMatchingFilter = (state = [], action: any) => {
   switch (action.type) {
     case fulfilled(SEARCH_RUNS_API):
@@ -94,6 +106,42 @@ export const runUuidsMatchingFilter = (state = [], action: any) => {
       if (isArray(action.payload?.runsMatchingFilter)) {
         // @ts-expect-error TS(2345): Argument of type 'any' is not assignable to parame... Remove this comment to see the full error message
         newState.push(...action.payload.runsMatchingFilter.map(({ info }: any) => info.run_uuid));
+      }
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+export const runDatasetsByUuid = (state = {}, action: any) => {
+  switch (action.type) {
+    case fulfilled(GET_RUN_API): {
+      const { run } = action.payload;
+      const runUuid = run.info.run_uuid;
+      const runInputInfo = run.inputs || [];
+      const newState = { ...state };
+      if (runInputInfo && runUuid) {
+        // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+        newState[runUuid] = runInputInfo.dataset_inputs;
+      }
+      return newState;
+    }
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
+      const newState = { ...state };
+      if (action.payload && action.payload.runs) {
+        action.payload.runs.forEach((runJson: any) => {
+          if (!runJson) {
+            return;
+          }
+          const runInputInfo = runJson.inputs;
+          const runUuid = runJson.info.run_uuid;
+          if (runInputInfo && runUuid) {
+            // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+            newState[runUuid] = runInputInfo.dataset_inputs;
+          }
+        });
       }
       return newState;
     }
@@ -413,6 +461,7 @@ export const artifactRootUriByRunUuid = (state = {}, action: any) => {
 export const entities = combineReducers({
   experimentsById,
   runInfosByUuid,
+  runDatasetsByUuid,
   runUuidsMatchingFilter,
   metricsByRunUuid,
   latestMetricsByRunUuid,
@@ -545,6 +594,7 @@ export const rootReducer = combineReducers({
   views,
   apis,
   compareExperiments,
+  evaluationData,
 });
 
 export const getEntities = (state: any) => {

@@ -24,6 +24,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -49,7 +54,10 @@ from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_AUTOLOGGING,
+    MLFLOW_DATASET_CONTEXT,
+)
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -950,6 +958,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1189,6 +1198,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1230,6 +1241,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
@@ -1246,6 +1258,7 @@ def _autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1367,7 +1380,7 @@ def _autolog(
         # attempt to infer input examples on data that was mutated during training
         (X, y_true, sample_weight) = _get_X_y_and_sample_weight(self.fit, args, kwargs)
         autologging_client = MlflowAutologgingQueueingClient()
-        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        _log_pretraining_metadata(autologging_client, self, X, y_true)
         params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
         _log_posttraining_metadata(autologging_client, self, X, y_true, sample_weight)
@@ -1376,7 +1389,7 @@ def _autolog(
         return fit_output
 
     def _log_pretraining_metadata(
-        autologging_client, estimator, *args, **kwargs
+        autologging_client, estimator, X, y
     ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
@@ -1387,9 +1400,6 @@ def _autolog(
         :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                    efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
-        :param args: The arguments passed to the scikit-learn training routine (e.g.,
-                     `fit()`, `fit_transform()`, ...).
-        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
         """
         # Deep parameter logging includes parameters from children of a given
         # estimator. For some meta estimators (e.g., pipelines), recording
@@ -1407,6 +1417,24 @@ def _autolog(
             run_id=run_id,
             tags=_get_estimator_info_tags(estimator),
         )
+
+        if log_datasets:
+            try:
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(context_tags)
+
+                dataset = _create_dataset(X, source, y)
+                if dataset:
+                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                    autologging_client.log_inputs(
+                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                    )
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
     def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
         """
@@ -1616,6 +1644,27 @@ def _autolog(
             _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
                 run_id, eval_dataset_name, predict_result
             )
+            if log_datasets:
+                try:
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(context_tags)
+
+                    dataset = _create_dataset(eval_dataset, source)
+
+                    # log the dataset
+                    if dataset:
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                        # log the dataset
+                        client = mlflow.MlflowClient()
+                        client.log_inputs(run_id=run_id, datasets=[dataset_input])
+                except Exception as e:
+                    _logger.warning(
+                        "Failed to log evaluation dataset information to "
+                        "MLflow Tracking. Reason: %s",
+                        e,
+                    )
             return predict_result
         else:
             return original(self, *args, **kwargs)
@@ -1807,3 +1856,28 @@ def _autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
+
+    def _create_dataset(X, source, y=None, dataset_name=None):
+        # create a dataset
+        from scipy.sparse import issparse
+
+        if isinstance(X, pd.DataFrame):
+            dataset = from_pandas(df=X, source=source)
+        elif issparse(X):
+            arr_X = X.toarray()
+            if y is not None:
+                arr_y = y.toarray()
+                dataset = from_numpy(
+                    features=arr_X, targets=arr_y, source=source, name=dataset_name
+                )
+            else:
+                dataset = from_numpy(features=arr_X, source=source, name=dataset_name)
+        elif isinstance(X, np.ndarray):
+            if y is not None:
+                dataset = from_numpy(features=X, targets=y, source=source, name=dataset_name)
+            else:
+                dataset = from_numpy(features=X, source=source, name=dataset_name)
+        else:
+            _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(X))
+            return None
+        return dataset

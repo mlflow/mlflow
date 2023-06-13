@@ -1,10 +1,12 @@
 import { Provider } from 'react-redux';
-import { Route, useHistory, MemoryRouter } from 'react-router-dom';
-import configureStore, { MockStoreEnhanced } from 'redux-mock-store';
+import { act } from 'react-dom/test-utils';
+import { Route, MemoryRouter, useLocation, Routes } from 'react-router-dom-v5-compat';
+import configureStore from 'redux-mock-store';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { mountWithIntl } from '../../common/utils/TestUtils';
 import { getRunApi } from '../actions';
 import { DirectRunPage } from './DirectRunPage';
+import { useEffect } from 'react';
 
 jest.mock('./PageNotFoundView', () => ({
   PageNotFoundView: () => <div>Page not found</div>,
@@ -15,9 +17,8 @@ jest.mock('../actions', () => ({
 }));
 
 describe('DirectRunPage', () => {
-  let mockHistory: any;
-  // @ts-expect-error TS(2709): Cannot use namespace 'MockStoreEnhanced' as a type... Remove this comment to see the full error message
-  let mockStore: MockStoreEnhanced<any>;
+  let mockLocation: any;
+  let mockStore: any;
 
   const mountComponent = (runInfosByUuid = {}, runUuid = '') => {
     mockStore = configureStore([])({
@@ -27,11 +28,17 @@ describe('DirectRunPage', () => {
     });
 
     const TestComponent = () => {
-      mockHistory = useHistory();
+      const location = useLocation();
+      useEffect(() => {
+        mockLocation = location;
+      }, [location]);
 
       return (
         <Provider store={mockStore}>
-          <Route path='/:runUuid' component={DirectRunPage} />
+          <Routes>
+            <Route path='/experiments/:experimentId/runs/:runId' element={null} />
+            <Route path='/:runUuid' element={<DirectRunPage />} />
+          </Routes>
         </Provider>
       );
     };
@@ -50,7 +57,7 @@ describe('DirectRunPage', () => {
       '321-run-id',
     );
 
-    expect(mockHistory.location.pathname).toBe('/experiments/123-exp-id/runs/321-run-id');
+    expect(mockLocation.pathname).toBe('/experiments/123-exp-id/runs/321-run-id');
   });
 
   test('properly dispatches redux actions for fetching the run', () => {
@@ -63,15 +70,20 @@ describe('DirectRunPage', () => {
   });
 
   test('displays error if run does not exist', async () => {
+    // Suppress 404 console error
+    jest.spyOn(console, 'error').mockReturnThis();
     (getRunApi as jest.Mock).mockReturnValue({
       type: 'getRunApi',
       payload: Promise.reject(new ErrorWrapper('', 404)),
     });
     const wrapper = mountComponent({}, '321-run-id');
-    await new Promise(setImmediate);
 
-    wrapper.update();
+    await act(async () => {
+      await new Promise(setImmediate);
+      wrapper.update();
+    });
 
     expect(wrapper.html()).toContain('Page not found');
+    jest.restoreAllMocks();
   });
 });

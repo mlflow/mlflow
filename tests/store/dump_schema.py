@@ -1,6 +1,5 @@
 """Script that generates a dump of the MLflow tracking database schema"""
 import os
-import shutil
 import sys
 
 import sqlalchemy
@@ -27,14 +26,11 @@ def dump_db_schema(db_url, dst_file):
 
 
 def dump_sqlalchemy_store_schema(dst_file):
-    db_tmpdir = tempfile.mkdtemp()
-    try:
+    with tempfile.TemporaryDirectory() as db_tmpdir:
         path = os.path.join(db_tmpdir, "db_file")
         db_url = "sqlite:///%s" % path
         SqlAlchemyStore(db_url, db_tmpdir)
         dump_db_schema(db_url, dst_file)
-    finally:
-        shutil.rmtree(db_tmpdir)
 
 
 if __name__ == "__main__":

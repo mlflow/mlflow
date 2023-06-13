@@ -1,8 +1,15 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
 import { ModelView, ModelViewImpl, StageFilters } from './ModelView';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
 import { ModelVersionStatus, Stages } from '../constants';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom-v5-compat';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { getCompareModelVersionsPageRoute } from '../routes';
@@ -17,10 +24,10 @@ describe('ModelView', () => {
   let wrapper;
   let instance;
   let minimalProps: any;
-  let historyMock: any;
   let minimalStoreRaw;
   let minimalStore: any;
   let createComponentInstance: any;
+  const navigateMock = jest.fn();
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const mockModel = {
     name: 'Model A',
@@ -49,7 +56,7 @@ describe('ModelView', () => {
     global.fetch = jest.fn(() =>
       Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }),
     );
-    historyMock = jest.fn();
+    navigateMock.mockClear();
     minimalProps = {
       model: mockRegisteredModelDetailed(
         mockModel.name,
@@ -64,7 +71,7 @@ describe('ModelView', () => {
       handleEditDescription: jest.fn(),
       handleDelete: jest.fn(),
       showEditPermissionModal: jest.fn(),
-      history: { push: historyMock },
+      navigate: navigateMock,
       tags: {},
       setRegisteredModelTagApi: jest.fn(),
       deleteRegisteredModelTagApi: jest.fn(),
@@ -87,9 +94,9 @@ describe('ModelView', () => {
       mountWithIntl(
         <DesignSystemProvider>
           <Provider store={minimalStore}>
-            <BrowserRouter>
+            <MemoryRouter>
               <ModelView {...modelViewProps} />
-            </BrowserRouter>
+            </MemoryRouter>
           </Provider>
         </DesignSystemProvider>,
       );
@@ -161,7 +168,7 @@ describe('ModelView', () => {
       false,
     );
     wrapper.find('[data-test-id="compareButton"]').hostNodes().simulate('click');
-    expect(historyMock).toHaveBeenCalledWith(
+    expect(navigateMock).toHaveBeenCalledWith(
       getCompareModelVersionsPageRoute(minimalProps['model']['name'], twoRunsSelected),
     );
   });

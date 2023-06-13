@@ -1,6 +1,5 @@
 import os
 import pytest
-import shutil
 import tempfile
 
 import mlflow
@@ -46,9 +45,10 @@ def _get_or_create_spark_session(jars=None):
 @pytest.fixture(scope="module")
 def spark_session():
     jar_path = _get_mlflow_spark_jar_path()
-    session = SparkSession.builder.config("spark.jars", jar_path).master("local[*]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.config("spark.jars", jar_path).master(
+        "local[*]"
+    ).getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")
@@ -76,11 +76,10 @@ def format_to_file_path(spark_session):
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     res = {}
-    tempdir = tempfile.mkdtemp()
-    for data_format in ["csv", "parquet", "json"]:
-        res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
+    with tempfile.TemporaryDirectory() as tempdir:
+        for data_format in ["csv", "parquet", "json"]:
+            res[data_format] = os.path.join(tempdir, "test-data-%s" % data_format)
 
-    for data_format, file_path in res.items():
-        df.write.option("header", "true").format(data_format).save(file_path)
-    yield res
-    shutil.rmtree(tempdir)
+        for data_format, file_path in res.items():
+            df.write.option("header", "true").format(data_format).save(file_path)
+        yield res

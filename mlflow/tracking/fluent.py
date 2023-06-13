@@ -10,7 +10,18 @@ import inspect
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from mlflow.entities import Experiment, Run, RunStatus, Param, RunTag, Metric, ViewType
+from mlflow.data.dataset import Dataset
+from mlflow.entities import (
+    Experiment,
+    Run,
+    RunStatus,
+    Param,
+    RunTag,
+    Metric,
+    ViewType,
+    InputTag,
+    DatasetInput,
+)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -23,6 +34,7 @@ from mlflow.tracking.context import registry as context_registry
 from mlflow.tracking.default_experiment import registry as default_experiment_registry
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.utils import env, get_results_from_paginated_fn
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     is_testing,
     autologging_integration,
@@ -32,6 +44,7 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
     MLFLOW_PARENT_RUN_ID,
     MLFLOW_RUN_NAME,
     MLFLOW_RUN_NOTE,
@@ -41,8 +54,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.validation import _validate_run_id, _validate_experiment_id_type
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
-from mlflow.utils.annotations import experimental
-
 
 if TYPE_CHECKING:
     import pandas  # pylint: disable=unused-import
@@ -487,9 +498,11 @@ def get_run(run_id: str) -> Run:
     Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
     contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
     as well as a collection of run parameters, tags, and metrics --
-    :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
-    same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
-    the most recently logged value at the largest step for each metric.
+    :py:class:`RunData <mlflow.entities.RunData>`. It also contains a collection of run
+    inputs (experimental), including information about datasets used by the run --
+    :py:class:`RunInputs <mlflow.entities.RunInputs>`. In the case where multiple metrics with the
+    same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains the
+    most recently logged value at the largest step for each metric.
 
     :param run_id: Unique identifier for the run.
 
@@ -735,6 +748,44 @@ def log_params(params: Dict[str, Any]) -> None:
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+@experimental
+def log_input(
+    dataset: Dataset, context: Optional[str] = None, tags: Optional[Dict[str, str]] = None
+) -> None:
+    """
+    Log a dataset used in the current run.
+
+    :param dataset: :py:class:`mlflow.data.dataset.Dataset` object to be logged.
+    :param context: Context in which the dataset is used. For example: "training", "testing".
+                    This will be set as an input tag with key `mlflow.data.context`.
+    :param tags: Tags to be associated with the dataset. Dictionary of tag_key -> tag_value.
+    :returns: None
+
+    .. test-code-block:: python
+        :caption: Example
+
+        import numpy as np
+        import mlflow
+
+        array = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+        dataset = mlflow.data.from_numpy(array, source="data.csv")
+
+        # Log an input dataset used for training
+        with mlflow.start_run():
+            mlflow.log_input(dataset, context="training")
+    """
+    run_id = _get_or_start_run().info.run_id
+    tags_to_log = []
+    if tags:
+        tags_to_log.extend([InputTag(key=key, value=value) for key, value in tags.items()])
+    if context:
+        tags_to_log.append(InputTag(key=MLFLOW_DATASET_CONTEXT, value=context))
+
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags_to_log)
+
+    MlflowClient().log_inputs(run_id=run_id, datasets=[dataset_input])
 
 
 def set_experiment_tags(tags: Dict[str, Any]) -> None:
@@ -1070,6 +1121,78 @@ def log_table(
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_table(run_id, data, artifact_file)
+
+
+@experimental
+def load_table(
+    artifact_file: str,
+    run_ids: Optional[List[str]] = None,
+    extra_columns: Optional[List[str]] = None,
+) -> "pandas.DataFrame":
+    """
+    Load a table from MLflow Tracking as a pandas.DataFrame. The table is loaded from the
+    specified artifact_file in the specified run_ids. The extra_columns are columns that
+    are not in the table but are augmented with run information and added to the DataFrame.
+
+    :param artifact_file: The run-relative artifact file path in posixpath format to which
+                          table to load (e.g. "dir/file.json").
+    :param run_ids: Optional list of run_ids to load the table from. If no run_ids are specified,
+                    the table is loaded from all runs in the current experiment.
+    :param extra_columns: Optional list of extra columns to add to the returned DataFrame
+                          For example, if extra_columns=["run_id"], then the returned DataFrame
+                          will have a column named run_id.
+
+    :return: pandas.DataFrame containing the loaded table if the artifact exists
+             or else throw a MlflowException.
+
+    .. test-code-block:: python
+        :caption: Example with passing run_ids
+
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run() as run:
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+            run_id = run.info.run_id
+
+        loaded_table = mlflow.load_table(
+            artifact_file="qabot_eval_results.json",
+            run_ids=[run_id],
+            # Append a column containing the associated run ID for each row
+            extra_columns=["run_id"],
+        )
+
+    .. test-code-block:: python
+        :caption: Example with passing no run_ids
+
+        # Loads the table with the specified name for all runs in the given
+        # experiment and joins them together
+        import mlflow
+
+        table_dict = {
+            "inputs": ["What is MLflow?", "What is Databricks?"],
+            "outputs": ["MLflow is ...", "Databricks is ..."],
+            "toxicity": [0.0, 0.0],
+        }
+
+        with mlflow.start_run():
+            # Log the dictionary as a table
+            mlflow.log_table(data=table_dict, artifact_file="qabot_eval_results.json")
+
+        loaded_table = mlflow.load_table(
+            "qabot_eval_results.json",
+            # Append the run ID and the parent run ID to the table
+            extra_columns=["run_id"],
+        )
+    """
+    experiment_id = _get_experiment_id()
+    return MlflowClient().load_table(experiment_id, artifact_file, run_ids, extra_columns)
 
 
 def _record_logged_model(mlflow_model):
@@ -1680,6 +1803,7 @@ def autolog(
     log_input_examples: bool = False,
     log_model_signatures: bool = True,
     log_models: bool = True,
+    log_datasets: bool = True,
     disable: bool = False,
     exclusive: bool = False,
     disable_for_unsupported_versions: bool = False,
@@ -1738,6 +1862,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables all supported autologging integrations. If ``False``,
                     enables all supported autologging integrations.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.

@@ -4,10 +4,9 @@ import re
 import numpy
 import pytest
 import requests
-from concurrent.futures import ProcessPoolExecutor
 
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import MlflowException, RestException, InvalidUrlException
 from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.utils.rest_utils import (
     http_request,
@@ -17,7 +16,6 @@ from mlflow.utils.rest_utils import (
     call_endpoints,
     augmented_raise_for_status,
     _can_parse_as_json_object,
-    _get_request_session,
 )
 from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
@@ -90,7 +88,7 @@ def test_call_endpoints():
         resp = call_endpoints(host_only, endpoints, "", response_proto)
         mock_call_endpoint.assert_has_calls(
             [
-                mock.call(host_only, endpoint, method, "", response_proto)
+                mock.call(host_only, endpoint, method, "", response_proto, None)
                 for endpoint, method in endpoints
             ]
         )
@@ -383,6 +381,24 @@ def test_http_request_request_headers_user_agent_and_extra_header(request):
         )
 
 
+@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
+def test_http_request_with_invalid_url_raise_invalid_url_exception(request):
+    """InvalidURL exception can be caught by a custom InvalidUrlException"""
+    host_only = MlflowHostCreds("http://my-host")
+
+    with pytest.raises(InvalidUrlException, match="Invalid url: http://my-host/invalid_url"):
+        http_request(host_only, "/invalid_url", "GET")
+
+
+@mock.patch("requests.Session.request", side_effect=requests.exceptions.InvalidURL)
+def test_http_request_with_invalid_url_raise_mlflow_exception(request):
+    """The InvalidUrlException can be caught by the MlflowException"""
+    host_only = MlflowHostCreds("http://my-host")
+
+    with pytest.raises(MlflowException, match="Invalid url: http://my-host/invalid_url"):
+        http_request(host_only, "/invalid_url", "GET")
+
+
 def test_ignore_tls_verification_not_server_cert_path():
     with pytest.raises(
         MlflowException,
@@ -525,18 +541,3 @@ def test_augmented_raise_for_status():
     assert e.value.response == response
     assert e.value.request == response.request
     assert response.text in str(e.value)
-
-
-def call_get_request_session():
-    return _get_request_session(max_retries=0, backoff_factor=0, retry_codes=(403,))
-
-
-def test_get_request_session():
-    sess = call_get_request_session()
-    another_sess = call_get_request_session()
-    assert sess is another_sess
-
-    with ProcessPoolExecutor(max_workers=2) as e:
-        futures = [e.submit(call_get_request_session) for _ in range(2)]
-    sess, another_sess = [f.result() for f in futures]
-    assert sess is not another_sess

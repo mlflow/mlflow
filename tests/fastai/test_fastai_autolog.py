@@ -244,11 +244,11 @@ def test_fastai_autolog_model_can_load_from_artifact(fastai_random_tabular_data_
     model_wrapper.predict(iris_dataframe())
 
 
-def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmpdir):
+def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmp_path):
     # pylint: disable=unused-argument
     mlflow.fastai.autolog()
 
-    model = fastai_tabular_model(iris_data, model_dir=tmpdir)
+    model = fastai_tabular_model(iris_data, model_dir=tmp_path)
 
     if callback == "early":
         cb = EarlyStoppingCallback(patience=patience, min_delta=MIN_DELTA)
@@ -270,9 +270,9 @@ def get_fastai_random_data_run_with_callback(iris_data, fit_variant, callback, p
 
 
 @pytest.fixture
-def fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmpdir):
+def fastai_random_data_run_with_callback(iris_data, fit_variant, callback, patience, tmp_path):
     return get_fastai_random_data_run_with_callback(
-        iris_data, fit_variant, callback, patience, tmpdir
+        iris_data, fit_variant, callback, patience, tmp_path
     )
 
 
@@ -373,7 +373,7 @@ def test_fastai_autolog_non_early_stop_callback_does_not_log(fastai_random_data_
 @pytest.mark.parametrize("callback", ["not-early"])
 @pytest.mark.parametrize("patience", [5])
 def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
-    fit_variant, callback, patience, tmpdir, iris_data
+    fit_variant, callback, patience, tmp_path, iris_data
 ):
     patched_metrics_data = []
 
@@ -391,7 +391,7 @@ def test_fastai_autolog_batch_metrics_logger_logs_expected_metrics(
 
         record_metrics_mock.side_effect = record_metrics_side_effect
         _, run = get_fastai_random_data_run_with_callback(
-            iris_data, fit_variant, callback, patience, tmpdir
+            iris_data, fit_variant, callback, patience, tmp_path
         )
 
     patched_metrics_data = dict(patched_metrics_data)

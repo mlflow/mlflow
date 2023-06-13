@@ -233,7 +233,7 @@ saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` AP
 Model Signature Types
 ~~~~~~~~~~~~~~~~~~~~~
 A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
-Column-based schemas can are a sequence of (optionally) named columns with type specified as one of the
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
 :py:class:`MLflow data types <mlflow.types.DataType>`.
 Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
@@ -243,9 +243,11 @@ Column-based Signature Example
 All flavors support column-based signatures.
 
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -253,7 +255,7 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
@@ -262,6 +264,7 @@ Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch,
 
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+Tensor-based signatures do not support optional inputs.
 When specifying the shape, -1 is used for axes that may be variable in size.
 The following example displays an MLmodel file excerpt containing the model signature for a
 classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
@@ -289,11 +292,12 @@ particular, it is not applied to models that are loaded in their native format (
 
 Name Ordering Enforcement
 """""""""""""""""""""""""
-The input names are checked against the model signature. If there are any missing inputs,
-MLflow will raise an exception. Extra inputs that were not declared in the signature will be
-ignored. If the input schema in the signature defines input names, input matching is done by name
-and the inputs are reordered to match the signature. If the input schema does not have input
-names, matching is done by position (i.e. MLflow will only check the number of inputs).
+The input names are checked against the model signature. If there are any missing required inputs,
+MLflow will raise an exception. Missing optional inputs will not raise an exception.
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
+signature defines input names, input matching is done by name and the inputs are reordered to match the 
+signature. If the input schema does not have input names, matching is done by position 
+(i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
 """"""""""""""""""""""
@@ -382,6 +386,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
@@ -2293,6 +2298,79 @@ Example: Log a LangChain Agent
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+John Snow Labs (``johnsnowlabs``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``johnsnowlabs`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+
+The ``johnsnowlabs`` model flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
+<https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
+
+You can use :py:func:`mlflow.johnsnowlabs.log_model()` to log and export your model as
+:py:class:`mlflow.pyfunc.PyFuncModel`.
+
+This enables you to integrate `any John Snow Labs model <https://nlp.johnsnowlabs.com/models>`_
+into the MLflow framework. You can easily deploy your models for inference with MLflows serve functionalities.
+Models are interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.johnsnowlabs.load_model()` function to load a saved or logged MLflow
+Model with the ``johnsnowlabs`` flavor from an stored artifact.
+
+Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
+Extraction, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition and much more,
+powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
+<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`_
+Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>`_
+for a research or industry license.
+
+Example: Export a John Snow Labs to MLflow format
+
+.. literalinclude:: ../../examples/johnsnowlabs/export.py
+    :language: python
+
+
+To deploy the John Snow Labs model as a container
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1) Start the Docker Container
+
+.. code-block:: bash
+
+    docker run -p 5001:8080 -e JOHNSNOWLABS_LICENSE_JSON=your_json_string "mlflow-pyfunc"
+
+2. Query server
+
+.. code-block:: bash
+
+    curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_split": {
+          "columns": ["text"],
+          "data": [["I hate covid"], ["I love covid"]]
+      }
+    }'
+
+To deploy the John Snow Labs model without a container
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Export env variable and start server
+
+.. code-block:: bash
+
+    export JOHNSNOWLABS_LICENSE_JSON=your_json_string
+    mlflow models serve -m <model_uri>
+
+2. Query server
+
+.. code-block:: bash
+
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_split": {
+          "columns": ["text"],
+          "data": [["I hate covid"], ["I love covid"]]
+      }
+    }'
+
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
@@ -2522,8 +2600,8 @@ to formats that are compatible with json serialization and casting to Pandas Dat
     Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
     types that can be loaded as ``pyfunc``.
 
-    In the current version, text-based large language
-    models are supported for use with ``pyfunc``, while computer vision, audio, multi-modal, timeseries,
+    In the current version, audio and text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
     reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
 
     Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
@@ -2546,20 +2624,20 @@ Supported transformers Pipeline types for Pyfunc
 ================================= ============================== ==========================================================================
 Pipeline Type                     Input Type                     Output Type
 ================================= ============================== ==========================================================================
-Instructional Text Generation     str or List[str]               str or List[str]
-Conversational                    str or List[str]               str or List[str]
-Summarization                     str or List[str]               str or List[str]
+Instructional Text Generation     str or List[str]               List[str]
+Conversational                    str or List[str]               List[str]
+Summarization                     str or List[str]               List[str]
 Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
-Text Generation                   str or List[str]               str or List[str]
-Text2Text Generation              str or List[str]               str or List[str]
-Token Classification              str or List[str]               str or List[str]
-Translation                       str or List[str]               str or List[str]
+Text Generation                   str or List[str]               List[str]
+Text2Text Generation              str or List[str]               List[str]
+Token Classification              str or List[str]               List[str]
+Translation                       str or List[str]               List[str]
 ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
-Table Question Answering**        Dict[str, [List[str] | str]**  str or List[str]
-Question Answering***             Dict[str, str]***              str or List[str]
-Fill Mask****                     str or List[str]****           str or List[str]
+Table Question Answering**        Dict[str, [List[str] | str]**  List[str]
+Question Answering***             Dict[str, str]***              List[str]
+Fill Mask****                     str or List[str]****           List[str]
 Feature Extraction                str or List[str]               np.ndarray
-AutomaticSpeechRecognition        bytes*****, str, or np.ndarray str
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray List[str]
 AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
 ================================= ============================== ==========================================================================
 
@@ -2615,13 +2693,16 @@ loaded as a ``pyfunc`` and used to generate a response from a passed-in list of 
 
     print(response)
 
-    # >> It's a new thing that's been around for a while.
+    # >> [It's a new thing that's been around for a while.]
 
 
 Save and Load options for transformers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
 an easy to use interface that is optimized for inference.
+
+.. note::
+    MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
 
 .. note::
     For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
@@ -2920,8 +3001,8 @@ Model Evaluation
 After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
 evaluate its performance on one or more datasets of your choosing. :py:func:`mlflow.evaluate()`
 currently supports evaluation of MLflow Models with the
-:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification and regression
-tasks, computing a variety of task-specific performance metrics, model performance plots, and
+:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification, regression, and numerous language modeling tasks (see :ref:`model-evaluation-llms`), computing a variety of
+task-specific performance metrics, model performance plots, and
 model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
 
 The following `example from the MLflow GitHub Repository
@@ -2979,6 +3060,85 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 84%
 
+.. _model-evaluation-llms:
+
+Evaluating with LLMs
+^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.4.0, :py:func:`mlflow.evaluate()` has built-in support for a variety of tasks with
+LLMs, including text summarization, text classification, question answering, and text generation.
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
+questions about MLflow (note that you must have the ``OPENAI_API_TOKEN`` environment variable set
+in your current system environment in order to run the example):
+
+.. code-block:: python
+
+    import os
+    import pandas as pd
+
+    import mlflow
+    import openai
+
+    # Create a question answering model using prompt engineering with OpenAI. Log the
+    # prompt and the model to MLflow Tracking
+    mlflow.start_run()
+    system_prompt = (
+        "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
+        " respond to it. Make sure to include code examples. If the question is not related to"
+        " MLflow, refuse to answer and say that the question is unrelated."
+    )
+    mlflow.log_param("system_prompt", system_prompt)
+    logged_model = mlflow.openai.log_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        artifact_path="model",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "{question}"},
+        ],
+    )
+
+    # Evaluate the model on some example questions
+    questions = pd.DataFrame(
+        {
+            "question": [
+                "How do you create a run with MLflow?",
+                "How do you log a model with MLflow?",
+                "What is the capital of France?",
+            ]
+        }
+    )
+    mlflow.evaluate(
+        model=logged_model.model_uri,
+        model_type="question-answering",
+        data=questions,
+    )
+
+    # Load and inspect the evaluation results
+    results: pd.DataFrame = mlflow.load_table(
+        "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
+    )
+    results_grouped_by_question = results.sort_values(by="question")
+    print("Evaluation results:")
+    print(
+        results_grouped_by_question[
+            ["run_id", "params.system_prompt", "question", "outputs"]
+        ]
+    )
+
+
+MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
+built with LLMs. For example, after evaluating multiple prompts for question answering
+(see the
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+each model: 
+
+.. image:: _static/images/artifact-view-ui.png
+
+|
+|
+
+For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
+`MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

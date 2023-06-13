@@ -1,3 +1,10 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import qs from 'qs';
@@ -7,6 +14,8 @@ import NotFoundPage from './NotFoundPage';
 import { MetricView } from './MetricView';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { PageContainer } from '../../common/components/PageContainer';
+import { withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 
 type MetricPageImplProps = {
   runUuids: string[];
@@ -72,8 +81,8 @@ export class MetricPageImpl extends Component<MetricPageImplProps> {
   }
 }
 
-const mapStateToProps = (state: any, ownProps: any) => {
-  const { match, location } = ownProps;
+const mapStateToProps = (state: any, ownProps: WithRouterNextProps<{ metricKey: string }>) => {
+  const { params, location } = ownProps;
   const searchValues = qs.parse(location.search);
   // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
   const runUuids = JSON.parse(searchValues['?runs']);
@@ -82,7 +91,7 @@ const mapStateToProps = (state: any, ownProps: any) => {
     // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
     experimentIds = JSON.parse(searchValues['experiments']);
   }
-  const { metricKey } = match.params;
+  const { metricKey } = params;
   return {
     runUuids,
     metricKey,
@@ -90,4 +99,4 @@ const mapStateToProps = (state: any, ownProps: any) => {
   };
 };
 
-export const MetricPage = connect(mapStateToProps)(MetricPageImpl);
+export const MetricPage = withRouterNext(connect(mapStateToProps)(MetricPageImpl));

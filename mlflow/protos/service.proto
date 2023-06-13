@@ -403,6 +403,20 @@ service MlflowService {
       rpc_doc_title: "Log Model",
     };
   }
+
+  // .. note::
+  //     Experimental: This API may change or be removed in a future release without warning.
+  rpc logInputs (LogInputs) returns (LogInputs.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-inputs"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Inputs",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -483,6 +497,8 @@ message Run {
   optional RunInfo info = 1;
   // Run data.
   optional RunData data = 2;
+  // Run inputs.
+  optional RunInputs inputs = 3;
 }
 
 // Run data (metrics, params, and tags).
@@ -494,6 +510,15 @@ message RunData {
 
   // Additional metadata key-value pairs.
   repeated RunTag tags = 3;
+}
+
+// .. note::
+//     Experimental: This API may change or be removed in a future release without warning.
+//
+// Run inputs.
+message RunInputs {
+  // Dataset inputs to the Run.
+  repeated DatasetInput dataset_inputs = 1;
 }
 
 // Tag for a run.
@@ -574,6 +599,59 @@ message Experiment {
 
   // Tags: Additional metadata key-value pairs.
   repeated ExperimentTag tags = 7;
+}
+
+// .. note::
+//     Experimental: This API may change or be removed in a future release without warning.
+//
+// DatasetInput. Represents a dataset and input tags.
+message DatasetInput {
+  // A list of tags for the dataset input, e.g. a “context” tag with value “training”
+  repeated InputTag tags = 1;
+
+  // The dataset being used as a Run input.
+  optional Dataset dataset = 2 [(validate_required) = true];
+}
+
+// .. note::
+//     Experimental: This API may change or be removed in a future release without warning.
+//
+// Tag for an input.
+message InputTag {
+  // The tag key.
+  optional string key = 1 [(validate_required) = true];
+  // The tag value.
+  optional string value = 2 [(validate_required) = true];
+}
+
+// .. note::
+//     Experimental: This API may change or be removed in a future release without warning.
+//
+// Dataset. Represents a reference to data used for training, testing, or evaluation during
+// the model development process.
+message Dataset {
+  // The name of the dataset. E.g. “my.uc.table@2” “nyc-taxi-dataset”, “fantastic-elk-3”
+  optional string name = 1 [(validate_required) = true];
+
+  // Dataset digest, e.g. an md5 hash of the dataset that uniquely identifies it
+  // within datasets of the same name.
+  optional string digest = 2 [(validate_required) = true];
+
+  // Source information for the dataset. Note that the source may not exactly reproduce the
+  // dataset if it was transformed / modified before use with MLflow.
+  optional string source_type = 3 [(validate_required) = true];
+
+  // The type of the dataset source, e.g. ‘databricks-uc-table’, ‘DBFS’, ‘S3’, ...
+  optional string source = 4 [(validate_required) = true];
+
+  // The schema of the dataset. E.g., MLflow ColSpec JSON for a dataframe, MLflow TensorSpec JSON
+  // for an ndarray, or another schema format.
+  optional string schema = 5;
+
+  // The profile of the dataset. Summary statistics for the dataset, such as the number of rows
+  // in a table, the mean / std / mode of each column in a table, or the number of elements
+  // in an array.
+  optional string profile = 6;
 }
 
 message CreateExperiment {
@@ -1021,6 +1099,21 @@ message LogModel {
 
   // MLmodel file in json format.
   optional string model_json = 2;
+
+  message Response {
+  }
+}
+
+// .. note::
+//     Experimental: This API may change or be removed in a future release without warning.
+message LogInputs {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+  // ID of the run to log under
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Dataset inputs
+  repeated DatasetInput datasets = 2;
 
   message Response {
   }

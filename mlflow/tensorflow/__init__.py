@@ -25,6 +25,9 @@ import re
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.tensorflow_dataset import from_tensorflow
 from mlflow.types.schema import TensorSpec
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
@@ -67,6 +70,7 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.entities import Metric
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.models import infer_signature
 from mlflow.exceptions import INVALID_PARAMETER_VALUE
 
@@ -979,6 +983,7 @@ def _setup_callbacks(lst, metrics_logger):
 def autolog(
     every_n_iter=1,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1026,6 +1031,8 @@ def autolog(
                          100 will log metrics at step 0, 100, 200, etc.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the TensorFlow autologging integration. If ``False``,
                     enables the TensorFlow integration autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1252,6 +1259,36 @@ def autolog(
                 early_stop_callback = _get_early_stop_callback(callbacks)
                 _log_early_stop_callback_params(early_stop_callback)
 
+                if log_datasets:
+                    try:
+                        context_tags = context_registry.resolve_tags()
+                        source = CodeDatasetSource(tags=context_tags)
+
+                        x = kwargs["x"] if "x" in kwargs else args[0]
+                        if "y" in kwargs:
+                            y = kwargs["y"]
+                        elif len(args) >= 2:
+                            y = args[1]
+                        else:
+                            y = None
+
+                        if "validation_data" in kwargs:
+                            validation_data = kwargs["validation_data"]
+                        elif len(args) >= 8:
+                            validation_data = args[7]
+                        else:
+                            validation_data = None
+                        _log_tensorflow_dataset(x, source, "train", targets=y)
+                        if validation_data is not None:
+                            _log_tensorflow_dataset(validation_data, source, "eval")
+
+                    except Exception as e:
+                        _logger.warning(
+                            "Failed to log training dataset information to "
+                            "MLflow Tracking. Reason: %s",
+                            e,
+                        )
+
                 history = original(inst, *args, **kwargs)
 
                 if log_models:
@@ -1286,3 +1323,32 @@ def autolog(
 
     for p in managed:
         safe_patch(FLAVOR_NAME, *p, manage_run=True)
+
+
+def _log_tensorflow_dataset(tensorflow_dataset, source, context, name=None, targets=None):
+    import tensorflow
+
+    # create a dataset
+    if isinstance(tensorflow_dataset, np.ndarray):
+        dataset = from_numpy(features=tensorflow_dataset, targets=targets, source=source, name=name)
+    elif isinstance(tensorflow_dataset, tensorflow.Tensor):
+        dataset = from_tensorflow(
+            features=tensorflow_dataset, targets=targets, source=source, name=name
+        )
+    elif isinstance(tensorflow_dataset, tensorflow.data.Dataset):
+        dataset = from_tensorflow(features=tensorflow_dataset, source=source, name=name)
+    elif isinstance(tensorflow_dataset, tuple):
+        x = tensorflow_dataset[0]
+        y = tensorflow_dataset[1]
+        # check if x and y are tensors
+        if isinstance(x, tensorflow.Tensor) and isinstance(y, tensorflow.Tensor):
+            dataset = from_tensorflow(features=x, source=source, targets=y, name=name)
+        else:
+            dataset = from_numpy(features=x, targets=y, source=source, name=name)
+    else:
+        _logger.warning(
+            "Unrecognized dataset type %s. Dataset logging skipped.", type(tensorflow_dataset)
+        )
+        return
+
+    mlflow.log_input(dataset, context)

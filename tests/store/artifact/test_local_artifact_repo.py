@@ -8,8 +8,8 @@ from mlflow.utils.file_utils import TempDir
 
 
 @pytest.fixture
-def local_artifact_root(tmpdir):
-    return str(tmpdir)
+def local_artifact_root(tmp_path):
+    return str(tmp_path)
 
 
 @pytest.fixture

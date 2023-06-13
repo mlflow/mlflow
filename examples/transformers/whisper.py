@@ -1,8 +1,7 @@
-import base64
-import mlflow
 import transformers
 import requests
 
+import mlflow
 
 # Acquire an audio file
 audio = requests.get("https://www.nasa.gov/62283main_landing.wav").content
@@ -46,7 +45,7 @@ print(f"\nWhisper native output transcription:\n{transcription}")
 # Load the pipeline as a pyfunc with the audio file being encoded as base64
 pyfunc_transcriber = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
-pyfunc_transcription = pyfunc_transcriber.predict(base64.b64encode(audio).decode("ascii"))
+pyfunc_transcription = pyfunc_transcriber.predict([audio])
 
 # Note: the pyfunc return type if `return_timestamps` is set is a JSON encoded string.
 print(f"\nPyfunc output transcription:\n{pyfunc_transcription}")
