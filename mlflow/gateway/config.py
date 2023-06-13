@@ -10,7 +10,6 @@ from typing import Optional, Union, List, Dict, Any
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import PROVIDERS
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 
 
@@ -23,6 +22,10 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
     DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
     MLFLOW = "mlflow"
+
+    @classmethod
+    def values(cls):
+        return {p.value for p in cls}
 
 
 class RouteType(str, Enum):
@@ -197,7 +200,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
     def validate_model(cls, model):
         if model:
             model_instance = Model(**model)
-            if model_instance.provider in PROVIDERS and model_instance.config is None:
+            if model_instance.provider in Provider.values() and model_instance.config is None:
                 raise MlflowException.invalid_parameter_value(
                     "A config must be supplied when setting a provider. The provider entry for "
                     f"{model_instance.provider} is incorrect."
