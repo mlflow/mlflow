@@ -10,7 +10,6 @@ from typing import Optional, Union, List, Dict, Any
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import PROVIDERS
 from mlflow.gateway.utils import is_valid_endpoint_name, check_configuration_route_name_collisions
 
 
@@ -24,11 +23,16 @@ class Provider(str, Enum):
     DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
     MLFLOW = "mlflow"
 
+    @classmethod
+    def values(cls):
+        return {p.value for p in cls}
+
 
 class RouteType(str, Enum):
     CUSTOM = "custom"
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
+    LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
@@ -70,7 +74,7 @@ config_types = {
 
 class ModelInfo(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
-    provider: Provider = Provider.CUSTOM
+    provider: Provider
 
 
 def _resolve_api_key_from_input(api_key_input):
@@ -91,11 +95,14 @@ def _resolve_api_key_from_input(api_key_input):
         )
 
     # try reading as an environment variable
-    env_var_attempt = api_key_input[1:] if api_key_input.startswith("$") else api_key_input
-
-    env_var = os.getenv(env_var_attempt)
-    if env_var:
-        return env_var
+    if api_key_input.startswith("$"):
+        env_var_name = api_key_input[1:]
+        if env_var := os.getenv(env_var_name):
+            return env_var
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Environment variable {env_var_name!r} is not set"
+            )
 
     # try reading from a local path
     file = pathlib.Path(api_key_input)
@@ -197,7 +204,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
     def validate_model(cls, model):
         if model:
             model_instance = Model(**model)
-            if model_instance.provider in PROVIDERS and model_instance.config is None:
+            if model_instance.provider in Provider.values() and model_instance.config is None:
                 raise MlflowException.invalid_parameter_value(
                     "A config must be supplied when setting a provider. The provider entry for "
                     f"{model_instance.provider} is incorrect."
