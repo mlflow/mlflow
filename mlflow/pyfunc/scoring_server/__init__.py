@@ -12,7 +12,7 @@ Defines four endpoints:
     /version used for getting the mlflow version
     /invocations used for scoring
 """
-from typing import Tuple, Dict
+from typing import Dict, NamedTuple, Tuple
 import flask
 import json
 import logging
@@ -82,11 +82,11 @@ SCORING_PROTOCOL_CHANGE_INFO = (
 )
 
 
-def infer_and_parse_json_input(json_input, schema: Schema = None):
+def _decode_json_input(json_input):
     """
     :param json_input: A JSON-formatted string representation of TF serving input or a Pandas
                        DataFrame, or a stream containing such a string representation.
-    :param schema: Optional schema specification to be used during parsing.
+    :return: A dictionary representation of the JSON input.
     """
     if isinstance(json_input, dict):
         decoded_input = json_input
@@ -101,25 +101,10 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
                 ),
                 error_code=BAD_REQUEST,
             )
-    if isinstance(decoded_input, dict):
-        format_keys = set(decoded_input.keys()).intersection(SUPPORTED_FORMATS)
-        if len(format_keys) != 1:
-            message = f"Received dictionary with input fields: {list(decoded_input.keys())}"
-            raise MlflowException(
-                message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
-                error_code=BAD_REQUEST,
-            )
-        input_format = format_keys.pop()
-        if input_format in (INSTANCES, INPUTS):
-            return parse_tf_serving_input(decoded_input, schema=schema)
 
-        elif input_format in (DF_SPLIT, DF_RECORDS):
-            # NB: skip the dataframe_ prefix
-            pandas_orient = input_format[10:]
-            return dataframe_from_parsed_json(
-                decoded_input[input_format], pandas_orient=pandas_orient, schema=schema
-            )
-    elif isinstance(decoded_input, list):
+    if isinstance(decoded_input, dict):
+        return decoded_input
+    if isinstance(decoded_input, list):
         message = "Received a list"
         raise MlflowException(
             message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
@@ -129,6 +114,39 @@ def infer_and_parse_json_input(json_input, schema: Schema = None):
         message = f"Received unexpected input type '{type(decoded_input)}'"
         raise MlflowException(
             message=f"{REQUIRED_INPUT_FORMAT}. {message}.", error_code=BAD_REQUEST
+        )
+
+
+def _split_data_and_parameters(json_input):
+    input_dict = _decode_json_input(json_input)
+    data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
+    parameters = input_dict.get("parameters", {})
+    return data, parameters
+
+
+def infer_and_parse_data(data, schema: Schema = None):
+    """
+    :param data: A dictionary representation of TF serving input or a Pandas
+                 DataFrame, or a stream containing such a string representation.
+    :param schema: Optional schema specification to be used during parsing.
+    """
+
+    format_keys = set(data.keys()).intersection(SUPPORTED_FORMATS)
+    if len(format_keys) != 1:
+        message = f"Received dictionary with input fields: {list(data.keys())}"
+        raise MlflowException(
+            message=f"{REQUIRED_INPUT_FORMAT}. {message}. {SCORING_PROTOCOL_CHANGE_INFO}",
+            error_code=BAD_REQUEST,
+        )
+    input_format = format_keys.pop()
+    if input_format in (INSTANCES, INPUTS):
+        return parse_tf_serving_input(data, schema=schema)
+
+    elif input_format in (DF_SPLIT, DF_RECORDS):
+        # NB: skip the dataframe_ prefix
+        pandas_orient = input_format[10:]
+        return dataframe_from_parsed_json(
+            data[input_format], pandas_orient=pandas_orient, schema=schema
         )
 
 
@@ -187,6 +205,79 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
     reraise(MlflowException, e)
 
 
+class InvocationsResponse(NamedTuple):
+    response: str
+    status: int
+    mimetype: str
+
+
+def invocations(data, content_type, model, input_schema):
+    type_parts = list(map(str.strip, content_type.split(";")))
+    mime_type = type_parts[0]
+    parameter_value_pairs = type_parts[1:]
+    parameter_values = {}
+    for parameter_value_pair in parameter_value_pairs:
+        (key, _, value) = parameter_value_pair.partition("=")
+        parameter_values[key] = value
+
+    charset = parameter_values.get("charset", "utf-8").lower()
+    if charset != "utf-8":
+        return InvocationsResponse(
+            response="The scoring server only supports UTF-8",
+            status=415,
+            mimetype="text/plain",
+        )
+
+    unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
+    if unexpected_content_parameters:
+        return InvocationsResponse(
+            response=(
+                f"Unrecognized content type parameters: "
+                f"{', '.join(unexpected_content_parameters)}. "
+                f"{SCORING_PROTOCOL_CHANGE_INFO}"
+            ),
+            status=415,
+            mimetype="text/plain",
+        )
+    # Convert from CSV to pandas
+    if mime_type == CONTENT_TYPE_CSV:
+        csv_input = StringIO(data)
+        data = parse_csv_input(csv_input=csv_input, schema=input_schema)
+        parameters = {}
+    elif mime_type == CONTENT_TYPE_JSON:
+        data, parameters = _split_data_and_parameters(data)
+        data = infer_and_parse_data(data, input_schema)
+    else:
+        return InvocationsResponse(
+            response=(
+                "This predictor only supports the following content types:"
+                f" Types: {CONTENT_TYPES}."
+                f" Got '{flask.request.content_type}'."
+            ),
+            status=415,
+            mimetype="text/plain",
+        )
+
+    # Do the prediction
+    try:
+        raw_predictions = model.predict(data, parameters)
+    except MlflowException as e:
+        raise e
+    except Exception:
+        raise MlflowException(
+            message=(
+                "Encountered an unexpected error while evaluating the model. Verify"
+                " that the serialized input Dataframe is compatible with the model for"
+                " inference."
+            ),
+            error_code=BAD_REQUEST,
+            stack_trace=traceback.format_exc(),
+        )
+    result = StringIO()
+    predictions_to_json(raw_predictions, result)
+    return InvocationsResponse(response=result.getvalue(), status=200, mimetype="application/json")
+
+
 def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
@@ -224,71 +315,13 @@ def init(model: PyFuncModel):
         # Content-Type can include other attributes like CHARSET
         # Content-type RFC: https://datatracker.ietf.org/doc/html/rfc2045#section-5.1
         # TODO: Suport ";" in quoted parameter values
-        type_parts = flask.request.content_type.split(";")
-        type_parts = list(map(str.strip, type_parts))
-        mime_type = type_parts[0]
-        parameter_value_pairs = type_parts[1:]
-        parameter_values = {}
-        for parameter_value_pair in parameter_value_pairs:
-            (key, _, value) = parameter_value_pair.partition("=")
-            parameter_values[key] = value
+        data = flask.request.data.decode("utf-8")
+        content_type = flask.request.content_type
+        result = invocations(data, content_type, model, input_schema)
 
-        charset = parameter_values.get("charset", "utf-8").lower()
-        if charset != "utf-8":
-            return flask.Response(
-                response="The scoring server only supports UTF-8",
-                status=415,
-                mimetype="text/plain",
-            )
-
-        unexpected_content_parameters = set(parameter_values.keys()).difference({"charset"})
-        if unexpected_content_parameters:
-            return flask.Response(
-                response=(
-                    f"Unrecognized content type parameters: "
-                    f"{', '.join(unexpected_content_parameters)}. "
-                    f"{SCORING_PROTOCOL_CHANGE_INFO}"
-                ),
-                status=415,
-                mimetype="text/plain",
-            )
-        # Convert from CSV to pandas
-        if mime_type == CONTENT_TYPE_CSV:
-            data = flask.request.data.decode("utf-8")
-            csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input, schema=input_schema)
-        elif mime_type == CONTENT_TYPE_JSON:
-            json_str = flask.request.data.decode("utf-8")
-            data = infer_and_parse_json_input(json_str, input_schema)
-        else:
-            return flask.Response(
-                response=(
-                    "This predictor only supports the following content types:"
-                    f" Types: {CONTENT_TYPES}."
-                    f" Got '{flask.request.content_type}'."
-                ),
-                status=415,
-                mimetype="text/plain",
-            )
-
-        # Do the prediction
-        try:
-            raw_predictions = model.predict(data)
-        except MlflowException as e:
-            raise e
-        except Exception:
-            raise MlflowException(
-                message=(
-                    "Encountered an unexpected error while evaluating the model. Verify"
-                    " that the serialized input Dataframe is compatible with the model for"
-                    " inference."
-                ),
-                error_code=BAD_REQUEST,
-                stack_trace=traceback.format_exc(),
-            )
-        result = StringIO()
-        predictions_to_json(raw_predictions, result)
-        return flask.Response(response=result.getvalue(), status=200, mimetype="application/json")
+        return flask.Response(
+            response=result.response, status=result.status, mimetype=result.mimetype
+        )
 
     return app
 
@@ -302,20 +335,22 @@ def _predict(model_uri, input_path, output_path, content_type):
         else:
             with open(input_path) as f:
                 input_str = f.read()
-        df = infer_and_parse_json_input(input_str)
+        data, parameters = _split_data_and_parameters(input_str)
+        df = infer_and_parse_data(data)
     elif content_type == "csv":
         if input_path is not None:
             df = parse_csv_input(input_path)
         else:
             df = parse_csv_input(sys.stdin)
+        parameters = {}
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
     if output_path is None:
-        predictions_to_json(pyfunc_model.predict(df), sys.stdout)
+        predictions_to_json(pyfunc_model.predict(df, parameters), sys.stdout)
     else:
         with open(output_path, "w") as fout:
-            predictions_to_json(pyfunc_model.predict(df), fout)
+            predictions_to_json(pyfunc_model.predict(df, parameters), fout)
 
 
 def _serve(model_uri, port, host):
