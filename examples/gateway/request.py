@@ -4,7 +4,6 @@ import requests
 def main():
     PREFIX = "http://127.0.0.1:5000/gateway/routes"
 
-    # Completions
     print("Completions")
     with requests.post(
         f"{PREFIX}/completions",
@@ -13,7 +12,6 @@ def main():
         resp.raise_for_status()
         print(resp.json())
 
-    # Chat
     print("Chat")
     with requests.post(
         f"{PREFIX}/chat",
@@ -22,7 +20,6 @@ def main():
         resp.raise_for_status()
         print(resp.json())
 
-    # Embeddings
     print("Embeddings")
     with requests.post(
         f"{PREFIX}/embeddings",
