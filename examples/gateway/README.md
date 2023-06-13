@@ -20,9 +20,6 @@ pip install -e '.[gateway]'
 mlflow gateway start --config-path examples/gateway/config.yaml
 ```
 
-## Making requests
+## Interactive API docs
 
-```shell
-curl http://127.0.0.1:5000/health
-curl http://127.0.0.1:5000/gateway/routes/
-```
+Navigate to http://127.0.0.1:5000/docs.
