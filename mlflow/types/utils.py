@@ -209,7 +209,7 @@ def _infer_inference_schema(params: Dict[str, Any]) -> InferenceSchema:
     if isinstance(params, dict):
         return InferenceSchema(
             [
-                ParamSpec(name=name, type=clean_tensor_type(np.asarray(value).dtype))
+                ParamSpec(name=name, type=_infer_numpy_dtype(np.asarray(value).dtype))
                 for name, value in params.items()
             ]
         )
