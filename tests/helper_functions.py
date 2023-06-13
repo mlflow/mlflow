@@ -2,7 +2,6 @@ import os
 import random
 import functools
 import shutil
-from pathlib import Path
 from unittest import mock
 from contextlib import ExitStack, contextmanager
 
@@ -25,6 +24,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import (
     _get_pip_deps,
+    _generate_mlflow_version_pinning,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -552,7 +552,7 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
-    return str(Path(mlflow.__file__).parent.parent)
+    return _generate_mlflow_version_pinning()
 
 
 @contextmanager

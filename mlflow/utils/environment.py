@@ -4,11 +4,9 @@ import os
 import logging
 import re
 import hashlib
-from pathlib import Path
 from packaging.requirements import Requirement, InvalidRequirement
 from packaging.version import Version
 
-import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils import PYTHON_VERSION
@@ -464,13 +462,16 @@ def _generate_mlflow_version_pinning():
     the current installed minor version(i.e., 'mlflow<3,>=2.1')
     :return: string for MLflow dependency version
     """
-    if _MLFLOW_TESTING.get():
-        return str(Path(mlflow.__file__).parent.parent)
     mlflow_version = Version(VERSION)
     current_major_version = mlflow_version.major
     current_minor_version = mlflow_version.minor
     current_micro_version = mlflow_version.micro
-    return f"mlflow=={current_major_version}.{current_minor_version}.{current_micro_version}"
+    # The version on master is always a micro version ahead of the latest release and can't be
+    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
+    offset = -1 if _MLFLOW_TESTING.get() else 0
+    return (
+        f"mlflow=={current_major_version}.{current_minor_version}.{current_micro_version + offset}"
+    )
 
 
 def _contains_mlflow_requirement(requirements):
