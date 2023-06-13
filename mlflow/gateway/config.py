@@ -70,7 +70,7 @@ config_types = {
 
 class ModelInfo(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
-    provider: Provider = Provider.CUSTOM
+    provider: Provider
 
 
 def _resolve_api_key_from_input(api_key_input):
