@@ -3078,7 +3078,7 @@ in your current system environment in order to run the example):
     import mlflow
     import openai
 
-    # Create a question answering model using prompt engineering with OpenAI. Log the 
+    # Create a question answering model using prompt engineering with OpenAI. Log the
     # prompt and the model to MLflow Tracking
     mlflow.start_run()
     system_prompt = (
@@ -3112,14 +3112,18 @@ in your current system environment in order to run the example):
         model_type="question-answering",
         data=questions,
     )
-    
+
     # Load and inspect the evaluation results
     results: pd.DataFrame = mlflow.load_table(
         "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
     )
     results_grouped_by_question = results.sort_values(by="question")
     print("Evaluation results:")
-    print(results_grouped_by_question[["run_id", "params.system_prompt", "question", "outputs"]])
+    print(
+        results_grouped_by_question[
+            ["run_id", "params.system_prompt", "question", "outputs"]
+        ]
+    )
 
 
 MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
