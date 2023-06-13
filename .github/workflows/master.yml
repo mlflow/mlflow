@@ -109,6 +109,7 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
+      - uses: ./.github/actions/untrakced
 
   python:
     runs-on: ubuntu-latest
@@ -138,6 +139,7 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      - uses: ./.github/actions/untrakced
 
   database:
     runs-on: ubuntu-latest
@@ -208,6 +210,7 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
+      - uses: ./.github/actions/untrakced
 
   java:
     runs-on: ubuntu-latest
@@ -270,6 +273,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
+      - uses: ./.github/actions/untrakced
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -295,6 +299,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
+      - uses: ./.github/actions/untrakced
 
   pyfunc:
     runs-on: ubuntu-latest
@@ -316,6 +321,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
+      - uses: ./.github/actions/untrakced
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -334,6 +340,7 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
+      - uses: ./.github/actions/untrakced
 
   windows:
     runs-on: windows-latest
@@ -377,3 +384,4 @@ jobs:
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
+      - uses: ./.github/actions/untrakced
