@@ -2,7 +2,7 @@
 
 ## Installation
 
-```shell
+```sh
 # From PyPI
 pip install 'mlflow[gateway]'
 
@@ -20,7 +20,7 @@ export OPENAI_API_KEY=...
 
 ## Running the Gateway Service
 
-```shell
+```sh
 mlflow gateway start --config-path examples/gateway/config.yaml
 ```
 
