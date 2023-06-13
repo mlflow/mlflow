@@ -59,8 +59,8 @@ async def search_routes():
 def _create_chat_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
-        return await prov.chat(request)
+    async def _chat(payload: chat.RequestPayload) -> chat.ResponsePayload:
+        return await prov.chat(payload)
 
     return _chat
 
@@ -69,9 +69,9 @@ def _create_completions_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
     async def _completions(
-        request: completions.RequestPayload,
+        payload: completions.RequestPayload,
     ) -> completions.ResponsePayload:
-        return await prov.completions(request)
+        return await prov.completions(payload)
 
     return _completions
 
@@ -79,8 +79,8 @@ def _create_completions_endpoint(config: RouteConfig):
 def _create_embeddings_endpoint(config: RouteConfig):
     prov = get_provider(config.model.provider)(config)
 
-    async def _embeddings(request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        return await prov.embeddings(request)
+    async def _embeddings(payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        return await prov.embeddings(payload)
 
     return _embeddings
 
