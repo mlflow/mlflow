@@ -464,7 +464,8 @@ def _generate_mlflow_version_pinning():
     mlflow_version = Version(VERSION)
     current_major_version = mlflow_version.major
     current_minor_version = mlflow_version.minor
-    return f"mlflow=={current_major_version}.{current_minor_version}"
+    current_micro_version = mlflow_version.micro
+    return f"mlflow=={current_major_version}.{current_minor_version}.{current_micro_version}"
 
 
 def _contains_mlflow_requirement(requirements):
