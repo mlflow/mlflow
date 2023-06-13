@@ -782,7 +782,7 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(self, data, parameters=None):
+    def predict(self, data):
         import tensorflow
 
         feed_dict = {}
@@ -826,7 +826,7 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(self, data, parameters=None):
+    def predict(self, data):
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -847,7 +847,7 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(self, data, parameters=None):
+    def predict(self, data):
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling

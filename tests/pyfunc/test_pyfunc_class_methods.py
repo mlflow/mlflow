@@ -8,7 +8,7 @@ def test_unwrap_python_model_from_pyfunc_class():
             self.param_1 = param_1
             self.param_2 = param_2
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input):
             return model_input + self.param_2
 
         def upper_param_1(self):

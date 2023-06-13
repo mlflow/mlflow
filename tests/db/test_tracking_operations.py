@@ -18,7 +18,7 @@ class Model(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         pass
 
-    def predict(self, context, model_input, parameters=None):
+    def predict(self, context, model_input):
         pass
 
 

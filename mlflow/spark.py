@@ -901,7 +901,7 @@ class _PyFuncModelWrapper:
         self.spark = spark
         self.spark_model = spark_model
 
-    def predict(self, pandas_df, parameters=None):
+    def predict(self, pandas_df):
         """
         Generate predictions given input data in a pandas DataFrame.
 

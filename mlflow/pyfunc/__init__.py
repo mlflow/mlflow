@@ -419,14 +419,12 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        # Add constants to the parameters dictionary against ModelSignature
-
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
 
             try:
                 with openai_auto_retry_patch():
-                    return self._predict_fn(data, parameters)
+                    return self._predict_fn(data)
             except Exception:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
@@ -451,10 +449,10 @@ class PyFuncModel:
 
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input, parameters=None):
-                    return self.my_custom_function(model_input, parameters)
+                def predict(self, context, model_input):
+                    return self.my_custom_function(model_input)
 
-                def my_custom_function(self, model_input, parameters=None):
+                def my_custom_function(self, model_input):
                     # do something with the model input
                     return 0
 
@@ -1431,7 +1429,7 @@ def save_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
+                def predict(self, context, model_input: List[str]) -> List[str]:
                     return [i.upper() for i in model_input]
 
 
@@ -1684,7 +1682,7 @@ def log_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
+                def predict(self, context, model_input: List[str]) -> List[str]:
                     return [i.upper() for i in model_input]
 
 

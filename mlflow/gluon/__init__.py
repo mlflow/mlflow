@@ -99,7 +99,7 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
-    def predict(self, data, parameters=None):
+    def predict(self, data):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.
                      If the input is a DataFrame, it will be converted to an array first by a

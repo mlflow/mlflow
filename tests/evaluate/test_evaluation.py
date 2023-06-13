@@ -1138,7 +1138,7 @@ def test_evaluate_restores_env(tmp_path, env_manager, iris_dataset):
         def __init__(self):
             pass
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input):
             if sklearn.__version__ == "0.22.1":
                 pred_value = 1
             else:

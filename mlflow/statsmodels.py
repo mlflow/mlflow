@@ -356,7 +356,7 @@ class _StatsmodelsModelWrapper:
     def __init__(self, statsmodels_model):
         self.statsmodels_model = statsmodels_model
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe):
         from statsmodels.tsa.base.tsa_model import TimeSeriesModel
 
         model = self.statsmodels_model.model

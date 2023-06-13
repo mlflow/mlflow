@@ -3305,7 +3305,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
         def __init__(self, n):
             self.n = n
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input):
             return model_input.apply(lambda column: column + self.n)
 
 
@@ -3372,7 +3372,7 @@ evaluate test data.
             self.xgb_model = xgb.Booster()
             self.xgb_model.load_model(context.artifacts["xgb_model"])
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input):
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
@@ -3822,7 +3822,7 @@ docstrings.
         def __init__(self, sktime_model):
             self.sktime_model = sktime_model
 
-        def predict(self, dataframe, parameters=None) -> pd.DataFrame:
+        def predict(self, dataframe) -> pd.DataFrame:
             df_schema = dataframe.columns.values.tolist()
 
             if len(dataframe) > 1:

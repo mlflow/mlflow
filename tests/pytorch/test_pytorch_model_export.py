@@ -629,7 +629,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             # pylint: disable=attribute-defined-outside-init
             self.pytorch_model = mlflow.pytorch.load_model(context.artifacts["pytorch_model"])
 
-        def predict(self, _, model_input, parameters=None):
+        def predict(self, _, model_input):
             with torch.no_grad():
                 input_tensor = torch.from_numpy(model_input.values.astype(np.float32))
                 output_tensor = self.pytorch_model(input_tensor)

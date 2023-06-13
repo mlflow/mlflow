@@ -468,7 +468,7 @@ class _SktimeModelWrapper:
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
 
-    def predict(self, dataframe, parameters=None) -> pd.DataFrame:
+    def predict(self, dataframe) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:
