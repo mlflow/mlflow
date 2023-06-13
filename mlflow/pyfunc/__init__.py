@@ -219,7 +219,7 @@ import threading
 import inspect
 import functools
 from copy import deepcopy
-from typing import Any, Union, Iterator, Tuple
+from typing import Any, Dict, Union, Iterator, Tuple
 
 import numpy as np
 import pandas
@@ -388,7 +388,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    def predict(self, data: PyFuncInput, **kwargs) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, parameters: Dict[str, Any] = None) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -409,7 +409,7 @@ class PyFuncModel:
                      (i.e. read / write the elements using C-like index order), and DataFrame
                      column values will be cast as the required tensor spec type.
 
-        :param kwargs: Additional keyword arguments to pass to the model inference.
+        :param parameters: Additional parameters to pass to the model for inference.
 
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -427,7 +427,7 @@ class PyFuncModel:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data, **kwargs)
+        return self._predict_fn(data, parameters)
 
     @experimental
     def unwrap_python_model(self):
@@ -607,8 +607,8 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
-    def predict(self, data, **kwargs):
-        result = self._client.invoke(data).get_predictions()
+    def predict(self, data, parameters=None):
+        result = self._client.invoke(data, parameters).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
         return result
@@ -1249,8 +1249,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             server_redirect_log_thread = threading.Thread(
                 target=server_redirect_log_thread_func,
                 args=(scoring_server_proc.stdout,),
+                daemon=True,
             )
-            server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()
 
             try:

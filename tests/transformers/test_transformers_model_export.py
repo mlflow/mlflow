@@ -1327,19 +1327,11 @@ def test_text2text_generation_pipeline_with_inference_configs(
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
 
-    kwargs_inference = pyfunc_loaded.predict(
+    dict_inference = pyfunc_loaded.predict(
         data,
-        top_k=2,
-        num_beams=5,
-        max_length=30,
-        temperature=0.62,
-        top_p=0.85,
-        repetition_penalty=1.15,
+        parameters=inference_config,
     )
 
-    assert kwargs_inference == inference
-
-    dict_inference = pyfunc_loaded.predict(data, **inference_config)
     assert dict_inference == inference
 
 
@@ -1363,7 +1355,9 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
         MlflowException,
         match=r"The following `model_kwargs` are not used by the model: \['invalid_param'\]",
     ):
-        pyfunc_loaded.predict(data, top_k=2, num_beams=5, invalid_param="invalid_param")
+        pyfunc_loaded.predict(
+            data, parameters={"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
+        )
 
     with pytest.raises(
         MlflowException,
@@ -1372,10 +1366,12 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
     ):
         pyfunc_loaded.predict(
             data,
-            top_k=2,
-            num_beams=5,
-            invalid_param="invalid_param",
-            invalid_param2="invalid_param2",
+            parameters={
+                "top_k": 2,
+                "num_beams": 5,
+                "invalid_param": "invalid_param",
+                "invalid_param2": "invalid_param2",
+            },
         )
 
 
@@ -1943,7 +1939,13 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_uri)
 
-    result = pyfunc_loaded.predict(data, top_k=2, max_answer_len=5)
+    result = pyfunc_loaded.predict(
+        data,
+        parameters={
+            "top_k": 2,
+            "max_answer_len": 5,
+        },
+    )
 
     assert result == ["pink", "pink.", "up and down", "Up and down", "the moon", "moon"]
 

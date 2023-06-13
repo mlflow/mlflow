@@ -1595,16 +1595,16 @@ class _TransformersWrapper:
                     )
             return parsed
 
-    def _override_inference_config(self, **kwargs):
-        if kwargs:
+    def _override_inference_config(self, parameters):
+        if parameters:
             _logger.warning(
-                "kwargs provided to the `predict` method will override the inference configuration "
-                "saved with the model. If the kwargs provided are not valid for the pipeline, "
-                "MlflowException will be raised."
+                "parameters provided to the `predict` method will override the inference "
+                "configuration saved with the model. If the parameters provided are not "
+                "valid for the pipeline, MlflowException will be raised."
             )
 
-        # Override the inference configuration with any additional kwargs provided by the user.
-        self.inference_config.update(kwargs)
+            # Override the inference configuration with any additional kwargs provided by the user.
+            self.inference_config.update(parameters)
 
     def _validate_inference_config_and_return_output(self, data):
         import transformers
@@ -1616,7 +1616,7 @@ class _TransformersWrapper:
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
                 raise MlflowException(
-                    "The kwargs provided to the `predict` method are not valid "
+                    "The parameters provided to the `predict` method are not valid "
                     f"for pipeline {type(self.pipeline).__name__}. Caused by: {repr(e)}",
                     error_code=INVALID_PARAMETER_VALUE,
                 ) from e
@@ -1636,8 +1636,8 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, device=None, **kwargs):
-        self._override_inference_config(**kwargs)
+    def predict(self, data, parameters=None):
+        self._override_inference_config(parameters)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
@@ -1676,11 +1676,11 @@ class _TransformersWrapper:
                 for x in input_data
             )
 
-        predictions = self._predict(input_data, device)
+        predictions = self._predict(input_data)
 
         return predictions
 
-    def _predict(self, data, device):
+    def _predict(self, data):
         import transformers
 
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
@@ -1748,8 +1748,6 @@ class _TransformersWrapper:
         include_prompt = self.inference_config.pop("include_prompt", True)
         # Optional stripping out of `\n` for specific generator pipelines.
         collapse_whitespace = self.inference_config.pop("collapse_whitespace", False)
-        if device is not None:
-            self.inference_config["device"] = device
 
         data = self._convert_cast_lists_from_np_back_to_list(data)
 

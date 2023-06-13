@@ -28,8 +28,7 @@ sentence_generator = mlflow.pyfunc.load_model(model_info.model_uri)
 print(
     sentence_generator.predict(
         ["tell me a story about rocks", "Tell me a joke about a dog that likes spaghetti"],
-        # pass in additional kwargs applied to the pipeline during inference
-        max_length=512,
-        do_sample=True,
+        # pass in additional parameters applied to the pipeline during inference
+        parameters={"max_length": 512, "do_sample": True},
     )
 )

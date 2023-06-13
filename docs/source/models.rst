@@ -2654,15 +2654,15 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
-Using inference_config and kwargs for `transformers` inference
+Using inference_config and dictionary parameters for `transformers` inference
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
 * Use inference_config when saving/logging the model
-* Use kwargs during `predict` function call
+* Use dictionary parameters during `predict` function call
 
 .. note::
-    Kwargs passed in to `predict` function will override the values in inference_config.
+    Dictionary parameters passed in to `predict` function will override the values in inference_config.
     This functionality is not supported for model serving yet, but it will be supported in the short future.
 
 * Using inference_config
@@ -2690,7 +2690,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
     result = pyfunc_loaded.predict(data)
 
 
-* Using kwargs
+* Using dictionary parameters
 
 .. code-block:: python
 
@@ -2702,12 +2702,8 @@ For `transformers` inference, there are two ways to pass in additional arguments
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
-    # Passing kwargs to predict function directly
-    result = pyfunc_loaded.predict(
-        data, num_beams=5, max_length=30, do_sample=True, remove_invalid_values=True
-    )
-    # An equivalent is to pass kwargs as a dictionary
-    result = pyfunc_loaded.predict(data, **inference_config)
+    # Passing inferenc_config dictionary as parameters to predict function directly
+    result = pyfunc_loaded.predict(data, parameters=inference_config)
 
 
 Example of loading a transformers model as a python function
