@@ -513,7 +513,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
 
 def test_serving_model_with_schema(pandas_df_with_all_types):
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             return [[k, str(v)] for k, v in model_input.dtypes.items()]
 
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
@@ -569,7 +569,7 @@ def test_get_jsonnable_obj():
 
 def test_parse_json_input_including_path():
     class TestModel(PythonModel):
-        def predict(self, context, model_input):
+        def predict(self, context, model_input, parameters=None):
             return 1
 
     with mlflow.start_run() as run:
