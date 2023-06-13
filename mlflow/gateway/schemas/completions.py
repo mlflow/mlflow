@@ -3,6 +3,7 @@ from typing import List, Optional
 from pydantic import BaseModel, Extra
 
 from .chat import BaseRequestPayload
+from ..config import RouteType
 
 
 class RequestPayload(BaseRequestPayload):
@@ -23,7 +24,7 @@ class Metadata(BaseModel, extra=Extra.forbid):
     output_tokens: int
     total_tokens: int
     model: str
-    route_type: str
+    route_type: RouteType
 
 
 class ResponsePayload(BaseModel, extra=Extra.allow):

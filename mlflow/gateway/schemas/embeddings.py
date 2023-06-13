@@ -2,6 +2,8 @@ from typing import List
 
 from pydantic import BaseModel, Extra
 
+from ..config import RouteType
+
 
 class RequestPayload(BaseModel, extra=Extra.allow):
     text: str
@@ -12,7 +14,7 @@ class Metadata(BaseModel, extra=Extra.forbid):
     output_tokens: int
     total_tokens: int
     model: str
-    route_type: str
+    route_type: RouteType
 
 
 class ResponsePayload(BaseModel, extra=Extra.forbid):
