@@ -113,8 +113,8 @@ def _route_type_to_endpoint(route_type: RouteType):
         return _chat
     elif route_type == RouteType.LLM_V1_COMPLETIONS:
         return _completions
-    # elif route_type == RouteType.Embeddings:
-    #     return _embeddings
+    elif route_type == RouteType.LLM_V1_EMBEDDINGS:
+        return _embeddings
 
 
 def _add_dynamic_route(route: RouteConfig):
