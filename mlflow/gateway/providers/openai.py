@@ -114,6 +114,7 @@ class OpenAIProvider(BaseProvider):
             input=payload.text,
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
+        # ```
         # {
         #   "object": "list",
         #   "data": [
@@ -134,6 +135,7 @@ class OpenAIProvider(BaseProvider):
         #     "total_tokens": 8
         #   }
         # }
+        # ```
         return embeddings.ResponsePayload(
             **{
                 "embeddings": resp["data"][0]["embedding"],
