@@ -271,3 +271,6 @@ MLFLOW_WHEELED_MODEL_PIP_DOWNLOAD_OPTIONS = _EnvironmentVariable(
 MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_MULTIPART_DOWNLOAD", True
 )
+
+#: Private environment variable that should be set to True when running MLflow tests
+_MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)

@@ -2,9 +2,9 @@ import os
 import random
 import functools
 import shutil
+from pathlib import Path
 from unittest import mock
 from contextlib import ExitStack, contextmanager
-from packaging.version import Version
 
 import logging
 import requests
@@ -552,10 +552,7 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
-    ver = Version(mlflow.version.VERSION)
-    major = ver.major
-    minor = ver.minor
-    return f"mlflow=={major}.{minor}"
+    return str(Path(mlflow.__file__).parent.parent)
 
 
 @contextmanager
