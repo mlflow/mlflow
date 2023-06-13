@@ -36,7 +36,7 @@ def basic_config_dict():
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
-                    "config": {"openai_api_key": "$MY_API_KEY"},
+                    "config": {"openai_api_key": "sk-openai"},
                 },
             },
             {
@@ -57,10 +57,10 @@ def basic_config_dict():
 def test_api_key_parsing_env(tmp_path, monkeypatch):
     monkeypatch.setenv("KEY_AS_ENV", "my_key")
 
-    env_keys = ["KEY_AS_ENV", "$KEY_AS_ENV"]
-
-    for key in env_keys:
-        assert _resolve_api_key_from_input(key) == "my_key"
+    assert _resolve_api_key_from_input("$KEY_AS_ENV") == "my_key"
+    monkeypatch.delenv("KEY_AS_ENV", raising=False)
+    with pytest.raises(MlflowException, match="Environment variable 'KEY_AS_ENV' is not set"):
+        _resolve_api_key_from_input("$KEY_AS_ENV")
 
     string_key = "my_key_as_a_string"
 
@@ -105,9 +105,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     conf_path.write_text(yaml.safe_dump(basic_config_dict))
 
-    # Set an environment variable
-    monkeypatch.setenv("MY_API_KEY", "my_env_var_key")
-
     loaded_config = _load_route_config(conf_path)
 
     save_path = tmp_path.joinpath("config2.yaml")
@@ -133,7 +130,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert chat_gpt4.model.name == "gpt-4"
     assert chat_gpt4.model.provider == "openai"
     chat_conf = chat_gpt4.model.config
-    assert chat_conf["openai_api_key"] == "my_env_var_key"
+    assert chat_conf["openai_api_key"] == "sk-openai"
     assert chat_conf["openai_api_base"] == "https://api.openai.com/v1"
     assert chat_conf.get("openai_api_version", None) is None
     assert chat_conf.get("openai_api_type", None) is None
@@ -366,7 +363,7 @@ def test_default_base_api(tmp_path):
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
-                    "config": {"openai_api_key": "MY_API_KEY"},
+                    "config": {"openai_api_key": "sk-openai"},
                 },
             },
         ]
