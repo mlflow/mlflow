@@ -338,7 +338,7 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
             "Inference parameters are being loaded from \
                                     ``MLFLOW_PYFUNC_PARAMETERS`` environ."
         )
-        overrides.update(dict(json.loads(env_overrides)))
+        overrides.update(json.loads(env_overrides))
 
     if load_args:
         overrides.update(load_args)
