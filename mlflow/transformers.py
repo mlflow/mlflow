@@ -24,7 +24,7 @@ from mlflow.models import (
     ModelInputExample,
     ModelSignature,
     infer_signature,
-    infer_pip_requirements
+    infer_pip_requirements,
 )
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
