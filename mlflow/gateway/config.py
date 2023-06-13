@@ -29,6 +29,7 @@ class RouteType(str, Enum):
     CUSTOM = "custom"
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
+    LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
