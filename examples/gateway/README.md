@@ -2,29 +2,33 @@
 
 ## Installation
 
-From PyPI:
-
 ```shell
+# From PyPI
 pip install 'mlflow[gateway]'
-```
 
-From the repository:
-
-```shell
+# From the repository
 pip install -e '.[gateway]'
 ```
 
-## Running the service
+## Setting an OpenAI API Key
+
+This example requires an [OpenAI API key](https://platform.openai.com/account/api-keys):
+
+```sh
+export OPENAI_API_KEY=...
+```
+
+## Running the Gateway Service
 
 ```shell
 mlflow gateway start --config-path examples/gateway/config.yaml
 ```
 
-## Interactive API docs
+## Interactive API documentation
 
 Navigate to http://127.0.0.1:5000/docs.
 
-## Make requests
+## Sending Requests
 
 ```sh
 python examples/gateway/request.py
