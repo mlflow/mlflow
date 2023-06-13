@@ -90,14 +90,19 @@ async def _custom(request: Request):
 
 
 def _route_type_to_endpoint(config: RouteConfig):
-    if config.type == RouteType.LLM_V1_CHAT:
-        return _create_chat_endpoint(config)
-    elif config.type == RouteType.LLM_V1_COMPLETIONS:
-        return _create_completions_endpoint(config)
-    elif config.type == RouteType.LLM_V1_EMBEDDINGS:
-        return _create_embeddings_endpoint(config)
-    elif config.type == RouteType.CUSTOM:
-        return _custom
+    provider_to_factory = {
+        RouteType.LLM_V1_CHAT: _create_chat_endpoint,
+        RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
+        RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
+        RouteType.CUSTOM: _custom,
+    }
+    if factory := provider_to_factory.get(config.type):
+        return factory(config)
+
+    raise HTTPException(
+        status_code=404,
+        detail=f"Unexpected route type {config.type!r} for route {config.name!r}.",
+    )
 
 
 def _add_dynamic_route(route: RouteConfig):
