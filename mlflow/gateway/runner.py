@@ -68,9 +68,6 @@ class Runner:
                 "--worker-class",
                 "uvicorn.workers.UvicornWorker",
                 f"{app.__name__}:create_app_from_env()",
-                "--reload",
-                "--log-level",
-                "debug",
             ],
             env={
                 **os.environ,
