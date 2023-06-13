@@ -1,35 +1,61 @@
 import logging
-from typing import Optional
-from urllib.parse import urljoin
+from typing import Optional, List
 
-from mlflow.exceptions import MlflowException
-from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE
-from mlflow.gateway.utils import _validate_gateway_uri_is_set
+from mlflow.gateway.client import MlflowGatewayClient
+from mlflow.gateway.config import Route
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-# TODO: THIS IS A WIP. WILL CHANGE IN NEXT COMMIT!
+@experimental
+def get_gateway_health() -> bool:
+    """
+    Queries the health of the MLflow Gateway service.
+
+    This function creates an instance of MlflowGatewayClient and calls its method
+    to check the health of the Gateway service.
+
+    Returns:
+        bool: True if the service is healthy, False otherwise.
+    """
+    return MlflowGatewayClient().get_gateway_health()
 
 
-# @_validate_gateway_uri_is_set
-# def get_route(name: str):
-#     # TODO: use the MlflowGatewayClient
-#
-#     base_route_url = urljoin(MLFLOW_GATEWAY_URI.get(), MLFLOW_GATEWAY_ROUTE_BASE)
-#     route_url = urljoin(base_route_url, name)
-#     return _get_gateway_response_with_retries(method="GET", url=route_url).json()
-#
-#
-# @_validate_gateway_uri_is_set
-# def search_routes(search_filter: Optional[str] = None):
-#     # TODO: use the MlflowGatewayClient
-#
-#     if search_filter is not None:
-#         raise MlflowException.invalid_parameter_value(
-#             "Search functionality is not implemented. This API only returns all configured routes "
-#             "with no `search_filter` defined."
-#         )
-#     search_url = urljoin(MLFLOW_GATEWAY_URI.get(), MLFLOW_GATEWAY_ROUTE_BASE)
-#     return _get_gateway_response_with_retries(method="GET", url=search_url).json()
+@experimental
+def get_route(name: str) -> Route:
+    """
+    Retrieves a specific route from the MLflow Gateway service.
+
+    This function creates an instance of MlflowGatewayClient and uses it to fetch a route by its
+    name from the Gateway service.
+
+    Args:
+        name (str): The name of the route to fetch.
+
+    Returns:
+        Route: An instance of the Route class representing the fetched route.
+    """
+    return MlflowGatewayClient().get_route(name)
+
+
+@experimental
+def search_routes(search_filter: Optional[str] = None) -> List[Route]:
+    """
+    Searches for routes in the MLflow Gateway service.
+
+    This function creates an instance of MlflowGatewayClient and uses it to fetch a list of routes
+    from the Gateway service, optionally filtered by a search string.
+
+    .. note::
+        Search is currently not implemented. Providing a `search_filter` term will raise an
+        exception. Leave the arguments empty to get a listing of all configured routes.
+
+    Args:
+        search_filter (str, optional): A string to filter the results of the search. If None, all
+                                       routes are returned. Defaults to None.
+
+    Returns:
+        List[Route]: A list of Route instances representing the found routes.
+    """
+    return MlflowGatewayClient().search_routes(search_filter)

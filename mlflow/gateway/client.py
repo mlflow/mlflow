@@ -4,12 +4,17 @@ from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
-from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_GATEWAY_HEALTH_ENDPOINT
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
+)
 from mlflow.gateway.utils import (
     _resolve_gateway_uri,
     _merge_uri_paths,
 )
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import MlflowHostCreds, http_request, augmented_raise_for_status
 from mlflow.utils.uri import get_uri_scheme
@@ -18,6 +23,7 @@ from mlflow.utils.uri import get_uri_scheme
 _logger = logging.getLogger(__name__)
 
 
+@experimental
 class MlflowGatewayClient:
     """
     Client for interacting with the MLflow Gateway API.
@@ -30,13 +36,23 @@ class MlflowGatewayClient:
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = _resolve_gateway_uri(gateway_uri)
         self._host_creds = self._resolve_host_creds()
-        self._route_base = MLFLOW_GATEWAY_ROUTE_BASE
+        self._route_base = self._resolve_route_base()
+
+    def _is_databricks_host(self) -> bool:
+        return (
+            self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks"
+        )
 
     def _resolve_host_creds(self) -> MlflowHostCreds:
-        if self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks":
+        if self._is_databricks_host():
             return get_databricks_host_creds(self._gateway_uri)
         else:
             return _get_default_host_creds(self._gateway_uri)
+
+    def _resolve_route_base(self):
+        if self._is_databricks_host():
+            return MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX + MLFLOW_GATEWAY_ROUTE_BASE
+        return MLFLOW_GATEWAY_ROUTE_BASE
 
     @property
     def gateway_uri(self):

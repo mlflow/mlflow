@@ -1,11 +1,13 @@
 import pytest
 from requests.exceptions import HTTPError
+from unittest import mock
 
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
+from mlflow.utils.databricks_utils import MlflowHostCreds
 from tests.gateway.tools import Gateway, store_conf
 
 
@@ -79,14 +81,33 @@ def test_invalid_uri_on_utils_raises(uri):
         set_gateway_uri(uri)
 
 
-def test_non_running_server_raises():
-    with pytest.raises(MlflowException, match="The gateway server cannot be verified at"):
-        set_gateway_uri("http://invalid.server:6000")
+@pytest.mark.parametrize(
+    "uri, base_start",
+    [
+        ("http://local:6000", "/gateway"),
+        ("databricks", "/ml/gateway"),
+        ("databricks://my.shard", "/ml/gateway"),
+    ],
+)
+def test_databricks_base_route_modification(uri, base_start):
+    mock_host_creds = MlflowHostCreds("mock-host")
+
+    with mock.patch(
+        "mlflow.gateway.client.get_databricks_host_creds", return_value=mock_host_creds
+    ):
+        client = MlflowGatewayClient(gateway_uri=uri)
+
+        assert client._route_base.startswith(base_start)
 
 
-def test_instantiating_client_with_no_server_uri_raises():
-    with pytest.raises(MlflowException, match="No Gateway server uri has been set. Please either"):
-        MlflowGatewayClient()
+def test_non_running_server_raises_when_called():
+    set_gateway_uri("http://invalid.server:6000")
+    client = MlflowGatewayClient()
+    with pytest.raises(
+        MlflowException,
+        match="API request to http://invalid.server:6000/health failed with exception",
+    ):
+        client.get_gateway_health()
 
 
 def test_create_gateway_client_with_declared_url(gateway):
