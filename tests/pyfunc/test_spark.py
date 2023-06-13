@@ -114,15 +114,13 @@ def get_spark_session(conf):
 
 @pytest.fixture(scope="module")
 def spark():
-    conf = pyspark.SparkConf()
-    session = get_spark_session(conf)
-    yield session
-    session.stop()
+    with get_spark_session(pyspark.SparkConf()) as session:
+        yield session
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])

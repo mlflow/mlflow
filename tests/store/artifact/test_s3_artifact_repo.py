@@ -34,9 +34,9 @@ def teardown_function():
         del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
-def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -48,9 +48,9 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     assert downloaded_text == file_text
 
 
-def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -267,11 +267,11 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
 
 
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
-    file_a_path = os.path.join(str(tmpdir), file_a_name)
+    file_a_path = os.path.join(tmp_path, file_a_name)
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 

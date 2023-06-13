@@ -164,8 +164,8 @@ def test_set_signature_to_logged_model():
     assert model_info.signature == signature
 
 
-def test_set_signature_to_saved_model(tmpdir):
-    model_path = str(tmpdir)
+def test_set_signature_to_saved_model(tmp_path):
+    model_path = str(tmp_path)
     mlflow.sklearn.save_model(
         RandomForestRegressor(),
         model_path,

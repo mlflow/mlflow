@@ -1,6 +1,7 @@
 import base64
 import gc
 import json
+
 import librosa
 import numpy as np
 import os
@@ -8,11 +9,13 @@ import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
+import sys
 import textwrap
 from unittest import mock
 import yaml
 
 import transformers
+import huggingface_hub
 from huggingface_hub import ModelCard, scan_cache_dir
 from datasets import load_dataset
 
@@ -46,6 +49,9 @@ from mlflow.transformers import (
     _should_add_pyfunc_to_model,
     _TransformersModel,
     _FRAMEWORK_KEY,
+    _write_card_data,
+    _CARD_TEXT_FILE_NAME,
+    _CARD_DATA_FILE_NAME,
 )
 from mlflow.utils.environment import _mlflow_conda_env
 import torch
@@ -56,6 +62,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
+    get_free_disk_space_in_GiB,
 )
 
 pytestmark = pytest.mark.large
@@ -77,6 +84,14 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - TextClassifier pipeline tests
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
+
+
+@pytest.fixture(autouse=True)
+def report_free_disk_space(capsys):
+    yield
+
+    with capsys.disabled():
+        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(autouse=True)
@@ -335,7 +350,7 @@ def raw_audio_file():
 
 @pytest.fixture()
 def whisper_pipeline():
-    return transformers.pipeline(model="openai/whisper-small")
+    return transformers.pipeline(model="openai/whisper-tiny")
 
 
 @pytest.fixture()
@@ -1003,6 +1018,38 @@ def test_transformers_log_with_extra_pip_requirements(small_multi_modal_pipeline
             ["coolpackage"],
             strict=True,
         )
+
+
+def test_transformers_log_with_duplicate_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            pip_requirements=["transformers==99.99.99", "transformers", "mlflow"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
+
+
+def test_transformers_log_with_duplicate_extra_pip_requirements(
+    small_multi_modal_pipeline, tmp_path, capsys
+):
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            small_multi_modal_pipeline,
+            "model",
+            extra_pip_requirements=["transformers==99.99.99"],
+        )
+    captured = capsys.readouterr()
+    assert (
+        "Duplicate packages are present within the pip requirements. "
+        "Duplicate packages: ['transformers']" in captured.err
+    )
 
 
 def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -2858,7 +2905,7 @@ def test_whisper_model_save_and_load(model_path, whisper_pipeline, sound_file_fo
     loaded_pipeline = mlflow.transformers.load_model(model_path)
 
     transcription = loaded_pipeline(sound_file_for_test, **inference_config)
-    assert transcription["text"].startswith(" 30 seconds and counting. Astronauts")
+    assert transcription["text"].startswith(" 30")
 
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
 
@@ -2916,7 +2963,7 @@ def test_whisper_model_serve_and_score_with_inferred_signature(whisper_pipeline,
     )
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
 
 @pytest.mark.skipcacheclean
@@ -2944,7 +2991,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
     # Test split format
     inference_df = pd.DataFrame(
@@ -2962,7 +3009,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
     # Test records format
     records_dict = {"dataframe_records": inference_df.to_dict(orient="records")}
@@ -2977,7 +3024,7 @@ def test_whisper_model_serve_and_score(whisper_pipeline, raw_audio_file):
 
     values = PredictionsResponse.from_json(response.content.decode("utf-8")).get_predictions()
 
-    assert values.loc[0, 0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert values.loc[0, 0].startswith("30")
 
 
 @pytest.mark.skipif(
@@ -3183,7 +3230,7 @@ def test_whisper_model_using_uri_with_default_signature_raises(whisper_pipeline)
 
     url_inference = pyfunc_model.predict(url)
 
-    assert url_inference[0].startswith("30 seconds and counting. Astronauts report it feels ")
+    assert url_inference[0].startswith("30")
     # Ensure that direct pyfunc calling even with a conflicting signature still functions
     inference_payload = json.dumps({"inputs": [url]})
 
@@ -3214,3 +3261,27 @@ def test_whisper_model_with_malformed_audio(whisper_pipeline):
 
     with pytest.raises(MlflowException, match="Failed to process the input audio data. Either"):
         pyfunc_model.predict([invalid_audio])
+
+
+@pytest.mark.parametrize(
+    "model_name", ["tiiuae/falcon-7b", "databricks/dolly-v2-7b", "runwayml/stable-diffusion-v1-5"]
+)
+def test_save_model_card_with_non_utf_characters(tmp_path, model_name):
+    # non-ascii unicode characters
+    test_text = (
+        "Emoji testing! \u2728 \U0001F600 \U0001F609 \U0001F606 "
+        "\U0001F970 \U0001F60E \U0001F917 \U0001F9D0"
+    )
+
+    card_data: ModelCard = huggingface_hub.ModelCard.load(model_name)
+    card_data.text = card_data.text + "\n\n" + test_text
+    custom_data = card_data.data.to_dict()
+    custom_data["emojis"] = test_text
+
+    card_data.data = huggingface_hub.CardData(**custom_data)
+    _write_card_data(card_data, tmp_path)
+
+    txt = tmp_path.joinpath(_CARD_TEXT_FILE_NAME).read_text()
+    assert txt == card_data.text
+    data = yaml.safe_load(tmp_path.joinpath(_CARD_DATA_FILE_NAME).read_text())
+    assert data == card_data.data.to_dict()

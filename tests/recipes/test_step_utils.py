@@ -29,12 +29,13 @@ def test_display_html_opens_html_data():
             patched_display.assert_called_once()
 
 
-def test_display_html_opens_html_file(tmp_path):
+def test_display_html_opens_html_file(tmp_path, monkeypatch):
     html_file = tmp_path / "test.html"
     html_file.write_text("<!DOCTYPE html><html><body><p>Hey</p></body></html>")
     with mock.patch("subprocess.run") as patched_subprocess, mock.patch(
         "shutil.which", return_value=True
     ):
+        monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
         display_html(html_file_path=html_file)
         patched_subprocess.assert_called_once()
 

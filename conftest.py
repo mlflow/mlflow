@@ -1,6 +1,9 @@
 import os
 import posixpath
 import pytest
+import shutil
+import json
+import subprocess
 
 
 def pytest_addoption(parser):
@@ -71,6 +74,7 @@ def pytest_ignore_collect(path, config):
             "tests/sentence_transformers",
             "tests/openai",
             "tests/langchain",
+            "tests/johnsnowlabs",
             "tests/test_mlflow_lazily_imports_ml_packages.py",
             "tests/utils/test_model_utils.py",
             # this test is included here because it imports many big libraries like tf, keras, etc
@@ -83,6 +87,7 @@ def pytest_ignore_collect(path, config):
             "tests/autologging/test_training_session.py",
             # opt in authentication feature
             "tests/server/auth",
+            "tests/gateway",
         ]
 
         relpath = os.path.relpath(str(path))
@@ -116,3 +121,19 @@ def pytest_terminal_summary(
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_up_envs():
+    yield
+
+    if "GITHUB_ACTIONS" in os.environ:
+        from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root
+
+        shutil.rmtree(_get_mlflow_virtualenv_root(), ignore_errors=True)
+        if os.name != "nt":
+            conda_info = json.loads(subprocess.check_output(["conda", "info", "--json"], text=True))
+            root_prefix = conda_info["root_prefix"]
+            for env in conda_info["envs"]:
+                if env != root_prefix:
+                    shutil.rmtree(env, ignore_errors=True)

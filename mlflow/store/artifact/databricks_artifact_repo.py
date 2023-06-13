@@ -60,7 +60,8 @@ from mlflow.utils.uri import (
 )
 
 _logger = logging.getLogger(__name__)
-_DOWNLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
+_DOWNLOAD_CHUNK_SIZE = 100_000_000  # 100 MB
+_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE = 500_000_000  # 500 MB
 _MULTIPART_UPLOAD_CHUNK_SIZE = 10_000_000  # 10 MB
 _MAX_CREDENTIALS_REQUEST_SIZE = 2000  # Max number of artifact paths in a single credentials request
 _SERVICE_AND_METHOD_TO_INFO = {
@@ -148,11 +149,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
         self.run_relative_artifact_repo_root_path = (
             "" if run_artifact_root_path == artifact_repo_root_path else run_relative_root_path
         )
-        # Use an isolated thread pool executor for chunk uploads to avoid a deadlock
-        # caused by waiting for a chunk-upload task within a file-upload task.
+        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
+        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
         # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
         # for more details
-        self.chunk_upload_thread_pool = self._create_thread_pool()
+        self.chunk_thread_pool = self._create_thread_pool()
 
     @staticmethod
     def _extract_run_id(artifact_uri):
@@ -273,7 +274,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             num_chunks = _compute_num_chunks(local_file, _MULTIPART_UPLOAD_CHUNK_SIZE)
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.chunk_upload_thread_pool.submit(
+                future = self.chunk_thread_pool.submit(
                     self._azure_upload_chunk,
                     credentials=credentials,
                     headers=headers,
@@ -351,7 +352,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
             use_single_part_upload = num_chunks == 1
             for index in range(num_chunks):
                 start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-                future = self.chunk_upload_thread_pool.submit(
+                future = self.chunk_thread_pool.submit(
                     self._retryable_adls_function,
                     func=patch_adls_file_upload,
                     artifact_path=artifact_path,
@@ -432,13 +433,21 @@ class DatabricksArtifactRepository(ArtifactRepository):
     def _parallelized_download_from_cloud(
         self, cloud_credential_info, file_size, dst_local_file_path, dst_run_relative_artifact_path
     ):
+        from mlflow.utils.databricks_utils import get_databricks_env_vars
+
         try:
+            parallel_download_subproc_env = os.environ.copy()
+            parallel_download_subproc_env.update(
+                get_databricks_env_vars(self.databricks_profile_uri)
+            )
             failed_downloads = parallelized_download_file_using_http_uri(
+                thread_pool_executor=self.chunk_thread_pool,
                 http_uri=cloud_credential_info.signed_uri,
                 download_path=dst_local_file_path,
                 file_size=file_size,
                 uri_type=cloud_credential_info.type,
                 chunk_size=_DOWNLOAD_CHUNK_SIZE,
+                env=parallel_download_subproc_env,
                 headers=self._extract_headers_from_credentials(cloud_credential_info.headers),
             )
             download_errors = [
@@ -456,14 +465,11 @@ class DatabricksArtifactRepository(ArtifactRepository):
                 )[0]
                 new_signed_uri = new_cloud_creds.signed_uri
                 new_headers = self._extract_headers_from_credentials(new_cloud_creds.headers)
-                for index in failed_downloads:
-                    download_chunk(
-                        index,
-                        _DOWNLOAD_CHUNK_SIZE,
-                        new_headers,
-                        dst_local_file_path,
-                        new_signed_uri,
-                    )
+
+            for i in failed_downloads:
+                download_chunk(
+                    i, _DOWNLOAD_CHUNK_SIZE, new_headers, dst_local_file_path, new_signed_uri
+                )
         except Exception as err:
             if os.path.exists(dst_local_file_path):
                 os.remove(dst_local_file_path)
@@ -568,7 +574,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         for index, cred_info in enumerate(create_mpu_resp.upload_credential_infos):
             part_number = index + 1
             start_byte = index * _MULTIPART_UPLOAD_CHUNK_SIZE
-            future = self.chunk_upload_thread_pool.submit(
+            future = self.chunk_thread_pool.submit(
                 self._upload_part_retry,
                 cred_info=cred_info,
                 upload_id=create_mpu_resp.upload_id,
@@ -777,7 +783,7 @@ class DatabricksArtifactRepository(ArtifactRepository):
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
-        if not file_size or file_size <= _DOWNLOAD_CHUNK_SIZE:
+        if not file_size or file_size < _MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE:
             self._download_from_cloud(
                 cloud_credential_info=read_credentials[0], dst_local_file_path=local_path
             )

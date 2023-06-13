@@ -112,16 +112,22 @@ export const Default = createComponentWrapper({
   runsSelected: {},
   columnSelectorVisible: false,
   hiddenChildRunsSelected: {},
+  previewPaneVisible: false,
+  artifactViewState: {},
 });
 
 export const WithOneRunSelected = createComponentWrapper({
   runsSelected: { experiment123456789_run1: true, experiment123456789_run2: false },
   columnSelectorVisible: false,
   hiddenChildRunsSelected: {},
+  previewPaneVisible: false,
+  artifactViewState: {},
 });
 
 export const WithTwoRunSelected = createComponentWrapper({
   runsSelected: { experiment123456789_run1: true, experiment123456789_run2: true },
   columnSelectorVisible: false,
   hiddenChildRunsSelected: {},
+  previewPaneVisible: false,
+  artifactViewState: {},
 });

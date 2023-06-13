@@ -21,7 +21,6 @@ import os
 import yaml
 import json
 import tempfile
-import shutil
 import logging
 import functools
 from copy import deepcopy
@@ -29,6 +28,11 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
@@ -45,6 +49,9 @@ from mlflow.utils.environment import (
     _CONSTRAINTS_FILE_NAME,
     _PYTHON_ENV_FILE_NAME,
     _PythonEnv,
+)
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
@@ -69,6 +76,7 @@ from mlflow.utils.autologging_utils import (
     MlflowAutologgingQueueingClient,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.tracking.context import registry as context_registry
 from mlflow.sklearn import _SklearnTrainingSession
 
 FLAVOR_NAME = "lightgbm"
@@ -520,6 +528,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -556,6 +565,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the LightGBM autologging integration. If ``False``,
                     enables the LightGBM autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -661,7 +672,7 @@ def autolog(
 
         original(self, *args, **kwargs)
 
-    def train_impl(_log_models, original, *args, **kwargs):
+    def train_impl(_log_models, _log_datasets, original, *args, **kwargs):
         def record_eval_results(eval_results, metrics_logger):
             """
             Create a callback function that records evaluation results.
@@ -697,15 +708,14 @@ def autolog(
             ax.set_title(f"Feature Importance ({importance_type})")
             fig.tight_layout()
 
-            tmpdir = tempfile.mkdtemp()
-            try:
-                # pylint: disable=undefined-loop-variable
-                filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
-                fig.savefig(filepath)
-                mlflow.log_artifact(filepath)
-            finally:
-                plt.close(fig)
-                shutil.rmtree(tmpdir)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                try:
+                    # pylint: disable=undefined-loop-variable
+                    filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.png")
+                    fig.savefig(filepath)
+                    mlflow.log_artifact(filepath)
+                finally:
+                    plt.close(fig)
 
         autologging_client = MlflowAutologgingQueueingClient()
 
@@ -746,6 +756,36 @@ def autolog(
         eval_results = []
         callbacks_index = all_arg_names.index("callbacks")
         run_id = mlflow.active_run().info.run_id
+
+        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
+
+        # Whether to automatically log the training dataset as a dataset artifact.
+        if _log_datasets and train_set:
+            try:
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(tags=context_tags)
+
+                _log_lightgbm_dataset(train_set, source, "train", autologging_client)
+
+                valid_sets = kwargs.get("valid_sets")
+                if valid_sets is not None:
+                    valid_names = kwargs.get("valid_names")
+                    if valid_names is None:
+                        for valid_set in valid_sets:
+                            _log_lightgbm_dataset(valid_set, source, "eval", autologging_client)
+                    else:
+                        for valid_set, valid_name in zip(valid_sets, valid_names):
+                            _log_lightgbm_dataset(
+                                valid_set, source, "eval", autologging_client, name=valid_name
+                            )
+
+                dataset_logging_operations = autologging_client.flush(synchronous=False)
+                dataset_logging_operations.await_completion()
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log dataset information to MLflow Tracking. Reason: %s", e
+                )
+
         with batch_metrics_logger(run_id) as metrics_logger:
             callback = record_eval_results(eval_results, metrics_logger)
             if num_pos_args >= callbacks_index + 1:
@@ -795,18 +835,13 @@ def autolog(
                 )
 
             imp = dict(zip(features, importance.tolist()))
-            tmpdir = tempfile.mkdtemp()
-            try:
+            with tempfile.TemporaryDirectory() as tmpdir:
                 filepath = os.path.join(tmpdir, f"feature_importance_{imp_type}.json")
                 with open(filepath, "w") as f:
                     json.dump(imp, f, indent=2)
                 mlflow.log_artifact(filepath)
-            finally:
-                shutil.rmtree(tmpdir)
 
         # train_set must exist as the original train function already ran successfully
-        train_set = args[1] if len(args) > 1 else kwargs.get("train_set")
-
         # it is possible that the dataset was constructed before the patched
         #   constructor was applied, so we cannot assume the input_example_info exists
         input_example_info = getattr(train_set, "input_example_info", None)
@@ -848,16 +883,20 @@ def autolog(
 
         return model
 
-    def train(_log_models, original, *args, **kwargs):
+    def train(_log_models, _log_datasets, original, *args, **kwargs):
         with _SklearnTrainingSession(estimator=lightgbm.train, allow_children=False) as t:
             if t.should_log():
-                return train_impl(_log_models, original, *args, **kwargs)
+                return train_impl(_log_models, _log_datasets, original, *args, **kwargs)
             else:
                 return original(*args, **kwargs)
 
     safe_patch(FLAVOR_NAME, lightgbm.Dataset, "__init__", __init__)
     safe_patch(
-        FLAVOR_NAME, lightgbm, "train", functools.partial(train, log_models), manage_run=True
+        FLAVOR_NAME,
+        lightgbm,
+        "train",
+        functools.partial(train, log_models, log_datasets),
+        manage_run=True,
     )
     # The `train()` method logs LightGBM models as Booster objects. When using LightGBM
     # scikit-learn models, we want to save / log models as their model classes. So we turn
@@ -866,7 +905,11 @@ def autolog(
     # in `mlflow.sklearn._autolog()`, where models are logged as LightGBM scikit-learn models
     # after the `fit()` method returns.
     safe_patch(
-        FLAVOR_NAME, lightgbm.sklearn, "train", functools.partial(train, False), manage_run=True
+        FLAVOR_NAME,
+        lightgbm.sklearn,
+        "train",
+        functools.partial(train, False, log_datasets),
+        manage_run=True,
     )
 
     # enable LightGBM scikit-learn estimators autologging
@@ -877,6 +920,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
@@ -884,3 +928,27 @@ def autolog(
         max_tuning_runs=None,
         log_post_training_metrics=True,
     )
+
+
+def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name=None):
+    import pandas as pd
+    import numpy as np
+    from scipy.sparse import issparse
+
+    data = lgb_dataset.data
+    label = lgb_dataset.label
+    if isinstance(data, pd.DataFrame):
+        dataset = from_pandas(df=data, source=source, name=name)
+    elif issparse(data):
+        arr_data = data.toarray() if issparse(data) else data
+        dataset = from_numpy(features=arr_data, targets=label, source=source, name=name)
+    elif isinstance(data, np.ndarray):
+        dataset = from_numpy(features=data, targets=label, source=source, name=name)
+    else:
+        _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
+        return
+    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=context)]
+    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+    # log the dataset
+    autologging_client.log_inputs(run_id=mlflow.active_run().info.run_id, datasets=[dataset_input])

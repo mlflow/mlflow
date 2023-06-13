@@ -13,7 +13,7 @@ from mlflow.utils.request_utils import (  # pylint: disable=unused-import
     cloud_storage_http_request,
 )
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import get_error_code, MlflowException, RestException
+from mlflow.exceptions import get_error_code, MlflowException, RestException, InvalidUrlException
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
@@ -72,7 +72,6 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
-
     if extra_headers:
         headers = dict(**headers, **extra_headers)
 
@@ -108,6 +107,8 @@ def http_request(
             f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
             " to a larger value."
         )
+    except requests.exceptions.InvalidURL as iu:
+        raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
@@ -182,30 +183,37 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
+    call_kwargs = {
+        "host_creds": host_creds,
+        "endpoint": endpoint,
+        "method": method,
+    }
+    if extra_headers is not None:
+        call_kwargs["extra_headers"] = extra_headers
     if method == "GET":
-        response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body
-        )
+        call_kwargs["params"] = json_body
+        response = http_request(**call_kwargs)
     else:
-        response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body
-        )
+        call_kwargs["json"] = json_body
+        response = http_request(**call_kwargs)
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
 
-def call_endpoints(host_creds, endpoints, json_body, response_proto):
+def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
     for i, (endpoint, method) in enumerate(endpoints):
         try:
-            return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
+            return call_endpoint(
+                host_creds, endpoint, method, json_body, response_proto, extra_headers
+            )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
                 raise e

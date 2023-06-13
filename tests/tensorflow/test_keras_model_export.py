@@ -167,13 +167,13 @@ def custom_predicted(custom_model, data):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(tmpdir.strpath, "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def keras_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def keras_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["keras", "tensorflow", "pytest"])
     return conda_env
 
@@ -411,13 +411,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(model, tmpdir):
+def test_log_model_with_pip_requirements(model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -427,7 +427,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            pip_requirements=[f"-r {req_file.strpath}", "b"],
+            pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -438,7 +438,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            pip_requirements=[f"-c {req_file.strpath}", "b"],
+            pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -448,15 +448,15 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(model, tmpdir):
+def test_log_model_with_extra_pip_requirements(model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.tensorflow.get_default_pip_requirements()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
-            model, artifact_path="model", extra_pip_requirements=req_file.strpath
+            model, artifact_path="model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -467,7 +467,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -478,7 +478,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -688,10 +688,10 @@ def test_virtualenv_subfield_points_to_correct_path(model, model_path):
     assert python_env_path.is_file()
 
 
-def save_or_log_keras_model_by_mlflow128(tmpdir, task_type, save_as_type, save_path=None):
+def save_or_log_keras_model_by_mlflow128(tmp_path, task_type, save_as_type, save_path=None):
     tf_tests_dir = os.path.dirname(__file__)
     conda_env = get_or_create_conda_env(os.path.join(tf_tests_dir, "mlflow-128-tf-23-env.yaml"))
-    output_data_file_path = os.path.join(tmpdir, "output_data.pkl")
+    output_data_file_path = os.path.join(tmp_path, "output_data.pkl")
     tracking_uri = mlflow.get_tracking_uri()
     exec_py_path = os.path.join(tf_tests_dir, "save_keras_model.py")
 

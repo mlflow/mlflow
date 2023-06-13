@@ -160,6 +160,9 @@ def _get_request_param(param: str) -> str:
         )
 
     if param not in args:
+        # Special handling for run_id
+        if param == "run_id":
+            return _get_request_param("run_uuid")
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",

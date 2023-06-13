@@ -28,8 +28,8 @@ def _load_pyfunc(path):
 
 
 @pytest.fixture
-def pyfunc_custom_env_file(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def pyfunc_custom_env_file(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
         additional_pip_deps=[
@@ -71,12 +71,12 @@ def sklearn_knn_model(iris_data):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
-def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+def test_model_save_load(sklearn_knn_model, iris_data, tmp_path, model_path):
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -125,8 +125,8 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_data
                     np.testing.assert_array_equal(_read_example(mlflow_model, path), example)
 
 
-def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+def test_model_log_load(sklearn_knn_model, iris_data, tmp_path):
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -154,8 +154,8 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     )
 
 
-def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmp_path):
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -198,9 +198,9 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
 
 
 def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
-    sklearn_knn_model, tmpdir, pyfunc_custom_env_file
+    sklearn_knn_model, tmp_path, pyfunc_custom_env_file
 ):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -232,9 +232,9 @@ def test_log_model_persists_specified_conda_env_file_in_mlflow_model_directory(
 
 
 def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
-    sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
+    sklearn_knn_model, tmp_path, pyfunc_custom_env_dict
 ):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -263,9 +263,9 @@ def test_log_model_persists_specified_conda_env_dict_in_mlflow_model_directory(
 
 
 def test_log_model_persists_requirements_in_mlflow_model_directory(
-    sklearn_knn_model, tmpdir, pyfunc_custom_env_dict
+    sklearn_knn_model, tmp_path, pyfunc_custom_env_dict
 ):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
@@ -292,9 +292,9 @@ def test_log_model_persists_requirements_in_mlflow_model_directory(
 
 
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    sklearn_knn_model, tmpdir
+    sklearn_knn_model, tmp_path
 ):
-    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 

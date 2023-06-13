@@ -47,8 +47,8 @@ def tf2_toy_model():
     )
 
 
-def test_save_and_load_tf2_module(tmpdir, tf2_toy_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_save_and_load_tf2_module(tmp_path, tf2_toy_model):
+    model_path = os.path.join(tmp_path, "model")
     mlflow.tensorflow.save_model(tf2_toy_model.model, model_path)
 
     loaded_model = mlflow.tensorflow.load_model(model_path)
@@ -81,8 +81,8 @@ def test_log_and_load_tf2_module(tf2_toy_model):
     )
 
 
-def test_save_with_options(tmpdir, tf2_toy_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_save_with_options(tmp_path, tf2_toy_model):
+    model_path = os.path.join(tmp_path, "model")
 
     saved_model_kwargs = {
         "signatures": [tf.TensorSpec(shape=None, dtype=tf.float32)],
@@ -105,8 +105,8 @@ def test_save_with_options(tmpdir, tf2_toy_model):
         mock_save.assert_called_once_with(mock.ANY, mock.ANY, **saved_model_kwargs)
 
 
-def test_load_with_options(tmpdir, tf2_toy_model):
-    model_path = os.path.join(str(tmpdir), "model")
+def test_load_with_options(tmp_path, tf2_toy_model):
+    model_path = os.path.join(tmp_path, "model")
     mlflow.tensorflow.save_model(tf2_toy_model.model, model_path)
 
     saved_model_kwargs = {

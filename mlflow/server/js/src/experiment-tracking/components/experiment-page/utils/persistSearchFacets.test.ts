@@ -159,11 +159,12 @@ describe('persistSearchFacet', () => {
       state.orderByKey = 'order-key';
       state.orderByAsc = true;
       state.selectedColumns = ['col1', 'col2'];
+      state.compareRunsMode = 'ARTIFACT';
 
       const queryString = persistExperimentSearchFacetsState(state, 'id-key');
 
       expect(queryString).toEqual(
-        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2&isComparingRuns=false',
+        '?searchFilter=some%20filter&orderByKey=order-key&orderByAsc=true&startTime=ALL&lifecycleFilter=Active&modelVersionFilter=All%20Runs&selectedColumns=col1,col2&compareRunsMode=ARTIFACT',
       );
     });
 
@@ -189,7 +190,6 @@ describe('persistSearchFacet', () => {
       expectedQuery += `&selectedColumns=${state.selectedColumns
         .map((c) => encodeURIComponent(c))
         .join(',')}`;
-      expectedQuery += `&isComparingRuns=false`;
 
       expect(queryString).toEqual(expectedQuery);
     });
