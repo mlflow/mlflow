@@ -1,8 +1,8 @@
 import json
 import logging
-from urllib.parse import urljoin
 from typing import Optional
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_GATEWAY_HEALTH_ENDPOINT
 from mlflow.gateway.utils import (
@@ -11,7 +11,7 @@ from mlflow.gateway.utils import (
 )
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import MlflowHostCreds, http_request
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request, augmented_raise_for_status
 from mlflow.utils.uri import get_uri_scheme
 
 
@@ -39,7 +39,7 @@ class MlflowGatewayClient:
             return _get_default_host_creds(self._gateway_uri)
 
     @property
-    def get_gateway_uri(self):
+    def gateway_uri(self):
         """
         Get the current value for the URI of the MLflow Gateway.
 
@@ -65,14 +65,13 @@ class MlflowGatewayClient:
         else:
             call_kwargs["json"] = json_body
 
-        return http_request(
-            host_creds=self.host_creds,
-            endpoint=route,
-            method=method,
-            **call_kwargs
+        response = http_request(
+            host_creds=self._host_creds, endpoint=route, method=method, **call_kwargs
         )
+        augmented_raise_for_status(response)
+        return response
 
-    def get_gateway_health(self):
+    def get_gateway_health(self) -> bool:
         """
         Get the health status of the Gateway. This returns the state of the underlying FastAPI
         app that is running on the uvicorn server, managed by the gunicorn process manager.
@@ -80,9 +79,11 @@ class MlflowGatewayClient:
         A standard health response will return {"status":"OK"} if the server is up and ready to
         process requests sent to it.
 
-        :return: The JSON response from the server.
+        :return: bool True if gateway is healthy
         """
-        return self._call_endpoint("GET", MLFLOW_GATEWAY_HEALTH_ENDPOINT).json()
+
+        response = self._call_endpoint("GET", MLFLOW_GATEWAY_HEALTH_ENDPOINT)
+        return response.json()["status"] == "OK"
 
     def get_route(self, name: str):
         """
@@ -95,9 +96,10 @@ class MlflowGatewayClient:
         structure, giving information about the name, type, and model details (model name
         and provider) for the requested route endpoint.
         """
-        route =_merge_uri_paths([self._route_base, name])
-        response = self._call_endpoint("GET", route).json()
-        return Route(**response["route"])
+        route = _merge_uri_paths([self._route_base, name])
+        response = self._call_endpoint("GET", route).json()["route"]
+
+        return Route(**response)
 
     def search_routes(self, search_filter: Optional[str] = None):
         """
@@ -109,8 +111,9 @@ class MlflowGatewayClient:
         and model details of each active route endpoint.
         """
         if search_filter:
-            _logger.warning(
-                "Search functionality is not implemented. This API will list all configured routes."
+            raise MlflowException.invalid_parameter_value(
+                "Search functionality is not implemented. This API only returns all configured "
+                "routes with no `search_filter` defined."
             )
         response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]

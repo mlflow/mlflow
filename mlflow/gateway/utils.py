@@ -2,23 +2,15 @@ from functools import wraps
 import logging
 import psutil
 import re
+import requests
 from requests import HTTPError
 from typing import Optional, List
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse, urljoin
 
-from mlflow.environment_variables import (
-    MLFLOW_GATEWAY_URI,
-    MLFLOW_HTTP_REQUEST_MAX_RETRIES,
-    MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR,
-)
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
 from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
-from mlflow.utils import env
-from mlflow.utils.request_utils import (
-    augmented_raise_for_status,
-    _get_http_response_with_retries,
-    _TRANSIENT_FAILURE_RESPONSE_CODES,
-)
+from mlflow.utils.request_utils import augmented_raise_for_status
 
 
 _logger = logging.getLogger(__name__)
@@ -71,31 +63,30 @@ def _is_valid_uri(uri: str):
 
 
 def _is_gateway_server_available(gateway_uri: str):
-    server_health_url = urljoin(gateway_uri, MLFLOW_GATEWAY_HEALTH_ENDPOINT)
-
     try:
-        response = _get_gateway_response_with_retries("GET", server_health_url)
+        health_endpoint = urljoin(gateway_uri, MLFLOW_GATEWAY_HEALTH_ENDPOINT)
+        response = requests.get(health_endpoint)
         augmented_raise_for_status(response)
+        return True
     except HTTPError as http_err:
         _logger.warning(f"There is not a gateway server running at {gateway_uri}. {http_err}")
-        return False
     except Exception as err:
         _logger.warning(
             f"Unable to verify if a gateway server is healthy at {gateway_uri}. Error: {err}"
         )
-        return False
-    else:
-        return True
+    return False
 
 
 def _merge_uri_paths(paths: List[str]) -> str:
     sanitized = [part.strip("/") for part in paths]
-    return "/".join(sanitized)
+    merged = "/".join(sanitized)
+    if not merged.startswith("/"):
+        merged = "/" + merged
+    return merged
 
 
 def _resolve_gateway_uri(gateway_uri: Optional[str] = None) -> str:
-    gateway = gateway_uri or get_gateway_uri()
-    return gateway
+    return gateway_uri or get_gateway_uri()
 
 
 def set_gateway_uri(gateway_uri: str):
@@ -118,13 +109,13 @@ def get_gateway_uri() -> str:
     global _gateway_uri
     if _gateway_uri is not None:
         return _gateway_uri
-    elif (uri := env.get_env(MLFLOW_GATEWAY_URI.name)) is not None:
+    elif uri := MLFLOW_GATEWAY_URI.get():
         return uri
     else:
         raise MlflowException(
             "No Gateway server uri has been set. Please either set the MLflow Gateway URI via "
-            f"the fluent API or set the environment variable {MLFLOW_GATEWAY_URI.name} to the "
-            "running Gateway API server's uri"
+            f"`mlflow.set_gateway_uri()` or set the environment variable {MLFLOW_GATEWAY_URI.name} "
+            "to the running Gateway API server's uri"
         )
 
 

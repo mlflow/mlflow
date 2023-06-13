@@ -1,10 +1,12 @@
 import pytest
+from requests.exceptions import HTTPError
 
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI
-from mlflow.exceptions import MlflowException
+from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
+from mlflow.exceptions import MlflowException, InvalidUrlException
+import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
-from tests.gateway.helper_functions import Gateway, store_conf
+from tests.gateway.tools import Gateway, store_conf
 
 
 @pytest.fixture
@@ -22,7 +24,6 @@ def basic_config_dict():
                         "openai_api_base": "https://api.openai.com/v1",
                         "openai_api_version": "2023-05-10",
                         "openai_api_type": "openai/v1/chat/completions",
-                        "openai_organization": "my_company",
                     },
                 },
             },
@@ -32,7 +33,7 @@ def basic_config_dict():
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
-                    "config": {"openai_api_key": "$MY_API_KEY"},
+                    "config": {"openai_api_key": "MY_API_KEY"},
                 },
             },
             {
@@ -48,6 +49,15 @@ def basic_config_dict():
             },
         ]
     }
+
+
+@pytest.fixture
+def gateway(basic_config_dict, tmp_path):
+    conf = tmp_path / "config.yaml"
+    store_conf(conf, basic_config_dict)
+    with Gateway(conf) as g:
+        yield g
+    mlflow.gateway.utils._gateway_uri = None
 
 
 @pytest.mark.parametrize(
@@ -79,93 +89,88 @@ def test_instantiating_client_with_no_server_uri_raises():
         MlflowGatewayClient()
 
 
-def test_create_gateway_client_with_declared_url(basic_config_dict, tmp_path):
-    config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
-
-    with Gateway(config) as gateway:
-        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
-
-        assert gateway_client.get_gateway_uri == gateway.url
-
-        health = gateway_client.get_gateway_health()
-        assert health == {"status": "OK"}
+def test_create_gateway_client_with_declared_url(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+    assert gateway_client.gateway_uri == gateway.url
+    assert gateway_client.get_gateway_health()
 
 
-def test_set_gateway_uri_from_utils(basic_config_dict, tmp_path):
-    config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+def test_set_gateway_uri_from_utils(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
 
-    with Gateway(config) as gateway:
-        set_gateway_uri(gateway_uri=gateway.url)
-
-        gateway_client = MlflowGatewayClient()
-
-        assert gateway_client.get_gateway_uri == gateway.url
-
-        health = gateway_client.get_gateway_health()
-        assert health == {"status": "OK"}
+    gateway_client = MlflowGatewayClient()
+    assert gateway_client.gateway_uri == gateway.url
+    assert gateway_client.get_gateway_health()
 
 
-def test_create_gateway_client_with_environment_variable(basic_config_dict, tmp_path, monkeypatch):
-    config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
 
-    with Gateway(config) as gateway:
-        monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
-
-        gateway_client = MlflowGatewayClient()
-
-        assert gateway_client.get_gateway_uri == gateway.url
-
-        health = gateway_client.get_gateway_health()
-        assert health == {"status": "OK"}
+    gateway_client = MlflowGatewayClient()
+    assert gateway_client.gateway_uri == gateway.url
+    assert gateway_client.get_gateway_health()
 
 
-def test_query_individual_route(basic_config_dict, tmp_path, monkeypatch):
-    config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, "http://localhost:99999")
 
-    with Gateway(config) as gateway:
-        monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
+    # Pass a bad env variable config in
+    with pytest.raises(InvalidUrlException, match="Invalid url: http://localhost:99999/health"):
+        MlflowGatewayClient().get_gateway_health()
 
-        gateway_client = MlflowGatewayClient()
+    # Ensure that the global variable override preempts trying the environment variable value
+    set_gateway_uri(gateway_uri=gateway.url)
+    gateway_client = MlflowGatewayClient()
 
-        route1 = gateway_client.get_route(name="completions-gpt4")
-        assert isinstance(route1, Route)
-        assert route1.dict() == {
-            "model": {"name": "gpt-4", "provider": "openai"},
-            "name": "completions-gpt4",
-            "type": "llm/v1/completions",
-        }
-
-        route2 = gateway_client.get_route(name="chat-gpt4")
-        assert route2.dict() == {
-            "model": {"name": "gpt-4", "provider": "openai"},
-            "name": "chat-gpt4",
-            "type": "llm/v1/chat",
-        }
+    assert gateway_client.gateway_uri == gateway.url
+    assert gateway_client.get_gateway_health()
 
 
-def test_list_all_configured_routes(basic_config_dict, tmp_path, capsys):
-    config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+def test_query_individual_route(gateway, monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
 
-    with Gateway(config) as gateway:
-        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+    gateway_client = MlflowGatewayClient()
 
-        # This is a non-functional filter applied only to ensure that print a warning
-        routes = gateway_client.search_routes(search_filter="where 'myroute' contains 'gpt'")
-        assert routes[0].dict() == {
-            "model": {"name": "gpt-4", "provider": "openai"},
-            "name": "completions-gpt4",
-            "type": "llm/v1/completions",
-        }
-        assert routes[1].dict() == {
-            "model": {"name": "gpt-4", "provider": "openai"},
-            "name": "chat-gpt4",
-            "type": "llm/v1/chat",
-        }
+    route1 = gateway_client.get_route(name="completions-gpt4")
+    assert isinstance(route1, Route)
+    assert route1.dict() == {
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "completions-gpt4",
+        "type": "llm/v1/completions",
+    }
 
-    captured = capsys.readouterr()
-    assert "Search functionality is not implemented. This API will" in captured.err
+    route2 = gateway_client.get_route(name="chat-gpt4")
+    assert isinstance(route2, Route)
+    assert route2.dict() == {
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "chat-gpt4",
+        "type": "llm/v1/chat",
+    }
+
+
+def test_query_invalid_route(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    with pytest.raises(HTTPError, match="404 Client Error: Not Found"):
+        gateway_client.get_route("invalid-route")
+
+
+def test_list_all_configured_routes(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This is a non-functional filter applied only to ensure that print a warning
+    with pytest.raises(MlflowException, match="Search functionality is not implemented"):
+        gateway_client.search_routes(search_filter="where 'myroute' contains 'gpt'")
+
+    routes = gateway_client.search_routes()
+    assert all(isinstance(x, Route) for x in routes)
+    assert routes[0].dict() == {
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "completions-gpt4",
+        "type": "llm/v1/completions",
+    }
+    assert routes[1].dict() == {
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "chat-gpt4",
+        "type": "llm/v1/chat",
+    }

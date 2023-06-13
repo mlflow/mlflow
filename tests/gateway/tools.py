@@ -7,14 +7,8 @@ from typing import Any, Union
 import requests
 import yaml
 
-import mlflow.gateway.utils
 from mlflow.gateway.utils import kill_child_processes
 from tests.helper_functions import get_safe_port
-
-
-def reset_gateway_uri():
-    # Reset the state of the global gateway_uri during teardown of the Gateway instance
-    mlflow.gateway.utils._gateway_uri = None
 
 
 class Gateway:
@@ -73,7 +67,6 @@ class Gateway:
         kill_child_processes(self.process.pid)
         self.process.terminate()
         self.process.wait()
-        reset_gateway_uri()
 
 
 def store_conf(path, conf):

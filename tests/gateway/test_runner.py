@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tests.gateway.helper_functions import Gateway, store_conf, wait
+from tests.gateway.tools import Gateway, store_conf, wait
 import pytest
 
 
