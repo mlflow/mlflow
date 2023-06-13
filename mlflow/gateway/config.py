@@ -91,11 +91,14 @@ def _resolve_api_key_from_input(api_key_input):
         )
 
     # try reading as an environment variable
-    env_var_attempt = api_key_input[1:] if api_key_input.startswith("$") else api_key_input
-
-    env_var = os.getenv(env_var_attempt)
-    if env_var:
-        return env_var
+    if api_key_input.startswith("$"):
+        env_var_name = api_key_input[1:]
+        if env_var := os.getenv(env_var_name):
+            return env_var
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Environment variable {env_var_name!r} is not set"
+            )
 
     # try reading from a local path
     file = pathlib.Path(api_key_input)
