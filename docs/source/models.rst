@@ -3066,7 +3066,7 @@ Evaluating with LLMs
 ^^^^^^^^^^^^^^^^^^^^
 As of MLflow 2.4.0, :py:func:`mlflow.evaluate()` has built-in support for a variety of tasks with
 LLMs, including text summarization, text classification, question answering, and text generation.
-The following examples uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
 questions about MLflow (note that you must have the ``OPENAI_API_TOKEN`` environment variable set
 in your current system environment in order to run the example):
 
