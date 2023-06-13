@@ -1,8 +1,6 @@
-import time
 from pathlib import Path
-import yaml
 
-from tests.gateway.helper_functions import Gateway
+from tests.gateway.helper_functions import Gateway, store_conf, wait
 import pytest
 
 
@@ -100,18 +98,6 @@ def invalid_config_dict():
             }
         ]
     }
-
-
-def store_conf(path, conf):
-    path.write_text(yaml.safe_dump(conf))
-
-
-def wait():
-    """
-    A sleep statement for testing purposes only to ensure that the file watch and app reload
-    has enough time to resolve to updated endpoints.
-    """
-    time.sleep(2)
 
 
 def test_server_update(

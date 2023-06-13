@@ -1,16 +1,24 @@
+from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Union
 
 import requests
+import yaml
 
+import mlflow.gateway.utils
 from mlflow.gateway.utils import kill_child_processes
 from tests.helper_functions import get_safe_port
 
 
+def reset_gateway_uri():
+    # Reset the state of the global gateway_uri during teardown of the Gateway instance
+    mlflow.gateway.utils._gateway_uri = None
+
+
 class Gateway:
-    def __init__(self, config_path: str, *args, **kwargs):
+    def __init__(self, config_path: Union[str, Path], *args, **kwargs):
         self.port = get_safe_port()
         self.host = "localhost"
         self.url = f"http://{self.host}:{self.port}"
@@ -65,3 +73,16 @@ class Gateway:
         kill_child_processes(self.process.pid)
         self.process.terminate()
         self.process.wait()
+        reset_gateway_uri()
+
+
+def store_conf(path, conf):
+    path.write_text(yaml.safe_dump(conf))
+
+
+def wait():
+    """
+    A sleep statement for testing purposes only to ensure that the file watch and app reload
+    has enough time to resolve to updated endpoints.
+    """
+    time.sleep(2)

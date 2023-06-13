@@ -1,11 +1,10 @@
 import pytest
-import yaml
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
-import mlflow.gateway
-from mlflow.gateway.client import set_mlflow_gateway_uri
-from tests.gateway.helper_functions import Gateway
+from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
+from mlflow.gateway.config import Route
+from tests.gateway.helper_functions import Gateway, store_conf
 
 
 @pytest.fixture
@@ -51,13 +50,6 @@ def basic_config_dict():
     }
 
 
-@pytest.fixture(autouse=True)
-def reset_mlflow_gateway_uri_env_var():
-    # reset the gateway uri to None prior to each test
-    MLFLOW_GATEWAY_URI.set("")
-    yield
-
-
 @pytest.mark.parametrize(
     "uri",
     [
@@ -72,57 +64,108 @@ def reset_mlflow_gateway_uri_env_var():
         "http:gateway.org",  # missing slashes
     ],
 )
-def test_invalid_uri_raises(uri):
+def test_invalid_uri_on_utils_raises(uri):
     with pytest.raises(MlflowException, match="The gateway uri provided is missing required"):
-        set_mlflow_gateway_uri(uri)
+        set_gateway_uri(uri)
 
 
 def test_non_running_server_raises():
     with pytest.raises(MlflowException, match="The gateway server cannot be verified at"):
-        set_mlflow_gateway_uri("http://invalid.server:6000")
+        set_gateway_uri("http://invalid.server:6000")
 
 
-def test_running_server_validates_when_setting_env_var(basic_config_dict, tmp_path):
-    conf_path = tmp_path.joinpath("config.yaml")
-    conf_path.write_text(yaml.safe_dump(basic_config_dict))
-
-    with Gateway(str(conf_path)) as gateway:
-        uri = gateway.url
-
-        mlflow.gateway.set_mlflow_gateway_uri(gateway_uri=uri)
-
-        assert MLFLOW_GATEWAY_URI.get() == uri
-        assert mlflow.gateway.get_mlflow_gateway_uri() == uri
+def test_instantiating_client_with_no_server_uri_raises():
+    with pytest.raises(MlflowException, match="No Gateway server uri has been set. Please either"):
+        MlflowGatewayClient()
 
 
-def test_query_individual_route(basic_config_dict, tmp_path):
-    conf_path = tmp_path.joinpath("config.yaml")
-    conf_path.write_text(yaml.safe_dump(basic_config_dict))
+def test_create_gateway_client_with_declared_url(basic_config_dict, tmp_path):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
 
-    with Gateway(str(conf_path)) as gateway:
-        assert MLFLOW_GATEWAY_URI.get() == ""
+    with Gateway(config) as gateway:
+        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
 
-        with pytest.raises(MlflowException, match="The MLflow Gateway uri has not been set"):
-            mlflow.gateway.get_mlflow_gateway_uri()
+        assert gateway_client.get_gateway_uri == gateway.url
 
-        mlflow.gateway.set_mlflow_gateway_uri(gateway_uri=gateway.url)
+        health = gateway_client.get_gateway_health()
+        assert health == {"status": "OK"}
 
-        route1 = mlflow.gateway.get_route(name="completions-gpt4")
-        assert route1 == {
-            "route": {
-                "name": "completions-gpt4",
-                "type": "llm/v1/completions",
-                "model": {"name": "gpt-4", "provider": "openai"},
-            }
+
+def test_set_gateway_uri_from_utils(basic_config_dict, tmp_path):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    with Gateway(config) as gateway:
+        set_gateway_uri(gateway_uri=gateway.url)
+
+        gateway_client = MlflowGatewayClient()
+
+        assert gateway_client.get_gateway_uri == gateway.url
+
+        health = gateway_client.get_gateway_health()
+        assert health == {"status": "OK"}
+
+
+def test_create_gateway_client_with_environment_variable(basic_config_dict, tmp_path, monkeypatch):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    with Gateway(config) as gateway:
+        monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
+
+        gateway_client = MlflowGatewayClient()
+
+        assert gateway_client.get_gateway_uri == gateway.url
+
+        health = gateway_client.get_gateway_health()
+        assert health == {"status": "OK"}
+
+
+def test_query_individual_route(basic_config_dict, tmp_path, monkeypatch):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    with Gateway(config) as gateway:
+        monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
+
+        gateway_client = MlflowGatewayClient()
+
+        route1 = gateway_client.get_route(name="completions-gpt4")
+        assert isinstance(route1, Route)
+        assert route1.dict() == {
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "name": "completions-gpt4",
+            "type": "llm/v1/completions",
         }
-        route2 = mlflow.gateway.get_route(name="chat-gpt4")
-        assert route2 == {
-            "route": {
-                "model": {"name": "gpt-4", "provider": "openai"},
-                "name": "chat-gpt4",
-                "type": "llm/v1/chat",
-            }
+
+        route2 = gateway_client.get_route(name="chat-gpt4")
+        assert route2.dict() == {
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "name": "chat-gpt4",
+            "type": "llm/v1/chat",
         }
 
 
-# def test_list_all_configured_routes()
+def test_list_all_configured_routes(basic_config_dict, tmp_path, capsys):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    with Gateway(config) as gateway:
+        gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+        # This is a non-functional filter applied only to ensure that print a warning
+        routes = gateway_client.search_routes(search_filter="where 'myroute' contains 'gpt'")
+        assert routes[0].dict() == {
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "name": "completions-gpt4",
+            "type": "llm/v1/completions",
+        }
+        assert routes[1].dict() == {
+            "model": {"name": "gpt-4", "provider": "openai"},
+            "name": "chat-gpt4",
+            "type": "llm/v1/chat",
+        }
+
+    captured = capsys.readouterr()
+    assert "Search functionality is not implemented. This API will" in captured.err
