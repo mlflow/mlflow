@@ -23,3 +23,9 @@ mlflow gateway start --config-path examples/gateway/config.yaml
 ## Interactive API docs
 
 Navigate to http://127.0.0.1:5000/docs.
+
+## Make requests
+
+```sh
+python examples/gateway/request.py
+```

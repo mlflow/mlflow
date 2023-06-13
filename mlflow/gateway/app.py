@@ -14,6 +14,8 @@ from mlflow.gateway.config import (
     _load_route_config,
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
+from .providers import get_provider
+from .schemas import chat, completions, embeddings
 
 _logger = logging.getLogger(__name__)
 
@@ -54,81 +56,54 @@ async def search_routes():
     return {"routes": ACTIVE_ROUTES}
 
 
-async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
-    return chat.ResponsePayload(
-        **{
-            "candidates": [
-                {
-                    "message": msg,
-                    "metadata": {},
-                }
-                for msg in request.messages
-            ],
-            "metadata": {
-                "input_tokens": 1,
-                "output_tokens": 2,
-                "total_tokens": 3,
-                "model": "gpt-3.5-turbo",
-                "route_type": "llm/v1/chat",
-            },
-        }
-    )
+def _create_chat_endpoint(config: RouteConfig):
+    prov = get_provider(config.model.provider)(config)
+
+    async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
+        return await prov.chat(request)
+
+    return _chat
 
 
-async def _completions(request: completions.RequestPayload) -> completions.ResponsePayload:
-    return completions.ResponsePayload(
-        **{
-            "candidates": [
-                {
-                    "text": request.prompt,
-                    "metadata": {},
-                },
-            ],
-            "metadata": {
-                "input_tokens": 1,
-                "output_tokens": 2,
-                "total_tokens": 3,
-                "model": "gpt-3.5-turbo",
-                "route_type": "llm/v1/completions",
-            },
-        }
-    )
+def _create_completions_endpoint(config: RouteConfig):
+    prov = get_provider(config.model.provider)(config)
+
+    async def _completions(
+        request: completions.RequestPayload,
+    ) -> completions.ResponsePayload:
+        return await prov.completions(request)
+
+    return _completions
 
 
-async def _embeddings(_request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-    return embeddings.ResponsePayload(
-        **{
-            "embeddings": [0.1, 0.2, 0.3],
-            "metadata": {
-                "input_tokens": 1,
-                "output_tokens": 2,
-                "total_tokens": 3,
-                "model": "gpt-3.5-turbo",
-                "route_type": "llm/v1/embeddings",
-            },
-        }
-    )
+def _create_embeddings_endpoint(config: RouteConfig):
+    prov = get_provider(config.model.provider)(config)
+
+    async def _embeddings(request: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        return await prov.embeddings(request)
+
+    return _embeddings
 
 
 async def _custom(request: Request):
     return request.json()
 
 
-def _route_type_to_endpoint(route_type: RouteType):
-    if route_type == RouteType.LLM_V1_CHAT:
-        return _chat
-    elif route_type == RouteType.LLM_V1_COMPLETIONS:
-        return _completions
-    elif route_type == RouteType.LLM_V1_EMBEDDINGS:
-        return _embeddings
-    elif route_type == RouteType.CUSTOM:
+def _route_type_to_endpoint(config: RouteConfig):
+    if config.type == RouteType.LLM_V1_CHAT:
+        return _create_chat_endpoint(config)
+    elif config.type == RouteType.LLM_V1_COMPLETIONS:
+        return _create_completions_endpoint(config)
+    elif config.type == RouteType.LLM_V1_EMBEDDINGS:
+        return _create_embeddings_endpoint(config)
+    elif config.type == RouteType.CUSTOM:
         return _custom
 
 
 def _add_dynamic_route(route: RouteConfig):
     app.add_api_route(
         path=f"/gateway/routes/{route.name}",
-        endpoint=_route_type_to_endpoint(route.type),
+        endpoint=_route_type_to_endpoint(route),
         methods=["POST"],
     )
     ACTIVE_ROUTES.append(_route_config_to_route(route))
