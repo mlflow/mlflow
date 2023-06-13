@@ -7,9 +7,12 @@ from mlflow.gateway.config import Route
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_GATEWAY_HEALTH_ENDPOINT
 from mlflow.gateway.utils import (
     _resolve_gateway_uri,
-    _get_gateway_response_with_retries,
     _merge_uri_paths,
 )
+from mlflow.tracking._tracking_service.utils import _get_default_host_creds
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request
+from mlflow.utils.uri import get_uri_scheme
 
 
 _logger = logging.getLogger(__name__)
@@ -26,7 +29,14 @@ class MlflowGatewayClient:
 
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = _resolve_gateway_uri(gateway_uri)
+        self._host_creds = self._resolve_host_creds()
         self._route_base = MLFLOW_GATEWAY_ROUTE_BASE
+
+    def _resolve_host_creds(self) -> MlflowHostCreds:
+        if self._gateway_uri == "databricks" or get_uri_scheme(self._gateway_uri) == "databricks":
+            return get_databricks_host_creds(self._gateway_uri)
+        else:
+            return _get_default_host_creds(self._gateway_uri)
 
     @property
     def get_gateway_uri(self):
@@ -49,18 +59,18 @@ class MlflowGatewayClient:
         if json_body:
             json_body = json.loads(json_body)
 
-        url = urljoin(self._gateway_uri, route)
-
-        call_kwargs = {
-            "method": method,
-            "url": url,
-        }
+        call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
         else:
             call_kwargs["json"] = json_body
 
-        return _get_gateway_response_with_retries(**call_kwargs)
+        return http_request(
+            host_creds=self.host_creds,
+            endpoint=route,
+            method=method,
+            **call_kwargs
+        )
 
     def get_gateway_health(self):
         """
@@ -72,8 +82,7 @@ class MlflowGatewayClient:
 
         :return: The JSON response from the server.
         """
-        url = urljoin(self._gateway_uri, MLFLOW_GATEWAY_HEALTH_ENDPOINT)
-        return self._call_endpoint("GET", url).json()
+        return self._call_endpoint("GET", MLFLOW_GATEWAY_HEALTH_ENDPOINT).json()
 
     def get_route(self, name: str):
         """
@@ -86,8 +95,8 @@ class MlflowGatewayClient:
         structure, giving information about the name, type, and model details (model name
         and provider) for the requested route endpoint.
         """
-        url = urljoin(self._gateway_uri, _merge_uri_paths([self._route_base, name]))
-        response = self._call_endpoint("GET", url).json()
+        route =_merge_uri_paths([self._route_base, name])
+        response = self._call_endpoint("GET", route).json()
         return Route(**response["route"])
 
     def search_routes(self, search_filter: Optional[str] = None):
@@ -103,6 +112,5 @@ class MlflowGatewayClient:
             _logger.warning(
                 "Search functionality is not implemented. This API will list all configured routes."
             )
-        url = urljoin(self._gateway_uri, self._route_base)
-        response = self._call_endpoint("GET", url).json()["routes"]
+        response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]

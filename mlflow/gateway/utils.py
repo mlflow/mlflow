@@ -139,14 +139,3 @@ def _validate_gateway_uri_is_set(func):
         return func(*args, **kwargs)
 
     return function
-
-
-def _get_gateway_response_with_retries(method, url, **kwargs):
-    return _get_http_response_with_retries(
-        method=method,
-        url=url,
-        max_retries=MLFLOW_HTTP_REQUEST_MAX_RETRIES.get(),
-        backoff_factor=MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get(),
-        retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-        **kwargs,
-    )
