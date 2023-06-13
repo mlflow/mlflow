@@ -19,9 +19,14 @@ import yaml
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import ModelInputExample, Model, infer_pip_requirements
+from mlflow.models import (
+    Model,
+    ModelInputExample,
+    ModelSignature,
+    infer_signature,
+    infer_pip_requirements
+)
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models import ModelSignature, infer_signature
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, BAD_REQUEST
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS

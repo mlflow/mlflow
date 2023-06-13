@@ -230,7 +230,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
-from mlflow.models import _infer_signature_from_type_hints
+from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (

@@ -31,9 +31,8 @@ from mlflow.utils.environment import (
 )
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.models import ModelSignature
 from mlflow.models.utils import _save_example
-from mlflow.models import Model, ModelInputExample
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,

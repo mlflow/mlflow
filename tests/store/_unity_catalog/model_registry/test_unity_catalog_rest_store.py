@@ -11,7 +11,7 @@ from requests import Response
 import yaml
 
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models import ModelSignature, Schema
+from mlflow.models.signature import ModelSignature, Schema
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
