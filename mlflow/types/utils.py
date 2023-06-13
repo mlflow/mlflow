@@ -205,13 +205,15 @@ def _infer_schema(data: Any) -> Schema:
     return schema
 
 
-def _infer_inference_schema(params: Dict[str, Any]):
+def _infer_inference_schema(params: Dict[str, Any]) -> InferenceSchema:
     if isinstance(params, dict):
         return InferenceSchema(
-            [ParamSpec(name=name, type=type(value)) for name, value in params.items()]
+            [
+                ParamSpec(name=name, type=clean_tensor_type(np.asarray(value).dtype))
+                for name, value in params.items()
+            ]
         )
-    else:
-        raise TypeError("Expected inference configuration to be of type dictionary")
+    raise TypeError("Expected inference parameters to be of type dictionary")
 
 
 def _infer_numpy_dtype(dtype) -> DataType:

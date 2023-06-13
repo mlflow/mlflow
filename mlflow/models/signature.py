@@ -123,7 +123,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any,
     model_output: "MlflowInferableDataset" = None,
-    inference_config: Dict[str, Any] = None,
+    parameters: Dict[str, Any] = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input) and model predictions (output).
@@ -151,11 +151,12 @@ def infer_signature(
     :param model_input: Valid input to the model. E.g. (a subset of) the training dataset.
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
+    :param parameters: Valid dictionary of inference parameters to send to model at predict time.
     :return: ModelSignature
     """
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
-    parameters = _infer_inference_schema(inference_config) if inference_config is not None else None
+    parameters = _infer_inference_schema(parameters) if parameters is not None else None
     return ModelSignature(inputs, outputs, parameters)
 
 
