@@ -1,5 +1,6 @@
 import json
 import logging
+from urllib.parse import urljoin
 from typing import Optional
 
 from mlflow.exceptions import MlflowException
@@ -9,10 +10,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
     MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
 )
-from mlflow.gateway.utils import (
-    _resolve_gateway_uri,
-    _merge_uri_paths,
-)
+from mlflow.gateway.utils import get_gateway_uri
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -34,7 +32,7 @@ class MlflowGatewayClient:
     """
 
     def __init__(self, gateway_uri: Optional[str] = None):
-        self._gateway_uri = _resolve_gateway_uri(gateway_uri)
+        self._gateway_uri = gateway_uri or get_gateway_uri()
         self._host_creds = self._resolve_host_creds()
         self._route_base = self._resolve_route_base()
 
@@ -112,7 +110,7 @@ class MlflowGatewayClient:
         structure, giving information about the name, type, and model details (model name
         and provider) for the requested route endpoint.
         """
-        route = _merge_uri_paths([self._route_base, name])
+        route = urljoin(self._route_base, name)
         response = self._call_endpoint("GET", route).json()["route"]
 
         return Route(**response)

@@ -1,7 +1,7 @@
 import logging
 import psutil
 import re
-from typing import Optional, List
+from typing import Optional
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
@@ -55,18 +55,6 @@ def _is_valid_uri(uri: str):
         return all([parsed.scheme, parsed.netloc])
     except ValueError:
         return False
-
-
-def _merge_uri_paths(paths: List[str]) -> str:
-    sanitized = [part.strip("/") for part in paths]
-    merged = "/".join(sanitized)
-    if not merged.startswith("/"):
-        merged = "/" + merged
-    return merged
-
-
-def _resolve_gateway_uri(gateway_uri: Optional[str] = None) -> str:
-    return gateway_uri or get_gateway_uri()
 
 
 def set_gateway_uri(gateway_uri: str):

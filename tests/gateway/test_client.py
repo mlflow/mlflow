@@ -53,13 +53,17 @@ def basic_config_dict():
     }
 
 
+@pytest.fixture(autouse=True)
+def clear_uri():
+    mlflow.gateway.utils._gateway_uri = None
+
+
 @pytest.fixture
 def gateway(basic_config_dict, tmp_path):
     conf = tmp_path / "config.yaml"
     store_conf(conf, basic_config_dict)
     with Gateway(conf) as g:
         yield g
-    mlflow.gateway.utils._gateway_uri = None
 
 
 @pytest.mark.parametrize(
