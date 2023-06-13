@@ -38,7 +38,7 @@ def test_chat_response():
                 "output_tokens": 1,
                 "total_tokens": 1,
                 "model": "gpt-4",
-                "route_type": "chat",
+                "route_type": "llm/v1/chat",
             },
         }
     )
@@ -55,7 +55,7 @@ def test_chat_response():
                 "output_tokens": 1,
                 "total_tokens": 1,
                 "model": "gpt-4",
-                "route_type": "chat",
+                "route_type": "llm/v1/chat",
             },
         }
     )

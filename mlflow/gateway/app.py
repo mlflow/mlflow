@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 import logging
 import os
 from pathlib import Path
@@ -53,14 +53,15 @@ async def search_routes():
     return {"routes": ACTIVE_ROUTES}
 
 
-async def _chat(_request: chat.RequestPayload) -> chat.ResponsePayload:
+async def _chat(request: chat.RequestPayload) -> chat.ResponsePayload:
     return chat.ResponsePayload(
         **{
             "candidates": [
                 {
-                    "message": {"role": "system", "content": "Hello!"},
+                    "message": msg,
                     "metadata": {},
-                },
+                }
+                for msg in request.messages
             ],
             "metadata": {
                 "input_tokens": 1,
@@ -73,12 +74,12 @@ async def _chat(_request: chat.RequestPayload) -> chat.ResponsePayload:
     )
 
 
-async def _completions(_request: completions.RequestPayload) -> completions.ResponsePayload:
+async def _completions(request: completions.RequestPayload) -> completions.ResponsePayload:
     return completions.ResponsePayload(
         **{
             "candidates": [
                 {
-                    "message": {"role": "system", "content": "Hello!"},
+                    "text": request.prompt,
                     "metadata": {},
                 },
             ],
@@ -108,6 +109,10 @@ async def _embeddings(_request: embeddings.RequestPayload) -> embeddings.Respons
     )
 
 
+async def _custom(request: Request):
+    return request.json()
+
+
 def _route_type_to_endpoint(route_type: RouteType):
     if route_type == RouteType.LLM_V1_CHAT:
         return _chat
@@ -115,6 +120,8 @@ def _route_type_to_endpoint(route_type: RouteType):
         return _completions
     elif route_type == RouteType.LLM_V1_EMBEDDINGS:
         return _embeddings
+    elif route_type == RouteType.CUSTOM:
+        return _custom
 
 
 def _add_dynamic_route(route: RouteConfig):

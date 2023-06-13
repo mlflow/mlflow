@@ -25,7 +25,7 @@ def test_completions_response():
                 "output_tokens": 1,
                 "total_tokens": 1,
                 "model": "gpt-4",
-                "route_type": "completions",
+                "route_type": "llm/v1/completions",
             },
         }
     )
@@ -42,7 +42,7 @@ def test_completions_response():
                 "output_tokens": 1,
                 "total_tokens": 1,
                 "model": "gpt-4",
-                "route_type": "completions",
+                "route_type": "llm/v1/completions",
             },
         }
     )
