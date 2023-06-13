@@ -7,7 +7,7 @@ from ..config import RouteConfig
 
 class BaseProvider(ABC):
     """
-    Abstract base class for MLflow gateway providers.
+    Base class for MLflow Gateway providers.
     """
 
     NAME: str
