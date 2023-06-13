@@ -3,6 +3,7 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
+import json
 import os
 import copy
 import posixpath
@@ -20,6 +21,7 @@ from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _extract_type_hints
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _process_pip_requirements,
@@ -131,7 +133,7 @@ class PythonModelContext:
     by the ``artifacts`` parameter of these methods.
     """
 
-    def __init__(self, artifacts, parameters):
+    def __init__(self, artifacts: Dict[str, str], parameters: Dict[str, Any]):
         """
         :param artifacts: A dictionary of ``<name, artifact_path>`` entries, where ``artifact_path``
                           is an absolute filesystem path to a given artifact.
@@ -148,7 +150,8 @@ class PythonModelContext:
         return self._artifacts
 
     @property
-    def parameters(self):
+    @experimental
+    def parameters(self) -> Dict[str, Any]:
         """
         A dictionary containing ``<parameter, value>`` entries, where ``parameter`` is the name
         of the inference parameter and ``value`` is the value of the parameter to pass as argument.
@@ -324,35 +327,46 @@ def _load_pyfunc(model_path: str, **kwargs):
     )
 
 
-def _update_inference_params(inference_params: Dict[str, Any], overrides: Dict[str, Any]):
+def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Filters the inference arguments according to the inference configuration of the model. Only
+    Updates the inference parameters according to the inference configuration of the model. Only
     arguments already present in the inference configuration can be indicated at loading time.
     """
-    if not overrides:
-        return inference_params
+    overrides = {}
+    if env_overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
+        mlflow.pyfunc._logger.debug(
+            "Inference parameters are being loaded from \
+                                    ``MLFLOW_PYFUNC_PARAMETERS`` environ."
+        )
+        overrides.update(dict(json.loads(env_overrides)))
 
-    if not inference_params:
+    if load_args:
+        overrides.update(load_args)
+
+    if not overrides:
+        return params
+
+    if not params:
         mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, are invalid inference arguments for the model and were ignored.",
+            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
+                section of the ``pyfunc` flavor. Use ``parameters`` when logging the model to \
+                allow inference parameters.",
             ", ".joing(overrides.keys()),
         )
 
         return None
 
-    allowed_kargs = {
-        key: value for key, value in overrides.items() if key in inference_params.keys()
-    }
+    allowed_kargs = {key: value for key, value in overrides.items() if key in params.keys()}
     if len(allowed_kargs) < len(overrides):
         ignored_args = list(overrides.keys() not in allowed_kargs.keys())
         mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, are invalid inference arguments for the model and were ignored. \
-                Allowed arguments include %s",
+            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
+                section of the ``pyfunc` flavor. Allowed parameters include %s",
             ", ".join(ignored_args),
-            ", ".join(inference_params.keys()),
+            ", ".join(params.keys()),
         )
 
-    return inference_params.update(allowed_kargs)
+    return params.update(allowed_kargs)
 
 
 def _get_first_string_column(pdf):
