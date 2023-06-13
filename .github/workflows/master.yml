@@ -79,7 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if [ ! -z "$(echo $changed_files | grep '\.py$')"]; then
+          if echo "$changed_files" | grep -q '\.py$'; then
             pre-commit run --color=always --all-files pylint
           fi
       - name: Update error messages
