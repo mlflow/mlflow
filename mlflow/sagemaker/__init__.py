@@ -1143,7 +1143,7 @@ def target_help():
     """
     Provide help information for the SageMaker deployment client.
     """
-    help_str = """\
+    return """\
     For detailed documentation on the SageMaker deployment client, please visit
     https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html#mlflow.sagemaker.SageMakerDeploymentClient
 
@@ -1162,7 +1162,6 @@ def target_help():
     The `delete` command accepts configurations to archive a model instead of deleting, execute
     in asynchronous mode and timeout period.
     """
-    return help_str
 
 
 def _get_default_image_url(region_name):

@@ -4,6 +4,7 @@ from .unittest_assert_raises import UnittestAssertRaises
 from .string_checker import StringChecker
 from .set_checker import SetChecker
 from .import_checker import ImportChecker
+from .assign_checker import AssignChecker
 
 
 def register(linter):
@@ -13,3 +14,4 @@ def register(linter):
     linter.register_checker(SetChecker(linter))
     linter.register_checker(StringChecker(linter))
     linter.register_checker(ImportChecker(linter))
+    linter.register_checker(AssignChecker(linter))

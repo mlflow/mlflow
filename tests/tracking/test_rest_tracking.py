@@ -83,12 +83,11 @@ def mlflow_client(request, tmp_path):
 @pytest.fixture()
 def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
-    cli_env = {
+    return {
         "LC_ALL": "en_US.UTF-8",
         "LANG": "en_US.UTF-8",
         "MLFLOW_TRACKING_URI": mlflow_client.tracking_uri,
     }
-    return cli_env
 
 
 def create_experiments(client, names):
