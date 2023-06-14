@@ -35,7 +35,7 @@ def chat_config():
             "name": "gpt-3.5-turbo",
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
-                "openai_api_key": "$OPENAI_API_KEY",
+                "openai_api_key": "key",
             },
         },
     }
@@ -133,7 +133,7 @@ def completions_config():
             "name": "text-davinci-003",
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
-                "openai_api_key": "$OPENAI_API_KEY",
+                "openai_api_key": "key",
             },
         },
     }
@@ -226,7 +226,7 @@ def embedding_config():
             "name": "text-embedding-ada-002",
             "config": {
                 "openai_api_base": "https://api.openai.com/v1",
-                "openai_api_key": "$OPENAI_API_KEY",
+                "openai_api_key": "key",
             },
         },
     }
