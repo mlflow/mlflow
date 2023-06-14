@@ -1046,7 +1046,7 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _get_registered_model_alias(cls, session, name, alias):
-        alias = (
+        return (
             session.query(SqlRegisteredModelAlias)
             .filter(
                 SqlRegisteredModelAlias.name == name,
@@ -1054,7 +1054,6 @@ class SqlAlchemyStore(AbstractStore):
             )
             .first()
         )
-        return alias
 
     def set_registered_model_alias(self, name, alias, version):
         """

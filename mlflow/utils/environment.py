@@ -16,6 +16,7 @@ from mlflow.utils.requirements_utils import (
     _infer_requirements,
 )
 from mlflow.version import VERSION
+from mlflow.environment_variables import _MLFLOW_TESTING
 
 
 _logger = logging.getLogger(__name__)
@@ -464,7 +465,13 @@ def _generate_mlflow_version_pinning():
     mlflow_version = Version(VERSION)
     current_major_version = mlflow_version.major
     current_minor_version = mlflow_version.minor
-    return f"mlflow=={current_major_version}.{current_minor_version}"
+    current_micro_version = mlflow_version.micro
+    # The version on master is always a micro version ahead of the latest release and can't be
+    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
+    offset = -1 if _MLFLOW_TESTING.get() else 0
+    return (
+        f"mlflow=={current_major_version}.{current_minor_version}.{current_micro_version + offset}"
+    )
 
 
 def _contains_mlflow_requirement(requirements):

@@ -92,7 +92,7 @@ def test_overwrite_pip_deps():
     assert _overwrite_pip_deps(conda_env, ["scipy"]) == expected
 
 
-def test_parse_pip_requirements(tmpdir):
+def test_parse_pip_requirements(tmp_path):
     assert _parse_pip_requirements(None) == ([], [])
     assert _parse_pip_requirements([]) == ([], [])
     # Without version specifiers
@@ -108,54 +108,54 @@ def test_parse_pip_requirements(tmpdir):
     mlflow_repo_uri = "git+https://github.com/mlflow/mlflow.git"
     assert _parse_pip_requirements([mlflow_repo_uri]) == ([mlflow_repo_uri], [])
     # Local file
-    fake_whl = tmpdir.join("fake.whl")
-    fake_whl.write("")
-    assert _parse_pip_requirements([fake_whl.strpath]) == ([fake_whl.strpath], [])
+    fake_whl = tmp_path.joinpath("fake.whl")
+    fake_whl.write_text("")
+    assert _parse_pip_requirements([str(fake_whl)]) == ([str(fake_whl)], [])
 
 
-def test_parse_pip_requirements_with_relative_requirements_files(request, tmpdir):
+def test_parse_pip_requirements_with_relative_requirements_files(request, tmp_path):
     try:
-        os.chdir(tmpdir)
-        f1 = tmpdir.join("requirements1.txt")
-        f1.write("b")
-        assert _parse_pip_requirements(f1.basename) == (["b"], [])
-        assert _parse_pip_requirements(["a", f"-r {f1.basename}"]) == (["a", "b"], [])
+        os.chdir(tmp_path)
+        f1 = tmp_path.joinpath("requirements1.txt")
+        f1.write_text("b")
+        assert _parse_pip_requirements(f1.name) == (["b"], [])
+        assert _parse_pip_requirements(["a", f"-r {f1.name}"]) == (["a", "b"], [])
 
-        f2 = tmpdir.join("requirements2.txt")
-        f3 = tmpdir.join("requirements3.txt")
-        f2.write(f"b\n-r {f3.basename}")
-        f3.write("c")
-        assert _parse_pip_requirements(f2.basename) == (["b", "c"], [])
-        assert _parse_pip_requirements(["a", f"-r {f2.basename}"]) == (["a", "b", "c"], [])
+        f2 = tmp_path.joinpath("requirements2.txt")
+        f3 = tmp_path.joinpath("requirements3.txt")
+        f2.write_text(f"b\n-r {f3.name}")
+        f3.write_text("c")
+        assert _parse_pip_requirements(f2.name) == (["b", "c"], [])
+        assert _parse_pip_requirements(["a", f"-r {f2.name}"]) == (["a", "b", "c"], [])
     finally:
         os.chdir(request.config.invocation_dir)
 
 
-def test_parse_pip_requirements_with_absolute_requirements_files(tmpdir):
-    f1 = tmpdir.join("requirements1.txt")
-    f1.write("b")
-    assert _parse_pip_requirements(f1.strpath) == (["b"], [])
-    assert _parse_pip_requirements(["a", f"-r {f1.strpath}"]) == (["a", "b"], [])
+def test_parse_pip_requirements_with_absolute_requirements_files(tmp_path):
+    f1 = tmp_path.joinpath("requirements1.txt")
+    f1.write_text("b")
+    assert _parse_pip_requirements(str(f1)) == (["b"], [])
+    assert _parse_pip_requirements(["a", f"-r {f1}"]) == (["a", "b"], [])
 
-    f2 = tmpdir.join("requirements2.txt")
-    f3 = tmpdir.join("requirements3.txt")
-    f2.write(f"b\n-r {f3.strpath}")
-    f3.write("c")
-    assert _parse_pip_requirements(f2.strpath) == (["b", "c"], [])
-    assert _parse_pip_requirements(["a", f"-r {f2.strpath}"]) == (["a", "b", "c"], [])
-
-
-def test_parse_pip_requirements_with_constraints_files(tmpdir):
-    con_file = tmpdir.join("constraints.txt")
-    con_file.write("b")
-    assert _parse_pip_requirements(["a", f"-c {con_file.strpath}"]) == (["a"], ["b"])
-
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write(f"-c {con_file.strpath}\n")
-    assert _parse_pip_requirements(["a", f"-r {req_file.strpath}"]) == (["a"], ["b"])
+    f2 = tmp_path.joinpath("requirements2.txt")
+    f3 = tmp_path.joinpath("requirements3.txt")
+    f2.write_text(f"b\n-r {f3}")
+    f3.write_text("c")
+    assert _parse_pip_requirements(str(f2)) == (["b", "c"], [])
+    assert _parse_pip_requirements(["a", f"-r {f2}"]) == (["a", "b", "c"], [])
 
 
-def test_parse_pip_requirements_ignores_comments_and_blank_lines(tmpdir):
+def test_parse_pip_requirements_with_constraints_files(tmp_path):
+    con_file = tmp_path.joinpath("constraints.txt")
+    con_file.write_text("b")
+    assert _parse_pip_requirements(["a", f"-c {con_file}"]) == (["a"], ["b"])
+
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text(f"-c {con_file}\n")
+    assert _parse_pip_requirements(["a", f"-r {req_file}"]) == (["a"], ["b"])
+
+
+def test_parse_pip_requirements_ignores_comments_and_blank_lines(tmp_path):
     reqs = [
         "# comment",
         "a # inline comment",
@@ -163,10 +163,10 @@ def test_parse_pip_requirements_ignores_comments_and_blank_lines(tmpdir):
         "",
         " ",
     ]
-    f = tmpdir.join("requirements.txt")
-    f.write("\n".join(reqs))
+    f = tmp_path.joinpath("requirements.txt")
+    f.write_text("\n".join(reqs))
     assert _parse_pip_requirements(reqs) == (["a"], [])
-    assert _parse_pip_requirements(f.strpath) == (["a"], [])
+    assert _parse_pip_requirements(str(f)) == (["a"], [])
 
 
 def test_parse_pip_requirements_removes_temporary_requirements_file():
@@ -239,7 +239,7 @@ def test_get_pip_requirement_specifier():
     assert _get_pip_requirement_specifier("mlflow-skinny==1.2 --foo=bar") == "mlflow-skinny==1.2"
 
 
-def test_process_pip_requirements(tmpdir):
+def test_process_pip_requirements(tmp_path):
     expected_mlflow_ver = _mlflow_major_version_string()
     conda_env, reqs, cons = _process_pip_requirements(["a"])
     assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a"]
@@ -273,17 +273,17 @@ def test_process_pip_requirements(tmpdir):
     assert reqs == [expected_mlflow_ver, "a", "b"]
     assert cons == []
 
-    con_file = tmpdir.join("constraints.txt")
-    con_file.write("c")
+    con_file = tmp_path.joinpath("constraints.txt")
+    con_file.write_text("c")
     conda_env, reqs, cons = _process_pip_requirements(
-        ["a"], pip_requirements=["b", f"-c {con_file.strpath}"]
+        ["a"], pip_requirements=["b", f"-c {con_file}"]
     )
     assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "b", "-c constraints.txt"]
     assert reqs == [expected_mlflow_ver, "b", "-c constraints.txt"]
     assert cons == ["c"]
 
 
-def test_process_conda_env(tmpdir):
+def test_process_conda_env(tmp_path):
     def make_conda_env(pip_deps):
         return {
             "name": "mlflow-env",
@@ -298,9 +298,9 @@ def test_process_conda_env(tmpdir):
     assert reqs == [expected_mlflow_ver, "a"]
     assert cons == []
 
-    conda_env_file = tmpdir.join("conda_env.yaml")
-    conda_env_file.write(yaml.dump(make_conda_env(["a"])))
-    conda_env, reqs, cons = _process_conda_env(conda_env_file.strpath)
+    conda_env_file = tmp_path.joinpath("conda_env.yaml")
+    conda_env_file.write_text(yaml.dump(make_conda_env(["a"])))
+    conda_env, reqs, cons = _process_conda_env(str(conda_env_file))
     assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a"]
     assert reqs == [expected_mlflow_ver, "a"]
     assert cons == []
@@ -311,9 +311,9 @@ def test_process_conda_env(tmpdir):
     assert reqs == ["mlflow==1.2.3"]
     assert cons == []
 
-    con_file = tmpdir.join("constraints.txt")
-    con_file.write("c")
-    conda_env, reqs, cons = _process_conda_env(make_conda_env(["a", f"-c {con_file.strpath}"]))
+    con_file = tmp_path.joinpath("constraints.txt")
+    con_file.write_text("c")
+    conda_env, reqs, cons = _process_conda_env(make_conda_env(["a", f"-c {con_file}"]))
     assert _get_pip_deps(conda_env) == [expected_mlflow_ver, "a", "-c constraints.txt"]
     assert reqs == [expected_mlflow_ver, "a", "-c constraints.txt"]
     assert cons == ["c"]
