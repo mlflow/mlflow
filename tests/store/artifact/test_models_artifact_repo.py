@@ -10,7 +10,10 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow import MlflowClient
 
-from tests.store.artifact.constants import *
+from tests.store.artifact.constants import (
+    WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
+    UC_MODELS_ARTIFACT_REPOSITORY,
+)
 
 
 @pytest.mark.parametrize(

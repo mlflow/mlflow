@@ -72,7 +72,8 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
         except Exception:
             stack_trace = traceback.format_exc()
             logger.debug(
-                f'Failed to download an "{MLMODEL_FILE_NAME}" model file from resolved URI {resolved_uri}. '
+                f'Failed to download an "{MLMODEL_FILE_NAME}" model file from '
+                f"resolved URI {resolved_uri}. "
                 f"Got error:\n{stack_trace}"
                 f"Falling back to downloading from original model URI {model_uri}"
             )
