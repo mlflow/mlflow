@@ -15,6 +15,7 @@ from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
+from mlflow.utils.credentials import read_mlflow_creds
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
@@ -151,10 +152,11 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
 
 
 def _get_default_host_creds(store_uri):
+    creds = read_mlflow_creds()
     return rest_utils.MlflowHostCreds(
         host=store_uri,
-        username=os.environ.get(_TRACKING_USERNAME_ENV_VAR),
-        password=os.environ.get(_TRACKING_PASSWORD_ENV_VAR),
+        username=creds.username,
+        password=creds.password,
         token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
         ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",

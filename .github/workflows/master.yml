@@ -79,7 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           changed_files=$(python dev/list_changed_files.py --repository mlflow/mlflow --pr-num ${{ github.event.number }})
-          if [ ! -z "$(echo $changed_files | grep '\.py$')"]; then
+          if echo "$changed_files" | grep -q '\.py$'; then
             pre-commit run --color=always --all-files pylint
           fi
       - name: Update error messages
@@ -109,6 +109,7 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
+      - uses: ./.github/actions/untracked
 
   python:
     runs-on: ubuntu-latest
@@ -138,6 +139,7 @@ jobs:
         run: |
           source dev/setup-ssh.sh
           ./dev/run-python-tests.sh
+      - uses: ./.github/actions/untracked
 
   database:
     runs-on: ubuntu-latest
@@ -208,6 +210,7 @@ jobs:
       - name: Clean up
         run: |
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
+      - uses: ./.github/actions/untracked
 
   java:
     runs-on: ubuntu-latest
@@ -270,6 +273,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/models
+      - uses: ./.github/actions/untracked
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -295,6 +299,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/evaluate
+      - uses: ./.github/actions/untracked
 
   pyfunc:
     runs-on: ubuntu-latest
@@ -316,6 +321,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest --durations=30 tests/pyfunc
+      - uses: ./.github/actions/untracked
 
   sagemaker:
     runs-on: ubuntu-latest
@@ -334,6 +340,7 @@ jobs:
       - name: Run tests
         run: |
           ./dev/run-python-sagemaker-tests.sh;
+      - uses: ./.github/actions/untracked
 
   windows:
     runs-on: windows-latest
@@ -360,7 +367,7 @@ jobs:
           pip install tensorflow
       - name: Download Hadoop winutils for Spark
         run: |
-          git clone https://github.com/cdarlint/winutils
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run python tests
         env:
           # Starting from SQLAlchemy version 2.0, `QueuePool` is the default connection pool
@@ -370,10 +377,11 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
           pytest --ignore-flavors --ignore=tests/projects --ignore=tests/examples tests --ignore=tests/recipes --ignore=tests/evaluate
           # MLeap is incompatible on Windows with PySpark3.4 release. 
           # Reinstate tests when MLeap has released a fix. [ML-30491]
           # pytest tests/mleap
+      - uses: ./.github/actions/untracked

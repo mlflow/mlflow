@@ -3,6 +3,7 @@ import getpass
 
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.entities import SourceType
+from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
     MLFLOW_SOURCE_TYPE,
@@ -43,8 +44,9 @@ class DefaultRunContext(RunContextProvider):
         return True
 
     def tags(self):
+        creds = read_mlflow_creds()
         return {
-            MLFLOW_USER: _get_user(),
+            MLFLOW_USER: creds.username or _get_user(),
             MLFLOW_SOURCE_NAME: _get_source_name(),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(_get_source_type()),
         }
