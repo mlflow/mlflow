@@ -36,21 +36,36 @@ class RouteType(str, Enum):
 
 
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
-    openai_api_key: Optional[str] = None
+    openai_api_key: str
     openai_api_type: Optional[str] = None
     openai_api_base: Optional[str] = "https://api.openai.com/v1"
     openai_api_version: Optional[str] = None
     openai_organization: Optional[str] = None
 
+    # pylint: disable=no-self-argument
+    @validator("openai_api_key", pre=True)
+    def validate_openai_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
 
 class AnthropicConfig(BaseModel, extra=Extra.forbid):
-    anthropic_api_key: Optional[str] = None
+    anthropic_api_key: str
     anthropic_api_base: Optional[str] = "https://api.anthropic.com/"
+
+    # pylint: disable=no-self-argument
+    @validator("anthropic_api_key", pre=True)
+    def validate_anthropic_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class DatabricksConfig(BaseModel, extra=Extra.forbid):
-    databricks_api_token: Optional[str] = None
+    databricks_api_token: str
     databricks_api_base: str
+
+    # pylint: disable=no-self-argument
+    @validator("databricks_api_token", pre=True)
+    def validate_databricks_api_token(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class MLflowConfig(BaseModel, extra=Extra.forbid):
@@ -58,9 +73,14 @@ class MLflowConfig(BaseModel, extra=Extra.forbid):
 
 
 class CustomConfig(BaseModel, extra=Extra.forbid):
-    api_key: Optional[str] = None
+    api_key: str
     api_base: str
     api_version: Optional[str] = None
+
+    # pylint: disable=no-self-argument
+    @validator("api_key", pre=True)
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 config_types = {
@@ -113,28 +133,6 @@ def _resolve_api_key_from_input(api_key_input):
     return api_key_input
 
 
-def _extract_and_set_api_key(config, provider):
-    required_keys = {
-        OpenAIConfig: "openai_api_key",
-        AnthropicConfig: "anthropic_api_key",
-        DatabricksConfig: "databricks_api_token",
-        CustomConfig: "api_key",
-    }
-
-    for config_class, key in required_keys.items():
-        if isinstance(config, config_class):
-            if value := getattr(config, key, None):
-                # set the config key
-                value = _resolve_api_key_from_input(value)
-                return config_class(**{**config.dict(), key: value})
-
-            raise MlflowException.invalid_parameter_value(
-                f"For the {provider} provider, the api key must either be specified within the "
-                "configuration supplied or an environment variable set whose key is "
-                "defined within the configuration"
-            )
-
-
 def _validate_base_route(config, provider):
     base_route = {
         OpenAIConfig: "openai_api_base",
@@ -170,9 +168,6 @@ class Model(BaseModel, extra=Extra.forbid):
         if provider:
             config_type = config_types[provider]
             config_instance = config_type(**config)
-
-            # set the api_key
-            config_instance = _extract_and_set_api_key(config_instance, provider)
 
             # validate the base_route
             _validate_base_route(config_instance, provider)
