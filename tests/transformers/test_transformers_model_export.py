@@ -643,6 +643,7 @@ def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_p
     assert result[0]["label"] == "happy"
     assert result[0]["score"] > 0.5
 
+
 def test_basic_save_model_and_load_text_pipeline(small_seq2seq_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model={

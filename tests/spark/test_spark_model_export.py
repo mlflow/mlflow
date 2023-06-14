@@ -34,9 +34,11 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
-from mlflow.store.artifact.unity_catalog_models_artifact_repo import UnityCatalogModelsArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from tests.store.artifact.constants import UC_MODELS_ARTIFACT_REPOSITORY, MODELS_ARTIFACT_REPOSITORY
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
+    UnityCatalogModelsArtifactRepository,
+)
+from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -378,27 +380,37 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
 #     UnityCatalogModelsArtifactRepository,
 # )
 # But also need to mock the value of ModelsArtifactRepository.get_underlying_uri
-def test_load_spark_model_from_models_uri(tmp_path, spark_model_estimator):
-    model_uri = "models:/MyModel/12"
-    uc_registry_uri = "databricks-uc://getRegistryUriDefault"
+@pytest.mark.parametrize(
+    "registry_uri,artifact_repo_class",
+    [
+        ("databricks-uc", UnityCatalogModelsArtifactRepository),
+        ("databricks", DatabricksModelsArtifactRepository),
+    ],
+)
+def test_load_spark_model_from_models_uri(
+    tmp_path, spark_model_estimator, registry_uri, artifact_repo_class
+):
     model_dir = str(tmp_path.joinpath("spark_model"))
-    with mock.patch(UC_MODELS_ARTIFACT_REPOSITORY, autospec=True) as mock_repo, \
-        mock.patch(f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri") as mock_get_underlying_uri, \
-        mock.patch("mlflow.get_registry_uri", return_value=uc_registry_uri
+    with mock.patch(
+        f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri"
+    ) as mock_get_underlying_uri, mock.patch.object(
+        artifact_repo_class, "download_artifacts", return_value=model_dir
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.get_registry_uri", return_value=registry_uri
     ):
         sparkm.save_model(
             path=model_dir,
             spark_model=spark_model_estimator.model,
         )
-        mock_repo.download_artifacts.return_value = model_path
-        models_repo = ModelsArtifactRepository(model_uri)
-        mock_get_underlying_uri.return_value = "s3://fakenonexistenturiformlflowtesting"
-
+        mock_get_underlying_uri.return_value = "nonexistentscheme://fakeuri"
         mlflow.spark.load_model("models:/mycatalog.myschema.mymodel/1")
+        # Assert that we downloaded both the MLmodel file and the whole model itself using
+        # the models:/ URI
+        assert mock_download_artifacts.mock_calls == [
+            mock.call("MLmodel", None),
+            mock.call("", None),
+        ]
 
-        assert models_repo.artifact_uri == model_uri
-        assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
-        mock_repo.download_artifacts.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])

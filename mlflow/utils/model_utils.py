@@ -1,5 +1,6 @@
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from mlflow.exceptions import MlflowException
@@ -69,9 +70,12 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
                 artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
             )
         except Exception:
-            logger.warning(
+            stack_trace = traceback.format_exc()
+            logger.debug(
                 f'Failed to download an "{MLMODEL_FILE_NAME}" model file from resolved URI {resolved_uri}. '
-                f'Falling back to downloading from original model URI {model_uri}')
+                f"Got error:\n{stack_trace}"
+                f"Falling back to downloading from original model URI {model_uri}"
+            )
             ml_model_file = _download_artifact_from_uri(
                 artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
             )

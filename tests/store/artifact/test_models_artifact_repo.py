@@ -12,6 +12,7 @@ from mlflow import MlflowClient
 
 from tests.store.artifact.constants import *
 
+
 @pytest.mark.parametrize(
     "uri_with_profile",
     [
