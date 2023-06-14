@@ -16,6 +16,7 @@ class Gateway:
         self.port = get_safe_port()
         self.host = "localhost"
         self.url = f"http://{self.host}:{self.port}"
+        self.workers = 2
         self.process = subprocess.Popen(
             [
                 sys.executable,
@@ -30,7 +31,7 @@ class Gateway:
                 "--port",
                 str(self.port),
                 "--workers",
-                "2",
+                str(self.workers),
             ],
             *args,
             **kwargs,
@@ -47,6 +48,13 @@ class Gateway:
                 time.sleep(0.5)
 
         raise Exception("Gateway failed to start")
+
+    def wait_reload(self) -> None:
+        """
+        Should be called after we update a gateway config file in tests to ensure
+        that the gateway service has reloaded the config.
+        """
+        time.sleep(self.workers)
 
     def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
         return requests.request(method, f"{self.url}/{path}", *args, **kwargs)
@@ -71,11 +79,3 @@ class Gateway:
 
 def store_conf(path, conf):
     path.write_text(yaml.safe_dump(conf))
-
-
-def wait():
-    """
-    A sleep statement for testing purposes only to ensure that the file watch and app reload
-    has enough time to resolve to updated endpoints.
-    """
-    time.sleep(2)
