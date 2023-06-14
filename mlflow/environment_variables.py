@@ -274,3 +274,11 @@ MLFLOW_ENABLE_MULTIPART_DOWNLOAD = _BooleanEnvironmentVariable(
 
 #: Private environment variable that should be set to True when running MLflow tests
 _MLFLOW_TESTING = _BooleanEnvironmentVariable("MLFLOW_TESTING", False)
+
+#: Specifies the username used to authenticate with a tracking server.
+#: (default: ``None``)
+MLFLOW_TRACKING_USERNAME = _EnvironmentVariable("MLFLOW_TRACKING_USERNAME", str, None)
+
+#: Specifies the password used to authenticate with a tracking server.
+#: (default: ``None``)
+MLFLOW_TRACKING_PASSWORD = _EnvironmentVariable("MLFLOW_TRACKING_PASSWORD", str, None)

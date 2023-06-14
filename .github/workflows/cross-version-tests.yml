@@ -116,6 +116,8 @@ jobs:
           submodules: recursive
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
+      - uses: ./.github/actions/free-disk-space
+        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers'
       - name: Get python version
         id: get-python-version
         run: |
@@ -125,11 +127,6 @@ jobs:
         with:
           python-version: ${{ steps.get-python-version.outputs.version }}
       - uses: ./.github/actions/setup-pyenv
-      - name: Remove unneeded libraries
-        run: |
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
       - name: Get Java version
         id: get-java-version
         run: |

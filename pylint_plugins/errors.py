@@ -73,3 +73,10 @@ LAZY_BUILTIN_IMPORT = Message(
     message="Import built-in module(s) (%s) at the top of the file.",
     reason="There is no reason they should be imported inside a function.",
 )
+
+USELESS_ASSIGNMENT = Message(
+    id="W0008",
+    name="useless-assignment",
+    message="Useless assignment. Use immediate return instead.",
+    reason="For simplicity and readability",
+)

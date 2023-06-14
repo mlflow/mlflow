@@ -434,8 +434,7 @@ class SqlAlchemyStore(AbstractStore):
         self._save_to_db(objs=run, session=session)
 
     def _list_run_infos(self, session, experiment_id):
-        runs = session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
-        return runs
+        return session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:

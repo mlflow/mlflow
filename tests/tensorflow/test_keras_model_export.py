@@ -411,13 +411,13 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(keras_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(model, tmpdir):
+def test_log_model_with_pip_requirements(model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=req_file.strpath)
+        mlflow.tensorflow.log_model(model, artifact_path="model", pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -427,7 +427,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            pip_requirements=[f"-r {req_file.strpath}", "b"],
+            pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -438,7 +438,7 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            pip_requirements=[f"-c {req_file.strpath}", "b"],
+            pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -448,15 +448,15 @@ def test_log_model_with_pip_requirements(model, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(model, tmpdir):
+def test_log_model_with_extra_pip_requirements(model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.tensorflow.get_default_pip_requirements()
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.tensorflow.log_model(
-            model, artifact_path="model", extra_pip_requirements=req_file.strpath
+            model, artifact_path="model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -467,7 +467,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -478,7 +478,7 @@ def test_log_model_with_extra_pip_requirements(model, tmpdir):
         mlflow.tensorflow.log_model(
             model,
             artifact_path="model",
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
