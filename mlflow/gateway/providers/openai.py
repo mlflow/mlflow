@@ -25,19 +25,22 @@ class OpenAIProvider(BaseProvider):
                 return await response.json()
 
     @staticmethod
-    def _convert_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]):
+    def _make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
         payload = payload.copy()
         for k1, k2 in mapping.items():
             if v := payload.pop(k1, None):
                 payload[k2] = v
-        return payload
+        return {k: v for k, v in payload.items() if v is not None and v != []}
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        payload = OpenAIProvider._convert_payload_keys(
+        payload = OpenAIProvider._make_payload(
             jsonable_encoder(payload),
             {"candidate_count": "n"},
         )
-        resp = await self._request("chat", payload)
+        resp = await self._request(
+            "chat/completions",
+            {"model": self.config.model.name, **payload},
+        )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
         # {
@@ -87,11 +90,14 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = OpenAIProvider._convert_payload_keys(
+        payload = OpenAIProvider._make_payload(
             jsonable_encoder(payload),
             {"candidate_count": "n"},
         )
-        resp = await self._request("completions", payload)
+        resp = await self._request(
+            "completions",
+            {"model": self.config.model.name, **payload},
+        )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
         # {
@@ -134,11 +140,14 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        payload = OpenAIProvider._convert_payload_keys(
+        payload = OpenAIProvider._make_payload(
             jsonable_encoder(payload),
             {"text": "input"},
         )
-        resp = await self._request("embeddings", payload)
+        resp = await self._request(
+            "embeddings",
+            {"model": self.config.model.name, **payload},
+        )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
         # {
