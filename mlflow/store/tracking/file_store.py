@@ -1212,6 +1212,14 @@ class FileStore(AbstractStore):
 
 
     def _search_datasets(self, experiment_ids) -> List[DatasetSummary]:
+        """
+        Return all dataset summaries associated to the given experiments.
+
+        :param experiment_ids List of experiment ids to scope the search
+
+        :return A List of :py:class:`mlflow.entities.DatasetSummary` entities.
+        """
+        
         MAX_DATASET_SUMMARIES_RESULTS = 1000
         summary_tuples = []
         for experiment_id in experiment_ids:
