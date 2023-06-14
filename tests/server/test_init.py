@@ -24,7 +24,7 @@ def test_find_app_non_existing_app():
 
 def test_build_waitress_command():
     assert server._build_waitress_command(
-        "", "localhost", "5000", f"{server.__name__}:app", is_factory=False
+        "", "localhost", "5000", f"{server.__name__}:app", is_factory=True
     ) == [
         "waitress-serve",
         "--host=localhost",
@@ -34,7 +34,7 @@ def test_build_waitress_command():
         "mlflow.server:app",
     ]
     assert server._build_waitress_command(
-        "", "localhost", "5000", f"{server.__name__}:app", is_factory=True
+        "", "localhost", "5000", f"{server.__name__}:app", is_factory=False
     ) == [
         "waitress-serve",
         "--host=localhost",
