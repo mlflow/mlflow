@@ -40,9 +40,8 @@ def chat_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_chat():
-    resp = {
+def chat_response():
+    return {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
         "created": 1677858242,
@@ -63,6 +62,11 @@ async def test_chat():
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_chat():
+    resp = chat_response()
     config = chat_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
@@ -104,27 +108,7 @@ async def test_chat_throws_if_request_payload_contains_n():
 
 @pytest.mark.asyncio
 async def test_chat_temperature_is_doubled():
-    resp = {
-        "id": "chatcmpl-abc123",
-        "object": "chat.completion",
-        "created": 1677858242,
-        "model": "gpt-3.5-turbo-0301",
-        "usage": {
-            "prompt_tokens": 13,
-            "completion_tokens": 7,
-            "total_tokens": 20,
-        },
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "\n\nThis is a test!",
-                },
-                "finish_reason": "stop",
-                "index": 0,
-            }
-        ],
-    }
+    resp = chat_response()
     config = chat_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
@@ -153,9 +137,8 @@ def completions_config():
     }
 
 
-@pytest.mark.asyncio
-async def test_completions():
-    resp = {
+def completions_response():
+    return {
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
         "created": 1589478378,
@@ -174,6 +157,11 @@ async def test_completions():
             "total_tokens": 12,
         },
     }
+
+
+@pytest.mark.asyncio
+async def test_completions():
+    resp = completions_response()
     config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
@@ -212,25 +200,7 @@ async def test_completions_throws_if_request_payload_contains_n():
 
 @pytest.mark.asyncio
 async def test_completions_temperature_is_doubled():
-    resp = {
-        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [
-            {
-                "text": "\n\nThis is indeed a test",
-                "index": 0,
-                "logprobs": None,
-                "finish_reason": "length",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 5,
-            "completion_tokens": 7,
-            "total_tokens": 12,
-        },
-    }
+    resp = completions_response()
     config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
