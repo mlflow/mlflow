@@ -124,7 +124,6 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert completions_conf["openai_organization"] == "my_company"
 
     chat_gpt4 = loaded_from_save.routes[1]
-
     assert chat_gpt4.name == "chat-gpt4"
     assert chat_gpt4.type == "llm/v1/chat"
     assert chat_gpt4.model.name == "gpt-4"
