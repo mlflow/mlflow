@@ -10,16 +10,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow import MlflowClient
 
-
-MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.models_artifact_repo"
-MODELS_ARTIFACT_REPOSITORY = MODELS_ARTIFACT_REPOSITORY_PACKAGE + ".ModelsArtifactRepository"
-WORKSPACE_MODELS_ARTIFACT_REPOSITORY = (
-    f"{MODELS_ARTIFACT_REPOSITORY_PACKAGE}.DatabricksModelsArtifactRepository"
-)
-UC_MODELS_ARTIFACT_REPOSITORY = (
-    f"{MODELS_ARTIFACT_REPOSITORY_PACKAGE}.UnityCatalogModelsArtifactRepository"
-)
-
+from tests.store.artifact.constants import *
 
 @pytest.mark.parametrize(
     "uri_with_profile",

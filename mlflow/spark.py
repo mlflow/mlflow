@@ -790,6 +790,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
+    print("@SID getting flavor config")
     flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
