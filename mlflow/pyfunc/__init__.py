@@ -520,7 +520,7 @@ class PyFuncModel:
 
     @property
     @experimental
-    def parameters(self):
+    def parameters(self) -> Dict[str, Any]:
         """Model's inference parameters"""
         return self._model_meta.flavors[FLAVOR_NAME].get(PARAMETERS, {})
 
@@ -535,6 +535,8 @@ class PyFuncModel:
             ):
                 info["artifact_path"] = self._model_meta.artifact_path
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
+            if self.parameters:
+                info["parameters"] = self.parameters
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
 

@@ -117,7 +117,7 @@ class _FunctionPythonModel(PythonModel):
         return _extract_type_hints(self.func, input_arg_index=0)
 
     def predict(self, context, model_input):
-        if context.parameters and len(context.parameters) > 0:
+        if context.parameters:
             return self.func(model_input, **context.parameters)
         else:
             return self.func(model_input)
