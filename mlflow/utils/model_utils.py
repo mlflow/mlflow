@@ -1,6 +1,5 @@
 import os
 import sys
-from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -113,15 +112,6 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
-    # Delete cached modules so they will get reloaded anew from the correct code path
-    # Otherwise python will use the cached modules
-    modules = [
-        p.stem
-        for p in Path(code_path).rglob("*.py")
-        if p.is_file() and p.name != "__init__.py" and p.name != "__main__.py"
-    ]
-    for module in modules:
-        sys.modules.pop(module, None)
 
 
 def _validate_and_prepare_target_save_path(path):
