@@ -3,15 +3,20 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn.base import BaseEstimator, ClassifierMixin
 from scipy.sparse import csr_matrix, csc_matrix
 
-from mlflow.models.signature import infer_signature
+import mlflow
+from mlflow.models.model import get_model_info
+from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_tensor_input_from_json,
     _read_sparse_matrix_from_json,
 )
+from mlflow.types import DataType
 from mlflow.types.utils import TensorsNotSupportedException
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
@@ -207,3 +212,77 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
             np.testing.assert_array_equal(
                 no_schema_df, np.where(np.isnan(input_example), None, input_example)
             )
+
+
+class DummySklearnModel(BaseEstimator, ClassifierMixin):
+    def __init__(self, output_shape=(1,)):
+        self.output_shape = output_shape
+
+    def fit(self, X, y=None):
+        return self
+
+    def predict(self, X):
+        n_samples = X.shape[0]
+        full_output_shape = (n_samples,) + self.output_shape
+        return np.zeros(full_output_shape, dtype=np.dtype("int64"))
+
+
+@pytest.mark.parametrize(
+    ("input_is_tabular", "output_shape", "expected_signature"),
+    [
+        # When the input example is column-based, output 1D numpy arrays are interpretted `ColSpec`s
+        (
+            True,
+            (),
+            ModelSignature(
+                inputs=Schema([ColSpec(name="feature", type=DataType.string)]),
+                outputs=Schema([ColSpec(type=DataType.long)]),
+            ),
+        ),
+        # But if the output numpy array has higher dimensions, fallback to interpretting the model
+        # output as `TensorSpec`s.
+        (
+            True,
+            (2,),
+            ModelSignature(
+                inputs=Schema([ColSpec(name="feature", type=DataType.string)]),
+                outputs=Schema([TensorSpec(np.dtype("int64"), (-1, 2))]),
+            ),
+        ),
+        # If the input example is tensor-based, intrepret output numpy arrays as `TensorSpec`s
+        (
+            False,
+            (),
+            ModelSignature(
+                inputs=Schema([TensorSpec(np.dtype("int64"), (-1, 1))]),
+                outputs=Schema([TensorSpec(np.dtype("int64"), (-1,))]),
+            ),
+        ),
+    ],
+)
+def test_infer_signature_with_input_example(input_is_tabular, output_shape, expected_signature):
+    model = DummySklearnModel(output_shape=output_shape)
+    artifact_path = "model"
+    example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(model, artifact_path=artifact_path, input_example=example)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == expected_signature
+
+
+def test_infer_signature_from_example_can_be_disabled():
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            DummySklearnModel(output_shape=()),
+            artifact_path=artifact_path,
+            input_example=np.array([[1]]),
+            signature=False,
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == None
