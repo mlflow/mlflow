@@ -38,17 +38,6 @@ def basic_config_dict():
                     "config": {"openai_api_key": "MY_API_KEY"},
                 },
             },
-            {
-                "name": "claude-chat",
-                "type": "llm/v1/chat",
-                "model": {
-                    "name": "claude-v1",
-                    "provider": "anthropic",
-                    "config": {
-                        "anthropic_api_key": "api_key",
-                    },
-                },
-            },
         ]
     }
 
@@ -133,7 +122,7 @@ def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
 
     gateway_client = MlflowGatewayClient()
     assert gateway_client.gateway_uri == gateway.url
-    assert isinstance(gateway_client.get_route("claude-chat"), Route)
+    assert isinstance(gateway_client.get_route("completions-gpt4"), Route)
 
 
 def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
