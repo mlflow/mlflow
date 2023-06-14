@@ -1,5 +1,6 @@
 from unittest import mock
 
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 import pytest
 
@@ -102,8 +103,9 @@ async def test_chat_throws_if_request_payload_contains_n():
     config = chat_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
-    with pytest.raises(ValueError, match="Invalid parameter `n`"):
+    with pytest.raises(HTTPException, match=r".*") as e:
         await provider.chat(chat.RequestPayload(**payload))
+    assert "Invalid parameter `n`" in e.value.detail
 
 
 @pytest.mark.asyncio
@@ -194,8 +196,9 @@ async def test_completions_throws_if_request_payload_contains_n():
     config = chat_config()
     provider = OpenAIProvider(RouteConfig(**config))
     payload = {"prompt": "This is a test", "n": 1}
-    with pytest.raises(ValueError, match="Invalid parameter `n`"):
+    with pytest.raises(HTTPException, match=r".*") as e:
         await provider.completions(completions.RequestPayload(**payload))
+    assert "Invalid parameter `n`" in e.value.detail
 
 
 @pytest.mark.asyncio

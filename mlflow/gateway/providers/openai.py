@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
@@ -21,8 +22,13 @@ class OpenAIProvider(BaseProvider):
         async with aiohttp.ClientSession(headers=headers) as session:
             url = "/".join([config["openai_api_base"].rstrip("/"), path.lstrip("/")])
             async with session.post(url, json=payload) as response:
-                response.raise_for_status()
-                return await response.json()
+                js = await response.json()
+                try:
+                    response.raise_for_status()
+                except aiohttp.ClientResponseError as e:
+                    detail = js.get("error", {}).get("message", e.message)
+                    raise HTTPException(status_code=e.status, detail=detail)
+                return js
 
     @staticmethod
     def _make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
@@ -35,7 +41,9 @@ class OpenAIProvider(BaseProvider):
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         payload = jsonable_encoder(payload)
         if "n" in payload:
-            raise ValueError("Invalid parameter `n`. Use `candidate_count` instead.")
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
 
         payload = OpenAIProvider._make_payload(
             payload,
@@ -99,7 +107,9 @@ class OpenAIProvider(BaseProvider):
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload)
         if "n" in payload:
-            raise ValueError("Invalid parameter `n`. Use `candidate_count` instead.")
+            raise HTTPException(
+                status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
+            )
         payload = OpenAIProvider._make_payload(
             payload,
             {"candidate_count": "n"},
