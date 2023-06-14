@@ -7,7 +7,6 @@ from mlflow.gateway import (
     get_gateway_uri,
     get_route,
     search_routes,
-    get_gateway_health,
 )
 from mlflow.gateway.config import Route
 from mlflow.gateway.envs import MLFLOW_GATEWAY_URI
@@ -72,7 +71,7 @@ def gateway(basic_config_dict, tmp_path):
 
 def test_fluent_apis_with_no_server_set():
     with pytest.raises(MlflowException, match="No Gateway server uri has been set. Please"):
-        get_gateway_health()
+        get_route("bogus")
 
     with pytest.raises(MlflowException, match="No Gateway server uri has been set. Please"):
         get_route("claude-chat")
@@ -81,20 +80,21 @@ def test_fluent_apis_with_no_server_set():
 def test_fluent_health_check_on_non_running_server():
     set_gateway_uri("http://not.real:1000")
     with pytest.raises(
-        MlflowException, match="API request to http://not.real:1000/health failed with exception"
+        MlflowException,
+        match="API request to http://not.real:1000/gateway/routes/not-a-route failed with",
     ):
-        get_gateway_health()
+        get_route("not-a-route")
 
 
 def test_fluent_health_check_on_env_var_uri(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
     mlflow.gateway.utils._gateway_uri = None
-    assert get_gateway_health()
+    assert get_route("completions-gpt4").model.name == "gpt-4"
 
 
 def test_fluent_health_check_on_fluent_set(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
-    assert get_gateway_health()
+    assert get_route("completions-gpt4").model.provider == "openai"
 
 
 def test_fluent_get_valid_route(gateway):

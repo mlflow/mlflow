@@ -109,15 +109,15 @@ def test_non_running_server_raises_when_called():
     client = MlflowGatewayClient()
     with pytest.raises(
         MlflowException,
-        match="API request to http://invalid.server:6000/health failed with exception",
+        match="API request to http://invalid.server:6000/gateway/routes/ failed with exception",
     ):
-        client.get_gateway_health()
+        client.search_routes()
 
 
 def test_create_gateway_client_with_declared_url(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_gateway_health()
+    assert isinstance(gateway_client.get_route("chat-gpt4"), Route)
 
 
 def test_set_gateway_uri_from_utils(gateway):
@@ -125,7 +125,7 @@ def test_set_gateway_uri_from_utils(gateway):
 
     gateway_client = MlflowGatewayClient()
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_gateway_health()
+    assert isinstance(gateway_client.get_route("completions-gpt4"), Route)
 
 
 def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
@@ -133,22 +133,24 @@ def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
 
     gateway_client = MlflowGatewayClient()
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_gateway_health()
+    assert isinstance(gateway_client.get_route("claude-chat"), Route)
 
 
 def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, "http://localhost:99999")
 
     # Pass a bad env variable config in
-    with pytest.raises(InvalidUrlException, match="Invalid url: http://localhost:99999/health"):
-        MlflowGatewayClient().get_gateway_health()
+    with pytest.raises(
+        InvalidUrlException, match="Invalid url: http://localhost:99999/gateway/routes"
+    ):
+        MlflowGatewayClient().search_routes()
 
     # Ensure that the global variable override preempts trying the environment variable value
     set_gateway_uri(gateway_uri=gateway.url)
     gateway_client = MlflowGatewayClient()
 
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_gateway_health()
+    assert gateway_client.get_route("chat-gpt4").type == "llm/v1/chat"
 
 
 def test_query_individual_route(gateway, monkeypatch):

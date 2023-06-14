@@ -9,20 +9,6 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental
-def get_gateway_health() -> bool:
-    """
-    Queries the health of the MLflow Gateway service.
-
-    This function creates an instance of MlflowGatewayClient and calls its method
-    to check the health of the Gateway service.
-
-    Returns:
-        bool: True if the service is healthy, False otherwise.
-    """
-    return MlflowGatewayClient().get_gateway_health()
-
-
-@experimental
 def get_route(name: str) -> Route:
     """
     Retrieves a specific route from the MLflow Gateway service.

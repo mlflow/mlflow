@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
     MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
 )
 from mlflow.gateway.utils import get_gateway_uri
@@ -84,20 +83,6 @@ class MlflowGatewayClient:
         )
         augmented_raise_for_status(response)
         return response
-
-    def get_gateway_health(self) -> bool:
-        """
-        Get the health status of the Gateway. This returns the state of the underlying FastAPI
-        app that is running on the uvicorn server, managed by the gunicorn process manager.
-
-        A standard health response will return {"status":"OK"} if the server is up and ready to
-        process requests sent to it.
-
-        :return: bool True if gateway is healthy
-        """
-
-        response = self._call_endpoint("GET", MLFLOW_GATEWAY_HEALTH_ENDPOINT)
-        return response.json()["status"] == "OK"
 
     def get_route(self, name: str):
         """
