@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Extra
 
-from .chat import BaseRequestPayload
+from .chat import BaseRequestPayload, FinishReason
 from ..config import RouteType
 
 
@@ -11,7 +11,7 @@ class RequestPayload(BaseRequestPayload):
 
 
 class CandidateMetadata(BaseModel, extra=Extra.forbid):
-    finish_reason: Optional[str]
+    finish_reason: Optional[FinishReason]
 
 
 class Candidate(BaseModel, extra=Extra.forbid):

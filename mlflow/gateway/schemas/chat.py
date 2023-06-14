@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Extra, Field
@@ -11,7 +12,7 @@ class Message(BaseModel):
 
 
 class BaseRequestPayload(BaseModel, extra=Extra.allow):
-    temperature: int = Field(0, ge=0, le=1)
+    temperature: float = Field(0.0, ge=0, le=1)
     stop: List[str] = Field([])
     max_tokens: Optional[int] = Field(None, ge=0)
     candidate_count: Optional[int] = Field(None, ge=1, le=5)
@@ -21,8 +22,13 @@ class RequestPayload(BaseRequestPayload):
     messages: List[Message] = Field(..., min_items=1)
 
 
+class FinishReason(str, Enum):
+    STOP = "stop"
+    LENGTH = "length"
+
+
 class CandidateMetadata(BaseModel, extra=Extra.forbid):
-    finish_reason: Optional[str]
+    finish_reason: Optional[FinishReason]
 
 
 class Candidate(BaseModel):

@@ -34,7 +34,7 @@ def test_completions_response():
             "candidates": [
                 {
                     "text": "text",
-                    "metadata": {"finish_reason": "unknown"},
+                    "metadata": {"finish_reason": "length"},
                 }
             ],
             "metadata": {

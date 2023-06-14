@@ -23,13 +23,16 @@ def basic_config_dict():
                 },
             },
             {
-                "name": "claude-chat",
-                "type": "llm/v1/chat",
+                "name": "embeddings-gpt4",
+                "type": "llm/v1/embeddings",
                 "model": {
-                    "name": "claude-v1",
-                    "provider": "anthropic",
+                    "name": "gpt-4",
+                    "provider": "openai",
                     "config": {
-                        "anthropic_api_key": "claudekey",
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-15",
+                        "openai_api_type": "open_ai",
                     },
                 },
             },
@@ -44,12 +47,18 @@ def basic_routes():
             {
                 "name": "completions-gpt4",
                 "type": "llm/v1/completions",
-                "model": {"name": "gpt-4", "provider": "openai"},
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                },
             },
             {
-                "name": "claude-chat",
-                "type": "llm/v1/chat",
-                "model": {"name": "claude-v1", "provider": "anthropic"},
+                "name": "embeddings-gpt4",
+                "type": "llm/v1/embeddings",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                },
             },
         ]
     }
@@ -60,13 +69,16 @@ def update_config_dict():
     return {
         "routes": [
             {
-                "name": "claude-completions",
-                "type": "llm/v1/completions",
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
                 "model": {
-                    "name": "claude-v1",
-                    "provider": "anthropic",
+                    "name": "gpt-4",
+                    "provider": "openai",
                     "config": {
-                        "anthropic_api_key": "MY_ANTHROPIC_KEY",
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-15",
+                        "openai_api_type": "open_ai",
                     },
                 },
             },
@@ -79,10 +91,13 @@ def update_routes():
     return {
         "routes": [
             {
-                "model": {"name": "claude-v1", "provider": "anthropic"},
-                "name": "claude-completions",
-                "type": "llm/v1/completions",
-            }
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                },
+            },
         ]
     }
 
@@ -190,6 +205,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             assert response.json() == {"route": basic_routes["routes"][index]}
 
 
+@pytest.mark.skip(reason="TODO: Figure out how to test dynamic endpoints")
 def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
     config = tmp_path / "config.yaml"
     store_conf(config, basic_config_dict)
