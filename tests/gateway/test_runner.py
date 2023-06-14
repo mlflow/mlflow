@@ -1,7 +1,13 @@
+import asyncio
 from pathlib import Path
-
-from tests.gateway.tools import Gateway, store_conf
 import pytest
+import requests
+import time
+
+from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.runner import run_app
+from tests.gateway.tools import Gateway, store_conf
+from tests.helper_functions import get_safe_port
 
 
 @pytest.fixture
@@ -9,7 +15,7 @@ def basic_config_dict():
     return {
         "routes": [
             {
-                "name": "completions-gpt4",
+                "name": "completions",
                 "type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
@@ -23,7 +29,7 @@ def basic_config_dict():
                 },
             },
             {
-                "name": "embeddings-gpt4",
+                "name": "embeddings",
                 "type": "llm/v1/embeddings",
                 "model": {
                     "name": "gpt-4",
@@ -45,7 +51,7 @@ def basic_routes():
     return {
         "routes": [
             {
-                "name": "completions-gpt4",
+                "name": "completions",
                 "type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
@@ -53,7 +59,7 @@ def basic_routes():
                 },
             },
             {
-                "name": "embeddings-gpt4",
+                "name": "embeddings",
                 "type": "llm/v1/embeddings",
                 "model": {
                     "name": "gpt-4",
@@ -69,7 +75,7 @@ def update_config_dict():
     return {
         "routes": [
             {
-                "name": "chat-gpt4",
+                "name": "chat",
                 "type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
@@ -91,7 +97,7 @@ def update_routes():
     return {
         "routes": [
             {
-                "name": "chat-gpt4",
+                "name": "chat",
                 "type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
@@ -250,3 +256,80 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
         response = gateway.post("gateway/routes/invalid", json={"input": "should fail"})
         assert response.status_code == 405
         assert response.json() == {"detail": "Method Not Allowed"}
+
+
+def test_uvicorn_runner_execution(tmp_path, basic_config_dict):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    port = get_safe_port()
+    host = "localhost"
+    with run_app(str(config), host=host, port=port, use_gunicorn=False) as server:
+        time.sleep(0.5)
+        response = requests.get(f"http://{server.host}:{server.port}/health")
+        response.raise_for_status()
+
+    with pytest.raises(
+        requests.exceptions.ConnectionError, match="Max retries exceeded with url: /health"
+    ):
+        requests.get(f"http://{host}:{port}/health")
+
+
+def test_uvicorn_runner_gets_route(tmp_path, basic_config_dict):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    port = get_safe_port()
+    host = "localhost"
+    with run_app(str(config), host=host, port=port, use_gunicorn=False) as server:
+        time.sleep(0.5)
+        response = requests.get(f"http://{server.host}:{server.port}/gateway/routes/embeddings")
+        assert response.json() == {
+            "route": {
+                "model": {"name": "gpt-4", "provider": "openai"},
+                "name": "embeddings",
+                "type": "llm/v1/embeddings",
+            }
+        }
+    with pytest.raises(
+        requests.exceptions.ConnectionError, match="Max retries exceeded with url: /health"
+    ):
+        requests.get(f"http://{host}:{port}/health")
+
+
+def test_server_dynamic_endpoints_from_uvicorn(tmp_path, basic_config_dict, monkeypatch):
+    config = tmp_path / "config.yaml"
+    store_conf(config, basic_config_dict)
+
+    port = get_safe_port()
+    host = "localhost"
+
+    async def mock_request(self, path, payload):
+        await asyncio.sleep(0.1)  # simulate delay
+        return {
+            "choices": [{"text": "hello", "finish_reason": None}],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
+            "model": "gpt-3.5-turbo",
+        }
+
+    monkeypatch.setattr(OpenAIProvider, "_request", mock_request)
+
+    with run_app(str(config), host=host, port=port, use_gunicorn=False) as server:
+        time.sleep(0.5)
+        response = requests.post(
+            url=f"{server.url}/gateway/routes/{basic_config_dict['routes'][0]['name']}",
+            json={"prompt": "hello"},
+        )
+
+        response.raise_for_status()
+
+        assert response.json() == {
+            "candidates": [{"text": "hello", "metadata": {"finish_reason": None}}],
+            "metadata": {
+                "input_tokens": 1,
+                "output_tokens": 2,
+                "total_tokens": 3,
+                "model": "gpt-3.5-turbo",
+                "route_type": "llm/v1/completions",
+            },
+        }

@@ -1,8 +1,11 @@
+import asyncio
 import logging
 import os
 import subprocess
 import sys
-from typing import Generator
+import threading
+from typing import Generator, Optional
+import uvicorn
 from watchfiles import watch
 
 from mlflow.gateway import app
@@ -92,14 +95,71 @@ class Runner:
         self.stop()
 
 
-def run_app(config_path: str, host: str, port: int, workers: int) -> None:
+class UvicornRunner:
+    def __init__(self, config_path: str, host: str, port: int):
+        self.config_path = config_path
+        self.host = host
+        self.port = port
+        self.url = f"http://{host}:{port}"
+        self.server = None
+        self.loop = None
+        self.thread = None
+        self.stop_event = threading.Event()
+
+    def start(self) -> None:
+        uvicorn_app = app.create_app(self.config_path)
+
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+        config = uvicorn.Config(
+            app=uvicorn_app,
+            host=self.host,
+            port=self.port,
+            lifespan="on",
+            loop="auto",
+            log_level="info",
+        )
+        self.server = uvicorn.Server(config)
+
+        def run():
+            self.loop.run_until_complete(self.server.serve())
+            self.stop_event.set()  # Signal that the server has stopped
+
+        self.thread = threading.Thread(target=run)
+        self.thread.start()
+
+    def stop(self):
+        if self.server is not None:
+            self.server.should_exit = True  # Instruct the uvicorn server to stop
+            self.stop_event.wait()  # Wait for the server to actually stop
+            self.thread.join()  # block until thread termination
+            self.server = None
+            self.loop = None
+            self.thread = None
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.server is not None:
+            self.stop()
+
+
+def run_app(
+    config_path: str, host: str, port: int, workers: Optional[int] = None, use_gunicorn: bool = True
+):
     config_path = os.path.abspath(os.path.normpath(os.path.expanduser(config_path)))
-    with Runner(
-        config_path=config_path,
-        host=host,
-        port=port,
-        workers=workers,
-    ) as runner:
-        for _ in monitor_config(config_path):
-            _logger.info("Configuration updated, reloading workers")
-            runner.reload()
+    if use_gunicorn:
+        with Runner(
+            config_path=config_path,
+            host=host,
+            port=port,
+            workers=workers,
+        ) as runner:
+            for _ in monitor_config(config_path):
+                _logger.info("Configuration updated, reloading workers")
+                runner.reload()
+    else:
+        return UvicornRunner(config_path=config_path, host=host, port=port)
