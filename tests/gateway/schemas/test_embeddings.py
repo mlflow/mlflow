@@ -7,6 +7,7 @@ from mlflow.gateway.schemas import embeddings
 def test_embeddings_request():
     embeddings.RequestPayload(**{"text": "text"})
     embeddings.RequestPayload(**{"text": ""})
+    embeddings.RequestPayload(**{"text": ["prompt"]})
     embeddings.RequestPayload(**{"text": "text", "extra": "extra", "another_extra": 1})
 
     with pytest.raises(pydantic.ValidationError, match="field required"):
