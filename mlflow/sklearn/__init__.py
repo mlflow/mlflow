@@ -518,7 +518,20 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
-    return _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    return _SklearnModelWrapper(
+        _load_model_from_local_file(path=path, serialization_format=serialization_format)
+    )
+
+
+class _SklearnModelWrapper:
+    def __init__(self, sklearn_model):
+        self.sklearn_model = sklearn_model
+
+    def predict(self, data, parameters=None):
+        return self.sklearn_model.predict(data)
+
+    def predict_proba(self, data, parameters=None):
+        return self.sklearn_model.predict_proba(data)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):
