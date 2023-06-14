@@ -209,7 +209,6 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import importlib
-import json
 import logging
 import os
 import signal
@@ -618,7 +617,7 @@ def load_model(
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
 
-    parameters = _update_inference_params(conf.get(PARAMETERS, None), kwargs)
+    parameters = _update_inference_params(conf.get(PARAMETERS, {}), kwargs)
 
     _add_code_from_conf_to_system_path(local_path, conf, code_key=CODE)
     data_path = os.path.join(local_path, conf[DATA]) if (DATA in conf) else local_path
@@ -632,13 +631,13 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
     Updates the inference parameters according to the inference configuration of the model. Only
     arguments already present in the inference configuration can be indicated at loading time.
     """
-    overrides = {}
-    if env_overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
+    if overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
         mlflow.pyfunc._logger.debug(
             "Inference parameters are being loaded from \
                                     ``MLFLOW_PYFUNC_PARAMETERS`` environ."
         )
-        overrides.update(json.loads(env_overrides))
+    else:
+        overrides = {}
 
     if load_args:
         overrides.update(load_args)
@@ -654,11 +653,11 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
             ", ".joing(overrides.keys()),
         )
 
-        return None
+        return {}
 
     allowed_kargs = {key: value for key, value in overrides.items() if key in params.keys()}
     if len(allowed_kargs) < len(overrides):
-        ignored_args = list(overrides.keys() not in allowed_kargs.keys())
+        ignored_args = set(overrides.keys()) - set(allowed_kargs.keys())
         mlflow.pyfunc._logger.warning(
             "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
                 section of the ``pyfunc` flavor. Allowed parameters include %s",
