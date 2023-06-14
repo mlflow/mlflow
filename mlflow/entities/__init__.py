@@ -20,6 +20,7 @@ from mlflow.entities.dataset import Dataset
 from mlflow.entities.input_tag import InputTag
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.run_inputs import RunInputs
+from mlflow.entities.dataset_summary import DatasetSummary
 
 __all__ = [
     "Experiment",
@@ -39,4 +40,5 @@ __all__ = [
     "InputTag",
     "DatasetInput",
     "RunInputs",
+    "DatasetSummary",
 ]

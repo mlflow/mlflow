@@ -1,4 +1,5 @@
 import hashlib
+import itertools
 import json
 import logging
 import time
@@ -25,6 +26,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     RunInputs,
+    DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
@@ -87,7 +89,7 @@ from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -1207,6 +1209,43 @@ class FileStore(AbstractStore):
             dataset_inputs.append(dataset_input)
 
         return RunInputs(dataset_inputs=dataset_inputs)
+
+
+    def _search_datasets(self, experiment_ids) -> List[DatasetSummary]:
+        MAX_DATASET_SUMMARIES_RESULTS = 1000
+        summary_tuples = []
+        for experiment_id in experiment_ids:
+            experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)            
+            run_dirs = list_all(
+                experiment_dir,
+                filter_func=lambda x: all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x),
+                full_path=True,
+            )
+            for run_dir in run_dirs:
+                run_info = self._get_run_info_from_dir(run_dir)
+                run_inputs = self._get_all_inputs(run_info)
+                for dataset_input in run_inputs.dataset_inputs:
+                    dataset = dataset_input.dataset
+                    for input_tag in dataset_input.tags:
+                        if input_tag.key == MLFLOW_DATASET_CONTEXT:
+                            summary_tuples.append((experiment_id, dataset.name, dataset.digest, input_tag.value))
+
+        # Use a set to take distinct tuples and take the first MAX_DATASET_SUMMARIES_RESULTS results.
+        summaries = itertools.islice(set(summary_tuples), MAX_DATASET_SUMMARIES_RESULTS)        
+        return [
+            DatasetSummary(
+                experiment_id=summary[0],
+                name=summary[1],
+                digest=summary[2],
+                context=summary[3],
+            )
+            for summary in summaries
+        ]
+
 
     @staticmethod
     def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:

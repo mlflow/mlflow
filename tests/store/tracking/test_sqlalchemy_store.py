@@ -27,6 +27,7 @@ from mlflow.entities import (
     Metric,
     Param,
     ExperimentTag,
+    DatasetSummary,
 )
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
@@ -2337,6 +2338,86 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             run_view_type=ViewType.ACTIVE_ONLY,
         )
         assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
+
+    def test_search_datasets(self):
+        exp_id1 = int(self._experiment_factory("test_search_datasets_1"))
+        # Create an additional experiment to ensure we filter on specified experiment
+        # and search works on multiple experiments.
+        exp_id2 = int(self._experiment_factory("test_search_datasets_2"))
+
+        run1 = self._run_factory(dict(self._get_run_configs(exp_id1), start_time=1))
+        run2 = self._run_factory(dict(self._get_run_configs(exp_id1), start_time=2))
+        run3 = self._run_factory(dict(self._get_run_configs(exp_id2), start_time=3))
+
+        dataset1 = entities.Dataset(
+            name="name1",
+            digest="digest1",
+            source_type="st1",
+            source="source1",
+            schema="schema1",
+            profile="profile1",
+        )
+        dataset2 = entities.Dataset(
+            name="name2",
+            digest="digest2",
+            source_type="st2",
+            source="source2",
+            schema="schema2",
+            profile="profile2",
+        )
+        dataset3 = entities.Dataset(
+            name="name3",
+            digest="digest3",
+            source_type="st3",
+            source="source3",
+            schema="schema3",
+            profile="profile3",
+        )
+
+        test_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+        train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+        eval_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+
+        inputs_run1 = [
+            entities.DatasetInput(dataset1, train_tag),
+            entities.DatasetInput(dataset2, eval_tag),
+        ]
+        inputs_run2 = [
+            entities.DatasetInput(dataset1, train_tag),
+            entities.DatasetInput(dataset2, test_tag),
+        ]
+        inputs_run3 = [entities.DatasetInput(dataset3, train_tag)]
+
+        self.store.log_inputs(run1.info.run_id, inputs_run1)
+        self.store.log_inputs(run2.info.run_id, inputs_run2)
+        self.store.log_inputs(run3.info.run_id, inputs_run3)
+
+        # Verify actual and expected results are same size and that all elements are equal.
+        def assert_has_same_elements(actual_list, expected_list):
+            assert len(actual_list) == len(expected_list)
+            for actual in actual_list:
+                # Verify the expected results list contains same element.
+                isEqual = False
+                for expected in expected_list:
+                    isEqual = actual == expected
+                    if isEqual:
+                        break
+                assert isEqual
+
+        # Verify no results from exp_id2 are returned.
+        results = self.store._search_datasets([exp_id1])
+        expected_results = [
+            DatasetSummary(exp_id1, dataset1.name, dataset1.digest, "train"),
+            DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "eval"),
+            DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "test"),
+        ]
+        assert_has_same_elements(results, expected_results)
+
+        # Verify results from both experiment are returned.
+        results = self.store._search_datasets([exp_id1, exp_id2])
+        expected_results.append(DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
+        assert_has_same_elements(results, expected_results)
+
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

@@ -1082,6 +1082,22 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def search_datasets_handler():
+    experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
+    if not experiment_ids:
+        raise MlflowException(
+            message="SearchDatasets request must specify at least one experiment_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    store = _get_tracking_store()
+    return {
+        "dataset_summaries": [summary.to_dict() for summary in store._search_datasets(experiment_ids)]
+    }
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),

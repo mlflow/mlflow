@@ -319,6 +319,17 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    def _search_datasets(self, experiment_ids):
+        """
+        Return all dataset summaries associated to the given experiments.
+
+        :param experiment_ids List of experiment ids to scope the search
+
+        :return A List of :py:class:`mlflow.entities.DatasetSummary` entities.
+        """
+        pass
+
+    @abstractmethod
     def log_batch(self, run_id, metrics, params, tags):
         """
         Log multiple metrics, params, and tags for the specified run

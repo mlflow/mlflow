@@ -15,6 +15,7 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     get_model_version_artifact_handler,
+    search_datasets_handler,
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
@@ -76,6 +77,10 @@ def serve_model_version_artifact():
 def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
+# Serve the "experiments/search-datasets" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+def serve_search_datasets():
+    return search_datasets_handler()
 
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
