@@ -66,7 +66,7 @@ async def test_chat():
     config = chat_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_acreate:
+    ) as mock_post:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
@@ -90,7 +90,7 @@ async def test_chat():
                 "route_type": "llm/v1/chat",
             },
         }
-        mock_acreate.assert_called_once()
+        mock_post.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -100,6 +100,42 @@ async def test_chat_throws_if_request_payload_contains_n():
     payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
     with pytest.raises(ValueError, match="Invalid parameter `n`"):
         await provider.chat(chat.RequestPayload(**payload))
+
+
+@pytest.mark.asyncio
+async def test_chat_temperature_is_doubled():
+    resp = {
+        "id": "chatcmpl-abc123",
+        "object": "chat.completion",
+        "created": 1677858242,
+        "model": "gpt-3.5-turbo-0301",
+        "usage": {
+            "prompt_tokens": 13,
+            "completion_tokens": 7,
+            "total_tokens": 20,
+        },
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "\n\nThis is a test!",
+                },
+                "finish_reason": "stop",
+                "index": 0,
+            }
+        ],
+    }
+    config = chat_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+            "temperature": 0.5,
+        }
+        await provider.chat(completions.RequestPayload(**payload))
+        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2
 
 
 def completions_config():
@@ -141,7 +177,7 @@ async def test_completions():
     config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_acreate:
+    ) as mock_post:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -162,16 +198,50 @@ async def test_completions():
                 "route_type": "llm/v1/completions",
             },
         }
-        mock_acreate.assert_called_once()
+        mock_post.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_completions_throws_if_request_payload_contains_n():
     config = chat_config()
     provider = OpenAIProvider(RouteConfig(**config))
-    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
+    payload = {"prompt": "This is a test", "n": 1}
     with pytest.raises(ValueError, match="Invalid parameter `n`"):
-        await provider.completions(chat.RequestPayload(**payload))
+        await provider.completions(completions.RequestPayload(**payload))
+
+
+@pytest.mark.asyncio
+async def test_completions_temperature_is_doubled():
+    resp = {
+        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
+        "object": "text_completion",
+        "created": 1589478378,
+        "model": "text-davinci-003",
+        "choices": [
+            {
+                "text": "\n\nThis is indeed a test",
+                "index": 0,
+                "logprobs": None,
+                "finish_reason": "length",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 5,
+            "completion_tokens": 7,
+            "total_tokens": 12,
+        },
+    }
+    config = completions_config()
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {
+            "prompt": "This is a test",
+            "temperature": 0.5,
+        }
+        await provider.completions(completions.RequestPayload(**payload))
+        assert mock_post.call_args[1]["json"]["temperature"] == 0.5 * 2
 
 
 def embedding_config():
@@ -211,7 +281,7 @@ async def test_embeddings():
 
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
-    ) as mock_acreate:
+    ) as mock_post:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"text": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
@@ -231,4 +301,4 @@ async def test_embeddings():
                 "route_type": "llm/v1/embeddings",
             },
         }
-        mock_acreate.assert_called_once()
+        mock_post.assert_called_once()

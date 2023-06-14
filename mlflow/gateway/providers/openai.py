@@ -36,10 +36,14 @@ class OpenAIProvider(BaseProvider):
         payload = jsonable_encoder(payload)
         if "n" in payload:
             raise ValueError("Invalid parameter `n`. Use `candidate_count` instead.")
+
         payload = OpenAIProvider._make_payload(
             payload,
             {"candidate_count": "n"},
         )
+        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
+        payload["temperature"] = 2 * payload["temperature"]
+
         resp = await self._request(
             "chat/completions",
             {"model": self.config.model.name, **payload},
@@ -100,6 +104,9 @@ class OpenAIProvider(BaseProvider):
             payload,
             {"candidate_count": "n"},
         )
+        # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
+        payload["temperature"] = 2 * payload["temperature"]
+
         resp = await self._request(
             "completions",
             {"model": self.config.model.name, **payload},

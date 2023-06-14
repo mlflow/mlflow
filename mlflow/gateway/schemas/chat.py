@@ -11,7 +11,7 @@ class Message(BaseModel):
 
 
 class BaseRequestPayload(BaseModel, extra=Extra.allow):
-    temperature: int = Field(0, ge=0, le=1)
+    temperature: float = Field(0.0, ge=0, le=1)
     stop: List[str] = Field([])
     max_tokens: Optional[int] = Field(None, ge=0)
     candidate_count: Optional[int] = Field(None, ge=1, le=5)
