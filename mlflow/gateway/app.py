@@ -94,7 +94,6 @@ def _route_type_to_endpoint(config: RouteConfig):
         RouteType.LLM_V1_CHAT: _create_chat_endpoint,
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
-        RouteType.CUSTOM: _custom,
     }
     if factory := provider_to_factory.get(config.type):
         return factory(config)
