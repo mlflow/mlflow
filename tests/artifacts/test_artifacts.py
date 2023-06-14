@@ -1,7 +1,7 @@
 import pathlib
 import uuid
-import os
 from unittest import mock
+from typing import NamedTuple
 
 import pytest
 
@@ -144,16 +144,19 @@ def test_load_image_invalid_image(run_with_text_artifact):
         mlflow.artifacts.load_image(artifact.uri)
 
 
+class ArtifactReturnType(NamedTuple):
+    tmp_path: pathlib.Path
+    artifact_path: pathlib.Path
+    artifact_name: str
+
+
 @pytest.fixture()
 def text_artifact(tmp_path):
     artifact_name = "test.txt"
     artifacts_root_tmp = mkdir(tmp_path.joinpath(str(uuid.uuid4())))
     test_artifact_path = artifacts_root_tmp.joinpath(artifact_name)
     test_artifact_path.write_text("test")
-    artifact_return_type = namedtuple(
-        "artifact_return_type", ["tmp_path", "artifact_path", "artifact_name"]
-    )
-    return artifact_return_type(artifacts_root_tmp, test_artifact_path, artifact_name)
+    return ArtifactReturnType(artifacts_root_tmp, test_artifact_path, artifact_name)
 
 
 def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
@@ -164,15 +167,16 @@ def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run
     assert artifact_uri == expected_artifact_uri
 
 
-def test_default_relative_artifact_uri_resolves(text_artifact):
+def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
     tracking_uri = path_to_local_file_uri(text_artifact.tmp_path.joinpath("mlruns"))
     mlflow.set_tracking_uri(tracking_uri)
+    monkeypatch.chdir(tmp_path)
     experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
             tracking_uri,
             str(
-                pathlib.Path.cwd().joinpath(
+                tmp_path.joinpath(
                     "test_artifacts_root",
                     run.info.run_id,
                     "artifacts",
@@ -203,29 +207,25 @@ def test_custom_relative_artifact_uri_resolves(text_artifact):
         )
 
 
-def test_artifact_logging_resolution_works_with_non_root_working_directory(text_artifact):
-    original_cwd = pathlib.Path.cwd()
-    new_cwd = text_artifact.tmp_path.joinpath("some_location")
-    new_cwd.mkdir()
-    tracking_uri = mlflow.get_tracking_uri()
+def test_artifact_logging_resolution_works_with_non_root_working_directory(tmp_path, monkeypatch):
+    text_file = tmp_path.joinpath("test.txt")
+    text_file.write_text("test")
+    cwd = tmp_path.joinpath("cwd")
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
     experiment_id = mlflow.create_experiment("test_exp_c", "some_path")
-    os.chdir(new_cwd)
+    not_cwd = tmp_path.joinpath("not_cwd")
+    not_cwd.mkdir()
+    monkeypatch.chdir(not_cwd)
 
+    tracking_uri = mlflow.get_tracking_uri()
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
             tracking_uri,
-            str(
-                original_cwd.joinpath(
-                    "some_path",
-                    run.info.run_id,
-                    "artifacts",
-                    text_artifact.artifact_name,
-                )
-            ),
-            text_artifact,
+            str(cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name)),
+            ArtifactReturnType(tmp_path, text_file, text_file.name),
             run.info.run_id,
         )
-    os.chdir(original_cwd)
 
 
 @pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
