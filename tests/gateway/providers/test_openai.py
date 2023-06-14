@@ -8,6 +8,23 @@ from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
 
 
+class MockAsyncResponse:
+    def __init__(self, data):
+        self.data = data
+
+    def raise_for_status(self):
+        pass
+
+    async def json(self):
+        return self.data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        pass
+
+
 @pytest.mark.asyncio
 async def test_chat():
     resp = {
@@ -45,7 +62,9 @@ async def test_chat():
             },
         }
     )
-    with mock.patch("openai.ChatCompletion.acreate", return_value=resp) as mock_acreate:
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_acreate:
         provider = OpenAIProvider(config)
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
@@ -101,7 +120,9 @@ async def test_completions():
             },
         },
     }
-    with mock.patch("openai.Completion.acreate", return_value=resp) as mock_acreate:
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_acreate:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -152,7 +173,9 @@ async def test_embeddings():
             },
         },
     }
-    with mock.patch("openai.Embedding.acreate", return_value=resp) as mock_acreate:
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_acreate:
         provider = OpenAIProvider(RouteConfig(**config))
         payload = {"text": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
