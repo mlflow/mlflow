@@ -13,6 +13,7 @@ import time
 import mlflow
 import uuid
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -1196,6 +1197,30 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         self.store.delete_run(run.info.run_id)
         with pytest.raises(MlflowException, match="must be in the 'active' state"):
             self.store.delete_tag(run.info.run_id, k1)
+
+    def test_concurrent_set_tag_calls(self):
+        iterations = 1000
+        errors = []
+
+        def set_tag():
+            for _ in range(iterations):
+                try:
+                    self.store.set_tag(run.info.run_id, entities.RunTag("key", "val"))
+                except Exception as e:
+                    errors.append(e)
+
+        experiment_id = self._experiment_factory("test-experiment-id")
+        for _ in range(5):
+            run = self._run_factory(config=self._get_run_configs(experiment_id))
+            t1 = threading.Thread(target=set_tag)
+            t2 = threading.Thread(target=set_tag)
+            t1.start()
+            t2.start()
+            t1.join()
+            t2.join()
+            self.store.delete_run(run.info.run_id)
+
+        self.assertEqual(len(errors), 0)
 
     def test_get_metric_history(self):
         run = self._run_factory()
