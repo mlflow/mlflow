@@ -38,7 +38,7 @@ class RouteType(str, Enum):
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
     openai_api_key: str
     openai_api_type: Optional[str] = None
-    openai_api_base: Optional[str] = "https://api.openai.com/v1"
+    openai_api_base: str = "https://api.openai.com/v1"
     openai_api_version: Optional[str] = None
     openai_organization: Optional[str] = None
 
@@ -50,7 +50,7 @@ class OpenAIConfig(BaseModel, extra=Extra.forbid):
 
 class AnthropicConfig(BaseModel, extra=Extra.forbid):
     anthropic_api_key: str
-    anthropic_api_base: Optional[str] = "https://api.anthropic.com/"
+    anthropic_api_base: str = "https://api.anthropic.com/"
 
     # pylint: disable=no-self-argument
     @validator("anthropic_api_key", pre=True)
