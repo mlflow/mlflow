@@ -8,7 +8,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 _logger = logging.getLogger(__name__)
 
@@ -478,3 +478,13 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
     else:
         _logger.info("Unsupported type hint: %s, skipping schema inference", type_hint)
         return None
+
+
+def _infer_parameters_schema(parameters: Dict[str, Any]):
+    if not isinstance(parameters, dict):
+        raise MlflowException(
+            f"Expected parameters to be dict, got {type(parameters).__name__}",
+        )
+    return ParamSchema(
+        [ParamSpec(name=str(name), type=type(value).__name__) for name, value in parameters.items()]
+    )

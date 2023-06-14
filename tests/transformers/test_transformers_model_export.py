@@ -1320,10 +1320,15 @@ def test_text2text_generation_pipeline_with_inference_configs(
     assert pd_inference == result
 
     model_path2 = tmp_path.joinpath("model2")
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        inference_config,
+    )
     mlflow.transformers.save_model(
         text2text_generation_pipeline,
         path=model_path2,
-        signature=signature,
+        signature=signature_with_params,
     )
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path2)
 

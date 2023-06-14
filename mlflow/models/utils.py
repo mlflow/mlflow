@@ -1,7 +1,8 @@
 import decimal
 import json
+import logging
 import os
-from typing import Union, Any, Dict, List
+from typing import Union, Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -9,7 +10,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.types import DataType, Schema, TensorSpec
+from mlflow.types import DataType, ParamSchema, Schema, TensorSpec
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
@@ -34,6 +35,8 @@ PyFuncInput = Union[
     pd.DataFrame, pd.Series, np.ndarray, "csc_matrix", "csr_matrix", List[Any], Dict[str, Any], str
 ]
 PyFuncOutput = Union[pd.DataFrame, pd.Series, np.ndarray, list, str]
+
+_logger = logging.getLogger(__name__)
 
 
 class _Example:
@@ -863,3 +866,38 @@ def get_model_version_from_model_uri(model_uri):
     (name, version) = get_model_name_and_version(client, model_uri)
     model_version = client.get_model_version(name, version)
     return model_version
+
+
+def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSchema):
+    if params is None:
+        return params
+    if not isinstance(params, dict):
+        raise MlflowException(
+            "Parameters must be a dictionary. Got type '{}'.".format(type(params))
+        )
+
+    allowed_keys = {param.name for param in schema.params}
+    ignored_keys = set(params.keys()) - allowed_keys
+    _logger.warning(
+        f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
+        "To enable them, please add corresponding schema in ModelSignature."
+    )
+
+    params = {k: params[k] for k in params if k in allowed_keys}
+
+    for param_spec in schema.params:
+        if param_spec.name in params:
+            param_value = params[param_spec.name]
+            if type(param_value).__name__ != param_spec.type:
+                raise MlflowException(
+                    f"Invalid type for parameter {param_spec.name}: "
+                    f"expected {param_spec.type} but got {type(param_value)}"
+                )
+        else:
+            if not param_spec.optional:
+                raise MlflowException(
+                    "Missing required parameter: {}".format(param_spec.name),
+                    INVALID_PARAMETER_VALUE,
+                )
+
+    return params

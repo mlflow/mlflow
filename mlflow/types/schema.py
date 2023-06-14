@@ -408,3 +408,128 @@ class Schema:
 
     def __repr__(self) -> str:
         return repr(self.inputs)
+
+
+class ParamSpec:
+    """
+    Specification used to represent parameters for the model.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        type: str,  # pylint: disable=redefined-builtin
+        default: Any = None,
+        optional: bool = False,
+    ):
+        self._name = name
+        self._type = type
+        self._default = default
+        self._optional = optional
+
+    @property
+    def name(self) -> str:
+        """The name of the parameter."""
+        return self._name
+
+    @property
+    def type(self) -> str:
+        """The parameter data type."""
+        return self._type
+
+    @property
+    def default(self) -> Any:
+        """Default value of the parameter."""
+        return self._default
+
+    @property
+    def optional(self) -> bool:
+        """Whether this parameter is optional."""
+        return self._optional
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "name": self.name,
+            "type": self.type,
+            "default": self.default,
+            "optional": self.optional,
+        }
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, ParamSpec):
+            return (
+                self.name == other.name
+                and self.type == other.type
+                and self.default == other.default
+                and self.optional == other.optional
+            )
+        return False
+
+    def __repr__(self) -> str:
+        return "{name}: {type}{optional}{default}".format(
+            name=repr(self.name),
+            type=repr(self.type),
+            optional=" (optional)" if self.optional else "",
+            default=f" (default: {self.default})" if self.default else "",
+        )
+
+    @classmethod
+    def from_json_dict(cls, **kwargs):
+        """
+        Deserialize from a json loaded dictionary.
+        The dictionary is expected to contain `name` and `type` keys.
+        """
+        if not {"name", "type"} <= set(kwargs.keys()):
+            raise MlflowException(
+                "Missing keys in ParamSpec JSON. Expected to find keys `name` and `type`"
+            )
+        return cls(
+            name=str(kwargs["name"]),
+            type=str(kwargs["type"]),
+            default=kwargs.get("default"),
+            optional=kwargs.get("optional", False),
+        )
+
+
+class ParamSchema:
+    """
+    Specification of parameters applicable to the model.
+    ParamSchema is represented as a list of :py:class:`ParamSpec`.
+    """
+
+    def __init__(self, params: List[ParamSpec]):
+        if not all(isinstance(x, ParamSpec) for x in params):
+            raise MlflowException(f"ParamSchema inputs only accept {ParamSchema.__class__}")
+        self._params = params
+
+    def __len__(self):
+        return len(self._params)
+
+    def __iter__(self):
+        return iter(self._params)
+
+    @property
+    def params(self) -> List[ParamSpec]:
+        """Representation of ParamSchema as a list of ParamSpec."""
+        return self._params
+
+    def to_json(self) -> str:
+        """Serialize into json string."""
+        return json.dumps([x.to_dict() for x in self.params])
+
+    @classmethod
+    def from_json(cls, json_str: str):
+        """Deserialize from a json string."""
+        return cls([ParamSpec.from_json_dict(**x) for x in json.loads(json_str)])
+
+    def to_dict(self) -> List[Dict[str, Any]]:
+        """Serialize into a jsonable dictionary."""
+        return [x.to_dict() for x in self.params]
+
+    def __eq__(self, other) -> bool:
+        if isinstance(other, ParamSchema):
+            return self.params == other.params
+        return False
+
+    def __repr__(self) -> str:
+        return repr(self.params)
