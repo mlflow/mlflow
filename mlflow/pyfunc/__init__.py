@@ -419,20 +419,19 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        # TODO: enforce parameters against ModelSignature here
-        parameters = parameters or {}
+        # Add constants to the parameters dictionary against ModelSignature
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
 
             try:
                 with openai_auto_retry_patch():
-                    return self._predict_fn(data, **parameters)
+                    return self._predict_fn(data, parameters)
             except Exception:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data, **parameters)
+        return self._predict_fn(data, parameters)
 
     @experimental
     def unwrap_python_model(self):
@@ -453,9 +452,9 @@ class PyFuncModel:
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
                 def predict(self, context, model_input, parameters=None):
-                    return self.my_custom_function(model_input)
+                    return self.my_custom_function(model_input, parameters)
 
-                def my_custom_function(self, model_input):
+                def my_custom_function(self, model_input, parameters=None):
                     # do something with the model input
                     return 0
 

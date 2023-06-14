@@ -3822,7 +3822,7 @@ docstrings.
         def __init__(self, sktime_model):
             self.sktime_model = sktime_model
 
-        def predict(self, dataframe) -> pd.DataFrame:
+        def predict(self, dataframe, parameters=None) -> pd.DataFrame:
             df_schema = dataframe.columns.values.tolist()
 
             if len(dataframe) > 1:

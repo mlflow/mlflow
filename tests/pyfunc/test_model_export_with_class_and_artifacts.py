@@ -957,7 +957,7 @@ def test_repr_can_be_called_withtout_run_id_or_artifact_path():
     )
 
     class TestModel:
-        def predict(self, model_input):
+        def predict(self, model_input, parameters=None):
             return model_input
 
     model_impl = TestModel()

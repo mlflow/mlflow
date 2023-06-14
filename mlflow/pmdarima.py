@@ -337,7 +337,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe) -> pd.DataFrame:
+    def predict(self, dataframe, parameters=None) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:
