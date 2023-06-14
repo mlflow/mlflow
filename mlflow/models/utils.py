@@ -738,22 +738,27 @@ def _enforce_inference_schema(params: Dict[str, Any], schema: InferenceSchema):
 
     if missing_schema_params:
         raise MlflowException(
-            f"Required inference parameters \
-                {','.join(missing_schema_params)} are missing."
+            "Model inference parameters are missing. The model signature declares "
+            "{} as required but {} are missing.".format(
+                schema.required_parameter_names(), ",".join(missing_schema_params)
+            )
         )
 
     if not_schema_params:
         raise MlflowException(
-            f"Inference parameters \
-                {','.join(not_schema_params)} are not allowed according to the inference schema."
+            "Model inference parameter(s) {} are not allowed according to the inference schema. "
+            "Parameters in the inference schema includes {}.".format(
+                ",".join(not_schema_params), ",".join(schema.parameter_names())
+            )
         )
 
     schema_dict = schema.parameter_types_dict()
-    for param, value in params:
+    for param, value in params.items():
         if str(type(value)) != schema_dict[param].type:
             raise TypeError(
-                f"Parameter {param} requires type \
-                    {schema_dict[param].type}, but {type(value)} was provided."
+                "Model inference parameter {} requires type {} but {} was provided.".format(
+                    param, schema_dict[param].type, type(value)
+                )
             )
 
 

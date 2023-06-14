@@ -74,7 +74,7 @@ class ParamSpec:
         self,
         name: str,
         type: Union[DataType, str],  # pylint: disable=redefined-builtin
-        optional: bool = False,
+        optional: bool = True,
     ):
         self._name = name
         self._optional = optional

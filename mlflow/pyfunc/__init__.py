@@ -633,8 +633,7 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
     """
     if overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
         mlflow.pyfunc._logger.debug(
-            "Inference parameters are being loaded from \
-                                    ``MLFLOW_PYFUNC_PARAMETERS`` environ."
+            "Inference parameters are being loaded from `MLFLOW_PYFUNC_PARAMETERS` environ."
         )
     else:
         overrides = {}
@@ -647,9 +646,9 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
 
     if not params:
         mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
-                section of the ``pyfunc` flavor. Use ``parameters`` when logging the model to \
-                allow inference parameters.",
+            "Argument(s) %s, were ignored since they are not specified in the `parameters` "
+            "section of the `pyfunc` flavor. Use `parameters` when logging the model to "
+            "allow inference parameters.",
             ", ".joing(overrides.keys()),
         )
 
@@ -659,8 +658,8 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
     if len(allowed_kargs) < len(overrides):
         ignored_args = set(overrides.keys()) - set(allowed_kargs.keys())
         mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
-                section of the ``pyfunc` flavor. Allowed parameters include %s",
+            "Argument(s) %s, were ignored since they are not specified in the `parameters` "
+            "section of the `pyfunc` flavor. Allowed parameters include %s",
             ", ".join(ignored_args),
             ", ".join(params.keys()),
         )
