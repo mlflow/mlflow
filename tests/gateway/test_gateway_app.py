@@ -8,23 +8,27 @@ def test_create_app(tmp_path):
     conf = {
         "routes": [
             {
-                "name": "some_name",
-                "type": "some/type",
+                "name": "completions-gpt4",
+                "type": "llm/v1/completions",
                 "model": {
-                    "name": "my_custom_provider",
-                    "provider": "my_provider",
-                    "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai/v1/chat/completions",
+                    },
                 },
             },
             {
-                "name": "another_custom",
-                "type": "another/type",
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
                 "model": {
-                    "name": "another_model_type",
-                    "provider": "another_provider",
+                    "name": "gpt-4",
+                    "provider": "openai",
                     "config": {
-                        "api_key": "a_key_for_my_route",
-                        "api_base": "http://my.endpoint.com/",
+                        "openai_api_key": "MY_API_KEY",
                     },
                 },
             },
@@ -45,24 +49,33 @@ def test_create_app(tmp_path):
     assert response.json() == {
         "routes": [
             {
-                "model": {"name": "my_custom_provider", "provider": "custom"},
-                "name": "some_name",
-                "type": "custom",
+                "name": "completions-gpt4",
+                "type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                },
             },
             {
-                "model": {"name": "another_model_type", "provider": "custom"},
-                "name": "another_custom",
-                "type": "custom",
+                "name": "chat-gpt4",
+                "type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                },
             },
         ]
     }
 
-    response = client.get("/gateway/routes/some_name")
+    response = client.get("/gateway/routes/chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
         "route": {
-            "model": {"name": "my_custom_provider", "provider": "custom"},
-            "name": "some_name",
-            "type": "custom",
+            "name": "chat-gpt4",
+            "type": "llm/v1/chat",
+            "model": {
+                "name": "gpt-4",
+                "provider": "openai",
+            },
         }
     }
