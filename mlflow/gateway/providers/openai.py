@@ -1,6 +1,5 @@
 from typing import Dict, Any
 
-import aiohttp
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
@@ -12,6 +11,8 @@ class OpenAIProvider(BaseProvider):
     SUPPORTED_ROUTES = ("chat", "completions", "embeddings")
 
     async def _request(self, path: str, payload: Dict[str, Any]):
+        import aiohttp
+
         config = self.config.model.config
         headers = {"Authorization": f"Bearer {config.api_key}"}
         if config.openai_organization:
