@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tests.gateway.tools import Gateway, store_conf, wait
+from tests.gateway.tools import Gateway, store_conf
 import pytest
 
 
@@ -117,7 +117,7 @@ def test_server_update(
         gateway.assert_health()
 
         # Wait for the app to restart
-        wait()
+        gateway.wait_reload()
         response = gateway.get("gateway/routes/")
 
         assert response.json() == update_routes
@@ -125,7 +125,7 @@ def test_server_update(
         # push the original file back
         store_conf(config, basic_config_dict)
         gateway.assert_health()
-        wait()
+        gateway.wait_reload()
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
@@ -140,12 +140,12 @@ def test_server_update_with_invalid_config(
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
-        wait()
+        gateway.wait_reload()
         # push an invalid config
         store_conf(config, invalid_config_dict)
         gateway.assert_health()
         # ensure that filewatch has run through the aborted config change logic
-        wait()
+        gateway.wait_reload()
         gateway.assert_health()
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
@@ -161,14 +161,14 @@ def test_server_update_config_removed_then_recreated(
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
-        wait()
+        gateway.wait_reload()
         # remove config
         config.unlink()
-        wait()
+        gateway.wait_reload()
         gateway.assert_health()
 
         store_conf(config, {"routes": basic_config_dict["routes"][1:]})
-        wait()
+        gateway.wait_reload()
         response = gateway.get("gateway/routes/")
         assert response.json() == {"routes": basic_routes["routes"][1:]}
 
