@@ -153,10 +153,16 @@ def infer_signature(
     :param model_output: Valid model output. E.g. Model predictions for the (subset of) training
                          dataset.
     :param parameters: Valid dictionary of inference parameters to send to model at predict time.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :param require_parameters: Value indicating if the parameters should be marked as required
                                instead of optional, which is the default behavior. If `True`,
                                then all the parameters should be indicated when calling the
                                `predict` method.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     :return: ModelSignature
     """
     inputs = _infer_schema(model_input)

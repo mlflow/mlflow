@@ -297,6 +297,7 @@ class Model:
         """
         return self.signature.outputs if self.signature is not None else None
 
+    @experimental
     def get_inference_schema(self):
         """
         Retrieves the inference schema of the Model iff the model was saved with an inference

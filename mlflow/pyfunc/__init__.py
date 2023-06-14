@@ -602,6 +602,9 @@ def load_model(
     :param dst_path: The local filesystem path to which to download the model artifact.
                      This directory must already exist. If unspecified, a local output
                      path will be created.
+    param **kwargs: Model inference parameters to override during the loading procedure. These
+                    parameters correspond to the ones indicated in `parameters` argument in the
+                    the `log_model` or `save_model` method.
     """
     local_path = _download_artifact_from_uri(artifact_uri=model_uri, output_path=dst_path)
 
@@ -1585,6 +1588,12 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param parameters: Inference parameters that the model can use during its loading procedure.
+                       These parameters are passed to the model on the `load_pyfunc` implementation
+                       as kwargs.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     if python_model:
@@ -1844,6 +1853,12 @@ def log_model(
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
+
+                     .. Note:: Experimental: This parameter may change or be removed in a future
+                                             release without warning.
+    :param parameters: Inference parameters that the model can use during its loading procedure.
+                       These parameters are passed to the model on the `load_pyfunc` implementation
+                       as kwargs.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
