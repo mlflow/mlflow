@@ -803,7 +803,7 @@ def add_libraries_to_model(model_uri, run_id=None, registered_model_name=None):
         from sklearn.ensemble import RandomForestClassifier
         import mlflow
         import mlflow.sklearn
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         with mlflow.start_run():
             iris = datasets.load_iris()

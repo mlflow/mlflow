@@ -19,7 +19,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 
 from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 

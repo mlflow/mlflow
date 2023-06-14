@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from scipy.sparse import csr_matrix, csc_matrix
 
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from mlflow.models.utils import (
     _Example,
     _read_tensor_input_from_json,

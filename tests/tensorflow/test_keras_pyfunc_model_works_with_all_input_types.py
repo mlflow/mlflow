@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import SGD
 
 
 from mlflow.types.schema import Schema, TensorSpec
-from mlflow.models.signature import ModelSignature
+from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from tests.helper_functions import (

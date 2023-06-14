@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import json
 import numpy as np
 from pmdarima import auto_arima

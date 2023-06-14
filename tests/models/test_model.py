@@ -8,8 +8,7 @@ import pandas as pd
 import numpy as np
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model, infer_signature, validate_schema
-from mlflow.models.signature import ModelSignature
+from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
