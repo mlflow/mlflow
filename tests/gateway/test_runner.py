@@ -1,72 +1,7 @@
-import subprocess
-import sys
-import time
-import requests
 from pathlib import Path
-from typing import Any
-import yaml
 
-from tests.helper_functions import get_safe_port
-
+from tests.gateway.tools import Gateway, store_conf, wait
 import pytest
-from mlflow.gateway.utils import kill_child_processes
-
-
-class Gateway:
-    def __init__(self, config_path: str, *args, **kwargs):
-        self.port = get_safe_port()
-        self.host = "localhost"
-        self.process = subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "gateway",
-                "start",
-                "--config-path",
-                config_path,
-                "--host",
-                self.host,
-                "--port",
-                str(self.port),
-                "--workers",
-                "2",
-            ],
-            *args,
-            **kwargs,
-        )
-        self.wait_until_ready()
-
-    def wait_until_ready(self) -> None:
-        s = time.time()
-        while time.time() - s < 10:
-            try:
-                if self.get("health").ok:
-                    return
-            except requests.exceptions.ConnectionError:
-                time.sleep(0.5)
-
-        raise Exception("Gateway failed to start")
-
-    def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
-        return requests.request(method, f"http://{self.host}:{self.port}/{path}", *args, **kwargs)
-
-    def get(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
-        return self.request("GET", path, *args, **kwargs)
-
-    def assert_health(self):
-        assert self.get("health").ok
-
-    def post(self, path: str, *args: Any, **kwargs: Any) -> requests.Response:
-        return self.request("POST", path, *args, **kwargs)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        kill_child_processes(self.process.pid)
-        self.process.terminate()
-        self.process.wait()
 
 
 @pytest.fixture
@@ -165,18 +100,6 @@ def invalid_config_dict():
     }
 
 
-def store_conf(path, conf):
-    path.write_text(yaml.safe_dump(conf))
-
-
-def wait():
-    """
-    A sleep statement for testing purposes only to ensure that the file watch and app reload
-    has enough time to resolve to updated endpoints.
-    """
-    time.sleep(2)
-
-
 def test_server_update(
     tmp_path: Path, basic_config_dict, update_config_dict, basic_routes, update_routes
 ):
@@ -218,7 +141,6 @@ def test_server_update_with_invalid_config(
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
         wait()
-
         # push an invalid config
         store_conf(config, invalid_config_dict)
         gateway.assert_health()

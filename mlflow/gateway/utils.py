@@ -1,10 +1,15 @@
 import logging
 import psutil
 import re
+from typing import Optional
+from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.envs import MLFLOW_GATEWAY_URI  # TODO: change to environment_variables import
+
 
 _logger = logging.getLogger(__name__)
+_gateway_uri: Optional[str] = None
 
 
 def is_valid_endpoint_name(name: str) -> bool:
@@ -38,3 +43,40 @@ def kill_child_processes(parent_pid):
     _, still_alive = psutil.wait_procs(parent.children(), timeout=3)
     for p in still_alive:
         p.kill()
+
+
+def _is_valid_uri(uri: str):
+    """
+    Evaluates the basic structure of a provided gateway uri to determine if the scheme and
+    netloc are provided
+    """
+    try:
+        parsed = urlparse(uri)
+        return all([parsed.scheme, parsed.netloc])
+    except ValueError:
+        return False
+
+
+def set_gateway_uri(gateway_uri: str):
+    if not _is_valid_uri(gateway_uri):
+        raise MlflowException.invalid_parameter_value(
+            "The gateway uri provided is missing required elements. Ensure that the schema "
+            "and netloc are provided."
+        )
+
+    global _gateway_uri
+    _gateway_uri = gateway_uri
+
+
+def get_gateway_uri() -> str:
+    global _gateway_uri
+    if _gateway_uri is not None:
+        return _gateway_uri
+    elif uri := MLFLOW_GATEWAY_URI.get():
+        return uri
+    else:
+        raise MlflowException(
+            "No Gateway server uri has been set. Please either set the MLflow Gateway URI via "
+            f"`mlflow.set_gateway_uri()` or set the environment variable {MLFLOW_GATEWAY_URI.name} "
+            "to the running Gateway API server's uri"
+        )

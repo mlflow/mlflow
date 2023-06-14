@@ -271,7 +271,7 @@ def _route_configs_to_routes(route_config: List[RouteConfig]) -> List[Route]:
     return [_route_config_to_route(route) for route in route_config]
 
 
-def _validate_config(config_path: str) -> List[RouteConfig]:
+def _validate_config(config_path: str) -> GatewayConfig:
     if not os.path.exists(config_path):
         raise MlflowException.invalid_parameter_value(f"{config_path} does not exist")
 
