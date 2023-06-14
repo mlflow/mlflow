@@ -44,7 +44,7 @@ def zipped_repo(tmp_path):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
                 zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep) :])
-    return zip_name
+    return str(zip_name)
 
 
 def test_is_zip_uri():
@@ -134,7 +134,9 @@ def test_dont_remove_mlruns(tmp_path):
     # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
     src_dir = tmp_path.joinpath("mlruns-src-dir")
     src_dir.mkdir()
-    src_dir.joinpath("mlruns", "some-file.txt").write_text("hi")
+    mlruns = src_dir.joinpath("mlruns")
+    mlruns.mkdir()
+    mlruns.joinpath("some-file.txt").write_text("hi")
     src_dir.joinpath("MLproject").write_text("dummy MLproject contents")
     dst_dir = _fetch_project(uri=str(src_dir), version=None)
     assert_dirs_equal(expected=str(src_dir), actual=dst_dir)
