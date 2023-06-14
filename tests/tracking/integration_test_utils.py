@@ -38,7 +38,7 @@ def _terminate_server(process, timeout=10):
     process.wait(timeout=timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlflow.server"):
+def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.server:app"):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -50,8 +50,15 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlf
     process = Popen(
         [
             sys.executable,
-            "-c",
-            f'from {app_module} import app; app.run("{LOCALHOST}", {server_port})',
+            "-m",
+            "flask",
+            "--app",
+            app,
+            "run",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(server_port),
         ],
         env={
             **os.environ,
