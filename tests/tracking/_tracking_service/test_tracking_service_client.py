@@ -63,7 +63,7 @@ def test_artifact_repo_is_cached_per_run_id(tmp_path):
             None,
         ),
     ):
-        tracking_uri = str(tmp_path)
+        tracking_uri = tmp_path.as_uri()
         artifact_repo = TrackingServiceClient(tracking_uri)._get_artifact_repo("some_run_id")
         another_artifact_repo = TrackingServiceClient(tracking_uri)._get_artifact_repo(
             "some_run_id"
