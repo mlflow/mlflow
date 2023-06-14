@@ -17,7 +17,7 @@ def test_embeddings_request():
 def test_embeddings_response():
     embeddings.ResponsePayload(
         **{
-            "embeddings": [0.1, 0.2, 0.3],
+            "embeddings": [[0.1, 0.2, 0.3]],
             "metadata": {
                 "input_tokens": 1,
                 "output_tokens": 1,
@@ -29,7 +29,7 @@ def test_embeddings_response():
     )
     embeddings.ResponsePayload(
         **{
-            "embeddings": [0.1, 0.2, 0.3],
+            "embeddings": [[0.1, 0.2, 0.3]],
             "metadata": {
                 "input_tokens": 1,
                 "output_tokens": 1,

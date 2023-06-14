@@ -173,7 +173,7 @@ class OpenAIProvider(BaseProvider):
         # ```
         return embeddings.ResponsePayload(
             **{
-                "embeddings": resp["data"][0]["embedding"],
+                "embeddings": [d["embedding"] for d in resp["data"]],
                 "metadata": {
                     "input_tokens": resp["usage"]["prompt_tokens"],
                     "output_tokens": 0,  # output_tokens is not available for embeddings
