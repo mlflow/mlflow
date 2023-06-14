@@ -399,7 +399,21 @@ def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=Non
     if agent_path is None and tools_path is None:
         from langchain.chains.loading import load_chain
 
-        model = load_chain(path)
+        try:
+            model = load_chain(path)
+        except ValueError as e:
+            if "`retriever` must be present." in str(e):
+                retriever_local_dir = os.path.dirname(path)
+                retriever_local_path = os.path.join(retriever_local_dir, "retriever")
+                # ATTENTION: This is a hacky way to load the retriever object.
+                # It assumes that a Retriever pyfunc model is defined and saved
+                # in the sub directory of the current artifact path named "retriever".
+                # This is not a good way to do it, but it works for now.
+                retriever_model = mlflow.pyfunc.load_model(retriever_local_path)
+                retriever = retriever_model.predict(0)
+                model = load_chain(path, retriever=retriever)
+            else:
+                raise
     else:
         from langchain.chains.loading import load_chain
         from langchain.agents import initialize_agent
