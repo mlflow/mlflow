@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
 from pyspark.sql import SparkSession

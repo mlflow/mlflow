@@ -218,7 +218,7 @@ class ModelInfo:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
@@ -340,7 +340,7 @@ class Model:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
@@ -529,7 +529,7 @@ class Model:
 
                           .. code-block:: python
 
-                            from mlflow.models.signature import infer_signature
+                            from mlflow.models import infer_signature
 
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))

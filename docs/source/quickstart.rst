@@ -256,7 +256,7 @@ For example:
     .. code-block:: python
 
         import mlflow
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         from sklearn.model_selection import train_test_split
         from sklearn.datasets import load_diabetes

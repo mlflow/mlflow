@@ -1,5 +1,5 @@
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import json
 import pandas as pd
 import numpy as np

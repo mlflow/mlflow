@@ -111,7 +111,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -266,7 +266,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions

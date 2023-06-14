@@ -23,8 +23,7 @@ from scipy.stats import uniform
 from scipy.sparse import csr_matrix, csc_matrix
 
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.models.signature import infer_signature
+from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 import mlflow.sklearn
 from mlflow.entities import RunStatus

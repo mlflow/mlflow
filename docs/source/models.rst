@@ -364,7 +364,7 @@ on the ``Iris dataset``:
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
     import mlflow.sklearn
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     iris = datasets.load_iris()
     iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
@@ -377,7 +377,7 @@ The same signature can be created explicitly as follows:
 
 .. code-block:: python
 
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, ColSpec
 
     input_schema = Schema(
@@ -405,7 +405,7 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
     trainX = train_X.reshape((train_X.shape[0], 28, 28, 1))
@@ -439,7 +439,7 @@ The same signature can be created explicitly as follows:
 .. code-block:: python
 
     import numpy as np
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, TensorSpec
 
     input_schema = Schema(
@@ -484,7 +484,7 @@ You can set a signature on the logged model as follows:
     from sklearn import datasets
     import mlflow
     from mlflow.models.model import get_model_info
-    from mlflow.models.signature import infer_signature, set_signature
+    from mlflow.models import infer_signature, set_signature
 
     # load the logged model
     model_uri = f"runs:/{run.info.run_id}/iris_rf"
@@ -953,7 +953,7 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
 
     import numpy as np
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import torch
     from torch import nn
 
@@ -1008,7 +1008,7 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import numpy as np
     from sklearn.linear_model import LogisticRegression
 
@@ -1213,7 +1213,7 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     import numpy as np
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import onnx
     import torch
     from torch import nn
@@ -1433,7 +1433,7 @@ The example below
     from sklearn.model_selection import train_test_split
     from xgboost import XGBClassifier
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     data = load_iris()
     X_train, X_test, y_train, y_test = train_test_split(
@@ -1493,7 +1493,7 @@ The example below
     from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     data = load_iris()
 
@@ -1554,7 +1554,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from catboost import CatBoostClassifier
     from sklearn import datasets
 
@@ -2107,7 +2107,7 @@ ds            y
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     # starts on 2007-12-10, ends on 2016-01-20
     train_df = pd.read_csv(
@@ -2963,7 +2963,7 @@ An example of specifying an appropriate uri-based input model signature for an a
 
 .. code-block:: python
 
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
 
     url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
@@ -3017,7 +3017,7 @@ and behavior:
     import xgboost
     import shap
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from sklearn.model_selection import train_test_split
 
     # Load the UCI Adult Dataset
@@ -3176,7 +3176,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
