@@ -291,8 +291,8 @@ def test_dir_copy():
         assert filecmp.dircmp(dir_path, copy_path)
 
 
-def test_read_and_write_parquet():
-    file_source = "sample-file-to-write"
+def test_read_and_write_parquet(tmp_path):
+    file_source = tmp_path.joinpath("sample-file-to-write")
     data_frame = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
     write_pandas_df_as_parquet(data_frame, file_source)
     serialized_data_frame = read_parquet_as_pandas_df(file_source)
