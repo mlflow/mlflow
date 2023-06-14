@@ -41,17 +41,6 @@ def basic_config_dict():
                     "config": {"openai_api_key": "MY_API_KEY"},
                 },
             },
-            {
-                "name": "claude-chat",
-                "type": "llm/v1/chat",
-                "model": {
-                    "name": "claude-v1",
-                    "provider": "anthropic",
-                    "config": {
-                        "anthropic_api_key": "api_key",
-                    },
-                },
-            },
         ]
     }
 
@@ -100,12 +89,12 @@ def test_fluent_health_check_on_fluent_set(gateway):
 def test_fluent_get_valid_route(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
 
-    route = get_route("claude-chat")
+    route = get_route("completions-gpt4")
     assert isinstance(route, Route)
     assert route.dict() == {
-        "model": {"name": "claude-v1", "provider": "anthropic"},
-        "name": "claude-chat",
-        "type": "llm/v1/chat",
+        "model": {"name": "gpt-4", "provider": "openai"},
+        "name": "completions-gpt4",
+        "type": "llm/v1/completions",
     }
 
 

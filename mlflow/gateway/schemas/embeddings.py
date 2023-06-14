@@ -18,5 +18,5 @@ class Metadata(BaseModel, extra=Extra.forbid):
 
 
 class ResponsePayload(BaseModel, extra=Extra.forbid):
-    embeddings: List[float]
+    embeddings: List[List[float]]
     metadata: Metadata

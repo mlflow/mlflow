@@ -47,7 +47,7 @@ def test_chat_response():
             "candidates": [
                 {
                     "message": {"role": "user", "content": "content"},
-                    "metadata": {"finish_reason": "unknown"},
+                    "metadata": {"finish_reason": "stop"},
                 },
             ],
             "metadata": {
