@@ -28,6 +28,10 @@ _LOG_MODEL_METADATA_WARNING_TEMPLATE = (
     "have been logged successfully under %s. Set logging level to DEBUG via "
     '`logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
 )
+_LOG_MODEL_INFER_SIGNATURE_WARNING = (
+    "Inferring the model signature from the input example has failed. Set logging level "
+    'to DEBUG via `logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
+)
 _LOG_MODEL_MISSING_SIGNATURE_WARNING = (
     "Model logged without a signature. Signatures will be required for upcoming model registry "
     "features as they validate model inputs and denote the expected schema of model outputs. "
@@ -559,12 +563,26 @@ class Model:
             local_path = tmp.path("model")
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id, metadata=metadata)
+            signature = kwargs.get("signature")
+            input_example = kwargs.get("input_example")
+            if (
+                input_example is not None
+                and signature is None
+                and hasattr(flavor, "_infer_signature")
+            ):
+                try:
+                    kwargs["signature"] = flavor._infer_signature(**kwargs)
+                except:
+                    _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
+                    _logger.debug("", exc_info=True)
+            if signature == False:
+                kwargs["signature"] = None
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
             tracking_uri = _resolve_tracking_uri()
             if (
                 tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks"
-            ) and kwargs.get("signature") is None:
+            ) and signature is None:
                 _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING)
             try:
                 mlflow.tracking.fluent._record_logged_model(mlflow_model)

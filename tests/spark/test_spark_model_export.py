@@ -24,7 +24,8 @@ import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models.model import get_model_info
 from mlflow.models.utils import _read_example
 from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -33,6 +34,8 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -106,7 +109,7 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 @pytest.fixture(scope="module")
 def iris_df(spark_context):
     iris = datasets.load_iris()
-    X = iris.data  # we only take the first two features.
+    X = iris.data
     y = iris.target
     feature_names = ["0", "1", "2", "3"]
     iris_pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
@@ -882,3 +885,28 @@ def test_model_log_with_metadata(spark_model_iris):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(spark_model_iris, iris_df):
+    artifact_path = "model"
+    _, X, _ = iris_df
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="0", type=DataType.double),
+                ColSpec(name="1", type=DataType.double),
+                ColSpec(name="2", type=DataType.double),
+                ColSpec(name="3", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.double)]),
+    )

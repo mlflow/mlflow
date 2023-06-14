@@ -25,12 +25,13 @@ import re
 import shutil
 import yaml
 from packaging.version import Version
+import pandas as pd
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -840,6 +841,17 @@ def _load_pyfunc(path):
         # (e.g. as part of spark_udf).
         spark = _create_local_spark_session_for_loading_spark_model()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
+
+
+def _infer_signature(spark_model, input_example, **kwargs):
+    from mlflow.utils._spark_utils import _get_active_spark_session
+
+    spark = _get_active_spark_session()
+    if spark is None:
+        raise MlflowException("No active spark session")
+    wrapped_model = _PyFuncModelWrapper(spark, spark_model)
+    prediction = wrapped_model.predict(input_example)
+    return infer_signature(input_example, pd.Series(prediction))
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):

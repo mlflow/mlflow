@@ -343,6 +343,12 @@ def _load_pyfunc(path):
     return _XGBModelWrapper(_load_model(path))
 
 
+def _infer_signature(xgb_model, input_example, **kwargs):
+    wrapped_model = _XGBModelWrapper(xgb_model)
+    prediction = wrapped_model.predict(input_example)
+    return infer_signature(input_example, prediction)
+
+
 def load_model(model_uri, dst_path=None):
     """
     Load an XGBoost model from a local file or a run.

@@ -15,6 +15,7 @@ import functools
 import os
 import logging
 import numpy as np
+import pandas as pd
 import pickle
 import yaml
 import weakref
@@ -31,7 +32,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import ModelInputExample, _save_example
@@ -519,6 +520,13 @@ def _load_pyfunc(path):
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
     return _load_model_from_local_file(path=path, serialization_format=serialization_format)
+
+
+def _infer_signature(sk_model, input_example, **kwargs):
+    prediction = sk_model.predict(input_example)
+    if isinstance(prediction, np.ndarray) and prediction.ndim == 1:
+        return infer_signature(input_example, pd.Series(prediction))
+    return infer_signature(input_example, prediction)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):

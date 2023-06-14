@@ -21,13 +21,16 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models.model import get_model_info
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -47,9 +50,8 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 @pytest.fixture(scope="module")
 def sklearn_knn_model():
-    iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features.
-    y = iris.target
+    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+    X = X.iloc[:, :2]  # we only take the first two features.
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
@@ -57,9 +59,8 @@ def sklearn_knn_model():
 
 @pytest.fixture(scope="module")
 def sklearn_logreg_model():
-    iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features.
-    y = iris.target
+    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+    X = X.iloc[:, :2]  # we only take the first two features.
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
     return ModelWithData(model=linear_lr, inference_data=X)
@@ -72,7 +73,9 @@ def sklearn_custom_transformer_model(sklearn_knn_model):
 
     transformer = SKFunctionTransformer(transform, validate=True)
     pipeline = SKPipeline([("custom_transformer", transformer), ("knn", sklearn_knn_model.model)])
-    return ModelWithData(pipeline, inference_data=datasets.load_iris().data[:, :2])
+    return ModelWithData(
+        pipeline, inference_data=datasets.load_iris(as_frame=True, return_X_y=True)[0].iloc[:, :2]
+    )
 
 
 @pytest.fixture
@@ -669,3 +672,26 @@ def test_model_log_with_metadata(sklearn_knn_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(sklearn_knn_model):
+    artifact_path = "model"
+    X = sklearn_knn_model.inference_data
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.long)]),
+    )

@@ -6,6 +6,8 @@ import collections
 from unittest import mock
 
 import mlflow.tensorflow
+from mlflow.models import infer_signature
+from mlflow.models.model import get_model_info
 
 
 # pylint: disable=abstract-method
@@ -78,6 +80,22 @@ def test_log_and_load_tf2_module(tf2_toy_model):
     np.testing.assert_allclose(
         predictions2,
         tf2_toy_model.expected_results,
+    )
+
+
+def test_model_log_with_signature_inference(tf2_toy_model):
+    artifact_path = "model"
+    example = tf2_toy_model.inference_data
+
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf2_toy_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == infer_signature(
+        tf2_toy_model.inference_data, tf2_toy_model.expected_results.numpy()
     )
 
 

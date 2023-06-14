@@ -764,6 +764,24 @@ def _load_pyfunc(path):
     raise MlflowException("Unknown model_type.")
 
 
+def _wrap_pyfunc(model, signature):
+    import tensorflow
+    from tensorflow.keras.models import Model as KerasModel
+
+    if isinstance(model, KerasModel):
+        return _KerasModelWrapper(model, signature)
+    elif isinstance(model, tensorflow.Module):
+        return _TF2ModuleWrapper(model, signature)
+    else:
+        raise MlflowException(f"Unknown model type: {type(model)}")
+
+
+def _infer_signature(model, input_example, **kwargs):
+    wrapped_model = _wrap_pyfunc(model, None)
+    prediction = wrapped_model.predict(input_example)
+    return infer_signature(input_example, prediction)
+
+
 class _TF2Wrapper:
     """
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that

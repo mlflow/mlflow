@@ -25,11 +25,13 @@ import mlflow
 from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models.model import get_model_info
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.conda import get_or_create_conda_env
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -778,3 +780,20 @@ def test_model_log_with_metadata(tf_keras_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(tf_keras_model, data):
+    artifact_path = "model"
+    example = data[0].head(3).to_numpy()
+
+    with mlflow.start_run():
+        mlflow.tensorflow.log_model(
+            tf_keras_model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = get_model_info(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )
