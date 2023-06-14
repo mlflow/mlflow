@@ -65,7 +65,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
             logger.info("'%s' resolved as '%s'", model_uri, resolved_uri)
 
         ml_model_file = _download_artifact_from_uri(
-            artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
+            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
         )
     except Exception as ex:
         raise MlflowException(
