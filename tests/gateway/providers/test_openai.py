@@ -302,3 +302,62 @@ async def test_embeddings():
             },
         }
         mock_post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_embeddings_batch_input():
+    resp = {
+        "object": "list",
+        "data": [
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                "index": 0,
+            },
+            {
+                "object": "embedding",
+                "embedding": [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+                "index": 0,
+            },
+        ],
+        "model": "text-embedding-ada-002",
+        "usage": {"prompt_tokens": 8, "total_tokens": 8},
+    }
+    config = embedding_config()
+
+    with mock.patch(
+        "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
+    ) as mock_post:
+        provider = OpenAIProvider(RouteConfig(**config))
+        payload = {"text": ["1", "2"]}
+        response = await provider.embeddings(embeddings.RequestPayload(**payload))
+        assert jsonable_encoder(response) == {
+            "embeddings": [
+                [
+                    0.1,
+                    0.2,
+                    0.3,
+                ],
+                [
+                    0.4,
+                    0.5,
+                    0.6,
+                ],
+            ],
+            "metadata": {
+                "input_tokens": 8,
+                "output_tokens": 0,
+                "total_tokens": 8,
+                "model": "text-embedding-ada-002",
+                "route_type": "llm/v1/embeddings",
+            },
+        }
+        mock_post.assert_called_once()
