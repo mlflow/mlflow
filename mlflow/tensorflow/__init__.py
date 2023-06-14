@@ -33,7 +33,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import ModelSignature, _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
@@ -778,8 +778,7 @@ def _wrap_pyfunc(model, signature):
 
 def _infer_signature(model, input_example, **kwargs):
     wrapped_model = _wrap_pyfunc(model, None)
-    prediction = wrapped_model.predict(input_example)
-    return infer_signature(input_example, prediction)
+    return _infer_signature_from_input_example(input_example, wrapped_model)
 
 
 class _TF2Wrapper:

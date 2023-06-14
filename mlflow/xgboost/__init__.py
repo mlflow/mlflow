@@ -34,7 +34,7 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.models import Model, ModelInputExample, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import ModelSignature, _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _get_fully_qualified_class_name
@@ -345,8 +345,7 @@ def _load_pyfunc(path):
 
 def _infer_signature(xgb_model, input_example, **kwargs):
     wrapped_model = _XGBModelWrapper(xgb_model)
-    prediction = wrapped_model.predict(input_example)
-    return infer_signature(input_example, prediction)
+    return _infer_signature_from_input_example(input_example, wrapped_model)
 
 
 def load_model(model_uri, dst_path=None):

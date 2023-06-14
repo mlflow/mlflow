@@ -247,6 +247,31 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     return ModelSignature(inputs=input_schema, outputs=output_schema)
 
 
+def _infer_signature_from_input_example(input_example, wrapped_model):
+    """
+    Infer the signature from an example input and a PyFunc wrapped model.
+
+    :param input_example: An instance representing a typical input to the model.
+    :param wrapped_model: A PyFunc wrapped model which has a `predict` method.
+    :return: A `ModelSignature` object containing the inferred schema of both the model's inputs
+        based on the `input_example` and the model's outputs based on the prediction from the
+        `wrapped_model`.
+    """
+    prediction = wrapped_model.predict(input_example)
+    input_schema = _infer_schema(input_example)
+    # When the input example is column-basaed (i.e. tabular), predictions that are one-dimensional
+    # numpy arrays likely represent a list of row-derived predictions. Thus, we cast the predictions
+    # to a Pandas series so that it will be inferred as a Schema containing one ColSpec.
+    if (
+        not input_schema.is_tensor_spec()
+        and isinstance(prediction, np.ndarray)
+        and prediction.ndim == 1
+    ):
+        prediction = pd.Series(prediction)
+    output_schema = _infer_schema(prediction)
+    return ModelSignature(input_schema, output_schema)
+
+
 def set_signature(
     model_uri: str,
     signature: ModelSignature,

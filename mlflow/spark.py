@@ -850,8 +850,11 @@ def _infer_signature(spark_model, input_example, **kwargs):
     if spark is None:
         raise MlflowException("No active spark session")
     wrapped_model = _PyFuncModelWrapper(spark, spark_model)
-    prediction = wrapped_model.predict(input_example)
-    return infer_signature(input_example, pd.Series(prediction))
+    # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper returns
+    # predictions as a list, which the `infer_signature` API does not support (unless it is a
+    # list of strings).
+    prediction = pd.Series(wrapped_model.predict(input_example))
+    return infer_signature(input_example, prediction)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):

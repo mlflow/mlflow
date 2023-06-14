@@ -32,9 +32,9 @@ from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
+from mlflow.models.signature import ModelSignature, _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -523,10 +523,7 @@ def _load_pyfunc(path):
 
 
 def _infer_signature(sk_model, input_example, **kwargs):
-    prediction = sk_model.predict(input_example)
-    if isinstance(prediction, np.ndarray) and prediction.ndim == 1:
-        return infer_signature(input_example, pd.Series(prediction))
-    return infer_signature(input_example, prediction)
+    return _infer_signature_from_input_example(input_example, sk_model)
 
 
 class _SklearnCustomModelPicklingError(pickle.PicklingError):

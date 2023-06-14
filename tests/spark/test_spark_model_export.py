@@ -890,6 +890,7 @@ def test_model_log_with_metadata(spark_model_iris):
 def test_model_log_with_signature_inference(spark_model_iris, iris_df):
     artifact_path = "model"
     _, X, _ = iris_df
+    X.drop("label", axis=1, inplace=True)
     example = X.iloc[[0]]
 
     with mlflow.start_run():
