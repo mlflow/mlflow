@@ -11,7 +11,7 @@ class BaseProvider(ABC):
     """
 
     NAME: str
-    SUPPORTED_TASKS: Tuple[str, ...]
+    SUPPORTED_ROUTE_TYPES: Tuple[str, ...]
 
     def __init__(self, config: RouteConfig):
         self.config = config
