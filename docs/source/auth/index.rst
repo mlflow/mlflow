@@ -78,9 +78,10 @@ The available permissions are:
 
 The default permission for all users is ``READ``. It can be changed in the :ref:`configuration <configuration>` file.
 
-Permissions can be set on two MLflow components: Experiments and Registered Models.
-Certain APIs can only be requested if the user has the required permission.
-Otherwise, a "Permission Denied" response will be returned.
+Permissions can be granted on individual resources for each user. 
+Supported resources include ``Experiment`` and ``Registered Model``.
+To access an API endpoint, an user must have the required permission.
+Otherwise, a ``403 Forbidden`` response will be returned.
 
 Required Permissions for accessing experiments:
 
@@ -99,23 +100,23 @@ Required Permissions for accessing experiments:
    * - :ref:`Get Experiment <mlflowMlflowServicegetExperiment>`
      - ``2.0/mlflow/experiments/get``
      - ``GET``
-     - ExperimentPermission.can_read
+     - can_read
    * - :ref:`Get Experiment By Name <mlflowMlflowServicegetExperimentByName>`
      - ``2.0/mlflow/experiments/get-by-name``
      - ``GET``
-     - ExperimentPermission.can_read
+     - can_read
    * - :ref:`Delete Experiment <mlflowMlflowServicedeleteExperiment>`
      - ``2.0/mlflow/experiments/delete``
      - ``POST``
-     - ExperimentPermission.can_delete
+     - can_delete
    * - :ref:`Restore Experiment <mlflowMlflowServicerestoreExperiment>`
      - ``2.0/mlflow/experiments/restore``
      - ``POST``
-     - ExperimentPermission.can_delete
+     - can_delete
    * - :ref:`Update Experiment <mlflowMlflowServiceupdateExperiment>`
      - ``2.0/mlflow/experiments/update``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Search Experiments <mlflowMlflowServicesearchExperiments>`
      - ``2.0/mlflow/experiments/search``
      - ``POST``
@@ -127,27 +128,27 @@ Required Permissions for accessing experiments:
    * - :ref:`Set Experiment Tag <mlflowMlflowServicesetExperimentTag>`
      - ``2.0/mlflow/experiments/set-experiment-tag``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Create Run <mlflowMlflowServicecreateRun>`
      - ``2.0/mlflow/runs/create``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Get Run <mlflowMlflowServicegetRun>`
      - ``2.0/mlflow/runs/get``
      - ``GET``
-     - ExperimentPermission.can_read
+     - can_read
    * - :ref:`Update Run <mlflowMlflowServiceupdateRun>`
      - ``2.0/mlflow/runs/update``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Delete Run <mlflowMlflowServicedeleteRun>`
      - ``2.0/mlflow/runs/delete``
      - ``POST``
-     - ExperimentPermission.can_delete
+     - can_delete
    * - :ref:`Restore Run <mlflowMlflowServicerestoreRun>`
      - ``2.0/mlflow/runs/restore``
      - ``POST``
-     - ExperimentPermission.can_delete
+     - can_delete
    * - :ref:`Search Runs <mlflowMlflowServicesearchRuns>`
      - ``2.0/mlflow/runs/search``
      - ``POST``
@@ -155,35 +156,35 @@ Required Permissions for accessing experiments:
    * - :ref:`Set Tag <mlflowMlflowServicesetTag>`
      - ``2.0/mlflow/runs/set-tag``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Delete Tag <mlflowMlflowServicedeleteTag>`
      - ``2.0/mlflow/runs/delete-tag``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Log Metric <mlflowMlflowServicelogMetric>`
      - ``2.0/mlflow/runs/log-metric``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Log Param <mlflowMlflowServicelogParam>`
      - ``2.0/mlflow/runs/log-parameter``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Log Batch <mlflowMlflowServicelogBatch>`
      - ``2.0/mlflow/runs/log-batch``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`Log Model <mlflowMlflowServicelogModel>`
      - ``2.0/mlflow/runs/log-model``
      - ``POST``
-     - ExperimentPermission.can_update
+     - can_update
    * - :ref:`List Artifacts <mlflowMlflowServicelistArtifacts>`
      - ``2.0/mlflow/artifacts/list``
      - ``GET``
-     - ExperimentPermission.can_read
+     - can_read
    * - :ref:`Get Metric History <mlflowMlflowServicegetMetricHistory>`
      - ``2.0/mlflow/metrics/get-history``
      - ``GET``
-     - ExperimentPermission.can_read
+     - can_read
 
 Required Permissions for accessing registered models:
 
@@ -202,19 +203,19 @@ Required Permissions for accessing registered models:
    * - :ref:`Rename Registered Model <mlflowModelRegistryServicerenameRegisteredModel>`
      - ``2.0/mlflow/registered-models/rename``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Update Registered Model <mlflowModelRegistryServiceupdateRegisteredModel>`
      - ``2.0/mlflow/registered-models/update``
      - ``PATCH``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Delete Registered Model <mlflowModelRegistryServicedeleteRegisteredModel>`
      - ``2.0/mlflow/registered-models/delete``
      - ``DELETE``
-     - RegisteredModelPermission.can_delete
+     - can_delete
    * - :ref:`Get Registered Model <mlflowModelRegistryServicegetRegisteredModel>`
      - ``2.0/mlflow/registered-models/get``
      - ``GET``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Search Registered Models <mlflowModelRegistryServicesearchRegisteredModels>`
      - ``2.0/mlflow/registered-models/search``
      - ``GET``
@@ -222,51 +223,51 @@ Required Permissions for accessing registered models:
    * - :ref:`Get Latest Versions <mlflowModelRegistryServicegetLatestVersions>`
      - ``2.0/mlflow/registered-models/get-latest-versions``
      - ``POST``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Get Latest Versions <mlflowModelRegistryServicegetLatestVersions>`
      - ``2.0/mlflow/registered-models/get-latest-versions``
      - ``GET``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Set Registered Model Tag <mlflowModelRegistryServicesetRegisteredModelTag>`
      - ``2.0/mlflow/registered-models/set-tag``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Delete Registered Model Tag <mlflowModelRegistryServicedeleteRegisteredModelTag>`
      - ``2.0/mlflow/registered-models/delete-tag``
      - ``DELETE``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Set Registered Model Alias <mlflowModelRegistryServicesetRegisteredModelAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Delete Registered Model Alias <mlflowModelRegistryServicedeleteRegisteredModelAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``DELETE``
-     - RegisteredModelPermission.can_delete
+     - can_delete
    * - :ref:`Get Model Version By Alias <mlflowModelRegistryServicegetModelVersionByAlias>`
      - ``2.0/mlflow/registered-models/alias``
      - ``GET``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Create Model Version <mlflowModelRegistryServicecreateModelVersion>`
      - ``2.0/mlflow/model-versions/create``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Update Model Version <mlflowModelRegistryServiceupdateModelVersion>`
      - ``2.0/mlflow/model-versions/update``
      - ``PATCH``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Transition Model Version Stage <mlflowModelRegistryServicetransitionModelVersionStage>`
      - ``2.0/mlflow/model-versions/transition-stage``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Delete Model Version <mlflowModelRegistryServicedeleteModelVersion>`
      - ``2.0/mlflow/model-versions/delete``
      - ``DELETE``
-     - RegisteredModelPermission.can_delete
+     - can_delete
    * - :ref:`Get Model Version <mlflowModelRegistryServicegetModelVersion>`
      - ``2.0/mlflow/model-versions/get``
      - ``GET``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Search Model Versions <mlflowModelRegistryServicesearchModelVersions>`
      - ``2.0/mlflow/model-versions/search``
      - ``GET``
@@ -274,15 +275,15 @@ Required Permissions for accessing registered models:
    * - :ref:`Get Model Version Download Uri <mlflowModelRegistryServicegetModelVersionDownloadUri>`
      - ``2.0/mlflow/model-versions/get-download-uri``
      - ``GET``
-     - RegisteredModelPermission.can_read
+     - can_read
    * - :ref:`Set Model Version Tag <mlflowModelRegistryServicesetModelVersionTag>`
      - ``2.0/mlflow/model-versions/set-tag``
      - ``POST``
-     - RegisteredModelPermission.can_update
+     - can_update
    * - :ref:`Delete Model Version Tag <mlflowModelRegistryServicedeleteModelVersionTag>`
      - ``2.0/mlflow/model-versions/delete-tag``
      - ``DELETE``
-     - RegisteredModelPermission.can_delete
+     - can_delete
 
 MLflow Authentication introduces several new API endpoints to manage users and permissions.
 
@@ -317,35 +318,35 @@ MLflow Authentication introduces several new API endpoints to manage users and p
    * - :ref:`Create Experiment Permission <mlflowAuthServicecreateExperimentPermission>`
      - ``2.0/mlflow/experiments/permissions/create``
      - ``POST``
-     - ExperimentPermission.can_manage
+     - can_manage
    * - :ref:`Get Experiment Permission <mlflowAuthServicegetExperimentPermission>`
      - ``2.0/mlflow/experiments/permissions/get``
      - ``GET``
-     - ExperimentPermission.can_manage
+     - can_manage
    * - :ref:`Update Experiment Permission <mlflowAuthServiceupdateExperimentPermission>`
      - ``2.0/mlflow/experiments/permissions/update``
      - ``PATCH``
-     - ExperimentPermission.can_manage
+     - can_manage
    * - :ref:`Delete Experiment Permission <mlflowAuthServicedeleteExperimentPermission>`
      - ``2.0/mlflow/experiments/permissions/delete``
      - ``DELETE``
-     - ExperimentPermission.can_manage
+     - can_manage
    * - :ref:`Create Registered Model Permission <mlflowAuthServicecreateRegisteredModelPermission>`
      - ``2.0/mlflow/registered-models/permissions/create``
      - ``POST``
-     - RegisteredModelPermission.can_manage
+     - can_manage
    * - :ref:`Get Registered Model Permission <mlflowAuthServicegetRegisteredModelPermission>`
      - ``2.0/mlflow/registered-models/permissions/get``
      - ``GET``
-     - RegisteredModelPermission.can_manage
+     - can_manage
    * - :ref:`Update Registered Model Permission <mlflowAuthServiceupdateRegisteredModelPermission>`
      - ``2.0/mlflow/registered-models/permissions/update``
      - ``PATCH``
-     - RegisteredModelPermission.can_manage
+     - can_manage
    * - :ref:`Delete Registered Model Permission <mlflowAuthServicedeleteRegisteredModelPermission>`
      - ``2.0/mlflow/registered-models/permissions/delete``
      - ``DELETE``
-     - RegisteredModelPermission.can_manage
+     - can_manage
 
 Some APIs will also have their behaviour modified.
 For example, the creator of an experiment will automatically be granted ``MANAGE`` permission
