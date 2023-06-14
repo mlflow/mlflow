@@ -64,9 +64,19 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
             resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
             logger.info("'%s' resolved as '%s'", model_uri, resolved_uri)
 
-        ml_model_file = _download_artifact_from_uri(
-            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
-        )
+        try:
+            ml_model_file = _download_artifact_from_uri(
+                artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
+            )
+        except Exception as resolved_uri_download_ex:
+            logger.exception(
+                f'Failed to download an "{MLMODEL_FILE_NAME}" model file from resolved URI {resolved_uri}',
+                resolved_uri_download_ex,
+            )
+            logger.info(f"Falling back to downloading from original model URI {model_uri}")
+            ml_model_file = _download_artifact_from_uri(
+                artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
+            )
     except Exception as ex:
         raise MlflowException(
             f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}"',
