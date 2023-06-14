@@ -3,7 +3,6 @@ The ``mlflow.pyfunc.model`` module defines logic for saving and loading custom "
 models with a user-defined ``PythonModel`` subclass.
 """
 
-import json
 import os
 import copy
 import posixpath
@@ -317,56 +316,12 @@ def _load_pyfunc(model_path: str, **kwargs):
             model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]
         )
 
-    parameters = _update_inference_params(pyfunc_config.get(mlflow.pyfunc.PARAMETERS, None), kwargs)
-
-    context = PythonModelContext(artifacts=artifacts, parameters=parameters)
+    context = PythonModelContext(artifacts=artifacts, parameters=kwargs)
     python_model.load_context(context=context)
     signature = mlflow.models.Model.load(model_path).signature
     return _PythonModelPyfuncWrapper(
         python_model=python_model, context=context, signature=signature
     )
-
-
-def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Updates the inference parameters according to the inference configuration of the model. Only
-    arguments already present in the inference configuration can be indicated at loading time.
-    """
-    overrides = {}
-    if env_overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
-        mlflow.pyfunc._logger.debug(
-            "Inference parameters are being loaded from \
-                                    ``MLFLOW_PYFUNC_PARAMETERS`` environ."
-        )
-        overrides.update(json.loads(env_overrides))
-
-    if load_args:
-        overrides.update(load_args)
-
-    if not overrides:
-        return params
-
-    if not params:
-        mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
-                section of the ``pyfunc` flavor. Use ``parameters`` when logging the model to \
-                allow inference parameters.",
-            ", ".joing(overrides.keys()),
-        )
-
-        return None
-
-    allowed_kargs = {key: value for key, value in overrides.items() if key in params.keys()}
-    if len(allowed_kargs) < len(overrides):
-        ignored_args = list(overrides.keys() not in allowed_kargs.keys())
-        mlflow.pyfunc._logger.warning(
-            "Argument(s) %s, were ignored since they are not specified in the ``parameters`` \
-                section of the ``pyfunc` flavor. Allowed parameters include %s",
-            ", ".join(ignored_args),
-            ", ".join(params.keys()),
-        )
-
-    return params.update(allowed_kargs)
 
 
 def _get_first_string_column(pdf):

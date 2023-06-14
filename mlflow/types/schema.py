@@ -498,7 +498,7 @@ class InferenceSchema:
     @property
     def parameters(self) -> List[ParamSpec]:
         """Representation of an indeference set of parameters that defines this schema."""
-        return self._inputs
+        return self._parameters
 
     def parameter_names(self) -> List[str]:
         """Get list of supported parameters by this inference schema."""
