@@ -754,10 +754,13 @@ def _enforce_inference_schema(params: Dict[str, Any], schema: InferenceSchema):
 
     schema_dict = schema.parameter_types_dict()
     for param, value in params.items():
-        if str(type(value)) != schema_dict[param].type:
+        # Python has dynamic precision on float and will automatically switch between int and long
+        # for integers, but MLflow typing can distinguish between them. Using ``kind`` will ignore
+        # that difference which should help preventing too strict typing checks.
+        if np.asarray(value).dtype.kind != schema_dict[param].to_numpy().kind:
             raise TypeError(
                 "Model inference parameter {} requires type {} but {} was provided.".format(
-                    param, schema_dict[param].type, type(value)
+                    param, schema_dict[param], np.asarray(value).dtype.name
                 )
             )
 
