@@ -1,4 +1,6 @@
-import openai
+from typing import Dict, Any
+
+import aiohttp
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
@@ -9,10 +11,23 @@ class OpenAIProvider(BaseProvider):
     NAME = "openai"
     SUPPORTED_ROUTES = ("chat", "completions", "embeddings")
 
+    async def _request(self, path: str, payload: Dict[str, Any]):
+        config = self.config.model.config
+        headers = {"Authorization": f"Bearer {config.api_key}"}
+        if config.openai_organization:
+            headers["OpenAI-Organization"] = config.open_ai_organization
+        async with aiohttp.ClientSession(self.config.openai_base, headers=headers) as session:
+            async with session.post(path, json=payload) as response:
+                response.raise_for_status()
+                return await response.json()
+
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        resp = await openai.ChatCompletion.acreate(
-            model=self.config.model.name,
-            messages=jsonable_encoder(payload.messages),
+        resp = await self._make_request(
+            "chat",
+            {
+                "model": self.config.model.name,
+                "messages": jsonable_encoder(payload.messages),
+            },
         )
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
         # ```
@@ -63,9 +78,12 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        resp = await openai.Completion.acreate(
-            model=self.config.model.name,
-            prompt=payload.prompt,
+        resp = await self._make_request(
+            "completions",
+            {
+                "model": self.config.model.name,
+                "prompt": payload.prompt,
+            },
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
@@ -109,9 +127,12 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        resp = await openai.Embedding.acreate(
-            model=self.config.model.name,
-            input=payload.text,
+        resp = await self._request(
+            "embeddings",
+            {
+                "model": self.config.model.name,
+                "input": jsonable_encoder(payload.documents),
+            },
         )
         # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
         # ```
