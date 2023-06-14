@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import List, Optional
 
 from pydantic import BaseModel, Extra, Field
@@ -21,8 +22,13 @@ class RequestPayload(BaseRequestPayload):
     messages: List[Message] = Field(..., min_items=1)
 
 
+class FinishReason(str, Enum):
+    STOP = "stop"
+    LENGTH = "length"
+
+
 class CandidateMetadata(BaseModel, extra=Extra.forbid):
-    finish_reason: Optional[str]
+    finish_reason: Optional[FinishReason]
 
 
 class Candidate(BaseModel):
