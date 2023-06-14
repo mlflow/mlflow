@@ -5,6 +5,8 @@ import shutil
 import json
 import subprocess
 
+from mlflow.environment_variables import _MLFLOW_TESTING
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -137,3 +139,10 @@ def clean_up_envs():
             for env in conda_info["envs"]:
                 if env != root_prefix:
                     shutil.rmtree(env, ignore_errors=True)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def set_mlflow_testing():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv(_MLFLOW_TESTING.name, "TRUE")
+        yield
