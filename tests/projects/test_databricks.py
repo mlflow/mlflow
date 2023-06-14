@@ -71,15 +71,15 @@ def databricks_cluster_mlflow_run_cmd_mock():
 
 
 @pytest.fixture()
-def cluster_spec_mock(tmpdir):
-    cluster_spec_handle = tmpdir.join("cluster_spec.json")
-    cluster_spec_handle.write(json.dumps({}))
+def cluster_spec_mock(tmp_path):
+    cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
+    cluster_spec_handle.write_text("{}")
     yield str(cluster_spec_handle)
 
 
 @pytest.fixture()
-def dbfs_root_mock(tmpdir):
-    yield str(tmpdir.join("dbfs-root"))
+def dbfs_root_mock(tmp_path):
+    yield str(tmp_path.joinpath("dbfs-root"))
 
 
 @pytest.fixture()
