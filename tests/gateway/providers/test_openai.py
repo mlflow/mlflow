@@ -25,6 +25,21 @@ class MockAsyncResponse:
         pass
 
 
+def chat_config():
+    return {
+        "name": "chat",
+        "type": "llm/v1/chat",
+        "model": {
+            "provider": "openai",
+            "name": "gpt-3.5-turbo",
+            "config": {
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_key": "$OPENAI_API_KEY",
+            },
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_chat():
     resp = {
@@ -48,24 +63,11 @@ async def test_chat():
             }
         ],
     }
-    config = RouteConfig(
-        **{
-            "name": "chat",
-            "type": "llm/v1/chat",
-            "model": {
-                "provider": "openai",
-                "name": "gpt-3.5-turbo",
-                "config": {
-                    "openai_api_base": "https://api.openai.com/v1",
-                    "openai_api_key": "$OPENAI_API_KEY",
-                },
-            },
-        }
-    )
+    config = chat_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_acreate:
-        provider = OpenAIProvider(config)
+        provider = OpenAIProvider(RouteConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = await provider.chat(chat.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -92,6 +94,30 @@ async def test_chat():
 
 
 @pytest.mark.asyncio
+async def test_chat_throws_if_request_payload_contains_n():
+    config = chat_config()
+    provider = OpenAIProvider(RouteConfig(**config))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
+    with pytest.raises(ValueError, match="Invalid parameter `n`"):
+        await provider.chat(chat.RequestPayload(**payload))
+
+
+def completions_config():
+    return {
+        "name": "completions",
+        "type": "llm/v1/completions",
+        "model": {
+            "provider": "openai",
+            "name": "text-davinci-003",
+            "config": {
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_key": "$OPENAI_API_KEY",
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
 async def test_completions():
     resp = {
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
@@ -106,20 +132,13 @@ async def test_completions():
                 "finish_reason": "length",
             }
         ],
-        "usage": {"prompt_tokens": 5, "completion_tokens": 7, "total_tokens": 12},
-    }
-    config = {
-        "name": "completions",
-        "type": "llm/v1/completions",
-        "model": {
-            "provider": "openai",
-            "name": "text-davinci-003",
-            "config": {
-                "openai_api_base": "https://api.openai.com/v1",
-                "openai_api_key": "$OPENAI_API_KEY",
-            },
+        "usage": {
+            "prompt_tokens": 5,
+            "completion_tokens": 7,
+            "total_tokens": 12,
         },
     }
+    config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_acreate:
@@ -130,7 +149,10 @@ async def test_completions():
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
             "candidates": [
-                {"text": "\n\nThis is indeed a test", "metadata": {"finish_reason": "length"}}
+                {
+                    "text": "\n\nThis is indeed a test",
+                    "metadata": {"finish_reason": "length"},
+                }
             ],
             "metadata": {
                 "input_tokens": 5,
@@ -141,6 +163,30 @@ async def test_completions():
             },
         }
         mock_acreate.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_completions_throws_if_request_payload_contains_n():
+    config = chat_config()
+    provider = OpenAIProvider(RouteConfig(**config))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}], "n": 1}
+    with pytest.raises(ValueError, match="Invalid parameter `n`"):
+        await provider.completions(chat.RequestPayload(**payload))
+
+
+def embedding_config():
+    return {
+        "name": "embeddings",
+        "type": "llm/v1/embeddings",
+        "model": {
+            "provider": "openai",
+            "name": "text-embedding-ada-002",
+            "config": {
+                "openai_api_base": "https://api.openai.com/v1",
+                "openai_api_key": "$OPENAI_API_KEY",
+            },
+        },
+    }
 
 
 @pytest.mark.asyncio
@@ -161,18 +207,8 @@ async def test_embeddings():
         "model": "text-embedding-ada-002",
         "usage": {"prompt_tokens": 8, "total_tokens": 8},
     }
-    config = {
-        "name": "embeddings",
-        "type": "llm/v1/embeddings",
-        "model": {
-            "provider": "openai",
-            "name": "text-embedding-ada-002",
-            "config": {
-                "openai_api_base": "https://api.openai.com/v1",
-                "openai_api_key": "$OPENAI_API_KEY",
-            },
-        },
-    }
+    config = embedding_config()
+
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_acreate:
@@ -180,7 +216,13 @@ async def test_embeddings():
         payload = {"text": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "embeddings": [0.0023064255, -0.009327292, -0.0028842222],
+            "embeddings": [
+                [
+                    0.0023064255,
+                    -0.009327292,
+                    -0.0028842222,
+                ],
+            ],
             "metadata": {
                 "input_tokens": 8,
                 "output_tokens": 0,

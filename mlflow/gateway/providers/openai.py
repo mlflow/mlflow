@@ -33,8 +33,11 @@ class OpenAIProvider(BaseProvider):
         return {k: v for k, v in payload.items() if v is not None and v != []}
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        payload = jsonable_encoder(payload)
+        if "n" in payload:
+            raise ValueError("Invalid parameter `n`. Use `candidate_count` instead.")
         payload = OpenAIProvider._make_payload(
-            jsonable_encoder(payload),
+            payload,
             {"candidate_count": "n"},
         )
         resp = await self._request(
@@ -90,8 +93,11 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+        payload = jsonable_encoder(payload)
+        if "n" in payload:
+            raise ValueError("Invalid parameter `n`. Use `candidate_count` instead.")
         payload = OpenAIProvider._make_payload(
-            jsonable_encoder(payload),
+            payload,
             {"candidate_count": "n"},
         )
         resp = await self._request(
