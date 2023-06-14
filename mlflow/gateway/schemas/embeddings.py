@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from pydantic import BaseModel, Extra
 
@@ -6,7 +6,7 @@ from ..config import RouteType
 
 
 class RequestPayload(BaseModel, extra=Extra.allow):
-    text: str
+    text: Union[str, List[str]]
 
 
 class Metadata(BaseModel, extra=Extra.forbid):
