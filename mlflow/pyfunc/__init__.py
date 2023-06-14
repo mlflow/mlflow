@@ -209,6 +209,7 @@ You may prefer the second, lower-level workflow for the following reasons:
 
 import collections
 import importlib
+import json
 import logging
 import os
 import signal
@@ -633,10 +634,17 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
     Updates the inference parameters according to the inference configuration of the model. Only
     arguments already present in the inference configuration can be indicated at loading time.
     """
-    if overrides := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
+    if overrides_env := os.getenv("MLFLOW_PYFUNC_PARAMETERS"):
         mlflow.pyfunc._logger.debug(
             "Inference parameters are being loaded from `MLFLOW_PYFUNC_PARAMETERS` environ."
         )
+        try:
+            overrides = json.loads(overrides_env)
+        except Exception as ex:
+            raise MlflowException(
+                "Unable to load inference parameters from environment "
+                "variable MLFLOW_PYFUNC_PARAMETERS"
+            ) from ex
     else:
         overrides = {}
 
