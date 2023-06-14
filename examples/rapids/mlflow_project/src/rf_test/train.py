@@ -4,7 +4,7 @@ import argparse
 from functools import partial
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import mlflow.sklearn
 
 from cuml.metrics.accuracy import accuracy_score

@@ -11,7 +11,7 @@ from sklearn.datasets import load_iris
 import xgboost as xgb
 import mlflow
 from mlflow.artifacts import download_artifacts
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 
 
 def read_lines(path):

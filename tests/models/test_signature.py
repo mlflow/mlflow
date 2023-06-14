@@ -9,7 +9,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import get_model_info
-from mlflow.models.signature import ModelSignature, infer_signature, set_signature
+from mlflow.models import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
