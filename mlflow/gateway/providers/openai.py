@@ -25,16 +25,17 @@ class OpenAIProvider(BaseProvider):
                 return await response.json()
 
     @staticmethod
-    def _convert_payload(payload: Dict[str, Any], key_mapping: Dict[str, str]):
+    def _convert_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]):
         payload = payload.copy()
-        for k1, k2 in key_mapping.items():
+        for k1, k2 in mapping.items():
             if v := payload.pop(k1, None):
                 payload[k2] = v
         return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        payload = OpenAIProvider._convert_payload(
-            jsonable_encoder(payload), {"candidate_count": "n"}
+        payload = OpenAIProvider._convert_payload_keys(
+            jsonable_encoder(payload),
+            {"candidate_count": "n"},
         )
         resp = await self._request("chat", payload)
         # Response example (https://platform.openai.com/docs/api-reference/chat/create)
@@ -86,7 +87,7 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = OpenAIProvider._convert_payload(
+        payload = OpenAIProvider._convert_payload_keys(
             jsonable_encoder(payload),
             {"candidate_count": "n"},
         )
@@ -133,7 +134,7 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        payload = OpenAIProvider._convert_payload(
+        payload = OpenAIProvider._convert_payload_keys(
             jsonable_encoder(payload),
             {"text": "input"},
         )
