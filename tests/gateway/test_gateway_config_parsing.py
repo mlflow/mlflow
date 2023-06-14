@@ -1,5 +1,6 @@
 import pytest
 import yaml
+import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
@@ -184,8 +185,7 @@ def test_invalid_route_definition(tmp_path):
     conf_path.write_text(yaml.safe_dump(invalid_partial_config))
 
     with pytest.raises(
-        MlflowException,
-        match="For the openai provider, the api key must either be specified within the ",
+        MlflowException, match=re.compile(r"validation error.+openai_api_key", re.DOTALL)
     ):
         _load_route_config(conf_path)
 
@@ -208,7 +208,7 @@ def test_invalid_route_definition(tmp_path):
 
     with pytest.raises(
         MlflowException,
-        match="The gateway configuration is invalid",
+        match="The api key provided is not a string",
     ):
         _load_route_config(conf_path)
 
