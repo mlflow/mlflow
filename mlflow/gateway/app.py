@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import List, Union
 
 from mlflow.version import VERSION
+from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
 from mlflow.gateway.config import (
     Route,
     RouteConfig,
@@ -29,7 +30,7 @@ app = FastAPI(
 )
 
 
-@app.get("/health")
+@app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
 async def health():
     return {"status": "OK"}
 
