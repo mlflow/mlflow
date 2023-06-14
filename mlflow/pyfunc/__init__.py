@@ -665,7 +665,8 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
             ", ".join(params.keys()),
         )
 
-    return params.update(allowed_kargs)
+    params.update(allowed_kargs)
+    return params
 
 
 class _ServedPyFuncModel(PyFuncModel):
