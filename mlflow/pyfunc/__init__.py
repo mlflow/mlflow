@@ -649,7 +649,7 @@ def _update_inference_params(params: Dict[str, Any], load_args: Dict[str, Any]) 
             "Argument(s) %s, were ignored since they are not specified in the `parameters` "
             "section of the `pyfunc` flavor. Use `parameters` when logging the model to "
             "allow inference parameters.",
-            ", ".joing(overrides.keys()),
+            ", ".join(overrides.keys()),
         )
 
         return {}

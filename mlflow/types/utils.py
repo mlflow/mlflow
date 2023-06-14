@@ -205,11 +205,13 @@ def _infer_schema(data: Any) -> Schema:
     return schema
 
 
-def _infer_inference_schema(params: Dict[str, Any]) -> InferenceSchema:
+def _infer_inference_schema(params: Dict[str, Any], optional: bool) -> InferenceSchema:
     if isinstance(params, dict):
         return InferenceSchema(
             [
-                ParamSpec(name=name, type=_infer_numpy_dtype(np.asarray(value).dtype))
+                ParamSpec(
+                    name=name, type=_infer_numpy_dtype(np.asarray(value).dtype), optional=optional
+                )
                 for name, value in params.items()
             ]
         )
