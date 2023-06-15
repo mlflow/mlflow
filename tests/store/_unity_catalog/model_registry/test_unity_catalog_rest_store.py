@@ -335,7 +335,7 @@ def test_get_latest_versions_unsupported(store):
     name = "model_1"
     expected_error = (
         f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
-        f"If seeing this error while attempting to load a model version by alias, "
+        f"If seeing this error while attempting to load a model version by stage, "
         f"use the syntax 'models:/your_model_name@your_alias_name'."
     )
     expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
