@@ -116,3 +116,18 @@ class MlflowGatewayClient:
             )
         response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]
+
+    def query(self, route: str, data):
+        """
+        Submit a query to a configured provider route.
+
+        :param route: The name of the route to submit the query to.
+        :param data: The data to send in the query. The format of the input data is route specific.
+        :return: The route's response as a dictionary
+        """
+
+        data = json.dumps(data)
+
+        route = urljoin(self._route_base, route)
+
+        return self._call_endpoint("POST", route, data).json()

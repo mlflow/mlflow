@@ -45,3 +45,21 @@ def search_routes(search_filter: Optional[str] = None) -> List[Route]:
         List[Route]: A list of Route instances representing the found routes.
     """
     return MlflowGatewayClient().search_routes(search_filter)
+
+
+@experimental
+def query(route: str, data):
+    """
+    Issues a query request to a configured service through a named route on the Gateway Server.
+
+    This function creates an instance of MlflowGatewayClient and uses it to issue the query to the
+    provided route with the provided data.
+
+    Args:
+        route (str): The name of the configured route. Route names can be obtained by running
+        `mlflow.gateway.search_routes()`
+        data: The request payload to be submitted to the route. The exact configuration of
+        the expected structure varies based on the route configuration.
+
+    """
+    return MlflowGatewayClient().query(route, data)

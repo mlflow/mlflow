@@ -1,11 +1,13 @@
 import pytest
 from requests.exceptions import HTTPError
+from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
     set_gateway_uri,
     get_gateway_uri,
     get_route,
+    query,
     search_routes,
 )
 from mlflow.gateway.config import Route
@@ -19,10 +21,10 @@ def basic_config_dict():
     return {
         "routes": [
             {
-                "name": "completions-gpt4",
+                "name": "completions",
                 "type": "llm/v1/completions",
                 "model": {
-                    "name": "gpt-4",
+                    "name": "text-davinci-003",
                     "provider": "openai",
                     "config": {
                         "openai_api_key": "mykey",
@@ -33,12 +35,12 @@ def basic_config_dict():
                 },
             },
             {
-                "name": "chat-gpt4",
+                "name": "chat",
                 "type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-4",
+                    "name": "gpt-3.5-turbo",
                     "provider": "openai",
-                    "config": {"openai_api_key": "MY_API_KEY"},
+                    "config": {"openai_api_key": "mykey"},
                 },
             },
         ]
@@ -78,22 +80,22 @@ def test_fluent_health_check_on_non_running_server():
 def test_fluent_health_check_on_env_var_uri(gateway, monkeypatch):
     monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, gateway.url)
     mlflow.gateway.utils._gateway_uri = None
-    assert get_route("completions-gpt4").model.name == "gpt-4"
+    assert get_route("completions").model.name == "text-davinci-003"
 
 
 def test_fluent_health_check_on_fluent_set(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
-    assert get_route("completions-gpt4").model.provider == "openai"
+    assert get_route("completions").model.provider == "openai"
 
 
 def test_fluent_get_valid_route(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
 
-    route = get_route("completions-gpt4")
+    route = get_route("completions")
     assert isinstance(route, Route)
     assert route.dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "completions-gpt4",
+        "model": {"name": "text-davinci-003", "provider": "openai"},
+        "name": "completions",
         "type": "llm/v1/completions",
     }
 
@@ -114,13 +116,13 @@ def test_fluent_search_routes(gateway):
     routes = search_routes()
     assert all(isinstance(route, Route) for route in routes)
     assert routes[0].dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "completions-gpt4",
+        "model": {"name": "text-davinci-003", "provider": "openai"},
+        "name": "completions",
         "type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "chat-gpt4",
+        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "name": "chat",
         "type": "llm/v1/chat",
     }
 
@@ -129,3 +131,73 @@ def test_fluent_get_gateway_uri(gateway):
     set_gateway_uri(gateway_uri=gateway.url)
 
     assert get_gateway_uri() == gateway.url
+
+
+def test_fluent_query_chat(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    routes = search_routes()
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "The core of the sun is estimated to have a temperature of about "
+                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
+                },
+                "metadata": {"finish_reason": "stop"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": 17,
+            "output_tokens": 24,
+            "total_tokens": 41,
+            "model": "gpt-3.5-turbo-0301",
+            "route_type": "llm/v1/chat",
+        },
+    }
+
+    data = {"messages": [{"role": "user", "content": "How hot is the core of the sun?"}]}
+
+    mock_query = mock.Mock(return_value=expected_output)
+
+    with mock.patch(
+        "mlflow.gateway.fluent.MlflowGatewayClient", return_value=mock.Mock(query=mock_query)
+    ) as MockClient:
+        response = query(route=routes[1].name, data=data)
+        assert response == expected_output
+
+        MockClient.assert_called_with()
+        mock_query.assert_called_with(routes[1].name, data)
+
+
+def test_fluent_query_completions(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    routes = search_routes()
+    expected_output = {
+        "candidates": [
+            {
+                "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": 7,
+            "output_tokens": 16,
+            "total_tokens": 23,
+            "model": "text-davinci-003",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "I like to drive fast in my"}
+
+    mock_query = mock.Mock(return_value=expected_output)
+
+    with mock.patch(
+        "mlflow.gateway.fluent.MlflowGatewayClient", return_value=mock.Mock(query=mock_query)
+    ) as MockClient:
+        response = query(route=routes[0].name, data=data)
+        assert response == expected_output
+
+        MockClient.assert_called_with()
+        mock_query.assert_called_with(routes[0].name, data)
