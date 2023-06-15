@@ -115,9 +115,9 @@ def test_get_store_bad_uris(bad_uri):
         _get_store()
 
 
-def test_get_store_caches_on_store_uri(tmpdir):
-    store_uri_1 = "sqlite:///" + tmpdir.join("store1.db").strpath
-    store_uri_2 = "sqlite:///" + tmpdir.join("store2.db").strpath
+def test_get_store_caches_on_store_uri(tmp_path):
+    store_uri_1 = f"sqlite:///{tmp_path.joinpath('store1.db')}"
+    store_uri_2 = f"sqlite:///{tmp_path.joinpath('store2.db')}"
 
     store1 = _get_store(store_uri_1)
     store2 = _get_store(store_uri_1)
