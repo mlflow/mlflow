@@ -186,7 +186,7 @@ def resolve_input_example_and_signature(
     if (
         model_signature is None
         and input_example is not None
-        and (not log_model_signature or model_signature_user_msg)
+        and (not log_model_signature or model_signature_user_msg is not None)
     ):
         model_signature = False
 
