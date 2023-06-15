@@ -7,7 +7,6 @@ from mlflow.gateway.config import (
     _load_route_config,
     _save_route_config,
     RouteConfig,
-    _route_configs_to_routes,
     _resolve_api_key_from_input,
 )
 
@@ -153,7 +152,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
     assert all(isinstance(route, RouteConfig) for route in loaded.routes)
 
-    routes = _route_configs_to_routes(loaded.routes)
+    routes = [r.to_route() for r in loaded.routes]
 
     for config in loaded.routes:
         route = [x for x in routes if x.name == config.name][0]
