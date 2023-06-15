@@ -1063,7 +1063,7 @@ def get_text_vec_model(train_samples):
         "https://github.com/tensorflow/tensorflow/issues/38250"
     ),
 )
-def test_autolog_text_vec_model(joinpath):
+def test_autolog_text_vec_model(tmp_path):
     """
     Verifies autolog successfully saves a model that can't be saved in the H5 format
     """
@@ -1075,7 +1075,7 @@ def test_autolog_text_vec_model(joinpath):
 
     # Saving in the H5 format should fail
     with pytest.raises(NotImplementedError, match="is not supported in h5"):
-        model.save(str(joinpath.joinpath("model.h5")), save_format="h5")
+        model.save(str(tmp_path.joinpath("model.h5")), save_format="h5")
 
     with mlflow.start_run() as run:
         model.fit(train_samples, train_labels, epochs=1)
