@@ -3117,20 +3117,15 @@ in your current system environment in order to run the example):
     results: pd.DataFrame = mlflow.load_table(
         "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
     )
-    results_grouped_by_question = results.sort_values(by="question")
     print("Evaluation results:")
-    print(
-        results_grouped_by_question[
-            ["run_id", "params.system_prompt", "question", "outputs"]
-        ]
-    )
+    print(results)
 
 
 MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
 built with LLMs. For example, after evaluating multiple prompts for question answering
 (see the
 `MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
-each model: 
+each model:
 
 .. image:: _static/images/artifact-view-ui.png
 
