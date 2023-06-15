@@ -1,7 +1,7 @@
 import json
 import logging
 from urllib.parse import urljoin
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
@@ -116,3 +116,57 @@ class MlflowGatewayClient:
             )
         response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]
+
+    def query(self, route: str, data: Dict[str, Any]):
+        """
+        Submit a query to a configured provider route.
+
+        :param route: The name of the route to submit the query to.
+        :param data: The data to send in the query. A dictionary representing the per-route
+        specific structure required for a given provider.
+
+        For chat, the structure should be:
+
+        .. code-block:: python
+
+          from mlflow.gateway import MlflowGatewayClient
+
+          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+
+          response = gateway_client.query(
+              "my-chat-route",
+              {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}, ...]},
+          )
+
+        For completions, the structure should be:
+
+        .. code-block:: python
+
+          from mlflow.gateway import MlflowGatewayClient
+
+          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+
+          response = gateway_client.query(
+              "my-completions-route", {"prompt": "It's one small step for"}
+          )
+
+        For embeddings, the structure should be:
+
+        .. code-block:: python
+          from mlflow.gateway import MlflowGatewayClient
+
+          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+
+          response = gateway_client.query(
+              "my-embeddings-route",
+              {"text": ["It was the best of times", "It was the worst of times"]},
+          )
+
+        :return: The route's response as a dictionary, standardized to the route type.
+        """
+
+        data = json.dumps(data)
+
+        route = urljoin(self._route_base, route)
+
+        return self._call_endpoint("POST", route, data).json()

@@ -16,10 +16,10 @@ def basic_config_dict():
     return {
         "routes": [
             {
-                "name": "completions-gpt4",
+                "name": "completions",
                 "type": "llm/v1/completions",
                 "model": {
-                    "name": "gpt-4",
+                    "name": "text-davinci-003",
                     "provider": "openai",
                     "config": {
                         "openai_api_key": "mykey",
@@ -30,12 +30,24 @@ def basic_config_dict():
                 },
             },
             {
-                "name": "chat-gpt4",
+                "name": "chat",
                 "type": "llm/v1/chat",
                 "model": {
-                    "name": "gpt-4",
+                    "name": "gpt-3.5-turbo",
                     "provider": "openai",
-                    "config": {"openai_api_key": "MY_API_KEY"},
+                    "config": {"openai_api_key": "mykey"},
+                },
+            },
+            {
+                "name": "embeddings",
+                "type": "llm/v1/embeddings",
+                "model": {
+                    "provider": "openai",
+                    "name": "text-embedding-ada-002",
+                    "config": {
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_key": "mykey",
+                    },
                 },
             },
         ]
@@ -106,7 +118,7 @@ def test_non_running_server_raises_when_called():
 def test_create_gateway_client_with_declared_url(gateway):
     gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
     assert gateway_client.gateway_uri == gateway.url
-    assert isinstance(gateway_client.get_route("chat-gpt4"), Route)
+    assert isinstance(gateway_client.get_route("chat"), Route)
 
 
 def test_set_gateway_uri_from_utils(gateway):
@@ -114,7 +126,7 @@ def test_set_gateway_uri_from_utils(gateway):
 
     gateway_client = MlflowGatewayClient()
     assert gateway_client.gateway_uri == gateway.url
-    assert isinstance(gateway_client.get_route("completions-gpt4"), Route)
+    assert isinstance(gateway_client.get_route("completions"), Route)
 
 
 def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
@@ -122,7 +134,7 @@ def test_create_gateway_client_with_environment_variable(gateway, monkeypatch):
 
     gateway_client = MlflowGatewayClient()
     assert gateway_client.gateway_uri == gateway.url
-    assert isinstance(gateway_client.get_route("completions-gpt4"), Route)
+    assert isinstance(gateway_client.get_route("completions"), Route)
 
 
 def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch):
@@ -139,7 +151,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
     gateway_client = MlflowGatewayClient()
 
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_route("chat-gpt4").type == "llm/v1/chat"
+    assert gateway_client.get_route("chat").type == "llm/v1/chat"
 
 
 def test_query_individual_route(gateway, monkeypatch):
@@ -147,19 +159,19 @@ def test_query_individual_route(gateway, monkeypatch):
 
     gateway_client = MlflowGatewayClient()
 
-    route1 = gateway_client.get_route(name="completions-gpt4")
+    route1 = gateway_client.get_route(name="completions")
     assert isinstance(route1, Route)
     assert route1.dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "completions-gpt4",
+        "model": {"name": "text-davinci-003", "provider": "openai"},
+        "name": "completions",
         "type": "llm/v1/completions",
     }
 
-    route2 = gateway_client.get_route(name="chat-gpt4")
+    route2 = gateway_client.get_route(name="chat")
     assert isinstance(route2, Route)
     assert route2.dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "chat-gpt4",
+        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "name": "chat",
         "type": "llm/v1/chat",
     }
 
@@ -181,12 +193,114 @@ def test_list_all_configured_routes(gateway):
     routes = gateway_client.search_routes()
     assert all(isinstance(x, Route) for x in routes)
     assert routes[0].dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "completions-gpt4",
+        "model": {"name": "text-davinci-003", "provider": "openai"},
+        "name": "completions",
         "type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
-        "model": {"name": "gpt-4", "provider": "openai"},
-        "name": "chat-gpt4",
+        "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
+        "name": "chat",
         "type": "llm/v1/chat",
     }
+
+
+def test_client_query_chat(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    routes = gateway_client.search_routes()
+
+    data = {"messages": [{"role": "user", "content": "How hot is the core of the sun?"}]}
+
+    expected_output = {
+        "candidates": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": "The core of the sun is estimated to have a temperature of about "
+                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
+                },
+                "metadata": {"finish_reason": "stop"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": 17,
+            "output_tokens": 24,
+            "total_tokens": 41,
+            "model": "gpt-3.5-turbo-0301",
+            "route_type": "llm/v1/chat",
+        },
+    }
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route=routes[1].name, data=data)
+
+        assert response == expected_output
+
+
+def test_client_query_completions(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    routes = gateway_client.search_routes()
+
+    expected_output = {
+        "candidates": [
+            {
+                "text": " car\n\nDriving fast can be dangerous and is not recommended. It is",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "input_tokens": 7,
+            "output_tokens": 16,
+            "total_tokens": 23,
+            "model": "text-davinci-003",
+            "route_type": "llm/v1/completions",
+        },
+    }
+
+    data = {"prompt": "I like to drive fast in my"}
+
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route=routes[0].name, data=data)
+        assert response == expected_output
+
+
+def test_client_query_embeddings(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    routes = gateway_client.search_routes()
+
+    expected_output = {
+        "embeddings": [
+            [
+                0.1,
+                0.2,
+                0.3,
+            ],
+            [
+                0.4,
+                0.5,
+                0.6,
+            ],
+        ],
+        "metadata": {
+            "input_tokens": 8,
+            "output_tokens": 0,
+            "total_tokens": 8,
+            "model": "text-embedding-ada-002",
+            "route_type": "llm/v1/embeddings",
+        },
+    }
+    data = {"text": ["Jenny", "What's her number?"]}
+
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route=routes[2].name, data=data)
+        assert response == expected_output
