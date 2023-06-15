@@ -14,6 +14,7 @@ Prophet (native) format
 import os
 import yaml
 import json
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -333,5 +334,5 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
         return self.pr_model.predict(dataframe)

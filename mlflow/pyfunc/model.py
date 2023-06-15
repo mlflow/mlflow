@@ -361,5 +361,5 @@ class _PythonModelPyfuncWrapper:
 
         return model_input
 
-    def predict(self, model_input, parameters=None):
+    def predict(self, model_input, parameters: Optional[Dict[str, Any]] = None):
         return self.python_model.predict(self.context, self._convert_input(model_input), parameters)

@@ -13,6 +13,7 @@ from PIL import Image
 import pip
 import yaml
 import tensorflow as tf
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.utils import PYTHON_VERSION
@@ -54,7 +55,7 @@ class KerasImageClassifierPyfunc:
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
-    def predict(self, input, parameters=None):
+    def predict(self, input, parameters: Optional[Dict[str, Any]] = None):
         """
         Generate predictions for the data.
 

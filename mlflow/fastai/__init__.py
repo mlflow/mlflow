@@ -18,6 +18,7 @@ import tempfile
 from pathlib import Path
 import pandas as pd
 import numpy as np
+from typing import Any, Dict, Optional
 
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature, ModelInputExample
@@ -357,7 +358,7 @@ class _FastaiModelWrapper:
     def __init__(self, learner):
         self.learner = learner
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
         dl = self.learner.dls.test_dl(dataframe)
         preds, _ = self.learner.get_preds(dl=dl)
         return pd.Series(map(np.array, preds.numpy())).to_frame("predictions")

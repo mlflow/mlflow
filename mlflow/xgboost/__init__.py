@@ -24,6 +24,7 @@ import logging
 import functools
 from copy import deepcopy
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -374,7 +375,7 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
         import xgboost as xgb
 
         if isinstance(self.xgb_model, xgb.Booster):

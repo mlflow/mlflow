@@ -13,6 +13,7 @@ import os
 import yaml
 import warnings
 import atexit
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
@@ -761,7 +762,7 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         import torch
 
         device = parameters.get("device", None)

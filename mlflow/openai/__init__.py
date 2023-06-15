@@ -31,6 +31,7 @@ import logging
 from enum import Enum
 from string import Formatter
 import itertools
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -526,7 +527,7 @@ class _OpenAIWrapper:
         else:
             return data[self.variables].to_dict(orient="records")
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
         if self.variables:
@@ -560,7 +561,7 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         from mlflow.openai.utils import _mock_chat_completion_request
 
         with _mock_chat_completion_request():

@@ -12,6 +12,7 @@ import yaml
 import numpy as np
 from pathlib import Path
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import pandas as pd
 
@@ -317,7 +318,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
 

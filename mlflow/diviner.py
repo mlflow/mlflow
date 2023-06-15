@@ -21,7 +21,7 @@ import shutil
 import pathlib
 import yaml
 import pandas as pd
-from typing import Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
 import mlflow
 from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
@@ -451,7 +451,7 @@ class _DivinerModelWrapper:
     def __init__(self, diviner_model):
         self.diviner_model = diviner_model
 
-    def predict(self, dataframe, parameters=None) -> pd.DataFrame:
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         """
         A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.

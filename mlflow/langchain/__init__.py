@@ -453,7 +453,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 

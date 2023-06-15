@@ -21,6 +21,7 @@ import weakref
 from collections import defaultdict, OrderedDict
 from copy import deepcopy
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -527,10 +528,10 @@ class _SklearnModelWrapper:
     def __init__(self, sklearn_model):
         self.sklearn_model = sklearn_model
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict(data)
 
-    def predict_proba(self, data, parameters=None):
+    def predict_proba(self, data, parameters: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict_proba(data)
 
 

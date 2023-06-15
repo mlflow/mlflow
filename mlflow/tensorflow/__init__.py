@@ -18,6 +18,7 @@ from collections import namedtuple
 import pandas
 from packaging.version import Version
 from threading import RLock
+from typing import Any, Dict, Optional
 import numpy as np
 import importlib
 import yaml
@@ -782,7 +783,7 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         import tensorflow
 
         feed_dict = {}
@@ -826,7 +827,7 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         import tensorflow
 
         if isinstance(data, (np.ndarray, list)):
@@ -847,7 +848,7 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
-    def predict(self, data, parameters=None):
+    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:
             # If model signature is not None, when calling

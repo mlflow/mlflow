@@ -51,6 +51,7 @@ import posixpath
 import shutil
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import yaml
 
@@ -836,7 +837,7 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, parameters=None):
+    def predict(self, text, parameters: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.
 

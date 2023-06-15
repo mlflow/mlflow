@@ -25,6 +25,7 @@ import logging
 import functools
 from copy import deepcopy
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -493,7 +494,7 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
         return self.lgb_model.predict(dataframe)
 
 

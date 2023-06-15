@@ -3,6 +3,7 @@ import os
 import tempfile
 import yaml
 import warnings
+from typing import Any, Dict, Optional
 
 import numpy as np
 
@@ -665,5 +666,5 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
-    def predict(self, dataframe, parameters=None):
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
         return self.explainer(dataframe.values).values

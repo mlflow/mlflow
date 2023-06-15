@@ -18,6 +18,7 @@ import warnings
 import pandas as pd
 import yaml
 from packaging.version import Version
+from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow import pyfunc
@@ -337,7 +338,7 @@ class _PmdarimaModelWrapper:
         self.pmdarima_model = pmdarima_model
         self._pmdarima_version = pmdarima.__version__
 
-    def predict(self, dataframe, parameters=None) -> pd.DataFrame:
+    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
         df_schema = dataframe.columns.values.tolist()
 
         if len(dataframe) > 1:
