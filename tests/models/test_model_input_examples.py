@@ -287,6 +287,7 @@ def test_infer_signature_from_example_can_be_disabled():
     model_info = get_model_info(model_uri)
     assert model_info.signature == None
 
+
 def test_infer_signature_silently_fails():
     class ErrorModel(BaseEstimator, ClassifierMixin):
         def fit(self, X, y=None):
@@ -296,8 +297,4 @@ def test_infer_signature_silently_fails():
             raise Exception("oh no!")
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
-            ErrorModel(),
-            artifact_path="model",
-            input_example=np.array([[1]])
-        )
+        mlflow.sklearn.log_model(ErrorModel(), artifact_path="model", input_example=np.array([[1]]))

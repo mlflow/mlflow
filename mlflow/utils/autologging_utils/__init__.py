@@ -180,6 +180,12 @@ def resolve_input_example_and_signature(
             model_signature = infer_model_signature(input_example)
         except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
+            # disable input_example signature inference in model logging it fails in autologging
+            model_signature = False
+    else:
+        # disable input_example signature inference in model logging if `log_model_signature`
+        # is set to `False`.
+        model_signature = False
 
     if log_input_example and input_example_user_msg is not None:
         logger.warning(input_example_user_msg)

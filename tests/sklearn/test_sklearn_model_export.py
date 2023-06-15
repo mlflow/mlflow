@@ -49,8 +49,18 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
 @pytest.fixture(scope="module")
-def sklearn_knn_model():
-    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+def iris_df():
+    iris = datasets.load_iris()
+    X = iris.data
+    y = iris.target
+    X_df = pd.DataFrame(X, columns=iris.feature_names)  # to make spark_udf work
+    y_series = pd.Series(y)
+    return X_df, y_series
+
+
+@pytest.fixture(scope="module")
+def sklearn_knn_model(iris_df):
+    X, y = iris_df
     X = X.iloc[:, :2]  # we only take the first two features.
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
@@ -58,8 +68,8 @@ def sklearn_knn_model():
 
 
 @pytest.fixture(scope="module")
-def sklearn_logreg_model():
-    X, y = datasets.load_iris(as_frame=True, return_X_y=True)
+def sklearn_logreg_model(iris_df):
+    X, y = iris_df
     X = X.iloc[:, :2]  # we only take the first two features.
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
@@ -67,15 +77,14 @@ def sklearn_logreg_model():
 
 
 @pytest.fixture(scope="module")
-def sklearn_custom_transformer_model(sklearn_knn_model):
+def sklearn_custom_transformer_model(sklearn_knn_model, iris_df):
     def transform(vec):
         return vec + 1
 
     transformer = SKFunctionTransformer(transform, validate=True)
     pipeline = SKPipeline([("custom_transformer", transformer), ("knn", sklearn_knn_model.model)])
-    return ModelWithData(
-        pipeline, inference_data=datasets.load_iris(as_frame=True, return_X_y=True)[0].iloc[:, :2]
-    )
+    X, _ = iris_df
+    return ModelWithData(pipeline, inference_data=X.iloc[:, :2])
 
 
 @pytest.fixture
