@@ -217,7 +217,9 @@ def test_if_model_signature_inference_fails(logger):
     )
 
     assert input_example == "data"
-    assert signature is None
+    # When the signature inference fails but an input example is specified, `signature` is set
+    # to `False` to disable the automatic signature inference feature in `log_model` APIs.
+    assert signature is False
     logger.warning.assert_called_with("Failed to infer model signature: " + error_msg)
 
 
