@@ -1108,7 +1108,7 @@ def search_datasets_handler():
             ]
         }
     else:
-        return _not_implemented
+        return _not_implemented()
 
 
 @catch_mlflow_exception
