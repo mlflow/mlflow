@@ -350,8 +350,9 @@ predictions generated on the training dataset).
 
 You may also include a signature with your model by omitting the :py:class:`signature object
 <mlflow.models.ModelSignature>` from the log_model call and instead passing an :ref:`input example <input-example>`.
-Then, for supported MLflow flavors (sklearn, xgboost, tensorflow, and spark), log_model will automatically
-infer the signature from the input example and the model's predicted output of the input example.
+Then, for supported MLflow flavors (``sklearn``, ``xgboost``, ``tensorflow``, ``transformers``, and
+``spark``), log_model will automatically infer the signature from the input example and the model's
+predicted output of the input example.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
