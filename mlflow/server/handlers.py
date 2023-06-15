@@ -1100,11 +1100,15 @@ def search_datasets_handler():
         )
 
     store = _get_tracking_store()
-    return {
-        "dataset_summaries": [
-            summary.to_dict() for summary in store._search_datasets(experiment_ids)
-        ]
-    }
+
+    if hasattr(store, "_search_datasets"):
+        return {
+            "dataset_summaries": [
+                summary.to_dict() for summary in store._search_datasets(experiment_ids)
+            ]
+        }
+    else:
+        return _not_implemented
 
 
 @catch_mlflow_exception
