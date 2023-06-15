@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import RedirectResponse
 import logging
 import os
 from pathlib import Path
@@ -30,6 +31,11 @@ app = FastAPI(
     "endpoints within MLflow",
     version=VERSION,
 )
+
+
+@app.get("/")
+async def index():
+    return RedirectResponse(url="/docs")
 
 
 @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
