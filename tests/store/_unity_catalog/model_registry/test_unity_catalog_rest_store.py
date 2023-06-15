@@ -335,8 +335,8 @@ def test_get_latest_versions_unsupported(store):
     name = "model_1"
     expected_error = (
         f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
-        f"If seeing this error while attempting to "
-        f"load a model version by alias, use the syntax 'models:/model_name@alias_name'"
+        f"If seeing this error while attempting to load a model version by alias, "
+        f"use the syntax 'models:/your_model_name@your_alias_name'."
     )
     expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
     with pytest.raises(MlflowException, match=expected_error):
@@ -732,7 +732,7 @@ def test_transition_model_version_stage_unsupported(store):
     version = "5"
     expected_error = (
         f"{_expected_unsupported_method_error_message('transition_model_version_stage')}. "
-        f"Setting model version stages is unsupported for ML models in the Unity Catalog"
+        f"We recommend using aliases instead of stages for more flexible model deployment management."
     )
     with pytest.raises(
         MlflowException,
