@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, RESOURCE_ALREADY_EXISTS
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -74,8 +75,8 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
                 f"Falling back to downloading from original model URI {model_uri}",
                 exc_info=True,
             )
-            ml_model_file = _download_artifact_from_uri(
-                artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
+            ml_model_file = get_artifact_repository(artifact_uri=model_uri).download_artifacts(
+                artifact_path=MLMODEL_FILE_NAME
             )
     except Exception as ex:
         raise MlflowException(
