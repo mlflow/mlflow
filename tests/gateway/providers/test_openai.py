@@ -139,31 +139,9 @@ def completions_config():
     }
 
 
-def completions_response():
-    return {
-        "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
-        "object": "text_completion",
-        "created": 1589478378,
-        "model": "text-davinci-003",
-        "choices": [
-            {
-                "text": "\n\nThis is indeed a test",
-                "index": 0,
-                "logprobs": None,
-                "finish_reason": "length",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 5,
-            "completion_tokens": 7,
-            "total_tokens": 12,
-        },
-    }
-
-
 @pytest.mark.asyncio
 async def test_completions():
-    resp = completions_response()
+    resp = chat_response()
     config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
@@ -174,17 +152,12 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [
-                {
-                    "text": "\n\nThis is indeed a test",
-                    "metadata": {"finish_reason": "length"},
-                }
-            ],
+            "candidates": [{"text": "\n\nThis is a test!", "metadata": {"finish_reason": "stop"}}],
             "metadata": {
-                "input_tokens": 5,
+                "input_tokens": 13,
                 "output_tokens": 7,
-                "total_tokens": 12,
-                "model": "text-davinci-003",
+                "total_tokens": 20,
+                "model": "gpt-3.5-turbo-0301",
                 "route_type": "llm/v1/completions",
             },
         }
@@ -203,7 +176,7 @@ async def test_completions_throws_if_request_payload_contains_n():
 
 @pytest.mark.asyncio
 async def test_completions_temperature_is_doubled():
-    resp = completions_response()
+    resp = chat_response()
     config = completions_config()
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)

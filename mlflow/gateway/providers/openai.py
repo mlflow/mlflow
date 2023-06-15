@@ -116,9 +116,9 @@ class OpenAIProvider(BaseProvider):
         )
         # The range of OpenAI's temperature is 0-2, but ours is 0-1, so we double it.
         payload["temperature"] = 2 * payload["temperature"]
-
+        payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         resp = await self._request(
-            "completions",
+            "chat/completions",
             {"model": self.config.model.name, **payload},
         )
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
@@ -147,7 +147,7 @@ class OpenAIProvider(BaseProvider):
             **{
                 "candidates": [
                     {
-                        "text": c["text"],
+                        "text": c["message"]["content"],
                         "metadata": {"finish_reason": c["finish_reason"]},
                     }
                     for c in resp["choices"]
