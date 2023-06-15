@@ -5,6 +5,7 @@ Model signature defines schema of model input and output. See :py:class:`mlflow.
 for more details on Schema and data types.
 """
 import re
+from copy import deepcopy
 import inspect
 import logging
 from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
@@ -257,8 +258,9 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         based on the `input_example` and the model's outputs based on the prediction from the
         `wrapped_model`.
     """
-    prediction = wrapped_model.predict(input_example)
     input_schema = _infer_schema(input_example)
+    # Copy the input example so that it is not mutated by predict()
+    prediction = wrapped_model.predict(deepcopy(input_example))
     # When the input example is column-basaed (i.e. tabular), predictions that are one-dimensional
     # numpy arrays likely represent a list of row-derived predictions. Thus, we cast the predictions
     # to a Pandas series so that it will be inferred as a Schema containing one ColSpec.
