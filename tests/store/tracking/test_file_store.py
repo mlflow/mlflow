@@ -25,6 +25,7 @@ from mlflow.entities import (
     Dataset,
     DatasetInput,
     InputTag,
+    _DatasetSummary,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -2562,3 +2563,141 @@ def test_log_inputs_handles_case_when_no_datasets_are_specified(store):
     )
     store.log_inputs(run.info.run_id)
     store.log_inputs(run.info.run_id, datasets=None)
+
+
+def test_search_datasets(store):
+    exp_id1 = store.create_experiment("test_search_datasets_1")
+    # Create an additional experiment to ensure we filter on specified experiment
+    # and search works on multiple experiments.
+    exp_id2 = store.create_experiment("test_search_datasets_2")
+
+    run1 = store.create_run(
+        experiment_id=exp_id1,
+        user_id="user",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    run2 = store.create_run(
+        experiment_id=exp_id1,
+        user_id="user",
+        start_time=2,
+        tags=[],
+        run_name=None,
+    )
+    run3 = store.create_run(
+        experiment_id=exp_id2,
+        user_id="user",
+        start_time=3,
+        tags=[],
+        run_name=None,
+    )
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+    dataset2 = Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+    dataset3 = Dataset(
+        name="name3",
+        digest="digest3",
+        source_type="st3",
+        source="source3",
+        schema="schema3",
+        profile="profile3",
+    )
+    dataset4 = Dataset(
+        name="name4",
+        digest="digest4",
+        source_type="st4",
+        source="source4",
+        schema="schema4",
+        profile="profile4",
+    )
+
+    test_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
+    train_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+    eval_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+    no_context_tag = [InputTag(key="not_context", value="test")]
+
+    inputs_run1 = [
+        DatasetInput(dataset1, train_tag),
+        DatasetInput(dataset2, eval_tag),
+        DatasetInput(dataset4, no_context_tag),
+    ]
+    inputs_run2 = [
+        DatasetInput(dataset1, train_tag),
+        DatasetInput(dataset2, test_tag),
+    ]
+    inputs_run3 = [DatasetInput(dataset3, train_tag)]
+
+    store.log_inputs(run1.info.run_id, inputs_run1)
+    store.log_inputs(run2.info.run_id, inputs_run2)
+    store.log_inputs(run3.info.run_id, inputs_run3)
+
+    # Verify actual and expected results are same size and that all elements are equal.
+    def assert_has_same_elements(actual_list, expected_list):
+        assert len(actual_list) == len(expected_list)
+        for actual in actual_list:
+            # Verify the expected results list contains same element.
+            isEqual = False
+            for expected in expected_list:
+                isEqual = actual == expected
+                if isEqual:
+                    break
+            assert isEqual
+
+    # Verify no results from exp_id2 are returned.
+    results = store._search_datasets([exp_id1])
+    expected_results = [
+        _DatasetSummary(exp_id1, dataset1.name, dataset1.digest, "train"),
+        _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "eval"),
+        _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "test"),
+        _DatasetSummary(exp_id1, dataset4.name, dataset4.digest, None),
+    ]
+    assert_has_same_elements(results, expected_results)
+
+    # Verify results from both experiment are returned.
+    results = store._search_datasets([exp_id1, exp_id2])
+    expected_results.append(_DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
+    assert_has_same_elements(results, expected_results)
+
+
+def test_search_datasets_returns_no_more_than_max_results(store):
+    exp_id = store.create_experiment("test_search_datasets")
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="user",
+        start_time=1,
+        tags=[],
+        run_name=None,
+    )
+    inputs = []
+    # We intentionally add more than 1000 datasets here to test we only return 1000.
+    for i in range(1010):
+        dataset = Dataset(
+            name="name" + str(i),
+            digest="digest" + str(i),
+            source_type="st" + str(i),
+            source="source" + str(i),
+            schema="schema" + str(i),
+            profile="profile" + str(i),
+        )
+        input_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=str(i))]
+        inputs.append(DatasetInput(dataset, input_tag))
+
+    store.log_inputs(run.info.run_id, inputs)
+
+    results = store._search_datasets([exp_id])
+    assert len(results) == 1000
