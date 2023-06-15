@@ -572,8 +572,15 @@ Similar to model signatures, model inputs can be column-based (i.e DataFrames) o
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting column-based inputs, an example can be a single record or a batch of records. The
-sample input can be passed in as a Pandas DataFrame, list or dictionary. The given
-example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
+sample input can be in the following formats:
+
+* Pandas DataFrame
+* Python ``dict`` (of scalars, strings, or lists of scalars values)
+* Python ``list``
+* Python ``str``
+* Python ``bytes``
+
+The given example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
 format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
 input example with your model:
 
@@ -590,9 +597,15 @@ input example with your model:
 How To Log Model With Tensor-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting tensor-based inputs, an example must be a batch of inputs. By default, the axis 0
-is the batch axis unless specified otherwise in the model signature. The sample input can be passed in as
-a numpy ndarray or a dictionary mapping a string to a numpy array. The following example demonstrates how
-you can log a tensor-based input example with your model:
+is the batch axis unless specified otherwise in the model signature. The sample input can be passed in
+as any of the following formats:
+
+* numpy ndarray
+* Python ``dict`` mapping a string to a numpy array
+* Scipy ``csr_matrix`` (sparse matrix)
+* Scipy ``csc_matrix`` (sparse matrix).
+
+The following example demonstrates how you can log a tensor-based input example with your model:
 
 .. code-block:: python
 
