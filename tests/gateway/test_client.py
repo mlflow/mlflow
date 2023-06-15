@@ -276,29 +276,25 @@ def test_client_query_embeddings(gateway):
     routes = gateway_client.search_routes()
 
     expected_output = {
-        "object": "list",
-        "data": [
-            {
-                "object": "embedding",
-                "embedding": [
-                    0.8,
-                    0.6,
-                    0.7,
-                ],
-                "index": 0,
-            },
-            {
-                "object": "embedding",
-                "embedding": [
-                    0.5,
-                    0.3,
-                    0.0,
-                ],
-                "index": 0,
-            },
+        "embeddings": [
+            [
+                0.1,
+                0.2,
+                0.3,
+            ],
+            [
+                0.4,
+                0.5,
+                0.6,
+            ],
         ],
-        "model": "text-embedding-ada-002",
-        "usage": {"prompt_tokens": 8, "total_tokens": 8},
+        "metadata": {
+            "input_tokens": 8,
+            "output_tokens": 0,
+            "total_tokens": 8,
+            "model": "text-embedding-ada-002",
+            "route_type": "llm/v1/embeddings",
+        },
     }
     data = {"text": ["Jenny", "What's her number?"]}
 

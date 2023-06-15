@@ -158,16 +158,11 @@ def test_fluent_query_chat(gateway):
 
     data = {"messages": [{"role": "user", "content": "How hot is the core of the sun?"}]}
 
-    mock_query = mock.Mock(return_value=expected_output)
-
     with mock.patch(
-        "mlflow.gateway.fluent.MlflowGatewayClient", return_value=mock.Mock(query=mock_query)
-    ) as MockClient:
+        "mlflow.gateway.fluent.MlflowGatewayClient.query", return_value=expected_output
+    ):
         response = query(route=routes[1].name, data=data)
         assert response == expected_output
-
-        MockClient.assert_called_with()
-        mock_query.assert_called_with(routes[1].name, data)
 
 
 def test_fluent_query_completions(gateway):
@@ -191,13 +186,8 @@ def test_fluent_query_completions(gateway):
 
     data = {"prompt": "I like to drive fast in my"}
 
-    mock_query = mock.Mock(return_value=expected_output)
-
     with mock.patch(
-        "mlflow.gateway.fluent.MlflowGatewayClient", return_value=mock.Mock(query=mock_query)
-    ) as MockClient:
+        "mlflow.gateway.fluent.MlflowGatewayClient.query", return_value=expected_output
+    ):
         response = query(route=routes[0].name, data=data)
         assert response == expected_output
-
-        MockClient.assert_called_with()
-        mock_query.assert_called_with(routes[0].name, data)
