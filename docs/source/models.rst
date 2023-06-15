@@ -206,7 +206,7 @@ downstream tooling:
 Model Signature
 ^^^^^^^^^^^^^^^
 Model signatures define input and output schemas for MLflow models, providing a standard 
-interface to codify and enforce the correct use of your models. Sigatures are fetched by the MLflow Tracking
+interface to codify and enforce the correct use of your models. Signatures are fetched by the MLflow Tracking
 UI and Model Registry UI to display model inputs and outputs. They are also utilized by
 :ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
 the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
@@ -240,8 +240,6 @@ Tensor-based schemas are a sequence of (optionally) named tensors with type spec
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
-All flavors support column-based signatures.
-
 Each column-based input and output is represented by a type corresponding to one of
 :py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
 as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
@@ -260,8 +258,6 @@ The output is an unnamed integer specifying the predicted class.
 
 Tensor-based Signature Example
 """"""""""""""""""""""""""""""
-Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
-
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
 Tensor-based signatures do not support optional inputs.
@@ -351,6 +347,11 @@ To include a signature with your model, pass :py:class:`signature object
 by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets with valid model inputs
 (e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
 predictions generated on the training dataset).
+
+You may also include a signature with your model by omitting the :py:class:`signature object
+<mlflow.models.ModelSignature>` from the log_model call and instead passing an :ref:`input example <input-example>`.
+Then, for supported MLflow flavors (sklearn, xgboost, tensorflow, and spark), log_model will automatically
+infer the signature from the input example and the model's predicted output of the input example.
 
 Column-based Signature Example
 """"""""""""""""""""""""""""""
@@ -558,13 +559,14 @@ with a new model signature.
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). A model input example provides an instance of a valid model input.
-Input examples are stored with the model as separate artifacts and are referenced in the the
-:ref:`MLmodel file <pyfunc-model-config>`.
-
+A model input example provides an instance of a valid model input. Input examples are stored with 
+the model as separate artifacts and are referenced in the :ref:`MLmodel file <pyfunc-model-config>`.
 To include an input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
+model signatures in log_model calls when signatures aren't specified.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
+(i.e numpy.ndarrays). See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
