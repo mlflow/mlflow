@@ -107,13 +107,13 @@ def jsl_model(model_path, load_and_init_model):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return str(Path(tmpdir) / "model")
+def model_path(tmp_path):
+    return str(tmp_path / "model")
 
 
 @pytest.fixture
-def spark_custom_env(tmpdir):
-    conda_env = str(Path(str(tmpdir)) / "conda_env.yml")
+def spark_custom_env(tmp_path):
+    conda_env = str(tmp_path / "conda_env.yml")
     additional_pip_deps = ["pyspark", "pytest"]
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
