@@ -785,6 +785,13 @@ def _wrap_pyfunc(model, signature):
 
 
 def _infer_signature(model, input_example, **kwargs):
+    """
+    Infers the model signature using the provided model and input example. Invoked with the keyword
+    arguments of the ``tensorflow.save_model``. Called by ``tensorflow.log_model``.
+
+    :param model: the tensorflow model to be logged.
+    :param input_example: the input example utilized to infer the model signature.
+    """
     wrapped_model = _wrap_pyfunc(model, None)
     return _infer_signature_from_input_example(input_example, wrapped_model)
 

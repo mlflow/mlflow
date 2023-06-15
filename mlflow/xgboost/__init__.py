@@ -352,6 +352,13 @@ def _load_pyfunc(path):
 
 
 def _infer_signature(xgb_model, input_example, **kwargs):
+    """
+    Infers the model signature using the provided model and input example. Invoked with the keyword
+    arguments of the ``xgboost.save_model``. Called by ``xgboost.log_model``.
+
+    :param xgb_model: the xgboost model to be logged.
+    :param input_example: the input example utilized to infer the model signature.
+    """
     wrapped_model = _XGBModelWrapper(xgb_model)
     return _infer_signature_from_input_example(input_example, wrapped_model)
 

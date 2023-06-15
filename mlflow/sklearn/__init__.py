@@ -530,6 +530,13 @@ def _load_pyfunc(path):
 
 
 def _infer_signature(sk_model, input_example, **kwargs):
+    """
+    Infers the model signature using the provided model and input example. Invoked with the keyword
+    arguments of the ``sklearn.save_model``. Called by ``sklearn.log_model``.
+
+    :param sk_model: the sklearn model to be logged.
+    :param input_example: the input example utilized to infer the model signature.
+    """
     return _infer_signature_from_input_example(input_example, sk_model)
 
 

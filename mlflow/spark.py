@@ -851,6 +851,13 @@ def _load_pyfunc(path):
 
 
 def _infer_signature(spark_model, input_example, **kwargs):
+    """
+    Infers the model signature using the provided model and input example. Invoked with the keyword
+    arguments of the ``spark.save_model``. Called by ``spark.log_model``.
+
+    :param spark_model: the spark model to be logged.
+    :param input_example: the input example utilized to infer the model signature.
+    """
     from mlflow.utils._spark_utils import _get_active_spark_session
 
     spark = _get_active_spark_session()
