@@ -8,6 +8,7 @@ uvicorn examples.gateway.fake_openai:app --reload
 """
 
 import random
+from pprint import pprint
 from fastapi import FastAPI, Request
 
 app = FastAPI()
@@ -15,7 +16,7 @@ app = FastAPI()
 
 @app.post("/chat/completions")
 async def chat(request: Request):
-    print(request.json())
+    pprint(await request.json())
     return {
         "id": "chatcmpl-abc123",
         "object": "chat.completion",
@@ -41,7 +42,7 @@ async def chat(request: Request):
 
 @app.post("/completions")
 async def completions(request: Request):
-    print(request.json())
+    pprint(await request.json())
     return {
         "id": "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7",
         "object": "text_completion",
@@ -65,7 +66,7 @@ async def completions(request: Request):
 
 @app.post("/embeddings")
 async def embeddings(request: Request):
-    print(request.json())
+    pprint(await request.json())
     return {
         "object": "list",
         "data": [
