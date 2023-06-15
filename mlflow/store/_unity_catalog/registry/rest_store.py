@@ -272,7 +272,10 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(
             method="get_latest_versions",
             message="If seeing this error while attempting to "
-            "load a model version by stage, use the syntax 'models:/your_model_name@your_alias_name'. "
+            "load a model version by stage, note that setting stages and loading model versions "
+            "by stage is unsupported in Unity Catalog. Instead, we recommend using aliases for "
+            "flexible model deployment. If trying to load a model version by alias, use the syntax "
+            "'models:/your_model_name@your_alias_name'. "
             "To set aliases, you can use the `MlflowClient().set_registered_model_alias(name, alias, version)` "
             "API.",
         )
