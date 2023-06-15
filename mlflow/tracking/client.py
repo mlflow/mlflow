@@ -1758,7 +1758,6 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    @deprecated("mlflow.artifacts.download_artifacts", "2.0")
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
