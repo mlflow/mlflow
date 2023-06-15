@@ -572,7 +572,7 @@ class Model:
             ):
                 try:
                     kwargs["signature"] = flavor._infer_signature(**kwargs)
-                except:
+                except Exception:
                     _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
                     _logger.debug("", exc_info=True)
             if signature is False:
