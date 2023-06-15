@@ -732,7 +732,8 @@ def test_transition_model_version_stage_unsupported(store):
     version = "5"
     expected_error = (
         f"{_expected_unsupported_method_error_message('transition_model_version_stage')}. "
-        f"We recommend using aliases instead of stages for more flexible model deployment management."
+        f"We recommend using aliases instead of stages for more flexible model deployment "
+        f"management."
     )
     with pytest.raises(
         MlflowException,
