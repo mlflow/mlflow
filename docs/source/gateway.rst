@@ -1,8 +1,12 @@
 .. _gateway:
 
-==============
-MLflow Gateway
-==============
+=============================
+MLflow Gateway (Experimental)
+=============================
+
+.. warning::
+
+    The MLflow Gateway is a new, **experimental feature**. It is subject to modification, feature improvements, or feature removal without advance notice.
 
 The `MLflow Gateway` service is a powerful tool designed to streamline the usage and management of
 various language model providers, such as `OpenAI` and `Anthropic`, within an organization.
@@ -119,15 +123,15 @@ user, channeling requests to the underlying model and provider specified in the 
 
 A route in the `MLflow Gateway` consists of the following fields:
 
-* ``name``: This is the unique identifier for the route. This will be part of the URL when making API calls via the `MLflow Gateway`.
+* **name**: This is the unique identifier for the route. This will be part of the URL when making API calls via the `MLflow Gateway`.
 
-* ``type``: The type of the route corresponds to the type of language model interaction you desire. For instance, 'llm/v1/chat' for chat operations, 'llm/v1/completions' for text completion operations, and 'llm/v1/embeddings' for text embeddings.
+* **type**: The type of the route corresponds to the type of language model interaction you desire. For instance, 'llm/v1/chat' for chat operations, 'llm/v1/completions' for text completion operations, and 'llm/v1/embeddings' for text embeddings.
 
-* ``model``: This encapsulates the details of the model to which this route will direct its requests. The model contains the following details:
+* **model**: This encapsulates the details of the model to which this route will direct its requests. The model contains the following details:
 
-    * ``provider``: Specifies the name of the ``provider`` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
-    * ``name``: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
-    * ``config``: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
+    * **provider**: Specifies the name of the ``provider`` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
+    * **name**: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
+    * **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
 
 Here's an example of a route configuration:
 
@@ -181,8 +185,8 @@ In the above configuration, ``openai`` is the `provider` for the model.
 
 As of now, the `MLflow Gateway` supports the following providers:
 
-* openai: This is used for models offered by `OpenAI <https://platform.openai.com/>`_.
-* anthropic: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
+* **openai**: This is used for models offered by `OpenAI <https://platform.openai.com/>`_.
+* **anthropic**: This is used for models offered by `Anthropic <https://docs.anthropic.com/claude/docs>`_.
 
 More providers are being added continually. Check the latest version of the `MLflow Gateway` for the
 most up-to-date list of supported providers.
@@ -243,13 +247,13 @@ access the service without ever needing to handle API keys directly.
 
 Here's a brief overview of how the authentication process works:
 
-* Key Management: As an administrator, you'll set up the `MLflow Gateway` and input your API keys (as environment variables or directly into the configuration files). The Gateway securely stores these keys and uses them to authenticate requests with the service provider.
+* **Key Management**: As an administrator, you'll set up the `MLflow Gateway` and input your API keys (as environment variables or directly into the configuration files). The Gateway securely stores these keys and uses them to authenticate requests with the service provider.
 
-* User Access: Instead of providing individual API keys to every user in your organization, you'll give them access to the `MLflow Gateway`. Users then send their requests directly to the Gateway, which acts as a proxy to the service provider.
+* **User Access**: Instead of providing individual API keys to every user in your organization, you'll give them access to the `MLflow Gateway`. Users then send their requests directly to the Gateway, which acts as a proxy to the service provider.
 
-* Request Handling: When a user sends a request to the `Mlflow Gateway`, it takes the request, adds the necessary authentication (using the API keys it manages), and forwards the request to the correct provider (as specified in the configuration files).
+* **Request Handling**: When a user sends a request to the `Mlflow Gateway`, it takes the request, adds the necessary authentication (using the API keys it manages), and forwards the request to the correct provider (as specified in the configuration files).
 
-* Response Forwarding: The Gateway receives the response from the provider, and then sends this response back to the user.
+* **Response Forwarding**: The Gateway receives the response from the provider, and then sends this response back to the user.
 
 By centralizing key management, the `MLflow Gateway` dramatically reduces the risk of keys being
 lost, misused, or accessed by unauthorized individuals. This approach also simplifies the process
@@ -524,7 +528,7 @@ For instance, to send a query to the completions route, you might use the follow
 
 This will return a JSON object with the response from the completions model, which is usually the continuation of the text provided as a prompt.
 
-Please remember to replace "http://my.gateway:9000" with the URL of your actual Gateway Server.
+**Note:** Please remember to replace "http://my.gateway:9000" with the URL of your actual Gateway Server.
 
 .. _gateway-guide:
 
@@ -637,7 +641,7 @@ Step 6: Send Requests to Routes via REST API
 --------------------------------------------
 You can now send requests to the exposed routes. Here's an example of how to send a request using Python:
 
-Replace "http://localhost:5000/gateway/routes/completions" with the URL of your Gateway service and
+**Note:** Replace "http://localhost:5000/gateway/routes/completions" with the URL of your Gateway service and
 the route you want to send a request to. You can replace completions with chat or embeddings to send requests to those routes.
 
 .. code-block:: python
@@ -694,7 +698,7 @@ Here's an example of how to use it to send a chat request using the ``fluent`` A
 
     print(response)
 
-Remember to change the uri definition to the actual uri of your Gateway server.
+**Note:** Remember to change the uri definition to the actual uri of your Gateway server.
 
 The returned response will be in this data structure (the actual content and token values will likely be different):
 
@@ -736,7 +740,7 @@ Here's an example of how to use it to send a completions request using the ``Mlf
 
     print(response)
 
-Remember to change the uri definition to the actual uri of your Gateway server.
+**Note:** Remember to change the uri definition to the actual uri of your Gateway server.
 
 The response to this will have the following structure (and not necessarily the same continuation text):
 
