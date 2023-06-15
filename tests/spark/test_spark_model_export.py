@@ -397,7 +397,7 @@ def test_load_spark_model_from_models_uri(
         "mlflow.get_registry_uri", return_value=registry_uri
     ), mock.patch.object(
         mlflow.tracking.MlflowClient, "get_model_version_by_alias", return_value=fake_model_version
-    ):
+    ) as get_model_version_by_alias_mock:
         sparkm.save_model(
             path=model_dir,
             spark_model=spark_model_estimator.model,
@@ -416,6 +416,7 @@ def test_load_spark_model_from_models_uri(
             mock.call("MLmodel", None),
             mock.call("", None),
         ]
+        assert get_model_version_by_alias_mock.called_with("mycatalog.myschema.mymodel", "Champion")
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])
