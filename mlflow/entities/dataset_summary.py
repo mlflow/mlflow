@@ -1,5 +1,6 @@
 from mlflow.utils.annotations import experimental
 
+
 @experimental
 class _DatasetSummary:
     """
@@ -22,15 +23,15 @@ class _DatasetSummary:
     @property
     def experiment_id(self):
         return self._experiment_id
-    
+
     @property
     def name(self):
         return self._name
-    
+
     @property
     def digest(self):
         return self._digest
-    
+
     @property
     def context(self):
         return self._context

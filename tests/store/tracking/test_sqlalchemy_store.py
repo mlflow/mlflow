@@ -2429,7 +2429,6 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         expected_results.append(_DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
         assert_has_same_elements(results, expected_results)
 
-
     def test_search_datasets_returns_no_more_than_max_results(self):
         exp_id = self.store.create_experiment("test_search_datasets")
         run = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
@@ -2445,13 +2444,12 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
                 profile="profile" + str(i),
             )
             input_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value=str(i))]
-            inputs.append(entities.DatasetInput(dataset, input_tag))    
-        
+            inputs.append(entities.DatasetInput(dataset, input_tag))
+
         self.store.log_inputs(run.info.run_id, inputs)
 
         results = self.store._search_datasets([exp_id])
         assert len(results) == 1000
-
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory("log_batch")

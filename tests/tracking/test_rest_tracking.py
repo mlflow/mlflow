@@ -1117,7 +1117,11 @@ def test_search_dataset_handler_returns_expected_results(mlflow_client):
         source_type="source_type1",
         source="source1",
     )
-    dataset_inputs1 = [DatasetInput(dataset=dataset1, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")])]
+    dataset_inputs1 = [
+        DatasetInput(
+            dataset=dataset1, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+        )
+    ]
     mlflow_client.log_inputs(run_id, dataset_inputs1)
 
     response = requests.get(

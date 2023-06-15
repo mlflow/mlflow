@@ -970,7 +970,6 @@ class SqlAlchemyStore(AbstractStore):
                 for metric in metrics
             ]
 
-
     def _search_datasets(self, experiment_ids):
         """
         Return all dataset summaries associated to the given experiments.
@@ -995,10 +994,10 @@ class SqlAlchemyStore(AbstractStore):
                 .join(
                     SqlInputTag,
                     and_(
-                        SqlInput.input_uuid == SqlInputTag.input_uuid, 
+                        SqlInput.input_uuid == SqlInputTag.input_uuid,
                         SqlInputTag.name == MLFLOW_DATASET_CONTEXT,
                     ),
-                    isouter=True
+                    isouter=True,
                 )
                 .filter(SqlDataset.experiment_id.in_(experiment_ids))
                 .limit(MAX_DATASET_SUMMARIES_RESULTS)
@@ -1014,7 +1013,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 for summary in summaries
             ]
-            
 
     def log_param(self, run_id, param):
         _validate_param(param.key, param.value)

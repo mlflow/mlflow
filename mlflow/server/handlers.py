@@ -1101,7 +1101,9 @@ def search_datasets_handler():
 
     store = _get_tracking_store()
     return {
-        "dataset_summaries": [summary.to_dict() for summary in store._search_datasets(experiment_ids)]
+        "dataset_summaries": [
+            summary.to_dict() for summary in store._search_datasets(experiment_ids)
+        ]
     }
 
 

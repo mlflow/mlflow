@@ -2564,6 +2564,7 @@ def test_log_inputs_handles_case_when_no_datasets_are_specified(store):
     store.log_inputs(run.info.run_id)
     store.log_inputs(run.info.run_id, datasets=None)
 
+
 def test_search_datasets(store):
     exp_id1 = store.create_experiment("test_search_datasets_1")
     # Create an additional experiment to ensure we filter on specified experiment
@@ -2694,8 +2695,8 @@ def test_search_datasets_returns_no_more_than_max_results(store):
             profile="profile" + str(i),
         )
         input_tag = [InputTag(key=MLFLOW_DATASET_CONTEXT, value=str(i))]
-        inputs.append(DatasetInput(dataset, input_tag))    
-    
+        inputs.append(DatasetInput(dataset, input_tag))
+
     store.log_inputs(run.info.run_id, inputs)
 
     results = store._search_datasets([exp_id])

@@ -1,5 +1,4 @@
 import hashlib
-import itertools
 import json
 import logging
 import time
@@ -90,7 +89,12 @@ from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT, MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+    _get_run_name_from_tags,
+)
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -1211,7 +1215,6 @@ class FileStore(AbstractStore):
 
         return RunInputs(dataset_inputs=dataset_inputs)
 
-
     def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
         """
         Return all dataset summaries associated to the given experiments.
@@ -1227,11 +1230,11 @@ class FileStore(AbstractStore):
             name: str
             digest: str
             context: str
-        
+
         MAX_DATASET_SUMMARIES_RESULTS = 1000
         summaries = set()
         for experiment_id in experiment_ids:
-            experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)            
+            experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
             run_dirs = list_all(
                 experiment_dir,
                 filter_func=lambda x: all(
@@ -1265,7 +1268,7 @@ class FileStore(AbstractStore):
                             )
                             for summary in summaries
                         ]
-     
+
         return [
             _DatasetSummary(
                 experiment_id=summary.experiment_id,
@@ -1275,7 +1278,6 @@ class FileStore(AbstractStore):
             )
             for summary in summaries
         ]
-
 
     @staticmethod
     def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:
