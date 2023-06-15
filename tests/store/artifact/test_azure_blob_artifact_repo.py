@@ -164,13 +164,14 @@ def test_list_artifacts(mock_client, root_path):
     assert artifacts[1].file_size == 42
 
 
-def test_log_artifact(mock_client, tmpdir):
+def test_log_artifact(mock_client, tmp_path):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
-    d = tmpdir.mkdir("data")
-    f = d.join("test.txt")
-    f.write("hello world!")
-    fpath = posixpath.join(d.strpath, "test.txt")
+    d = tmp_path.joinpath("data")
+    d.mkdir()
+    f = d.joinpath("test.txt")
+    f.write_text("hello world!")
+    fpath = posixpath.join(str(d), "test.txt")
 
     repo.log_artifact(fpath)
 
@@ -181,16 +182,21 @@ def test_log_artifact(mock_client, tmpdir):
     assert arg2.name == fpath
 
 
-def test_log_artifacts(mock_client, tmpdir):
+def test_log_artifacts(mock_client, tmp_path):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
-    parentd = tmpdir.mkdir("data")
-    subd = parentd.mkdir("subdir")
-    parentd.join("a.txt").write("A")
-    subd.join("b.txt").write("B")
-    subd.join("c.txt").write("C")
+    parentd = tmp_path.joinpath("data")
+    parentd.mkdir()
+    subd = parentd.joinpath("subdir")
+    subd.mkdir()
+    a_txt = parentd.joinpath("a.txt")
+    a_txt.write_text("A")
+    b_txt = subd.joinpath("b.txt")
+    b_txt.write_text("B")
+    c_txt = subd.joinpath("c.txt")
+    c_txt.write_text("C")
 
-    repo.log_artifacts(parentd.strpath)
+    repo.log_artifacts(parentd)
 
     mock_client.get_container_client.assert_called_with("container")
     call_list = mock_client.get_container_client().upload_blob.call_args_list
@@ -203,37 +209,37 @@ def test_log_artifacts(mock_client, tmpdir):
         ]
         # arg2 should be a filebuffer
         if arg1.endswith("/a.txt"):
-            assert arg2.name == os.path.normpath(parentd.strpath + "/a.txt")
+            assert arg2.name == str(a_txt)
         elif arg1.endswith("/b.txt"):
-            assert arg2.name == os.path.normpath(subd.strpath + "/b.txt")
+            assert arg2.name == str(b_txt)
         elif arg1.endswith("/c.txt"):
-            assert arg2.name == os.path.normpath(subd.strpath + "/c.txt")
+            assert arg2.name == str(c_txt)
         else:
             # This should be unreachable
             assert False
 
 
-def test_download_file_artifact(mock_client, tmpdir):
+def test_download_file_artifact(mock_client, tmp_path):
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
 
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
 
     def create_file(buffer):
         local_path = os.path.basename(buffer.name)
-        f = tmpdir.join(local_path)
-        f.write("hello world!")
+        f = tmp_path.joinpath(local_path)
+        f.write_text("hello world!")
 
     mock_client.get_container_client().download_blob().readinto.side_effect = create_file
 
     repo.download_artifacts("test.txt")
-    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
+    assert os.path.exists(os.path.join(tmp_path, "test.txt"))
     mock_client.get_container_client().download_blob.assert_called_with(
         posixpath.join(TEST_ROOT_PATH, "test.txt")
     )
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_container_root(
-    mock_client, tmpdir
+    mock_client, tmp_path
 ):
     assert TEST_URI is not TEST_BLOB_CONTAINER_ROOT
     repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
@@ -265,8 +271,8 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
 
     def create_file(buffer):
         fname = os.path.basename(buffer.name)
-        f = tmpdir.join(fname)
-        f.write("hello world!")
+        f = tmp_path.joinpath(fname)
+        f.write_text("hello world!")
 
     mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
     mock_client.get_container_client().download_blob().readinto.side_effect = create_file
@@ -274,13 +280,13 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
     # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
-    dir_contents = os.listdir(tmpdir.strpath)
+    dir_contents = os.listdir(tmp_path)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_container_root(
-    mock_client, tmpdir
+    mock_client, tmp_path
 ):
     repo = AzureBlobArtifactRepository(TEST_BLOB_CONTAINER_ROOT, mock_client)
 
@@ -316,8 +322,8 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
 
     def create_file(buffer):
         fname = os.path.basename(buffer.name)
-        f = tmpdir.join(fname)
-        f.write("hello world!")
+        f = tmp_path.joinpath(fname)
+        f.write_text("hello world!")
 
     mock_client.get_container_client().walk_blobs.side_effect = get_mock_listing
     mock_client.get_container_client().download_blob().readinto.side_effect = create_file
@@ -325,7 +331,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
     # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
-    dir_contents = os.listdir(tmpdir.strpath)
+    dir_contents = os.listdir(tmp_path)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
 
