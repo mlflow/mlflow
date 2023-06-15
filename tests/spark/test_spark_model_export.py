@@ -245,10 +245,10 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
-    _, _, iris_spark_df = iris_df
-    signature_ = infer_signature(iris_spark_df)
-    example_ = iris_spark_df.toPandas().head(3)
+def test_log_model_with_signature_and_examples(spark_model_iris):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    signature_ = infer_signature(features_df, pd.Series(spark_model_iris.predictions))
+    example_ = features_df.head(3)
     artifact_path = "model"
     for signature in (None, signature_):
         for example in (None, example_):
@@ -892,9 +892,9 @@ def test_model_log_with_metadata(spark_model_iris):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_model_log_with_signature_inference(spark_model_iris, iris_df):
+def test_model_log_with_signature_inference(spark_model_iris):
     artifact_path = "model"
-    _, X, _ = iris_df
+    X = spark_model_iris.pandas_df
     X.drop("label", axis=1, inplace=True)
     example = X.iloc[[0]]
 
