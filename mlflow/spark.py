@@ -181,11 +181,19 @@ def log_model(
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
                         signature = infer_signature(train, predictions)
+
+                      The model signature can also be automatically inferred from the supplied
+                      ``input_example``. To use this feature, simply leave the ``signature`` param
+                      empty and specify an ``input_example``. To disable automatic signature
+                      inference when specifying an input example, set ``signature`` to ``False``.
     :param input_example: Input example provides one or several instances of valid
                           model input. The example can be used as a hint of what data to feed the
                           model. The given example will be converted to a Pandas DataFrame and then
                           serialized to json using the Pandas split-oriented format. Bytes are
                           base64-encoded.
+
+                          When the ``signature`` param is empty, the input example will also be used
+                          to automatically infer a model signature for the logged model.
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
