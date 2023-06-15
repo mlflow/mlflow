@@ -175,7 +175,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.usefixtures("tmpdir", "patch_user")
+@pytest.mark.usefixtures("patch_user")
 def test_run(use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR,
@@ -426,9 +426,9 @@ def test_parse_kubernetes_config():
 
 
 @pytest.fixture
-def mock_kubernetes_job_template(tmpdir):
-    tmp_path = tmpdir.join("kubernetes_job_template.yaml")
-    tmp_path.write(
+def mock_kubernetes_job_template(tmp_path):
+    k8s_yaml = tmp_path.joinpath("kubernetes_job_template.yaml")
+    k8s_yaml.write_text(
         """
 apiVersion: batch/v1
 kind: Job
@@ -452,7 +452,7 @@ spec:
       restartPolicy: Never
 """.lstrip()
     )
-    return tmp_path.strpath
+    return str(k8s_yaml)
 
 
 class StartsWithMatcher:

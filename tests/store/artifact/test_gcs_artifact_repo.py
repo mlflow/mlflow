@@ -114,14 +114,15 @@ def test_list_artifacts_with_subdir(mock_client, dir_name):
     assert artifacts[1].file_size is None
 
 
-def test_log_artifact(mock_client, tmpdir):
+def test_log_artifact(mock_client, tmp_path):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
-    d = tmpdir.mkdir("data")
-    f = d.join("test.txt")
-    f.write("hello world!")
-    fpath = d + "/test.txt"
-    fpath = fpath.strpath
+    d = tmp_path.joinpath("data")
+    d.mkdir()
+    f = d.joinpath("test.txt")
+    f.write_text("hello world!")
+    fpath = d.joinpath("test.txt")
+    fpath = str(fpath)
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
@@ -150,13 +151,16 @@ def test_log_artifact(mock_client, tmpdir):
     )
 
 
-def test_log_artifacts(mock_client, tmpdir):
+def test_log_artifacts(mock_client, tmp_path):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
-    subd = tmpdir.mkdir("data").mkdir("subdir")
-    subd.join("a.txt").write("A")
-    subd.join("b.txt").write("B")
-    subd.join("c.txt").write("C")
+    data = tmp_path.joinpath("data")
+    data.mkdir()
+    subd = data.joinpath("subdir")
+    subd.mkdir()
+    subd.joinpath("a.txt").write_text("A")
+    subd.joinpath("b.txt").write_text("B")
+    subd.joinpath("c.txt").write_text("C")
 
     def custom_isfile(*args, **kwargs):
         if args:
@@ -172,33 +176,27 @@ def test_log_artifacts(mock_client, tmpdir):
         ],
         side_effect=custom_isfile,
     )
-    repo.log_artifacts(subd.strpath)
+    repo.log_artifacts(subd)
 
     mock_client.bucket.assert_called_with("test_bucket")
     mock_client.bucket().blob().upload_from_filename.assert_has_calls(
         [
-            mock.call(
-                os.path.normpath("%s/a.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
-            ),
-            mock.call(
-                os.path.normpath("%s/b.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
-            ),
-            mock.call(
-                os.path.normpath("%s/c.txt" % subd.strpath), timeout=repo._GCS_DEFAULT_TIMEOUT
-            ),
+            mock.call(os.path.normpath("%s/a.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath("%s/b.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
+            mock.call(os.path.normpath("%s/c.txt" % subd), timeout=repo._GCS_DEFAULT_TIMEOUT),
         ],
         any_order=True,
     )
 
 
-def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmpdir):
+def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmp_path):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", mock_client)
 
     def mkfile(fname, **kwargs):
         # pylint: disable=unused-argument
         fname = os.path.basename(fname)
-        f = tmpdir.join(fname)
-        f.write("hello world!")
+        f = tmp_path.joinpath(fname)
+        f.write_text("hello world!")
 
     mock_method_chain(
         mock_client,
@@ -211,7 +209,7 @@ def test_download_artifacts_calls_expected_gcs_client_methods(mock_client, tmpdi
     )
 
     repo.download_artifacts("test.txt")
-    assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
+    assert tmp_path.joinpath("test.txt").exists()
     mock_client.bucket.assert_called_with("test_bucket")
     mock_client.bucket().blob.assert_called_with(
         "some/path/test.txt", chunk_size=repo._GCS_DOWNLOAD_CHUNK_SIZE
@@ -233,7 +231,7 @@ def test_get_anonymous_bucket():
         assert bucket_call_count == 1
 
 
-def test_download_artifacts_downloads_expected_content(mock_client, tmpdir):
+def test_download_artifacts_downloads_expected_content(mock_client, tmp_path):
     artifact_root_path = "/experiment_id/run_id/"
     repo = GCSArtifactRepository("gs://test_bucket" + artifact_root_path, mock_client)
 
@@ -267,8 +265,8 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmpdir):
     def mkfile(fname, **kwargs):
         # pylint: disable=unused-argument
         fname = os.path.basename(fname)
-        f = tmpdir.join(fname)
-        f.write("hello world!")
+        f = tmp_path.joinpath(fname)
+        f.write_text("hello world!")
 
     mock_method_chain(
         mock_client,
@@ -291,7 +289,7 @@ def test_download_artifacts_downloads_expected_content(mock_client, tmpdir):
     # Ensure that the root directory can be downloaded successfully
     repo.download_artifacts("")
     # Ensure that the `mkfile` side effect copied all of the download artifacts into `tmpdir`
-    dir_contents = os.listdir(tmpdir.strpath)
+    dir_contents = os.listdir(tmp_path)
     assert file_path_1 in dir_contents
     assert file_path_2 in dir_contents
 
