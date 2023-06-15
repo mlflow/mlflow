@@ -339,9 +339,9 @@ def test_get_latest_versions_unsupported(store):
         f"load a model version by alias, use the syntax 'models:/model_name@alias_name'"
     )
     expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name)
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
