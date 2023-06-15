@@ -1083,10 +1083,19 @@ def get_metric_history_bulk_handler():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def search_datasets_handler():
+    MAX_EXPERIMENT_IDS_PER_REQUEST = 20
     experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
     if not experiment_ids:
         raise MlflowException(
             message="SearchDatasets request must specify at least one experiment_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(experiment_ids) > MAX_EXPERIMENT_IDS_PER_REQUEST:
+        raise MlflowException(
+            message=(
+                f"SearchDatasets request cannot specify more than {MAX_EXPERIMENT_IDS_PER_REQUEST}"
+                f" experiment_ids. Received {len(experiment_ids)} experiment_ids."
+            ),
             error_code=INVALID_PARAMETER_VALUE,
         )
 

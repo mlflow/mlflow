@@ -9,6 +9,7 @@ import shutil
 
 import uuid
 from typing import List, Dict, NamedTuple, Optional
+from dataclasses import dataclass
 
 from mlflow.entities import (
     Experiment,
@@ -26,7 +27,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     RunInputs,
-    DatasetSummary,
+    _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
@@ -1211,7 +1212,7 @@ class FileStore(AbstractStore):
         return RunInputs(dataset_inputs=dataset_inputs)
 
 
-    def _search_datasets(self, experiment_ids) -> List[DatasetSummary]:
+    def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
         """
         Return all dataset summaries associated to the given experiments.
 
@@ -1219,9 +1220,16 @@ class FileStore(AbstractStore):
 
         :return A List of :py:class:`mlflow.entities.DatasetSummary` entities.
         """
+
+        @dataclass(frozen=True)
+        class _SummaryTuple:
+            experiment_id: str
+            name: str
+            digest: str
+            context: str
         
         MAX_DATASET_SUMMARIES_RESULTS = 1000
-        summary_tuples = []
+        summaries = set()
         for experiment_id in experiment_ids:
             experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)            
             run_dirs = list_all(
@@ -1237,19 +1245,33 @@ class FileStore(AbstractStore):
                 run_info = self._get_run_info_from_dir(run_dir)
                 run_inputs = self._get_all_inputs(run_info)
                 for dataset_input in run_inputs.dataset_inputs:
-                    dataset = dataset_input.dataset
+                    context = None
                     for input_tag in dataset_input.tags:
                         if input_tag.key == MLFLOW_DATASET_CONTEXT:
-                            summary_tuples.append((experiment_id, dataset.name, dataset.digest, input_tag.value))
-
-        # Use a set to take distinct tuples and take the first MAX_DATASET_SUMMARIES_RESULTS results.
-        summaries = itertools.islice(set(summary_tuples), MAX_DATASET_SUMMARIES_RESULTS)        
+                            context = input_tag.value
+                            break
+                    dataset = dataset_input.dataset
+                    summaries.add(
+                        _SummaryTuple(experiment_id, dataset.name, dataset.digest, context)
+                    )
+                    # If we reached MAX_DATASET_SUMMARIES_RESULTS entries, then return right away.
+                    if len(summaries) == MAX_DATASET_SUMMARIES_RESULTS:
+                        return [
+                            _DatasetSummary(
+                                experiment_id=summary.experiment_id,
+                                name=summary.name,
+                                digest=summary.digest,
+                                context=summary.context,
+                            )
+                            for summary in summaries
+                        ]
+     
         return [
-            DatasetSummary(
-                experiment_id=summary[0],
-                name=summary[1],
-                digest=summary[2],
-                context=summary[3],
+            _DatasetSummary(
+                experiment_id=summary.experiment_id,
+                name=summary.name,
+                digest=summary.digest,
+                context=summary.context,
             )
             for summary in summaries
         ]

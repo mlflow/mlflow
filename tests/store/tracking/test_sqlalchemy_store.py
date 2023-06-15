@@ -27,7 +27,7 @@ from mlflow.entities import (
     Metric,
     Param,
     ExperimentTag,
-    DatasetSummary,
+    _DatasetSummary,
 )
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
@@ -2340,10 +2340,10 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         assert set(r.info.run_id for r in result) == {run_id3, run_id1, run_id2}
 
     def test_search_datasets(self):
-        exp_id1 = int(self._experiment_factory("test_search_datasets_1"))
+        exp_id1 = self._experiment_factory("test_search_datasets_1")
         # Create an additional experiment to ensure we filter on specified experiment
         # and search works on multiple experiments.
-        exp_id2 = int(self._experiment_factory("test_search_datasets_2"))
+        exp_id2 = self._experiment_factory("test_search_datasets_2")
 
         run1 = self._run_factory(dict(self._get_run_configs(exp_id1), start_time=1))
         run2 = self._run_factory(dict(self._get_run_configs(exp_id1), start_time=2))
@@ -2373,14 +2373,24 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
             schema="schema3",
             profile="profile3",
         )
+        dataset4 = entities.Dataset(
+            name="name4",
+            digest="digest4",
+            source_type="st4",
+            source="source4",
+            schema="schema4",
+            profile="profile4",
+        )
 
         test_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="test")]
         train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
         eval_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+        no_context_tag = [entities.InputTag(key="not_context", value="test")]
 
         inputs_run1 = [
             entities.DatasetInput(dataset1, train_tag),
             entities.DatasetInput(dataset2, eval_tag),
+            entities.DatasetInput(dataset4, no_context_tag),
         ]
         inputs_run2 = [
             entities.DatasetInput(dataset1, train_tag),
@@ -2407,16 +2417,40 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         # Verify no results from exp_id2 are returned.
         results = self.store._search_datasets([exp_id1])
         expected_results = [
-            DatasetSummary(exp_id1, dataset1.name, dataset1.digest, "train"),
-            DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "eval"),
-            DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "test"),
+            _DatasetSummary(exp_id1, dataset1.name, dataset1.digest, "train"),
+            _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "eval"),
+            _DatasetSummary(exp_id1, dataset2.name, dataset2.digest, "test"),
+            _DatasetSummary(exp_id1, dataset4.name, dataset4.digest, None),
         ]
         assert_has_same_elements(results, expected_results)
 
         # Verify results from both experiment are returned.
         results = self.store._search_datasets([exp_id1, exp_id2])
-        expected_results.append(DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
+        expected_results.append(_DatasetSummary(exp_id2, dataset3.name, dataset3.digest, "train"))
         assert_has_same_elements(results, expected_results)
+
+
+    def test_search_datasets_returns_no_more_than_max_results(self):
+        exp_id = self.store.create_experiment("test_search_datasets")
+        run = self._run_factory(dict(self._get_run_configs(exp_id), start_time=1))
+        inputs = []
+        # We intentionally add more than 1000 datasets here to test we only return 1000.
+        for i in range(1010):
+            dataset = entities.Dataset(
+                name="name" + str(i),
+                digest="digest" + str(i),
+                source_type="st" + str(i),
+                source="source" + str(i),
+                schema="schema" + str(i),
+                profile="profile" + str(i),
+            )
+            input_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value=str(i))]
+            inputs.append(entities.DatasetInput(dataset, input_tag))    
+        
+        self.store.log_inputs(run.info.run_id, inputs)
+
+        results = self.store._search_datasets([exp_id])
+        assert len(results) == 1000
 
 
     def test_log_batch(self):

@@ -1,9 +1,11 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.utils.annotations import experimental
 
-
-class DatasetSummary(_MLflowObject):
+@experimental
+class _DatasetSummary:
     """
     DatasetSummary object.
+
+    This is used to return a list of dataset summaries across one or more experiments in the UI.
     """
 
     def __init__(self, experiment_id, name, digest, context):
@@ -12,7 +14,7 @@ class DatasetSummary(_MLflowObject):
         self._digest = digest
         self._context = context
 
-    def __eq__(self, other: _MLflowObject) -> bool:
+    def __eq__(self, other) -> bool:
         if type(other) is type(self):
             return self.__dict__ == other.__dict__
         return False

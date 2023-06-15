@@ -319,6 +319,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
+    @experimental
     def _search_datasets(self, experiment_ids):
         """
         Return all dataset summaries associated to the given experiments.
