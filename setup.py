@@ -63,10 +63,13 @@ with open(os.path.join("requirements", "skinny-requirements.txt")) as f:
 These are the core requirements for the complete MLflow platform, which augments
 the skinny client functionality with support for running the MLflow Tracking
 Server & UI. It also adds project backends such as Docker and Kubernetes among
-other capabilities.
+other capabilities. Include mlflow-skinny as a direct dependency here in order to
+avoid possible issues if both packages are included in the same install command
+but with different versions.
 """
 with open(os.path.join("requirements", "core-requirements.txt")) as f:
-    CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
+    CORE_REQUIREMENTS = [f'mlflow-skinny=={version}'] + SKINNY_REQUIREMENTS + \
+        remove_comments_and_empty_lines(f.read().splitlines())
 
 with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
     GATEWAY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
