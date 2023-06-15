@@ -192,7 +192,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -251,7 +251,7 @@ def log_model(
         import torch
         import mlflow
         from mlflow import MlflowClient
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         # Define model, loss, and optimizer
         model = nn.Linear(1, 1)
@@ -384,7 +384,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
