@@ -420,12 +420,20 @@ class ParamSpec:
         name: str,
         type: str,  # pylint: disable=redefined-builtin
         default: Any = None,
-        optional: bool = False,
+        optional: bool = True,
     ):
-        self._name = name
-        self._type = type
+        self._name = str(name)
+        self._type = str(type)
         self._default = default
         self._optional = optional
+        self._check_default_type()
+
+    def _check_default_type(self):
+        if self.default is not None and type(self.default).__name__ != self.type:
+            raise MlflowException(
+                f"Invalid default value for ParamSpec {self!r}: "
+                f"expected type {self.type}, default value type {type(self.default).__name__}"
+            )
 
     @property
     def name(self) -> str:
@@ -466,11 +474,11 @@ class ParamSpec:
         return False
 
     def __repr__(self) -> str:
-        return "{name!r}: {type!r}{optional}{default}".format(
+        return "{name!r}: {type!r}{default}{optional}".format(
             name=self.name,
             type=self.type,
-            optional=" (optional)" if self.optional else "",
             default=f" (default: {self.default})" if self.default is not None else "",
+            optional=" (optional)" if self.optional else "",
         )
 
     @classmethod
@@ -487,7 +495,7 @@ class ParamSpec:
             name=str(kwargs["name"]),
             type=str(kwargs["type"]),
             default=kwargs.get("default"),
-            optional=kwargs.get("optional", False),
+            optional=kwargs.get("optional", True),
         )
 
 

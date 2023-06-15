@@ -10,10 +10,10 @@ import mlflow
 from mlflow.exceptions import MlflowException
 
 from mlflow.models import infer_signature, Model, ModelSignature
-from mlflow.models.utils import _enforce_schema
+from mlflow.models.utils import _enforce_parameters_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
 
-from mlflow.types import Schema, ColSpec, TensorSpec
+from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec
 
 
 class TestModel:
@@ -914,3 +914,96 @@ def test_schema_enforcement_for_list_inputs():
     pd_data = pd.DataFrame([data])
     pd_check = _enforce_schema(pd_data.to_dict(orient="list"), signature.inputs)
     pd.testing.assert_frame_equal(pd_check, pd_data)
+
+
+def test_enforce_parameters_schema():
+    # Correct parameters & schema
+    test_parameters = {
+        "a": "str_a",
+        "b": 1,
+        "c": True,
+        "d": 1.0,
+        "e": [1, 2, 3],
+        "f": (1, 2, 3),
+        "g": b"byte_g",
+        "h": {"test_k": "test_v"},
+    }
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", "str", ""),
+            ParamSpec("b", "int", 1),
+            ParamSpec("c", "bool", False, False),
+            ParamSpec("d", "float", 1.0),
+            ParamSpec("e", "list", [], False),
+            ParamSpec("f", "tuple", (1,)),
+            ParamSpec("g", "bytes", b""),
+            ParamSpec("h", "dict", {}),
+        ]
+    )
+    assert _enforce_parameters_schema(test_parameters, test_schema) == test_parameters
+
+    # Add default values if the parameter is not optional
+    test_parameters = {"a": "str_a"}
+    test_schema = ParamSchema([ParamSpec("a", "str"), ParamSpec("b", "int", 1, False)])
+    updated_parameters = {"b": 1}
+    updated_parameters.update(test_parameters)
+    assert _enforce_parameters_schema(test_parameters, test_schema) == updated_parameters
+
+    # Add default values if the parameter is optional but not provided
+    test_schema = ParamSchema([ParamSpec("a", "str"), ParamSpec("b", "int", 1, True)])
+    assert _enforce_parameters_schema(test_parameters, test_schema) == updated_parameters
+
+    # Converting parameters keys to string if it is not
+    test_parameters = {1: 1.0}
+    test_schema = ParamSchema([ParamSpec("1", "float")])
+    assert _enforce_parameters_schema(test_parameters, test_schema) == {"1": 1.0}
+
+    # Raise Exception if non-optional parameters with no default value is not provided
+    test_parameters = {}
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", "str", optional=False),
+        ]
+    )
+    with pytest.raises(MlflowException, match=r"Missing required parameter: a"):
+        _enforce_parameters_schema(test_parameters, test_schema)
+
+    # Raise error if parameters is not dictionary
+    with pytest.raises(MlflowException, match=r"Parameters must be a dictionary. Got type 'int'."):
+        _enforce_parameters_schema(100, test_schema)
+
+    # Raise error if default value is not consistent with provided type
+    with pytest.raises(MlflowException, match=r"Invalid default value for ParamSpec"):
+        test_schema = ParamSchema([ParamSpec("a", "str", default=1.0)])
+
+    # Raise error if invalid parameters are passed
+    test_parameters = {"a": 100, "b": (1, 2), "c": b"test"}
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", "int"),
+            ParamSpec("b", "list"),
+            ParamSpec("c", "str"),
+        ]
+    )
+    with pytest.raises(  # pylint: disable=[pytest-raises-multiple-statements, pytest-raises-without-match]
+        MlflowException
+    ) as e:
+        _enforce_parameters_schema(test_parameters, test_schema)
+        assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
+        assert e.match(r"('c', 'Invalid type for parameter c: expected str but got bytes')")
+
+    # Raise error for mixed invalid parameters
+    test_parameters = {"a": 100, "b": (1, 2)}
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", "int"),
+            ParamSpec("b", "list"),
+            ParamSpec("c", "str", optional=False),
+        ]
+    )
+    with pytest.raises(  # pylint: disable=[pytest-raises-multiple-statements, pytest-raises-without-match]
+        MlflowException
+    ) as e:
+        _enforce_parameters_schema(test_parameters, test_schema)
+        assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
+        assert e.match(r"('c', 'Missing required parameter: c')")

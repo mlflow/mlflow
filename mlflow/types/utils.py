@@ -486,5 +486,8 @@ def _infer_parameters_schema(parameters: Dict[str, Any]):
             f"Expected parameters to be dict, got {type(parameters).__name__}",
         )
     return ParamSchema(
-        [ParamSpec(name=str(name), type=type(value).__name__) for name, value in parameters.items()]
+        [
+            ParamSpec(name=str(name), type=type(value).__name__, default=value)
+            for name, value in parameters.items()
+        ]
     )

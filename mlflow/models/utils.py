@@ -873,7 +873,7 @@ def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSc
         return params
     if not isinstance(params, dict):
         raise MlflowException(
-            "Parameters must be a dictionary. Got type '{}'.".format(type(params))
+            "Parameters must be a dictionary. Got type '{}'.".format(type(params).__name__)
         )
     if any(not isinstance(k, str) for k in params.keys()):
         _logger.warning(
@@ -899,13 +899,16 @@ def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSc
             if type(param_value).__name__ != param_spec.type:
                 error_message = (
                     f"Invalid type for parameter {param_spec.name}: "
-                    f"expected {param_spec.type} but got {type(param_value)}"
+                    f"expected {param_spec.type} but got {type(param_value).__name__}"
                 )
                 invalid_params.add((param_spec.name, error_message))
         else:
-            if not param_spec.optional:
-                error_message = f"Missing required parameter: {param_spec.name}"
-                invalid_params.add((param_spec.name, error_message))
+            if param_spec.default is not None:
+                params[param_spec.name] = param_spec.default
+            else:
+                if not param_spec.optional:
+                    error_message = f"Missing required parameter: {param_spec.name}"
+                    invalid_params.add((param_spec.name, error_message))
 
     if len(invalid_params) > 0:
         raise MlflowException(

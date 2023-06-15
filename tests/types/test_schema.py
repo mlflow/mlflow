@@ -9,8 +9,9 @@ from scipy.sparse import csr_matrix, csc_matrix
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.types import DataType
-from mlflow.types.schema import ColSpec, Schema, TensorSpec
+from mlflow.types.schema import ColSpec, Schema, TensorSpec, ParamSchema, ParamSpec
 from mlflow.types.utils import (
+    _infer_parameters_schema,
     _infer_schema,
     _get_tensor_shape,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
@@ -667,3 +668,33 @@ def test_enforce_tensor_spec_variable_signature():
         match=re.escape(r"Shape of input (2,) does not match expected shape (-1, 2, 3)."),
     ):
         _enforce_tensor_spec(ragged_array, standard_spec)
+
+
+def test_infer_parameters_schema():
+    test_parameters = {
+        "a": "str_a",
+        "b": 1,
+        "c": True,
+        "d": 1.0,
+        "e": [1, 2, 3],
+        "f": (1, 2, 3),
+        "g": b"byte_g",
+        "h": {"test_k": "test_v"},
+    }
+    test_schema = ParamSchema(
+        [
+            ParamSpec("a", "str", "str_a", True),
+            ParamSpec("b", "int", 1, True),
+            ParamSpec("c", "bool", True, True),
+            ParamSpec("d", "float", 1.0, True),
+            ParamSpec("e", "list", [1, 2, 3], True),
+            ParamSpec("f", "tuple", (1, 2, 3), True),
+            ParamSpec("g", "bytes", b"byte_g", True),
+            ParamSpec("h", "dict", {"test_k": "test_v"}, True),
+        ]
+    )
+    assert _infer_parameters_schema(test_parameters) == test_schema
+
+    # Raise error if parameters is not dictionary
+    with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):
+        _infer_parameters_schema(["a", "str_a", "b", 1])
