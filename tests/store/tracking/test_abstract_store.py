@@ -54,9 +54,6 @@ class AbstractStoreTestImpl(AbstractStore):
     ):
         raise NotImplementedError()
 
-    def _search_datasets(self, experiment_ids):
-        raise NotImplementedError()
-
     def log_batch(self, run_id, metrics, params, tags):
         raise NotImplementedError()
 
