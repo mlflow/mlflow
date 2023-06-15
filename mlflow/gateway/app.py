@@ -11,7 +11,6 @@ from mlflow.gateway.config import (
     Route,
     RouteConfig,
     RouteType,
-    _route_config_to_route,
     _load_route_config,
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -110,13 +109,13 @@ def _route_type_to_endpoint(config: RouteConfig):
     )
 
 
-def _add_dynamic_route(route: RouteConfig):
+def _add_dynamic_route(route_config: RouteConfig):
     app.add_api_route(
-        path=f"/gateway/routes/{route.name}",
-        endpoint=_route_type_to_endpoint(route),
+        path=f"/gateway/routes/{route_config.name}",
+        endpoint=_route_type_to_endpoint(route_config),
         methods=["POST"],
     )
-    ACTIVE_ROUTES.append(_route_config_to_route(route))
+    ACTIVE_ROUTES.append(route_config.to_route())
 
 
 def _add_routes(routes: List[RouteConfig]):
