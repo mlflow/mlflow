@@ -421,13 +421,8 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
 
         if parameters is not None:
-            if not isinstance(parameters, dict):
-                raise MlflowException(
-                    "Parameters must be a dictionary. Got type '{}'.".format(type(parameters))
-                )
             parameters_schema = self.metadata.get_parameters_schema()
-            if parameters_schema is not None:
-                parameters = _enforce_parameters_schema(parameters, parameters_schema)
+            parameters = _enforce_parameters_schema(parameters, parameters_schema)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch

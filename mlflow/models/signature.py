@@ -7,7 +7,7 @@ for more details on Schema and data types.
 import re
 import inspect
 import logging
-from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
 
 
 import pandas as pd
@@ -127,7 +127,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any,
     model_output: "MlflowInferableDataset" = None,
-    parameters: Dict = None,
+    parameters: Optional[Dict[str, Any]] = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
