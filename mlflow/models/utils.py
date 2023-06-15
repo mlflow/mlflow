@@ -875,29 +875,42 @@ def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSc
         raise MlflowException(
             "Parameters must be a dictionary. Got type '{}'.".format(type(params))
         )
+    if any(not isinstance(k, str) for k in params.keys()):
+        _logger.warning(
+            "Keys in parameters should be of type `str`, but received non-string keys."
+            "Converting all keys to string..."
+        )
+        params = {str(k): params[k] for k in params.keys()}
 
     allowed_keys = {param.name for param in schema.params}
     ignored_keys = set(params.keys()) - allowed_keys
     _logger.warning(
         f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
+        f"Supported arguments are: {allowed_keys}. "
         "To enable them, please add corresponding schema in ModelSignature."
     )
 
     params = {k: params[k] for k in params if k in allowed_keys}
 
+    invalid_params = set()
     for param_spec in schema.params:
         if param_spec.name in params:
             param_value = params[param_spec.name]
             if type(param_value).__name__ != param_spec.type:
-                raise MlflowException(
+                error_message = (
                     f"Invalid type for parameter {param_spec.name}: "
                     f"expected {param_spec.type} but got {type(param_value)}"
                 )
+                invalid_params.add((param_spec.name, error_message))
         else:
             if not param_spec.optional:
-                raise MlflowException(
-                    "Missing required parameter: {}".format(param_spec.name),
-                    INVALID_PARAMETER_VALUE,
-                )
+                error_message = f"Missing required parameter: {param_spec.name}"
+                invalid_params.add((param_spec.name, error_message))
+
+    if len(invalid_params) > 0:
+        raise MlflowException(
+            f"Invalid parameters found: {invalid_params!r}",
+            INVALID_PARAMETER_VALUE,
+        )
 
     return params

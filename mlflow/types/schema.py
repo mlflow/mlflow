@@ -466,11 +466,11 @@ class ParamSpec:
         return False
 
     def __repr__(self) -> str:
-        return "{name}: {type}{optional}{default}".format(
-            name=repr(self.name),
-            type=repr(self.type),
+        return "{name!r}: {type!r}{optional}{default}".format(
+            name=self.name,
+            type=self.type,
             optional=" (optional)" if self.optional else "",
-            default=f" (default: {self.default})" if self.default else "",
+            default=f" (default: {self.default})" if self.default is not None else "",
         )
 
     @classmethod
@@ -500,6 +500,16 @@ class ParamSchema:
     def __init__(self, params: List[ParamSpec]):
         if not all(isinstance(x, ParamSpec) for x in params):
             raise MlflowException(f"ParamSchema inputs only accept {ParamSchema.__class__}")
+        param_names = [param_spec.name for param_spec in params]
+        if len(param_names) != len(set(param_names)):
+            uniq_param = set()
+            duplicates = []
+            for name in param_names:
+                if name in uniq_param:
+                    duplicates.append(name)
+                else:
+                    uniq_param.add(name)
+            raise MlflowException(f"Duplicated parameters found in schema: {duplicates}")
         self._params = params
 
     def __len__(self):
