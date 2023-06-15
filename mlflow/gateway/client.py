@@ -26,8 +26,8 @@ class MlflowGatewayClient:
     Client for interacting with the MLflow Gateway API.
 
     :param gateway_uri: Optional URI of the gateway. If not provided, attempts to resolve from
-    first the stored result of `set_gateway_uri()`, then the  environment variable
-    `MLFLOW_GATEWAY_URI`.
+        first the stored result of `set_gateway_uri()`, then the  environment variable
+        `MLFLOW_GATEWAY_URI`.
     """
 
     def __init__(self, gateway_uri: Optional[str] = None):
@@ -92,8 +92,8 @@ class MlflowGatewayClient:
 
         :param name: The name of the route.
         :return: The returned data structure is a serialized representation of the `Route` data
-        structure, giving information about the name, type, and model details (model name
-        and provider) for the requested route endpoint.
+            structure, giving information about the name, type, and model details (model name
+            and provider) for the requested route endpoint.
         """
         route = urljoin(self._route_base, name)
         response = self._call_endpoint("GET", route).json()["route"]
@@ -106,8 +106,8 @@ class MlflowGatewayClient:
 
         :param search_filter: An optional filter to apply to the search. Currently not used.
         :return: Returns a list of all configured and initialized `Route` data for the MLflow
-        Gateway Server. The return will be a list of dictionaries that detail the name, type,
-        and model details of each active route endpoint.
+            Gateway Server. The return will be a list of dictionaries that detail the name, type,
+            and model details of each active route endpoint.
         """
         if search_filter:
             raise MlflowException.invalid_parameter_value(
@@ -123,46 +123,47 @@ class MlflowGatewayClient:
 
         :param route: The name of the route to submit the query to.
         :param data: The data to send in the query. A dictionary representing the per-route
-        specific structure required for a given provider.
+            specific structure required for a given provider.
+        :return: The route's response as a dictionary, standardized to the route type.
 
         For chat, the structure should be:
 
         .. code-block:: python
 
-          from mlflow.gateway import MlflowGatewayClient
+            from mlflow.gateway import MlflowGatewayClient
 
-          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-          response = gateway_client.query(
-              "my-chat-route",
-              {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}, ...]},
-          )
+            response = gateway_client.query(
+                "my-chat-route",
+                {"messages": [{"role": "user", "content": "Tell me a joke about rabbits"}, ...]},
+            )
 
         For completions, the structure should be:
 
         .. code-block:: python
 
-          from mlflow.gateway import MlflowGatewayClient
+            from mlflow.gateway import MlflowGatewayClient
 
-          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-          response = gateway_client.query(
-              "my-completions-route", {"prompt": "It's one small step for"}
-          )
+            response = gateway_client.query(
+                "my-completions-route", {"prompt": "It's one small step for"}
+            )
 
         For embeddings, the structure should be:
 
         .. code-block:: python
-          from mlflow.gateway import MlflowGatewayClient
 
-          gateway_client = MlflowGatewayClient("http://my.gateway:8888")
+            from mlflow.gateway import MlflowGatewayClient
 
-          response = gateway_client.query(
-              "my-embeddings-route",
-              {"text": ["It was the best of times", "It was the worst of times"]},
-          )
+            gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-        :return: The route's response as a dictionary, standardized to the route type.
+            response = gateway_client.query(
+                "my-embeddings-route",
+                {"text": ["It was the best of times", "It was the worst of times"]},
+            )
+
         """
 
         data = json.dumps(data)
