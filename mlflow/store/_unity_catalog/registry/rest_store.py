@@ -272,11 +272,10 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(
             method="get_latest_versions",
             message="If seeing this error while attempting to "
-            "load a models:/ URI of the form models:/<name>/<stage>, note that "
-            "staged-based model URIs are unsupported for models in UC. Future "
-            "MLflow Python client versions will include support for model "
-            "aliases and alias-based 'models:/' URIs "
-            "of the form models:/<name>@<alias> as an alternative.",
+            "load a model version by alias, use the syntax 'models:/model_name@alias_name', where"
+            "model_name is the full name of your registered model and alias_name is the "
+            "name of your alias. To set aliases, you can use the "
+            "MlflowClient().set_registered_model_alias(name, alias, version) API",
         )
 
     def set_registered_model_tag(self, name, tag):
@@ -480,7 +479,15 @@ class UcModelRegistryStore(BaseRestStore):
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         """
-        _raise_unsupported_method(method="transition_model_version_stage")
+        _raise_unsupported_method(
+            method="transition_model_version_stage",
+            message="Setting model version stages is unsupported for ML models in the Unity Catalog. "
+            "We recommend using aliases instead for more flexible model deployment management. "
+            "You can set an alias on a registered model using "
+            "MlflowClient().set_registered_model_alias(name, alias, version). "
+            "See https://mlflow.org/docs/latest/model-registry.html#using-registered-model-aliases "
+            "for more info",
+        )
 
     def update_model_version(self, name, version, description):
         """
