@@ -119,15 +119,11 @@ user, channeling requests to the underlying model and provider specified in the 
 
 A route in the `MLflow Gateway` consists of the following fields:
 
-* ``name``: This is the unique identifier for the route. This will be part of the URL when making API
-calls via the `MLflow Gateway`.
+* ``name``: This is the unique identifier for the route. This will be part of the URL when making API calls via the `MLflow Gateway`.
 
-* ``type``: The type of the route corresponds to the type of language model interaction you desire.
-For instance, 'llm/v1/chat' for chat operations, 'llm/v1/completions' for text completion
-operations, and 'llm/v1/embeddings' for text embeddings.
+* ``type``: The type of the route corresponds to the type of language model interaction you desire. For instance, 'llm/v1/chat' for chat operations, 'llm/v1/completions' for text completion operations, and 'llm/v1/embeddings' for text embeddings.
 
-* ``model``: This encapsulates the details of the model to which this route will direct its requests.
-The model contains the following details:
+* ``model``: This encapsulates the details of the model to which this route will direct its requests. The model contains the following details:
 
     * ``provider``: Specifies the name of the ``provider`` for this model. For example, ``openai`` for `OpenAI`'s ``GPT-3`` models.
     * ``name``: The name of the model to use. For example, ``gpt-3.5-turbo`` for `OpenAI`'s ``GPT-3.5-Turbo`` model.
@@ -247,17 +243,11 @@ access the service without ever needing to handle API keys directly.
 
 Here's a brief overview of how the authentication process works:
 
-* Key Management: As an administrator, you'll set up the `MLflow Gateway` and input your API keys
-(as environment variables or directly into the configuration files).
-The Gateway securely stores these keys and uses them to authenticate requests with the service provider.
+* Key Management: As an administrator, you'll set up the `MLflow Gateway` and input your API keys (as environment variables or directly into the configuration files). The Gateway securely stores these keys and uses them to authenticate requests with the service provider.
 
-* User Access: Instead of providing individual API keys to every user in your organization,
-you'll give them access to the `MLflow Gateway`. Users then send their requests directly to the
-Gateway, which acts as a proxy to the service provider.
+* User Access: Instead of providing individual API keys to every user in your organization, you'll give them access to the `MLflow Gateway`. Users then send their requests directly to the Gateway, which acts as a proxy to the service provider.
 
-* Request Handling: When a user sends a request to the `Mlflow Gateway`, it takes the request,
-adds the necessary authentication (using the API keys it manages), and forwards the request to
-the correct provider (as specified in the configuration files).
+* Request Handling: When a user sends a request to the `Mlflow Gateway`, it takes the request, adds the necessary authentication (using the API keys it manages), and forwards the request to the correct provider (as specified in the configuration files).
 
 * Response Forwarding: The Gateway receives the response from the provider, and then sends this response back to the user.
 
@@ -364,14 +354,9 @@ ach providing a simple, straightforward way to interact with the Gateway.
 
 * ``get_route(name: str) -> Route``: This function allows users to retrieve a specific ``route`` configuration from the `MLflow Gateway` service.
 
-* ``search_routes(search_filter: Optional[str] = None) -> List[Route]``: This function provides the ability to fetch all the
-routes from the Gateway service. The search filter is not functional currently and the function
-returns all the routes irrespective of the filter. If an argument is passed, an exception will be thrown to warn of this
-current lack of functionality.
+* ``search_routes(search_filter: Optional[str] = None) -> List[Route]``: This function provides the ability to fetch all the routes from the Gateway service. The search filter is not functional currently and the function returns all the routes irrespective of the filter. If an argument is passed, an exception will be thrown to warn of this current lack of functionality.
 
-* ``query(route: str, data)``: This function makes it easy to send a ``query`` to a configured service
-through a named route on the Gateway Server. It handles the specifics of interfacing with the
-underlying ``MlflowGatewayClient`` and the configured ``route``, providing a simpler way to issue requests and get responses.
+* ``query(route: str, data)``: This function makes it easy to send a ``query`` to a configured service through a named route on the Gateway Server. It handles the specifics of interfacing with the underlying ``MlflowGatewayClient`` and the configured ``route``, providing a simpler way to issue requests and get responses.
 
 With the ``fluent`` API, working with the `MLflow Gateway` is as easy as making a function call.
 It provides a cleaner, more Pythonic way of interacting with the Gateway service, freeing you to
