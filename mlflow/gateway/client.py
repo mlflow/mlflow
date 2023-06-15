@@ -128,6 +128,7 @@ class MlflowGatewayClient:
         For chat, the structure should be:
 
         .. code-block:: python
+
           from mlflow.gateway import MlflowGatewayClient
 
           gateway_client = MlflowGatewayClient("http://my.gateway:8888")
@@ -140,11 +141,14 @@ class MlflowGatewayClient:
         For completions, the structure should be:
 
         .. code-block:: python
+
           from mlflow.gateway import MlflowGatewayClient
 
           gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
-          response = gateway_client.query("my-chat-route", {"prompt": "It's one small step for"})
+          response = gateway_client.query(
+              "my-completions-route", {"prompt": "It's one small step for"}
+          )
 
         For embeddings, the structure should be:
 
@@ -154,7 +158,8 @@ class MlflowGatewayClient:
           gateway_client = MlflowGatewayClient("http://my.gateway:8888")
 
           response = gateway_client.query(
-              "my-chat-route", {"text": ["It was the best of times", "It was the worst of times"]}
+              "my-embeddings-route",
+              {"text": ["It was the best of times", "It was the worst of times"]},
           )
 
         :return: The route's response as a dictionary, standardized to the route type.

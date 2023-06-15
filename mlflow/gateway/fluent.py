@@ -52,6 +52,7 @@ def query(route: str, data):
     Chat example:
 
     .. code-block:: python
+
       from mlflow.gateway import query, set_gateway_uri
 
       set_gateway_uri(gateway_uri="http://my.gateway:9000")
@@ -63,6 +64,7 @@ def query(route: str, data):
     Completions example:
 
     .. code-block:: python
+
       from mlflow.gateway import query, set_gateway_uri
 
       set_gateway_uri(gateway_uri="http://my.gateway:9000")
@@ -71,6 +73,7 @@ def query(route: str, data):
     Embeddings example:
 
     .. code-block:: python
+
       from mlflow.gateway import query, set_gateway_uri
 
       set_gateway_uri(gateway_uri="http://my.gateway:9000")
