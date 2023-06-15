@@ -45,46 +45,45 @@ def search_routes(search_filter: Optional[str] = None) -> List[Route]:
 def query(route: str, data):
     """
     Issues a query request to a configured service through a named route on the Gateway Server.
-
     This function will interface with a configured route name (examples below) and return the
     response from the provider in a standardized format.
-
-    Chat example:
-
-    .. code-block:: python
-
-      from mlflow.gateway import query, set_gateway_uri
-
-      set_gateway_uri(gateway_uri="http://my.gateway:9000")
-      response = query(
-          "my_chat_route",
-          {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
-      )
-
-    Completions example:
-
-    .. code-block:: python
-
-      from mlflow.gateway import query, set_gateway_uri
-
-      set_gateway_uri(gateway_uri="http://my.gateway:9000")
-      response = query("a_completions_route", {"prompt": "Where do we go from"})
-
-    Embeddings example:
-
-    .. code-block:: python
-
-      from mlflow.gateway import query, set_gateway_uri
-
-      set_gateway_uri(gateway_uri="http://my.gateway:9000")
-      response = query(
-          "embeddings_route", {"text": ["I like spaghetti", "and sushi", "but not together"]}
-      )
 
     :param route: The name of the configured route. Route names can be obtained by running
                   `mlflow.gateway.search_routes()`
     :param data: The request payload to be submitted to the route. The exact configuration of
                  the expected structure varies based on the route configuration.
     :return: The response from the configured route endpoint provider in a standardized format.
+
+    Chat example:
+
+    .. code-block:: python
+
+        from mlflow.gateway import query, set_gateway_uri
+
+        set_gateway_uri(gateway_uri="http://my.gateway:9000")
+        response = query(
+            "my_chat_route",
+            {"messages": [{"role": "user", "content": "What is the best day of the week?"}]},
+        )
+
+    Completions example:
+
+    .. code-block:: python
+
+        from mlflow.gateway import query, set_gateway_uri
+
+        set_gateway_uri(gateway_uri="http://my.gateway:9000")
+        response = query("a_completions_route", {"prompt": "Where do we go from"})
+
+    Embeddings example:
+
+    .. code-block:: python
+
+        from mlflow.gateway import query, set_gateway_uri
+
+        set_gateway_uri(gateway_uri="http://my.gateway:9000")
+        response = query(
+            "embeddings_route", {"text": ["I like spaghetti", "and sushi", "but not together"]}
+        )
     """
     return MlflowGatewayClient().query(route, data)
