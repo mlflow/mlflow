@@ -35,6 +35,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     recipes
     gateway
     plugins
+    auth/index
     cli
     search-runs
     search-experiments
