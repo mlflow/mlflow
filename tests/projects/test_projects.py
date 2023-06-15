@@ -235,9 +235,9 @@ def test_run_with_parent():
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
-def test_run_with_artifact_path(tmpdir):
-    artifact_file = tmpdir.join("model.pkl")
-    artifact_file.write("Hello world")
+def test_run_with_artifact_path(tmp_path):
+    artifact_file = tmp_path.joinpath("model.pkl")
+    artifact_file.write_text("Hello world")
     with mlflow.start_run() as run:
         mlflow.log_artifact(artifact_file)
         submitted_run = mlflow.projects.run(
