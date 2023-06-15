@@ -133,23 +133,6 @@ def _resolve_api_key_from_input(api_key_input):
     return api_key_input
 
 
-def _validate_base_route(config, provider):
-    base_route = {
-        OpenAIConfig: "openai_api_base",
-        AnthropicConfig: "anthropic_api_base",
-        DatabricksConfig: "databricks_api_base",
-        MLflowConfig: "mlflow_api_base",
-        CustomConfig: "api_base",
-    }
-
-    for config_class, base in base_route.items():
-        if isinstance(config, config_class) and getattr(config, base, None) is None:
-            raise MlflowException.invalid_parameter_value(
-                f"For the {provider} provider, the configuration is not set correctly. Verify "
-                "that a config is set and that the base url and api key information is provided."
-            )
-
-
 # pylint: disable=no-self-argument
 class Model(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
@@ -168,9 +151,6 @@ class Model(BaseModel, extra=Extra.forbid):
         if provider:
             config_type = config_types[provider]
             config_instance = config_type(**config)
-
-            # validate the base_route
-            _validate_base_route(config_instance, provider)
 
             return config_instance
         else:
