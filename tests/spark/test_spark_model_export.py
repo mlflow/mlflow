@@ -35,7 +35,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec, TensorSpec
+from mlflow.types.schema import Schema, ColSpec
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -262,7 +262,12 @@ def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
                 artifact_uri = mlflow.get_artifact_uri()
                 model_path = os.path.join(artifact_uri, artifact_path)
                 mlflow_model = Model.load(model_path)
-                assert signature == mlflow_model.signature
+                if example is None and signature is None:
+                    assert mlflow_model.signature is None
+                else:
+                    # When the input example is specified, but the signature is not, `log_model`
+                    # automatically infers the signature from the input example
+                    assert mlflow_model.signature == signature_
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:

@@ -285,7 +285,7 @@ def test_infer_signature_from_example_can_be_disabled():
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = get_model_info(model_uri)
-    assert model_info.signature == None
+    assert model_info.signature is None
 
 
 def test_infer_signature_silently_fails():

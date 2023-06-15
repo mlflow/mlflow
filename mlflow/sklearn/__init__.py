@@ -15,7 +15,6 @@ import functools
 import os
 import logging
 import numpy as np
-import pandas as pd
 import pickle
 import yaml
 import weakref

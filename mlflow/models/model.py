@@ -575,7 +575,7 @@ class Model:
                 except:
                     _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
                     _logger.debug("", exc_info=True)
-            if signature == False:
+            if signature is False:
                 kwargs["signature"] = None
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path)
