@@ -1,32 +1,42 @@
-import requests
+import mlflow.gateway
 
 
 def main():
-    PREFIX = "http://127.0.0.1:5000/gateway/routes"
-
+    mlflow.gateway.set_gateway_uri("http://127.0.0.1:5000")
     print("Completions")
-    with requests.post(
-        f"{PREFIX}/completions",
-        json={"prompt": "Hello, my name is"},
-    ) as resp:
-        resp.raise_for_status()
-        print(resp.json())
+    print(
+        mlflow.gateway.query(
+            "completions",
+            data={
+                "prompt": "Hello, my name is",
+            },
+        )
+    )
 
     print("Chat")
-    with requests.post(
-        f"{PREFIX}/chat",
-        json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
-    ) as resp:
-        resp.raise_for_status()
-        print(resp.json())
+    print(
+        mlflow.gateway.query(
+            "chat",
+            data={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "Tell me a joke",
+                    }
+                ]
+            },
+        )
+    )
 
     print("Embeddings")
-    with requests.post(
-        f"{PREFIX}/embeddings",
-        json={"text": "hello world"},
-    ) as resp:
-        resp.raise_for_status()
-        print(resp.json())
+    print(
+        mlflow.gateway.query(
+            "embeddings",
+            data={
+                "text": "hello world",
+            },
+        )
+    )
 
 
 if __name__ == "__main__":
