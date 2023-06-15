@@ -33,6 +33,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     models
     model-registry
     recipes
+    gateway
     plugins
     cli
     search-runs
