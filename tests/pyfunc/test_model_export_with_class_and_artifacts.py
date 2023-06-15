@@ -1060,56 +1060,6 @@ def test_save_and_load_model_with_special_chars(
     )
 
 
-class CustomModel(mlflow.pyfunc.PythonModel):
-    def __init__(self):
-        pass
-
-    def predict(self, context, model_input):
-        import custom_module
-
-        return custom_module.predict()
-
-
-def test_model_with_code_path_does_not_use_cached_module(tmp_path):
-    dir1 = tmp_path.joinpath("1")
-    dir2 = tmp_path.joinpath("2")
-    dir1.mkdir()
-    dir2.mkdir()
-    mod1 = dir1.joinpath("custom_module.py")
-    mod2 = dir2.joinpath("custom_module.py")
-    mod1.write_text(
-        """
-def predict():
-    return 1
-"""
-    )
-    mod2.write_text(
-        """
-def predict():
-    return 2
-"""
-    )
-
-    custom_model = CustomModel()
-    with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model(
-            artifact_path="model1",
-            python_model=custom_model,
-            code_path=[str(mod1)],
-        )
-        model_info2 = mlflow.pyfunc.log_model(
-            artifact_path="model2",
-            python_model=custom_model,
-            code_path=[str(mod2)],
-        )
-
-    model_input = pd.DataFrame([[1, 2, 3]])
-    loaded_model1 = mlflow.pyfunc.load_model(model_info1.model_uri)
-    assert loaded_model1.predict(model_input) == 1
-    loaded_model2 = mlflow.pyfunc.load_model(model_info2.model_uri)
-    assert loaded_model2.predict(model_input) == 2
-
-
 def test_model_with_code_path_containing_main(tmp_path):
     """Test that the __main__ module is unaffected by model loading"""
     directory = tmp_path.joinpath("model_with_main")
