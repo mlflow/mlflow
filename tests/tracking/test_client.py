@@ -618,7 +618,7 @@ def test_get_databricks_runtime_nondb(mock_spark_session):
     mock_spark_session.conf.get.assert_not_called()
 
 
-def test_client_can_be_serialized_with_pickle(tmpdir):
+def test_client_can_be_serialized_with_pickle(tmp_path):
     """
     Verifies that instances of `MlflowClient` can be serialized using pickle, even if the underlying
     Tracking and Model Registry stores used by the client are not serializable using pickle
@@ -630,14 +630,14 @@ def test_client_can_be_serialized_with_pickle(tmpdir):
     class MockUnpickleableModelRegistryStore(SqlAlchemyModelRegistryStore):
         pass
 
-    backend_store_path = tmpdir.join("test.db").strpath
-    artifact_store_path = tmpdir.join("artifacts").strpath
+    backend_store_path = tmp_path.joinpath("test.db")
+    artifact_store_path = tmp_path.joinpath("artifacts")
 
     mock_tracking_store = MockUnpickleableTrackingStore(
-        "sqlite:///" + backend_store_path, artifact_store_path
+        f"sqlite:///{backend_store_path}", str(artifact_store_path)
     )
     mock_model_registry_store = MockUnpickleableModelRegistryStore(
-        "sqlite:///" + backend_store_path
+        f"sqlite:///{backend_store_path}"
     )
 
     # Verify that the mock stores cannot be pickled because they are defined within a function

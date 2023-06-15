@@ -6,9 +6,9 @@ import mlflow
 
 
 @pytest.fixture
-def tmp_wkdir(tmpdir):
+def tmp_wkdir(tmp_path):
     initial_wkdir = os.getcwd()
-    os.chdir(str(tmpdir))
+    os.chdir(tmp_path)
     yield
     os.chdir(initial_wkdir)
 
