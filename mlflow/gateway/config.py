@@ -192,6 +192,16 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
             return value
         return RouteType.CUSTOM.value
 
+    def to_route(self) -> "Route":
+        return Route(
+            name=self.name,
+            type=self.type,
+            model=ModelInfo(
+                name=self.model.name,
+                provider=self.model.provider,
+            ),
+        )
+
 
 class Route(BaseModel, extra=Extra.forbid):
     name: str
@@ -229,21 +239,6 @@ def _save_route_config(config: GatewayConfig, path: Union[str, Path]) -> None:
     if isinstance(path, str):
         path = Path(path)
     path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
-
-
-def _route_config_to_route(route_config: RouteConfig) -> Route:
-    return Route(
-        name=route_config.name,
-        type=route_config.type,
-        model=ModelInfo(
-            name=route_config.model.name,
-            provider=route_config.model.provider,
-        ),
-    )
-
-
-def _route_configs_to_routes(route_config: List[RouteConfig]) -> List[Route]:
-    return [_route_config_to_route(route) for route in route_config]
 
 
 def _validate_config(config_path: str) -> GatewayConfig:
