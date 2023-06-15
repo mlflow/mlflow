@@ -142,13 +142,13 @@ def test_run_git_ssh_from_release_version():
 
 
 @pytest.mark.notrackingurimock
-def test_run_databricks_cluster_spec(tmpdir):
+def test_run_databricks_cluster_spec(tmp_path):
     cluster_spec = {
         "spark_version": "5.0.x-scala2.11",
         "num_workers": 2,
         "node_type_id": "i3.xlarge",
     }
-    cluster_spec_path = str(tmpdir.join("cluster-spec.json"))
+    cluster_spec_path = tmp_path.joinpath("cluster-spec.json")
     with open(cluster_spec_path, "w") as handle:
         json.dump(cluster_spec, handle)
 

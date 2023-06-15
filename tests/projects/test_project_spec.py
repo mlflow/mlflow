@@ -70,8 +70,8 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
         assert open(project.env_config_path).read() == conda_env_contents
 
 
-def test_load_docker_project(tmpdir):
-    tmpdir.join("MLproject").write(
+def test_load_docker_project(tmp_path):
+    tmp_path.joinpath("MLproject").write_text(
         textwrap.dedent(
             """
     docker_env:
@@ -79,7 +79,7 @@ def test_load_docker_project(tmpdir):
     """
         )
     )
-    project = _project_spec.load_project(tmpdir.strpath)
+    project = _project_spec.load_project(str(tmp_path))
     assert project._entry_points == {}
     assert project.env_config_path is None
     assert project.docker_env.get("image") == "some-image"
