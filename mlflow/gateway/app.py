@@ -34,7 +34,7 @@ app = FastAPI(
 
 
 @app.get("/")
-async def redirect():
+async def index():
     return RedirectResponse(url="/docs")
 
 
