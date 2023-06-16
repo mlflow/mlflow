@@ -13,7 +13,7 @@ from mlflow.projects import _project_spec
 
 
 TEST_DIR = "tests"
-TEST_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project")
+TEST_PROJECT_DIR = os.path.abspath(os.path.join(TEST_DIR, "resources", "example_project"))
 TEST_DOCKER_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_docker_project")
 TEST_VIRTUALENV_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_virtualenv_project")
 TEST_VIRTUALENV_CONDA_PROJECT_DIR = os.path.join(

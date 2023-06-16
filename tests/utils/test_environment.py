@@ -113,22 +113,19 @@ def test_parse_pip_requirements(tmp_path):
     assert _parse_pip_requirements([str(fake_whl)]) == ([str(fake_whl)], [])
 
 
-def test_parse_pip_requirements_with_relative_requirements_files(request, tmp_path):
-    try:
-        os.chdir(tmp_path)
-        f1 = tmp_path.joinpath("requirements1.txt")
-        f1.write_text("b")
-        assert _parse_pip_requirements(f1.name) == (["b"], [])
-        assert _parse_pip_requirements(["a", f"-r {f1.name}"]) == (["a", "b"], [])
+def test_parse_pip_requirements_with_relative_requirements_files(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    f1 = tmp_path.joinpath("requirements1.txt")
+    f1.write_text("b")
+    assert _parse_pip_requirements(f1.name) == (["b"], [])
+    assert _parse_pip_requirements(["a", f"-r {f1.name}"]) == (["a", "b"], [])
 
-        f2 = tmp_path.joinpath("requirements2.txt")
-        f3 = tmp_path.joinpath("requirements3.txt")
-        f2.write_text(f"b\n-r {f3.name}")
-        f3.write_text("c")
-        assert _parse_pip_requirements(f2.name) == (["b", "c"], [])
-        assert _parse_pip_requirements(["a", f"-r {f2.name}"]) == (["a", "b", "c"], [])
-    finally:
-        os.chdir(request.config.invocation_dir)
+    f2 = tmp_path.joinpath("requirements2.txt")
+    f3 = tmp_path.joinpath("requirements3.txt")
+    f2.write_text(f"b\n-r {f3.name}")
+    f3.write_text("c")
+    assert _parse_pip_requirements(f2.name) == (["b", "c"], [])
+    assert _parse_pip_requirements(["a", f"-r {f2.name}"]) == (["a", "b", "c"], [])
 
 
 def test_parse_pip_requirements_with_absolute_requirements_files(tmp_path):
