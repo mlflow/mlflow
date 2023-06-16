@@ -575,10 +575,10 @@ For models accepting column-based inputs, an example can be a single record or a
 sample input can be in the following formats:
 
 * Pandas DataFrame
-* Python ``dict`` (of scalars, strings, or lists of scalars values)
-* Python ``list``
-* Python ``str``
-* Python ``bytes``
+* ``dict`` (of scalars, strings, or lists of scalar values)
+* ``list``
+* ``str``
+* ``bytes``
 
 The given example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
 format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
