@@ -68,7 +68,8 @@ def test_fluent_apis_with_no_server_set():
         get_route("claude-chat")
 
 
-def test_fluent_health_check_on_non_running_server():
+def test_fluent_health_check_on_non_running_server(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
     set_gateway_uri("http://not.real:1000")
     with pytest.raises(
         MlflowException,
