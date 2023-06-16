@@ -33,6 +33,7 @@ from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.models.utils import _save_example
 from mlflow.models import Model, ModelInputExample, ModelSignature
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
@@ -109,11 +110,7 @@ def save_model(
                         train = model.history
                         predictions = model.predict(model.make_future_dataframe(30))
                         signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -128,6 +125,10 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None and input_example is not None:
+        wrapped_model = _ProphetModelWrapper(pr_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -239,12 +240,7 @@ def log_model(
                         predictions = model.predict(model.make_future_dataframe(30))
                         signature = infer_signature(train, predictions)
 
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to
-                          feed the model. The given example will be converted to a
-                          Pandas DataFrame and then serialized to json using the
-                          Pandas split-oriented format. Bytes are base64-encoded.
-
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version
                         to finish being created and is in ``READY`` status.
                         By default, the function waits for five minutes.

@@ -10,6 +10,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.models import ModelInputExample, ModelSignature, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
@@ -103,17 +104,8 @@ def save_model(
                        path when the model is loaded.
     :param mlflow_model: An MLflow model object that specifies the flavor that this model is being
                          added to.
-    :param signature: A Model Signature object that describes the input and output Schema of the
-                      model. The model signature can be inferred using `infer_signature` function
-                      of `mlflow.models.signature`.
-
-                      If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file.
-
-    :param input_example: An example of valid input that the model can accept. The example can be
-                          used as a hint of what data to feed the model. The given example will be
-                          converted to a `Pandas DataFrame` and then serialized to JSON using the
-                          `Pandas` split-oriented format.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param conda_env: {{ conda_env }}
@@ -135,12 +127,16 @@ def save_model(
 
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, str(path))
 
+    if signature is None and input_example is not None:
+        wrapped_model = _SentenceTransformerModelWrapper(model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+        if signature is None:
+            signature = _get_default_signature()
+
     if mlflow_model is None:
         mlflow_model = Model()
     if signature is not None:
         mlflow_model.signature = signature
-    else:
-        mlflow_model.signature = _get_default_signature()
     if input_example is not None:
         _save_example(mlflow_model, input_example, str(path))
     if metadata is not None:

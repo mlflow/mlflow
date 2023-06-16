@@ -17,12 +17,14 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models.utils import _read_example
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
@@ -515,3 +517,26 @@ def test_model_log_with_metadata(lgb_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(lgb_model):
+    artifact_path = "model"
+    X = lgb_model.inference_dataframe
+    example = X.head(3)
+
+    with mlflow.start_run():
+        mlflow.lightgbm.log_model(
+            lgb_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
+    )

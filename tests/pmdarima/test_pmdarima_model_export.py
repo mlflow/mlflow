@@ -12,12 +12,14 @@ import yaml
 import mlflow.pmdarima
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
-from mlflow.models import infer_signature, Model
+from mlflow.models import infer_signature, Model, ModelSignature
 from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.prophet.test_prophet_model_export import DataGeneration
@@ -111,17 +113,17 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_examples_saved_correctly(
-    auto_arima_model, test_data, model_path, use_signature, use_example
+    auto_arima_model, model_path, use_signature, use_example
 ):
-    # NB: Signature inference will only work on the first element of the tuple return
-    prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
-    signature = infer_signature(test_data, prediction[0]) if use_signature else None
-    example = test_data[0:5].copy(deep=False) if use_example else None
+    predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
+    # We omit the output because it would require predicting with the pyfunc wrapped model
+    dummy_signature = infer_signature(predict_conf) if use_signature else None
+    example = predict_conf.copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
-        auto_arima_model, path=model_path, signature=signature, input_example=example
+        auto_arima_model, path=model_path, signature=dummy_signature, input_example=example
     )
     mlflow_model = Model.load(model_path)
-    assert signature == mlflow_model.signature
+    assert dummy_signature == mlflow_model.signature
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
@@ -132,7 +134,7 @@ def test_pmdarima_signature_and_examples_saved_correctly(
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_example_for_confidence_interval_mode(
-    auto_arima_model, model_path, test_data, use_signature, use_example
+    auto_arima_model, model_path, use_signature, use_example
 ):
     model_path_primary = model_path.joinpath("primary")
     model_path_secondary = model_path.joinpath("secondary")
@@ -140,8 +142,8 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-    signature = infer_signature(test_data[["orders"]], forecast) if use_signature else None
-    example = test_data[0:10].copy(deep=False) if use_example else None
+    signature = infer_signature(predict_conf, forecast) if use_signature else None
+    example = predict_conf.copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
     )
@@ -441,3 +443,32 @@ def test_model_log_with_metadata(auto_arima_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(auto_arima_model):
+    artifact_path = "model"
+    example = pd.DataFrame({"n_periods": 60, "return_conf_int": True, "alpha": 0.1}, index=[0])
+
+    with mlflow.start_run():
+        mlflow.pmdarima.log_model(
+            auto_arima_model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="n_periods", type=DataType.long),
+                ColSpec(name="return_conf_int", type=DataType.boolean),
+                ColSpec(name="alpha", type=DataType.double),
+            ]
+        ),
+        outputs=Schema(
+            [
+                ColSpec(name="yhat", type=DataType.double),
+                ColSpec(name="yhat_lower", type=DataType.double),
+                ColSpec(name="yhat_upper", type=DataType.double),
+            ]
+        ),
+    )

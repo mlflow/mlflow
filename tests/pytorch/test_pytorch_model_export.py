@@ -21,7 +21,7 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.pytorch import get_default_conda_env
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
@@ -1212,3 +1213,21 @@ def test_model_log_with_metadata(sequential_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_log_with_signature_inference(sequential_model, data):
+    artifact_path = "model"
+    example_ = data[0].head(3).values.astype(np.float32)
+
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            sequential_model, artifact_path=artifact_path, input_example=example_
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )

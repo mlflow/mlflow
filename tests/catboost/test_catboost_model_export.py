@@ -17,12 +17,14 @@ import mlflow.catboost
 from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models.utils import _read_example
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature, infer_signature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -483,3 +485,26 @@ def test_model_log_with_metadata(cb_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(cb_model):
+    artifact_path = "model"
+    example = cb_model.inference_dataframe.head(3)
+
+    with mlflow.start_run():
+        mlflow.catboost.log_model(cb_model.model, artifact_path=artifact_path, input_example=example)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature.inputs == Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        )
+    assert model_info.signature.outputs in [
+        # when the model output is a 1D numpy array, it is cast into a `ColSpec`
+        Schema([ColSpec(type=DataType.double)]),
+        # when the model output is a higher dimensional numpy array, it remains a `TensorSpec`
+        Schema([TensorSpec(np.dtype("int64"), (-1,1))])
+    ]

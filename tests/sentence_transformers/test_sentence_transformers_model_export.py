@@ -413,3 +413,16 @@ def test_signature_and_examples_are_saved_correctly(example, signature, basic_mo
         assert mlflow_model.saved_input_example_info is None
     else:
         assert all((_read_example(mlflow_model, model_path) == example).all())
+
+
+def test_model_log_with_signature_inference(basic_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sentence_transformers.log_model(
+            basic_model, artifact_path=artifact_path, input_example=SENTENCES
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == SIGNATURE
