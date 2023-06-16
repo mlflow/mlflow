@@ -145,11 +145,11 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master /tmp/lgbm
-      cd /tmp/lgbm/LightGBM
+      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master /tmp/LightGBM
+      cd /tmp/LightGBM
       bash build-python.sh install
       cd ~
-      rm -rf /tmp/lgbm
+      rm -rf /tmp/LightGBM
 
   models:
     minimum: "2.3.1"
