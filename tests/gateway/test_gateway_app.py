@@ -1,42 +1,42 @@
-from mlflow.gateway.app import create_app
 from fastapi.testclient import TestClient
-import yaml
+
+from mlflow.gateway.app import create_app_from_config
+from mlflow.gateway.config import GatewayConfig
 
 
-def test_create_app(tmp_path):
-    config = tmp_path.joinpath("config.yml")
-    conf = {
-        "routes": [
-            {
-                "name": "completions-gpt4",
-                "type": "llm/v1/completions",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "mykey",
-                        "openai_api_base": "https://api.openai.com/v1",
-                        "openai_api_version": "2023-05-10",
-                        "openai_api_type": "openai/v1/chat/completions",
+def test_create_app():
+    config = GatewayConfig(
+        **{
+            "routes": [
+                {
+                    "name": "completions-gpt4",
+                    "type": "llm/v1/completions",
+                    "model": {
+                        "name": "gpt-4",
+                        "provider": "openai",
+                        "config": {
+                            "openai_api_key": "mykey",
+                            "openai_api_base": "https://api.openai.com/v1",
+                            "openai_api_version": "2023-05-10",
+                            "openai_api_type": "openai/v1/chat/completions",
+                        },
                     },
                 },
-            },
-            {
-                "name": "chat-gpt4",
-                "type": "llm/v1/chat",
-                "model": {
-                    "name": "gpt-4",
-                    "provider": "openai",
-                    "config": {
-                        "openai_api_key": "MY_API_KEY",
+                {
+                    "name": "chat-gpt4",
+                    "type": "llm/v1/chat",
+                    "model": {
+                        "name": "gpt-4",
+                        "provider": "openai",
+                        "config": {
+                            "openai_api_key": "MY_API_KEY",
+                        },
                     },
                 },
-            },
-        ]
-    }
-    config.write_text(yaml.safe_dump(conf))
-
-    app = create_app(config)
+            ]
+        }
+    )
+    app = create_app_from_config(config)
 
     client = TestClient(app)
 

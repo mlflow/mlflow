@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import logging
 import os
-from typing import List, Any
+from typing import List, Any, Optional
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
@@ -11,11 +11,11 @@ from mlflow.gateway.config import (
     Route,
     RouteConfig,
     RouteType,
+    GatewayConfig,
     _load_route_config,
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
-from .providers import get_provider
-from .schemas import chat, completions, embeddings
+from mlflow.gateway.providers import get_provider
 
 _logger = logging.getLogger(__name__)
 
@@ -23,19 +23,11 @@ MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
 
 class GatewayApp(FastAPI):
-    config: RouteConfig
-    dynamic_routes: List[Route]
-
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        config_path = os.getenv(MLFLOW_GATEWAY_CONFIG)
-        if config_path is None:
-            raise MlflowException(
-                f"Environment variable {MLFLOW_GATEWAY_CONFIG} is not set. "
-                "Please set it to the path of the gateway configuration file."
-            )
-        self.config = _load_route_config(config_path)
-        self.dynamic_routes = []
+        self.config = config
+        self.dynamic_routes: List[Route] = []
+        self.add_dynamic_routes()
 
     def add_dynamic_routes(self):
         for route in self.config.routes:
@@ -45,6 +37,9 @@ class GatewayApp(FastAPI):
                 methods=["POST"],
             )
             self.dynamic_routes.append(route.to_route())
+
+    def find_dynamic_route(self, route_name: str) -> Optional[Route]:
+        return next((r for r in self.dynamic_routes if r.name == route_name), None)
 
 
 def _create_chat_endpoint(config: RouteConfig):
@@ -95,11 +90,12 @@ def _route_type_to_endpoint(config: RouteConfig):
     )
 
 
-def create_app():
+def create_app_from_config(config: GatewayConfig) -> GatewayApp:
     """
     Creates an MLflow Gateway API app.
     """
     app = GatewayApp(
+        config=config,
         title="MLflow Gateway API",
         description="The core gateway API for reverse proxy interface using remote inference "
         "endpoints within MLflow",
@@ -116,14 +112,14 @@ def create_app():
 
     @app.get("/gateway/routes/{route_name}")
     async def get_route(route_name: str):
-        filtered = next((x for x in app.dynamic_routes if x.name == route_name), None)
-        if not filtered:
-            raise HTTPException(
-                status_code=404,
-                detail=f"The route '{route_name}' is not present or active on the server. Please "
-                "verify the route name.",
-            )
-        return {"route": filtered}
+        if matched := app.find_dynamic_route(route_name):
+            return {"route": matched}
+
+        raise HTTPException(
+            status_code=404,
+            detail=f"The route '{route_name}' is not present or active on the server. Please "
+            "verify the route name.",
+        )
 
     @app.get("/gateway/routes/")
     async def search_routes():
@@ -131,6 +127,15 @@ def create_app():
 
         return {"routes": app.dynamic_routes}
 
-    app.add_dynamic_routes()
-
     return app
+
+
+def create_app() -> GatewayApp:
+    config_path = os.getenv(MLFLOW_GATEWAY_CONFIG)
+    if config_path is None:
+        raise MlflowException(
+            f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
+            "Please set it to the path of the gateway configuration file."
+        )
+    config = _load_route_config(config_path)
+    return create_app_from_config(config)
