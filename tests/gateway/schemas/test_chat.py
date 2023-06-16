@@ -18,6 +18,14 @@ def test_chat_request():
     )
 
     with pytest.raises(pydantic.ValidationError, match="at least 1 items"):
+        chat.RequestPayload(
+            **{
+                "messages": [{"role": "user", "content": "content"}],
+                "stop": [],
+            }
+        )
+
+    with pytest.raises(pydantic.ValidationError, match="at least 1 items"):
         chat.RequestPayload(**{"messages": []})
 
     with pytest.raises(pydantic.ValidationError, match="field required"):
