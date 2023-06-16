@@ -91,9 +91,6 @@ def _route_type_to_endpoint(config: RouteConfig):
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayApp:
-    """
-    Creates an MLflow Gateway API app.
-    """
     app = GatewayApp(
         config=config,
         title="MLflow Gateway API",
