@@ -1,4 +1,3 @@
-import os
 import sys
 from unittest import mock
 import pytest
@@ -217,10 +216,11 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         databricks_utils.get_databricks_host_creds()
 
 
-def test_is_in_databricks_runtime():
-    with mock.patch.dict(os.environ, {"DATABRICKS_RUNTIME_VERSION": "11.x"}):
-        assert databricks_utils.is_in_databricks_runtime()
+def test_is_in_databricks_runtime(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "11.x")
+    assert databricks_utils.is_in_databricks_runtime()
 
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
     assert not databricks_utils.is_in_databricks_runtime()
 
 
@@ -252,7 +252,7 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId2"
 
 
-def test_use_repl_context_if_available(tmpdir, monkeypatch):
+def test_use_repl_context_if_available(tmp_path, monkeypatch):
     # Simulate a case where `dbruntime.databricks_repl_context.get_context` is unavailable.
     with pytest.raises(ModuleNotFoundError, match="No module named 'dbruntime'"):
         from dbruntime.databricks_repl_context import get_context  # pylint: disable=unused-import
@@ -269,13 +269,15 @@ def test_use_repl_context_if_available(tmpdir, monkeypatch):
         mock_get_command_context.assert_called_once()
 
     # Create a fake databricks_repl_context module
-    tmpdir.mkdir("dbruntime").join("databricks_repl_context.py").write(
+    dbruntime = tmp_path.joinpath("dbruntime")
+    dbruntime.mkdir()
+    dbruntime.joinpath("databricks_repl_context.py").write_text(
         """
 def get_context():
     pass
 """
     )
-    monkeypatch.syspath_prepend(tmpdir.strpath)
+    monkeypatch.syspath_prepend(str(tmp_path))
 
     # Simulate a case where the REPL context object is not initialized.
     with mock.patch(

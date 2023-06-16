@@ -71,7 +71,7 @@ def test_join_continued_lines():
     assert list(_join_continued_lines(["\\", "a"])) == ["a"]
 
 
-def test_parse_requirements(request, tmpdir):
+def test_parse_requirements(request, tmp_path, monkeypatch):
     """
     Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
     """
@@ -122,69 +122,66 @@ line-cont-blank\
 line-cont-eof\
 """.strip()
 
-    try:
-        os.chdir(tmpdir)
-        root_req = tmpdir.join("requirements.txt")
-        # Requirements files
-        rel_req = tmpdir.join("relative_req.txt")
-        abs_req = tmpdir.join("absolute_req.txt")
-        # Constraints files
-        rel_con = tmpdir.join("relative_con.txt")
-        abs_con = tmpdir.join("absolute_con.txt")
+    monkeypatch.chdir(tmp_path)
+    root_req = tmp_path.joinpath("requirements.txt")
+    # Requirements files
+    rel_req = tmp_path.joinpath("relative_req.txt")
+    abs_req = tmp_path.joinpath("absolute_req.txt")
+    # Constraints files
+    rel_con = tmp_path.joinpath("relative_con.txt")
+    abs_con = tmp_path.joinpath("absolute_con.txt")
 
-        # pip's requirements parser collapses an absolute requirements file path:
-        # https://github.com/pypa/pip/issues/10121
-        # As a workaround, use a relative path on Windows.
-        absolute_req = abs_req.basename if os.name == "nt" else abs_req.strpath
-        absolute_con = abs_con.basename if os.name == "nt" else abs_con.strpath
-        root_req.write(
-            root_req_src.format(
-                relative_req=rel_req.basename,
-                absolute_req=absolute_req,
-                relative_con=rel_con.basename,
-                absolute_con=absolute_con,
-            )
+    # pip's requirements parser collapses an absolute requirements file path:
+    # https://github.com/pypa/pip/issues/10121
+    # As a workaround, use a relative path on Windows.
+    absolute_req = abs_req.name if os.name == "nt" else str(abs_req)
+    absolute_con = abs_con.name if os.name == "nt" else str(abs_con)
+    root_req.write_text(
+        root_req_src.format(
+            relative_req=rel_req.name,
+            absolute_req=absolute_req,
+            relative_con=rel_con.name,
+            absolute_con=absolute_con,
         )
-        rel_req.write("rel-req-xxx\nrel-req-yyy")
-        abs_req.write("abs-req-zzz")
-        rel_con.write("rel-con-xxx\nrel-con-yyy")
-        abs_con.write("abs-con-zzz")
+    )
+    rel_req.write_text("rel-req-xxx\nrel-req-yyy")
+    abs_req.write_text("abs-req-zzz")
+    rel_con.write_text("rel-con-xxx\nrel-con-yyy")
+    abs_con.write_text("abs-con-zzz")
 
-        expected_cons = [
-            "rel-con-xxx",
-            "rel-con-yyy",
-            "abs-con-zzz",
-        ]
+    expected_cons = [
+        "rel-con-xxx",
+        "rel-con-yyy",
+        "abs-con-zzz",
+    ]
 
-        expected_reqs = [
-            "noverspec",
-            "no-ver-spec",
-            "verspec<1.0",
-            "ver-spec == 2.0",
-            'env-marker; python_version < "3.8"',
-            "inline-comm",
-            "inlinecomm",
-            "git+https://github.com/git/uri",
-            "git+https://github.com/sub/dir#subdirectory=subdir",
-            "rel-req-xxx",
-            "rel-req-yyy",
-            "abs-req-zzz",
-            "line-cont==1.0",
-            "line-cont-space == 1.0",
-            "line-cont-blank",
-            "line-cont-eof",
-        ]
+    expected_reqs = [
+        "noverspec",
+        "no-ver-spec",
+        "verspec<1.0",
+        "ver-spec == 2.0",
+        'env-marker; python_version < "3.8"',
+        "inline-comm",
+        "inlinecomm",
+        "git+https://github.com/git/uri",
+        "git+https://github.com/sub/dir#subdirectory=subdir",
+        "rel-req-xxx",
+        "rel-req-yyy",
+        "abs-req-zzz",
+        "line-cont==1.0",
+        "line-cont-space == 1.0",
+        "line-cont-blank",
+        "line-cont-eof",
+    ]
 
-        parsed_reqs = list(_parse_requirements(root_req.basename, is_constraint=False))
-        pip_reqs = list(pip_parse_requirements(root_req.basename, session=PipSession()))
-        # Requirements
-        assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
-        assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
-        # Constraints
-        assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
-        assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
-    finally:
-        os.chdir(request.config.invocation_dir)
+    parsed_reqs = list(_parse_requirements(root_req.name, is_constraint=False))
+    pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
+    # Requirements
+    assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
+    assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
+    # Constraints
+    assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
+    assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
 
 
 def test_normalize_package_name():
@@ -225,7 +222,7 @@ def test_strip_local_version_label():
     assert _strip_local_version_label("invalid") == "invalid"
 
 
-def test_get_installed_version(tmpdir, monkeypatch):
+def test_get_installed_version(tmp_path, monkeypatch):
     import numpy as np
     import pandas as pd
     import sklearn
@@ -235,31 +232,31 @@ def test_get_installed_version(tmpdir, monkeypatch):
     assert _get_installed_version("pandas") == pd.__version__
     assert _get_installed_version("scikit-learn", module="sklearn") == sklearn.__version__
 
-    not_found_package = tmpdir.join("not_found.py")
-    not_found_package.write("__version__ = '1.2.3'")
-    monkeypatch.syspath_prepend(tmpdir.strpath)
+    not_found_package = tmp_path.joinpath("not_found.py")
+    not_found_package.write_text("__version__ = '1.2.3'")
+    monkeypatch.syspath_prepend(str(tmp_path))
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_installed_version("not_found") == "1.2.3"
 
 
-def test_get_pinned_requirement(tmpdir, monkeypatch):
+def test_get_pinned_requirement(tmp_path, monkeypatch):
     assert _get_pinned_requirement("mlflow") == f"mlflow=={mlflow.__version__}"
     assert _get_pinned_requirement("mlflow", version="1.2.3") == "mlflow==1.2.3"
 
-    not_found_package = tmpdir.join("not_found.py")
-    not_found_package.write("__version__ = '1.2.3'")
-    monkeypatch.syspath_prepend(tmpdir.strpath)
+    not_found_package = tmp_path.joinpath("not_found.py")
+    not_found_package.write_text("__version__ = '1.2.3'")
+    monkeypatch.syspath_prepend(str(tmp_path))
     with pytest.raises(importlib_metadata.PackageNotFoundError, match=r".+"):
         importlib_metadata.version("not_found")
     assert _get_pinned_requirement("not_found") == "not_found==1.2.3"
 
 
-def test_get_pinned_requirement_local_version_label(tmpdir, monkeypatch):
-    package = tmpdir.join("my_package.py")
+def test_get_pinned_requirement_local_version_label(tmp_path, monkeypatch):
+    package = tmp_path.joinpath("my_package.py")
     lvl = "abc.def.ghi"  # Local version label
-    package.write(f"__version__ = '1.2.3+{lvl}'")
-    monkeypatch.syspath_prepend(tmpdir.strpath)
+    package.write_text(f"__version__ = '1.2.3+{lvl}'")
+    monkeypatch.syspath_prepend(str(tmp_path))
 
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         req = _get_pinned_requirement("my_package")
@@ -315,13 +312,13 @@ def test_infer_requirements_does_not_print_warning_for_recognized_packages():
         mock_warning.assert_not_called()
 
 
-def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmpdir):
+def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
-    monkeypatch.chdir(tmpdir)
-    monkeypatch.syspath_prepend(str(tmpdir))
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.syspath_prepend(str(tmp_path))
 
-    databricks_dir = os.path.join(tmpdir, "databricks")
+    databricks_dir = os.path.join(tmp_path, "databricks")
     os.makedirs(databricks_dir)
     for file_name in [
         "__init__.py",

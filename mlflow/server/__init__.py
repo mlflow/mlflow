@@ -17,6 +17,7 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     get_model_version_artifact_handler,
+    search_datasets_handler,
 )
 from mlflow.utils.process import _exec_cmd
 from mlflow.utils.os import is_windows
@@ -80,6 +81,12 @@ def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
 
+# Serve the "experiments/search-datasets" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+def serve_search_datasets():
+    return search_datasets_handler()
+
+
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
@@ -139,6 +146,14 @@ def _is_factory(app: str) -> bool:
 
 
 def get_app_client(app_name: str, *args, **kwargs):
+    """
+    Instantiate a client provided by an app.
+
+    :param app_name: The app name defined in `setup.py`, e.g., "basic-auth".
+    :param args: Additional arguments passed to the app client constructor.
+    :param kwargs: Additional keyword arguments passed to the app client constructor.
+    :return: An app client instance.
+    """
     clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
     for client in clients:
         if client.name == app_name:

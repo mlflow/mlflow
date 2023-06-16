@@ -81,7 +81,9 @@ def test_uc_models_artifact_repo_with_stage_uri_raises(
 ):
     model_uri = "models:/MyModel/Staging"
     with pytest.raises(
-        MlflowException, match="staged-based model URIs are unsupported for models in UC"
+        MlflowException,
+        match="If seeing this error while attempting to load a model version by stage, note that "
+        "setting stages and loading model versions by stage is unsupported in Unity Catalog",
     ):
         UnityCatalogModelsArtifactRepository(
             artifact_uri=model_uri, registry_uri=_DATABRICKS_UNITY_CATALOG_SCHEME

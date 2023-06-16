@@ -59,10 +59,13 @@ def gluon_custom_env(tmp_path):
 
 @pytest.fixture(scope="module")
 def model_data():
-    mnist = mx.test_utils.get_mnist()
-    train_data = array_module.array(mnist["train_data"].reshape(-1, 784))
-    train_label = array_module.array(mnist["train_label"])
-    test_data = array_module.array(mnist["test_data"].reshape(-1, 784))
+    N = 1_000
+    shape = (N, 1, 28, 28)
+    labels = np.random.randint(0, 10, size=N)
+    train_data = np.random.random(shape)
+    train_data = array_module.array(train_data.reshape(-1, 784))
+    train_label = array_module.array(labels)
+    test_data = array_module.array(train_data.reshape(-1, 784))
     return train_data, train_label, test_data
 
 

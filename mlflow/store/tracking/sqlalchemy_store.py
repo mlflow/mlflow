@@ -13,7 +13,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, sql, text
 from sqlalchemy.future import select
 
-from mlflow.entities import RunTag, Metric, DatasetInput
+from mlflow.entities import RunTag, Metric, DatasetInput, _DatasetSummary
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.db.db_types import MYSQL, MSSQL
@@ -967,6 +967,50 @@ class SqlAlchemyStore(AbstractStore):
                     metric=metric.to_mlflow_entity(),
                 )
                 for metric in metrics
+            ]
+
+    def _search_datasets(self, experiment_ids):
+        """
+        Return all dataset summaries associated to the given experiments.
+
+        :param experiment_ids List of experiment ids to scope the search
+
+        :return A List of :py:class:`SqlAlchemyStore.DatasetSummary` entities.
+        """
+
+        MAX_DATASET_SUMMARIES_RESULTS = 1000
+        with self.ManagedSessionMaker() as session:
+            # Note that the join with the input tag table is a left join. This is required so if an
+            # input does not have the MLFLOW_DATASET_CONTEXT tag, we still return that entry as part
+            # of the final result with the context set to None.
+            summaries = (
+                session.query(
+                    SqlDataset.experiment_id, SqlDataset.name, SqlDataset.digest, SqlInputTag.value
+                )
+                .select_from(SqlDataset)
+                .distinct()
+                .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                .join(
+                    SqlInputTag,
+                    and_(
+                        SqlInput.input_uuid == SqlInputTag.input_uuid,
+                        SqlInputTag.name == MLFLOW_DATASET_CONTEXT,
+                    ),
+                    isouter=True,
+                )
+                .filter(SqlDataset.experiment_id.in_(experiment_ids))
+                .limit(MAX_DATASET_SUMMARIES_RESULTS)
+                .all()
+            )
+
+            return [
+                _DatasetSummary(
+                    experiment_id=str(summary.experiment_id),
+                    name=summary.name,
+                    digest=summary.digest,
+                    context=summary.value,
+                )
+                for summary in summaries
             ]
 
     def log_param(self, run_id, param):

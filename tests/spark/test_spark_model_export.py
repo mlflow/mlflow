@@ -18,6 +18,7 @@ import yaml
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities.model_registry import ModelVersion
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 import mlflow.utils.file_utils
@@ -36,6 +37,12 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec
+
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
+    UnityCatalogModelsArtifactRepository,
+)
+from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -374,6 +381,50 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
     finally:
         mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)
+
+
+@pytest.mark.parametrize(
+    "registry_uri,artifact_repo_class",
+    [
+        ("databricks-uc", UnityCatalogModelsArtifactRepository),
+        ("databricks", DatabricksModelsArtifactRepository),
+    ],
+)
+def test_load_spark_model_from_models_uri(
+    tmp_path, spark_model_estimator, registry_uri, artifact_repo_class
+):
+    model_dir = str(tmp_path.joinpath("spark_model"))
+    model_name = "mycatalog.myschema.mymodel"
+    fake_model_version = ModelVersion(name=model_name, version=str(3), creation_timestamp=0)
+
+    with mock.patch(
+        f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri"
+    ) as mock_get_underlying_uri, mock.patch.object(
+        artifact_repo_class, "download_artifacts", return_value=model_dir
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.get_registry_uri", return_value=registry_uri
+    ), mock.patch.object(
+        mlflow.tracking.MlflowClient, "get_model_version_by_alias", return_value=fake_model_version
+    ) as get_model_version_by_alias_mock:
+        sparkm.save_model(
+            path=model_dir,
+            spark_model=spark_model_estimator.model,
+        )
+        mock_get_underlying_uri.return_value = "nonexistentscheme://fakeuri"
+        mlflow.spark.load_model(f"models:/{model_name}/1")
+        # Assert that we downloaded both the MLmodel file and the whole model itself using
+        # the models:/ URI
+        assert mock_download_artifacts.mock_calls == [
+            mock.call("MLmodel", None),
+            mock.call("", None),
+        ]
+        mock_download_artifacts.reset_mock()
+        mlflow.spark.load_model(f"models:/{model_name}@Champion")
+        assert mock_download_artifacts.mock_calls == [
+            mock.call("MLmodel", None),
+            mock.call("", None),
+        ]
+        assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])

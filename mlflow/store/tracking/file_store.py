@@ -8,6 +8,7 @@ import shutil
 
 import uuid
 from typing import List, Dict, NamedTuple, Optional
+from dataclasses import dataclass
 
 from mlflow.entities import (
     Experiment,
@@ -25,6 +26,7 @@ from mlflow.entities import (
     DatasetInput,
     InputTag,
     RunInputs,
+    _DatasetSummary,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
@@ -87,7 +89,12 @@ from mlflow.utils.uri import (
     append_to_uri_path,
     resolve_uri_if_local,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_LOGGED_MODELS, MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+    MLFLOW_LOGGED_MODELS,
+    MLFLOW_RUN_NAME,
+    _get_run_name_from_tags,
+)
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -1207,6 +1214,70 @@ class FileStore(AbstractStore):
             dataset_inputs.append(dataset_input)
 
         return RunInputs(dataset_inputs=dataset_inputs)
+
+    def _search_datasets(self, experiment_ids) -> List[_DatasetSummary]:
+        """
+        Return all dataset summaries associated to the given experiments.
+
+        :param experiment_ids List of experiment ids to scope the search
+
+        :return A List of :py:class:`mlflow.entities.DatasetSummary` entities.
+        """
+
+        @dataclass(frozen=True)
+        class _SummaryTuple:
+            experiment_id: str
+            name: str
+            digest: str
+            context: str
+
+        MAX_DATASET_SUMMARIES_RESULTS = 1000
+        summaries = set()
+        for experiment_id in experiment_ids:
+            experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+            run_dirs = list_all(
+                experiment_dir,
+                filter_func=lambda x: all(
+                    os.path.basename(os.path.normpath(x)) != reservedFolderName
+                    for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+                )
+                and os.path.isdir(x),
+                full_path=True,
+            )
+            for run_dir in run_dirs:
+                run_info = self._get_run_info_from_dir(run_dir)
+                run_inputs = self._get_all_inputs(run_info)
+                for dataset_input in run_inputs.dataset_inputs:
+                    context = None
+                    for input_tag in dataset_input.tags:
+                        if input_tag.key == MLFLOW_DATASET_CONTEXT:
+                            context = input_tag.value
+                            break
+                    dataset = dataset_input.dataset
+                    summaries.add(
+                        _SummaryTuple(experiment_id, dataset.name, dataset.digest, context)
+                    )
+                    # If we reached MAX_DATASET_SUMMARIES_RESULTS entries, then return right away.
+                    if len(summaries) == MAX_DATASET_SUMMARIES_RESULTS:
+                        return [
+                            _DatasetSummary(
+                                experiment_id=summary.experiment_id,
+                                name=summary.name,
+                                digest=summary.digest,
+                                context=summary.context,
+                            )
+                            for summary in summaries
+                        ]
+
+        return [
+            _DatasetSummary(
+                experiment_id=summary.experiment_id,
+                name=summary.name,
+                digest=summary.digest,
+                context=summary.context,
+            )
+            for summary in summaries
+        ]
 
     @staticmethod
     def _get_dataset_from_dir(parent_path, dataset_dir) -> Dataset:
