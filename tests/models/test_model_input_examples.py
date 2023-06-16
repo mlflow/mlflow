@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from sklearn.base import BaseEstimator, ClassifierMixin
 from scipy.sparse import csr_matrix, csc_matrix
+from unittest import mock
 
 import mlflow
 from mlflow.models.model import get_model_info
@@ -19,6 +20,8 @@ from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
+
+from tests.helper_functions import AnyStringWith
 
 
 @pytest.fixture
@@ -296,5 +299,8 @@ def test_infer_signature_silently_fails():
         def predict(self, X):
             raise Exception("oh no!")
 
-    with mlflow.start_run():
+    with mlflow.start_run(), mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         mlflow.sklearn.log_model(ErrorModel(), artifact_path="model", input_example=np.array([[1]]))
+        mock_warning.assert_called_once_with(
+            AnyStringWith("Inferring the model signature from the input example has failed.")
+        )
