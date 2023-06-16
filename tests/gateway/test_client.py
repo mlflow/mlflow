@@ -105,7 +105,8 @@ def test_databricks_base_route_modification(uri, base_start):
         assert client._route_base.startswith(base_start)
 
 
-def test_non_running_server_raises_when_called():
+def test_non_running_server_raises_when_called(monkeypatch):
+    monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
     set_gateway_uri("http://invalid.server:6000")
     client = MlflowGatewayClient()
     with pytest.raises(
