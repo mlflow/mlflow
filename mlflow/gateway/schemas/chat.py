@@ -13,7 +13,7 @@ class Message(BaseModel):
 
 class BaseRequestPayload(BaseModel, extra=Extra.allow):
     temperature: float = Field(0.0, ge=0, le=1)
-    stop: List[str] = Field([])
+    stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=0)
     candidate_count: Optional[int] = Field(None, ge=1, le=5)
 
