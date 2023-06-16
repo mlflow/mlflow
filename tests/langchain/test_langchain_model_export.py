@@ -7,18 +7,21 @@ import importlib
 
 import openai
 from contextlib import contextmanager
-from langchain.chains import ConversationChain, LLMChain
+from langchain.chains import ConversationChain, LLMChain, RetrievalQA
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.vectorstores import FAISS
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
+from mlflow.langchain import LOADER_FN_KEY, PERSIST_DIR_KEY
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_request,
@@ -300,6 +303,34 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
 
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert model == loaded_model
+
+
+def load_retriever(persist_directory):
+    embeddings = OpenAIEmbeddings()
+    vectorstore = FAISS.load_local(persist_directory, embeddings)
+    return vectorstore.as_retriever()
+
+
+def test_log_and_load_retrieval_qa_chain():
+    # Load the vectorstore from persist_dir
+    persist_dir = "tests/langchain/faiss_index"
+    embeddings = OpenAIEmbeddings()
+    db = FAISS.load_local(persist_dir, embeddings)
+
+    # Create the RetrievalQA chain
+    retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
+
+    # Log the RetrievalQA chain
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            retrievalQA,
+            "retrieval_qa_chain",
+            metadata={LOADER_FN_KEY: load_retriever, PERSIST_DIR_KEY: persist_dir},
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == retrievalQA
 
 
 def test_saving_not_implemented_for_memory():

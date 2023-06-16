@@ -56,6 +56,9 @@ from mlflow.openai.utils import TEST_CONTENT
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
+LOADER_FN_KEY = "_mlflow_loader_fn"
+PERSIST_DIR_KEY = "_mlflow_persist_dir"
+
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
@@ -65,8 +68,6 @@ _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
-_LOADER_FN_KEY = "_mlflow_loader_fn"
-_PERSIST_DIR_KEY = "_mlflow_persist_dir"
 _RETRIEVER_DIR_NAME = "retriever"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports logging subclasses of "
@@ -101,7 +102,7 @@ def get_default_conda_env():
 def get_retriever_pyfunc_model(fn):
     class Retriever(mlflow.pyfunc.PythonModel):
         def load_context(self, context):
-            local_dir = mlflow.artifacts.download_artifacts(context.artifacts[_PERSIST_DIR_KEY])
+            local_dir = mlflow.artifacts.download_artifacts(context.artifacts[PERSIST_DIR_KEY])
             self.retriever = fn(local_dir)
 
         def predict(self, context, model_input):
@@ -357,14 +358,14 @@ def log_model(
         loader_fn = None
         persist_dir = None
         if metadata is not None:
-            if _LOADER_FN_KEY in metadata:
-                loader_fn = metadata.pop(_LOADER_FN_KEY)
-            if _PERSIST_DIR_KEY in metadata:
-                persist_dir = metadata.pop(_PERSIST_DIR_KEY)
+            if LOADER_FN_KEY in metadata:
+                loader_fn = metadata.pop(LOADER_FN_KEY)
+            if PERSIST_DIR_KEY in metadata:
+                persist_dir = metadata.pop(PERSIST_DIR_KEY)
         mlflow.pyfunc.log_model(
             python_model=get_retriever_pyfunc_model(loader_fn),
             artifact_path=artifact_path + "/" + _RETRIEVER_DIR_NAME,
-            artifacts={_PERSIST_DIR_KEY: persist_dir},
+            artifacts={PERSIST_DIR_KEY: persist_dir},
         )
 
     return Model.log(
