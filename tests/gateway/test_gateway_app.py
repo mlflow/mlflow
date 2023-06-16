@@ -1,6 +1,8 @@
 from fastapi.testclient import TestClient
+import pytest
 
-from mlflow.gateway.app import create_app_from_config
+from mlflow.exceptions import MlflowException
+from mlflow.gateway.app import create_app_from_config, create_app
 from mlflow.gateway.config import GatewayConfig
 
 
@@ -79,3 +81,9 @@ def test_create_app():
             },
         }
     }
+
+
+def test_create_app_fails_if_MLFLOW_GATEWAY_CONFIG_is_not_set(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_CONFIG", raising=False)
+    with pytest.raises(MlflowException, match="'MLFLOW_GATEWAY_CONFIG' is not set"):
+        create_app()
