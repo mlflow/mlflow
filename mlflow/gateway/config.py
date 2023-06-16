@@ -205,7 +205,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
 
 class Route(BaseModel, extra=Extra.forbid):
     name: str
-    type: RouteType
+    route_type: RouteType
     model: ModelInfo
 
 
