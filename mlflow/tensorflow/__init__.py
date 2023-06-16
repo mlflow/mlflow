@@ -262,17 +262,6 @@ def _get_keras_version(keras_module):
         return keras_module.__version__
 
 
-def _wrap_pyfunc(model, signature):
-    import tensorflow
-    from tensorflow.keras.models import Model as KerasModel
-
-    if isinstance(model, KerasModel):
-        return _KerasModelWrapper(model, signature)
-    elif isinstance(model, tensorflow.Module):
-        return _TF2ModuleWrapper(model, signature)
-    return None
-
-
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
@@ -348,7 +337,11 @@ def save_model(
     from tensorflow.keras.models import Model as KerasModel
 
     if signature is None and input_example is not None:
-        wrapped_model = _wrap_pyfunc(model, None)
+        wrapped_model = None
+        if isinstance(model, KerasModel):
+            wrapped_model = _KerasModelWrapper(model, signature)
+        elif isinstance(model, tensorflow.Module):
+            wrapped_model =  _TF2ModuleWrapper(model, signature)
         if wrapped_model is not None:
             signature = _infer_signature_from_input_example(input_example, wrapped_model)
 
