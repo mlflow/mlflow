@@ -20,7 +20,7 @@ class Provider(str, Enum):
     CUSTOM = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
+    DATABRICKS_SERVING_ENDPOINT = "databricks-model-serving"
     MLFLOW = "mlflow"
 
     @classmethod

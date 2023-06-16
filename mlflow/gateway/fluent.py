@@ -26,6 +26,9 @@ def get_route(name: str) -> Route:
 def create_route(name: str, type: str, model: Dict[str, Any]) -> Route:
     """
     Create a Route
+
+    :param name: The name of the route.
+    :param type: The route type, e.g. llm/v1/completions, llm/v1/embeddings
     """
     return MlflowGatewayClient().create_route(name, type, model)
 
