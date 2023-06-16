@@ -91,6 +91,9 @@ def _route_type_to_endpoint(config: RouteConfig):
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayApp:
+    """
+    Create the GatewayApp from the gateway configuration.
+    """
     app = GatewayApp(
         config=config,
         title="MLflow Gateway API",
@@ -127,7 +130,10 @@ def create_app_from_config(config: GatewayConfig) -> GatewayApp:
     return app
 
 
-def create_app() -> GatewayApp:
+def create_app_from_env() -> GatewayApp:
+    """
+    Load the path from the environment variable and generate the GatewayApp instance
+    """
     if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
         config = _load_route_config(config_path)
         return create_app_from_config(config)

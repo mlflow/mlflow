@@ -67,7 +67,7 @@ class Runner:
                 str(self.workers),
                 "--worker-class",
                 "uvicorn.workers.UvicornWorker",
-                f"{app.__name__}:create_app()",
+                f"{app.__name__}:create_app_from_env()",
             ],
             env={
                 **os.environ,
