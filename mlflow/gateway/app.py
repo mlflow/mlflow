@@ -128,11 +128,11 @@ def create_app_from_config(config: GatewayConfig) -> GatewayApp:
 
 
 def create_app() -> GatewayApp:
-    config_path = os.getenv(MLFLOW_GATEWAY_CONFIG)
-    if config_path is None:
-        raise MlflowException(
-            f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
-            "Please set it to the path of the gateway configuration file."
-        )
-    config = _load_route_config(config_path)
-    return create_app_from_config(config)
+    if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
+        config = _load_route_config(config_path)
+        return create_app_from_config(config)
+
+    raise MlflowException(
+        f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
+        "Please set it to the path of the gateway configuration file."
+    )
