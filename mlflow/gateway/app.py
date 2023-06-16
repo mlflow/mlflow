@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
 
-class GatewayApp(FastAPI):
+class GatewayAPI(FastAPI):
     def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.dynamic_routes: Dict[str, Route] = {}
@@ -90,11 +90,11 @@ def _route_type_to_endpoint(config: RouteConfig):
     )
 
 
-def create_app_from_config(config: GatewayConfig) -> GatewayApp:
+def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
-    Create the GatewayApp from the gateway configuration.
+    Create the GatewayAPI app from the gateway configuration.
     """
-    app = GatewayApp(
+    app = GatewayAPI(
         config=config,
         title="MLflow Gateway API",
         description="The core gateway API for reverse proxy interface using remote inference "
@@ -130,9 +130,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayApp:
     return app
 
 
-def create_app_from_env() -> GatewayApp:
+def create_app_from_env() -> GatewayAPI:
     """
-    Load the path from the environment variable and generate the GatewayApp instance
+    Load the path from the environment variable and generate the GatewayAPI app instance.
     """
     if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
         config = _load_route_config(config_path)
