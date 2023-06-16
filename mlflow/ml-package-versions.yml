@@ -148,6 +148,8 @@ lightgbm:
       git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master
       cd LightGBM
       bash build-python.sh install
+      cd ..
+      rm -rf LightGBM
 
   models:
     minimum: "2.3.1"
