@@ -129,25 +129,8 @@ def save_model(
                        path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param model_format: File format in which the model is to be saved.
@@ -163,6 +146,10 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None and input_example is not None:
+        wrapped_model = _XGBModelWrapper(xgb_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -259,34 +246,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-
-                      The model signature can also be automatically inferred from the supplied
-                      ``input_example``. To use this feature, simply leave the ``signature`` param
-                      empty and specify an ``input_example``. To disable automatic signature
-                      inference when specifying an input example, set ``signature`` to ``False``.
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
-
-                          When the ``signature`` param is empty, the input example will also be used
-                          to automatically infer a model signature for the logged model.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -349,18 +310,6 @@ def _load_pyfunc(path):
     :param path: Local filesystem path to the MLflow Model with the ``xgboost`` flavor.
     """
     return _XGBModelWrapper(_load_model(path))
-
-
-def _infer_signature(xgb_model, input_example, **kwargs):
-    """
-    Infers the model signature using the provided model and input example. Invoked with the keyword
-    arguments of the ``xgboost.save_model``. Called by ``xgboost.log_model``.
-
-    :param xgb_model: the xgboost model to be logged.
-    :param input_example: the input example utilized to infer the model signature.
-    """
-    wrapped_model = _XGBModelWrapper(xgb_model)
-    return _infer_signature_from_input_example(input_example, wrapped_model)
 
 
 def load_model(model_uri, dst_path=None):

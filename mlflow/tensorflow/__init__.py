@@ -188,34 +188,8 @@ def log_model(
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-
-                      The model signature can also be automatically inferred from the supplied
-                      ``input_example``. To use this feature, simply leave the ``signature`` param
-                      empty and specify an ``input_example``. To disable automatic signature
-                      inference when specifying an input example, set ``signature`` to ``False``.
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-
-                          When the ``signature`` param is empty, the input example will also be used
-                          to automatically infer a model signature for the logged model.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -288,6 +262,18 @@ def _get_keras_version(keras_module):
         return keras_module.__version__
 
 
+def _wrap_pyfunc(model, signature):
+    import tensorflow
+    from tensorflow.keras.models import Model as KerasModel
+
+    if isinstance(model, KerasModel):
+        return _KerasModelWrapper(model, signature)
+    elif isinstance(model, tensorflow.Module):
+        return _TF2ModuleWrapper(model, signature)
+    return None
+
+
+@format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
     model,
     path,
@@ -345,26 +331,8 @@ def save_model(
                            these custom layers using CloudPickle and restores them automatically
                            when the model is loaded with :py:func:`mlflow.tensorflow.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param saved_model_kwargs: a dict of kwargs to pass to ``tensorflow.saved_model.save`` method
@@ -379,7 +347,12 @@ def save_model(
     import tensorflow
     from tensorflow.keras.models import Model as KerasModel
 
-    if signature is None:
+    if signature is None and input_example is not None:
+        wrapped_model = _wrap_pyfunc(model, None)
+        if wrapped_model is not None:
+            signature = _infer_signature_from_input_example(input_example, wrapped_model)
+
+    if signature is None or signature is False:
         _logger.warning(_NO_MODEL_SIGNATURE_WARNING)
     else:
         num_inputs = len(signature.inputs.inputs)
@@ -770,30 +743,6 @@ def _load_pyfunc(path):
         return _TF2ModuleWrapper(model=loaded_model, signature=model_meta.signature)
 
     raise MlflowException("Unknown model_type.")
-
-
-def _wrap_pyfunc(model, signature):
-    import tensorflow
-    from tensorflow.keras.models import Model as KerasModel
-
-    if isinstance(model, KerasModel):
-        return _KerasModelWrapper(model, signature)
-    elif isinstance(model, tensorflow.Module):
-        return _TF2ModuleWrapper(model, signature)
-    else:
-        raise MlflowException(f"Unknown model type: {type(model)}")
-
-
-def _infer_signature(model, input_example, **kwargs):
-    """
-    Infers the model signature using the provided model and input example. Invoked with the keyword
-    arguments of the ``tensorflow.save_model``. Called by ``tensorflow.log_model``.
-
-    :param model: the tensorflow model to be logged.
-    :param input_example: the input example utilized to infer the model signature.
-    """
-    wrapped_model = _wrap_pyfunc(model, None)
-    return _infer_signature_from_input_example(input_example, wrapped_model)
 
 
 class _TF2Wrapper:

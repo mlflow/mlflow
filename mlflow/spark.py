@@ -33,6 +33,7 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import (
@@ -71,6 +72,7 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 FLAVOR_NAME = "spark"
@@ -166,34 +168,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-
-                      The model signature can also be automatically inferred from the supplied
-                      ``input_example``. To use this feature, simply leave the ``signature`` param
-                      empty and specify an ``input_example``. To disable automatic signature
-                      inference when specifying an input example, set ``signature`` to ``False``.
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
-
-                          When the ``signature`` param is empty, the input example will also be used
-                          to automatically infer a model signature for the logged model.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -650,25 +626,8 @@ def save_model(
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -697,6 +656,21 @@ def save_model(
         mlflow_model = Model()
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    if signature is None and input_example is not None:
+        try:
+            spark = _get_active_spark_session()
+            if spark is not None:
+                wrapped_model = _PyFuncModelWrapper(spark, spark_model)
+                # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
+                # returns predictions as a list, which the `infer_signature` API does not support
+                # (unless it is a list of strings).
+                prediction = pd.Series(wrapped_model.predict(input_example))
+                signature = infer_signature(input_example, prediction)
+        except:
+            _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
+            _logger.debug("", exc_info=True)
+
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
@@ -848,27 +822,6 @@ def _load_pyfunc(path):
         # (e.g. as part of spark_udf).
         spark = _create_local_spark_session_for_loading_spark_model()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
-
-
-def _infer_signature(spark_model, input_example, **kwargs):
-    """
-    Infers the model signature using the provided model and input example. Invoked with the keyword
-    arguments of the ``spark.save_model``. Called by ``spark.log_model``.
-
-    :param spark_model: the spark model to be logged.
-    :param input_example: the input example utilized to infer the model signature.
-    """
-    from mlflow.utils._spark_utils import _get_active_spark_session
-
-    spark = _get_active_spark_session()
-    if spark is None:
-        raise MlflowException("No active spark session")
-    wrapped_model = _PyFuncModelWrapper(spark, spark_model)
-    # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper returns
-    # predictions as a list, which the `infer_signature` API does not support (unless it is a
-    # list of strings).
-    prediction = pd.Series(wrapped_model.predict(input_example))
-    return infer_signature(input_example, prediction)
 
 
 def _find_and_set_features_col_as_vector_if_needed(spark_df, spark_model):
