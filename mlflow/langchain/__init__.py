@@ -65,6 +65,9 @@ _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
+_LOADER_FN_KEY = "_mlflow_loader_fn"
+_PERSIST_DIR_KEY = "_mlflow_persist_dir"
+_RETRIEVER_DIR_NAME = "retriever"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports logging subclasses of "
     "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
@@ -93,6 +96,19 @@ def get_default_conda_env():
              :func:`save_model()` and :func:`log_model()`.
     """
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
+
+
+def get_retriever_pyfunc_model(fn):
+    class Retriever(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            local_dir = mlflow.artifacts.download_artifacts(context.artifacts[_PERSIST_DIR_KEY])
+            self.retriever = fn(local_dir)
+
+        def predict(self, context, model_input):
+            # This is a hacky way to expose the retriever object.
+            return self.retriever
+
+    return Retriever()
 
 
 @experimental
@@ -329,6 +345,28 @@ def log_model(
             type(lc_model.agent.llm_chain.llm).__name__,
         )
 
+    if isinstance(lc_model, langchain.chains.RetrievalQA):
+        if conda_env is None:
+            logger.warning(
+                "RetrievalQA models require a conda environment. "
+                "Please specify a conda environment in the `conda_env` parameter. "
+                "Using the default conda environment."
+            )
+            conda_env = get_default_conda_env()
+
+        loader_fn = None
+        persist_dir = None
+        if metadata is not None:
+            if _LOADER_FN_KEY in metadata:
+                loader_fn = metadata.pop(_LOADER_FN_KEY)
+            if _PERSIST_DIR_KEY in metadata:
+                persist_dir = metadata.pop(_PERSIST_DIR_KEY)
+        mlflow.pyfunc.log_model(
+            python_model=get_retriever_pyfunc_model(loader_fn),
+            artifact_path=artifact_path + "/" + _RETRIEVER_DIR_NAME,
+            artifacts={_PERSIST_DIR_KEY: persist_dir},
+        )
+
     return Model.log(
         artifact_path=artifact_path,
         flavor=mlflow.langchain,
@@ -404,11 +442,7 @@ def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=Non
         except ValueError as e:
             if "`retriever` must be present." in str(e):
                 retriever_local_dir = os.path.dirname(path)
-                retriever_local_path = os.path.join(retriever_local_dir, "retriever")
-                # ATTENTION: This is a hacky way to load the retriever object.
-                # It assumes that a Retriever pyfunc model is defined and saved
-                # in the sub directory of the current artifact path named "retriever".
-                # This is not a good way to do it, but it works for now.
+                retriever_local_path = os.path.join(retriever_local_dir, _RETRIEVER_DIR_NAME)
                 retriever_model = mlflow.pyfunc.load_model(retriever_local_path)
                 retriever = retriever_model.predict(0)
                 model = load_chain(path, retriever=retriever)
