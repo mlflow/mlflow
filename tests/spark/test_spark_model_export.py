@@ -411,12 +411,12 @@ def test_load_spark_model_from_models_uri(
             mock.call("", None),
         ]
         mock_download_artifacts.reset_mock()
-        mlflow.spark.load_model("models:/mycatalog.myschema.mymodel@Champion")
+        mlflow.spark.load_model(f"models:/{model_name}@Champion")
         assert mock_download_artifacts.mock_calls == [
             mock.call("MLmodel", None),
             mock.call("", None),
         ]
-        assert get_model_version_by_alias_mock.called_with("mycatalog.myschema.mymodel", "Champion")
+        assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])
