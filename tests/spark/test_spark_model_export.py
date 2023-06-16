@@ -25,8 +25,7 @@ import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
-from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.model import get_model_info
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -124,6 +123,21 @@ def iris_df(spark_context):
     spark_session = pyspark.sql.SparkSession(spark_context)
     iris_spark_df = spark_session.createDataFrame(iris_pandas_df)
     return feature_names, iris_pandas_df, iris_spark_df
+
+
+@pytest.fixture(scope="module")
+def iris_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="0", type=DataType.double),
+                ColSpec(name="1", type=DataType.double),
+                ColSpec(name="2", type=DataType.double),
+                ColSpec(name="3", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.double)]),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -233,11 +247,10 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(MLFLOW_DFS_TMP.get())
 
 
-def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
-    _, _, iris_spark_df = iris_df
-    signature_ = infer_signature(iris_spark_df)
-    example_ = iris_spark_df.toPandas().head(3)
-    for signature in (None, signature_):
+def test_model_export_with_signature_and_examples(spark_model_iris, iris_signature):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    example_ = features_df.head(3)
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -245,19 +258,21 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
                     spark_model_iris.model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if example is None and signature is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-def test_log_model_with_signature_and_examples(spark_model_iris):
+def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature):
     features_df = spark_model_iris.pandas_df.drop("label", axis=1)
-    signature_ = infer_signature(features_df, pd.Series(spark_model_iris.predictions))
     example_ = features_df.head(3)
     artifact_path = "model"
-    for signature in (None, signature_):
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with mlflow.start_run():
                 sparkm.log_model(
@@ -272,9 +287,7 @@ def test_log_model_with_signature_and_examples(spark_model_iris):
                 if example is None and signature is None:
                     assert mlflow_model.signature is None
                 else:
-                    # When the input example is specified, but the signature is not, `log_model`
-                    # automatically infers the signature from the input example
-                    assert mlflow_model.signature == signature_
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -943,7 +956,7 @@ def test_model_log_with_metadata(spark_model_iris):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_model_log_with_signature_inference(spark_model_iris):
+def test_model_log_with_signature_inference(spark_model_iris, iris_signature):
     artifact_path = "model"
     X = spark_model_iris.pandas_df
     X.drop("label", axis=1, inplace=True)
@@ -955,15 +968,5 @@ def test_model_log_with_signature_inference(spark_model_iris):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = get_model_info(model_uri)
-    assert model_info.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="0", type=DataType.double),
-                ColSpec(name="1", type=DataType.double),
-                ColSpec(name="2", type=DataType.double),
-                ColSpec(name="3", type=DataType.double),
-            ]
-        ),
-        outputs=Schema([ColSpec(type=DataType.double)]),
-    )
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == iris_signature

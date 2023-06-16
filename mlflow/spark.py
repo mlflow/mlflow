@@ -72,7 +72,6 @@ from mlflow.utils.model_utils import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 FLAVOR_NAME = "spark"
@@ -649,6 +648,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
@@ -667,7 +667,7 @@ def save_model(
                 # (unless it is a list of strings).
                 prediction = pd.Series(wrapped_model.predict(input_example))
                 signature = infer_signature(input_example, prediction)
-        except:
+        except Exception:
             _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
             _logger.debug("", exc_info=True)
 

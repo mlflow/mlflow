@@ -22,7 +22,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.models import Model, ModelSignature, infer_signature
-from mlflow.models.model import get_model_info
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -54,14 +53,20 @@ def iris_df():
     X = iris.data
     y = iris.target
     X_df = pd.DataFrame(X, columns=iris.feature_names)  # to make spark_udf work
+    X_df = X_df.iloc[:, :2]  # we only take the first two features.
     y_series = pd.Series(y)
     return X_df, y_series
 
 
 @pytest.fixture(scope="module")
+def iris_signature(iris_df):
+    X, y = iris_df
+    return infer_signature(X, y)
+
+
+@pytest.fixture(scope="module")
 def sklearn_knn_model(iris_df):
     X, y = iris_df
-    X = X.iloc[:, :2]  # we only take the first two features.
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
@@ -70,7 +75,6 @@ def sklearn_knn_model(iris_df):
 @pytest.fixture(scope="module")
 def sklearn_logreg_model(iris_df):
     X, y = iris_df
-    X = X.iloc[:, :2]  # we only take the first two features.
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
     return ModelWithData(model=linear_lr, inference_data=X)
@@ -84,7 +88,7 @@ def sklearn_custom_transformer_model(sklearn_knn_model, iris_df):
     transformer = SKFunctionTransformer(transform, validate=True)
     pipeline = SKPipeline([("custom_transformer", transformer), ("knn", sklearn_knn_model.model)])
     X, _ = iris_df
-    return ModelWithData(pipeline, inference_data=X.iloc[:, :2])
+    return ModelWithData(pipeline, inference_data=X)
 
 
 @pytest.fixture
@@ -129,12 +133,11 @@ def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_pat
         mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
 
-def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
+def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_signature):
     data = sklearn_knn_model.inference_data
     model = sklearn_knn_model.model
-    signature_ = infer_signature(data)
     example_ = data[:3]
-    for signature in (None, signature_):
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -142,7 +145,10 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -694,8 +700,8 @@ def test_model_log_with_signature_inference(sklearn_knn_model):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = get_model_info(model_uri)
-    assert model_info.signature == ModelSignature(
+    mlflow_model = Model.looad(model_uri)
+    assert mlflow_model.signature == ModelSignature(
         inputs=Schema(
             [
                 ColSpec(name="sepal length (cm)", type=DataType.double),

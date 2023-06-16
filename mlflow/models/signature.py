@@ -267,9 +267,8 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         input_schema = _infer_schema(input_example)
         # Copy the input example so that it is not mutated by predict()
         prediction = wrapped_model.predict(deepcopy(input_example))
-        # When the input example is column-based (i.e. tabular), predictions that are one-dimensional
-        # numpy arrays likely represent a list of row-derived predictions. Thus, we cast the predictions
-        # to a Pandas series so that it will be inferred as a Schema containing one ColSpec.
+        # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
+        # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (
             not input_schema.is_tensor_spec()
             and isinstance(prediction, np.ndarray)

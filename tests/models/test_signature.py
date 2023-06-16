@@ -160,8 +160,8 @@ def test_set_signature_to_logged_model():
     run_id = run.info.run_id
     model_uri = f"runs:/{run_id}/{artifact_path}"
     set_signature(model_uri, signature)
-    model_info = get_model_info(model_uri)
-    assert model_info.signature == signature
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == signature
 
 
 def test_set_signature_to_saved_model(tmp_path):
@@ -188,8 +188,8 @@ def test_set_signature_overwrite():
     run_id = run.info.run_id
     model_uri = f"runs:/{run_id}/{artifact_path}"
     set_signature(model_uri, new_signature)
-    model_info = get_model_info(model_uri)
-    assert model_info.signature == new_signature
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == new_signature
 
 
 def test_cannot_set_signature_on_models_scheme_uris():

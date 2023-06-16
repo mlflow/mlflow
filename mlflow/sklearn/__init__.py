@@ -33,10 +33,7 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import (
-    _infer_signature_from_input_example,
-    _LOG_MODEL_INFER_SIGNATURE_WARNING,
-)
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri

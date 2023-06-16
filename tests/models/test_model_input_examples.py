@@ -272,8 +272,8 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
         mlflow.sklearn.log_model(model, artifact_path=artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = get_model_info(model_uri)
-    assert model_info.signature == expected_signature
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == expected_signature
 
 
 def test_infer_signature_from_example_can_be_disabled():
