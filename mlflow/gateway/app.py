@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import logging
 import os
-from typing import List, Any, Optional
+from typing import Any, Optional, Dict
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
@@ -25,21 +25,21 @@ MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 class GatewayApp(FastAPI):
     def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        self.config = config
-        self.dynamic_routes: List[Route] = []
-        self.add_dynamic_routes()
+        self.dynamic_routes: Dict[str, Route] = {}
+        self.set_dynamic_routes(config)
 
-    def add_dynamic_routes(self):
-        for route in self.config.routes:
+    def set_dynamic_routes(self, config: GatewayConfig) -> None:
+        self.dynamic_routes.clear()
+        for route in config.routes:
             self.add_api_route(
                 path=f"/gateway/routes/{route.name}",
                 endpoint=_route_type_to_endpoint(route),
                 methods=["POST"],
             )
-            self.dynamic_routes.append(route.to_route())
+            self.dynamic_routes[route.name] = route.to_route()
 
-    def find_dynamic_route(self, route_name: str) -> Optional[Route]:
-        return next((r for r in self.dynamic_routes if r.name == route_name), None)
+    def get_dynamic_route(self, route_name: str) -> Optional[Route]:
+        return self.dynamic_routes.get(route_name)
 
 
 def _create_chat_endpoint(config: RouteConfig):
@@ -112,7 +112,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayApp:
 
     @app.get("/gateway/routes/{route_name}")
     async def get_route(route_name: str):
-        if matched := app.find_dynamic_route(route_name):
+        if matched := app.get_dynamic_route(route_name):
             return {"route": matched}
 
         raise HTTPException(
@@ -125,7 +125,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayApp:
     async def search_routes():
         # placeholder route listing functionality
 
-        return {"routes": app.dynamic_routes}
+        return {"routes": list(app.dynamic_routes.values())}
 
     return app
 
