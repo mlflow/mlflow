@@ -146,8 +146,8 @@ lightgbm:
   package_info:
     pip_release: "lightgbm"
     install_dev: |
-      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master
-      cd LightGBM
+      git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master /tmp/LightGBM
+      cd /tmp/LightGBM
       bash build-python.sh install
 
   models:
@@ -559,7 +559,7 @@ sentence_transformers:
   package_info:
     pip_release: "sentence-transformers"
     install_dev: |
-      pip install -e git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
+      pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.2.2"
     maximum: "2.2.2"
