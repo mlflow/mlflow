@@ -1,4 +1,3 @@
-import os
 import sys
 from unittest import mock
 import pytest
@@ -217,10 +216,11 @@ def test_databricks_params_throws_errors(ProfileConfigProvider):
         databricks_utils.get_databricks_host_creds()
 
 
-def test_is_in_databricks_runtime():
-    with mock.patch.dict(os.environ, {"DATABRICKS_RUNTIME_VERSION": "11.x"}):
-        assert databricks_utils.is_in_databricks_runtime()
+def test_is_in_databricks_runtime(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "11.x")
+    assert databricks_utils.is_in_databricks_runtime()
 
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
     assert not databricks_utils.is_in_databricks_runtime()
 
 
