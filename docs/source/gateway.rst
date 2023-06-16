@@ -76,44 +76,26 @@ requires no server downtime or manual restarting of the service.
 This allows for simple, seamless changes to the underlying models and providers while keeping
 your applications steady and reliable.
 
-In order to define an API KEY for a given provider, there are two primary options:
+In order to define an API KEY for a given provider, there are three primary options:
 
 1. Directly include it in the YAML configuration file.
 2. Use an environment variable to store the API key and reference it in the YAML configuration file.
+3. Define your API key in a file and reference the location of that key-bearing file within the YAML configuration file.
 
 If you choose to include the API key directly, replace ``$OPENAI_API_KEY`` in the YAML file with your
 actual API key.
 
 If you prefer to use an environment variable (recommended), you can define it in your shell
-environment. For a Linux system, you can set the environment variable in the ``.bashrc`` file:
-
-1. Open your ``.bashrc`` file in a text editor. For example, using nano:
-
-.. code-block:: bash
-
-     nano ~/.bashrc
-
-2. Scroll down to the end of the file and add the following line:
+environment. For example:
 
 .. code-block:: bash
 
      export OPENAI_API_KEY="your_openai_api_key"
 
-Replace "your_openai_api_key" with your actual `OpenAI` API key.
-
-3. Save the file and exit the text editor. If you're using nano, you can do this by pressing
-Ctrl+X, then Y to confirm that you want to save the changes, and finally Enter to confirm
-the file name.
-
-4. Reload the .bashrc file with the following command:
-
-.. code-block:: bash
-
-     source ~/.bashrc
+**Note:** Replace "your_openai_api_key" with your actual `OpenAI` API key.
 
 Remember to ensure secure access to the system that the `MLflow Gateway` service is running in to
-protect access to these keys either through the configuration file or the system environment
-variables.
+protect access to these keys.
 
 Routes
 ------
