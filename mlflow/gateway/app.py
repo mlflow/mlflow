@@ -2,63 +2,44 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import logging
 import os
-from pathlib import Path
-from typing import List, Union
+from typing import Any, Optional, Dict
 
 from mlflow.version import VERSION
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
 from mlflow.gateway.config import (
     Route,
     RouteConfig,
     RouteType,
+    GatewayConfig,
     _load_route_config,
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
-from .providers import get_provider
-from .schemas import chat, completions, embeddings
+from mlflow.gateway.providers import get_provider
 
 _logger = logging.getLogger(__name__)
 
 MLFLOW_GATEWAY_CONFIG = "MLFLOW_GATEWAY_CONFIG"
 
-# Configured and initialized Gateway Routes state index
-ACTIVE_ROUTES: List[Route] = []
 
-app = FastAPI(
-    title="MLflow Gateway API",
-    description="The core gateway API for reverse proxy interface using remote inference "
-    "endpoints within MLflow",
-    version=VERSION,
-)
+class GatewayAPI(FastAPI):
+    def __init__(self, config: GatewayConfig, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.dynamic_routes: Dict[str, Route] = {}
+        self.set_dynamic_routes(config)
 
+    def set_dynamic_routes(self, config: GatewayConfig) -> None:
+        self.dynamic_routes.clear()
+        for route in config.routes:
+            self.add_api_route(
+                path=f"/gateway/routes/{route.name}",
+                endpoint=_route_type_to_endpoint(route),
+                methods=["POST"],
+            )
+            self.dynamic_routes[route.name] = route.to_route()
 
-@app.get("/")
-async def index():
-    return RedirectResponse(url="/docs")
-
-
-@app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
-async def health():
-    return {"status": "OK"}
-
-
-@app.get("/gateway/routes/{route_name}")
-async def get_route(route_name: str):
-    filtered = next((x for x in ACTIVE_ROUTES if x.name == route_name), None)
-    if not filtered:
-        raise HTTPException(
-            status_code=404,
-            detail=f"The route '{route_name}' is not present or active on the server. Please "
-            "verify the route name.",
-        )
-    return {"route": filtered}
-
-
-@app.get("/gateway/routes/")
-async def search_routes():
-    # placeholder route listing functionality
-
-    return {"routes": ACTIVE_ROUTES}
+    def get_dynamic_route(self, route_name: str) -> Optional[Route]:
+        return self.dynamic_routes.get(route_name)
 
 
 def _create_chat_endpoint(config: RouteConfig):
@@ -109,34 +90,55 @@ def _route_type_to_endpoint(config: RouteConfig):
     )
 
 
-def _add_dynamic_route(route_config: RouteConfig):
-    app.add_api_route(
-        path=f"/gateway/routes/{route_config.name}",
-        endpoint=_route_type_to_endpoint(route_config),
-        methods=["POST"],
+def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
+    """
+    Create the GatewayAPI app from the gateway configuration.
+    """
+    app = GatewayAPI(
+        config=config,
+        title="MLflow Gateway API",
+        description="The core gateway API for reverse proxy interface using remote inference "
+        "endpoints within MLflow",
+        version=VERSION,
     )
-    ACTIVE_ROUTES.append(route_config.to_route())
 
+    @app.get("/")
+    async def index():
+        return RedirectResponse(url="/docs")
 
-def _add_routes(routes: List[RouteConfig]):
-    for route in routes:
-        _add_dynamic_route(route)
+    @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
+    async def health():
+        return {"status": "OK"}
 
+    @app.get("/gateway/routes/{route_name}")
+    async def get_route(route_name: str):
+        if matched := app.get_dynamic_route(route_name):
+            return {"route": matched}
 
-def create_app(gateway_conf_path: Union[str, Path]) -> FastAPI:
-    """
-    Create the FastAPI app by loading the dynamic route configuration file from the
-    specified local path and generating POST methods
-    """
-    route_config = _load_route_config(gateway_conf_path)
-    _add_routes(route_config.routes)
+        raise HTTPException(
+            status_code=404,
+            detail=f"The route '{route_name}' is not present or active on the server. Please "
+            "verify the route name.",
+        )
+
+    @app.get("/gateway/routes/")
+    async def search_routes():
+        # placeholder route listing functionality
+
+        return {"routes": list(app.dynamic_routes.values())}
+
     return app
 
 
-def create_app_from_env() -> FastAPI:
+def create_app_from_env() -> GatewayAPI:
     """
-    Load the path from the environment variable and generate the FastAPI app instance
+    Load the path from the environment variable and generate the GatewayAPI app instance.
     """
-    gateway_conf_path = os.environ.get(MLFLOW_GATEWAY_CONFIG)
+    if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
+        config = _load_route_config(config_path)
+        return create_app_from_config(config)
 
-    return create_app(gateway_conf_path)
+    raise MlflowException(
+        f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
+        "Please set it to the path of the gateway configuration file."
+    )
