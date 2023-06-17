@@ -21,7 +21,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -52,16 +52,23 @@ def iris_df():
     iris = datasets.load_iris()
     X = iris.data
     y = iris.target
-    X_df = pd.DataFrame(X, columns=iris.feature_names)  # to make spark_udf work
+    X_df = pd.DataFrame(X, columns=iris.feature_names)
     X_df = X_df.iloc[:, :2]  # we only take the first two features.
     y_series = pd.Series(y)
     return X_df, y_series
 
 
 @pytest.fixture(scope="module")
-def iris_signature(iris_df):
-    X, y = iris_df
-    return infer_signature(X, y)
+def iris_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.long)]),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -689,7 +696,7 @@ def test_model_log_with_metadata(sklearn_knn_model):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_model_log_with_signature_inference(sklearn_knn_model):
+def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
     artifact_path = "model"
     X = sklearn_knn_model.inference_data
     example = X.iloc[[0]]
@@ -701,12 +708,4 @@ def test_model_log_with_signature_inference(sklearn_knn_model):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.looad(model_uri)
-    assert mlflow_model.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
-        outputs=Schema([ColSpec(type=DataType.long)]),
-    )
+    assert mlflow_model.signature == iris_signature

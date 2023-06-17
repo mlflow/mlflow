@@ -54,6 +54,7 @@ def xgb_model():
     model = xgb.train({"objective": "multi:softprob", "num_class": 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
 
+
 @pytest.fixture(scope="module")
 def xgb_model_signature():
     return ModelSignature(

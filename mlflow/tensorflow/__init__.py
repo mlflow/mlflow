@@ -341,7 +341,7 @@ def save_model(
         if isinstance(model, KerasModel):
             wrapped_model = _KerasModelWrapper(model, signature)
         elif isinstance(model, tensorflow.Module):
-            wrapped_model =  _TF2ModuleWrapper(model, signature)
+            wrapped_model = _TF2ModuleWrapper(model, signature)
         if wrapped_model is not None:
             signature = _infer_signature_from_input_example(input_example, wrapped_model)
 
