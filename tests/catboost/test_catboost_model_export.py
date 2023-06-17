@@ -492,19 +492,21 @@ def test_model_log_with_signature_inference(cb_model):
     example = cb_model.inference_dataframe.head(3)
 
     with mlflow.start_run():
-        mlflow.catboost.log_model(cb_model.model, artifact_path=artifact_path, input_example=example)
+        mlflow.catboost.log_model(
+            cb_model.model, artifact_path=artifact_path, input_example=example
+        )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
     assert model_info.signature.inputs == Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        )
+        [
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]
+    )
     assert model_info.signature.outputs in [
         # when the model output is a 1D numpy array, it is cast into a `ColSpec`
         Schema([ColSpec(type=DataType.double)]),
         # when the model output is a higher dimensional numpy array, it remains a `TensorSpec`
-        Schema([TensorSpec(np.dtype("int64"), (-1,1))])
+        Schema([TensorSpec(np.dtype("int64"), (-1, 1))]),
     ]
