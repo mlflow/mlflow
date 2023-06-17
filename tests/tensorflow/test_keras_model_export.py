@@ -102,6 +102,14 @@ def model(data):
     return get_model(data)
 
 
+@pytest.fixture(scope="module")
+def model_signature():
+    return ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float64"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )
+
+
 def get_tf_keras_model(data):
     x, y = data
     model = Sequential()
@@ -248,10 +256,9 @@ def test_score_model_as_spark_udf(data):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(model, data):
-    x, y = data
-    signature_ = infer_signature(x, y)
-    example_ = x[:3, :]
+def test_signature_and_examples_are_saved_correctly(model, data, model_signature):
+    signature_ = model_signature
+    example_ = data[0][:3, :]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -788,7 +795,7 @@ def test_model_log_with_metadata(tf_keras_model):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_model_log_with_signature_inference(tf_keras_model, data):
+def test_model_log_with_signature_inference(tf_keras_model, data, model_signature):
     artifact_path = "model"
     example = data[0][:3, :]
 
@@ -799,7 +806,4 @@ def test_model_log_with_signature_inference(tf_keras_model, data):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
-    assert mlflow_model.signature == ModelSignature(
-        inputs=Schema([TensorSpec(np.dtype("float64"), (-1, 4))]),
-        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
-    )
+    assert mlflow_model.signature == model_signature

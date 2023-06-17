@@ -670,6 +670,8 @@ def save_model(
         except Exception as e:
             _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
             _logger.debug("", exc_info=True)
+    elif signature is False:
+        signature = None
 
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path

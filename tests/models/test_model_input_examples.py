@@ -8,7 +8,7 @@ from scipy.sparse import csr_matrix, csc_matrix
 from unittest import mock
 
 import mlflow
-from mlflow.models.model import get_model_info
+from mlflow.models import Model
 from mlflow.models.signature import ModelSignature, infer_signature
 from mlflow.models.utils import (
     _Example,
@@ -287,8 +287,8 @@ def test_infer_signature_from_example_can_be_disabled():
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = get_model_info(model_uri)
-    assert model_info.signature is None
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature is None
 
 
 def test_infer_signature_silently_fails():

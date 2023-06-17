@@ -707,5 +707,5 @@ def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    mlflow_model = Model.looad(model_uri)
+    mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == iris_signature
