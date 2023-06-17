@@ -21,13 +21,15 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _read_example
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -46,33 +48,54 @@ ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
 
 @pytest.fixture(scope="module")
-def sklearn_knn_model():
+def iris_df():
     iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features.
+    X = iris.data
     y = iris.target
+    X_df = pd.DataFrame(X, columns=iris.feature_names)
+    X_df = X_df.iloc[:, :2]  # we only take the first two features.
+    y_series = pd.Series(y)
+    return X_df, y_series
+
+
+@pytest.fixture(scope="module")
+def iris_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.long)]),
+    )
+
+
+@pytest.fixture(scope="module")
+def sklearn_knn_model(iris_df):
+    X, y = iris_df
     knn_model = knn.KNeighborsClassifier()
     knn_model.fit(X, y)
     return ModelWithData(model=knn_model, inference_data=X)
 
 
 @pytest.fixture(scope="module")
-def sklearn_logreg_model():
-    iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features.
-    y = iris.target
+def sklearn_logreg_model(iris_df):
+    X, y = iris_df
     linear_lr = glm.LogisticRegression()
     linear_lr.fit(X, y)
     return ModelWithData(model=linear_lr, inference_data=X)
 
 
 @pytest.fixture(scope="module")
-def sklearn_custom_transformer_model(sklearn_knn_model):
+def sklearn_custom_transformer_model(sklearn_knn_model, iris_df):
     def transform(vec):
         return vec + 1
 
     transformer = SKFunctionTransformer(transform, validate=True)
     pipeline = SKPipeline([("custom_transformer", transformer), ("knn", sklearn_knn_model.model)])
-    return ModelWithData(pipeline, inference_data=datasets.load_iris().data[:, :2])
+    X, _ = iris_df
+    return ModelWithData(pipeline, inference_data=X)
 
 
 @pytest.fixture
@@ -117,12 +140,11 @@ def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_pat
         mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
 
-def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
+def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_signature):
     data = sklearn_knn_model.inference_data
     model = sklearn_knn_model.model
-    signature_ = infer_signature(data)
     example_ = data[:3]
-    for signature in (None, signature_):
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -130,7 +152,10 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -669,3 +694,18 @@ def test_model_log_with_metadata(sklearn_knn_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(sklearn_knn_model, iris_signature):
+    artifact_path = "model"
+    X = sklearn_knn_model.inference_data
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_knn_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == iris_signature
