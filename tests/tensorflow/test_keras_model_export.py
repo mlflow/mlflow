@@ -25,7 +25,7 @@ import mlflow
 from mlflow import pyfunc
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.deployments import PredictionsResponse
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
