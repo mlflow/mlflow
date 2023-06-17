@@ -387,8 +387,11 @@ class Model:
 
     @signature.setter
     def signature(self, value):
-        # pylint: disable=attribute-defined-outside-init
-        self._signature = value
+        # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
+        # to disable automatic signature inference
+        if value is not False:
+            # pylint: disable=attribute-defined-outside-init
+            self._signature = value
 
     @property
     def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
