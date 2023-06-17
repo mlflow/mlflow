@@ -299,8 +299,9 @@ def test_infer_signature_silently_fails():
         def predict(self, X):
             raise Exception("oh no!")
 
-    with mlflow.start_run(), mock.patch("mlflow.models.model._logger.warning") as mock_warning:
+    with mlflow.start_run(), mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
         mlflow.sklearn.log_model(ErrorModel(), artifact_path="model", input_example=np.array([[1]]))
         mock_warning.assert_called_once_with(
-            AnyStringWith("Inferring the model signature from the input example has failed.")
+            AnyStringWith("Failed to infer the model signature from the input example."),
+            AnyStringWith("oh no!"),
         )

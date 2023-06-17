@@ -40,9 +40,10 @@ if TYPE_CHECKING:
 _logger = logging.getLogger(__name__)
 
 _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
-    "Inferring the model signature from the input example has failed. Reason: %s. Set logging "
-    'level to DEBUG via `logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full '
-    "traceback."
+    "Failed to infer the model signature from the input example. Reason: %s. To see the full "
+    "traceback, set the logging level to DEBUG via "
+    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`. To disable automatic signature '
+    "inference, set `signature` to `False` in your `log_model` or `save_model` call."
 )
 
 
