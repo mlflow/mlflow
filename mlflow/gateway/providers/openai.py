@@ -3,11 +3,9 @@ from typing import Dict, Any
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
-
 from .base import BaseProvider
 from ..schemas import chat, completions, embeddings
-from ..config import OpenAIConfig
+from ..config import OpenAIConfig, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
