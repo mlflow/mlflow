@@ -39,9 +39,10 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
-_LOG_MODEL_INFER_SIGNATURE_WARNING = (
-    "Inferring the model signature from the input example has failed. Set logging level "
-    'to DEBUG via `logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full traceback.'
+_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
+    "Inferring the model signature from the input example has failed. Reason: %s. Set logging "
+    'level to DEBUG via `logging.getLogger("mlflow").setLevel(logging.DEBUG)` to see the full '
+    "traceback."
 )
 
 
@@ -277,8 +278,8 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
             prediction = pd.Series(prediction)
         output_schema = _infer_schema(prediction)
         return ModelSignature(input_schema, output_schema)
-    except Exception:
-        _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
+    except Exception as e:
+        _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
         _logger.debug("", exc_info=True)
         return None
 

@@ -33,7 +33,7 @@ from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING
+from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
 from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import (
@@ -667,8 +667,8 @@ def save_model(
                 # (unless it is a list of strings).
                 prediction = pd.Series(wrapped_model.predict(input_example))
                 signature = infer_signature(input_example, prediction)
-        except Exception:
-            _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING)
+        except Exception as e:
+            _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
             _logger.debug("", exc_info=True)
 
     # Spark ML stores the model on DFS if running on a cluster
