@@ -1,5 +1,6 @@
 import base64
 import datetime
+from typing import Any, Dict, Optional
 
 import os
 import json
@@ -475,7 +476,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs"):
+def dump_input_data(data, inputs_key="inputs", parameters: Optional[Dict[str, Any]] = None):
     import numpy as np
     import pandas as pd
 
@@ -487,6 +488,15 @@ def dump_input_data(data, inputs_key="inputs"):
         post_data = {inputs_key: data.tolist()}
     else:
         post_data = data
+
+    if parameters is not None:
+        if not isinstance(parameters, dict):
+            raise MlflowException(
+                "Parameters must be a dictionary. Got type '{}'.".format(type(parameters).__name__)
+            )
+        # if post_data is not dictionary, parameters should be included in post_data directly
+        if isinstance(post_data, dict):
+            post_data["parameters"] = parameters
 
     if not isinstance(post_data, str):
         post_data = json.dumps(post_data, cls=_CustomJsonEncoder)

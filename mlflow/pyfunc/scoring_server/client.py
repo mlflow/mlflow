@@ -6,6 +6,7 @@ import logging
 import uuid
 from pathlib import Path
 from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional
 
 
 from mlflow.pyfunc import scoring_server
@@ -25,10 +26,12 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
-    def invoke(self, data):
+    def invoke(self, data, parameters: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
+        parameters is an optional field that can be used to pass additional parameters to the
+        model inference process.
         """
 
 
@@ -65,10 +68,10 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
-    def invoke(self, data):
+    def invoke(self, data, parameters: Optional[Dict[str, Any]] = None):
         response = requests.post(
             url=self.url_prefix + "/invocations",
-            data=dump_input_data(data),
+            data=dump_input_data(data, parameters=parameters),
             headers={"Content-Type": scoring_server.CONTENT_TYPE_JSON},
         )
         if response.status_code != 200:
@@ -89,7 +92,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
-    def invoke(self, data):
+    def invoke(self, data, parameters: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
         a dict of numpy arrays.
@@ -100,7 +103,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         request_id = str(uuid.uuid4())
         request = {
             "id": request_id,
-            "data": dump_input_data(data),
+            "data": dump_input_data(data, parameters=parameters),
             "output_file": str(self.output_json),
         }
         self.process.stdin.write(json.dumps(request) + "\n")
