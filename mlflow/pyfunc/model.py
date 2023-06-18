@@ -115,7 +115,13 @@ class _FunctionPythonModel(PythonModel):
         return _extract_type_hints(self.func, input_arg_index=0)
 
     def predict(self, context, model_input, parameters: Optional[Dict[str, Any]] = None):
-        return self.func(model_input, parameters)
+        if parameters is None:
+            return self.func(model_input)
+        elif not isinstance(parameters, dict):
+            raise MlflowException(
+                "Parameters must be a dictionary. Got type '{}'.".format(type(parameters).__name__)
+            )
+        return self.func(model_input, **parameters)
 
 
 class PythonModelContext:

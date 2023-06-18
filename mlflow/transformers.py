@@ -1607,6 +1607,12 @@ class _TransformersWrapper:
                 "configuration saved with the model. If the parameters provided are not "
                 "valid for the pipeline, MlflowException will be raised."
             )
+            if not isinstance(parameters, dict):
+                raise MlflowException(
+                    "Parameters must be a dictionary. Got type '{}'.".format(
+                        type(parameters).__name__
+                    )
+                )
 
             # Override the inference configuration with any additional kwargs provided by the user.
             self.inference_config.update(parameters)

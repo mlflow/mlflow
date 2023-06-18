@@ -294,6 +294,7 @@ def test_default_signature_assignment(model_path, basic_model):
     expected_signature = {
         "inputs": '[{"type": "string"}]',
         "outputs": '[{"type": "tensor", "tensor-spec": {"dtype": "float64", "shape": ' "[-1]}}]",
+        "parameters": None,
     }
 
     default_signature = mlflow.sentence_transformers._get_default_signature()

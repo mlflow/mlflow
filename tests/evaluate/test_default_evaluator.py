@@ -176,7 +176,7 @@ def test_regressor_evaluation(
     y_pred = model.predict(diabetes_dataset.features_data)
 
     expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=sample_weights)
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data, sample_weight=sample_weights
     )
 
@@ -232,7 +232,7 @@ def test_regressor_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = model.predict(diabetes_dataset.features_data)
 
     expected_metrics = _get_regressor_metrics(y, y_pred, sample_weights=None)
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         diabetes_dataset.features_data, diabetes_dataset.labels_data
     )
 
@@ -308,7 +308,7 @@ def test_multi_classifier_evaluation(
     expected_metrics = _get_multiclass_classifier_metrics(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
     )
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         iris_dataset.features_data, iris_dataset.labels_data, sample_weight=sample_weights
     )
 
@@ -369,7 +369,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
     expected_metrics = _get_multiclass_classifier_metrics(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
     )
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         iris_dataset.features_data, iris_dataset.labels_data
     )
 
@@ -433,7 +433,7 @@ def test_bin_classifier_evaluation(
     expected_metrics = _get_binary_classifier_metrics(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
     )
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         breast_cancer_dataset.features_data,
         breast_cancer_dataset.labels_data,
         sample_weight=sample_weights,
@@ -499,7 +499,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     expected_metrics = _get_binary_classifier_metrics(
         y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
     )
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
 
@@ -638,7 +638,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset, baselin
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
 
@@ -722,7 +722,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
-    expected_metrics["score"] = model._model_impl.score(
+    expected_metrics["score"] = model._model_impl.sklearn_model.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
     )
 

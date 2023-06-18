@@ -434,7 +434,11 @@ class PyFuncModel:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
-        return self._predict_fn(data, parameters)
+        # To avoid breaking change for examples like
+        # tests/pyfunc/test_model_export_with_loader_module_and_data_path.py::test_model_save_load
+        if inspect.signature(self._predict_fn).parameters.get("parameters"):
+            return self._predict_fn(data, parameters)
+        return self._predict_fn(data)
 
     @experimental
     def unwrap_python_model(self):
