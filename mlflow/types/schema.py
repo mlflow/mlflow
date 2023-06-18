@@ -434,6 +434,11 @@ class ParamSpec:
                 f"Invalid default value for ParamSpec {self!r}: "
                 f"expected type {self.type}, default value type {type(self.default).__name__}"
             )
+        if not self.optional and self.default is not None:
+            raise MlflowException(
+                f"Default value has to be None for required ParamSpec {self.name!r}. "
+                f"Value should be passed as a field of parameters to the model's predict method."
+            )
 
     @property
     def name(self) -> str:

@@ -869,11 +869,19 @@ def get_model_version_from_model_uri(model_uri):
 
 
 def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSchema):
-    if params is None:
+    if params in [None, {}]:
         return params
     if not isinstance(params, dict):
         raise MlflowException(
             "Parameters must be a dictionary. Got type '{}'.".format(type(params).__name__)
+        )
+    if not isinstance(schema, ParamSchema):
+        if schema is None:
+            raise MlflowException("Parameters schema cannot be None.")
+        raise MlflowException(
+            "Parameters schema must be an instance of ParamSchema. Got type '{}'.".format(
+                type(schema).__name__
+            )
         )
     if any(not isinstance(k, str) for k in params.keys()):
         _logger.warning(

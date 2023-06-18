@@ -932,9 +932,9 @@ def test_enforce_parameters_schema():
         [
             ParamSpec("a", "str", ""),
             ParamSpec("b", "int", 1),
-            ParamSpec("c", "bool", False, False),
+            ParamSpec("c", "bool", False),
             ParamSpec("d", "float", 1.0),
-            ParamSpec("e", "list", [], False),
+            ParamSpec("e", "list", []),
             ParamSpec("f", "tuple", (1,)),
             ParamSpec("g", "bytes", b""),
             ParamSpec("h", "dict", {}),
@@ -942,15 +942,11 @@ def test_enforce_parameters_schema():
     )
     assert _enforce_parameters_schema(test_parameters, test_schema) == test_parameters
 
-    # Add default values if the parameter is not optional
+    # Add default values if the parameter is optional but not provided
     test_parameters = {"a": "str_a"}
-    test_schema = ParamSchema([ParamSpec("a", "str"), ParamSpec("b", "int", 1, False)])
+    test_schema = ParamSchema([ParamSpec("a", "str"), ParamSpec("b", "int", 1)])
     updated_parameters = {"b": 1}
     updated_parameters.update(test_parameters)
-    assert _enforce_parameters_schema(test_parameters, test_schema) == updated_parameters
-
-    # Add default values if the parameter is optional but not provided
-    test_schema = ParamSchema([ParamSpec("a", "str"), ParamSpec("b", "int", 1, True)])
     assert _enforce_parameters_schema(test_parameters, test_schema) == updated_parameters
 
     # Converting parameters keys to string if it is not
@@ -958,7 +954,13 @@ def test_enforce_parameters_schema():
     test_schema = ParamSchema([ParamSpec("1", "float")])
     assert _enforce_parameters_schema(test_parameters, test_schema) == {"1": 1.0}
 
-    # Raise Exception if non-optional parameters with no default value is not provided
+    # Raise Exception if non-optional parameters has default value
+    with pytest.raises(
+        MlflowException, match=r"Default value has to be None for required ParamSpec 'a'"
+    ):
+        ParamSpec("a", "str", "default_value", False)
+
+    # Raise Exception if non-optional parameters is not provided
     test_parameters = {}
     test_schema = ParamSchema(
         [
