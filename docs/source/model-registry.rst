@@ -107,7 +107,7 @@ There are three programmatic ways to add a model to the registry. First, you can
 
     import mlflow
     import mlflow.sklearn
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     with mlflow.start_run() as run:
         X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
@@ -443,7 +443,7 @@ register the loaded model with the Model Registry.
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import numpy as np
     from sklearn import datasets
 

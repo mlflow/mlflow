@@ -364,7 +364,7 @@ on the ``Iris dataset``:
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
     import mlflow.sklearn
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     iris = datasets.load_iris()
     iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
@@ -377,7 +377,7 @@ The same signature can be created explicitly as follows:
 
 .. code-block:: python
 
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, ColSpec
 
     input_schema = Schema(
@@ -405,7 +405,7 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
     trainX = train_X.reshape((train_X.shape[0], 28, 28, 1))
@@ -439,7 +439,7 @@ The same signature can be created explicitly as follows:
 .. code-block:: python
 
     import numpy as np
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, TensorSpec
 
     input_schema = Schema(
@@ -484,7 +484,7 @@ You can set a signature on the logged model as follows:
     from sklearn import datasets
     import mlflow
     from mlflow.models.model import get_model_info
-    from mlflow.models.signature import infer_signature, set_signature
+    from mlflow.models import infer_signature, set_signature
 
     # load the logged model
     model_uri = f"runs:/{run.info.run_id}/iris_rf"
@@ -953,7 +953,7 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
 
     import numpy as np
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import torch
     from torch import nn
 
@@ -1008,7 +1008,7 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import numpy as np
     from sklearn.linear_model import LogisticRegression
 
@@ -1213,7 +1213,7 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     import numpy as np
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     import onnx
     import torch
     from torch import nn
@@ -1433,7 +1433,7 @@ The example below
     from sklearn.model_selection import train_test_split
     from xgboost import XGBClassifier
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     data = load_iris()
     X_train, X_test, y_train, y_test = train_test_split(
@@ -1493,7 +1493,7 @@ The example below
     from sklearn.datasets import load_iris
     from sklearn.model_selection import train_test_split
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     data = load_iris()
 
@@ -1554,7 +1554,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 .. code-block:: python
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from catboost import CatBoostClassifier
     from sklearn import datasets
 
@@ -2107,7 +2107,7 @@ ds            y
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     # starts on 2007-12-10, ends on 2016-01-20
     train_df = pd.read_csv(
@@ -3015,7 +3015,7 @@ An example of specifying an appropriate uri-based input model signature for an a
 
 .. code-block:: python
 
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
 
     url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
@@ -3053,8 +3053,8 @@ Model Evaluation
 After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
 evaluate its performance on one or more datasets of your choosing. :py:func:`mlflow.evaluate()`
 currently supports evaluation of MLflow Models with the
-:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification and regression
-tasks, computing a variety of task-specific performance metrics, model performance plots, and
+:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification, regression, and numerous language modeling tasks (see :ref:`model-evaluation-llms`), computing a variety of
+task-specific performance metrics, model performance plots, and
 model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
 
 The following `example from the MLflow GitHub Repository
@@ -3069,7 +3069,7 @@ and behavior:
     import xgboost
     import shap
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from sklearn.model_selection import train_test_split
 
     # Load the UCI Adult Dataset
@@ -3112,6 +3112,80 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 84%
 
+.. _model-evaluation-llms:
+
+Evaluating with LLMs
+^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.4.0, :py:func:`mlflow.evaluate()` has built-in support for a variety of tasks with
+LLMs, including text summarization, text classification, question answering, and text generation.
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
+questions about MLflow (note that you must have the ``OPENAI_API_TOKEN`` environment variable set
+in your current system environment in order to run the example):
+
+.. code-block:: python
+
+    import os
+    import pandas as pd
+
+    import mlflow
+    import openai
+
+    # Create a question answering model using prompt engineering with OpenAI. Log the
+    # prompt and the model to MLflow Tracking
+    mlflow.start_run()
+    system_prompt = (
+        "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
+        " respond to it. Make sure to include code examples. If the question is not related to"
+        " MLflow, refuse to answer and say that the question is unrelated."
+    )
+    mlflow.log_param("system_prompt", system_prompt)
+    logged_model = mlflow.openai.log_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        artifact_path="model",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "{question}"},
+        ],
+    )
+
+    # Evaluate the model on some example questions
+    questions = pd.DataFrame(
+        {
+            "question": [
+                "How do you create a run with MLflow?",
+                "How do you log a model with MLflow?",
+                "What is the capital of France?",
+            ]
+        }
+    )
+    mlflow.evaluate(
+        model=logged_model.model_uri,
+        model_type="question-answering",
+        data=questions,
+    )
+
+    # Load and inspect the evaluation results
+    results: pd.DataFrame = mlflow.load_table(
+        "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
+    )
+    print("Evaluation results:")
+    print(results)
+
+
+MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
+built with LLMs. For example, after evaluating multiple prompts for question answering
+(see the
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+each model:
+
+.. image:: _static/images/artifact-view-ui.png
+
+|
+|
+
+For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
+`MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -3149,7 +3223,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets

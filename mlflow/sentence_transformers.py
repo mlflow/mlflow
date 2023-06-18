@@ -8,9 +8,8 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.models import ModelInputExample, Model, infer_pip_requirements
+from mlflow.models import ModelInputExample, ModelSignature, Model, infer_pip_requirements
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import _save_example
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.types.schema import Schema, ColSpec, TensorSpec

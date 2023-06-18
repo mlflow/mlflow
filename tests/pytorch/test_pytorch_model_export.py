@@ -125,8 +125,7 @@ def get_subclassed_model_definition():
 
         def forward(self, x):
             # pylint: disable=arguments-differ
-            y_pred = self.linear(x)
-            return y_pred
+            return self.linear(x)
 
     return SubclassedModel
 

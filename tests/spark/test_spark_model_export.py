@@ -18,13 +18,14 @@ import yaml
 from packaging.version import Version
 
 import mlflow
+from mlflow.entities.model_registry import ModelVersion
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 import mlflow.utils.file_utils
 from mlflow import pyfunc
 from mlflow import spark as sparkm
 from mlflow.environment_variables import MLFLOW_DFS_TMP
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.spark import _add_code_from_conf_to_system_path
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -33,6 +34,14 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec
+
+from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
+    UnityCatalogModelsArtifactRepository,
+)
+from mlflow.store.artifact.databricks_models_artifact_repo import DatabricksModelsArtifactRepository
+from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 
 from tests.helper_functions import (
     score_model_in_sagemaker_docker_container,
@@ -106,7 +115,7 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
 @pytest.fixture(scope="module")
 def iris_df(spark_context):
     iris = datasets.load_iris()
-    X = iris.data  # we only take the first two features.
+    X = iris.data
     y = iris.target
     feature_names = ["0", "1", "2", "3"]
     iris_pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
@@ -114,6 +123,21 @@ def iris_df(spark_context):
     spark_session = pyspark.sql.SparkSession(spark_context)
     iris_spark_df = spark_session.createDataFrame(iris_pandas_df)
     return feature_names, iris_pandas_df, iris_spark_df
+
+
+@pytest.fixture(scope="module")
+def iris_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="0", type=DataType.double),
+                ColSpec(name="1", type=DataType.double),
+                ColSpec(name="2", type=DataType.double),
+                ColSpec(name="3", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([ColSpec(type=DataType.double)]),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -223,11 +247,10 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(MLFLOW_DFS_TMP.get())
 
 
-def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
-    _, _, iris_spark_df = iris_df
-    signature_ = infer_signature(iris_spark_df)
-    example_ = iris_spark_df.toPandas().head(3)
-    for signature in (None, signature_):
+def test_model_export_with_signature_and_examples(spark_model_iris, iris_signature):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    example_ = features_df.head(3)
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -235,19 +258,21 @@ def test_model_export_with_signature_and_examples(iris_df, spark_model_iris):
                     spark_model_iris.model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if example is None and signature is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
                     assert all((_read_example(mlflow_model, path) == example).all())
 
 
-def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
-    _, _, iris_spark_df = iris_df
-    signature_ = infer_signature(iris_spark_df)
-    example_ = iris_spark_df.toPandas().head(3)
+def test_log_model_with_signature_and_examples(spark_model_iris, iris_signature):
+    features_df = spark_model_iris.pandas_df.drop("label", axis=1)
+    example_ = features_df.head(3)
     artifact_path = "model"
-    for signature in (None, signature_):
+    for signature in (None, iris_signature):
         for example in (None, example_):
             with mlflow.start_run():
                 sparkm.log_model(
@@ -259,7 +284,10 @@ def test_log_model_with_signature_and_examples(iris_df, spark_model_iris):
                 artifact_uri = mlflow.get_artifact_uri()
                 model_path = os.path.join(artifact_uri, artifact_path)
                 mlflow_model = Model.load(model_path)
-                assert signature == mlflow_model.signature
+                if example is None and signature is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -366,6 +394,50 @@ def test_sparkml_model_log(tmp_path, spark_model_iris, should_start_run, use_dfs
     finally:
         mlflow.end_run()
         mlflow.set_tracking_uri(old_tracking_uri)
+
+
+@pytest.mark.parametrize(
+    "registry_uri,artifact_repo_class",
+    [
+        ("databricks-uc", UnityCatalogModelsArtifactRepository),
+        ("databricks", DatabricksModelsArtifactRepository),
+    ],
+)
+def test_load_spark_model_from_models_uri(
+    tmp_path, spark_model_estimator, registry_uri, artifact_repo_class
+):
+    model_dir = str(tmp_path.joinpath("spark_model"))
+    model_name = "mycatalog.myschema.mymodel"
+    fake_model_version = ModelVersion(name=model_name, version=str(3), creation_timestamp=0)
+
+    with mock.patch(
+        f"{MODELS_ARTIFACT_REPOSITORY}.get_underlying_uri"
+    ) as mock_get_underlying_uri, mock.patch.object(
+        artifact_repo_class, "download_artifacts", return_value=model_dir
+    ) as mock_download_artifacts, mock.patch(
+        "mlflow.get_registry_uri", return_value=registry_uri
+    ), mock.patch.object(
+        mlflow.tracking.MlflowClient, "get_model_version_by_alias", return_value=fake_model_version
+    ) as get_model_version_by_alias_mock:
+        sparkm.save_model(
+            path=model_dir,
+            spark_model=spark_model_estimator.model,
+        )
+        mock_get_underlying_uri.return_value = "nonexistentscheme://fakeuri"
+        mlflow.spark.load_model(f"models:/{model_name}/1")
+        # Assert that we downloaded both the MLmodel file and the whole model itself using
+        # the models:/ URI
+        assert mock_download_artifacts.mock_calls == [
+            mock.call("MLmodel", None),
+            mock.call("", None),
+        ]
+        mock_download_artifacts.reset_mock()
+        mlflow.spark.load_model(f"models:/{model_name}@Champion")
+        assert mock_download_artifacts.mock_calls == [
+            mock.call("MLmodel", None),
+            mock.call("", None),
+        ]
+        assert get_model_version_by_alias_mock.called_with(model_name, "Champion")
 
 
 @pytest.mark.parametrize("should_start_run", [False, True])
@@ -882,3 +954,19 @@ def test_model_log_with_metadata(spark_model_iris):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(spark_model_iris, iris_signature):
+    artifact_path = "model"
+    X = spark_model_iris.pandas_df
+    X.drop("label", axis=1, inplace=True)
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == iris_signature

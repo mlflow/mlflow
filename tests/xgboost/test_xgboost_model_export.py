@@ -17,13 +17,15 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models.utils import _read_example
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+from mlflow.types import DataType
+from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
@@ -51,6 +53,19 @@ def xgb_model():
     dtrain = xgb.DMatrix(X, y)
     model = xgb.train({"objective": "multi:softprob", "num_class": 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X, inference_dmatrix=dtrain)
+
+
+@pytest.fixture(scope="module")
+def xgb_model_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 3))]),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -110,9 +125,9 @@ def test_sklearn_model_save_load(xgb_sklearn_model, model_path):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(xgb_model):
+def test_signature_and_examples_are_saved_correctly(xgb_model, xgb_model_signature):
     model = xgb_model.model
-    for signature in (None, infer_signature(xgb_model.inference_dataframe)):
+    for signature in (None, xgb_model_signature):
         for example in (None, xgb_model.inference_dataframe.head(3)):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -120,7 +135,10 @@ def test_signature_and_examples_are_saved_correctly(xgb_model):
                     xgb_model=model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == xgb_model_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -567,3 +585,18 @@ def test_model_log_with_metadata(xgb_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(xgb_model, xgb_model_signature):
+    artifact_path = "model"
+    X = xgb_model.inference_dataframe
+    example = X.iloc[[0]]
+
+    with mlflow.start_run():
+        mlflow.xgboost.log_model(
+            xgb_model.model, artifact_path=artifact_path, input_example=example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == xgb_model_signature

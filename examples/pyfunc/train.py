@@ -5,7 +5,7 @@ from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from custom_code import iris_classes
 
 

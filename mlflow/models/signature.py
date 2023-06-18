@@ -5,6 +5,7 @@ Model signature defines schema of model input and output. See :py:class:`mlflow.
 for more details on Schema and data types.
 """
 import re
+from copy import deepcopy
 import inspect
 import logging
 from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
@@ -37,6 +38,13 @@ if TYPE_CHECKING:
         MlflowInferableDataset = Union[pd.DataFrame, np.ndarray, Dict[str, np.ndarray]]
 
 _logger = logging.getLogger(__name__)
+
+_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE = (
+    "Failed to infer the model signature from the input example. Reason: %s. To see the full "
+    "traceback, set the logging level to DEBUG via "
+    '`logging.getLogger("mlflow").setLevel(logging.DEBUG)`. To disable automatic signature '
+    "inference, set `signature` to `False` in your `log_model` or `save_model` call."
+)
 
 
 class ModelSignature:
@@ -266,6 +274,36 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     if input_schema is None and output_schema is None:
         return None
     return ModelSignature(inputs=input_schema, outputs=output_schema)
+
+
+def _infer_signature_from_input_example(input_example, wrapped_model):
+    """
+    Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
+
+    :param input_example: An instance representing a typical input to the model.
+    :param wrapped_model: A PyFunc wrapped model which has a `predict` method.
+    :return: A `ModelSignature` object containing the inferred schema of both the model's inputs
+        based on the `input_example` and the model's outputs based on the prediction from the
+        `wrapped_model`.
+    """
+    try:
+        input_schema = _infer_schema(input_example)
+        # Copy the input example so that it is not mutated by predict()
+        prediction = wrapped_model.predict(deepcopy(input_example))
+        # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
+        # convert them to a Pandas series for inferring as a single ColSpec Schema.
+        if (
+            not input_schema.is_tensor_spec()
+            and isinstance(prediction, np.ndarray)
+            and prediction.ndim == 1
+        ):
+            prediction = pd.Series(prediction)
+        output_schema = _infer_schema(prediction)
+        return ModelSignature(input_schema, output_schema)
+    except Exception as e:
+        _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
+        _logger.debug("", exc_info=True)
+        return None
 
 
 def set_signature(

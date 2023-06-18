@@ -175,7 +175,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.usefixtures("tmpdir", "patch_user")
+@pytest.mark.usefixtures("patch_user")
 def test_run(use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR,
@@ -235,9 +235,9 @@ def test_run_with_parent():
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
-def test_run_with_artifact_path(tmpdir):
-    artifact_file = tmpdir.join("model.pkl")
-    artifact_file.write("Hello world")
+def test_run_with_artifact_path(tmp_path):
+    artifact_file = tmp_path.joinpath("model.pkl")
+    artifact_file.write_text("Hello world")
     with mlflow.start_run() as run:
         mlflow.log_artifact(artifact_file)
         submitted_run = mlflow.projects.run(
@@ -426,9 +426,9 @@ def test_parse_kubernetes_config():
 
 
 @pytest.fixture
-def mock_kubernetes_job_template(tmpdir):
-    tmp_path = tmpdir.join("kubernetes_job_template.yaml")
-    tmp_path.write(
+def mock_kubernetes_job_template(tmp_path):
+    k8s_yaml = tmp_path.joinpath("kubernetes_job_template.yaml")
+    k8s_yaml.write_text(
         """
 apiVersion: batch/v1
 kind: Job
@@ -452,7 +452,7 @@ spec:
       restartPolicy: Never
 """.lstrip()
     )
-    return tmp_path.strpath
+    return str(k8s_yaml)
 
 
 class StartsWithMatcher:

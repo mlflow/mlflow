@@ -9,7 +9,6 @@ import pandas as pd
 from packaging.version import Version
 import pathlib
 import pytest
-import sys
 import textwrap
 from unittest import mock
 import yaml
@@ -23,8 +22,7 @@ import mlflow
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
-from mlflow.models.signature import infer_signature
+from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -62,7 +60,6 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
     _get_deps_from_requirement_file,
-    get_free_disk_space_in_GiB,
 )
 
 pytestmark = pytest.mark.large
@@ -84,14 +81,6 @@ GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
 # - TextClassifier pipeline tests
 # - Text2TextGeneration pipeline tests
 # - Conversational pipeline tests
-
-
-@pytest.fixture(autouse=True)
-def report_free_disk_space(capsys):
-    yield
-
-    with capsys.disabled():
-        sys.stdout.write(f" | Free disk space: {get_free_disk_space_in_GiB():.1f} GiB")
 
 
 @pytest.fixture(autouse=True)

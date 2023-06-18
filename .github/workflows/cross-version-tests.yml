@@ -30,7 +30,7 @@ on:
     - cron: "0 13 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -117,6 +117,7 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
+        if: matrix.package == 'transformers' || matrix.package == 'sentence-transformers'
       - name: Get python version
         id: get-python-version
         run: |
@@ -198,3 +199,4 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           ${{ matrix.run }}
+      - uses: ./.github/actions/untracked

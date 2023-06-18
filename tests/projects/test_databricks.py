@@ -71,15 +71,15 @@ def databricks_cluster_mlflow_run_cmd_mock():
 
 
 @pytest.fixture()
-def cluster_spec_mock(tmpdir):
-    cluster_spec_handle = tmpdir.join("cluster_spec.json")
-    cluster_spec_handle.write(json.dumps({}))
+def cluster_spec_mock(tmp_path):
+    cluster_spec_handle = tmp_path.joinpath("cluster_spec.json")
+    cluster_spec_handle.write_text("{}")
     yield str(cluster_spec_handle)
 
 
 @pytest.fixture()
-def dbfs_root_mock(tmpdir):
-    yield str(tmpdir.join("dbfs-root"))
+def dbfs_root_mock(tmp_path):
+    yield str(tmp_path.joinpath("dbfs-root"))
 
 
 @pytest.fixture()
@@ -148,7 +148,7 @@ def run_databricks_project(cluster_spec, **kwargs):
 
 
 def test_upload_project_to_dbfs(
-    dbfs_root_mock, tmpdir, dbfs_path_exists_mock, upload_to_dbfs_mock
+    dbfs_root_mock, tmp_path, dbfs_path_exists_mock, upload_to_dbfs_mock
 ):  # pylint: disable=unused-argument
     # Upload project to a mock directory
     dbfs_path_exists_mock.return_value = False
@@ -158,7 +158,7 @@ def test_upload_project_to_dbfs(
     )
     # Get expected tar
     local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
-    expected_tar_path = str(tmpdir.join("expected.tar.gz"))
+    expected_tar_path = str(tmp_path.joinpath("expected.tar.gz"))
     file_utils.make_tarfile(
         output_filename=expected_tar_path,
         source_dir=TEST_PROJECT_DIR,
@@ -212,7 +212,7 @@ def test_dbfs_path_exists_error_response_handling(response_mock):
 
 
 def test_run_databricks_validations(
-    tmpdir,
+    tmp_path,
     monkeypatch,
     cluster_spec_mock,
     dbfs_mocks,
@@ -226,7 +226,7 @@ def test_run_databricks_validations(
         "mlflow.projects.databricks.DatabricksJobRunner._databricks_api_request"
     ) as db_api_req_mock:
         # Test bad tracking URI
-        mlflow.set_tracking_uri(tmpdir.strpath)
+        mlflow.set_tracking_uri(tmp_path.as_uri())
         with pytest.raises(ExecutionException, match="MLflow tracking URI must be of"):
             run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0

@@ -1,6 +1,6 @@
 # tensorflow 2.x core api
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import pandas as pd
 
 import tensorflow as tf

@@ -461,10 +461,11 @@ def _generate_mlflow_version_pinning():
     the current installed minor version(i.e., 'mlflow<3,>=2.1')
     :return: string for MLflow dependency version
     """
-    mlflow_version = Version(VERSION)
-    current_major_version = mlflow_version.major
-    current_minor_version = mlflow_version.minor
-    return f"mlflow=={current_major_version}.{current_minor_version}"
+    version = Version(VERSION)
+    # The version on master is always a micro-version ahead of the latest release and can't be
+    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
+    offset = -1 if version.is_devrelease else 0
+    return f"mlflow=={version.major}.{version.minor}.{version.micro + offset}"
 
 
 def _contains_mlflow_requirement(requirements):

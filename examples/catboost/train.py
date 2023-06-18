@@ -2,7 +2,7 @@
 # https://catboost.ai/docs/concepts/python-usages-examples.html#regression
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from catboost import CatBoostRegressor
 import numpy as np
 

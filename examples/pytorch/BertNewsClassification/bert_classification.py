@@ -26,7 +26,7 @@ from torch.utils.data.dataset import random_split
 from torchdata.datapipes.iter import IterDataPipe
 from torchtext.data.functional import to_map_style_dataset
 from torchtext.datasets import AG_NEWS
-from transformers import BertModel, BertTokenizer, AdamW
+from transformers import BertModel, BertTokenizer
 
 import mlflow.pytorch
 
@@ -335,7 +335,7 @@ class BertNewsClassifier(L.LightningModule):
 
         :return: output - Initialized optimizer and scheduler
         """
-        self.optimizer = AdamW(self.parameters(), lr=self.lr)
+        self.optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
         self.scheduler = {
             "scheduler": torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.optimizer,

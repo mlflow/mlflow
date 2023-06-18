@@ -47,7 +47,7 @@ def test_project_get_unspecified_entry_point():
         ("conda_env: some-env.yaml", "some-env.yaml", "hi", "mlproject"),
     ],
 )
-def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlproject_path):
+def test_load_project(tmp_path, mlproject, conda_env_path, conda_env_contents, mlproject_path):
     """
     Test that we can load a project with various combinations of an MLproject / conda.yaml file
     :param mlproject: Contents of MLproject file. If None, no MLproject file will be written
@@ -57,21 +57,19 @@ def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents, mlp
                                not None)
     """
     if mlproject:
-        tmpdir.join(mlproject_path).write(mlproject)
+        tmp_path.joinpath(mlproject_path).write_text(mlproject)
     if conda_env_path:
-        tmpdir.join(conda_env_path).write(conda_env_contents)
-    project = _project_spec.load_project(tmpdir.strpath)
+        tmp_path.joinpath(conda_env_path).write_text(conda_env_contents)
+    project = _project_spec.load_project(str(tmp_path))
     assert project._entry_points == {}
-    expected_env_path = (
-        os.path.abspath(os.path.join(tmpdir.strpath, conda_env_path)) if conda_env_path else None
-    )
+    expected_env_path = str(tmp_path.joinpath(conda_env_path)) if conda_env_path else None
     assert project.env_config_path == expected_env_path
     if conda_env_path:
         assert open(project.env_config_path).read() == conda_env_contents
 
 
-def test_load_docker_project(tmpdir):
-    tmpdir.join("MLproject").write(
+def test_load_docker_project(tmp_path):
+    tmp_path.joinpath("MLproject").write_text(
         textwrap.dedent(
             """
     docker_env:
@@ -79,7 +77,7 @@ def test_load_docker_project(tmpdir):
     """
         )
     )
-    project = _project_spec.load_project(tmpdir.strpath)
+    project = _project_spec.load_project(str(tmp_path))
     assert project._entry_points == {}
     assert project.env_config_path is None
     assert project.docker_env.get("image") == "some-image"
@@ -118,8 +116,8 @@ def test_load_virtualenv_project(tmp_path):
         ),
     ],
 )
-def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
-    tmpdir.join("MLproject").write(invalid_project_contents)
+def test_load_invalid_project(tmp_path, invalid_project_contents, expected_error_msg):
+    tmp_path.joinpath("MLproject").write_text(invalid_project_contents)
     with pytest.raises(ExecutionException, match=expected_error_msg) as e:
-        _project_spec.load_project(tmpdir.strpath)
+        _project_spec.load_project(str(tmp_path))
     assert expected_error_msg in str(e.value)

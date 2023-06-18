@@ -1,3 +1,6 @@
+import tempfile
+import os
+
 from mlflow import MlflowClient
 from mlflow.models.evaluation import (
     ModelEvaluator,
@@ -81,12 +84,14 @@ class DummyEvaluator(ModelEvaluator):
                     ),
                     content=confusion_matrix_image,
                 )
-                confusion_matrix_image_artifact._save(confusion_matrix_image_artifact_name + ".png")
-                self.client.log_image(
-                    self.run_id,
-                    confusion_matrix_image,
-                    confusion_matrix_image_artifact_name + ".png",
-                )
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    path = os.path.join(tmpdir, confusion_matrix_image_artifact_name + ".png")
+                    confusion_matrix_image_artifact._save(path)
+                    self.client.log_image(
+                        self.run_id,
+                        confusion_matrix_image,
+                        confusion_matrix_image_artifact_name + ".png",
+                    )
 
                 artifacts = {
                     confusion_matrix_artifact_name: confusion_matrix_artifact,
