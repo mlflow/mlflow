@@ -372,6 +372,8 @@ def _save_model(model, path):
             )
 
         key_to_ignore = ["llm_chain", "agent", "tools", "callback_manager"]
+        if "lc_kwargs" in model.__dict__:
+            key_to_ignore.append("lc_kwargs")
         temp_dict = {k: v for k, v in model.__dict__.items() if k not in key_to_ignore}
 
         agent_primitive_path = os.path.join(path, _AGENT_PRIMITIVES_FILE_NAME)
