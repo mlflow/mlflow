@@ -10,6 +10,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
 )
 from mlflow.gateway.utils import get_gateway_uri
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -100,22 +101,23 @@ class MlflowGatewayClient:
 
         return Route(**response)
 
-    def search_routes(self, search_filter: Optional[str] = None):
+    def search_routes(self, page_token: Optional[str]):
         """
         Search for routes in the Gateway. Currently, this simply returns all configured routes.
 
-        :param search_filter: An optional filter to apply to the search. Currently not used.
         :return: Returns a list of all configured and initialized `Route` data for the MLflow
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
             and model details of each active route endpoint.
         """
-        if search_filter:
-            raise MlflowException.invalid_parameter_value(
-                "Search functionality is not implemented. This API only returns all configured "
-                "routes with no `search_filter` defined."
-            )
-        response = self._call_endpoint("GET", self._route_base).json()["routes"]
-        return [Route(**resp) for resp in response]
+        request_parameters = None
+        if page_token is not None:
+            request_parameters = {
+                "page_token": page_token 
+            } 
+        response_json = self._call_endpoint("GET", self._route_base, json_body=request_parameters).json()
+        routes = [Route(**resp) for resp in response_json["routes"]]
+        next_page_token = response_json.get("next_page_token")
+        return PagedList(routes, next_page_token)
 
     def query(self, route: str, data: Dict[str, Any]):
         """

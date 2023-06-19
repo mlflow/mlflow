@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import logging
 import os
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Union
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
@@ -123,9 +123,9 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get("/gateway/routes/")
-    async def search_routes(token: str = None):
-        if token is not None:
-            start_idx = SearchRoutesToken.decode(token).index
+    async def search_routes(page_token: Union[str, None] = None):
+        if page_token is not None:
+            start_idx = SearchRoutesToken.decode(page_token).index
         else:
             start_idx = 0
 
