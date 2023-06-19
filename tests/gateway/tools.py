@@ -77,5 +77,5 @@ class Gateway:
         self.process.wait()
 
 
-def store_conf(path, conf):
+def save_yaml(path, conf):
     path.write_text(yaml.safe_dump(conf))
