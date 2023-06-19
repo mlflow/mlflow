@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
 )
 from mlflow.gateway.utils import get_gateway_uri
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -183,11 +182,6 @@ class MlflowGatewayClient:
             )
 
         """
-        if self._is_databricks_host():
-            route_base = "/ml/gateway/"
-        else:
-            route_base = "/gateway"
-
         data = json.dumps(data)
-        route = urljoin(route_base, route + "/invocations")
+        route = urljoin("/gateway/", route + "/invocations")
         return self._call_endpoint("POST", route, data).json()
