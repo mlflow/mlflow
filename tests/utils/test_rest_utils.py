@@ -27,26 +27,21 @@ from tests import helper_functions
 
 
 def test_well_formed_json_error_response():
-    with mock.patch("requests.Session.request") as request_mock:
+    with mock.patch(
+        "requests.Session.request", return_value=mock.MagicMock(status_code=400, text="{}")
+    ):
         host_only = MlflowHostCreds("http://my-host")
-        response_mock = mock.MagicMock()
-        response_mock.status_code = 400
-        response_mock.text = "{}"  # well-formed JSON error response
-        request_mock.return_value = response_mock
-
         response_proto = GetRun.Response()
         with pytest.raises(RestException, match="INTERNAL_ERROR"):
             call_endpoint(host_only, "/my/endpoint", "GET", "", response_proto)
 
 
 def test_non_json_ok_response():
-    with mock.patch("requests.Session.request") as request_mock:
+    with mock.patch(
+        "requests.Session.request",
+        return_value=mock.MagicMock(status_code=200, text="<html></html>"),
+    ):
         host_only = MlflowHostCreds("http://my-host")
-        response_mock = mock.MagicMock()
-        response_mock.status_code = 200
-        response_mock.text = "<html></html>"
-        request_mock.return_value = response_mock
-
         response_proto = GetRun.Response()
         with pytest.raises(
             MlflowException,
@@ -65,9 +60,8 @@ def test_non_json_ok_response():
     ],
 )
 def test_malformed_json_error_response(response_mock):
-    with mock.patch("requests.Session.request") as request_mock:
+    with mock.patch("requests.Session.request", return_value=response_mock):
         host_only = MlflowHostCreds("http://my-host")
-        request_mock.return_value = response_mock
 
         response_proto = GetRun.Response()
         with pytest.raises(

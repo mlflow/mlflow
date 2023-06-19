@@ -16,34 +16,22 @@ from tests.helper_functions import multi_context
 
 def test_databricks_job_default_experiment_in_context():
     with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job"
-    ) as in_job_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_type_info"
-    ) as get_job_type_info:
-        in_job_mock.return_value = True
-        get_job_type_info.return_value = "NORMAL"
+        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=True
+    ), mock.patch("mlflow.utils.databricks_utils.get_job_type_info", return_value="NORMAL"):
         assert DatabricksJobExperimentProvider().in_context() is True
 
 
 def test_databricks_job_default_experiment_in_context_with_not_in_databricks_job():
     with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job"
-    ) as in_job_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_type_info"
-    ) as get_job_type_info:
-        in_job_mock.return_value = False
-        get_job_type_info.return_value = "NORMAL"
+        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=False
+    ), mock.patch("mlflow.utils.databricks_utils.get_job_type_info", return_value="NORMAL"):
         assert DatabricksJobExperimentProvider().in_context() is False
 
 
 def test_databricks_job_default_experiment_in_context_with_ephemeral_job_type():
     with mock.patch(
-        "mlflow.utils.databricks_utils.is_in_databricks_job"
-    ) as in_job_mock, mock.patch(
-        "mlflow.utils.databricks_utils.get_job_type_info"
-    ) as get_job_type_info:
-        in_job_mock.return_value = True
-        get_job_type_info.return_value = "EPHEMERAL"
+        "mlflow.utils.databricks_utils.is_in_databricks_job", return_value=True
+    ), mock.patch("mlflow.utils.databricks_utils.get_job_type_info", return_value="EPHEMERAL"):
         assert DatabricksJobExperimentProvider().in_context() is False
 
 

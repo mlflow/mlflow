@@ -21,11 +21,14 @@ def force_dbfs_fuse_repo(artifact_dir):
     in_databricks_mock_path = "mlflow.utils.databricks_utils.is_dbfs_fuse_available"
     local_artifact_repo_package = "mlflow.store.artifact.local_artifact_repo"
     artifact_dir_mock_path = local_artifact_repo_package + ".LocalArtifactRepository.artifact_dir"
-    with mock.patch(in_databricks_mock_path) as is_dbfs_fuse_available, mock.patch(
-        artifact_dir_mock_path, new_callable=PropertyMock
-    ) as artifact_dir_mock:
-        is_dbfs_fuse_available.return_value = True
-        artifact_dir_mock.return_value = artifact_dir
+    with mock.patch(
+        in_databricks_mock_path,
+        return_value=True,
+    ), mock.patch(
+        artifact_dir_mock_path,
+        new_callable=PropertyMock,
+        return_value=artifact_dir,
+    ):
         yield
 
 
