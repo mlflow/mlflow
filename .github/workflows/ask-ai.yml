@@ -1,0 +1,16 @@
+name: Ask AI
+
+on:
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.comment.body, '$ai')
+    steps:
+      - uses: actions/checkout@v3
+      - uses: harupy/ask-ai@master
+        with:
+          openai-api-key: ${{ secrets.HARU_OPENAI_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
