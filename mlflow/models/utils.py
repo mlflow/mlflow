@@ -869,7 +869,7 @@ def get_model_version_from_model_uri(model_uri):
 
 
 def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSchema):
-    if params is None and schema is None:
+    if params in [None, {}] and (schema is None or len(schema.params) == 0):
         return params
     if not isinstance(params, dict):
         raise MlflowException(
