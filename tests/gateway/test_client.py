@@ -8,7 +8,7 @@ import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
 from mlflow.utils.databricks_utils import MlflowHostCreds
-from tests.gateway.tools import Gateway, store_conf
+from tests.gateway.tools import Gateway, save_yaml
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def clear_uri():
 @pytest.fixture
 def gateway(basic_config_dict, tmp_path):
     conf = tmp_path / "config.yaml"
-    store_conf(conf, basic_config_dict)
+    save_yaml(conf, basic_config_dict)
     with Gateway(conf) as g:
         yield g
 
