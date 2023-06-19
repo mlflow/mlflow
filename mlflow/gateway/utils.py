@@ -99,20 +99,22 @@ class SearchRoutesToken:
             parsed_token = json.loads(decoded_token)
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
-                    f"Invalid SearchRoutes token: {encoded_token}"
+                f"Invalid SearchRoutes token: {encoded_token}"
             ) from e
 
         index = parsed_token.get("index")
         if not index or index < 0:
             raise MlflowException.invalid_parameter_value(
-                    f"Invalid SearchRoutes token: {encoded_token}"
+                f"Invalid SearchRoutes token: {encoded_token}"
             ) from e
 
         return cls(index=index)
 
     def encode(self) -> str:
-        token_json =  json.dumps({
-            "index": self.index,
-        })
+        token_json = json.dumps(
+            {
+                "index": self.index,
+            }
+        )
         encoded_token_bytes = base64.b64encode(bytes(token_json, "utf-8"))
         return encoded_token_bytes.decode("utf-8")

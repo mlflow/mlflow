@@ -34,9 +34,9 @@ def search_routes() -> List[Route]:
 
     :return: A list of Route instances representing the found routes.
     """
+
     def pagination_wrapper_func(_, next_page_token):
         return MlflowGatewayClient().search_routes(page_token=next_page_token)
-
 
     return get_results_from_paginated_fn(
         paginated_fn=pagination_wrapper_func,

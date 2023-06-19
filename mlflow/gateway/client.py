@@ -111,10 +111,10 @@ class MlflowGatewayClient:
         """
         request_parameters = None
         if page_token is not None:
-            request_parameters = {
-                "page_token": page_token 
-            } 
-        response_json = self._call_endpoint("GET", self._route_base, json_body=request_parameters).json()
+            request_parameters = {"page_token": page_token}
+        response_json = self._call_endpoint(
+            "GET", self._route_base, json_body=request_parameters
+        ).json()
         routes = [Route(**resp) for resp in response_json["routes"]]
         next_page_token = response_json.get("next_page_token")
         return PagedList(routes, next_page_token)
