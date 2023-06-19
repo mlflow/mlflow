@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.comment.body, '$ai')
+    if: startsWith(github.event.comment.body, '$ai') || github.triggering_actor != 'harupy'
     steps:
       - uses: actions/checkout@v3
       - uses: harupy/ask-ai@master
