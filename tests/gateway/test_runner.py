@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from tests.gateway.tools import Gateway, store_conf
+from tests.gateway.tools import Gateway, save_yaml
 import pytest
 
 
@@ -119,14 +119,14 @@ def test_server_update(
     tmp_path: Path, basic_config_dict, update_config_dict, basic_routes, update_routes
 ):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
         assert response.json() == basic_routes
 
         # push an update to the config file
-        store_conf(config, update_config_dict)
+        save_yaml(config, update_config_dict)
 
         # Ensure there is no server downtime
         gateway.assert_health()
@@ -138,7 +138,7 @@ def test_server_update(
         assert response.json() == update_routes
 
         # push the original file back
-        store_conf(config, basic_config_dict)
+        save_yaml(config, basic_config_dict)
         gateway.assert_health()
         gateway.wait_reload()
         response = gateway.get("gateway/routes/")
@@ -149,7 +149,7 @@ def test_server_update_with_invalid_config(
     tmp_path: Path, basic_config_dict, invalid_config_dict, basic_routes
 ):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -157,7 +157,7 @@ def test_server_update_with_invalid_config(
         # Give filewatch a moment to cycle
         gateway.wait_reload()
         # push an invalid config
-        store_conf(config, invalid_config_dict)
+        save_yaml(config, invalid_config_dict)
         gateway.assert_health()
         # ensure that filewatch has run through the aborted config change logic
         gateway.wait_reload()
@@ -170,7 +170,7 @@ def test_server_update_config_removed_then_recreated(
     tmp_path: Path, basic_config_dict, basic_routes
 ):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -182,7 +182,7 @@ def test_server_update_config_removed_then_recreated(
         gateway.wait_reload()
         gateway.assert_health()
 
-        store_conf(config, {"routes": basic_config_dict["routes"][1:]})
+        save_yaml(config, {"routes": basic_config_dict["routes"][1:]})
         gateway.wait_reload()
         response = gateway.get("gateway/routes/")
         assert response.json() == {"routes": basic_routes["routes"][1:]}
@@ -190,7 +190,7 @@ def test_server_update_config_removed_then_recreated(
 
 def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.get("gateway/routes/")
@@ -208,7 +208,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
 @pytest.mark.skip(reason="TODO: Figure out how to test dynamic endpoints")
 def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         response = gateway.post(
@@ -235,7 +235,7 @@ def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
 
 def test_request_invalid_route(tmp_path, basic_config_dict):
     config = tmp_path / "config.yaml"
-    store_conf(config, basic_config_dict)
+    save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
         # Test get
