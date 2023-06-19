@@ -6,7 +6,7 @@ from typing import Any, Optional, Dict
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
+from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT, MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE 
 from mlflow.gateway.config import (
     Route,
     RouteConfig,
@@ -16,6 +16,7 @@ from mlflow.gateway.config import (
 )
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.providers import get_provider
+from mlflow.gateway.utils import SearchRoutesToken 
 
 _logger = logging.getLogger(__name__)
 
@@ -122,10 +123,22 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get("/gateway/routes/")
-    async def search_routes():
-        # placeholder route listing functionality
+    async def search_routes(token: str = None):
+        if token is not None:
+            start_idx = SearchRoutesToken.decode(token).index
+        else:
+            start_idx = 0
 
-        return {"routes": list(app.dynamic_routes.values())}
+        end_idx = start_idx + MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE
+        routes = list(app.dynamic_routes.values())[start_idx:end_idx]
+        result = {
+             "routes": routes
+        }
+        if len(routes) > MLFLOW_GATEWAY_NUM_ROUTES_PER_SEARCH_RESULTS_PAGE:
+            next_page_token = SearchRoutesToken(index=end_idx)
+            result["next_page_token"] = next_page_token.encode()
+
+        return result
 
     return app
 
