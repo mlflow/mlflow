@@ -10,9 +10,12 @@ generation_pipeline = transformers.pipeline(
 
 input_example = ["prompt 1", "prompt 2", "prompt 3"]
 
+parameters = {"max_length": 512, "do_sample": True}
+
 signature = mlflow.models.infer_signature(
     input_example,
     mlflow.transformers.generate_signature_output(generation_pipeline, input_example),
+    parameters,
 )
 
 with mlflow.start_run() as run:
@@ -29,6 +32,6 @@ print(
     sentence_generator.predict(
         ["tell me a story about rocks", "Tell me a joke about a dog that likes spaghetti"],
         # pass in additional parameters applied to the pipeline during inference
-        parameters={"max_length": 512, "do_sample": True},
+        parameters=parameters,
     )
 )
