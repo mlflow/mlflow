@@ -90,9 +90,9 @@ _logger = logging.getLogger(__name__)
 
 def flaky(max_tries=3):
     """
-    Annotation decorator for retrying flaky tests up to max_tries times, and raise the Exception
+    Annotation decorator for retrying flaky functions up to max_tries times, and raise the Exception
     if it fails after max_tries attempts.
-    :param max_tries: Maximum number of times to retry the test.
+    :param max_tries: Maximum number of times to retry the function.
     :return: Decorated function.
     """
 
@@ -100,14 +100,16 @@ def flaky(max_tries=3):
         @wraps(test_func)
         def decorated_func(*args, **kwargs):
             error = None
-            for i in range(3):
+            for i in range(max_tries):
                 try:
                     return test_func(*args, **kwargs)
                 except Exception as e:
                     error = e
-                    _logger.warning(f"Attempt {i} failed")
+                    _logger.warning(f"Attempt {i+1} failed with error: {e}")
                     time.sleep(3)
-            raise Exception(f"Test {test_func} failed after 3 attempts: {error!r}")
+            raise Exception(
+                f"Test {test_func} failed after {max_tries} attempts with error: {error!r}"
+            )
 
         return decorated_func
 
