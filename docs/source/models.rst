@@ -2298,6 +2298,11 @@ Example: Log a LangChain Agent
 .. literalinclude:: ../../examples/langchain/simple_agent.py
     :language: python
 
+Example: Log a LangChain RetrievalQA Chain
+
+.. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
+    :language: python
+
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
 The ``diviner`` model flavor enables logging of
