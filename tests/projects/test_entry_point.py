@@ -63,9 +63,8 @@ def test_path_parameter():
     project = load_project()
     entry_point = project.get_entry_point("line_count")
     with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        "mlflow.tracking.artifact_utils._download_artifact_from_uri", return_value=0
     ) as download_uri_mock:
-        download_uri_mock.return_value = 0
         # Verify that we don't attempt to call download_uri when passing a local file to a
         # parameter of type "path"
         with TempDir() as tmp:
@@ -200,7 +199,7 @@ def test_path_params():
     entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
 
     with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        "mlflow.tracking.artifact_utils._download_artifact_from_uri", return_value=None
     ) as download_uri_mock:
         final_1, extra_1 = entry_point.compute_parameters({}, None)
         assert final_1 == {"constants": "s3://path.test/b1", "data": data_file}

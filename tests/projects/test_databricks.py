@@ -46,9 +46,9 @@ def runs_cancel_mock():
 def runs_submit_mock():
     """Mocks the Jobs Runs Submit API request"""
     with mock.patch(
-        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit"
+        "mlflow.projects.databricks.DatabricksJobRunner._jobs_runs_submit",
+        return_value={"run_id": "-1"},
     ) as runs_submit_mock:
-        runs_submit_mock.return_value = {"run_id": "-1"}
         yield runs_submit_mock
 
 
@@ -470,9 +470,10 @@ def test_databricks_http_request_integration(get_config, request):
 
 @mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds")
 def test_run_databricks_failed(_):
-    with mock.patch("mlflow.utils.rest_utils.http_request") as m:
-        text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
-        m.return_value = mock.Mock(text=text, status_code=400)
+    text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request", return_value=mock.Mock(text=text, status_code=400)
+    ):
         runner = DatabricksJobRunner(construct_db_uri_from_profile("profile"))
         with pytest.raises(
             MlflowException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"

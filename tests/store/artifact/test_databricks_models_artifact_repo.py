@@ -170,8 +170,10 @@ def test_list_artifacts(databricks_model_artifact_repo):
     }
     list_artifact_dir_response_mock.text = json.dumps(list_artifact_dir_json_mock)
     list_artifact_dir_response_mock.raise_for_status.side_effect = _raise_for_status
-    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint") as call_endpoint_mock:
-        call_endpoint_mock.return_value = list_artifact_dir_response_mock
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+        return_value=list_artifact_dir_response_mock,
+    ) as call_endpoint_mock:
         artifacts = databricks_model_artifact_repo.list_artifacts("")
         assert isinstance(artifacts, list)
         assert len(artifacts) == 2
@@ -189,8 +191,10 @@ def test_list_artifacts(databricks_model_artifact_repo):
     list_artifact_dir_bad_response_mock.status_code = status_code
     list_artifact_dir_bad_response_mock.text = "An error occurred"
     list_artifact_dir_bad_response_mock.raise_for_status.side_effect = _raise_for_status
-    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint") as call_endpoint_mock:
-        call_endpoint_mock.return_value = list_artifact_dir_bad_response_mock
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+        return_value=list_artifact_dir_bad_response_mock,
+    ) as call_endpoint_mock:
         with pytest.raises(
             MlflowException,
             match=r"API request to list files under path `` failed with status code 404. "
@@ -207,9 +211,10 @@ def test_list_artifacts_for_single_file(databricks_model_artifact_repo):
         "files": [{"path": "MLmodel", "is_dir": False, "file_size": 294}]
     }
     list_artifact_file_response_mock.text = json.dumps(list_artifact_file_json_mock)
-    with mock.patch(DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint") as call_endpoint_mock:
-        # Calling list_artifacts() on a path that's a file should return an empty list
-        call_endpoint_mock.return_value = list_artifact_file_response_mock
+    with mock.patch(
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+        return_value=list_artifact_file_response_mock,
+    ):
         artifacts = databricks_model_artifact_repo.list_artifacts("MLmodel")
         assert len(artifacts) == 0
 
@@ -233,12 +238,12 @@ def test_download_file(databricks_model_artifact_repo, remote_file_path, local_p
     expected_headers = {"header_name": "header_value"}
     signed_uri_response_mock.text = json.dumps(signed_uri_mock)
     with mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint"
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY + "._call_endpoint",
+        return_value=signed_uri_response_mock,
     ) as call_endpoint_mock, mock.patch(
-        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_file_using_http_uri"
+        DATABRICKS_MODEL_ARTIFACT_REPOSITORY_PACKAGE + ".download_file_using_http_uri",
+        return_value=None,
     ) as download_mock:
-        call_endpoint_mock.return_value = signed_uri_response_mock
-        download_mock.return_value = None
         databricks_model_artifact_repo.download_artifacts(remote_file_path, local_path)
         call_endpoint_mock.assert_called_with(ANY, REGISTRY_ARTIFACT_PRESIGNED_URI_ENDPOINT)
         download_mock.assert_called_with(
