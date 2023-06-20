@@ -31,8 +31,9 @@ def test_csv_generation(tmp_path):
     import numpy as np
     import pandas as pd
 
-    with mock.patch("mlflow.experiments.fluent.search_runs") as mock_search_runs:
-        mock_search_runs.return_value = pd.DataFrame(
+    with mock.patch(
+        "mlflow.experiments.fluent.search_runs",
+        return_value=pd.DataFrame(
             {
                 "run_id": np.array(["all_set", "with_none", "with_nan"]),
                 "experiment_id": np.array([1, 1, 1]),
@@ -40,7 +41,8 @@ def test_csv_generation(tmp_path):
                 "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32),
             },
             columns=["run_id", "experiment_id", "param_optimizer", "avg_loss"],
-        )
+        ),
+    ):
         expected_csv = textwrap.dedent(
             """\
         run_id,experiment_id,param_optimizer,avg_loss

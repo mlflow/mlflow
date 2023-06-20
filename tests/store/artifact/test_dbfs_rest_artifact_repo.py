@@ -19,9 +19,9 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 @pytest.fixture()
 def dbfs_artifact_repo():
     with mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
-    ) as get_creds_mock:
-        get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
+        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store",
+        return_value=lambda: MlflowHostCreds("http://host"),
+    ):
         return get_artifact_repository("dbfs:/test/")
 
 
@@ -65,9 +65,9 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 class TestDbfsArtifactRepository:
     def test_init_validation_and_cleaning(self):
         with mock.patch(
-            DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store"
-        ) as get_creds_mock:
-            get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
+            DBFS_ARTIFACT_REPOSITORY_PACKAGE + "._get_host_creds_from_default_store",
+            return_value=lambda: MlflowHostCreds("http://host"),
+        ):
             repo = get_artifact_repository("dbfs:/test/")
             assert repo.artifact_uri == "dbfs:/test"
             match = "DBFS URI must be of the form dbfs:/<path>"
@@ -137,8 +137,9 @@ class TestDbfsArtifactRepository:
             dbfs_artifact_repo.log_artifact(test_file, "")
 
     def test_log_artifact_error(self, dbfs_artifact_repo, test_file):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
-            http_request_mock.return_value = Mock(status_code=409, text="")
+        with mock.patch(
+            "mlflow.utils.rest_utils.http_request", return_value=Mock(status_code=409, text="")
+        ):
             with pytest.raises(MlflowException, match=r"API request to endpoint .+ failed"):
                 dbfs_artifact_repo.log_artifact(test_file)
 
@@ -177,8 +178,9 @@ class TestDbfsArtifactRepository:
             }
 
     def test_log_artifacts_error(self, dbfs_artifact_repo, test_dir):
-        with mock.patch("mlflow.utils.rest_utils.http_request") as http_request_mock:
-            http_request_mock.return_value = Mock(status_code=409, text="")
+        with mock.patch(
+            "mlflow.utils.rest_utils.http_request", return_value=Mock(status_code=409, text="")
+        ):
             with pytest.raises(MlflowException, match=r"API request to endpoint .+ failed"):
                 dbfs_artifact_repo.log_artifacts(test_dir)
 
@@ -259,13 +261,14 @@ class TestDbfsArtifactRepository:
 
 
 def test_get_host_creds_from_default_store_file_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
-        get_store_mock.return_value = FileStore()
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=FileStore()):
         with pytest.raises(MlflowException, match="Failed to get credentials for DBFS"):
             _get_host_creds_from_default_store()
 
 
 def test_get_host_creds_from_default_store_rest_store():
-    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as get_store_mock:
-        get_store_mock.return_value = RestStore(lambda: MlflowHostCreds("http://host"))
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils._get_store",
+        return_value=RestStore(lambda: MlflowHostCreds("http://host")),
+    ):
         assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)
