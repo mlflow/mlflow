@@ -96,7 +96,7 @@ class MlflowGatewayClient:
             and provider) for the requested route endpoint.
         """
         route = urljoin(self._route_base, name)
-        response = self._call_endpoint("GET", route).json()["route"]
+        response = self._call_endpoint("GET", route).json()
 
         return Route(**response)
 

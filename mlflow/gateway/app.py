@@ -113,7 +113,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     @app.get("/gateway/routes/{route_name}")
     async def get_route(route_name: str):
         if matched := app.get_dynamic_route(route_name):
-            return {"route": matched}
+            return matched
 
         raise HTTPException(
             status_code=404,
