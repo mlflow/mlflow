@@ -499,14 +499,16 @@ def test_log_batch_validates_entity_names_and_values():
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_log_artifact_with_dirs(tmpdir):
+def test_log_artifact_with_dirs(tmp_path):
     # Test log artifact with a directory
-    art_dir = tmpdir.mkdir("parent")
-    file0 = art_dir.join("file0")
-    file0.write("something")
-    file1 = art_dir.join("file1")
-    file1.write("something")
-    sub_dir = art_dir.mkdir("child")
+    art_dir = tmp_path / "parent"
+    art_dir.mkdir()
+    file0 = art_dir.joinpath("file0")
+    file0.write_text("something")
+    file1 = art_dir.joinpath("file1")
+    file1.write_text("something")
+    sub_dir = art_dir / "child"
+    sub_dir.mkdir()
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
@@ -517,7 +519,9 @@ def test_log_artifact_with_dirs(tmpdir):
         with open(os.path.join(run_artifact_dir, base, "file0")) as f:
             assert f.read() == "something"
     # Test log artifact with directory and specified parent folder
-    art_dir = tmpdir.mkdir("dir")
+
+    art_dir = tmp_path / "dir"
+    art_dir.mkdir()
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
@@ -526,7 +530,8 @@ def test_log_artifact_with_dirs(tmpdir):
         assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == [
             os.path.basename(str(art_dir))
         ]
-    sub_dir = art_dir.mkdir("another_dir")
+    sub_dir = art_dir.joinpath("another_dir")
+    sub_dir.mkdir()
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)

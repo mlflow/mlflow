@@ -301,9 +301,9 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() == notebook_id
 
 
@@ -315,10 +315,9 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         notebook_id = str(int(exp_id) + 73)
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
-
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
 
@@ -331,10 +330,9 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
         HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
-
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
 
@@ -351,9 +349,9 @@ def test_get_experiment_by_id():
 def test_get_experiment_by_id_with_is_in_databricks_job():
     job_exp_id = 123
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as job_id_mock:
-        job_id_mock.return_value = job_exp_id
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=job_exp_id,
+    ):
         assert _get_experiment_id() == job_exp_id
 
 

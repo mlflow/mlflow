@@ -919,7 +919,7 @@ def test_tf_keras_autolog_non_early_stop_callback_no_log(tf_keras_random_data_ru
 
 @pytest.mark.parametrize("positional", [True, False])
 def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
-    tmpdir, random_train_data, random_one_hot_labels, positional
+    tmp_path, random_train_data, random_one_hot_labels, positional
 ):
     """
     TensorFlow autologging passes new callbacks to the `fit()` / `fit_generator()` function. If
@@ -929,7 +929,7 @@ def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
     """
     mlflow.tensorflow.autolog()
 
-    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmpdir)
+    tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=tmp_path)
     callbacks = [tensorboard_callback]
 
     model = create_tf_keras_model()
@@ -946,9 +946,9 @@ def test_tf_keras_autolog_does_not_mutate_original_callbacks_list(
 
 
 def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_callback(
-    tmpdir, random_train_data, random_one_hot_labels
+    tmp_path, random_train_data, random_one_hot_labels
 ):
-    tensorboard_callback_logging_dir_path = str(tmpdir.mkdir("tb_logs"))
+    tensorboard_callback_logging_dir_path = str(tmp_path.joinpath("tb_logs"))
     tensorboard_callback = tf.keras.callbacks.TensorBoard(
         tensorboard_callback_logging_dir_path, histogram_freq=0
     )
@@ -965,13 +965,15 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 
 
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
-    tmpdir, random_train_data, random_one_hot_labels
+    tmp_path, random_train_data, random_one_hot_labels
 ):
     from mlflow.tensorflow import _TensorBoardLogDir
 
     mlflow.tensorflow.autolog()
 
-    mock_log_dir_inst = _TensorBoardLogDir(location=str(tmpdir.mkdir("tb_logging")), is_temp=True)
+    mock_log_dir_inst = _TensorBoardLogDir(
+        location=str(tmp_path.joinpath("tb_logging")), is_temp=True
+    )
     with patch("mlflow.tensorflow._TensorBoardLogDir", autospec=True) as mock_log_dir_class:
         mock_log_dir_class.return_value = mock_log_dir_inst
 
@@ -1061,7 +1063,7 @@ def get_text_vec_model(train_samples):
         "https://github.com/tensorflow/tensorflow/issues/38250"
     ),
 )
-def test_autolog_text_vec_model(tmpdir):
+def test_autolog_text_vec_model(tmp_path):
     """
     Verifies autolog successfully saves a model that can't be saved in the H5 format
     """
@@ -1073,7 +1075,7 @@ def test_autolog_text_vec_model(tmpdir):
 
     # Saving in the H5 format should fail
     with pytest.raises(NotImplementedError, match="is not supported in h5"):
-        model.save(tmpdir.join("model.h5").strpath, save_format="h5")
+        model.save(str(tmp_path.joinpath("model.h5")), save_format="h5")
 
     with mlflow.start_run() as run:
         model.fit(train_samples, train_labels, epochs=1)

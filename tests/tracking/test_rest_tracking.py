@@ -47,6 +47,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_NAME,
     MLFLOW_PROJECT_ENTRY_POINT,
     MLFLOW_GIT_COMMIT,
+    MLFLOW_DATASET_CONTEXT,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time_utils import get_current_time_millis
@@ -83,12 +84,11 @@ def mlflow_client(request, tmp_path):
 @pytest.fixture()
 def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
-    cli_env = {
+    return {
         "LC_ALL": "en_US.UTF-8",
         "LANG": "en_US.UTF-8",
         "MLFLOW_TRACKING_URI": mlflow_client.tracking_uri,
     }
-    return cli_env
 
 
 def create_experiments(client, names):
@@ -1070,6 +1070,74 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(monkeypatch,
         )
 
 
+def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
+    def assert_response(resp, message_part):
+        assert resp.status_code == 400
+        response_json = resp.json()
+        assert response_json.get("error_code") == "INVALID_PARAMETER_VALUE"
+        assert message_part in response_json.get("message", "")
+
+    response_no_experiment_id_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
+        params={},
+    )
+    assert_response(
+        response_no_experiment_id_field,
+        "SearchDatasets request must specify at least one experiment_id.",
+    )
+
+    response_empty_experiment_id_field = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
+        params={"experiment_id": []},
+    )
+    assert_response(
+        response_empty_experiment_id_field,
+        "SearchDatasets request must specify at least one experiment_id.",
+    )
+
+    response_too_many_experiment_ids = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
+        params={"experiment_id": [f"id_{i}" for i in range(1000)]},
+    )
+    assert_response(
+        response_too_many_experiment_ids,
+        "SearchDatasets request cannot specify more than",
+    )
+
+
+def test_search_dataset_handler_returns_expected_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("log inputs test")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    dataset1 = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="source_type1",
+        source="source1",
+    )
+    dataset_inputs1 = [
+        DatasetInput(
+            dataset=dataset1, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+        )
+    ]
+    mlflow_client.log_inputs(run_id, dataset_inputs1)
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/experiments/search-datasets",
+        params={"experiment_id": [experiment_id]},
+    )
+    expected = {
+        "experiment_id": experiment_id,
+        "name": "name1",
+        "digest": "digest1",
+        "context": "training",
+    }
+
+    assert response.status_code == 200
+    assert response.json().get("dataset_summaries") == [expected]
+
+
 def test_create_model_version_with_path_source(mlflow_client):
     name = "model"
     mlflow_client.create_registered_model(name)
@@ -1180,6 +1248,17 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
     )
     assert response.status_code == 200
 
+    # Multiple dots
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/artifact/..../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 200
+
     # Test that invalid remote uri's cannot be created
     response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
@@ -1230,6 +1309,28 @@ def test_create_model_version_with_non_local_source(mlflow_client, monkeypatch):
         json={
             "name": name,
             "source": "ftp://host:8888/api/2.0/mlflow-artifacts/artifacts/../../../",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/..%2f..%2fartifacts",
+            "run_id": run.info.run_id,
+        },
+    )
+    assert response.status_code == 400
+    assert "If supplying a source as an http, https," in response.json()["message"]
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/model-versions/create",
+        json={
+            "name": name,
+            "source": "mlflow-artifacts://host:9000/models/artifact%00",
             "run_id": run.info.run_id,
         },
     )

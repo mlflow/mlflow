@@ -220,8 +220,8 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
@@ -610,16 +610,14 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=req_file.strpath
-        )
+        mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -627,7 +625,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -636,7 +634,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -646,23 +644,25 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+def test_log_model_with_extra_pip_requirements(
+    sklearn_knn_model, main_scoped_model_class, tmp_path
+):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
             python_model=python_model,
             artifacts={"sk_model": sklearn_model_path},
-            extra_pip_requirements=req_file.strpath,
+            extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -674,7 +674,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -686,7 +686,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -1058,56 +1058,6 @@ def test_save_and_load_model_with_special_chars(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
     )
-
-
-class CustomModel(mlflow.pyfunc.PythonModel):
-    def __init__(self):
-        pass
-
-    def predict(self, context, model_input):
-        import custom_module
-
-        return custom_module.predict()
-
-
-def test_model_with_code_path_does_not_use_cached_module(tmp_path):
-    dir1 = tmp_path.joinpath("1")
-    dir2 = tmp_path.joinpath("2")
-    dir1.mkdir()
-    dir2.mkdir()
-    mod1 = dir1.joinpath("custom_module.py")
-    mod2 = dir2.joinpath("custom_module.py")
-    mod1.write_text(
-        """
-def predict():
-    return 1
-"""
-    )
-    mod2.write_text(
-        """
-def predict():
-    return 2
-"""
-    )
-
-    custom_model = CustomModel()
-    with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model(
-            artifact_path="model1",
-            python_model=custom_model,
-            code_path=[str(mod1)],
-        )
-        model_info2 = mlflow.pyfunc.log_model(
-            artifact_path="model2",
-            python_model=custom_model,
-            code_path=[str(mod2)],
-        )
-
-    model_input = pd.DataFrame([[1, 2, 3]])
-    loaded_model1 = mlflow.pyfunc.load_model(model_info1.model_uri)
-    assert loaded_model1.predict(model_input) == 1
-    loaded_model2 = mlflow.pyfunc.load_model(model_info2.model_uri)
-    assert loaded_model2.predict(model_input) == 2
 
 
 def test_model_with_code_path_containing_main(tmp_path):

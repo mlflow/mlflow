@@ -107,13 +107,13 @@ def jsl_model(model_path, load_and_init_model):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return str(Path(tmpdir) / "model")
+def model_path(tmp_path):
+    return str(tmp_path / "model")
 
 
 @pytest.fixture
-def spark_custom_env(tmpdir):
-    conda_env = str(Path(str(tmpdir)) / "conda_env.yml")
+def spark_custom_env(tmp_path):
+    conda_env = str(tmp_path / "conda_env.yml")
     additional_pip_deps = ["pyspark", "pytest"]
     if Version(pyspark.__version__) <= Version("3.3.2"):
         # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
@@ -237,15 +237,15 @@ def test_log_model_with_signature_and_examples(jsl_model):
 
 @pytest.mark.parametrize("should_start_run", [False, True])
 @pytest.mark.parametrize("use_dfs_tmpdir", [False, True])
-def test_johnsnowlabs_model_log(tmpdir, jsl_model, should_start_run, use_dfs_tmpdir):
+def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_tmpdir):
     old_tracking_uri = mlflow.get_tracking_uri()
     if use_dfs_tmpdir:
         dfs_tmpdir = None
     else:
-        dfs_tmpdir = tmpdir.join("test").strpath
+        dfs_tmpdir = tmp_path.joinpath("test")
 
     try:
-        tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+        tracking_dir = tmp_path.joinpath("mlruns")
         mlflow.set_tracking_uri("file://%s" % tracking_dir)
         if should_start_run:
             mlflow.start_run()
@@ -266,9 +266,9 @@ def test_johnsnowlabs_model_log(tmpdir, jsl_model, should_start_run, use_dfs_tmp
         mlflow.set_tracking_uri(old_tracking_uri)
 
 
-def test_log_model_calls_register_model(tmpdir, jsl_model):
+def test_log_model_calls_register_model(tmp_path, jsl_model):
     artifact_path = "model"
-    dfs_tmp_dir = Path(str(tmpdir)) / "test"
+    dfs_tmp_dir = tmp_path.joinpath("test")
     register_model_patch = mock.patch("mlflow.register_model")
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(

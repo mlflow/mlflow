@@ -160,6 +160,9 @@ def _get_request_param(param: str) -> str:
         )
 
     if param not in args:
+        # Special handling for run_id
+        if param == "run_id":
+            return _get_request_param("run_uuid")
         raise MlflowException(
             f"Missing value for required parameter '{param}'. "
             "See the API docs for more information about request parameters.",
@@ -798,11 +801,12 @@ def delete_registered_model_permission():
     return make_response({})
 
 
-def _enable_auth(app: Flask):
+def create_app(app: Flask = app):
     """
-    Enables authentication and authorization for the MLflow server.
+    A factory to enable authentication and authorization for the MLflow server.
 
     :param app: The Flask app to enable authentication and authorization for.
+    :return: The app with authentication and authorization enabled.
     """
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
@@ -889,5 +893,4 @@ def _enable_auth(app: Flask):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
-
-_enable_auth(app)
+    return app

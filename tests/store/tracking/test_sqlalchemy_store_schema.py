@@ -70,30 +70,28 @@ def db_url(tmp_path):
 
 
 def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
-    tmpdir, db_url, expected_schema_file
+    tmp_path, db_url, expected_schema_file
 ):
-    generated_schema_file = tmpdir.join("generated-schema.sql").strpath
+    generated_schema_file = tmp_path.joinpath("generated-schema.sql")
     # Repeatedly initialize a SQLAlchemyStore against the same DB URL. Initialization should
     # succeed and the schema should be the same.
     for _ in range(3):
-        SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+        SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
         dump_db_schema(db_url, dst_file=generated_schema_file)
         _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
-def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_file, db_url):
+def test_running_migrations_generates_expected_schema(tmp_path, expected_schema_file, db_url):
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
     invoke_cli_runner(mlflow.db.commands, ["upgrade", db_url])
-    generated_schema_file = tmpdir.join("generated-schema.sql").strpath
+    generated_schema_file = tmp_path.joinpath("generated-schema.sql")
     dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
-def test_sqlalchemy_store_detects_schema_mismatch(
-    tmpdir, db_url
-):  # pylint: disable=unused-argument
+def test_sqlalchemy_store_detects_schema_mismatch(db_url):
     def _assert_invalid_schema(engine):
         with pytest.raises(MlflowException, match="Detected out-of-date database schema."):
             _verify_schema(engine)
@@ -117,10 +115,10 @@ def test_sqlalchemy_store_detects_schema_mismatch(
     _verify_schema(engine)
 
 
-def test_store_generated_schema_matches_base(tmpdir, db_url):
+def test_store_generated_schema_matches_base(tmp_path, db_url):
     # Create a SQLAlchemyStore against tmpfile, directly verify that tmpfile contains a
     # database with a valid schema
-    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     engine = sqlalchemy.create_engine(db_url)
     mc = MigrationContext.configure(engine.connect())
     diff = compare_metadata(mc, Base.metadata)
@@ -131,9 +129,9 @@ def test_store_generated_schema_matches_base(tmpdir, db_url):
     assert len(diff) == 0
 
 
-def test_create_index_on_run_uuid(tmpdir, db_url):
+def test_create_index_on_run_uuid(tmp_path, db_url):
     # Test for mlflow/store/db_migrations/versions/bd07f7e963c5_create_index_on_run_uuid.py
-    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
@@ -147,9 +145,9 @@ def test_create_index_on_run_uuid(tmpdir, db_url):
         assert run_uuid_index_names.issubset(all_index_names)
 
 
-def test_index_for_dataset_tables(tmpdir, db_url):
+def test_index_for_dataset_tables(tmp_path, db_url):
     # Test for mlflow/store/db_migrations/versions/7f2a7d5fae7d_add_datasets_inputs_input_tags_tables.py # pylint: disable=line-too-long
-    SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
     with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")

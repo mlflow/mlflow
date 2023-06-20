@@ -1082,6 +1082,37 @@ def get_metric_history_bulk_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def search_datasets_handler():
+    MAX_EXPERIMENT_IDS_PER_REQUEST = 20
+    experiment_ids = request.args.to_dict(flat=False).get("experiment_id", [])
+    if not experiment_ids:
+        raise MlflowException(
+            message="SearchDatasets request must specify at least one experiment_id.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if len(experiment_ids) > MAX_EXPERIMENT_IDS_PER_REQUEST:
+        raise MlflowException(
+            message=(
+                f"SearchDatasets request cannot specify more than {MAX_EXPERIMENT_IDS_PER_REQUEST}"
+                f" experiment_ids. Received {len(experiment_ids)} experiment_ids."
+            ),
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    store = _get_tracking_store()
+
+    if hasattr(store, "_search_datasets"):
+        return {
+            "dataset_summaries": [
+                summary.to_dict() for summary in store._search_datasets(experiment_ids)
+            ]
+        }
+    else:
+        return _not_implemented()
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_experiments():
     request_message = _get_request_message(
         SearchExperiments(),
@@ -1360,20 +1391,28 @@ def _validate_non_local_source_contains_relative_paths(source: str):
     "/models/artifacts/../../../"
     "s3:/my_bucket/models/path/../../other/path"
     "file://path/to/../../../../some/where/you/should/not/be"
+    "mlflow-artifacts://host:port/..%2f..%2f..%2f..%2f"
+    "http://host:port/api/2.0/mlflow-artifacts/artifacts%00"
     """
+    invalid_source_error_message = (
+        f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
+        "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
+        "provided without relative path references present. "
+        "Please provide an absolute path."
+    )
+
+    while (unquoted := urllib.parse.unquote_plus(source)) != source:
+        source = unquoted
     source_path = re.sub(r"/+", "/", urllib.parse.urlparse(source).path.rstrip("/"))
+    if "\x00" in source_path:
+        raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
     resolved_source = pathlib.Path(source_path).resolve().as_posix()
     # NB: drive split is specifically for Windows since WindowsPath.resolve() will append the
     # drive path of the pwd to a given path. We don't care about the drive here, though.
     _, resolved_path = os.path.splitdrive(resolved_source)
 
     if resolved_path != source_path:
-        raise MlflowException(
-            f"Invalid model version source: '{source}'. If supplying a source as an http, https, "
-            "local file path, ftp, objectstore, or mlflow-artifacts uri, an absolute path must be "
-            "provided without relative path references present. Please provide an absolute path.",
-            INVALID_PARAMETER_VALUE,
-        )
+        raise MlflowException(invalid_source_error_message, INVALID_PARAMETER_VALUE)
 
 
 def _validate_source(source: str, run_id: str) -> None:

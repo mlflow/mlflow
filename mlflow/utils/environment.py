@@ -1,3 +1,4 @@
+from collections import Counter
 import yaml
 import os
 import logging
@@ -460,10 +461,11 @@ def _generate_mlflow_version_pinning():
     the current installed minor version(i.e., 'mlflow<3,>=2.1')
     :return: string for MLflow dependency version
     """
-    mlflow_version = Version(VERSION)
-    current_major_version = mlflow_version.major
-    current_minor_version = mlflow_version.minor
-    return f"mlflow=={current_major_version}.{current_minor_version}"
+    version = Version(VERSION)
+    # The version on master is always a micro-version ahead of the latest release and can't be
+    # installed from PyPI. We therefore subtract 1 from the micro version when running tests.
+    offset = -1 if version.is_devrelease else 0
+    return f"mlflow=={version.major}.{version.minor}.{version.micro + offset}"
 
 
 def _contains_mlflow_requirement(requirements):
@@ -498,6 +500,26 @@ def _process_pip_requirements(
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=pip_reqs, install_mlflow=False)
     return conda_env, pip_reqs, constraints
+
+
+def _find_duplicate_requirements(requirements):
+    """
+    Checks if duplicate base package requirements are specified in any list of requirements
+    and returns the list of duplicate base package names.
+    Note that git urls and paths to local files are not being considered for duplication checking.
+    """
+    base_package_names = []
+
+    for package in requirements:
+        try:
+            base_package_names.append(Requirement(package).name)
+        except InvalidRequirement:
+            # Skip anything that's not a valid package requirement
+            continue
+
+    package_counts = Counter(base_package_names)
+    duplicates = [package for package, count in package_counts.items() if count > 1]
+    return duplicates
 
 
 def _process_conda_env(conda_env):

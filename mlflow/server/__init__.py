@@ -3,6 +3,8 @@ import shlex
 import sys
 import textwrap
 import importlib.metadata
+import importlib
+import types
 
 from packaging.version import Version
 from flask import __version__ as flask_version
@@ -15,8 +17,10 @@ from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
     get_model_version_artifact_handler,
+    search_datasets_handler,
 )
 from mlflow.utils.process import _exec_cmd
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 # NB: These are internal environment variables used for communication between
@@ -77,6 +81,12 @@ def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
 
+# Serve the "experiments/search-datasets" route.
+@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"))
+def serve_search_datasets():
+    return search_datasets_handler()
+
+
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
@@ -123,7 +133,27 @@ def _find_app(app_name: str) -> str:
     )
 
 
+def _is_factory(app: str) -> bool:
+    """
+    Returns True if the given app is a factory function, False otherwise.
+
+    :param app: The app to check, e.g. "mlflow.server.app:app"
+    """
+    module, obj_name = app.rsplit(":", 1)
+    mod = importlib.import_module(module)
+    obj = getattr(mod, obj_name)
+    return isinstance(obj, types.FunctionType)
+
+
 def get_app_client(app_name: str, *args, **kwargs):
+    """
+    Instantiate a client provided by an app.
+
+    :param app_name: The app name defined in `setup.py`, e.g., "basic-auth".
+    :param args: Additional arguments passed to the app client constructor.
+    :param kwargs: Additional keyword arguments passed to the app client constructor.
+    :return: An app client instance.
+    """
     clients = importlib.metadata.entry_points().get("mlflow.app.client", [])
     for client in clients:
         if client.name == app_name:
@@ -135,19 +165,31 @@ def get_app_client(app_name: str, *args, **kwargs):
     )
 
 
-def _build_waitress_command(waitress_opts, host, port, app_name):
+def _build_waitress_command(waitress_opts, host, port, app_name, is_factory):
     opts = shlex.split(waitress_opts) if waitress_opts else []
-    return (
-        ["waitress-serve"]
-        + opts
-        + ["--host=%s" % host, "--port=%s" % port, "--ident=mlflow", app_name]
-    )
+    return [
+        "waitress-serve",
+        *opts,
+        f"--host={host}",
+        f"--port={port}",
+        "--ident=mlflow",
+        *(["--call"] if is_factory else []),
+        app_name,
+    ]
 
 
 def _build_gunicorn_command(gunicorn_opts, host, port, workers, app_name):
     bind_address = f"{host}:{port}"
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, app_name]
+    return [
+        "gunicorn",
+        *opts,
+        "-b",
+        bind_address,
+        "-w",
+        str(workers),
+        app_name,
+    ]
 
 
 def _run_server(
@@ -191,10 +233,19 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
-    app_spec = f"{__name__}:app" if app_name is None else _find_app(app_name)
+    if app_name is None:
+        app = f"{__name__}:app"
+        is_factory = False
+    else:
+        app = _find_app(app_name)
+        is_factory = _is_factory(app)
+        # `waitress` doesn't support `()` syntax for factory functions.
+        # Instead, we need to use the `--call` flag.
+        app = f"{app}()" if (not is_windows() and is_factory) else app
+
     # TODO: eventually may want waitress on non-win32
     if sys.platform == "win32":
-        full_command = _build_waitress_command(waitress_opts, host, port, app_spec)
+        full_command = _build_waitress_command(waitress_opts, host, port, app, is_factory)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app_spec)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4, app)
     _exec_cmd(full_command, extra_env=env_map, capture_output=False)

@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 from sklearn import datasets
@@ -97,3 +98,9 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
     # dummy_package.operator and not the built-in operator module. This only
     # happens if MLflow is misconfiguring the system path.
     from dummy_package import base  # pylint: disable=unused-import
+
+    # Ensure that the custom tests/utils/test_resources/dummy_package/pandas.py is not
+    # overwriting the 3rd party `pandas` package
+    assert "dummy_package" in sys.modules
+    assert "pandas" in sys.modules
+    assert "site-packages" in sys.modules["pandas"].__file__

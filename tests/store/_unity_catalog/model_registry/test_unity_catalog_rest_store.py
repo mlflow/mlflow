@@ -1,5 +1,6 @@
 from itertools import combinations
 
+import base64
 import json
 import pytest
 from unittest import mock
@@ -332,10 +333,15 @@ def test_get_registered_model(mock_http, store):
 
 def test_get_latest_versions_unsupported(store):
     name = "model_1"
-    expected_err_msg = _expected_unsupported_method_error_message("get_latest_versions")
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    expected_error = (
+        f"{_expected_unsupported_method_error_message('get_latest_versions')}. "
+        "If seeing this error while attempting to load a model version by stage, "
+        "note that setting stages and loading model versions by stage is unsupported "
+        "in Unity Catalog."
+    )
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name)
-    with pytest.raises(MlflowException, match=expected_err_msg):
+    with pytest.raises(MlflowException, match=expected_error):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
@@ -701,8 +707,11 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
             notebook_entity = Notebook(id=str(notebook_id))
             entity = Entity(notebook=notebook_entity)
             lineage_header_info = LineageHeaderInfo(entities=[entity])
+            expected_lineage_json = message_to_json(lineage_header_info)
+            expected_lineage_header = base64.b64encode(expected_lineage_json.encode())
+            assert expected_lineage_header.isascii()
             create_kwargs["extra_headers"] = {
-                _DATABRICKS_LINEAGE_ID_HEADER: message_to_json(lineage_header_info),
+                _DATABRICKS_LINEAGE_ID_HEADER: expected_lineage_header,
             }
         _assert_create_model_version_endpoints_called(
             request_mock=request_mock, version=version, **create_kwargs
@@ -721,9 +730,14 @@ def test_create_model_version_unsupported_fields(store):
 def test_transition_model_version_stage_unsupported(store):
     name = "model_1"
     version = "5"
+    expected_error = (
+        f"{_expected_unsupported_method_error_message('transition_model_version_stage')}. "
+        f"We recommend using aliases instead of stages for more flexible model deployment "
+        f"management."
+    )
     with pytest.raises(
         MlflowException,
-        match=_expected_unsupported_method_error_message("transition_model_version_stage"),
+        match=expected_error,
     ):
         store.transition_model_version_stage(
             name=name, version=version, stage="prod", archive_existing_versions=True

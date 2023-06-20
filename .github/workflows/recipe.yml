@@ -23,7 +23,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -57,6 +57,7 @@ jobs:
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
+      - uses: ./.github/actions/untracked
 
   recipes-windows:
     runs-on: windows-latest
@@ -77,7 +78,7 @@ jobs:
           pip uninstall -y datasets
       - name: Download Hadoop winutils for Spark
         run: |
-          git clone https://github.com/cdarlint/winutils
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run tests
         env:
           # The default pooling implmentation 'QueuePool' can lead to errors on Windows when
@@ -85,8 +86,9 @@ jobs:
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
+      - uses: ./.github/actions/untracked

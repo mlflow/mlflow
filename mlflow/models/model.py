@@ -218,7 +218,7 @@ class ModelInfo:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
@@ -340,7 +340,7 @@ class Model:
             from sklearn import datasets
             from sklearn.ensemble import RandomForestClassifier
             import mlflow
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             with mlflow.start_run():
                 iris = datasets.load_iris()
@@ -387,8 +387,11 @@ class Model:
 
     @signature.setter
     def signature(self, value):
-        # pylint: disable=attribute-defined-outside-init
-        self._signature = value
+        # signature cannot be set to `False`, which is used in `log_model` and `save_model` calls
+        # to disable automatic signature inference
+        if value is not False:
+            # pylint: disable=attribute-defined-outside-init
+            self._signature = value
 
     @property
     def saved_input_example_info(self) -> Optional[Dict[str, Any]]:
@@ -529,7 +532,7 @@ class Model:
 
                           .. code-block:: python
 
-                            from mlflow.models.signature import infer_signature
+                            from mlflow.models import infer_signature
 
                             train = df.drop_column("target_label")
                             signature = infer_signature(train, model.predict(train))

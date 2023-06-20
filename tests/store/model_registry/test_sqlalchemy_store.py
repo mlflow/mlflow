@@ -128,8 +128,7 @@ def test_get_registered_model(store):
         RegisteredModelTag("anotherKey", "some other value"),
     ]
     # use fake clock
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 1234
+    with mock.patch("time.time", return_value=1234):
         rm = _rm_maker(store, name, tags)
         assert rm.name == name
     rmd = store.get_registered_model(name=name)
@@ -433,8 +432,7 @@ def test_create_model_version(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
     run_id = uuid.uuid4().hex
-    with mock.patch("time.time") as mock_time:
-        mock_time.return_value = 456778
+    with mock.patch("time.time", return_value=456778):
         mv1 = _mv_maker(store, name, "a/b/CD", run_id)
         assert mv1.name == name
         assert mv1.version == 1

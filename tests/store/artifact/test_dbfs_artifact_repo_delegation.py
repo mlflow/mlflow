@@ -13,9 +13,9 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 @pytest.fixture()
 def host_creds_mock():
     with mock.patch(
-        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store"
-    ) as get_creds_mock:
-        get_creds_mock.return_value = lambda: MlflowHostCreds("http://host")
+        "mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store",
+        return_value=lambda: MlflowHostCreds("http://host"),
+    ):
         yield
 
 
@@ -44,12 +44,12 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
     assert isinstance(rest_repo, DbfsRestArtifactRepository)
     assert rest_repo.artifact_uri == artifact_uri
 
+    mock_uri = "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
     with mock.patch(
         "mlflow.store.artifact.databricks_artifact_repo"
-        + ".DatabricksArtifactRepository._get_run_artifact_root"
-    ) as get_run_artifact_root_mock:
-        mock_uri = "dbfs:/databricks/mlflow-tracking/MOCK-EXP/MOCK-RUN-ID/artifacts"
-        get_run_artifact_root_mock.return_value = mock_uri
+        + ".DatabricksArtifactRepository._get_run_artifact_root",
+        return_value=mock_uri,
+    ):
         databricks_repo = get_artifact_repository(mock_uri)
         assert isinstance(databricks_repo, DatabricksArtifactRepository)
         assert databricks_repo.artifact_uri == mock_uri
