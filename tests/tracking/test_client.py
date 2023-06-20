@@ -338,21 +338,21 @@ def test_registry_uri_from_set_registry_uri():
 
 
 def test_registry_uri_from_tracking_uri_param():
+    tracking_uri = "databricks://tracking_vhawoierj"
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = "databricks://default_tracking"
-        tracking_uri = "databricks://tracking_vhawoierj"
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value=tracking_uri,
+    ):
         client = MlflowClient(tracking_uri=tracking_uri)
         assert client._registry_uri == tracking_uri
 
 
 def test_registry_uri_from_implicit_tracking_uri():
+    tracking_uri = "databricks://tracking_wierojasdf"
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        tracking_uri = "databricks://tracking_wierojasdf"
-        get_tracking_uri_mock.return_value = tracking_uri
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value=tracking_uri,
+    ):
         client = MlflowClient()
         assert client._registry_uri == tracking_uri
 

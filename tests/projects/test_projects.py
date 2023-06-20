@@ -508,11 +508,9 @@ def test_credential_propagation(get_config, synchronous):
             return "", ""
 
     get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
-    with mock.patch("subprocess.Popen") as popen_mock, mock.patch(
-        "mlflow.utils.uri.is_databricks_uri"
-    ) as is_databricks_tracking_uri_mock:
-        is_databricks_tracking_uri_mock.return_value = True
-        popen_mock.return_value = DummyProcess()
+    with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
+        "mlflow.utils.uri.is_databricks_uri", return_value=True
+    ):
         mlflow.projects.run(
             TEST_PROJECT_DIR,
             entry_point="sleep",

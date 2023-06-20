@@ -341,20 +341,19 @@ def test_get_store_for_unregistered_scheme():
 
 def test_resolve_tracking_uri_with_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = "databricks://tracking_qoeirj"
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_qoeirj",
+    ):
         overriding_uri = "databricks://tracking_poiwerow"
         assert _resolve_tracking_uri(overriding_uri) == overriding_uri
 
 
 def test_resolve_tracking_uri_with_no_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        default_uri = "databricks://tracking_zlkjdas"
-        get_tracking_uri_mock.return_value = default_uri
-        assert _resolve_tracking_uri() == default_uri
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_zlkjdas",
+    ):
+        assert _resolve_tracking_uri() == "databricks://tracking_zlkjdas"
 
 
 def test_store_object_can_be_serialized_by_pickle(tmp_path):
