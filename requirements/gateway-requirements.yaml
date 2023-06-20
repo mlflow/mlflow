@@ -21,3 +21,7 @@ watchfiles:
 psutil:
   pip_release: psutil
   max_major_version: 5
+
+aiohttp:
+  pip_release: aiohttp
+  max_major_version: 3

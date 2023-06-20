@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+import aiohttp
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -12,8 +13,6 @@ class AnthropicProvider(BaseProvider):
     SUPPORTED_ROUTES = "completions"
 
     async def _request(self, path: str, payload: Dict[str, Any]):
-        import aiohttp
-
         config = self.config.model.config
         token = config["anthropic_api_key"]
         headers = {"x-api-key": token}
@@ -66,16 +65,18 @@ class AnthropicProvider(BaseProvider):
         resp = await self._request("complete", {"model": self.config.model.name, **payload})
 
         # Example response:
+        # Documentation: https://docs.anthropic.com/claude/reference/complete_post
+        # ```
         # {
-        #     "completion": " Here is a basic overview of how a car works:\n\n1. The engine. "
-        #                   "The engine is the power source that makes the car move."
-        #     "stop_reason": "max_tokens",
+        #     "completion": " Hello! My name is Claude."
+        #     "stop_reason": "stop_sequence",
         #     "model": "claude-instant-1.1",
         #     "truncated": False,
         #     "stop": None,
         #     "log_id": "dee173f87ddf1357da639dee3c38d833",
         #     "exception": None,
         # }
+        # ```
 
         stop_reason = "stop" if resp["stop_reason"] == "stop_sequence" else "length"
 
