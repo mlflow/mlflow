@@ -132,6 +132,8 @@ def save_model(
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
         if signature is None:
             signature = _get_default_signature()
+    elif signature is False:
+        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()

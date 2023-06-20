@@ -180,6 +180,8 @@ def save_model(
     if signature is None and input_example is not None:
         wrapped_model = _LGBModelWrapper(lgb_model)
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
+    elif signature is False:
+        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()
