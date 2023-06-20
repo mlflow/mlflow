@@ -868,17 +868,17 @@ def get_model_version_from_model_uri(model_uri):
     return model_version
 
 
-def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSchema):
-    if not isinstance(schema, ParamSchema):
-        raise MlflowException(
-            "Parameters schema must be an instance of ParamSchema. "
-            f"Got type '{type(schema).__name__}'."
-        )
-    if params in [None, {}] and (schema is None or len(schema.params) == 0):
+def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
+    if params in [None, {}] and schema is None:
         return params
     if not isinstance(params, dict):
         raise MlflowException(
             f"Parameters must be a dictionary. Got type '{type(params).__name__}'."
+        )
+    if not isinstance(schema, ParamSchema):
+        raise MlflowException(
+            "Parameters schema must be an instance of ParamSchema. "
+            f"Got type '{type(schema).__name__}'."
         )
     if any(not isinstance(k, str) for k in params.keys()):
         _logger.warning(
