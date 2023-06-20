@@ -464,7 +464,9 @@ def save_model(
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
         if not signature:
-            mlflow_model.signature = _get_default_pipeline_signature(built_pipeline, input_example)
+            mlflow_model.signature = _get_default_pipeline_signature(
+                built_pipeline, input_example, inference_config
+            )
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -1311,7 +1313,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_example
 
 
-def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
+def _get_default_pipeline_signature(
+    pipeline, example=None, inference_config=None
+) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1324,8 +1328,8 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
 
     if example:
         try:
-            inference_pyfunc = _TransformersWrapper(pipeline)
-            return infer_signature(example, inference_pyfunc.predict(example))
+            prediction = generate_signature_output(pipeline, example, inference_config)
+            return infer_signature(example, prediction)
         except Exception as e:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "
