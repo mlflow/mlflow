@@ -460,7 +460,7 @@ def save_model(
     if _should_add_pyfunc_to_model(built_pipeline):
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
-        if not signature:
+        if signature is None:
             mlflow_model.signature = _get_default_pipeline_signature(
                 built_pipeline, input_example, inference_config
             )
