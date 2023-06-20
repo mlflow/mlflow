@@ -224,17 +224,8 @@ def log_model(
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param signature: A Model Signature object that describes the input and output Schema of the
-                      model. The model signature can be inferred using `infer_signature` function
-                      of `mlflow.models.signature`.
-
-                      If an input_example is provided and the signature is not, a signature will
-                      be inferred automatically and applied to the MLmodel file.
-
-    :param input_example: An example of valid input that the model can accept. The example can be
-                          used as a hint of what data to feed the model. The given example will be
-                          converted to a `Pandas DataFrame` and then serialized to JSON using the
-                          `Pandas` split-oriented format.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param conda_env: {{ conda_env }}

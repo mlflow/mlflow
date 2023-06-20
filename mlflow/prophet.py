@@ -95,12 +95,16 @@ def save_model(
                        containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. To disable automatic signature
+                      inference when providing an input example, set ``signature`` to ``False``.
+                      To manually infer a model signature, call
+                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                      with valid model inputs, such as a training dataset with the target column
+                      omitted, and valid model outputs, like model predictions made on the training
+                      dataset, for example:
 
                       .. code-block:: python
 
@@ -224,14 +228,16 @@ def log_model(
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output
-                      :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred
-                      <mlflow.models.infer_signature>` from datasets with valid model input
-                      (e.g. the training dataset with target column omitted) and valid model
-                      output (e.g. model predictions generated on the training dataset),
-                      for example:
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. To disable automatic signature
+                      inference when providing an input example, set ``signature`` to ``False``.
+                      To manually infer a model signature, call
+                      :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
+                      with valid model inputs, such as a training dataset with the target column
+                      omitted, and valid model outputs, like model predictions made on the training
+                      dataset, for example:
 
                       .. code-block:: python
 
