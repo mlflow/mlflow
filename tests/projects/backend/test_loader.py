@@ -5,14 +5,13 @@ from mlflow.projects.backend import loader
 
 
 def test_plugin_backend():
-    with mock.patch(
-        "entrypoints.get_single", return_value=mock.MagicMock(spec=entrypoints.EntryPoint)
-    ) as mock_get_single:
+    mock_entry_point = mock.MagicMock(spec=entrypoints.EntryPoint)
+    with mock.patch("entrypoints.get_single", return_value=mock_entry_point) as mock_get_single:
         loader.load_backend("my_plugin")
         # Check calls to entrypoints
         mock_get_single.assert_called_with(loader.ENTRYPOINT_GROUP_NAME, "my_plugin")
         # Check backend has been built
-        mock_get_single.return_value.load.assert_called_once()
+        mock_entry_point.load.assert_called_once()
 
 
 def test_plugin_does_not_exist():
