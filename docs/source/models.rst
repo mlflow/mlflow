@@ -2303,7 +2303,6 @@ Example: Log a LangChain RetrievalQA Chain
 .. literalinclude:: ../../examples/langchain/retrieval_qa_chain.py
     :language: python
 
-
 John Snow Labs (``johnsnowlabs``) (Experimental)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -2376,7 +2375,6 @@ To deploy the John Snow Labs model without a container
           "data": [["I hate covid"], ["I love covid"]]
       }
     }'
-
 
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
