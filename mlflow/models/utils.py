@@ -869,27 +869,26 @@ def get_model_version_from_model_uri(model_uri):
 
 
 def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: ParamSchema):
+    if not isinstance(schema, ParamSchema):
+        raise MlflowException(
+            "Parameters schema must be an instance of ParamSchema. "
+            f"Got type '{type(schema).__name__}'."
+        )
     if params in [None, {}] and (schema is None or len(schema.params) == 0):
         return params
     if not isinstance(params, dict):
         raise MlflowException(
-            "Parameters must be a dictionary. Got type '{}'.".format(type(params).__name__)
-        )
-    if not isinstance(schema, ParamSchema):
-        raise MlflowException(
-            "Parameters schema must be an instance of ParamSchema. Got type '{}'.".format(
-                type(schema).__name__
-            )
+            f"Parameters must be a dictionary. Got type '{type(params).__name__}'."
         )
     if any(not isinstance(k, str) for k in params.keys()):
         _logger.warning(
             "Keys in parameters should be of type `str`, but received non-string keys."
             "Converting all keys to string..."
         )
-        params = {str(k): params[k] for k in params.keys()}
+        params = {str(k): v for k, v in params.items()}
 
     allowed_keys = {param.name for param in schema.params}
-    ignored_keys = set(params.keys()) - allowed_keys
+    ignored_keys = set(params) - allowed_keys
     _logger.warning(
         f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
         f"Supported arguments are: {allowed_keys}. "

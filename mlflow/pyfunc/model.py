@@ -119,7 +119,7 @@ class _FunctionPythonModel(PythonModel):
             return self.func(model_input)
         elif not isinstance(parameters, dict):
             raise MlflowException(
-                "Parameters must be a dictionary. Got type '{}'.".format(type(parameters).__name__)
+                f"Parameters must be a dictionary. Got type '{type(parameters).__name__}'."
             )
         return self.func(model_input, **parameters)
 

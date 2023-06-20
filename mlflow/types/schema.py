@@ -3,7 +3,7 @@ from enum import Enum
 
 import numpy as np
 import string
-from typing import Dict, Any, List, Union, Optional
+from typing import Dict, Any, List, Union, Optional, TypedDict
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -419,7 +419,7 @@ class ParamSpec:
         self,
         name: str,
         type: str,  # pylint: disable=redefined-builtin
-        default: Any = None,
+        default: Optional[Any] = None,
         optional: bool = True,
     ):
         self._name = str(name)
@@ -460,7 +460,13 @@ class ParamSpec:
         """Whether this parameter is optional."""
         return self._optional
 
-    def to_dict(self) -> Dict[str, Any]:
+    class ParamSpecTypedDict(TypedDict):
+        name: str
+        type: str
+        default: Optional[Any]
+        optional: bool
+
+    def to_dict(self) -> ParamSpecTypedDict:
         return {
             "name": self.name,
             "type": self.type,
@@ -479,12 +485,9 @@ class ParamSpec:
         return False
 
     def __repr__(self) -> str:
-        return "{name!r}: {type!r}{default}{optional}".format(
-            name=self.name,
-            type=self.type,
-            default=f" (default: {self.default})" if self.default is not None else "",
-            optional=" (optional)" if self.optional else "",
-        )
+        default = f" (default: {self.default})" if self.default is not None else ""
+        optional = " (optional)" if self.optional else ""
+        return f"{self.name!r}: {self.type!r}{default}{optional}"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -513,17 +516,28 @@ class ParamSchema:
     def __init__(self, params: List[ParamSpec]):
         if not all(isinstance(x, ParamSpec) for x in params):
             raise MlflowException(f"ParamSchema inputs only accept {ParamSchema.__class__}")
-        param_names = [param_spec.name for param_spec in params]
-        if len(param_names) != len(set(param_names)):
-            uniq_param = set()
-            duplicates = []
-            for name in param_names:
-                if name in uniq_param:
-                    duplicates.append(name)
-                else:
-                    uniq_param.add(name)
-            raise MlflowException(f"Duplicated parameters found in schema: {duplicates}")
+        if self._has_duplicates(params):
+            raise MlflowException(
+                f"Duplicated parameters found in schema: {self._find_duplicates(params)}"
+            )
         self._params = params
+
+    @staticmethod
+    def _has_duplicates(params: List[ParamSpec]) -> bool:
+        param_names = [param_spec.name for param_spec in params]
+        return len(param_names) != len(set(param_names))
+
+    @staticmethod
+    def _find_duplicates(params: List[ParamSpec]) -> List[str]:
+        param_names = [param_spec.name for param_spec in params]
+        uniq_param = set()
+        duplicates = []
+        for name in param_names:
+            if name in uniq_param:
+                duplicates.append(name)
+            else:
+                uniq_param.add(name)
+        return duplicates
 
     def __len__(self):
         return len(self._params)

@@ -22,7 +22,7 @@ from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _upload_artifact_to_uri
 from mlflow.types.schema import ParamSchema, Schema
-from mlflow.types.utils import _infer_parameters_schema, _infer_schema, _infer_schema_from_type_hint
+from mlflow.types.utils import _infer_param_schema, _infer_schema, _infer_schema_from_type_hint
 from mlflow.utils.uri import append_to_uri_path
 
 
@@ -107,8 +107,8 @@ class ModelSignature:
             outputs = Schema.from_json(signature_dict["outputs"])
         else:
             outputs = None
-        if "parameters" in signature_dict and signature_dict["parameters"] is not None:
-            parameters = ParamSchema.from_json(signature_dict["parameters"])
+        if (parameters := signature_dict.get("parameters")) is not None:
+            parameters = ParamSchema.from_json(parameters)
             return cls(inputs, outputs, parameters)
         else:
             return cls(inputs, outputs)
@@ -171,7 +171,7 @@ def infer_signature(
     """
     inputs = _infer_schema(model_input)
     outputs = _infer_schema(model_output) if model_output is not None else None
-    parameters = _infer_parameters_schema(parameters) if parameters else None
+    parameters = _infer_param_schema(parameters) if parameters else None
     return ModelSignature(inputs, outputs, parameters)
 
 

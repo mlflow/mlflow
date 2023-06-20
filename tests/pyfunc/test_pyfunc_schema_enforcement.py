@@ -987,12 +987,10 @@ def test_enforce_parameters_schema():
             ParamSpec("c", "str"),
         ]
     )
-    with pytest.raises(  # pylint: disable=[pytest-raises-multiple-statements, pytest-raises-without-match]
-        MlflowException
-    ) as e:
+    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
         _enforce_parameters_schema(test_parameters, test_schema)
-        assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
-        assert e.match(r"('c', 'Invalid type for parameter c: expected str but got bytes')")
+    assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
+    assert e.match(r"('c', 'Invalid type for parameter c: expected str but got bytes')")
 
     # Raise error for mixed invalid parameters
     test_parameters = {"a": 100, "b": (1, 2)}
@@ -1003,9 +1001,7 @@ def test_enforce_parameters_schema():
             ParamSpec("c", "str", optional=False),
         ]
     )
-    with pytest.raises(  # pylint: disable=[pytest-raises-multiple-statements, pytest-raises-without-match]
-        MlflowException
-    ) as e:
+    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
         _enforce_parameters_schema(test_parameters, test_schema)
-        assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
-        assert e.match(r"('c', 'Missing required parameter: c')")
+    assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
+    assert e.match(r"('c', 'Missing required parameter: c')")

@@ -11,7 +11,7 @@ from mlflow.models.utils import _enforce_tensor_spec
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec, ParamSchema, ParamSpec
 from mlflow.types.utils import (
-    _infer_parameters_schema,
+    _infer_param_schema,
     _infer_schema,
     _get_tensor_shape,
     _validate_input_dictionary_contains_only_strings_and_lists_of_strings,
@@ -670,7 +670,7 @@ def test_enforce_tensor_spec_variable_signature():
         _enforce_tensor_spec(ragged_array, standard_spec)
 
 
-def test_infer_parameters_schema():
+def test_infer_param_schema():
     test_parameters = {
         "a": "str_a",
         "b": 1,
@@ -693,8 +693,8 @@ def test_infer_parameters_schema():
             ParamSpec("h", "dict", {"test_k": "test_v"}, True),
         ]
     )
-    assert _infer_parameters_schema(test_parameters) == test_schema
+    assert _infer_param_schema(test_parameters) == test_schema
 
     # Raise error if parameters is not dictionary
     with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):
-        _infer_parameters_schema(["a", "str_a", "b", 1])
+        _infer_param_schema(["a", "str_a", "b", 1])

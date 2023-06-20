@@ -480,7 +480,7 @@ def _infer_schema_from_type_hint(type_hint, examples=None):
         return None
 
 
-def _infer_parameters_schema(parameters: Dict[str, Any]):
+def _infer_param_schema(parameters: Dict[str, Any]):
     if not isinstance(parameters, dict):
         raise MlflowException(
             f"Expected parameters to be dict, got {type(parameters).__name__}",
