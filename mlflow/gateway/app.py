@@ -81,12 +81,12 @@ def _route_type_to_endpoint(config: RouteConfig):
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
-    if factory := provider_to_factory.get(config.type):
+    if factory := provider_to_factory.get(config.route_type):
         return factory(config)
 
     raise HTTPException(
         status_code=404,
-        detail=f"Unexpected route type {config.type!r} for route {config.name!r}.",
+        detail=f"Unexpected route type {config.route_type!r} for route {config.name!r}.",
     )
 
 

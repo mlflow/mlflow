@@ -22,7 +22,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "text-davinci-003",
                     "provider": "openai",
@@ -36,7 +36,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
@@ -97,7 +97,7 @@ def test_fluent_get_valid_route(gateway):
     assert route.dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
 
 
@@ -119,12 +119,12 @@ def test_fluent_search_routes(gateway):
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 

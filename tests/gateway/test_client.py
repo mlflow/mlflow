@@ -17,7 +17,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "text-davinci-003",
                     "provider": "openai",
@@ -31,7 +31,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
@@ -40,7 +40,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings",
-                "type": "llm/v1/embeddings",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
@@ -152,7 +152,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
     gateway_client = MlflowGatewayClient()
 
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_route("chat").type == "llm/v1/chat"
+    assert gateway_client.get_route("chat").route_type == "llm/v1/chat"
 
 
 def test_query_individual_route(gateway, monkeypatch):
@@ -165,7 +165,7 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route1.dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -173,7 +173,7 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route2.dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
@@ -196,12 +196,12 @@ def test_list_all_configured_routes(gateway):
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
