@@ -12,14 +12,13 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models.utils import _read_example
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types.schema import Schema, TensorSpec
 
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,

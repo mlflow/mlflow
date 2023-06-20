@@ -366,11 +366,8 @@ def test_model_log_with_signature_inference(gluon_model, model_data, model_signa
     example = model_data[0].asnumpy()[:3]
 
     with mlflow.start_run():
-        mlflow.gluon.log_model(
-            gluon_model, artifact_path=artifact_path, input_example=example
-        )
+        mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path, input_example=example)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
     assert mlflow_model.signature == model_signature
-
