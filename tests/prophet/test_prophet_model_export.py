@@ -20,13 +20,11 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.models.utils import _read_example
-from mlflow.models import infer_signature, Model, ModelSignature
+from mlflow.models import infer_signature, Model
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.types import DataType
-from mlflow.types.schema import Schema, ColSpec
 
 from tests.helper_functions import (
     _compare_conda_env_requirements,
@@ -179,7 +177,8 @@ def test_signature_and_examples_saved_correctly(
     data = prophet_model.data
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
-    signature = infer_signature(data, model.predict(horizon_df)) if use_signature else None
+    signature_ = infer_signature(data, model.predict(horizon_df))
+    signature = signature_ if use_signature else None
     if use_example:
         example = data[0:5].copy(deep=False)
         example["y"] = pd.to_numeric(example["y"])  # cast to appropriate precision
@@ -187,7 +186,10 @@ def test_signature_and_examples_saved_correctly(
         example = None
     mlflow.prophet.save_model(model, path=model_path, signature=signature, input_example=example)
     mlflow_model = Model.load(model_path)
-    assert signature == mlflow_model.signature
+    if signature is None and example is None:
+        assert mlflow_model.signature is None
+    else:
+        assert mlflow_model.signature == signature_
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
@@ -473,44 +475,11 @@ def test_model_log_with_signature_inference(prophet_model):
     artifact_path = "model"
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
+    signature = infer_signature(horizon_df, model.predict(horizon_df))
 
     with mlflow.start_run():
         mlflow.prophet.log_model(model, artifact_path=artifact_path, input_example=horizon_df)
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    output_columns = [
-        "ds",
-        "trend",
-        "yhat_lower",
-        "yhat_upper",
-        "trend_lower",
-        "trend_upper",
-        "additive_terms",
-        "additive_terms_lower",
-        "additive_terms_upper",
-        "weekly",
-        "weekly_lower",
-        "weekly_upper",
-        "yearly",
-        "yearly_lower",
-        "yearly_upper",
-        "multiplicative_terms",
-        "multiplicative_terms_lower",
-        "multiplicative_terms_upper",
-        "yhat",
-    ]
-    output_schema = Schema(
-        [
-            ColSpec(DataType.double if col != "ds" else DataType.datetime, col)
-            for col in output_columns
-        ]
-    )
-    assert model_info.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="ds", type=DataType.datetime),
-            ]
-        ),
-        outputs=output_schema,
-    )
+    assert model_info.signature == signature

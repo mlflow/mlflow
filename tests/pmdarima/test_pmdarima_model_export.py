@@ -113,17 +113,20 @@ def test_pmdarima_autoarima_pyfunc_save_and_load(auto_arima_model, model_path):
 @pytest.mark.parametrize("use_signature", [True, False])
 @pytest.mark.parametrize("use_example", [True, False])
 def test_pmdarima_signature_and_examples_saved_correctly(
-    auto_arima_model, model_path, use_signature, use_example
+    auto_arima_model, test_data, model_path, use_signature, use_example
 ):
-    predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
-    # We omit the output because it would require predicting with the pyfunc wrapped model
-    dummy_signature = infer_signature(predict_conf) if use_signature else None
-    example = predict_conf.copy(deep=False) if use_example else None
+    # NB: Signature inference will only work on the first element of the tuple return
+    prediction = auto_arima_model.predict(n_periods=20, return_conf_int=True, alpha=0.05)
+    signature = infer_signature(test_data, prediction[0]) if use_signature else None
+    example = test_data[0:5].copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
-        auto_arima_model, path=model_path, signature=dummy_signature, input_example=example
+        auto_arima_model, path=model_path, signature=signature, input_example=example
     )
     mlflow_model = Model.load(model_path)
-    assert dummy_signature == mlflow_model.signature
+    if signature is None and example is None:
+        assert mlflow_model.signature is None
+    else:
+        assert mlflow_model.signature == signature
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:
@@ -142,13 +145,17 @@ def test_pmdarima_signature_and_example_for_confidence_interval_mode(
     loaded_pyfunc = mlflow.pyfunc.load_model(model_uri=model_path_primary)
     predict_conf = pd.DataFrame([{"n_periods": 10, "return_conf_int": True, "alpha": 0.2}])
     forecast = loaded_pyfunc.predict(predict_conf)
-    signature = infer_signature(predict_conf, forecast) if use_signature else None
+    signature_ = infer_signature(predict_conf, forecast)
+    signature = signature_ if use_signature else None
     example = predict_conf.copy(deep=False) if use_example else None
     mlflow.pmdarima.save_model(
         auto_arima_model, path=model_path_secondary, signature=signature, input_example=example
     )
     mlflow_model = Model.load(model_path_secondary)
-    assert signature == mlflow_model.signature
+    if signature is None and example is None:
+        assert mlflow_model.signature is None
+    else:
+        assert mlflow_model.signature == signature_
     if example is None:
         assert mlflow_model.saved_input_example_info is None
     else:

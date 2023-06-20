@@ -21,7 +21,7 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.pytorch import get_default_conda_env
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -68,6 +68,14 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
+
+
+@pytest.fixture(scope="module")
+def iris_tensor_spec():
+    return ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )
 
 
 def get_dataset(data):
@@ -196,11 +204,10 @@ def sequential_predicted(sequential_model, data):
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_signature_and_examples_are_saved_correctly(sequential_model, data):
+def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris_tensor_spec):
     model = sequential_model
-    signature_ = infer_signature(*data)
-    example_ = data[0].head(3)
-    for signature in (None, signature_):
+    example_ = data[0].head(3).values.astype(np.float32)
+    for signature in (None, iris_tensor_spec):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -208,7 +215,10 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_tensor_spec
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:

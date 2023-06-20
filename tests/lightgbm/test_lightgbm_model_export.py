@@ -17,7 +17,7 @@ import mlflow.utils
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models.utils import _read_example
-from mlflow.models import Model, ModelSignature, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
@@ -54,6 +54,19 @@ def lgb_model():
     dtrain = lgb.Dataset(X, y)
     model = lgb.train({"objective": "multiclass", "num_class": 3}, dtrain)
     return ModelWithData(model=model, inference_dataframe=X)
+
+
+@pytest.fixture(scope="module")
+def lgb_model_signature():
+    return ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec(name="sepal length (cm)", type=DataType.double),
+                ColSpec(name="sepal width (cm)", type=DataType.double),
+            ]
+        ),
+        outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
+    )
 
 
 @pytest.fixture(scope="module")
@@ -115,12 +128,11 @@ def test_sklearn_model_save_load(lgb_sklearn_model, model_path):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(lgb_model):
+def test_signature_and_examples_are_saved_correctly(lgb_model, lgb_model_signature):
     model = lgb_model.model
     X = lgb_model.inference_dataframe
-    signature_ = infer_signature(X)
     example_ = X.head(3)
-    for signature in (None, signature_):
+    for signature in (None, lgb_model_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -128,7 +140,10 @@ def test_signature_and_examples_are_saved_correctly(lgb_model):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == lgb_model_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -530,8 +545,8 @@ def test_model_log_with_signature_inference(lgb_model):
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    model_info = Model.load(model_uri)
-    assert model_info.signature == ModelSignature(
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == ModelSignature(
         inputs=Schema(
             [
                 ColSpec(name="sepal length (cm)", type=DataType.double),

@@ -31,6 +31,7 @@ from tests.helper_functions import (
 )
 from tests.statsmodels.model_fixtures import (
     ols_model,
+    ols_model_signature,
     arma_model,
     glsar_model,
     gee_model,
@@ -153,7 +154,7 @@ def test_models_log(tmp_path):
 
 def test_signature_and_examples_are_saved_correctly():
     model, _, X = ols_model()
-    signature_ = infer_signature(X)
+    signature_ = ols_model_signature()
     example_ = X[0:3, :]
 
     for signature in (None, signature_):
@@ -164,7 +165,10 @@ def test_signature_and_examples_are_saved_correctly():
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == signature_
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -473,7 +477,4 @@ def test_model_log_with_signature_inference():
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     model_info = Model.load(model_uri)
-    assert model_info.signature == ModelSignature(
-        inputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
-        outputs=Schema([TensorSpec(np.dtype("float64"), (-1,))]),
-    )
+    assert model_info.signature == ols_model_signature()
