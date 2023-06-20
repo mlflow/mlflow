@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
-from mlflow.utils.databricks_utils import MlflowHostCreds
 from tests.gateway.tools import Gateway, save_yaml
 
 
@@ -86,32 +85,13 @@ def test_invalid_uri_on_utils_raises(uri):
         set_gateway_uri(uri)
 
 
-@pytest.mark.parametrize(
-    "uri, base_start",
-    [
-        ("http://local:6000", "/gateway"),
-        ("databricks", "/ml/gateway"),
-        ("databricks://my.shard", "/ml/gateway"),
-    ],
-)
-def test_databricks_base_route_modification(uri, base_start):
-    mock_host_creds = MlflowHostCreds("mock-host")
-
-    with mock.patch(
-        "mlflow.gateway.client.get_databricks_host_creds", return_value=mock_host_creds
-    ):
-        client = MlflowGatewayClient(gateway_uri=uri)
-
-        assert client._route_base.startswith(base_start)
-
-
 def test_non_running_server_raises_when_called(monkeypatch):
     monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
     set_gateway_uri("http://invalid.server:6000")
     client = MlflowGatewayClient()
     with pytest.raises(
         MlflowException,
-        match="API request to http://invalid.server:6000/gateway/routes/ failed with exception",
+        match="API request to http://invalid.server:6000/api/2.0/gateway/routes/ failed ",
     ):
         client.search_routes()
 
@@ -143,7 +123,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
 
     # Pass a bad env variable config in
     with pytest.raises(
-        InvalidUrlException, match="Invalid url: http://localhost:99999/gateway/routes"
+        InvalidUrlException, match="Invalid url: http://localhost:99999/api/2.0/gateway/routes"
     ):
         MlflowGatewayClient().search_routes()
 

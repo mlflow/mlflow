@@ -73,7 +73,7 @@ def test_fluent_health_check_on_non_running_server(monkeypatch):
     set_gateway_uri("http://not.real:1000")
     with pytest.raises(
         MlflowException,
-        match="API request to http://not.real:1000/gateway/routes/not-a-route failed with",
+        match="API request to http://not.real:1000/api/2.0/gateway/routes/not-a-route failed with",
     ):
         get_route("not-a-route")
 

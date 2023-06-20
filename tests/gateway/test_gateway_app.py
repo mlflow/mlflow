@@ -56,7 +56,7 @@ def test_health(client: TestClient):
 
 
 def test_search_routes(client: TestClient):
-    response = client.get("/gateway/routes")
+    response = client.get("/api/2.0/gateway/routes")
     assert response.status_code == 200
     assert response.json() == {
         "routes": [
@@ -81,7 +81,7 @@ def test_search_routes(client: TestClient):
 
 
 def test_get_route(client: TestClient):
-    response = client.get("/gateway/routes/chat-gpt4")
+    response = client.get("/api/2.0/gateway/routes/chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
         "route": {
