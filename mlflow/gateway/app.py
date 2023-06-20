@@ -114,7 +114,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def health():
         return {"status": "OK"}
 
-    @app.get("/api/2.0/gateway/routes/{route_name}")
+    @app.get(MLFLOW_GATEWAY_ROUTE_BASE + "{route_name}")
     async def get_route(route_name: str):
         if matched := app.get_dynamic_route(route_name):
             return {"route": matched}
@@ -125,7 +125,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the route name.",
         )
 
-    @app.get("/api/2.0/gateway/routes/")
+    @app.get(MLFLOW_GATEWAY_ROUTE_BASE)
     async def search_routes():
         # placeholder route listing functionality
 
