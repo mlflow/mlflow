@@ -232,7 +232,7 @@ def _create_virtualenv(
     # Created a command to activate the environment
     paths = ("bin", "activate") if _IS_UNIX else ("Scripts", "activate.bat")
     activate_cmd = env_dir.joinpath(*paths)
-    activate_cmd = f"source {activate_cmd}" if _IS_UNIX else activate_cmd
+    activate_cmd = f"source {activate_cmd}" if _IS_UNIX else str(activate_cmd)
 
     if env_dir.exists():
         _logger.info("Environment %s already exists", env_dir)
