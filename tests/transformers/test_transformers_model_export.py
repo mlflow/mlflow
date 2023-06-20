@@ -99,17 +99,14 @@ def flaky(max_tries=3):
     def flaky_test_func(test_func):
         @wraps(test_func)
         def decorated_func(*args, **kwargs):
-            error = None
             for i in range(max_tries):
                 try:
                     return test_func(*args, **kwargs)
                 except Exception as e:
-                    error = e
                     _logger.warning(f"Attempt {i+1} failed with error: {e}")
+                    if i == max_tries - 1:
+                        raise
                     time.sleep(3)
-            raise Exception(
-                f"Test {test_func} failed after {max_tries} attempts with error: {error!r}"
-            )
 
         return decorated_func
 
