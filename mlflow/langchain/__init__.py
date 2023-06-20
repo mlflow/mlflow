@@ -347,13 +347,12 @@ def log_model(
         )
 
     if isinstance(lc_model, langchain.chains.RetrievalQA):
-        if conda_env is None:
+        if conda_env is None and pip_requirements is None:
             logger.warning(
-                "RetrievalQA models require a conda environment. "
-                "Please specify a conda environment in the `conda_env` parameter. "
-                "Using the default conda environment."
+                "RetrievalQA models are currently incompatible with the "
+                "infer_pip_requirements function. Please specify the environment "
+                "requirements in the `conda_env` or `pip_requirements` parameter."
             )
-            conda_env = get_default_conda_env()
 
         loader_fn = None
         persist_dir = None
