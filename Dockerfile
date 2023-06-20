@@ -6,9 +6,9 @@ ADD . /app
 
 RUN curl -sL https://deb.nodesource.com/setup_16.x | bash - && \
     # install prequired modules to support install of mlflow and related components
-    apt update \
-    apt install software-properties-common \
-    add-apt-repository ppa:openjdk-r/ppa \
+    apt-get update \
+    apt-get install software-properties-common -y \
+    add-apt-repository ppa:openjdk-r/ppa -y \
     apt-get install -y --no-install-recommends nodejs build-essential openjdk-11-jdk \
     # cmake and protobuf-compiler required for onnx install
     cmake protobuf-compiler && \
