@@ -5,6 +5,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
+from ..config import AnthropicConfig, RouteConfig
 from ..schemas import completions, chat, embeddings
 
 
@@ -12,12 +13,17 @@ class AnthropicProvider(BaseProvider):
     NAME = "anthropic"
     SUPPORTED_ROUTES = "completions"
 
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
+            raise TypeError(f"Invalid config type {config.model.config}")
+        self.anthropic_config: AnthropicConfig = config.model.config
+        self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
+        self.base_url = self.anthropic_config.anthropic_api_base
+
     async def _request(self, path: str, payload: Dict[str, Any]):
-        config = self.config.model.config
-        token = config["anthropic_api_key"]
-        headers = {"x-api-key": token}
-        async with aiohttp.ClientSession(headers=headers) as session:
-            url = "/".join([config["anthropic_api_base"].rstrip("/"), path.lstrip("/")])
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            url = "/".join([self.base_url.rstrip("/"), path.lstrip("/")])
             async with session.post(url, json=payload) as response:
                 js = await response.json()
                 try:
@@ -33,7 +39,7 @@ class AnthropicProvider(BaseProvider):
         for k1, k2 in mapping.items():
             if v := payload.pop(k1, None):
                 payload[k2] = v
-        return {k: v for k, v in payload.items() if v is not None and v != []}
+        return payload
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload)
@@ -87,7 +93,7 @@ class AnthropicProvider(BaseProvider):
                 ],
                 "metadata": {
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )

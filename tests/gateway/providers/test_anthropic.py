@@ -7,7 +7,7 @@ import pytest
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 from mlflow.gateway.config import RouteConfig
-from tests.gateway.providers.tools import MockAsyncResponse
+from tests.gateway.tools import MockAsyncResponse
 
 
 def completions_response():
@@ -26,7 +26,7 @@ def completions_response():
 def completions_config():
     return {
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
         "model": {
             "provider": "anthropic",
             "name": "claude-instant-1",
@@ -107,7 +107,7 @@ async def test_completions_throws_with_stream_set_to_true():
 def chat_config():
     return {
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
         "model": {
             "provider": "anthropic",
             "name": "claude-instant-1",
@@ -136,7 +136,7 @@ async def test_chat_is_not_supported_for_anthropic():
 def embedding_config():
     return {
         "name": "embeddings",
-        "type": "llm/v1/embeddings",
+        "route_type": "llm/v1/embeddings",
         "model": {
             "provider": "anthropic",
             "name": "claude-1.3-100k",
