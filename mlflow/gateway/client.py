@@ -7,7 +7,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
-    MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX,
+    MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import get_gateway_uri
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
@@ -33,7 +33,7 @@ class MlflowGatewayClient:
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = gateway_uri or get_gateway_uri()
         self._host_creds = self._resolve_host_creds()
-        self._route_base = self._resolve_route_base()
+        self._route_base = MLFLOW_GATEWAY_ROUTE_BASE
 
     def _is_databricks_host(self) -> bool:
         return (
@@ -45,11 +45,6 @@ class MlflowGatewayClient:
             return get_databricks_host_creds(self._gateway_uri)
         else:
             return _get_default_host_creds(self._gateway_uri)
-
-    def _resolve_route_base(self):
-        if self._is_databricks_host():
-            return MLFLOW_GATEWAY_DATABRICKS_ROUTE_PREFIX + MLFLOW_GATEWAY_ROUTE_BASE
-        return MLFLOW_GATEWAY_ROUTE_BASE
 
     @property
     def gateway_uri(self):
@@ -169,5 +164,6 @@ class MlflowGatewayClient:
         data = json.dumps(data)
 
         route = urljoin(self._route_base, route)
+        query_route = urljoin(route, MLFLOW_QUERY_SUFFIX)
 
-        return self._call_endpoint("POST", route, data).json()
+        return self._call_endpoint("POST", query_route, data).json()

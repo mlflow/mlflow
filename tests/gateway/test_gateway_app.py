@@ -13,7 +13,7 @@ def client() -> TestClient:
             "routes": [
                 {
                     "name": "completions-gpt4",
-                    "type": "llm/v1/completions",
+                    "route_type": "llm/v1/completions",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -27,7 +27,7 @@ def client() -> TestClient:
                 },
                 {
                     "name": "chat-gpt4",
-                    "type": "llm/v1/chat",
+                    "route_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -56,13 +56,13 @@ def test_health(client: TestClient):
 
 
 def test_search_routes(client: TestClient):
-    response = client.get("/gateway/routes")
+    response = client.get("/api/2.0/gateway/routes")
     assert response.status_code == 200
     assert response.json() == {
         "routes": [
             {
                 "name": "completions-gpt4",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -70,7 +70,7 @@ def test_search_routes(client: TestClient):
             },
             {
                 "name": "chat-gpt4",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -81,7 +81,7 @@ def test_search_routes(client: TestClient):
 
 
 def test_get_route(client: TestClient):
-    response = client.get("/gateway/routes/chat-gpt4")
+    response = client.get("/api/2.0/gateway/routes/chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
         "name": "chat-gpt4",

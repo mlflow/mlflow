@@ -17,7 +17,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions-gpt4",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -32,7 +32,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat-gpt4",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -41,7 +41,7 @@ def basic_config_dict():
             },
             {
                 "name": "claude-chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -80,7 +80,7 @@ def test_api_key_parsing_file(tmp_path):
         "routes": [
             {
                 "name": "claude-chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -113,7 +113,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     completions_gpt4 = loaded_from_save.routes[0]
     assert completions_gpt4.name == "completions-gpt4"
-    assert completions_gpt4.type == "llm/v1/completions"
+    assert completions_gpt4.route_type == "llm/v1/completions"
     assert completions_gpt4.model.name == "gpt-4"
     assert completions_gpt4.model.provider == "openai"
     completions_conf = completions_gpt4.model.config
@@ -125,7 +125,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     chat_gpt4 = loaded_from_save.routes[1]
     assert chat_gpt4.name == "chat-gpt4"
-    assert chat_gpt4.type == "llm/v1/chat"
+    assert chat_gpt4.route_type == "llm/v1/chat"
     assert chat_gpt4.model.name == "gpt-4"
     assert chat_gpt4.model.provider == "openai"
     chat_conf = chat_gpt4.model.config
@@ -137,7 +137,7 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
 
     claude = loaded_from_save.routes[2]
     assert claude.name == "claude-chat"
-    assert claude.type == "llm/v1/chat"
+    assert claude.route_type == "llm/v1/chat"
     assert claude.model.name == "claude-v1"
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
@@ -156,7 +156,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
     for config in loaded.routes:
         route = [x for x in routes if x.name == config.name][0]
-        assert route.type == config.type
+        assert route.route_type == config.route_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider
         # Pydantic doesn't allow undefined elements to be a part of its serialized object.
@@ -170,7 +170,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "type": "invalid",
+                "route_type": "invalid",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -192,7 +192,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "type": "invalid",
+                "route_type": "invalid",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -215,7 +215,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "type": "invalid",
+                "route_type": "invalid",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -236,7 +236,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "type": "invalid",
+                "route_type": "invalid",
                 "model": {
                     "name": "invalid",
                     "provider": "anthropic",
@@ -259,7 +259,7 @@ def test_custom_provider(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "type": "some/type",
+                "route_type": "some/type",
                 "model": {
                     "name": "my_custom_provider",
                     "provider": "my_provider",
@@ -290,7 +290,7 @@ def test_invalid_route_name(tmp_path, route_name):
         "routes": [
             {
                 "name": route_name,
-                "type": "bad/naming",
+                "route_type": "bad/naming",
                 "model": {
                     "name": "claude-v1",
                     "provider": "anthropic",
@@ -316,7 +316,7 @@ def test_custom_route(tmp_path):
         "routes": [
             {
                 "name": "route1",
-                "type": "document/classification",
+                "route_type": "document/classification",
                 "model": {
                     "name": "prod",
                     "provider": "hosted",
@@ -328,7 +328,7 @@ def test_custom_route(tmp_path):
             },
             {
                 "name": "route2",
-                "type": "document/sentiment",
+                "route_type": "document/sentiment",
                 "model": {
                     "name": "staging",
                     "provider": "hosted",
@@ -357,7 +357,7 @@ def test_default_base_api(tmp_path):
         "routes": [
             {
                 "name": "chat-gpt4",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -378,10 +378,10 @@ def test_databricks_route_config(tmp_path):
         "routes": [
             {
                 "name": "classifier",
-                "type": "llm/v1/classifier",
+                "route_type": "llm/v1/classifier",
                 "model": {
                     "name": "serving-endpoints/document-classifier/Production/invocations",
-                    "provider": "databricks_serving_endpoint",
+                    "provider": "databricks_model_serving",
                     "config": {
                         "databricks_api_token": "MY_TOKEN",
                         "databricks_api_base": "https://my-shard-001/",
@@ -395,9 +395,9 @@ def test_databricks_route_config(tmp_path):
     loaded_conf = _load_route_config(conf_path)
     route = loaded_conf.routes[0]
 
-    assert route.type == "custom"
+    assert route.route_type == "custom"
     assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
-    assert route.model.provider == "databricks_serving_endpoint"
+    assert route.model.provider == "databricks_model_serving"
     assert route.model.config.get("databricks_api_token") == "MY_TOKEN"
     assert route.model.config.get("databricks_api_base") == "https://my-shard-001/"
 
@@ -407,10 +407,10 @@ def test_duplicate_routes_in_config(tmp_path):
         "routes": [
             {
                 "name": "classifier",
-                "type": "llm/v1/classifier",
+                "route_type": "llm/v1/classifier",
                 "model": {
                     "name": "serving-endpoints/document-classifier/Production/invocations",
-                    "provider": "databricks_serving_endpoint",
+                    "provider": "databricks-model-serving",
                     "config": {
                         "databricks_api_token": "MY_TOKEN",
                         "databricks_api_base": "https://my-shard-001/",
@@ -419,7 +419,7 @@ def test_duplicate_routes_in_config(tmp_path):
             },
             {
                 "name": "classifier",
-                "type": "llm/v1/classifier",
+                "route_type": "llm/v1/classifier",
                 "model": {
                     "name": "serving-endpoints/document-classifier/Production/invocations",
                     "provider": "databricks_serving_endpoint",

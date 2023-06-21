@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException, InvalidUrlException
 import mlflow.gateway.utils
 from mlflow.gateway import set_gateway_uri, MlflowGatewayClient
 from mlflow.gateway.config import Route
-from mlflow.utils.databricks_utils import MlflowHostCreds
 from tests.gateway.tools import Gateway, save_yaml
 
 
@@ -17,7 +16,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "text-davinci-003",
                     "provider": "openai",
@@ -31,7 +30,7 @@ def basic_config_dict():
             },
             {
                 "name": "chat",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-3.5-turbo",
                     "provider": "openai",
@@ -40,7 +39,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings",
-                "type": "llm/v1/embeddings",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "provider": "openai",
                     "name": "text-embedding-ada-002",
@@ -86,32 +85,13 @@ def test_invalid_uri_on_utils_raises(uri):
         set_gateway_uri(uri)
 
 
-@pytest.mark.parametrize(
-    "uri, base_start",
-    [
-        ("http://local:6000", "/gateway"),
-        ("databricks", "/ml/gateway"),
-        ("databricks://my.shard", "/ml/gateway"),
-    ],
-)
-def test_databricks_base_route_modification(uri, base_start):
-    mock_host_creds = MlflowHostCreds("mock-host")
-
-    with mock.patch(
-        "mlflow.gateway.client.get_databricks_host_creds", return_value=mock_host_creds
-    ):
-        client = MlflowGatewayClient(gateway_uri=uri)
-
-        assert client._route_base.startswith(base_start)
-
-
 def test_non_running_server_raises_when_called(monkeypatch):
     monkeypatch.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
     set_gateway_uri("http://invalid.server:6000")
     client = MlflowGatewayClient()
     with pytest.raises(
         MlflowException,
-        match="API request to http://invalid.server:6000/gateway/routes/ failed with exception",
+        match="API request to http://invalid.server:6000/api/2.0/gateway/routes/ failed ",
     ):
         client.search_routes()
 
@@ -143,7 +123,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
 
     # Pass a bad env variable config in
     with pytest.raises(
-        InvalidUrlException, match="Invalid url: http://localhost:99999/gateway/routes"
+        InvalidUrlException, match="Invalid url: http://localhost:99999/api/2.0/gateway/routes"
     ):
         MlflowGatewayClient().search_routes()
 
@@ -152,7 +132,7 @@ def test_create_gateway_client_with_overriden_env_variable(gateway, monkeypatch)
     gateway_client = MlflowGatewayClient()
 
     assert gateway_client.gateway_uri == gateway.url
-    assert gateway_client.get_route("chat").type == "llm/v1/chat"
+    assert gateway_client.get_route("chat").route_type == "llm/v1/chat"
 
 
 def test_query_individual_route(gateway, monkeypatch):
@@ -165,7 +145,7 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route1.dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
 
     route2 = gateway_client.get_route(name="chat")
@@ -173,7 +153,7 @@ def test_query_individual_route(gateway, monkeypatch):
     assert route2.dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
@@ -196,12 +176,12 @@ def test_list_all_configured_routes(gateway):
     assert routes[0].dict() == {
         "model": {"name": "text-davinci-003", "provider": "openai"},
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
     }
     assert routes[1].dict() == {
         "model": {"name": "gpt-3.5-turbo", "provider": "openai"},
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
     }
 
 
