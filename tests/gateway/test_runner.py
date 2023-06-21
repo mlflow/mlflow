@@ -205,7 +205,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
 
         for index, route in enumerate(basic_config_dict["routes"]):
             response = gateway.get(f"{BASE_ROUTE}{route['name']}")
-            assert response.json() == {"route": basic_routes["routes"][index]}
+            assert response.json() == basic_routes["routes"][index]
 
 
 def test_request_invalid_route(tmp_path, basic_config_dict):
