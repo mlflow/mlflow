@@ -85,7 +85,7 @@ def test_get_route(client: TestClient):
     assert response.status_code == 200
     assert response.json() == {
         "name": "chat-gpt4",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
         "model": {
             "name": "gpt-4",
             "provider": "openai",
