@@ -7,7 +7,6 @@ from mlflow.gateway.config import (
     _load_route_config,
     _save_route_config,
     RouteConfig,
-    DatabricksConfig,
     AnthropicConfig,
     OpenAIConfig,
     _resolve_api_key_from_input,
@@ -173,11 +172,65 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
 
 
 def test_invalid_route_definition(tmp_path):
+    invalid_conf = {
+        "routes": [
+            {
+                "name": "invalid_route",
+                "route_type": "invalid/route",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_organization": "my_company",
+                    },
+                },
+            }
+        ]
+    }
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(invalid_conf))
+
+    with pytest.raises(MlflowException, match=r"The route_type 'invalid/route' is not supported."):
+        _load_route_config(conf_path)
+
+
+def test_invalid_provider(tmp_path):
+    invalid_conf = {
+        "routes": [
+            {
+                "name": "invalid_route",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "my_provider",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai/v1/chat/completions",
+                        "openai_organization": "my_company",
+                    },
+                },
+            }
+        ]
+    }
+    conf_path = tmp_path.joinpath("config.yaml")
+    conf_path.write_text(yaml.safe_dump(invalid_conf))
+
+    with pytest.raises(MlflowException, match=r"The provider 'my_provider' is not supported."):
+        _load_route_config(conf_path)
+
+
+def test_invalid_model_definition(tmp_path):
     invalid_partial_config = {
         "routes": [
             {
                 "name": "some_name",
-                "route_type": "invalid",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -199,7 +252,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "route_type": "invalid",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -222,7 +275,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "route_type": "invalid",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "name": "invalid",
                     "provider": "openai",
@@ -241,7 +294,7 @@ def test_invalid_route_definition(tmp_path):
         "routes": [
             {
                 "name": "some_name",
-                "route_type": "invalid",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "name": "invalid",
                     "provider": "anthropic",
@@ -257,35 +310,6 @@ def test_invalid_route_definition(tmp_path):
         match="A config must be supplied when setting a provider. The provider entry",
     ):
         _load_route_config(conf_path)
-
-
-@pytest.mark.skip(reason="CustomConfig is going to be removed")
-def test_custom_provider(tmp_path):
-    basic_generic_provider = {
-        "routes": [
-            {
-                "name": "some_name",
-                "route_type": "some/type",
-                "model": {
-                    "name": "my_custom_provider",
-                    "provider": "my_provider",
-                    "config": {"api_key": "mykey", "api_base": "http://my.endpoint.com/"},
-                },
-            }
-        ]
-    }
-    conf_path = tmp_path.joinpath("config2.yaml")
-    conf_path.write_text(yaml.safe_dump(basic_generic_provider))
-
-    generic_conf = _load_route_config(conf_path)
-    route = generic_conf.routes[0]
-
-    assert route.model.provider == "custom"
-    assert route.name == "some_name"
-    assert route.model.name == "my_custom_provider"
-    assert route.model.config.get("api_key") == "mykey"
-    assert route.model.config.get("api_key_env_var", None) is None
-    assert route.model.config.get("api_version", None) is None
 
 
 @pytest.mark.parametrize(
@@ -317,48 +341,6 @@ def test_invalid_route_name(tmp_path, route_name):
         _load_route_config(conf_path)
 
 
-@pytest.mark.skip(reason="CustomConfig is going to be removed")
-def test_custom_route(tmp_path):
-    custom_routes = {
-        "routes": [
-            {
-                "name": "route1",
-                "route_type": "document/classification",
-                "model": {
-                    "name": "prod",
-                    "provider": "hosted",
-                    "config": {
-                        "api_key": "MY_KEY",
-                        "api_base": "http://myserver.endpoint.org/",
-                    },
-                },
-            },
-            {
-                "name": "route2",
-                "route_type": "document/sentiment",
-                "model": {
-                    "name": "staging",
-                    "provider": "hosted",
-                    "config": {
-                        "api_key": "MY_KEY",
-                        "api_base": "http://myserver.endpoint.org/",
-                        "api_version": "3",
-                    },
-                },
-            },
-        ]
-    }
-    conf_path = tmp_path.joinpath("config.yaml")
-    conf_path.write_text(yaml.safe_dump(custom_routes))
-    loaded_conf = _load_route_config(conf_path)
-
-    assert loaded_conf.routes[0].name == "route1"
-    assert loaded_conf.routes[0].model.config.get("api_base") == "http://myserver.endpoint.org/"
-    assert loaded_conf.routes[0].model.config.get("api_version", None) is None
-    assert loaded_conf.routes[1].model.provider == "custom"
-    assert loaded_conf.routes[1].model.config.get("api_key") == "MY_KEY"
-
-
 def test_default_base_api(tmp_path):
     route_no_base = {
         "routes": [
@@ -378,36 +360,6 @@ def test_default_base_api(tmp_path):
     loaded_conf = _load_route_config(conf_path)
 
     assert loaded_conf.routes[0].model.config.openai_api_base == "https://api.openai.com/v1"
-
-
-def test_databricks_route_config(tmp_path):
-    databricks_route = {
-        "routes": [
-            {
-                "name": "classifier",
-                "route_type": "llm/v1/classifier",
-                "model": {
-                    "name": "serving-endpoints/document-classifier/Production/invocations",
-                    "provider": "databricks_model_serving",
-                    "config": {
-                        "databricks_api_token": "MY_TOKEN",
-                        "databricks_api_base": "https://my-shard-001/",
-                    },
-                },
-            }
-        ]
-    }
-    conf_path = tmp_path.joinpath("config.yaml")
-    conf_path.write_text(yaml.safe_dump(databricks_route))
-    loaded_conf = _load_route_config(conf_path)
-    route = loaded_conf.routes[0]
-
-    assert route.route_type == "custom"
-    assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
-    assert route.model.provider == "databricks_model_serving"
-    assert isinstance(route.model.config, DatabricksConfig)
-    assert route.model.config.databricks_api_token == "MY_TOKEN"
-    assert route.model.config.databricks_api_base == "https://my-shard-001/"
 
 
 def test_duplicate_routes_in_config(tmp_path):
