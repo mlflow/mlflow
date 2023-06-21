@@ -376,10 +376,7 @@ def save_model(
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
                       is logged, it is recommended to explicitly provide one.
-    :param input_example: An example of valid input that the model can accept. The example can be
-                          used as a hint of what data to feed the model. The given example will be
-                          converted to a `Pandas DataFrame` and then serialized to JSON using the
-                          `Pandas` split-oriented format. Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param conda_env: {{ conda_env }}
@@ -463,8 +460,10 @@ def save_model(
     if _should_add_pyfunc_to_model(built_pipeline):
         # For pyfunc supported models, if a signature is not supplied, infer the signature
         # from the input_example if provided, otherwise, apply a generic signature.
-        if not signature:
-            mlflow_model.signature = _get_default_pipeline_signature(built_pipeline, input_example)
+        if signature is None:
+            mlflow_model.signature = _get_default_pipeline_signature(
+                built_pipeline, input_example, inference_config
+            )
 
         pyfunc.add_to_model(
             mlflow_model,
@@ -713,11 +712,7 @@ def log_model(
                       a supported type, this inference functionality will not function correctly
                       and a warning will be issued. In order to ensure that a precise signature
                       is logged, it is recommended to explicitly provide one.
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a ``Pandas DataFrame`` and
-                          then serialized to json using the ``Pandas`` split-oriented format.
-                          Bytes are base64-encoded.
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version
                                    to finish being created and is in ``READY`` status.
                                    By default, the function waits for five minutes.
@@ -1311,7 +1306,9 @@ def _format_input_example_for_special_cases(input_example, pipeline):
     return input_example
 
 
-def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
+def _get_default_pipeline_signature(
+    pipeline, example=None, inference_config=None
+) -> ModelSignature:
     """
     Assigns a default ModelSignature for a given Pipeline type that has pyfunc support. These
     default signatures should only be generated and assigned when saving a model iff the user
@@ -1324,8 +1321,8 @@ def _get_default_pipeline_signature(pipeline, example=None) -> ModelSignature:
 
     if example:
         try:
-            inference_pyfunc = _TransformersWrapper(pipeline)
-            return infer_signature(example, inference_pyfunc.predict(example))
+            prediction = generate_signature_output(pipeline, example, inference_config)
+            return infer_signature(example, prediction)
         except Exception as e:
             _logger.warning(
                 "Attempted to generate a signature for the saved model or pipeline "
