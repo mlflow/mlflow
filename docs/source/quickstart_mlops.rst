@@ -139,7 +139,7 @@ Virtually all cloud platforms allow you to deploy a Docker image. The process va
 
 In addition, some cloud providers have built-in support for MLflow. For instance:
 
-- `Azure ML <https://https://learn.microsoft.com/azure/machine-learning/>`_
+- `Azure ML <https://learn.microsoft.com/azure/machine-learning/>`_
 - `Databricks <https://www.databricks.com/product/managed-mlflow>`_
 - `Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/index.html>`_
 - `Google Cloud <https://cloud.google.com/doc>`_
