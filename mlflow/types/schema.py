@@ -516,16 +516,9 @@ class ParamSchema:
     def __init__(self, params: List[ParamSpec]):
         if not all(isinstance(x, ParamSpec) for x in params):
             raise MlflowException(f"ParamSchema inputs only accept {ParamSchema.__class__}")
-        if self._has_duplicates(params):
-            raise MlflowException(
-                f"Duplicated parameters found in schema: {self._find_duplicates(params)}"
-            )
+        if duplicates := self._find_duplicates(params):
+            raise MlflowException(f"Duplicated parameters found in schema: {duplicates}")
         self._params = params
-
-    @staticmethod
-    def _has_duplicates(params: List[ParamSpec]) -> bool:
-        param_names = [param_spec.name for param_spec in params]
-        return len(param_names) != len(set(param_names))
 
     @staticmethod
     def _find_duplicates(params: List[ParamSpec]) -> List[str]:
@@ -552,7 +545,7 @@ class ParamSchema:
 
     def to_json(self) -> str:
         """Serialize into json string."""
-        return json.dumps([x.to_dict() for x in self.params])
+        return json.dumps(self.to_dict())
 
     @classmethod
     def from_json(cls, json_str: str):
