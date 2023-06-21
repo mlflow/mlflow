@@ -13,7 +13,7 @@ def basic_config_dict():
         "routes": [
             {
                 "name": "completions-gpt4",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -27,7 +27,7 @@ def basic_config_dict():
             },
             {
                 "name": "embeddings-gpt4",
-                "type": "llm/v1/embeddings",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -49,7 +49,7 @@ def basic_routes():
         "routes": [
             {
                 "name": "completions-gpt4",
-                "type": "llm/v1/completions",
+                "route_type": "llm/v1/completions",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -57,7 +57,7 @@ def basic_routes():
             },
             {
                 "name": "embeddings-gpt4",
-                "type": "llm/v1/embeddings",
+                "route_type": "llm/v1/embeddings",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -73,7 +73,7 @@ def update_config_dict():
         "routes": [
             {
                 "name": "chat-gpt4",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -95,7 +95,7 @@ def update_routes():
         "routes": [
             {
                 "name": "chat-gpt4",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {
                     "name": "gpt-4",
                     "provider": "openai",
@@ -111,7 +111,7 @@ def invalid_config_dict():
         "routes": [
             {
                 "invalid_name": "invalid",
-                "type": "llm/v1/chat",
+                "route_type": "llm/v1/chat",
                 "model": {"invalidkey": "invalid", "invalid_provider": "invalid"},
             }
         ]
