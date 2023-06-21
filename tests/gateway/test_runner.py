@@ -204,7 +204,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             assert response.status_code == 200
 
         for index, route in enumerate(basic_config_dict["routes"]):
-            response = gateway.get(f"gateway/routes/{route['name']}")
+            response = gateway.get(f"{BASE_ROUTE}{route['name']}")
             assert response.json() == basic_routes["routes"][index]
 
 
