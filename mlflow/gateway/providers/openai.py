@@ -39,10 +39,10 @@ class OpenAIProvider(BaseProvider):
         for k1, k2 in mapping.items():
             if v := payload.pop(k1, None):
                 payload[k2] = v
-        return {k: v for k, v in payload.items() if v is not None and v != []}
+        return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -108,7 +108,7 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -166,8 +166,9 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        payload = jsonable_encoder(payload, exclude_none=True)
         payload = OpenAIProvider._make_payload(
-            jsonable_encoder(payload),
+            payload,
             {"text": "input"},
         )
         resp = await self._request(
