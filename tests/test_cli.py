@@ -382,12 +382,14 @@ def test_mlflow_gc_experiments(get_store_details, request):
     [
         # MLServer is not supported in Windows yet, so let's skip this test in that case.
         # https://github.com/SeldonIO/MLServer/issues/361
-        pytest.param(
-            True,
-            marks=pytest.mark.skipif(
-                os.name == "nt", reason="MLServer is not supported in Windows"
-            ),
-        ),
+        # Re-enable enable_mlserver=True once inference parameters change is
+        # updated to MLServer repo
+        # pytest.param(
+        #     True,
+        #     marks=pytest.mark.skipif(
+        #         os.name == "nt", reason="MLServer is not supported in Windows"
+        #     ),
+        # ),
         False,
     ],
 )

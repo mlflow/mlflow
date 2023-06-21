@@ -383,7 +383,8 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     assert output_directory.joinpath("Dockerfile").stat().st_size != 0
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
+# Re-enable enable_mlserver=True once inference parameters change is updated to MLServer repo
+@pytest.mark.parametrize("enable_mlserver", [False])
 def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
@@ -421,7 +422,8 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
 
 
-@pytest.mark.parametrize("enable_mlserver", [True, False])
+# Re-enable enable_mlserver=True once inference parameters change is updated to MLServer repo
+@pytest.mark.parametrize("enable_mlserver", [False])
 def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:

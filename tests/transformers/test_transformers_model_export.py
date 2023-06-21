@@ -1910,31 +1910,40 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline, tmp_path):
 
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
     artifact_path = "qa_model"
+    data = {
+        "question": [
+            "What color is it?",
+            "How do the people go?",
+            "What does the 'wolf' howl at?",
+        ],
+        "context": [
+            "Some people said it was green but I know that it's pink.",
+            "The people on the bus go up and down. Up and down.",
+            "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+            "the moon for hours.",
+        ],
+    }
+    parameters = {
+        "top_k": 2,
+        "max_answer_len": 5,
+    }
     inference_payload = json.dumps(
         {
-            "inputs": {
-                "question": [
-                    "What color is it?",
-                    "How do the people go?",
-                    "What does the 'wolf' howl at?",
-                ],
-                "context": [
-                    "Some people said it was green but I know that it's pink.",
-                    "The people on the bus go up and down. Up and down.",
-                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
-                    "the moon for hours.",
-                ],
-            },
-            "parameters": {
-                "top_k": 2,
-                "max_answer_len": 5,
-            },
+            "inputs": data,
+            "parameters": parameters,
         }
     )
+    signature_with_params = infer_signature(
+        data,
+        mlflow.transformers.generate_signature_output(small_qa_pipeline, data),
+        parameters,
+    )
+
     with mlflow.start_run():
         mlflow.transformers.log_model(
             transformers_model=small_qa_pipeline,
             artifact_path=artifact_path,
+            signature=signature_with_params,
         )
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
@@ -3088,15 +3097,16 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     whisper_pipeline, raw_audio_file
 ):
     artifact_path = "whisper_timestamps"
-    signature = infer_signature(
-        raw_audio_file,
-        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
-    )
     inference_config = {
         "return_timestamps": "word",
         "chunk_length_s": 20,
         "stride_length_s": [5, 3],
     }
+    signature = infer_signature(
+        raw_audio_file,
+        mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
+        parameters=inference_config,
+    )
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             transformers_model=whisper_pipeline,
