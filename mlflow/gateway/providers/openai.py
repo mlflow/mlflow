@@ -5,22 +5,25 @@ from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
 from ..schemas import chat, completions, embeddings
+from ..config import OpenAIConfig, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
-    NAME = "openai"
-    SUPPORTED_ROUTES = ("chat", "completions", "embeddings")
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
+            # Should be unreachable
+            raise TypeError(f"Invalid config type {config.model.config}")
+        self.openai_config: OpenAIConfig = config.model.config
 
     async def _request(self, path: str, payload: Dict[str, Any]):
         import aiohttp
 
-        config = self.config.model.config
-        token = config["openai_api_key"]
-        headers = {"Authorization": f"Bearer {token}"}
-        if org := config.get("openai_organization"):
+        headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
+        if org := self.openai_config.openai_organization:
             headers["OpenAI-Organization"] = org
         async with aiohttp.ClientSession(headers=headers) as session:
-            url = "/".join([config["openai_api_base"].rstrip("/"), path.lstrip("/")])
+            url = "/".join([self.openai_config.openai_api_base.rstrip("/"), path.lstrip("/")])
             async with session.post(url, json=payload) as response:
                 js = await response.json()
                 try:
