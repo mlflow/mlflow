@@ -2668,6 +2668,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
 * Using inference_config
 
 .. code-block:: python
+
     from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
 
@@ -2701,6 +2702,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
 * Using dictionary parameters
 
 .. code-block:: python
+
     from mlflow.models import infer_signature
     from mlflow.transformers import generate_signature_output
 
