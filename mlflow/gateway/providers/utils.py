@@ -21,22 +21,25 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
             try:
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
-                detail = js.get("error", {}).get("message", e.message)
+                if "error" in js:
+                    detail = js.get("error", {}).get("message", e.message)
+                else:
+                    detail = "An error occurred with your request."
                 raise HTTPException(status_code=e.status, detail=detail)
             return js
 
 
-def make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
+def rename_payload_keys(payload: Dict[str, Any], mapping: Dict[str, str]) -> Dict[str, Any]:
     """
-    Transform a payload based on a provided mapping.
+    Transform the keys in a dictionary based on a provided mapping.
 
-    :param payload: The original payload to transform.
+    :param payload: The original dictionary to transform.
     :param mapping: A dictionary where each key-value pair represents a mapping from the old
                     key to the new key.
-    :return: A new dictionary containing the transformed payload.
+    :return: A new dictionary containing the transformed keys.
     """
-    payload = payload.copy()
-    for k1, k2 in mapping.items():
-        if v := payload.pop(k1, None):
-            payload[k2] = v
-    return {k: v for k, v in payload.items() if v is not None and v != []}
+    result = payload.copy()
+    for old_key, new_key in mapping.items():
+        if old_key in result:
+            result[new_key] = result.pop(old_key)
+    return result

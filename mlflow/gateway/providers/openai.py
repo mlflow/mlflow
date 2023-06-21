@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
-from .utils import send_request, make_payload
+from .utils import send_request, rename_payload_keys
 from ..schemas import chat, completions, embeddings
 from ..config import OpenAIConfig, RouteConfig
 
@@ -26,7 +26,7 @@ class OpenAIProvider(BaseProvider):
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
 
-        payload = make_payload(
+        payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
         )
@@ -93,7 +93,7 @@ class OpenAIProvider(BaseProvider):
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
             )
-        payload = make_payload(
+        payload = rename_payload_keys(
             payload,
             {"candidate_count": "n"},
         )
@@ -148,8 +148,7 @@ class OpenAIProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-
-        payload = make_payload(
+        payload = rename_payload_keys(
             jsonable_encoder(payload, exclude_none=True),
             {"text": "input"},
         )
