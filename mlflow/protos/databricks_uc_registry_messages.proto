@@ -96,6 +96,9 @@ message ModelVersion {
 
   // Registered Model Aliases on this model version.
   repeated RegisteredModelAlias aliases = 14;
+
+  // Simple dependency names for test
+  repeated string dependencies = 15;
 }
 
 enum ModelVersionOperation {
@@ -229,6 +232,9 @@ message CreateModelVersionRequest {
 
   // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
   optional string run_tracking_server_id = 5;
+
+  // Used to pass in FeatureSpec YAML
+  optional string routine_definition = 6;
 }
 
 message CreateModelVersionResponse {
