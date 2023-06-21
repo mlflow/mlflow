@@ -17,9 +17,10 @@ import mlflow
 import mlflow.gluon
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
-from mlflow.models import infer_signature, Model
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -70,6 +71,14 @@ def model_data():
 
 
 @pytest.fixture(scope="module")
+def model_signature():
+    return ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 784))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 10))]),
+    )
+
+
+@pytest.fixture(scope="module")
 def gluon_model(model_data):
     train_data, train_label, _ = model_data
     dataset = mx.gluon.data.ArrayDataset(train_data, train_label)
@@ -110,11 +119,10 @@ def test_model_save_load(gluon_model, model_data, model_path):
     assert all(np.argmax(pyfunc_preds, axis=1) == expected.asnumpy())
 
 
-def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
+def test_signature_and_examples_are_saved_correctly(gluon_model, model_data, model_signature):
     model = gluon_model
-    signature_ = infer_signature(model_data[0].asnumpy())
     example_ = model_data[0].asnumpy()[:3]
-    for signature in (None, signature_):
+    for signature in (None, model_signature):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -122,7 +130,10 @@ def test_signature_and_examples_are_saved_correctly(gluon_model, model_data):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == model_signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -348,3 +359,15 @@ def test_model_log_with_metadata(gluon_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_model_log_with_signature_inference(gluon_model, model_data, model_signature):
+    artifact_path = "model"
+    example = model_data[0].asnumpy()[:3]
+
+    with mlflow.start_run():
+        mlflow.gluon.log_model(gluon_model, artifact_path=artifact_path, input_example=example)
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    assert mlflow_model.signature == model_signature
