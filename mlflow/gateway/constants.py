@@ -1,2 +1,3 @@
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
 MLFLOW_GATEWAY_ROUTE_BASE = "/api/2.0/gateway/routes/"
+MLFLOW_QUERY_SUFFIX = "/invocations"

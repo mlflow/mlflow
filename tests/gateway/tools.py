@@ -2,7 +2,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
-from typing import Any, Union
+from typing import Any, Union, Dict
 
 import requests
 import yaml
@@ -77,5 +77,22 @@ class Gateway:
         self.process.wait()
 
 
-def store_conf(path, conf):
+def save_yaml(path, conf):
     path.write_text(yaml.safe_dump(conf))
+
+
+class MockAsyncResponse:
+    def __init__(self, data: Dict[str, Any]):
+        self.data = data
+
+    def raise_for_status(self) -> None:
+        pass
+
+    async def json(self) -> Dict[str, Any]:
+        return self.data
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        pass

@@ -6,7 +6,11 @@ from typing import Any, Optional, Dict
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.constants import MLFLOW_GATEWAY_HEALTH_ENDPOINT
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_ROUTE_BASE,
+    MLFLOW_QUERY_SUFFIX,
+)
 from mlflow.gateway.config import (
     Route,
     RouteConfig,
@@ -32,7 +36,7 @@ class GatewayAPI(FastAPI):
         self.dynamic_routes.clear()
         for route in config.routes:
             self.add_api_route(
-                path=f"/gateway/routes/{route.name}",
+                path=f"{MLFLOW_GATEWAY_ROUTE_BASE}{route.name}{MLFLOW_QUERY_SUFFIX}",
                 endpoint=_route_type_to_endpoint(route),
                 methods=["POST"],
             )
@@ -81,12 +85,12 @@ def _route_type_to_endpoint(config: RouteConfig):
         RouteType.LLM_V1_COMPLETIONS: _create_completions_endpoint,
         RouteType.LLM_V1_EMBEDDINGS: _create_embeddings_endpoint,
     }
-    if factory := provider_to_factory.get(config.type):
+    if factory := provider_to_factory.get(config.route_type):
         return factory(config)
 
     raise HTTPException(
         status_code=404,
-        detail=f"Unexpected route type {config.type!r} for route {config.name!r}.",
+        detail=f"Unexpected route type {config.route_type!r} for route {config.name!r}.",
     )
 
 
@@ -110,10 +114,10 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def health():
         return {"status": "OK"}
 
-    @app.get("/gateway/routes/{route_name}")
+    @app.get(MLFLOW_GATEWAY_ROUTE_BASE + "{route_name}")
     async def get_route(route_name: str):
         if matched := app.get_dynamic_route(route_name):
-            return {"route": matched}
+            return matched
 
         raise HTTPException(
             status_code=404,
@@ -121,7 +125,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the route name.",
         )
 
-    @app.get("/gateway/routes/")
+    @app.get(MLFLOW_GATEWAY_ROUTE_BASE)
     async def search_routes():
         # placeholder route listing functionality
 

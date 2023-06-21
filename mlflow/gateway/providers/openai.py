@@ -1,26 +1,28 @@
 from typing import Dict, Any
 
+import aiohttp
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
 from ..schemas import chat, completions, embeddings
+from ..config import OpenAIConfig, RouteConfig
 
 
 class OpenAIProvider(BaseProvider):
-    NAME = "openai"
-    SUPPORTED_ROUTES = ("chat", "completions", "embeddings")
+    def __init__(self, config: RouteConfig) -> None:
+        super().__init__(config)
+        if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
+            # Should be unreachable
+            raise TypeError(f"Invalid config type {config.model.config}")
+        self.openai_config: OpenAIConfig = config.model.config
 
     async def _request(self, path: str, payload: Dict[str, Any]):
-        import aiohttp
-
-        config = self.config.model.config
-        token = config["openai_api_key"]
-        headers = {"Authorization": f"Bearer {token}"}
-        if org := config.get("openai_organization"):
+        headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
+        if org := self.openai_config.openai_organization:
             headers["OpenAI-Organization"] = org
         async with aiohttp.ClientSession(headers=headers) as session:
-            url = "/".join([config["openai_api_base"].rstrip("/"), path.lstrip("/")])
+            url = "/".join([self.openai_config.openai_api_base.rstrip("/"), path.lstrip("/")])
             async with session.post(url, json=payload) as response:
                 js = await response.json()
                 try:
@@ -36,10 +38,10 @@ class OpenAIProvider(BaseProvider):
         for k1, k2 in mapping.items():
             if v := payload.pop(k1, None):
                 payload[k2] = v
-        return {k: v for k, v in payload.items() if v is not None and v != []}
+        return payload
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -99,13 +101,13 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "n" in payload:
             raise HTTPException(
                 status_code=400, detail="Invalid parameter `n`. Use `candidate_count` instead."
@@ -157,14 +159,15 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        payload = jsonable_encoder(payload, exclude_none=True)
         payload = OpenAIProvider._make_payload(
-            jsonable_encoder(payload),
+            payload,
             {"text": "input"},
         )
         resp = await self._request(
@@ -202,7 +205,7 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": 0,  # output_tokens is not available for embeddings
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
