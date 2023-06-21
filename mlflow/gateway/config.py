@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from pydantic import BaseModel, validator, parse_obj_as, Extra, ValidationError
 from pydantic.json import pydantic_encoder
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, Union, List
 import yaml
 
 from mlflow.exceptions import MlflowException
@@ -137,7 +137,15 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(BaseModel, extra=Extra.forbid):
     name: Optional[str] = None
     provider: Union[str, Provider] = Provider.CUSTOM
-    config: Optional[Dict[str, Any]] = None
+    config: Optional[
+        Union[
+            OpenAIConfig,
+            AnthropicConfig,
+            DatabricksConfig,
+            MLflowConfig,
+            CustomConfig,
+        ]
+    ] = None
 
     @validator("provider", pre=True)
     def validate_provider(cls, value):
@@ -147,16 +155,13 @@ class Model(BaseModel, extra=Extra.forbid):
 
     @validator("config", pre=True)
     def validate_config(cls, config, values):
-        provider = values.get("provider")
-        if provider:
+        if provider := values.get("provider"):
             config_type = config_types[provider]
-            config_instance = config_type(**config)
+            return config_type(**config)
 
-            return config_instance
-        else:
-            raise MlflowException.invalid_parameter_value(
-                "A provider must be provided for each gateway route."
-            )
+        raise MlflowException.invalid_parameter_value(
+            "A provider must be provided for each gateway route."
+        )
 
 
 # pylint: disable=no-self-argument
