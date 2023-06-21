@@ -104,7 +104,7 @@ def test_dynamic_route():
             "routes": [
                 {
                     "name": "chat",
-                    "type": "llm/v1/chat",
+                    "route_type": "llm/v1/chat",
                     "model": {
                         "name": "gpt-4",
                         "provider": "openai",
@@ -145,7 +145,7 @@ def test_dynamic_route():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         resp = client.post(
-            "/gateway/routes/chat",
+            "/api/2.0/gateway/routes/chat/invocations",
             json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
         )
         mock_post.assert_called_once()
