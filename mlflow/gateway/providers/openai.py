@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+import aiohttp
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
@@ -17,8 +18,6 @@ class OpenAIProvider(BaseProvider):
         self.openai_config: OpenAIConfig = config.model.config
 
     async def _request(self, path: str, payload: Dict[str, Any]):
-        import aiohttp
-
         headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
         if org := self.openai_config.openai_organization:
             headers["OpenAI-Organization"] = org
