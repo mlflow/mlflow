@@ -398,7 +398,9 @@ SIGNATURE = infer_signature(
         (SENTENCES, SIGNATURE, SIGNATURE),
     ],
 )
-def test_signature_and_examples_are_saved_correctly(example, signature, expected_signature, basic_model, model_path):
+def test_signature_and_examples_are_saved_correctly(
+    example, signature, expected_signature, basic_model, model_path
+):
     mlflow.sentence_transformers.save_model(
         basic_model, path=model_path, signature=signature, input_example=example
     )

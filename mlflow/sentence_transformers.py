@@ -111,7 +111,7 @@ def save_model(
                       ``input_example`` are not specified or the automatic signature inference
                       fails, a default signature will be adopted. To prevent a signature from being
                       adopted, set ``signature`` to ``False``. To manually infer a model signature,
-                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
                       with valid model inputs and valid model outputs.
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
@@ -239,7 +239,7 @@ def log_model(
                       ``input_example`` are not specified or the automatic signature inference
                       fails, a default signature will be adopted. To prevent a signature from being
                       adopted, set ``signature`` to ``False``. To manually infer a model signature,
-                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets
                       with valid model inputs and valid model outputs.
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
