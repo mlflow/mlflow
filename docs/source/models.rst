@@ -2668,6 +2668,14 @@ For `transformers` inference, there are two ways to pass in additional arguments
 * Using inference_config
 
 .. code-block:: python
+    from mlflow.models import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    # Infer the signature
+    signature_with_params = infer_signature(
+        data,
+        generate_signature_output(model, data),
+    )
 
     # Define an inference_config
     inference_config = {
@@ -2693,12 +2701,21 @@ For `transformers` inference, there are two ways to pass in additional arguments
 * Using dictionary parameters
 
 .. code-block:: python
+    from mlflow.models import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    # Infer the signature including parameters
+    signature_with_params = infer_signature(
+        data,
+        generate_signature_output(model, data),
+        parameters=inference_config,
+    )
 
     # Saving model without inference_config
     mlflow.transformers.save_model(
         model,
         path=model_path,
-        signature=signature,
+        signature=signature_with_params,
     )
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
