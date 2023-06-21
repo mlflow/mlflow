@@ -50,9 +50,11 @@ def _is_valid_uri(uri: str):
     Evaluates the basic structure of a provided gateway uri to determine if the scheme and
     netloc are provided
     """
+    if uri == "databricks":
+        return True
     try:
         parsed = urlparse(uri)
-        return all([parsed.scheme, parsed.netloc])
+        return parsed.scheme == "databricks" or all([parsed.scheme, parsed.netloc])
     except ValueError:
         return False
 

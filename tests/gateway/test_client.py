@@ -285,3 +285,30 @@ def test_client_query_embeddings(gateway):
     with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
         response = gateway_client.query(route=routes[2].name, data=data)
         assert response == expected_output
+
+
+def test_client_create_route_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for route creation
+    with pytest.raises(MlflowException, match="The create_route API is only available when"):
+        gateway_client.create_route(
+            "some-route",
+            "llm/v1/chat",
+            {
+                "name": "a-route",
+                "provider": "openai",
+                "config": {
+                    "openai_api_key": "mykey",
+                    "openai_api_type": "openai/v1/chat/completions",
+                },
+            },
+        )
+
+
+def test_client_delete_route_raises(gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=gateway.url)
+
+    # This API is available only in Databricks for route deletion
+    with pytest.raises(MlflowException, match="The delete_route API is only available when"):
+        gateway_client.delete_route("some-route")

@@ -3,13 +3,14 @@ import logging
 from urllib.parse import urljoin
 from typing import Optional, Dict, Any
 
-from mlflow.exceptions import MlflowException
+from mlflow import MlflowException
 from mlflow.gateway.config import Route
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
 from mlflow.gateway.utils import get_gateway_uri
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -99,6 +100,10 @@ class MlflowGatewayClient:
         """
         Search for routes in the Gateway. Currently, this simply returns all configured routes.
 
+        .. note::
+            Search is currently not implemented. Providing a `search_filter` term will raise an
+            exception. Leave the arguments empty to get a listing of all configured routes.
+
         :param search_filter: An optional filter to apply to the search. Currently not used.
         :return: Returns a list of all configured and initialized `Route` data for the MLflow
             Gateway Server. The return will be a list of dictionaries that detail the name, type,
@@ -111,6 +116,114 @@ class MlflowGatewayClient:
             )
         response = self._call_endpoint("GET", self._route_base).json()["routes"]
         return [Route(**resp) for resp in response]
+
+    def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
+        """
+        Create a new route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks. When running elsewhere,
+            route configuration is handled via updates to the route configuration YAML file that
+            is specified during Gateway server start.
+
+        :param name: The name of the route.
+        :param route_type: The type of the route (e.g., 'llm/v1/chat', 'llm/v1/completions',
+                           'llm/v1/embeddings').
+        :param model: A dictionary representing the model details to be associated with the route.
+                      This dictionary should define:
+
+                      - The model name (e.g., "gpt-3.5-turbo")
+                      - The provider (e.g., "openai", "anthropic")
+                      - The configuration for the model used in the route
+
+        :return: A serialized representation of the `Route` data structure,
+                 providing information about the name, type, and model details for the
+                 newly created route endpoint.
+
+        :raises mlflow.MlflowException: If the function is not running within Databricks.
+
+        .. note::
+
+            See the official Databricks documentation for MLflow Gateway for examples of supported
+            model configurations and how to dynamically create new routes within Databricks.
+
+
+        Example usage from within Databricks:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+
+            openai_api_key = ...
+
+            new_route = gateway_client.create_route(
+                "my-new-route",
+                "llm/v1/completions",
+                {
+                    "name": "question-answering-bot-1",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": openai_api_key,
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai/v1/chat/completions",
+                    },
+                },
+            )
+
+        """
+        if not self._is_databricks_host():
+            raise MlflowException(
+                "The create_route API is only available when running within "
+                "Databricks. Route creation is handled through creating a "
+                "configuration YAML file during startup or through updating a "
+                "running Gateway server.",
+                error_code=BAD_REQUEST,
+            )
+        payload = {
+            "name": name,
+            "route_type": route_type,
+            "model": model,
+        }
+        response = self._call_endpoint("POST", self._route_base, json.dumps(payload)).json()
+        return Route(**response)
+
+    def delete_route(self, name: str) -> None:
+        """
+        Delete an existing route in the Gateway.
+
+        .. warning::
+
+            This API is **only available** when running within Databricks. When running elsewhere,
+            route deletion is handled by removing the corresponding entry from the route
+            configuration YAML file that is specified during Gateway server start.
+
+        :param name: The name of the route to delete.
+
+        :raises mlflow.MlflowException: If the function is not running within Databricks.
+
+        Example usage from within Databricks:
+
+        .. code-block:: python
+
+            from mlflow.gateway import MlflowGatewayClient
+
+            gateway_client = MlflowGatewayClient("databricks")
+            gateway_client.delete_route("my-existing-route")
+
+        """
+        if not self._is_databricks_host():
+            raise MlflowException(
+                "The delete_route API is only available when running within Databricks. Route "
+                "deletion is handled through uploading a modified configuration YAML file to the "
+                "location specified when starting the Gateway server. To delete a route, remove "
+                "the route entry from the configuration file.",
+                error_code=BAD_REQUEST,
+            )
+        route = urljoin(self._route_base, name)
+        self._call_endpoint("DELETE", route)
 
     def query(self, route: str, data: Dict[str, Any]):
         """
