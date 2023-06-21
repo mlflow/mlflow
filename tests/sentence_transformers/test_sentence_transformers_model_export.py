@@ -390,24 +390,21 @@ SIGNATURE = infer_signature(
 
 
 @pytest.mark.parametrize(
-    "example, signature",
+    "example, signature, expected_signature",
     [
-        (None, None),
-        (SENTENCES, None),
-        (None, SIGNATURE),
-        (SENTENCES, SIGNATURE),
+        (None, None, mlflow.sentence_transformers._get_default_signature()),
+        (SENTENCES, None, SIGNATURE),
+        (None, SIGNATURE, SIGNATURE),
+        (SENTENCES, SIGNATURE, SIGNATURE),
     ],
 )
-def test_signature_and_examples_are_saved_correctly(example, signature, basic_model, model_path):
+def test_signature_and_examples_are_saved_correctly(example, signature, expected_signature, basic_model, model_path):
     mlflow.sentence_transformers.save_model(
         basic_model, path=model_path, signature=signature, input_example=example
     )
     mlflow_model = Model.load(model_path)
 
-    if signature is None:
-        assert mlflow_model.signature == mlflow.sentence_transformers._get_default_signature()
-    else:
-        assert signature == mlflow_model.signature
+    assert mlflow_model.signature == expected_signature
 
     if example is None:
         assert mlflow_model.saved_input_example_info is None

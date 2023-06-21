@@ -20,7 +20,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
@@ -127,12 +126,6 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
     os.makedirs(model_data_path)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
-
-    if signature is None and input_example is not None:
-        wrapped_model = _SpacyModelWrapper(spacy_model)
-        signature = _infer_signature_from_input_example(input_example, wrapped_model)
-    elif signature is False:
-        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()

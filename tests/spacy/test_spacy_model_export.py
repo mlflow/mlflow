@@ -114,7 +114,7 @@ def test_model_save_load(spacy_model_with_data, model_path):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(spacy_model_with_data):
+def test_model_export_with_schema_and_examples(spacy_model_with_data):
     spacy_model = spacy_model_with_data.model
     signature_ = infer_signature(spacy_model_with_data.inference_data)
     example_ = spacy_model_with_data.inference_data.head(3)
@@ -126,10 +126,7 @@ def test_signature_and_examples_are_saved_correctly(spacy_model_with_data):
                     spacy_model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                if signature is None and example is None:
-                    assert mlflow_model.signature is None
-                else:
-                    assert mlflow_model.signature is None
+                assert signature == mlflow_model.signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:

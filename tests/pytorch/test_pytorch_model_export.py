@@ -222,7 +222,7 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    np.testing.assert_allclose(_read_example(mlflow_model, path), example)
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])

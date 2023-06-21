@@ -104,7 +104,15 @@ def save_model(
                        path when the model is loaded.
     :param mlflow_model: An MLflow model object that specifies the flavor that this model is being
                          added to.
-    :param signature: {{ signature }}
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. If both ``signature`` and
+                      ``input_example`` are not specified or the automatic signature inference
+                      fails, a default signature will be adopted. To prevent a signature from being
+                      adopted, set ``signature`` to ``False``. To manually infer a model signature,
+                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+                      with valid model inputs and valid model outputs.
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
@@ -130,8 +138,8 @@ def save_model(
     if signature is None and input_example is not None:
         wrapped_model = _SentenceTransformerModelWrapper(model)
         signature = _infer_signature_from_input_example(input_example, wrapped_model)
-        if signature is None:
-            signature = _get_default_signature()
+    elif signature is None:
+        signature = _get_default_signature()
     elif signature is False:
         signature = None
 
@@ -224,7 +232,15 @@ def log_model(
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param signature: {{ signature }}
+    :param signature: :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+                      class that describes the model's inputs and outputs. If not specified but an
+                      ``input_example`` is supplied, a signature will be automatically inferred
+                      based on the supplied input example and model. If both ``signature`` and
+                      ``input_example`` are not specified or the automatic signature inference
+                      fails, a default signature will be adopted. To prevent a signature from being
+                      adopted, set ``signature`` to ``False``. To manually infer a model signature,
+                      call :py:func:`infer_signature() <mlflow.models.infer_signature>` on datasets 
+                      with valid model inputs and valid model outputs.
     :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
