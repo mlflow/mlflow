@@ -87,14 +87,12 @@ def test_get_route(client: TestClient):
     response = client.get("/api/2.0/gateway/routes/chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
-        "route": {
-            "name": "chat-gpt4",
-            "route_type": "llm/v1/chat",
-            "model": {
-                "name": "gpt-4",
-                "provider": "openai",
-            },
-        }
+        "name": "chat-gpt4",
+        "route_type": "llm/v1/chat",
+        "model": {
+            "name": "gpt-4",
+            "provider": "openai",
+        },
     }
 
 
