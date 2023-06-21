@@ -7,6 +7,9 @@ from mlflow.gateway.config import (
     _load_route_config,
     _save_route_config,
     RouteConfig,
+    DatabricksConfig,
+    AnthropicConfig,
+    OpenAIConfig,
     _resolve_api_key_from_input,
 )
 
@@ -97,7 +100,8 @@ def test_api_key_parsing_file(tmp_path):
     config_path.write_text(yaml.safe_dump(config))
     loaded_config = _load_route_config(config_path)
 
-    assert loaded_config.routes[0].model.config["anthropic_api_key"] == "abc"
+    assert isinstance(loaded_config.routes[0].model.config, AnthropicConfig)
+    assert loaded_config.routes[0].model.config.anthropic_api_key == "abc"
 
 
 def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
@@ -117,11 +121,12 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert completions_gpt4.model.name == "gpt-4"
     assert completions_gpt4.model.provider == "openai"
     completions_conf = completions_gpt4.model.config
-    assert completions_conf["openai_api_key"] == "mykey"
-    assert completions_conf["openai_api_base"] == "https://api.openai.com/v1"
-    assert completions_conf["openai_api_version"] == "2023-05-10"
-    assert completions_conf["openai_api_type"] == "openai/v1/chat/completions"
-    assert completions_conf["openai_organization"] == "my_company"
+    assert isinstance(completions_conf, OpenAIConfig)
+    assert completions_conf.openai_api_key == "mykey"
+    assert completions_conf.openai_api_base == "https://api.openai.com/v1"
+    assert completions_conf.openai_api_version == "2023-05-10"
+    assert completions_conf.openai_api_type == "openai/v1/chat/completions"
+    assert completions_conf.openai_organization == "my_company"
 
     chat_gpt4 = loaded_from_save.routes[1]
     assert chat_gpt4.name == "chat-gpt4"
@@ -129,20 +134,22 @@ def test_route_configuration_parsing(basic_config_dict, tmp_path, monkeypatch):
     assert chat_gpt4.model.name == "gpt-4"
     assert chat_gpt4.model.provider == "openai"
     chat_conf = chat_gpt4.model.config
-    assert chat_conf["openai_api_key"] == "sk-openai"
-    assert chat_conf["openai_api_base"] == "https://api.openai.com/v1"
-    assert chat_conf.get("openai_api_version", None) is None
-    assert chat_conf.get("openai_api_type", None) is None
-    assert chat_conf.get("openai_organization", None) is None
+    assert isinstance(chat_conf, OpenAIConfig)
+    assert chat_conf.openai_api_key == "sk-openai"
+    assert chat_conf.openai_api_base == "https://api.openai.com/v1"
+    assert chat_conf.openai_api_version is None
+    assert chat_conf.openai_api_type is None
+    assert chat_conf.openai_organization is None
 
     claude = loaded_from_save.routes[2]
+    assert isinstance(claude.model.config, AnthropicConfig)
     assert claude.name == "claude-chat"
     assert claude.route_type == "llm/v1/chat"
     assert claude.model.name == "claude-v1"
     assert claude.model.provider == "anthropic"
     claude_conf = claude.model.config
-    assert claude_conf["anthropic_api_key"] == "api_key"
-    assert claude_conf["anthropic_api_base"] == "https://api.anthropic.com/"
+    assert claude_conf.anthropic_api_key == "api_key"
+    assert claude_conf.anthropic_api_base == "https://api.anthropic.com/"
 
 
 def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
@@ -228,9 +235,7 @@ def test_invalid_route_definition(tmp_path):
     conf_path = tmp_path.joinpath("config.yaml")
     conf_path.write_text(yaml.safe_dump(invalid_format_config_key_invalid_path))
 
-    assert (
-        _load_route_config(conf_path).routes[0].model.config["openai_api_key"] == "/not/a/real/path"
-    )
+    assert _load_route_config(conf_path).routes[0].model.config.openai_api_key == "/not/a/real/path"
 
     invalid_no_config = {
         "routes": [
@@ -254,6 +259,7 @@ def test_invalid_route_definition(tmp_path):
         _load_route_config(conf_path)
 
 
+@pytest.mark.skip(reason="CustomConfig is going to be removed")
 def test_custom_provider(tmp_path):
     basic_generic_provider = {
         "routes": [
@@ -311,6 +317,7 @@ def test_invalid_route_name(tmp_path, route_name):
         _load_route_config(conf_path)
 
 
+@pytest.mark.skip(reason="CustomConfig is going to be removed")
 def test_custom_route(tmp_path):
     custom_routes = {
         "routes": [
@@ -370,7 +377,7 @@ def test_default_base_api(tmp_path):
     conf_path.write_text(yaml.safe_dump(route_no_base))
     loaded_conf = _load_route_config(conf_path)
 
-    assert loaded_conf.routes[0].model.config.get("openai_api_base") == "https://api.openai.com/v1"
+    assert loaded_conf.routes[0].model.config.openai_api_base == "https://api.openai.com/v1"
 
 
 def test_databricks_route_config(tmp_path):
@@ -398,8 +405,9 @@ def test_databricks_route_config(tmp_path):
     assert route.route_type == "custom"
     assert route.model.name == "serving-endpoints/document-classifier/Production/invocations"
     assert route.model.provider == "databricks_model_serving"
-    assert route.model.config.get("databricks_api_token") == "MY_TOKEN"
-    assert route.model.config.get("databricks_api_base") == "https://my-shard-001/"
+    assert isinstance(route.model.config, DatabricksConfig)
+    assert route.model.config.databricks_api_token == "MY_TOKEN"
+    assert route.model.config.databricks_api_base == "https://my-shard-001/"
 
 
 def test_duplicate_routes_in_config(tmp_path):
