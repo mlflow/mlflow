@@ -158,6 +158,13 @@ def save_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
+                      and returns a retriever. This is required for RetrievalQA models.
+    :param persist_dir: The directory where the retriever is stored. The `loader_fn` takes this
+                        string as the argument to load the retriever. This is required for
+                        RetrievalQA models. Note that MLflow does not manage the contents of this
+                        directory, so it is up to the user to ensure that the directory is properly
+                        populated.
     """
     import langchain
 
@@ -306,6 +313,13 @@ def log_model(
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
+    :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
+                      and returns a retriever. This is required for RetrievalQA models.
+    :param persist_dir: The directory where the retriever is stored. The `loader_fn` takes this
+                        string as the argument to load the retriever. This is required for
+                        RetrievalQA models. Note that MLflow does not manage the contents of this
+                        directory, so it is up to the user to ensure that the directory is properly
+                        populated.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -338,13 +352,6 @@ def log_model(
         )
 
     if isinstance(lc_model, langchain.chains.RetrievalQA):
-        if conda_env is None and pip_requirements is None:
-            logger.warning(
-                "RetrievalQA models are currently incompatible with the "
-                "infer_pip_requirements function. Please specify the environment "
-                "requirements in the `conda_env` or `pip_requirements` parameter."
-            )
-
         if loader_fn is None:
             raise mlflow.MlflowException("For RetrievalQA models, a `loader_fn` must be provided.")
         if not isinstance(loader_fn, types.FunctionType):
@@ -365,8 +372,8 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
-        loader_fn=None,
-        persist_dir=None,
+        loader_fn=loader_fn,
+        persist_dir=persist_dir,
     )
 
 

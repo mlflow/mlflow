@@ -1,5 +1,6 @@
 import langchain
 import mlflow
+import os
 import pytest
 import transformers
 import json
@@ -21,7 +22,6 @@ from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
 from mlflow.exceptions import MlflowException
-from mlflow.langchain import LOADER_FN_KEY, PERSIST_DIR_KEY
 from mlflow.openai.utils import (
     _mock_chat_completion_response,
     _mock_request,
@@ -313,7 +313,7 @@ def load_retriever(persist_directory):
 
 def test_log_and_load_retrieval_qa_chain():
     # Load the vectorstore from persist_dir
-    persist_dir = "tests/langchain/faiss_index"
+    persist_dir = os.path.abspath("tests/langchain/faiss_index")
     embeddings = OpenAIEmbeddings()
     db = FAISS.load_local(persist_dir, embeddings)
 
@@ -325,7 +325,8 @@ def test_log_and_load_retrieval_qa_chain():
         logged_model = mlflow.langchain.log_model(
             retrievalQA,
             "retrieval_qa_chain",
-            metadata={LOADER_FN_KEY: load_retriever, PERSIST_DIR_KEY: persist_dir},
+            loader_fn=load_retriever,
+            persist_dir=persist_dir,
         )
 
     # Load the chain
