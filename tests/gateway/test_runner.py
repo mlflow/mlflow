@@ -4,6 +4,9 @@ from tests.gateway.tools import Gateway, save_yaml
 import pytest
 
 
+BASE_ROUTE = "api/2.0/gateway/routes/"
+
+
 @pytest.fixture
 def basic_config_dict():
     return {
@@ -122,7 +125,7 @@ def test_server_update(
     save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
 
         # push an update to the config file
@@ -133,7 +136,7 @@ def test_server_update(
 
         # Wait for the app to restart
         gateway.wait_reload()
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
 
         assert response.json() == update_routes
 
@@ -141,7 +144,7 @@ def test_server_update(
         save_yaml(config, basic_config_dict)
         gateway.assert_health()
         gateway.wait_reload()
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
 
 
@@ -152,7 +155,7 @@ def test_server_update_with_invalid_config(
     save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
         gateway.wait_reload()
@@ -162,7 +165,7 @@ def test_server_update_with_invalid_config(
         # ensure that filewatch has run through the aborted config change logic
         gateway.wait_reload()
         gateway.assert_health()
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
 
 
@@ -173,7 +176,7 @@ def test_server_update_config_removed_then_recreated(
     save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
         # Give filewatch a moment to cycle
         gateway.wait_reload()
@@ -184,7 +187,7 @@ def test_server_update_config_removed_then_recreated(
 
         save_yaml(config, {"routes": basic_config_dict["routes"][1:]})
         gateway.wait_reload()
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == {"routes": basic_routes["routes"][1:]}
 
 
@@ -193,7 +196,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
     save_yaml(config, basic_config_dict)
 
     with Gateway(config) as gateway:
-        response = gateway.get("gateway/routes/")
+        response = gateway.get(BASE_ROUTE)
         assert response.json() == basic_routes
 
         for route in ["docs", "redoc"]:
@@ -201,7 +204,7 @@ def test_server_static_endpoints(tmp_path, basic_config_dict, basic_routes):
             assert response.status_code == 200
 
         for index, route in enumerate(basic_config_dict["routes"]):
-            response = gateway.get(f"gateway/routes/{route['name']}")
+            response = gateway.get(f"{BASE_ROUTE}{route['name']}")
             assert response.json() == {"route": basic_routes["routes"][index]}
 
 
@@ -212,7 +215,7 @@ def test_server_dynamic_endpoints(tmp_path, basic_config_dict):
 
     with Gateway(config) as gateway:
         response = gateway.post(
-            f"gateway/routes/{basic_config_dict['routes'][0]['name']}",
+            f"{BASE_ROUTE}{basic_config_dict['routes'][0]['name']}",
             json={"prompt": "hello"},
         )
         assert response.json() == {
@@ -239,7 +242,7 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
 
     with Gateway(config) as gateway:
         # Test get
-        response = gateway.get("gateway/routes/invalid/")
+        response = gateway.get(f"{BASE_ROUTE}invalid/")
         assert response.status_code == 404
         assert response.json() == {
             "detail": "The route 'invalid' is not present or active on the server. Please "
@@ -247,6 +250,6 @@ def test_request_invalid_route(tmp_path, basic_config_dict):
         }
 
         # Test post
-        response = gateway.post("gateway/routes/invalid", json={"input": "should fail"})
+        response = gateway.post(f"{BASE_ROUTE}invalid", json={"input": "should fail"})
         assert response.status_code == 405
         assert response.json() == {"detail": "Method Not Allowed"}
