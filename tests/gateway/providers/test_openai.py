@@ -29,7 +29,7 @@ class MockAsyncResponse:
 def chat_config():
     return {
         "name": "chat",
-        "type": "llm/v1/chat",
+        "route_type": "llm/v1/chat",
         "model": {
             "provider": "openai",
             "name": "gpt-3.5-turbo",
@@ -127,7 +127,7 @@ async def test_chat_temperature_is_doubled():
 def completions_config():
     return {
         "name": "completions",
-        "type": "llm/v1/completions",
+        "route_type": "llm/v1/completions",
         "model": {
             "provider": "openai",
             "name": "text-davinci-003",
@@ -193,7 +193,7 @@ async def test_completions_temperature_is_doubled():
 def embedding_config():
     return {
         "name": "embeddings",
-        "type": "llm/v1/embeddings",
+        "route_type": "llm/v1/embeddings",
         "model": {
             "provider": "openai",
             "name": "text-embedding-ada-002",

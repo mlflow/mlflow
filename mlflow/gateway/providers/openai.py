@@ -99,7 +99,7 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
@@ -157,7 +157,7 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": resp["usage"]["completion_tokens"],
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )
@@ -202,7 +202,7 @@ class OpenAIProvider(BaseProvider):
                     "output_tokens": 0,  # output_tokens is not available for embeddings
                     "total_tokens": resp["usage"]["total_tokens"],
                     "model": resp["model"],
-                    "route_type": self.config.type,
+                    "route_type": self.config.route_type,
                 },
             }
         )

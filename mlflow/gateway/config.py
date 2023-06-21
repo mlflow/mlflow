@@ -20,7 +20,7 @@ class Provider(str, Enum):
     CUSTOM = "custom"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
-    DATABRICKS_SERVING_ENDPOINT = "databricks_serving_endpoint"
+    DATABRICKS_MODEL_SERVING = "databricks_model_serving"
     MLFLOW = "mlflow"
 
     @classmethod
@@ -86,7 +86,7 @@ class CustomConfig(BaseModel, extra=Extra.forbid):
 config_types = {
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
-    Provider.DATABRICKS_SERVING_ENDPOINT: DatabricksConfig,
+    Provider.DATABRICKS_MODEL_SERVING: DatabricksConfig,
     Provider.MLFLOW: MLflowConfig,
     Provider.CUSTOM: CustomConfig,
 }
@@ -162,7 +162,7 @@ class Model(BaseModel, extra=Extra.forbid):
 # pylint: disable=no-self-argument
 class RouteConfig(BaseModel, extra=Extra.forbid):
     name: str
-    type: RouteType = RouteType.CUSTOM
+    route_type: RouteType = RouteType.CUSTOM
     model: Model
 
     @validator("name")
@@ -186,7 +186,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
                 )
         return model
 
-    @validator("type", pre=True)
+    @validator("route_type", pre=True)
     def validate_route_type(cls, value):
         if value in RouteType._value2member_map_:
             return value
@@ -195,7 +195,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
     def to_route(self) -> "Route":
         return Route(
             name=self.name,
-            type=self.type,
+            route_type=self.route_type,
             model=ModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
@@ -205,7 +205,7 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
 
 class Route(BaseModel, extra=Extra.forbid):
     name: str
-    type: RouteType
+    route_type: RouteType
     model: ModelInfo
 
 
