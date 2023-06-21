@@ -232,7 +232,7 @@ def log_model(
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
-    :param signature: :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    :param signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
                       class that describes the model's inputs and outputs. If not specified but an
                       ``input_example`` is supplied, a signature will be automatically inferred
                       based on the supplied input example and model. If both ``signature`` and
