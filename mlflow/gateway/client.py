@@ -104,7 +104,7 @@ class MlflowGatewayClient:
         """
         data = {
             "name": name,
-            "type": type,
+            "route_type": type,
             "model": model,
         }
         data = json.dumps(data)
