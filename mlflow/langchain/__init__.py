@@ -13,6 +13,7 @@ LangChain (native) format
 """
 import logging
 import os
+import types
 from typing import Any, Dict, List, Union
 
 import pandas as pd
@@ -55,8 +56,6 @@ from mlflow.openai.utils import TEST_CONTENT
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
-LOADER_FN_KEY = "_mlflow_loader_fn"
-PERSIST_DIR_KEY = "_mlflow_persist_dir"
 
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
@@ -67,7 +66,9 @@ _AGENT_DATA_KEY = "agent_data"
 _TOOLS_DATA_FILE_NAME = "tools.pkl"
 _TOOLS_DATA_KEY = "tools_data"
 _MODEL_TYPE_KEY = "model_type"
-_RETRIEVER_DIR_NAME = "retriever"
+_LOADER_FN_FILE_NAME = "loader_fn.pkl"
+_LOADER_FN_KEY = "loader_fn"
+_PERSIST_DIR_KEY = "persist_dir"
 _UNSUPPORTED_MODEL_ERROR_MESSAGE = (
     "MLflow langchain flavor only supports logging subclasses of "
     "langchain.chains.base.Chain and langchain.agents.agent.AgentExecutor instances, "
@@ -98,19 +99,6 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-def get_retriever_pyfunc_model(fn):
-    class Retriever(mlflow.pyfunc.PythonModel):
-        def load_context(self, context):
-            local_dir = mlflow.artifacts.download_artifacts(context.artifacts[PERSIST_DIR_KEY])
-            self.retriever = fn(local_dir)
-
-        def predict(self, context, model_input):
-            # This is a hacky way to expose the retriever object.
-            return self.retriever
-
-    return Retriever()
-
-
 @experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def save_model(
@@ -124,6 +112,8 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    loader_fn=None,
+    persist_dir=None,
 ):
     """
     Save a LangChain model to a path on the local file system.
@@ -197,7 +187,7 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    model_data_kwargs = _save_model(lc_model, path)
+    model_data_kwargs = _save_model(lc_model, path, loader_fn, persist_dir)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -259,6 +249,8 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    loader_fn=None,
+    persist_dir=None,
 ):
     """
     Log a LangChain model as an MLflow artifact for the current run.
@@ -353,18 +345,12 @@ def log_model(
                 "requirements in the `conda_env` or `pip_requirements` parameter."
             )
 
-        loader_fn = None
-        persist_dir = None
-        if metadata is not None:
-            if LOADER_FN_KEY in metadata:
-                loader_fn = metadata.pop(LOADER_FN_KEY)
-            if PERSIST_DIR_KEY in metadata:
-                persist_dir = metadata.pop(PERSIST_DIR_KEY)
-        mlflow.pyfunc.log_model(
-            python_model=get_retriever_pyfunc_model(loader_fn),
-            artifact_path=artifact_path + "/" + _RETRIEVER_DIR_NAME,
-            artifacts={PERSIST_DIR_KEY: persist_dir},
-        )
+        if loader_fn is None:
+            raise mlflow.MlflowException("For RetrievalQA models, a `loader_fn` must be provided.")
+        if not isinstance(loader_fn, types.FunctionType):
+            raise mlflow.MlflowException(
+                "The `loader_fn` must be a function that returns a retriever."
+            )
 
     return Model.log(
         artifact_path=artifact_path,
@@ -379,10 +365,12 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        loader_fn=None,
+        persist_dir=None,
     )
 
 
-def _save_model(model, path):
+def _save_model(model, path, loader_fn, persist_dir):
     import langchain
 
     model_data_path = os.path.join(path, _MODEL_DATA_FILE_NAME)
@@ -417,6 +405,14 @@ def _save_model(model, path):
             json.dump(temp_dict, config_file, indent=4)
 
         model_data_kwargs[_AGENT_PRIMITIVES_DATA_KEY] = _AGENT_PRIMITIVES_FILE_NAME
+
+    elif isinstance(model, langchain.chains.RetrievalQA):
+        loader_fn_path = os.path.join(path, _LOADER_FN_FILE_NAME)
+        with open(loader_fn_path, "wb") as f:
+            cloudpickle.dump(loader_fn, f)
+        model_data_kwargs[_LOADER_FN_KEY] = _LOADER_FN_FILE_NAME
+        model_data_kwargs[_PERSIST_DIR_KEY] = persist_dir
+        model.save(model_data_path)
     elif isinstance(model, langchain.chains.base.Chain):
         logger.warning(
             _UNSUPPORTED_MODEL_WARNING_MESSAGE,
@@ -431,24 +427,25 @@ def _save_model(model, path):
     return model_data_kwargs
 
 
-def _load_model(path, agent_path=None, tools_path=None, agent_primitive_path=None):
-    model = None
-    if agent_path is None and tools_path is None:
-        from langchain.chains.loading import load_chain
+def _load_model(
+    path,
+    agent_path=None,
+    tools_path=None,
+    agent_primitive_path=None,
+    loader_fn_path=None,
+    persist_dir=None,
+):
+    from langchain.chains.loading import load_chain
 
-        try:
-            model = load_chain(path)
-        except ValueError as e:
-            if "`retriever` must be present." in str(e):
-                retriever_local_dir = os.path.dirname(path)
-                retriever_local_path = os.path.join(retriever_local_dir, _RETRIEVER_DIR_NAME)
-                retriever_model = mlflow.pyfunc.load_model(retriever_local_path)
-                retriever = retriever_model.predict(0)
-                model = load_chain(path, retriever=retriever)
-            else:
-                raise
+    model = None
+    if loader_fn_path is not None:  # RetrievalQA chain
+        with open(loader_fn_path, "rb") as f:
+            loader_fn = cloudpickle.load(f)
+        retriever = loader_fn(persist_dir)
+        model = load_chain(path, retriever=retriever)
+    elif agent_path is None and tools_path is None:
+        model = load_chain(path)
     else:
-        from langchain.chains.loading import load_chain
         from langchain.agents import initialize_agent
 
         llm = load_chain(path)
@@ -525,7 +522,7 @@ def _load_model_from_local_fs(local_model_path):
         local_model_path, flavor_conf.get(_MODEL_DATA_KEY, _MODEL_DATA_FILE_NAME)
     )
 
-    agent_model_path = tools_model_path = agent_primitive_path = None
+    agent_model_path = tools_model_path = agent_primitive_path = loader_fn_path = persist_dir = None
     if agent_path := flavor_conf.get(_AGENT_DATA_KEY):
         agent_model_path = os.path.join(local_model_path, agent_path)
 
@@ -535,7 +532,19 @@ def _load_model_from_local_fs(local_model_path):
     if primitive_path := flavor_conf.get(_AGENT_PRIMITIVES_DATA_KEY):
         agent_primitive_path = os.path.join(local_model_path, primitive_path)
 
-    return _load_model(lc_model_path, agent_model_path, tools_model_path, agent_primitive_path)
+    if loader_fn_file_name := flavor_conf.get(_LOADER_FN_KEY):
+        loader_fn_path = os.path.join(local_model_path, loader_fn_file_name)
+
+    persist_dir = flavor_conf.get(_PERSIST_DIR_KEY)
+
+    return _load_model(
+        lc_model_path,
+        agent_model_path,
+        tools_model_path,
+        agent_primitive_path,
+        loader_fn_path,
+        persist_dir,
+    )
 
 
 @experimental
