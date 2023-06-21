@@ -17,7 +17,6 @@ from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
 
 MODELS_ARTIFACT_REPOSITORY_PACKAGE = "mlflow.store.artifact.unity_catalog_models_artifact_repo"
@@ -229,6 +228,7 @@ def test_uc_models_artifact_repo_uses_active_catalog_and_schema():
         assert spark.sql.call_count == 2
         assert models_repo.model_name == "main.default.MyModel"
 
+
 @mock.patch("databricks_cli.configure.provider.get_config")
 def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(get_config):
     artifact_location = "abfss://filesystem@account.dfs.core.windows.net"
@@ -240,7 +240,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(get_config)
     }
     fake_local_path = "/tmp/fake_path"
     with mock.patch.object(
-            MlflowClient, "get_model_version_download_uri", return_value=artifact_location
+        MlflowClient, "get_model_version_download_uri", return_value=artifact_location
     ), mock.patch("mlflow.utils.rest_utils.http_request") as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository"
     ) as adls_artifact_repo_class_mock:
