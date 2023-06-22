@@ -19,6 +19,8 @@ _logger = logging.getLogger(__name__)
 class Provider(str, Enum):
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
+    # Note: Databricks Model Serving is only supported on Databricks
+    DATABRICKS_MODEL_SERVING = "databricks-model-serving"
 
     @classmethod
     def values(cls):
