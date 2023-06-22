@@ -5,7 +5,7 @@ from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
 from .utils import send_request, rename_payload_keys
-from ..schemas import completions, embeddings
+from ..schemas import chat, completions, embeddings
 from ..config import CohereConfig, RouteConfig
 
 
@@ -24,6 +24,9 @@ class CohereProvider(BaseProvider):
             path=path,
             payload=payload,
         )
+
+    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        raise HTTPException(status_code=404, detail="The chat route is not available for Cohere.")
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload, exclude_none=True)
