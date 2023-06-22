@@ -92,5 +92,5 @@ def assemble_uri_path(paths: List[str]) -> str:
     :param paths: A list of strings representing parts of a URI path.
     :return: A string representing the complete assembled URI path.
     """
-    stripped_paths = [path.strip("/") for path in paths if path]
+    stripped_paths = [path.strip("/").lstrip("/") for path in paths if path]
     return "/" + posixpath.join(*stripped_paths)
