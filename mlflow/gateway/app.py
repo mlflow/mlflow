@@ -8,6 +8,7 @@ from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_HEALTH_ENDPOINT,
+    MLFLOW_GATEWAY_CRUD_ROUTE_BASE,
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
@@ -114,7 +115,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     async def health():
         return {"status": "OK"}
 
-    @app.get(MLFLOW_GATEWAY_ROUTE_BASE + "{route_name}")
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
     async def get_route(route_name: str):
         if matched := app.get_dynamic_route(route_name):
             return matched
@@ -125,7 +126,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
             "verify the route name.",
         )
 
-    @app.get(MLFLOW_GATEWAY_ROUTE_BASE)
+    @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
     async def search_routes():
         # placeholder route listing functionality
 

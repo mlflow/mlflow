@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.app import create_app_from_config, create_app_from_env
+from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_BASE, MLFLOW_GATEWAY_CRUD_ROUTE_BASE
 from mlflow.gateway.config import GatewayConfig
 from tests.gateway.tools import MockAsyncResponse
 
@@ -59,7 +60,7 @@ def test_health(client: TestClient):
 
 
 def test_search_routes(client: TestClient):
-    response = client.get("/api/2.0/gateway/routes")
+    response = client.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
     assert response.status_code == 200
     assert response.json() == {
         "routes": [
@@ -84,7 +85,7 @@ def test_search_routes(client: TestClient):
 
 
 def test_get_route(client: TestClient):
-    response = client.get("/api/2.0/gateway/routes/chat-gpt4")
+    response = client.get(f"{MLFLOW_GATEWAY_CRUD_ROUTE_BASE}chat-gpt4")
     assert response.status_code == 200
     assert response.json() == {
         "name": "chat-gpt4",
@@ -143,7 +144,7 @@ def test_dynamic_route():
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
         resp = client.post(
-            "/api/2.0/gateway/routes/chat/invocations",
+            f"{MLFLOW_GATEWAY_ROUTE_BASE}chat/invocations",
             json={"messages": [{"role": "user", "content": "Tell me a joke"}]},
         )
         mock_post.assert_called_once()
