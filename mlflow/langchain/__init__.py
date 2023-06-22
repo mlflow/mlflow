@@ -14,6 +14,7 @@ LangChain (native) format
 import logging
 import os
 import types
+from packaging import version
 from typing import Any, Dict, List, Union
 
 import pandas as pd
@@ -56,7 +57,6 @@ from mlflow.openai.utils import TEST_CONTENT
 logger = logging.getLogger(mlflow.__name__)
 
 FLAVOR_NAME = "langchain"
-
 _MODEL_DATA_FILE_NAME = "model.yaml"
 _MODEL_DATA_KEY = "model_data"
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
@@ -352,6 +352,10 @@ def log_model(
         )
 
     if isinstance(lc_model, langchain.chains.RetrievalQA):
+        if version.parse(langchain.__version__) < version.parse("0.0.194"):
+            raise mlflow.MlflowException(
+                "Saving RetrievalQA models is only supported in LangChain 0.0.194 and above."
+            )
         if loader_fn is None:
             raise mlflow.MlflowException("For RetrievalQA models, a `loader_fn` must be provided.")
         if not isinstance(loader_fn, types.FunctionType):

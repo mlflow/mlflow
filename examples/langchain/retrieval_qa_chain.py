@@ -10,7 +10,7 @@ from mlflow.langchain import _LOADER_FN_KEY, _PERSIST_DIR_KEY
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
 
 # Load the vectorstore from persist_dir
-persist_dir = "tests/langchain/faiss_index"
+persist_dir = os.path.abspath("tests/langchain/faiss_index")
 embeddings = OpenAIEmbeddings()
 db = FAISS.load_local(persist_dir, embeddings)
 
@@ -29,7 +29,8 @@ with mlflow.start_run() as run:
     logged_model = mlflow.langchain.log_model(
         retrievalQA,
         artifact_path="retrieval_qa",
-        metadata={_LOADER_FN_KEY: load_retriever, _PERSIST_DIR_KEY: persist_dir},
+        loader_fn=load_retriever,
+        persist_dir=persist_dir,
     )
 
 # Load the retrievalQA chain

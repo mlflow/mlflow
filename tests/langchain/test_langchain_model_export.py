@@ -18,6 +18,7 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.vectorstores import FAISS
+from packaging import version
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -311,6 +312,10 @@ def load_retriever(persist_directory):
     return vectorstore.as_retriever()
 
 
+@pytest.mark.skipif(
+    version.parse(langchain.__version__) < version.parse("0.0.194"),
+    reason="Saving RetrievalQA chians requires langchain>=0.0.194",
+)
 def test_log_and_load_retrieval_qa_chain():
     # Load the vectorstore from persist_dir
     persist_dir = os.path.abspath("tests/langchain/faiss_index")
