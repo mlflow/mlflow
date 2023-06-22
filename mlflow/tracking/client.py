@@ -32,7 +32,7 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_run_url
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_uri, is_databricks_unity_catalog_uri
@@ -1758,7 +1758,6 @@ class MlflowClient:
         """
         return self._tracking_client.list_artifacts(run_id, path)
 
-    @deprecated("mlflow.artifacts.download_artifacts", "2.0")
     def download_artifacts(self, run_id: str, path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory from a run to a local directory if applicable,
