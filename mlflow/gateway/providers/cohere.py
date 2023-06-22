@@ -39,9 +39,9 @@ class CohereProvider(BaseProvider):
                 raise HTTPException(
                     status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
+        # The range of Cohere's temperature is 0-5, but ours is 0-1, so we scale it.
         payload["temperature"] = 5 * payload["temperature"]
         payload = rename_payload_keys(payload, key_mapping)
-        # The range of Cohere's temperature is 0-5, but ours is 0-1, so we double it.
         resp = await self._request(
             "generate",
             {"model": self.config.model.name, **payload},
