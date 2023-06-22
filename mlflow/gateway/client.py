@@ -34,8 +34,6 @@ class MlflowGatewayClient:
     def __init__(self, gateway_uri: Optional[str] = None):
         self._gateway_uri = gateway_uri or get_gateway_uri()
         self._host_creds = self._resolve_host_creds()
-        self._crud_route_base = MLFLOW_GATEWAY_CRUD_ROUTE_BASE
-        self._query_route_base = MLFLOW_GATEWAY_ROUTE_BASE
 
     def _is_databricks_host(self) -> bool:
         return (
@@ -92,7 +90,7 @@ class MlflowGatewayClient:
             structure, giving information about the name, type, and model details (model name
             and provider) for the requested route endpoint.
         """
-        route = assemble_uri_path([self._crud_route_base, name])
+        route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         response = self._call_endpoint("GET", route).json()
 
         return Route(**response)
@@ -115,7 +113,7 @@ class MlflowGatewayClient:
                 "Search functionality is not implemented. This API only returns all configured "
                 "routes with no `search_filter` defined."
             )
-        response = self._call_endpoint("GET", self._crud_route_base).json()["routes"]
+        response = self._call_endpoint("GET", MLFLOW_GATEWAY_CRUD_ROUTE_BASE).json()["routes"]
         return [Route(**resp) for resp in response]
 
     def create_route(self, name: str, route_type: str, model: Dict[str, Any]) -> Route:
@@ -188,7 +186,9 @@ class MlflowGatewayClient:
             "route_type": route_type,
             "model": model,
         }
-        response = self._call_endpoint("POST", self._crud_route_base, json.dumps(payload)).json()
+        response = self._call_endpoint(
+            "POST", MLFLOW_GATEWAY_CRUD_ROUTE_BASE, json.dumps(payload)
+        ).json()
         return Route(**response)
 
     def delete_route(self, name: str) -> None:
@@ -223,7 +223,7 @@ class MlflowGatewayClient:
                 "the route entry from the configuration file.",
                 error_code=BAD_REQUEST,
             )
-        route = assemble_uri_path([self._crud_route_base, name])
+        route = assemble_uri_path([MLFLOW_GATEWAY_CRUD_ROUTE_BASE, name])
         self._call_endpoint("DELETE", route)
 
     def query(self, route: str, data: Dict[str, Any]):
@@ -277,6 +277,6 @@ class MlflowGatewayClient:
 
         data = json.dumps(data)
 
-        query_route = assemble_uri_path([self._query_route_base, route, MLFLOW_QUERY_SUFFIX])
+        query_route = assemble_uri_path([MLFLOW_GATEWAY_ROUTE_BASE, route, MLFLOW_QUERY_SUFFIX])
 
         return self._call_endpoint("POST", query_route, data).json()
