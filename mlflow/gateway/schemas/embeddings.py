@@ -25,6 +25,32 @@ class Metadata(BaseModel, extra=Extra.forbid):
     route_type: RouteType
 
 
-class ResponsePayload(BaseModel, extra=Extra.forbid):
+class ResponsePayload(BaseModel):
     embeddings: List[List[float]]
     metadata: Metadata
+
+    class Config:
+        extra = Extra.forbid
+        schema_extra = {
+            "example": {
+                "embeddings": [
+                    [
+                        0.1,
+                        0.2,
+                        0.3,
+                    ],
+                    [
+                        0.4,
+                        0.5,
+                        0.6,
+                    ],
+                ],
+                "metadata": {
+                    "input_tokens": 1,
+                    "output_tokens": 0,
+                    "total_tokens": 1,
+                    "model": "gpt-3.5-turbo",
+                    "route_type": "llm/v1/embeddings",
+                },
+            }
+        }
