@@ -4,6 +4,8 @@ from unittest import mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.gateway import (
+    create_route,
+    delete_route,
     set_gateway_uri,
     get_gateway_uri,
     get_route,
@@ -192,3 +194,19 @@ def test_fluent_query_completions(gateway):
     ):
         response = query(route=routes[0].name, data=data)
         assert response == expected_output
+
+
+def test_fluent_create_route_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(MlflowException, match="The create_route API is only available when"):
+        create_route(
+            "some-route", "llm/v1/completions", {"name": "some_name", "provider": "anthropic"}
+        )
+
+
+def test_fluent_delete_route_raises(gateway):
+    set_gateway_uri(gateway_uri=gateway.url)
+    # This API is only available in Databricks
+    with pytest.raises(MlflowException, match="The delete_route API is only available when"):
+        delete_route("some-route")
