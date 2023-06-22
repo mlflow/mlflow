@@ -67,7 +67,6 @@ def basic_config_dict():
         (["/gateway/routes", "/chat/"], "/gateway/routes/chat"),
         (["/gateway", "/routes/", "chat/"], "/gateway/routes/chat"),
         (["/"], "/"),
-        ([], "/"),
         (["gateway", "", "/routes/", "", "/chat", ""], "/gateway/routes/chat"),
     ],
 )

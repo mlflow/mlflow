@@ -1,4 +1,5 @@
 import logging
+import posixpath
 import psutil
 import re
 from typing import Optional, List
@@ -84,12 +85,12 @@ def get_gateway_uri() -> str:
         )
 
 
-def assemble_uri_path(parts: List[str]) -> str:
+def assemble_uri_path(paths: List[str]) -> str:
     """
     Assemble a correct URI path from a list of path parts.
 
-    :param parts: A list of strings representing parts of a URI path.
+    :param paths: A list of strings representing parts of a URI path.
     :return: A string representing the complete assembled URI path.
     """
-    path_parts = [part for path in parts for part in path.strip("/").split("/") if part]
-    return "/" + "/".join(path_parts)
+    stripped_paths = [path.strip("/") for path in paths if path]
+    return "/" + posixpath.join(*stripped_paths)
