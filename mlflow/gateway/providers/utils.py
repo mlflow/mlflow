@@ -21,10 +21,7 @@ async def send_request(headers: Dict[str, str], base_url: str, path: str, payloa
             try:
                 response.raise_for_status()
             except aiohttp.ClientResponseError as e:
-                if "error" in js:
-                    detail = js.get("error", {}).get("message", e.message)
-                else:
-                    detail = "An error occurred with your request."
+                detail = js.get("error", {}).get("message", e.message) if "error" in js else js
                 raise HTTPException(status_code=e.status, detail=detail)
             return js
 
