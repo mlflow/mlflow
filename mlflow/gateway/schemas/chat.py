@@ -11,11 +11,22 @@ class Message(BaseModel):
     content: str
 
 
-class BaseRequestPayload(BaseModel, extra=Extra.allow):
+class BaseRequestPayload(BaseModel):
     temperature: float = Field(0.0, ge=0, le=1)
     stop: Optional[List[str]] = Field(None, min_items=1)
     max_tokens: Optional[int] = Field(None, ge=0)
     candidate_count: Optional[int] = Field(None, ge=1, le=5)
+
+    class Config:
+        extra = Extra.allow
+        schema_extra = {
+            "example": {
+                "temperature": 0.0,
+                "max_tokens": 64,
+                "stop": ["END"],
+                "candidate_count": 1,
+            }
+        }
 
 
 class RequestPayload(BaseRequestPayload):

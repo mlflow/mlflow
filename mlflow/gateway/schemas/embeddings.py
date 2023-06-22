@@ -5,8 +5,16 @@ from pydantic import BaseModel, Extra
 from ..config import RouteType
 
 
-class RequestPayload(BaseModel, extra=Extra.allow):
+class RequestPayload(BaseModel):
     text: Union[str, List[str]]
+
+    class Config:
+        extra = Extra.allow
+        schema_extra = {
+            "example": {
+                "text": ["hello", "world"],
+            }
+        }
 
 
 class Metadata(BaseModel, extra=Extra.forbid):
