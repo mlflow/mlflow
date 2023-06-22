@@ -1,6 +1,5 @@
 import json
 import logging
-from urllib.parse import urljoin
 from typing import Optional, Dict, Any
 
 from mlflow import MlflowException
@@ -10,7 +9,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_BASE,
     MLFLOW_QUERY_SUFFIX,
 )
-from mlflow.gateway.utils import get_gateway_uri
+from mlflow.gateway.utils import get_gateway_uri, assemble_uri_path
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_default_host_creds
 from mlflow.utils.annotations import experimental
@@ -93,7 +92,7 @@ class MlflowGatewayClient:
             structure, giving information about the name, type, and model details (model name
             and provider) for the requested route endpoint.
         """
-        route = urljoin(self._crud_route_base, name)
+        route = assemble_uri_path([self._crud_route_base, name])
         response = self._call_endpoint("GET", route).json()
 
         return Route(**response)
@@ -224,7 +223,7 @@ class MlflowGatewayClient:
                 "the route entry from the configuration file.",
                 error_code=BAD_REQUEST,
             )
-        route = urljoin(self._crud_route_base, name)
+        route = assemble_uri_path([self._crud_route_base, name])
         self._call_endpoint("DELETE", route)
 
     def query(self, route: str, data: Dict[str, Any]):
@@ -278,7 +277,6 @@ class MlflowGatewayClient:
 
         data = json.dumps(data)
 
-        route = urljoin(self._query_route_base, route)
-        query_route = urljoin(route, MLFLOW_QUERY_SUFFIX)
+        query_route = assemble_uri_path([self._query_route_base, route, MLFLOW_QUERY_SUFFIX])
 
         return self._call_endpoint("POST", query_route, data).json()

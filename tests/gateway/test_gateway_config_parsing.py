@@ -11,6 +11,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
     _resolve_api_key_from_input,
 )
+from mlflow.gateway.utils import assemble_uri_path
 
 
 @pytest.fixture
@@ -54,6 +55,24 @@ def basic_config_dict():
             },
         ]
     }
+
+
+@pytest.mark.parametrize(
+    "paths,expected",
+    [
+        (["gateway", "/routes/", "/chat"], "/gateway/routes/chat"),
+        (["/gateway/", "/routes", "chat"], "/gateway/routes/chat"),
+        (["gateway/routes/", "chat"], "/gateway/routes/chat"),
+        (["gateway/", "routes/chat"], "/gateway/routes/chat"),
+        (["/gateway/routes", "/chat/"], "/gateway/routes/chat"),
+        (["/gateway", "/routes/", "chat/"], "/gateway/routes/chat"),
+        (["/"], "/"),
+        ([], "/"),
+        (["gateway", "", "/routes/", "", "/chat", ""], "/gateway/routes/chat"),
+    ],
+)
+def test_assemble_uri_path(paths, expected):
+    assert assemble_uri_path(paths) == expected
 
 
 def test_api_key_parsing_env(tmp_path, monkeypatch):

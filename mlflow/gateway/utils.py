@@ -1,7 +1,7 @@
 import logging
 import psutil
 import re
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import urlparse
 
 from mlflow.exceptions import MlflowException
@@ -82,3 +82,14 @@ def get_gateway_uri() -> str:
             f"`mlflow.set_gateway_uri()` or set the environment variable {MLFLOW_GATEWAY_URI.name} "
             "to the running Gateway API server's uri"
         )
+
+
+def assemble_uri_path(parts: List[str]) -> str:
+    """
+    Assemble a correct URI path from a list of path parts.
+
+    :param parts: A list of strings representing parts of a URI path.
+    :return: A string representing the complete assembled URI path.
+    """
+    path_parts = [part for path in parts for part in path.strip("/").split("/") if part]
+    return "/" + "/".join(path_parts)
