@@ -39,6 +39,7 @@ from functools import partial
 import logging
 from packaging.version import Version
 import pathlib
+import time
 
 _logger = logging.getLogger(__name__)
 
@@ -1113,7 +1114,31 @@ class DefaultEvaluator(ModelEvaluator):
             else:
                 self.y_probs = None
         else:
-            self.y_pred = self.model.predict(self.X.copy_to_avoid_mutation())
+            y_pred = []
+            token_count = []
+            latency = []
+            for _, input_x in self.X.copy_to_avoid_mutation().iterrows():
+                start = time.time()
+                intermediate_output = self.model.predict(
+                    pd.DataFrame(input_x).T.reset_index(drop=True)
+                )
+                output = None
+                if isinstance(intermediate_output, list):
+                    output = intermediate_output[0]
+                elif isinstance(intermediate_output, str):
+                    output = intermediate_output
+                elif isinstance(intermediate_output, dict):
+                    output = intermediate_output["answer"]
+                else:
+                    _logger.error(
+                        f"predict function should return either list or string. Given: {intermediate_output}"
+                    )
+                latency.append(round(time.time() - start, 2))
+                token_count.append(math.ceil((len(input_x) + len(output)) * 1.2))
+                y_pred.append(output)
+            self.y_pred = y_pred
+            self.token_count = token_count
+            self.latency = latency
 
     def _compute_builtin_metrics(self):
         """
@@ -1163,12 +1188,24 @@ class DefaultEvaluator(ModelEvaluator):
 
     def _log_eval_table(self):
         metric_prefix = self.evaluator_config.get("metric_prefix", "")
+        extra_columns = {}
+        if self.token_count is not None:
+            extra_columns = {
+                **extra_columns,
+                "MLFLOW_INTERNAL_token_count_column": self.token_count,
+            }
+        if self.latency is not None:
+            extra_columns = {**extra_columns, "MLFLOW_INTERNAL_latency_column": self.latency}
         if self.dataset.has_targets:
             data = self.dataset.features_data.assign(
-                **{self.dataset.targets_name or "target": self.y, "outputs": self.y_pred}
+                **{
+                    self.dataset.targets_name or "target": self.y,
+                    "outputs": self.y_pred,
+                    **extra_columns,
+                }
             )
         else:
-            data = self.dataset.features_data.assign(outputs=self.y_pred)
+            data = self.dataset.features_data.assign(outputs=self.y_pred, **extra_columns)
         mlflow.log_table(data, artifact_file=f"{metric_prefix}{_EVAL_TABLE_FILE_NAME}")
 
     def _evaluate_question_answering(self):
