@@ -1,18 +1,13 @@
-from typing import Dict, Any
-
-import aiohttp
 from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
+from .utils import send_request, rename_payload_keys
 from ..config import AnthropicConfig, RouteConfig
 from ..schemas import completions, chat, embeddings
 
 
 class AnthropicProvider(BaseProvider):
-    NAME = "anthropic"
-    SUPPORTED_ROUTES = "completions"
-
     def __init__(self, config: RouteConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, AnthropicConfig):
@@ -20,26 +15,6 @@ class AnthropicProvider(BaseProvider):
         self.anthropic_config: AnthropicConfig = config.model.config
         self.headers = {"x-api-key": self.anthropic_config.anthropic_api_key}
         self.base_url = self.anthropic_config.anthropic_api_base
-
-    async def _request(self, path: str, payload: Dict[str, Any]):
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            url = "/".join([self.base_url.rstrip("/"), path.lstrip("/")])
-            async with session.post(url, json=payload) as response:
-                js = await response.json()
-                try:
-                    response.raise_for_status()
-                except aiohttp.ClientResponseError as e:
-                    detail = js.get("error", {}).get("message", e.message)
-                    raise HTTPException(status_code=e.status, detail=detail)
-                return js
-
-    @staticmethod
-    def _make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
-        payload = payload.copy()
-        for k1, k2 in mapping.items():
-            if v := payload.pop(k1, None):
-                payload[k2] = v
-        return payload
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
         payload = jsonable_encoder(payload)
@@ -62,13 +37,18 @@ class AnthropicProvider(BaseProvider):
                 "Gateway.",
             )
 
-        payload = AnthropicProvider._make_payload(
+        payload = rename_payload_keys(
             payload, {"max_tokens_to_sample": "max_tokens", "stop_sequences": "stop"}
         )
 
         payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
 
-        resp = await self._request("complete", {"model": self.config.model.name, **payload})
+        resp = await send_request(
+            headers=self.headers,
+            base_url=self.base_url,
+            path="complete",
+            payload={"model": self.config.model.name, **payload},
+        )
 
         # Example response:
         # Documentation: https://docs.anthropic.com/claude/reference/complete_post

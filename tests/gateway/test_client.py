@@ -53,6 +53,35 @@ def basic_config_dict():
     }
 
 
+@pytest.fixture
+def mixed_config_dict():
+    return {
+        "routes": [
+            {
+                "name": "chat",
+                "route_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-3.5-turbo",
+                    "provider": "openai",
+                    "config": {"openai_api_key": "mykey"},
+                },
+            },
+            {
+                "name": "completions",
+                "route_type": "llm/v1/completions",
+                "model": {
+                    "provider": "anthropic",
+                    "name": "claude-instant-1",
+                    "config": {
+                        "anthropic_api_base": "https://api.anthropic.com/v1",
+                        "anthropic_api_key": "key",
+                    },
+                },
+            },
+        ]
+    }
+
+
 @pytest.fixture(autouse=True)
 def clear_uri():
     mlflow.gateway.utils._gateway_uri = None
@@ -62,6 +91,14 @@ def clear_uri():
 def gateway(basic_config_dict, tmp_path):
     conf = tmp_path / "config.yaml"
     save_yaml(conf, basic_config_dict)
+    with Gateway(conf) as g:
+        yield g
+
+
+@pytest.fixture
+def mixed_gateway(mixed_config_dict, tmp_path):
+    conf = tmp_path / "config.yaml"
+    save_yaml(conf, mixed_config_dict)
     with Gateway(conf) as g:
         yield g
 
@@ -155,6 +192,39 @@ def test_query_individual_route(gateway, monkeypatch):
         "name": "chat",
         "route_type": "llm/v1/chat",
     }
+
+
+def test_query_mixed_routes(mixed_gateway, monkeypatch):
+    monkeypatch.setenv(MLFLOW_GATEWAY_URI.name, mixed_gateway.url)
+
+    gateway_client = MlflowGatewayClient()
+    chat_route = gateway_client.get_route(name="chat")
+    assert chat_route.route_type == "llm/v1/chat"
+    assert chat_route.name == "chat"
+    assert chat_route.model.name == "gpt-3.5-turbo"
+    assert chat_route.model.provider == "openai"
+
+    completions_route = gateway_client.get_route(name="completions")
+    assert completions_route.route_type == "llm/v1/completions"
+    assert completions_route.name == "completions"
+    assert completions_route.model.name == "claude-instant-1"
+    assert completions_route.model.provider == "anthropic"
+
+
+def test_search_mixed_routes(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+    routes = gateway_client.search_routes()
+
+    assert len(routes) == 2
+    chat_route = routes[0]
+    assert chat_route.route_type == "llm/v1/chat"
+    assert chat_route.name == "chat"
+    assert chat_route.model.provider == "openai"
+
+    completions_route = routes[1]
+    assert completions_route.route_type == "llm/v1/completions"
+    assert completions_route.name == "completions"
+    assert completions_route.model.provider == "anthropic"
 
 
 def test_query_invalid_route(gateway):
