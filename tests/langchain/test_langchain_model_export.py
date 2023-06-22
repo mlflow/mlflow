@@ -8,6 +8,7 @@ import importlib
 
 import openai
 from contextlib import contextmanager
+from distutils import LooseVersion
 from langchain.chains import ConversationChain, LLMChain, RetrievalQA
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
@@ -18,7 +19,6 @@ from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
 from langchain.vectorstores import FAISS
-from packaging import version
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -313,7 +313,7 @@ def load_retriever(persist_directory):
 
 
 @pytest.mark.skipif(
-    version.parse(langchain.__version__) < version.parse("0.0.194"),
+    LooseVersion(langchain.__version__) < LooseVersion("0.0.194"),
     reason="Saving RetrievalQA chians requires langchain>=0.0.194",
 )
 def test_log_and_load_retrieval_qa_chain():

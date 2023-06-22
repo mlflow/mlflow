@@ -14,7 +14,7 @@ LangChain (native) format
 import logging
 import os
 import types
-from packaging import version
+from distutils import LooseVersion
 from typing import Any, Dict, List, Union
 
 import pandas as pd
@@ -352,7 +352,7 @@ def log_model(
         )
 
     if isinstance(lc_model, langchain.chains.RetrievalQA):
-        if version.parse(langchain.__version__) < version.parse("0.0.194"):
+        if LooseVersion(langchain.__version__) < LooseVersion("0.0.194"):
             raise mlflow.MlflowException(
                 "Saving RetrievalQA models is only supported in LangChain 0.0.194 and above."
             )
