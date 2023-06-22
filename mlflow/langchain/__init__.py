@@ -14,7 +14,7 @@ LangChain (native) format
 import logging
 import os
 import types
-from distutils import LooseVersion
+from distutils.version import LooseVersion
 from typing import Any, Dict, List, Union
 
 import pandas as pd

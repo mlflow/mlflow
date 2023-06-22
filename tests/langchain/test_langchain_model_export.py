@@ -8,7 +8,7 @@ import importlib
 
 import openai
 from contextlib import contextmanager
-from distutils import LooseVersion
+from distutils.version import LooseVersion
 from langchain.chains import ConversationChain, LLMChain, RetrievalQA
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
