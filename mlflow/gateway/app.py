@@ -2,7 +2,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 import logging
 import os
-from typing import Any, Optional, Dict
+from pathlib import Path
+from typing import Any, Optional, Dict, Union
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
@@ -135,13 +136,20 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     return app
 
 
+def create_app_from_path(config_path: Union[str, Path]) -> GatewayAPI:
+    """
+    Load the path and generate the GatewayAPI app instance.
+    """
+    config = _load_route_config(config_path)
+    return create_app_from_config(config)
+
+
 def create_app_from_env() -> GatewayAPI:
     """
     Load the path from the environment variable and generate the GatewayAPI app instance.
     """
     if config_path := os.getenv(MLFLOW_GATEWAY_CONFIG):
-        config = _load_route_config(config_path)
-        return create_app_from_config(config)
+        return create_app_from_path(config_path)
 
     raise MlflowException(
         f"Environment variable {MLFLOW_GATEWAY_CONFIG!r} is not set. "
