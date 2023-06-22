@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from fastapi.encoders import jsonable_encoder
 
 from .base import BaseProvider
+from .utils import send_request, rename_payload_keys
 from ..schemas import completions, embeddings
 from ..config import CohereConfig, RouteConfig
 
@@ -13,51 +14,31 @@ class CohereProvider(BaseProvider):
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, CohereConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
-        self.openai_config: CohereConfig = config.model.config
+        self.cohere_config: CohereConfig = config.model.config
 
-    async def _request(self, path: str, payload: Dict[str, Any]):
-        import aiohttp
-
-        headers = {"Authorization": f"Bearer {self.openai_config.openai_api_key}"}
-        if org := self.openai_config.openai_organization:
-            headers["OpenAI-Organization"] = org
-        async with aiohttp.ClientSession(headers=headers) as session:
-            url = "/".join([self.openai_config.openai_api_base.rstrip("/"), path.lstrip("/")])
-            async with session.post(url, json=payload) as response:
-                js = await response.json()
-                try:
-                    response.raise_for_status()
-                except aiohttp.ClientResponseError as e:
-                    raise HTTPException(status_code=e.status, detail=js)
-                return js
-
-    @staticmethod
-    def _make_payload(payload: Dict[str, Any], mapping: Dict[str, str]):
-        res = {}
-        for k, v in payload.items():
-            if new_k := mapping.get(k):
-                res[new_k] = v
-            else:
-                res[k] = v
-        return res
+    async def _request(self, path: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        headers = {"Authorization": f"Bearer {self.cohere_config.api_key}"}
+        return await send_request(
+            headers=headers,
+            base_url=self.cohere_config.api_base,
+            path=path,
+            payload=payload,
+        )
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         key_mapping = {
             "stop": "stop_sequences",
             "candidate_count": "num_generations",
         }
-        for _k1, k2 in key_mapping.items():
+        for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k2} instead."
+                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
-        payload = CohereProvider._make_payload(
-            payload,
-            key_mapping,
-        )
-        # The range of Cohere's temperature is 0-5, but ours is 0-1, so we double it.
         payload["temperature"] = 5 * payload["temperature"]
+        payload = rename_payload_keys(payload, key_mapping)
+        # The range of Cohere's temperature is 0-5, but ours is 0-1, so we double it.
         resp = await self._request(
             "generate",
             {"model": self.config.model.name, **payload},
@@ -91,19 +72,16 @@ class CohereProvider(BaseProvider):
         )
 
     async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         key_mapping = {"text": "texts"}
-        for _k1, k2 in key_mapping.items():
+        for k1, k2 in key_mapping.items():
             if k2 in payload:
                 raise HTTPException(
-                    status_code=400, detail=f"Invalid parameter {k2}. Use {k2} instead."
+                    status_code=400, detail=f"Invalid parameter {k2}. Use {k1} instead."
                 )
-        payload = CohereProvider._make_payload(
-            payload,
-            key_mapping,
-        )
+        payload = rename_payload_keys(payload, key_mapping)
         resp = await self._request(
-            "embeddings",
+            "embed",
             {"model": self.config.model.name, **payload},
         )
         # Response example (https://docs.cohere.com/reference/embed):

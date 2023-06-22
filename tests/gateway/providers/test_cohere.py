@@ -3,7 +3,7 @@ from unittest import mock
 from fastapi.encoders import jsonable_encoder
 import pytest
 
-from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.cohere import CohereProvider
 from mlflow.gateway.schemas import completions, embeddings
 from mlflow.gateway.config import RouteConfig
 from tests.gateway.tools import MockAsyncResponse
@@ -38,7 +38,7 @@ async def test_completions():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
         }
@@ -60,7 +60,7 @@ async def test_completions_temperature_is_multiplied_by_5():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = CohereProvider(RouteConfig(**config))
         payload = {
             "prompt": "This is a test",
             "temperature": 0.5,
@@ -108,7 +108,7 @@ async def test_embeddings():
     with mock.patch(
         "aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)
     ) as mock_post:
-        provider = OpenAIProvider(RouteConfig(**config))
+        provider = CohereProvider(RouteConfig(**config))
         payload = {"text": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
