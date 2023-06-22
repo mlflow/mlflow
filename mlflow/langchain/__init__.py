@@ -440,6 +440,7 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 def _load_model(
     path,
+    model_type,
     agent_path=None,
     tools_path=None,
     agent_primitive_path=None,
@@ -449,11 +450,31 @@ def _load_model(
     from langchain.chains.loading import load_chain
 
     model = None
-    if loader_fn_path is not None:  # RetrievalQA chain
+    if model_type == "RetrievalQA":
         with open(loader_fn_path, "rb") as f:
             loader_fn = cloudpickle.load(f)
         retriever = loader_fn(persist_dir)
         model = load_chain(path, retriever=retriever)
+    elif model_type == "VectorDBQA" or model_type == "VectorDBQAWithSourcesChain":
+        with open(loader_fn_path, "rb") as f:
+            loader_fn = cloudpickle.load(f)
+        vectorstore = loader_fn(persist_dir)
+        model = load_chain(path, vectorstore=vectorstore)
+    elif model_type == "APIChain":
+        with open(loader_fn_path, "rb") as f:
+            loader_fn = cloudpickle.load(f)
+        requests_wrapper = loader_fn(persist_dir)
+        model = load_chain(path, requests_wrapper=requests_wrapper)
+    elif model_type == "HypotheticalDocumentEmbedder":
+        with open(loader_fn_path, "rb") as f:
+            loader_fn = cloudpickle.load(f)
+        embeddings = loader_fn(persist_dir)
+        model = load_chain(path, embeddings=embeddings)
+    elif model_type == "SQLDatabaseChain":
+        with open(loader_fn_path, "rb") as f:
+            loader_fn = cloudpickle.load(f)
+        database = loader_fn(persist_dir)
+        model = load_chain(path, database=database)
     elif agent_path is None and tools_path is None:
         model = load_chain(path)
     else:
@@ -548,8 +569,11 @@ def _load_model_from_local_fs(local_model_path):
 
     persist_dir = flavor_conf.get(_PERSIST_DIR_KEY)
 
+    model_type = flavor_conf.get(_MODEL_TYPE_KEY)
+
     return _load_model(
         lc_model_path,
+        model_type,
         agent_model_path,
         tools_model_path,
         agent_primitive_path,
