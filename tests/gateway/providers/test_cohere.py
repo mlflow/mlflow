@@ -26,7 +26,12 @@ def completions_config():
 def completions_response():
     return {
         "id": "string",
-        "generations": [{"id": "string", "text": "This is a test"}],
+        "generations": [
+            {
+                "id": "string",
+                "text": "This is a test",
+            }
+        ],
         "prompt": "string",
     }
 
@@ -44,8 +49,18 @@ async def test_completions():
         }
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
-            "candidates": [{"text": "This is a tes!", "metadata": {}}],
+            "candidates": [
+                {
+                    "text": "This is a test",
+                    "metadata": {
+                        "finish_reason": None,
+                    },
+                }
+            ],
             "metadata": {
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
                 "model": "command",
                 "route_type": "llm/v1/completions",
             },
@@ -97,7 +112,15 @@ def embeddings_response():
                 1.2597656,
             ]
         ],
-        "meta": [{"api_version": [{"version": "1"}]}],
+        "meta": [
+            {
+                "api_version": [
+                    {
+                        "version": "1",
+                    }
+                ]
+            },
+        ],
     }
 
 
@@ -120,9 +143,12 @@ async def test_embeddings():
                     -0.30126953,
                     -2.3554688,
                     1.2597656,
-                ],
+                ]
             ],
             "metadata": {
+                "input_tokens": None,
+                "output_tokens": None,
+                "total_tokens": None,
                 "model": "embed-english-light-v2.0",
                 "route_type": "llm/v1/embeddings",
             },

@@ -64,6 +64,7 @@ class CohereProvider(BaseProvider):
                 "candidates": [
                     {
                         "text": c["text"],
+                        "metadata": {},
                     }
                     for c in resp["generations"]
                 ],
