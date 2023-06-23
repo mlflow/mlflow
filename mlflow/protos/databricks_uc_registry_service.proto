@@ -210,7 +210,7 @@ service UcModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/unity-catalog/registered-models/tags"
+        path: "/mlflow/unity-catalog/registered-models/set-tag"
         since {major: 2, minor: 0},
       }],
       visibility:PUBLIC_UNDOCUMENTED,
@@ -222,7 +222,7 @@ service UcModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/unity-catalog/registered-models/tags"
+        path: "/mlflow/unity-catalog/registered-models/delete-tag"
         since {major: 2, minor: 0},
       }],
       visibility:PUBLIC_UNDOCUMENTED,
@@ -234,7 +234,7 @@ service UcModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/unity-catalog/model-versions/tags"
+        path: "/mlflow/unity-catalog/model-versions/set-tag"
         since {major: 2, minor: 0},
       }],
       visibility:PUBLIC_UNDOCUMENTED,
@@ -246,7 +246,7 @@ service UcModelRegistryService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/unity-catalog/model-versions/tags"
+        path: "/mlflow/unity-catalog/model-versions/delete-tag"
         since {major: 2, minor: 0},
       }],
       visibility:PUBLIC_UNDOCUMENTED,
