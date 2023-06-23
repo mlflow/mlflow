@@ -7,6 +7,7 @@ import os
 import atexit
 import logging
 import inspect
+import contextlib
 from copy import deepcopy
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
@@ -407,7 +408,12 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         _last_active_run_id = run.info.run_id
 
 
-atexit.register(end_run)
+def _safe_end_run():
+    with contextlib.suppress(Exception):
+        end_run()
+
+
+atexit.register(_safe_end_run)
 
 
 def active_run() -> Optional[ActiveRun]:
