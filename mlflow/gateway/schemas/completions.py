@@ -9,6 +9,18 @@ from ..config import RouteType
 class RequestPayload(BaseRequestPayload):
     prompt: str
 
+    class Config:
+        extra = Extra.allow
+        schema_extra = {
+            "example": {
+                "prompt": "hello",
+                "temperature": 0.0,
+                "max_tokens": 64,
+                "stop": ["END"],
+                "candidate_count": 1,
+            }
+        }
+
 
 class CandidateMetadata(BaseModel, extra=Extra.forbid):
     finish_reason: Optional[FinishReason]
