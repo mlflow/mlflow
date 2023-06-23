@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 import logging
 import os
 from pathlib import Path
-from typing import Any, Optional, Dict, Union
+from typing import Any, Optional, Dict, Union, List
 
 from mlflow.version import VERSION
 from mlflow.exceptions import MlflowException
@@ -96,6 +97,14 @@ def _route_type_to_endpoint(config: RouteConfig):
     )
 
 
+class HealthResponse(BaseModel):
+    status: str
+
+
+class SearchRoutesResponse(BaseModel):
+    routes: List[Route]
+
+
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
@@ -108,16 +117,16 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         version=VERSION,
     )
 
-    @app.get("/")
+    @app.get("/", include_in_schema=False)
     async def index():
         return RedirectResponse(url="/docs")
 
     @app.get(MLFLOW_GATEWAY_HEALTH_ENDPOINT)
-    async def health():
+    async def health() -> HealthResponse:
         return {"status": "OK"}
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE + "{route_name}")
-    async def get_route(route_name: str):
+    async def get_route(route_name: str) -> Route:
         if matched := app.get_dynamic_route(route_name):
             return matched
 
@@ -128,7 +137,7 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
         )
 
     @app.get(MLFLOW_GATEWAY_CRUD_ROUTE_BASE)
-    async def search_routes():
+    async def search_routes() -> SearchRoutesResponse:
         # placeholder route listing functionality
 
         return {"routes": list(app.dynamic_routes.values())}
