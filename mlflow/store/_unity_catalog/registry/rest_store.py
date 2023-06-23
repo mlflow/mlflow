@@ -41,6 +41,14 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelAliasResponse,
     GetModelVersionByAliasRequest,
     GetModelVersionByAliasResponse,
+    SetRegisteredModelTagRequest,
+    SetRegisteredModelTagResponse,
+    DeleteRegisteredModelTagRequest,
+    DeleteRegisteredModelTagResponse,
+    SetModelVersionTagRequest,
+    SetModelVersionTagResponse,
+    DeleteModelVersionTagRequest,
+    DeleteModelVersionTagResponse,
     TemporaryCredentials,
     MODEL_VERSION_OPERATION_READ_WRITE,
 )
@@ -62,6 +70,8 @@ from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
     model_version_from_uc_proto,
     registered_model_from_uc_proto,
+    uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
     get_full_name_from_sc,
 )
 from mlflow.utils.annotations import experimental
@@ -145,6 +155,10 @@ class UcModelRegistryStore(BaseRestStore):
             GetRun: GetRun.Response,
             SetRegisteredModelAliasRequest: SetRegisteredModelAliasResponse,
             DeleteRegisteredModelAliasRequest: DeleteRegisteredModelAliasResponse,
+            SetRegisteredModelTagRequest: SetRegisteredModelTagResponse,
+            DeleteRegisteredModelTagRequest: DeleteRegisteredModelTagResponse,
+            SetModelVersionTagRequest: SetModelVersionTagResponse,
+            DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
         }
         return method_to_response[method]()
@@ -168,10 +182,13 @@ class UcModelRegistryStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
-        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            CreateRegisteredModelRequest(name=full_name, description=description)
+            CreateRegisteredModelRequest(
+                name=full_name,
+                description=description,
+                tags=uc_registered_model_tag_from_mlflow_tags(tags),
+            )
         )
         response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         return registered_model_from_uc_proto(response_proto.registered_model)
@@ -288,7 +305,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
         :return: None
         """
-        _raise_unsupported_method(method="set_registered_model_tag")
+        req_body = message_to_json(
+            SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value)
+        )
+        self._call_endpoint(SetRegisteredModelTagRequest, req_body)
 
     def delete_registered_model_tag(self, name, key):
         """
@@ -298,7 +318,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param key: Registered model tag key.
         :return: None
         """
-        _raise_unsupported_method(method="delete_registered_model_tag")
+        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=name, key=key))
+        self._call_endpoint(DeleteRegisteredModelTagRequest, req_body)
 
     # CRUD API for ModelVersion objects
     def _finalize_model_version(self, name, version):
@@ -418,7 +439,6 @@ class UcModelRegistryStore(BaseRestStore):
                  created in the backend.
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
-        _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
         headers, run = self._get_run_and_headers(run_id)
         source_workspace_id = self._get_workspace_id(headers)
         notebook_id = self._get_notebook_id(run)
@@ -439,6 +459,7 @@ class UcModelRegistryStore(BaseRestStore):
                 source=source,
                 run_id=run_id,
                 description=description,
+                tags=uc_model_version_tag_from_mlflow_tags(tags),
                 run_tracking_server_id=source_workspace_id,
             )
         )
@@ -584,7 +605,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         """
-        _raise_unsupported_method(method="set_model_version_tag")
+        req_body = message_to_json(
+            SetModelVersionTagRequest(name=name, version=version, key=tag.key, value=tag.value)
+        )
+        self._call_endpoint(SetModelVersionTagRequest, req_body)
 
     def delete_model_version_tag(self, name, version, key):
         """
@@ -594,7 +618,10 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param key: Tag key.
         """
-        _raise_unsupported_method(method="delete_model_version_tag")
+        req_body = message_to_json(
+            DeleteModelVersionTagRequest(name=name, version=version, key=key)
+        )
+        self._call_endpoint(DeleteModelVersionTagRequest, req_body)
 
     def set_registered_model_alias(self, name, alias, version):
         """

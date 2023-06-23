@@ -39,6 +39,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     SetRegisteredModelAliasRequest,
     DeleteRegisteredModelAliasRequest,
     GetModelVersionByAliasRequest,
+    SetRegisteredModelTagRequest,
+    DeleteRegisteredModelTagRequest,
+    SetModelVersionTagRequest,
+    DeleteModelVersionTagRequest,
     ModelVersion as ProtoModelVersion,
     MODEL_VERSION_OPERATION_READ_WRITE,
     TemporaryCredentials,
@@ -57,7 +61,11 @@ from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_ORG_ID_HEADER,
     _DATABRICKS_LINEAGE_ID_HEADER,
 )
-from mlflow.store._unity_catalog.registry.utils import _ACTIVE_CATALOG_QUERY, _ACTIVE_SCHEMA_QUERY
+from mlflow.store._unity_catalog.registry.utils import (
+    _ACTIVE_CATALOG_QUERY,
+    _ACTIVE_SCHEMA_QUERY,
+    uc_registered_model_tag_from_mlflow_tags,
+)
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -156,12 +164,20 @@ def _expected_unsupported_arg_error_message(arg):
 @mock_http_200
 def test_create_registered_model(mock_http, store):
     description = "best model ever"
-    store.create_registered_model(name="model_1", description=description)
+    tags = [
+        RegisteredModelTag(key="key", value="value"),
+        RegisteredModelTag(key="anotherKey", value="some other value"),
+    ]
+    store.create_registered_model(name="model_1", description=description, tags=tags)
     _verify_requests(
         mock_http,
         "registered-models/create",
         "POST",
-        CreateRegisteredModelRequest(name="model_1", description=description),
+        CreateRegisteredModelRequest(
+            name="model_1",
+            description=description,
+            tags=uc_registered_model_tag_from_mlflow_tags(tags),
+        ),
     )
 
 
@@ -242,16 +258,6 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         match="Model passed for registration contained a signature that includes only inputs",
     ):
         store.create_model_version(name="mymodel", source=str(tmp_path))
-
-
-def test_create_registered_model_with_tags_unsupported(store):
-    tags = [
-        RegisteredModelTag(key="key", value="value"),
-        RegisteredModelTag(key="anotherKey", value="some other value"),
-    ]
-    description = "best model ever"
-    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("tags")):
-        store.create_registered_model(name="model_1", tags=tags, description=description)
 
 
 @mock_http_200
@@ -345,19 +351,29 @@ def test_get_latest_versions_unsupported(store):
         store.get_latest_versions(name=name, stages=["Production"])
 
 
-def test_set_registered_model_tag_unsupported(store):
+@mock_http_200
+def test_set_registered_model_tag(mock_http, store):
     name = "model_1"
     tag = RegisteredModelTag(key="key", value="value")
-    expected_err_msg = _expected_unsupported_method_error_message("set_registered_model_tag")
-    with pytest.raises(MlflowException, match=expected_err_msg):
-        store.set_registered_model_tag(name=name, tag=tag)
+    store.set_registered_model_tag(name=name, tag=tag)
+    _verify_requests(
+        mock_http,
+        "registered-models/tags",
+        "POST",
+        SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value),
+    )
 
 
-def test_delete_registered_model_tag_unsupported(store):
+@mock_http_200
+def test_delete_registered_model_tag(mock_http, store):
     name = "model_1"
-    expected_err_msg = _expected_unsupported_method_error_message("delete_registered_model_tag")
-    with pytest.raises(MlflowException, match=expected_err_msg):
-        store.delete_registered_model_tag(name=name, key="key")
+    store.delete_registered_model_tag(name=name, key="key")
+    _verify_requests(
+        mock_http,
+        "registered-models/tags",
+        "DELETE",
+        DeleteRegisteredModelTagRequest(name=name, key="key"),
+    )
 
 
 def test_get_notebook_id_returns_none_if_empty_run(store):
@@ -569,6 +585,7 @@ def test_create_model_version_aws(store, local_model_dir):
     source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
+    # TODO: add tags here
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
@@ -606,6 +623,7 @@ def test_create_model_version_azure(store, local_model_dir):
     source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
+    # TODO: add tags here
     mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
@@ -657,6 +675,7 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
     version = "1"
+    # TODO: add tags here
     mock_request_fn = get_request_mock(
         **create_kwargs,
         version=version,
@@ -721,10 +740,6 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
 def test_create_model_version_unsupported_fields(store):
     with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("run_link")):
         store.create_model_version(name="mymodel", source="mysource", run_link="https://google.com")
-    with pytest.raises(MlflowException, match=_expected_unsupported_arg_error_message("tags")):
-        store.create_model_version(
-            name="mymodel", source="mysource", tags=[ModelVersionTag("a", "b")]
-        )
 
 
 def test_transition_model_version_stage_unsupported(store):
@@ -827,22 +842,29 @@ def test_search_model_versions_order_by_unsupported(store):
         )
 
 
-def test_set_model_version_tag_unsupported(store):
+@mock_http_200
+def test_set_model_version_tag(mock_http, store):
     name = "model_1"
     tag = ModelVersionTag(key="key", value="value")
-    with pytest.raises(
-        MlflowException, match=_expected_unsupported_method_error_message("set_model_version_tag")
-    ):
-        store.set_model_version_tag(name=name, version="1", tag=tag)
+    store.set_model_version_tag(name=name, version="1", tag=tag)
+    _verify_requests(
+        mock_http,
+        "model-versions/tags",
+        "POST",
+        SetModelVersionTagRequest(name=name, version="1", key=tag.key, value=tag.value),
+    )
 
 
-def test_delete_model_version_tag_unsupported(store):
+@mock_http_200
+def test_delete_model_version_tag(mock_http, store):
     name = "model_1"
-    with pytest.raises(
-        MlflowException,
-        match=_expected_unsupported_method_error_message("delete_model_version_tag"),
-    ):
-        store.delete_model_version_tag(name=name, version="1", key="key")
+    store.delete_model_version_tag(name=name, version="1", key="key")
+    _verify_requests(
+        mock_http,
+        "model-versions/tags",
+        "DELETE",
+        DeleteModelVersionTagRequest(name=name, version="1", key="key"),
+    )
 
 
 @mock_http_200

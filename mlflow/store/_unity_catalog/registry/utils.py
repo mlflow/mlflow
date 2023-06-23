@@ -1,8 +1,18 @@
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel, RegisteredModelAlias
+from typing import List
+
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    ModelVersionTag,
+    RegisteredModel,
+    RegisteredModelAlias,
+    RegisteredModelTag,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     ModelVersion as ProtoModelVersion,
+    ModelVersionTag as ProtoModelVersionTag,
     ModelVersionStatus as ProtoModelVersionStatus,
     RegisteredModel as ProtoRegisteredModel,
+    RegisteredModelTag as ProtoRegisteredModelTag,
     TemporaryCredentials,
 )
 from mlflow.exceptions import MlflowException
@@ -31,6 +41,7 @@ def model_version_from_uc_proto(uc_proto: ProtoModelVersion) -> ModelVersion:
         status=uc_model_version_status_to_string(uc_proto.status),
         status_message=uc_proto.status_message,
         aliases=[alias.alias for alias in (uc_proto.aliases or [])],
+        tags=[ModelVersionTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
     )
 
 
@@ -44,7 +55,24 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
             RegisteredModelAlias(alias=alias.alias, version=alias.version)
             for alias in (uc_proto.aliases or [])
         ],
+        tags=[RegisteredModelTag(key=tag.key, value=tag.value) for tag in (uc_proto.tags or [])],
     )
+
+
+def uc_registered_model_tag_from_mlflow_tags(
+    tags: List[RegisteredModelTag],
+) -> List[ProtoRegisteredModelTag]:
+    if tags is None:
+        return []
+    return [ProtoRegisteredModelTag(key=t.key, value=t.value) for t in tags]
+
+
+def uc_model_version_tag_from_mlflow_tags(
+    tags: List[ModelVersionTag],
+) -> List[ProtoModelVersionTag]:
+    if tags is None:
+        return []
+    return [ProtoModelVersionTag(key=t.key, value=t.value) for t in tags]
 
 
 def get_artifact_repo_from_storage_info(
