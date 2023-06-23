@@ -455,7 +455,7 @@ def _load_model(
             loader_fn = cloudpickle.load(f)
         retriever = loader_fn(persist_dir)
         model = load_chain(path, retriever=retriever)
-    elif model_type == "VectorDBQA" or model_type == "VectorDBQAWithSourcesChain":
+    elif model_type in ("VectorDBQA", "VectorDBQAWithSourcesChain"):
         with open(loader_fn_path, "rb") as f:
             loader_fn = cloudpickle.load(f)
         vectorstore = loader_fn(persist_dir)
