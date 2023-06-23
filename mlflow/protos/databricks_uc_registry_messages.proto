@@ -255,8 +255,11 @@ message CreateModelVersionRequest {
   // Optional tracking server ID (e.g. Databricks workspace ID) of the source run
   optional string run_tracking_server_id = 5;
 
+  // Optional field to list features the model depends on
+  optional string feature_deps = 6;
+
   // Tags associated with model version.
-  repeated ModelVersionTag tags = 6;
+  repeated ModelVersionTag tags = 7;
 }
 
 message CreateModelVersionResponse {
