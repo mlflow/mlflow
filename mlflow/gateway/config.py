@@ -21,6 +21,7 @@ class Provider(str, Enum):
     ANTHROPIC = "anthropic"
     # Note: Databricks Model Serving is only supported on Databricks
     DATABRICKS_MODEL_SERVING = "databricks-model-serving"
+    COHERE = "cohere"
 
     @classmethod
     def values(cls):
@@ -31,6 +32,16 @@ class RouteType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
+
+
+class CohereConfig(BaseModel, extra=Extra.forbid):
+    api_key: str
+    api_base: str = "https://api.cohere.ai/v1"
+
+    # pylint: disable=no-self-argument
+    @validator("api_key", pre=True)
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
 
 
 class OpenAIConfig(BaseModel, extra=Extra.forbid):
@@ -57,6 +68,7 @@ class AnthropicConfig(BaseModel, extra=Extra.forbid):
 
 
 config_types = {
+    Provider.COHERE: CohereConfig,
     Provider.OPENAI: OpenAIConfig,
     Provider.ANTHROPIC: AnthropicConfig,
 }
@@ -109,6 +121,7 @@ class Model(BaseModel, extra=Extra.forbid):
     provider: Union[str, Provider]
     config: Optional[
         Union[
+            CohereConfig,
             OpenAIConfig,
             AnthropicConfig,
         ]

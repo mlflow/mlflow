@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Union, Optional
 
 from pydantic import BaseModel, Extra
 
@@ -18,9 +18,9 @@ class RequestPayload(BaseModel):
 
 
 class Metadata(BaseModel, extra=Extra.forbid):
-    input_tokens: int
-    output_tokens: int
-    total_tokens: int
+    input_tokens: Optional[int]
+    output_tokens: Optional[int]
+    total_tokens: Optional[int]
     model: str
     route_type: RouteType
 
