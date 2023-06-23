@@ -166,10 +166,13 @@
   <script src="https://unpkg.com/@mendable/search@0.0.111/dist/umd/mendable-bundle.min.js"></script>
   <script>
   Mendable.initialize({
-      anon_key: '<KEY>',
-      type:"searchBar",
-      elementId: "mendable-component" // required
-      // all the other props for the component type
+      anon_key: '<key>',
+      type:"floatingButton",
+      showSimpleSearch: true,
+      // Didn't work
+      // style: {
+      //   "darkMode": false,
+      // }
   });
   </script>
   {% endif %}
