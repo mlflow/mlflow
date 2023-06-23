@@ -101,7 +101,7 @@
 {%- endfor %}
 
 <body class="wy-body-for-nav" role="document">
-
+  <div id="mendable-component"></div>
   {% if gtm_id %}
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id={{gtm_id}}"
@@ -162,6 +162,16 @@
   {# I'm sorry, I don't know how to use sphinx to inject this into the static JS. #}
   <script type="text/javascript">var CLIPPY_SVG_PATH = "{{ pathto('_static/clippy.svg', 1) }}";</script>
   <script type="text/javascript" src="{{ pathto('_static/js/custom.js', 1) }}"></script>
+
+  <script src="https://unpkg.com/@mendable/search@0.0.111/dist/umd/mendable-bundle.min.js"></script>
+  <script>
+  Mendable.initialize({
+      anon_key: '<KEY>',
+      type:"searchBar",
+      elementId: "mendable-component" // required
+      // all the other props for the component type
+  });
+  </script>
   {% endif %}
 
   {# STICKY NAVIGATION #}
