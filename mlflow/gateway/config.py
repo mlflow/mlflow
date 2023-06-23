@@ -36,7 +36,7 @@ class RouteType(str, Enum):
 
 class CohereConfig(BaseModel, extra=Extra.forbid):
     api_key: str
-    api_url: str = "https://api.cohere.ai/v1"
+    api_base: str = "https://api.cohere.ai/v1"
 
     # pylint: disable=no-self-argument
     @validator("api_key", pre=True)
