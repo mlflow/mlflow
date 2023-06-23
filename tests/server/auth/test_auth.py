@@ -214,3 +214,17 @@ def test_search_registered_models(client, monkeypatch):
 
         names = sorted([rm.name for rm in registered_models])
         assert names == [f"rm{i}" for i in readable]
+
+
+def test_log_artifact(client, monkeypatch, tmp_path):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("exp")
+        run = client.create_run(experiment_id=exp_id)
+
+    tmp_file = tmp_path / "test.txt"
+    tmp_file.touch()
+    with User(username2, password2, monkeypatch):
+        with pytest.raises(MlflowException, match=r"Permission denied"):
+            client.log_artifact(run.info.run_id, tmp_file)

@@ -438,6 +438,14 @@ class TrackingServiceClient:
             TrackingServiceClient._artifact_repos_cache[run_id] = artifact_repo
             return artifact_repo
 
+    def _validate_can_update_run(self, run_id):
+        self.store.update_run_info(
+            run_id=run_id,
+            run_status=None,
+            end_time=None,
+            run_name=None,
+        )
+
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file or directory to the remote ``artifact_uri``.
@@ -445,6 +453,7 @@ class TrackingServiceClient:
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
+        self._validate_can_update_run(run_id)
         artifact_repo = self._get_artifact_repo(run_id)
         if os.path.isdir(local_path):
             dir_name = os.path.basename(os.path.normpath(local_path))
@@ -462,6 +471,7 @@ class TrackingServiceClient:
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
+        self._validate_can_update_run(run_id)
         self._get_artifact_repo(run_id).log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
