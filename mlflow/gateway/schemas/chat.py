@@ -17,20 +17,26 @@ class BaseRequestPayload(BaseModel):
     max_tokens: Optional[int] = Field(None, ge=0)
     candidate_count: Optional[int] = Field(None, ge=1, le=5)
 
+
+class RequestPayload(BaseRequestPayload):
+    messages: List[Message] = Field(..., min_items=1)
+
     class Config:
         extra = Extra.allow
         schema_extra = {
             "example": {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "hello world",
+                    }
+                ],
                 "temperature": 0.0,
                 "max_tokens": 64,
                 "stop": ["END"],
                 "candidate_count": 1,
             }
         }
-
-
-class RequestPayload(BaseRequestPayload):
-    messages: List[Message] = Field(..., min_items=1)
 
 
 class FinishReason(str, Enum):
