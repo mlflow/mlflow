@@ -1133,7 +1133,7 @@ class DefaultEvaluator(ModelEvaluator):
                     _logger.error(
                         f"predict function should return either list or string. Given: {intermediate_output}"
                     )
-                latency.append(round(time.time() - start, 2))
+                latency.append(round((time.time() - start) * 1000, 2))
                 token_count.append(math.ceil((len(input_x) + len(output)) * 1.2))
                 y_pred.append(output)
             self.y_pred = y_pred
