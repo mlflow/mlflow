@@ -127,32 +127,31 @@ def _get_managed_session_maker(SessionMaker, db_type):
     @contextmanager
     def make_managed_session():
         """Provide a transactional scope around a series of operations."""
-        session = SessionMaker()
-        try:
-            if db_type == SQLITE:
-                session.execute(sql.text("PRAGMA foreign_keys = ON;"))
-                session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
-                session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
-            yield session
-            session.commit()
-        except MlflowException:
-            session.rollback()
-            raise
-        except sqlalchemy.exc.OperationalError as e:
-            session.rollback()
-            _logger.exception(
-                "SQLAlchemy database error. The following exception is caught.\n%s",
-                e,
-            )
-            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
-        except sqlalchemy.exc.SQLAlchemyError as e:
-            session.rollback()
-            raise MlflowException(message=e, error_code=BAD_REQUEST)
-        except Exception as e:
-            session.rollback()
-            raise MlflowException(message=e, error_code=INTERNAL_ERROR)
-        finally:
-            session.close()
+        with SessionMaker() as session:
+            try:
+                if db_type == SQLITE:
+                    session.execute(sql.text("PRAGMA foreign_keys = ON;"))
+                    session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
+                    session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+                yield session
+            except MlflowException:
+                session.rollback()
+                raise
+            except sqlalchemy.exc.OperationalError as e:
+                session.rollback()
+                _logger.exception(
+                    "SQLAlchemy database error. The following exception is caught.\n%s",
+                    e,
+                )
+                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                session.rollback()
+                raise MlflowException(message=e, error_code=BAD_REQUEST)
+            except Exception as e:
+                session.rollback()
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+            else:
+                session.commit()
 
     return make_managed_session
 
