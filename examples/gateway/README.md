@@ -21,7 +21,7 @@ export OPENAI_API_KEY=...
 ## Running the Gateway Service
 
 ```sh
-mlflow gateway start --config-path examples/gateway/config.yaml
+mlflow gateway start --config-path examples/gateway/openai.yaml
 ```
 
 ## Interactive API documentation
