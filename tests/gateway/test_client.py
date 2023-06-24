@@ -382,3 +382,35 @@ def test_client_delete_route_raises(gateway):
     # This API is available only in Databricks for route deletion
     with pytest.raises(MlflowException, match="The delete_route API is only available when"):
         gateway_client.delete_route("some-route")
+
+
+def test_client_query_anthropic_completions(mixed_gateway):
+    gateway_client = MlflowGatewayClient(gateway_uri=mixed_gateway.url)
+
+    route = gateway_client.get_route(name="completions")
+    assert route.model.provider == "anthropic"
+
+    expected_output = {
+        "candidates": [
+            {
+                "text": "Here are the steps for making a peanut butter sandwich:\n\n1. Get bread. "
+                "\n\n2. Spread peanut butter on bread.",
+                "metadata": {"finish_reason": "length"},
+            }
+        ],
+        "metadata": {
+            "model": "claude-instant-1.1",
+            "route_type": "llm/v1/completions",
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": None,
+        },
+    }
+    data = {"prompt": "Can you tell me how to make a peanut butter sandwich?", "max_tokens": 500}
+
+    mock_response = mock.Mock()
+    mock_response.json.return_value = expected_output
+
+    with mock.patch.object(gateway_client, "_call_endpoint", return_value=mock_response):
+        response = gateway_client.query(route=route.name, data=data)
+        assert response == expected_output

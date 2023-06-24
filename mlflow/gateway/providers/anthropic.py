@@ -17,14 +17,14 @@ class AnthropicProvider(BaseProvider):
         self.base_url = self.anthropic_config.anthropic_api_base
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "top_p" in payload:
             raise HTTPException(
                 status_code=400,
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
             )
-        if payload["max_tokens"] is None:
+        if "max_tokens" not in payload:
             raise HTTPException(
                 status_code=400,
                 detail="You must set an integer value for 'max_tokens' for the Anthropic provider "
@@ -38,7 +38,7 @@ class AnthropicProvider(BaseProvider):
             )
 
         payload = rename_payload_keys(
-            payload, {"max_tokens_to_sample": "max_tokens", "stop_sequences": "stop"}
+            payload, {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
         )
 
         payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
