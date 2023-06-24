@@ -24,7 +24,7 @@ class AnthropicProvider(BaseProvider):
                 detail="Cannot set both 'temperature' and 'top_p' parameters. "
                 "Please use only the temperature parameter for your query.",
             )
-        if payload["max_tokens"] is None:
+        if "max_tokens" not in payload:
             raise HTTPException(
                 status_code=400,
                 detail="You must set an integer value for 'max_tokens' for the Anthropic provider "
