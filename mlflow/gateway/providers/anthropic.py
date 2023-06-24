@@ -17,7 +17,7 @@ class AnthropicProvider(BaseProvider):
         self.base_url = self.anthropic_config.anthropic_api_base
 
     async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
-        payload = jsonable_encoder(payload)
+        payload = jsonable_encoder(payload, exclude_none=True)
         if "top_p" in payload:
             raise HTTPException(
                 status_code=400,
@@ -40,11 +40,6 @@ class AnthropicProvider(BaseProvider):
         payload = rename_payload_keys(
             payload, {"max_tokens": "max_tokens_to_sample", "stop": "stop_sequences"}
         )
-
-        if not payload.get("stop_sequences", None):
-            # NB: A value of None will throw in Anthropic's endpoint. Not applying this
-            # defaulted parameter will revert to the default value of "\n\nHuman:"
-            payload.pop("stop_sequences")
 
         payload["prompt"] = f"\n\nHuman: {payload['prompt']}\n\nAssistant:"
 
