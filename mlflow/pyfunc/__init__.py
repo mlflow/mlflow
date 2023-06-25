@@ -457,7 +457,7 @@ class PyFuncModel:
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
                 def predict(self, context, model_input, params=None):
-                    return self.my_custom_function(model_input, parameters)
+                    return self.my_custom_function(model_input, params)
 
                 def my_custom_function(self, model_input, params=None):
                     # do something with the model input
