@@ -5,7 +5,7 @@ from typing import List
 
 
 def strip_prefix(original, prefix):
-    return original.lstrip(suffix)
+    return original.lstrip(prefix)
 
 
 def strip_suffix(original, suffix):
