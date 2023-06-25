@@ -5,15 +5,11 @@ from typing import List
 
 
 def strip_prefix(original, prefix):
-    if original.startswith(prefix):
-        return original[len(prefix) :]
-    return original
+    return original.lstrip(suffix)
 
 
 def strip_suffix(original, suffix):
-    if original.endswith(suffix) and suffix != "":
-        return original[: -len(suffix)]
-    return original
+    return original.rstrip(suffix)
 
 
 def is_string_type(item):
