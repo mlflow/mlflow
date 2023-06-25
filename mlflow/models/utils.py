@@ -868,7 +868,7 @@ def get_model_version_from_model_uri(model_uri):
     return model_version
 
 
-def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
+def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[ParamSchema]):
     if params in [None, {}] and schema is None:
         return params
     if not isinstance(params, dict):
@@ -908,12 +908,7 @@ def _enforce_parameters_schema(params: Optional[Dict[str, Any]], schema: Optiona
                 )
                 invalid_params.add((param_spec.name, error_message))
         else:
-            if param_spec.default is not None:
-                params[param_spec.name] = param_spec.default
-            else:
-                if not param_spec.optional:
-                    error_message = f"Missing required parameter: {param_spec.name}"
-                    invalid_params.add((param_spec.name, error_message))
+            params[param_spec.name] = param_spec.default
 
     if len(invalid_params) > 0:
         raise MlflowException(

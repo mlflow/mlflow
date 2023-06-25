@@ -419,25 +419,18 @@ class ParamSpec:
         self,
         name: str,
         type: str,  # pylint: disable=redefined-builtin
-        default: Optional[Any] = None,
-        optional: bool = True,
+        default: Any,
     ):
         self._name = str(name)
         self._type = str(type)
         self._default = default
-        self._optional = optional
         self._check_default_type()
 
     def _check_default_type(self):
-        if self.default is not None and type(self.default).__name__ != self.type:
+        if type(self.default).__name__ != self.type:
             raise MlflowException(
                 f"Invalid default value for ParamSpec {self!r}: "
                 f"expected type {self.type}, default value type {type(self.default).__name__}"
-            )
-        if not self.optional and self.default is not None:
-            raise MlflowException(
-                f"Default value has to be None for required ParamSpec {self.name!r}. "
-                f"Value should be passed as a field of parameters to the model's predict method."
             )
 
     @property
@@ -455,23 +448,16 @@ class ParamSpec:
         """Default value of the parameter."""
         return self._default
 
-    @property
-    def optional(self) -> bool:
-        """Whether this parameter is optional."""
-        return self._optional
-
     class ParamSpecTypedDict(TypedDict):
         name: str
         type: str
-        default: Optional[Any]
-        optional: bool
+        default: Any
 
     def to_dict(self) -> ParamSpecTypedDict:
         return {
             "name": self.name,
             "type": self.type,
             "default": self.default,
-            "optional": self.optional,
         }
 
     def __eq__(self, other) -> bool:
@@ -480,14 +466,11 @@ class ParamSpec:
                 self.name == other.name
                 and self.type == other.type
                 and self.default == other.default
-                and self.optional == other.optional
             )
         return False
 
     def __repr__(self) -> str:
-        default = f" (default: {self.default})" if self.default is not None else ""
-        optional = " (optional)" if self.optional else ""
-        return f"{self.name!r}: {self.type!r}{default}{optional}"
+        return f"{self.name!r}: {self.type!r} (default: {self.default})"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
@@ -495,15 +478,14 @@ class ParamSpec:
         Deserialize from a json loaded dictionary.
         The dictionary is expected to contain `name` and `type` keys.
         """
-        if not {"name", "type"} <= set(kwargs.keys()):
+        if not {"name", "type", "default"} <= set(kwargs.keys()):
             raise MlflowException(
-                "Missing keys in ParamSpec JSON. Expected to find keys `name` and `type`"
+                "Missing keys in ParamSpec JSON. Expected to find keys `name`, `type` and `default`"
             )
         return cls(
             name=str(kwargs["name"]),
             type=str(kwargs["type"]),
-            default=kwargs.get("default"),
-            optional=kwargs.get("optional", True),
+            default=kwargs["default"],
         )
 
 

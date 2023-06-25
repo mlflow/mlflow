@@ -1334,8 +1334,11 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
     text2text_generation_pipeline, model_path
 ):
     data = "muppet keyboard type"
+    parameters = {"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
     signature = infer_signature(
-        data, mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data)
+        data,
+        mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
+        parameters=parameters,
     )
 
     mlflow.transformers.save_model(
@@ -1349,24 +1352,7 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
         MlflowException,
         match=r"The following `model_kwargs` are not used by the model: \['invalid_param'\]",
     ):
-        pyfunc_loaded.predict(
-            data, parameters={"top_k": 2, "num_beams": 5, "invalid_param": "invalid_param"}
-        )
-
-    with pytest.raises(
-        MlflowException,
-        match=r"The following `model_kwargs` are not used by the model: "
-        r"\['invalid_param', 'invalid_param2'\]",
-    ):
-        pyfunc_loaded.predict(
-            data,
-            parameters={
-                "top_k": 2,
-                "num_beams": 5,
-                "invalid_param": "invalid_param",
-                "invalid_param2": "invalid_param2",
-            },
-        )
+        pyfunc_loaded.predict(data, parameters=parameters)
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)

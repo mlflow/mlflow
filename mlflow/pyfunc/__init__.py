@@ -236,7 +236,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
     PyFuncInput,
     PyFuncOutput,
-    _enforce_parameters_schema,
+    _enforce_params_schema,
     _enforce_schema,
     _save_example,
 )
@@ -422,7 +422,7 @@ class PyFuncModel:
 
         if parameters is not None:
             parameters_schema = self.metadata.get_parameters_schema()
-            parameters = _enforce_parameters_schema(parameters, parameters_schema)
+            parameters = _enforce_params_schema(parameters, parameters_schema)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
