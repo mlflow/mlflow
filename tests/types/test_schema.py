@@ -683,14 +683,14 @@ def test_infer_param_schema():
     }
     test_schema = ParamSchema(
         [
-            ParamSpec("a", "str", "str_a", True),
-            ParamSpec("b", "int", 1, True),
-            ParamSpec("c", "bool", True, True),
-            ParamSpec("d", "float", 1.0, True),
-            ParamSpec("e", "list", [1, 2, 3], True),
-            ParamSpec("f", "tuple", (1, 2, 3), True),
-            ParamSpec("g", "bytes", b"byte_g", True),
-            ParamSpec("h", "dict", {"test_k": "test_v"}, True),
+            ParamSpec("a", "str", "str_a"),
+            ParamSpec("b", "int", 1),
+            ParamSpec("c", "bool", True),
+            ParamSpec("d", "float", 1.0),
+            ParamSpec("e", "list", [1, 2, 3]),
+            ParamSpec("f", "tuple", (1, 2, 3)),
+            ParamSpec("g", "bytes", b"byte_g"),
+            ParamSpec("h", "dict", {"test_k": "test_v"}),
         ]
     )
     assert _infer_param_schema(test_parameters) == test_schema
