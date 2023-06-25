@@ -134,6 +134,7 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
                     session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
                 yield session
+                session.commit()
             except MlflowException:
                 session.rollback()
                 raise
@@ -150,8 +151,6 @@ def _get_managed_session_maker(SessionMaker, db_type):
             except Exception as e:
                 session.rollback()
                 raise MlflowException(message=e, error_code=INTERNAL_ERROR)
-            else:
-                session.commit()
 
     return make_managed_session
 
