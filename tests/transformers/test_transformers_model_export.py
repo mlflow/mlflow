@@ -1323,7 +1323,7 @@ def test_text2text_generation_pipeline_with_inference_configs(
 
     dict_inference = pyfunc_loaded.predict(
         data,
-        parameters=inference_config,
+        params=inference_config,
     )
 
     assert dict_inference == inference
@@ -1352,7 +1352,7 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
         MlflowException,
         match=r"The following `model_kwargs` are not used by the model: \['invalid_param'\]",
     ):
-        pyfunc_loaded.predict(data, parameters=parameters)
+        pyfunc_loaded.predict(data, params=parameters)
 
 
 @pytest.mark.skipif(RUNNING_IN_GITHUB_ACTIONS, reason=GITHUB_ACTIONS_SKIP_REASON)
@@ -1916,7 +1916,7 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline, tmp_path):
     inference_payload = json.dumps(
         {
             "inputs": data,
-            "parameters": parameters,
+            "params": parameters,
         }
     )
     signature_with_params = infer_signature(

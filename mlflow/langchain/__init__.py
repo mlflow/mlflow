@@ -430,7 +430,7 @@ class _LangChainModelWrapper:
     def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
-        parameters: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
         from mlflow.langchain.api_request_parallel_processor import process_api_requests
 
@@ -452,7 +452,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
-    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request
 

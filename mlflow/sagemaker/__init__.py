@@ -2665,7 +2665,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         deployment_name=None,
         inputs=None,
         endpoint=None,
-        parameters: Optional[Dict[str, Any]] = None,
+        params: Optional[Dict[str, Any]] = None,
     ):
         """
         Compute predictions from the specified deployment using the provided PyFunc input.
@@ -2722,7 +2722,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             )
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=dump_input_data(inputs, inputs_key="instances", parameters=parameters),
+                Body=dump_input_data(inputs, inputs_key="instances", params=params),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")

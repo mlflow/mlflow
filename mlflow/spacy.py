@@ -283,7 +283,7 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
-    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Only works for predicting using text categorizer.
         Not suitable for other pipeline components (e.g: parser)

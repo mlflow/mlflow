@@ -346,7 +346,7 @@ class _XGBModelWrapper:
     def __init__(self, xgb_model):
         self.xgb_model = xgb_model
 
-    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         import xgboost as xgb
 
         if isinstance(self.xgb_model, xgb.Booster):

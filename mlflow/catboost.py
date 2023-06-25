@@ -359,7 +359,7 @@ class _CatboostModelWrapper:
     def __init__(self, cb_model):
         self.cb_model = cb_model
 
-    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         return self.cb_model.predict(dataframe)
 
 

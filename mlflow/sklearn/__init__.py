@@ -499,10 +499,10 @@ class _SklearnModelWrapper:
     def __init__(self, sklearn_model):
         self.sklearn_model = sklearn_model
 
-    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict(data)
 
-    def predict_proba(self, data, parameters: Optional[Dict[str, Any]] = None):
+    def predict_proba(self, data, params: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict_proba(data)
 
 

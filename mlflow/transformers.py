@@ -1647,8 +1647,8 @@ class _TransformersWrapper:
                 ) from e
             raise
 
-    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
-        self._override_inference_config(parameters)
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
+        self._override_inference_config(params)
 
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)

@@ -389,9 +389,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
-    def predict(
-        self, data: PyFuncInput, parameters: Optional[Dict[str, Any]] = None
-    ) -> PyFuncOutput:
+    def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generate model predictions.
 
@@ -412,7 +410,7 @@ class PyFuncModel:
                      (i.e. read / write the elements using C-like index order), and DataFrame
                      column values will be cast as the required tensor spec type.
 
-        :param parameters: Additional parameters to pass to the model for inference.
+        :param params: Additional parameters to pass to the model for inference.
 
         :return: Model predictions as one of pandas.DataFrame, pandas.Series, numpy.ndarray or list.
         """
@@ -420,24 +418,24 @@ class PyFuncModel:
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
 
-        if parameters is not None:
+        if params is not None:
             parameters_schema = self.metadata.get_parameters_schema()
-            parameters = _enforce_params_schema(parameters, parameters_schema)
+            params = _enforce_params_schema(params, parameters_schema)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
 
             try:
                 with openai_auto_retry_patch():
-                    return self._predict_fn(data, parameters)
+                    return self._predict_fn(data, params)
             except Exception:
                 if _MLFLOW_OPENAI_TESTING.get():
                     raise
 
         # To avoid breaking change for examples like
         # tests/pyfunc/test_model_export_with_loader_module_and_data_path.py::test_model_save_load
-        if inspect.signature(self._predict_fn).parameters.get("parameters"):
-            return self._predict_fn(data, parameters)
+        if inspect.signature(self._predict_fn).parameters.get("params"):
+            return self._predict_fn(data, params)
         return self._predict_fn(data)
 
     @experimental
@@ -458,10 +456,10 @@ class PyFuncModel:
 
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input, parameters=None):
+                def predict(self, context, model_input, params=None):
                     return self.my_custom_function(model_input, parameters)
 
-                def my_custom_function(self, model_input, parameters=None):
+                def my_custom_function(self, model_input, params=None):
                     # do something with the model input
                     return 0
 
@@ -618,8 +616,8 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
-    def predict(self, data, parameters=None):
-        result = self._client.invoke(data, parameters).get_predictions()
+    def predict(self, data, params=None):
+        result = self._client.invoke(data, params).get_predictions()
         if isinstance(result, pandas.DataFrame):
             result = result[result.columns[0]]
         return result
@@ -1438,7 +1436,7 @@ def save_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
+                def predict(self, context, model_input: List[str], params=None) -> List[str]:
                     return [i.upper() for i in model_input]
 
 
@@ -1691,7 +1689,7 @@ def log_model(
 
 
             class MyModel(mlflow.pyfunc.PythonModel):
-                def predict(self, context, model_input: List[str], parameters=None) -> List[str]:
+                def predict(self, context, model_input: List[str], params=None) -> List[str]:
                     return [i.upper() for i in model_input]
 
 

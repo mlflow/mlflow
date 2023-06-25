@@ -476,7 +476,7 @@ def get_jsonable_input(name, data):
         raise MlflowException(f"Incompatible input type:{type(data)} for input {name}.")
 
 
-def dump_input_data(data, inputs_key="inputs", parameters: Optional[Dict[str, Any]] = None):
+def dump_input_data(data, inputs_key="inputs", params: Optional[Dict[str, Any]] = None):
     import numpy as np
     import pandas as pd
 
@@ -489,14 +489,14 @@ def dump_input_data(data, inputs_key="inputs", parameters: Optional[Dict[str, An
     else:
         post_data = data
 
-    if parameters is not None:
-        if not isinstance(parameters, dict):
+    if params is not None:
+        if not isinstance(params, dict):
             raise MlflowException(
-                "Parameters must be a dictionary. Got type '{}'.".format(type(parameters).__name__)
+                "Params must be a dictionary. Got type '{}'.".format(type(params).__name__)
             )
-        # if post_data is not dictionary, parameters should be included in post_data directly
+        # if post_data is not dictionary, params should be included in post_data directly
         if isinstance(post_data, dict):
-            post_data["parameters"] = parameters
+            post_data["params"] = params
 
     if not isinstance(post_data, str):
         post_data = json.dumps(post_data, cls=_CustomJsonEncoder)

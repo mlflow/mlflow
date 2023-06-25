@@ -18,7 +18,7 @@ from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec
 
 class TestModel:
     @staticmethod
-    def predict(pdf, parameters=None):
+    def predict(pdf, params=None):
         return pdf
 
 

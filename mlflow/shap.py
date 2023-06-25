@@ -665,5 +665,5 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
-    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         return self.explainer(dataframe.values).values

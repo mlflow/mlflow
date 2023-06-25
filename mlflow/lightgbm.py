@@ -493,7 +493,7 @@ class _LGBModelWrapper:
     def __init__(self, lgb_model):
         self.lgb_model = lgb_model
 
-    def predict(self, dataframe, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         return self.lgb_model.predict(dataframe)
 
 

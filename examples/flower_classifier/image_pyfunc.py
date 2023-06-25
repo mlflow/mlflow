@@ -55,7 +55,7 @@ class KerasImageClassifierPyfunc:
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
-    def predict(self, input, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, input, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions for the data.
 

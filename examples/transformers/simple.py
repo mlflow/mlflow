@@ -32,6 +32,6 @@ print(
     sentence_generator.predict(
         ["tell me a story about rocks", "Tell me a joke about a dog that likes spaghetti"],
         # pass in additional parameters applied to the pipeline during inference
-        parameters=parameters,
+        params=parameters,
     )
 )

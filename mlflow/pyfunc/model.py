@@ -89,7 +89,7 @@ class PythonModel:
         return _extract_type_hints(self.predict, input_arg_index=1)
 
     @abstractmethod
-    def predict(self, context, model_input, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -114,14 +114,14 @@ class _FunctionPythonModel(PythonModel):
     def _get_type_hints(self):
         return _extract_type_hints(self.func, input_arg_index=0)
 
-    def predict(self, context, model_input, parameters: Optional[Dict[str, Any]] = None):
-        if parameters is None:
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
+        if params is None:
             return self.func(model_input)
-        elif not isinstance(parameters, dict):
+        elif not isinstance(params, dict):
             raise MlflowException(
-                f"Parameters must be a dictionary. Got type '{type(parameters).__name__}'."
+                f"Params must be a dictionary. Got type '{type(params).__name__}'."
             )
-        return self.func(model_input, **parameters)
+        return self.func(model_input, **params)
 
 
 class PythonModelContext:
@@ -367,5 +367,5 @@ class _PythonModelPyfuncWrapper:
 
         return model_input
 
-    def predict(self, model_input, parameters: Optional[Dict[str, Any]] = None):
-        return self.python_model.predict(self.context, self._convert_input(model_input), parameters)
+    def predict(self, model_input, params: Optional[Dict[str, Any]] = None):
+        return self.python_model.predict(self.context, self._convert_input(model_input), params)

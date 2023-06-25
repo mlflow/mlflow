@@ -317,7 +317,7 @@ class _OnnxModelWrapper:
                     feeds[input_name] = feed.astype(np.float32)
         return feeds
 
-    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame, numpy.ndarray or a dictionary.
 

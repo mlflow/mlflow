@@ -475,7 +475,7 @@ class _PaddleWrapper:
     def __init__(self, pd_model):
         self.pd_model = pd_model
 
-    def predict(self, data, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, data, params: Optional[Dict[str, Any]] = None):
         import pandas as pd
         import numpy as np
 

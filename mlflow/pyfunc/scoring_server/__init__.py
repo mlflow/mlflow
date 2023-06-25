@@ -120,7 +120,7 @@ def _decode_json_input(json_input):
 def _split_data_and_parameters(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    parameters = input_dict.get("parameters", {})
+    parameters = input_dict.get("params", {})
     return data, parameters
 
 

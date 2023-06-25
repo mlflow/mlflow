@@ -2722,7 +2722,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     # Passing inferenc_config dictionary as parameters to predict function directly
-    result = pyfunc_loaded.predict(data, parameters=inference_config)
+    result = pyfunc_loaded.predict(data, params=inference_config)
 
 
 Example of loading a transformers model as a python function
@@ -3398,7 +3398,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
         def __init__(self, n):
             self.n = n
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input, params=None):
             return model_input.apply(lambda column: column + self.n)
 
 
@@ -3465,7 +3465,7 @@ evaluate test data.
             self.xgb_model = xgb.Booster()
             self.xgb_model.load_model(context.artifacts["xgb_model"])
 
-        def predict(self, context, model_input, parameters=None):
+        def predict(self, context, model_input, params=None):
             input_matrix = xgb.DMatrix(model_input.values)
             return self.xgb_model.predict(input_matrix)
 
@@ -3915,7 +3915,7 @@ docstrings.
         def __init__(self, sktime_model):
             self.sktime_model = sktime_model
 
-        def predict(self, dataframe, parameters=None) -> pd.DataFrame:
+        def predict(self, dataframe, params=None) -> pd.DataFrame:
             df_schema = dataframe.columns.values.tolist()
 
             if len(dataframe) > 1:

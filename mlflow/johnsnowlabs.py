@@ -837,12 +837,12 @@ class _PyFuncModelWrapper:
         self.spark = spark or _get_or_create_sparksession()
         self.spark_model = spark_model
 
-    def predict(self, text, parameters: Optional[Dict[str, Any]] = None):
+    def predict(self, text, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions given input data in a pandas DataFrame.
 
         :param text: pandas DataFrame containing input data.
         :return: List with model predictions.
         """
-        output_level = parameters.get("output_level", "")
+        output_level = params.get("output_level", "")
         return self.spark_model.predict(text, output_level=output_level).reset_index().to_json()
