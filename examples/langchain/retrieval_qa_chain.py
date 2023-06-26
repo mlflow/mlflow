@@ -25,7 +25,6 @@ db.save_local(persist_dir)
 # Create the RetrievalQA chain
 retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
 
-
 # Log the retrievalQA chain
 def load_retriever(persist_directory):
     embeddings = OpenAIEmbeddings()

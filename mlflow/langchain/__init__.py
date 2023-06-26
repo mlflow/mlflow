@@ -174,6 +174,26 @@ def save_model(
                         RetrievalQA models. Note that MLflow does not manage the contents of this
                         directory, so it is up to the user to ensure that the directory is properly
                         populated.
+
+                        .. code-block:: python
+
+                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
+
+
+                            def load_retriever(persist_directory):
+                                embeddings = OpenAIEmbeddings()
+                                vectorstore = FAISS.load_local(persist_directory, embeddings)
+                                return vectorstore.as_retriever()
+
+
+                            with mlflow.start_run() as run:
+                                logged_model = mlflow.langchain.log_model(
+                                    qa,
+                                    artifact_path="retrieval_qa",
+                                    loader_fn=load_retriever,
+                                    persist_dir=persist_dir,
+                                )
+
                         See a complete example of logging a RetrievalQA chain with `loader_fn` and
                         `persist_dir` in examples/langchain/retrieval_qa_chain.py.
     """
@@ -332,6 +352,26 @@ def log_model(
                         RetrievalQA models. Note that MLflow does not manage the contents of this
                         directory, so it is up to the user to ensure that the directory is properly
                         populated.
+
+                        .. code-block:: python
+
+                            qa = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
+
+
+                            def load_retriever(persist_directory):
+                                embeddings = OpenAIEmbeddings()
+                                vectorstore = FAISS.load_local(persist_directory, embeddings)
+                                return vectorstore.as_retriever()
+
+
+                            with mlflow.start_run() as run:
+                                logged_model = mlflow.langchain.log_model(
+                                    qa,
+                                    artifact_path="retrieval_qa",
+                                    loader_fn=load_retriever,
+                                    persist_dir=persist_dir,
+                                )
+
                         See a complete example of logging a RetrievalQA chain with `loader_fn` and
                         `persist_dir` in examples/langchain/retrieval_qa_chain.py.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
