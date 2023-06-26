@@ -6,6 +6,7 @@ from sklearn.linear_model import LogisticRegression
 
 import mlflow
 from mlflow.models import infer_signature
+from mlflow.utils.annotations import experimental
 from custom_code import iris_classes
 
 
@@ -15,6 +16,7 @@ class CustomPredict(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         self.model = mlflow.sklearn.load_model(context.artifacts["custom_model"])
 
+    @experimental
     def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         prediction = self.model.predict(model_input)
         return iris_classes(prediction)

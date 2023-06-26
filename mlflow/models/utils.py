@@ -889,11 +889,12 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
 
     allowed_keys = {param.name for param in schema.params}
     ignored_keys = set(params) - allowed_keys
-    _logger.warning(
-        f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
-        f"Supported arguments are: {allowed_keys}. "
-        "To enable them, please add corresponding schema in ModelSignature."
-    )
+    if ignored_keys:
+        _logger.warning(
+            f"Invalid arguments {list(ignored_keys)} are ignored for inference. "
+            f"Supported arguments are: {allowed_keys}. "
+            "To enable them, please add corresponding schema in ModelSignature."
+        )
 
     params = {k: params[k] for k in params if k in allowed_keys}
 

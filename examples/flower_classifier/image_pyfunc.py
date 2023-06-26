@@ -17,6 +17,7 @@ from typing import Any, Dict, Optional
 
 import mlflow
 from mlflow.utils import PYTHON_VERSION
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.environment import _mlflow_conda_env
 
@@ -55,6 +56,7 @@ class KerasImageClassifierPyfunc:
         probs_names = ["p({})".format(x) for x in domain]
         self._column_names = ["predicted_label", "predicted_label_id"] + probs_names
 
+    @experimental
     def predict(self, input, params: Optional[Dict[str, Any]] = None):
         """
         Generate predictions for the data.

@@ -396,7 +396,7 @@ def test_parse_json_input_records_oriented():
     }
     p1 = pd.DataFrame.from_dict(data)
     records_content = json.dumps({"dataframe_records": p1.to_dict(orient="records")})
-    records_content, _ = pyfunc_scoring_server._split_data_and_parameters(records_content)
+    records_content, _ = pyfunc_scoring_server._split_data_and_params(records_content)
     p2 = pyfunc_scoring_server.infer_and_parse_data(records_content)
     # "records" orient may shuffle column ordering. Hence comparing each column Series
     for col in data:
@@ -412,7 +412,7 @@ def test_parse_json_input_split_oriented():
     }
     p1 = pd.DataFrame.from_dict(data)
     split_content = json.dumps({"dataframe_split": p1.to_dict(orient="split")})
-    split_content, _ = pyfunc_scoring_server._split_data_and_parameters(split_content)
+    split_content, _ = pyfunc_scoring_server._split_data_and_params(split_content)
     p2 = pyfunc_scoring_server.infer_and_parse_data(split_content)
     assert all(p1 == p2)
 
@@ -428,7 +428,7 @@ def test_records_oriented_json_to_df():
         ]
       }
     """
-    jstr, _ = pyfunc_scoring_server._split_data_and_parameters(jstr)
+    jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
     assert set(df.columns) == {"zip", "cost", "score"}
     assert {str(dt) for dt in df.dtypes} == {"object", "float64", "int64"}
@@ -451,7 +451,7 @@ def test_split_oriented_json_to_df():
         }  
       }
     """
-    jstr, _ = pyfunc_scoring_server._split_data_and_parameters(jstr)
+    jstr, _ = pyfunc_scoring_server._split_data_and_params(jstr)
     df = pyfunc_scoring_server.infer_and_parse_data(jstr)
 
     assert set(df.columns) == {"zip", "cost", "count"}
@@ -470,10 +470,10 @@ def test_parse_with_schema(pandas_df_with_all_types):
     schema = Schema([ColSpec(c, c) for c in pandas_df_with_all_types.columns])
     df = _shuffle_pdf(pandas_df_with_all_types)
     json_str = json.dumps({"dataframe_split": df.to_dict(orient="split")}, cls=NumpyEncoder)
-    json_str, _ = pyfunc_scoring_server._split_data_and_parameters(json_str)
+    json_str, _ = pyfunc_scoring_server._split_data_and_params(json_str)
     df = pyfunc_scoring_server.infer_and_parse_data(json_str, schema=schema)
     json_str = json.dumps({"dataframe_records": df.to_dict(orient="records")}, cls=NumpyEncoder)
-    json_str, _ = pyfunc_scoring_server._split_data_and_parameters(json_str)
+    json_str, _ = pyfunc_scoring_server._split_data_and_params(json_str)
     df = pyfunc_scoring_server.infer_and_parse_data(json_str, schema=schema)
     assert schema == infer_signature(df[schema.input_names()]).inputs
 
@@ -500,7 +500,7 @@ def test_parse_with_schema(pandas_df_with_all_types):
             ColSpec("boolean", "bad_boolean"),
         ]
     )
-    bad_df, _ = pyfunc_scoring_server._split_data_and_parameters(bad_df)
+    bad_df, _ = pyfunc_scoring_server._split_data_and_params(bad_df)
     df = pyfunc_scoring_server.infer_and_parse_data(bad_df, schema=schema)
     # Unfortunately, the current behavior of pandas parse is to force numbers to int32 even if
     # they don't fit:

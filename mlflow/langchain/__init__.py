@@ -427,6 +427,7 @@ class _LangChainModelWrapper:
     def __init__(self, lc_model):
         self.lc_model = lc_model
 
+    @experimental
     def predict(
         self,
         data: Union[pd.DataFrame, List[Union[str, Dict[str, Any]]]],
@@ -452,6 +453,7 @@ class _TestLangChainWrapper(_LangChainModelWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         import langchain
         from tests.langchain.test_langchain_model_export import _mock_async_request

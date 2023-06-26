@@ -25,11 +25,11 @@ for line in sys.stdin:
 
     _logger.info("Parsing input data")
     data = request["data"]
-    data, parameters = scoring_server._split_data_and_parameters(data)
+    data, params = scoring_server._split_data_and_params(data)
     data = scoring_server.infer_and_parse_data(data, input_schema)
 
     _logger.info("Making predictions")
-    preds = model.predict(data, parameters)
+    preds = model.predict(data, params)
 
     _logger.info("Writing predictions")
     with open(request["output_file"], "a") as f:

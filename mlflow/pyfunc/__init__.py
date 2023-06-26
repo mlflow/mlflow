@@ -389,6 +389,7 @@ class PyFuncModel:
         self._model_impl = model_impl
         self._predict_fn = getattr(model_impl, predict_fn)
 
+    @experimental
     def predict(self, data: PyFuncInput, params: Optional[Dict[str, Any]] = None) -> PyFuncOutput:
         """
         Generate model predictions.
@@ -616,6 +617,7 @@ class _ServedPyFuncModel(PyFuncModel):
         self._client = client
         self._server_pid = server_pid
 
+    @experimental
     def predict(self, data, params=None):
         result = self._client.invoke(data, params).get_predictions()
         if isinstance(result, pandas.DataFrame):

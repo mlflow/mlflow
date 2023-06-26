@@ -30,6 +30,7 @@ from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.types import Schema
 from mlflow.utils import reraise
+from mlflow.utils.annotations import experimental
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.proto_json_utils import (
     NumpyEncoder,
@@ -117,11 +118,12 @@ def _decode_json_input(json_input):
         )
 
 
-def _split_data_and_parameters(json_input):
+@experimental
+def _split_data_and_params(json_input):
     input_dict = _decode_json_input(json_input)
     data = {k: v for k, v in input_dict.items() if k in SUPPORTED_FORMATS}
-    parameters = input_dict.get("params", {})
-    return data, parameters
+    params = input_dict.get("params", {})
+    return data, params
 
 
 def infer_and_parse_data(data, schema: Schema = None):
@@ -243,9 +245,9 @@ def invocations(data, content_type, model, input_schema):
     if mime_type == CONTENT_TYPE_CSV:
         csv_input = StringIO(data)
         data = parse_csv_input(csv_input=csv_input, schema=input_schema)
-        parameters = {}
+        params = {}
     elif mime_type == CONTENT_TYPE_JSON:
-        data, parameters = _split_data_and_parameters(data)
+        data, params = _split_data_and_params(data)
         data = infer_and_parse_data(data, input_schema)
     else:
         return InvocationsResponse(
@@ -260,7 +262,7 @@ def invocations(data, content_type, model, input_schema):
 
     # Do the prediction
     try:
-        raw_predictions = model.predict(data, parameters)
+        raw_predictions = model.predict(data, params)
     except MlflowException as e:
         raise e
     except Exception:
@@ -335,22 +337,22 @@ def _predict(model_uri, input_path, output_path, content_type):
         else:
             with open(input_path) as f:
                 input_str = f.read()
-        data, parameters = _split_data_and_parameters(input_str)
+        data, params = _split_data_and_params(input_str)
         df = infer_and_parse_data(data)
     elif content_type == "csv":
         if input_path is not None:
             df = parse_csv_input(input_path)
         else:
             df = parse_csv_input(sys.stdin)
-        parameters = {}
+        params = {}
     else:
         raise Exception(f"Unknown content type '{content_type}'")
 
     if output_path is None:
-        predictions_to_json(pyfunc_model.predict(df, parameters), sys.stdout)
+        predictions_to_json(pyfunc_model.predict(df, params), sys.stdout)
     else:
         with open(output_path, "w") as fout:
-            predictions_to_json(pyfunc_model.predict(df, parameters), fout)
+            predictions_to_json(pyfunc_model.predict(df, params), fout)
 
 
 def _serve(model_uri, port, host):

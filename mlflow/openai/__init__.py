@@ -526,6 +526,7 @@ class _OpenAIWrapper:
         else:
             return data[self.variables].to_dict(orient="records")
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         from mlflow.openai.api_request_parallel_processor import process_api_requests
 
@@ -560,6 +561,7 @@ class _TestOpenAIWrapper(_OpenAIWrapper):
     A wrapper class that should be used for testing purposes only.
     """
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         from mlflow.openai.utils import _mock_chat_completion_request
 

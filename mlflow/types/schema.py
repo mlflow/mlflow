@@ -410,6 +410,7 @@ class Schema:
         return repr(self.inputs)
 
 
+@experimental
 class ParamSpec:
     """
     Specification used to represent parameters for the model.
@@ -490,6 +491,7 @@ class ParamSpec:
         )
 
 
+@experimental
 class ParamSchema:
     """
     Specification of parameters applicable to the model.

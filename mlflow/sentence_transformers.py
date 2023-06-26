@@ -327,6 +327,7 @@ class _SentenceTransformerModelWrapper:
     def __init__(self, model):
         self.model = model
 
+    @experimental
     def predict(self, sentences, params: Optional[Dict[str, Any]] = None):
         # When the input is a single string, it is transformed into a DataFrame with one column
         # and row, but the encode function does not accept DataFrame input

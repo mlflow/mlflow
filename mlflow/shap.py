@@ -17,6 +17,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _get_pip_deps,
@@ -665,5 +666,6 @@ class _SHAPWrapper:
 
         self.explainer = _load_explainer(explainer_file=shap_explainer_artifacts_path, model=model)
 
+    @experimental
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         return self.explainer(dataframe.values).values

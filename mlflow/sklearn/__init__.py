@@ -39,6 +39,7 @@ from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
+from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import get_instance_method_first_arg_value
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -499,9 +500,11 @@ class _SklearnModelWrapper:
     def __init__(self, sklearn_model):
         self.sklearn_model = sklearn_model
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict(data)
 
+    @experimental
     def predict_proba(self, data, params: Optional[Dict[str, Any]] = None):
         return self.sklearn_model.predict_proba(data)
 

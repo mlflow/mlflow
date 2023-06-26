@@ -1647,6 +1647,7 @@ class _TransformersWrapper:
                 ) from e
             raise
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         self._override_inference_config(params)
 

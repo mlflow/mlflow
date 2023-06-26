@@ -23,6 +23,7 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _mlflow_conda_env,
     _validate_env_arguments,
@@ -283,6 +284,7 @@ class _SpacyModelWrapper:
     def __init__(self, spacy_model):
         self.spacy_model = spacy_model
 
+    @experimental
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         """
         Only works for predicting using text categorizer.

@@ -35,6 +35,7 @@ from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.models.utils import _save_example
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -333,5 +334,6 @@ class _ProphetModelWrapper:
     def __init__(self, pr_model):
         self.pr_model = pr_model
 
+    @experimental
     def predict(self, dataframe, params: Optional[Dict[str, Any]] = None):
         return self.pr_model.predict(dataframe)

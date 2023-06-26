@@ -38,6 +38,7 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import is_iterator
+from mlflow.utils.annotations import experimental
 from mlflow.utils.environment import (
     _validate_env_arguments,
     _process_pip_requirements,
@@ -759,6 +760,7 @@ class _TF2Wrapper:
         self.model = model
         self.infer = infer
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         import tensorflow
 
@@ -803,6 +805,7 @@ class _TF2ModuleWrapper:
         self.model = model
         self.signature = signature
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         import tensorflow
 
@@ -824,6 +827,7 @@ class _KerasModelWrapper:
         self.keras_model = keras_model
         self.signature = signature
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         if isinstance(data, pandas.DataFrame):
             # This line is for backwards compatibility:

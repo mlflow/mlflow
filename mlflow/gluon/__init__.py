@@ -11,6 +11,7 @@ from mlflow import pyfunc
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
+from mlflow.utils.annotations import experimental
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -99,6 +100,7 @@ class _GluonModelWrapper:
     def __init__(self, gluon_model):
         self.gluon_model = gluon_model
 
+    @experimental
     def predict(self, data, params: Optional[Dict[str, Any]] = None):
         """
         :param data: Either a pandas DataFrame or a numpy array containing input array values.

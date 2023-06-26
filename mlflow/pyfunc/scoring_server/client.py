@@ -12,6 +12,7 @@ from typing import Any, Dict, Optional
 from mlflow.pyfunc import scoring_server
 
 from mlflow.exceptions import MlflowException
+from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import dump_input_data
 from mlflow.deployments import PredictionsResponse
 
@@ -26,6 +27,7 @@ class BaseScoringServerClient(ABC):
         """
 
     @abstractmethod
+    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or
@@ -68,6 +70,7 @@ class ScoringServerClient(BaseScoringServerClient):
                     raise RuntimeError(f"Server process already exit with returncode {return_code}")
         raise RuntimeError("Wait scoring server ready timeout.")
 
+    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         response = requests.post(
             url=self.url_prefix + "/invocations",
@@ -92,6 +95,7 @@ class StdinScoringServerClient(BaseScoringServerClient):
         if return_code is not None:
             raise RuntimeError(f"Server process already exit with returncode {return_code}")
 
+    @experimental
     def invoke(self, data, params: Optional[Dict[str, Any]] = None):
         """
         Invoke inference on input data. The input data must be pandas dataframe or numpy array or

@@ -1,5 +1,6 @@
 import mlflow
 from mlflow.pyfunc import PythonModel
+from mlflow.utils.annotations import experimental
 import pandas as pd
 import numpy as np
 from typing import Any, Dict, Optional
@@ -17,6 +18,7 @@ class WrappedRecipeModel(PythonModel):
     def load_context(self, context):
         self._classifier = mlflow.sklearn.load_model(context.artifacts["model_path"])
 
+    @experimental
     def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None):
         predicted_label = self._classifier.predict(model_input)
         # Only classification recipe would be have multiple classes in the target column
