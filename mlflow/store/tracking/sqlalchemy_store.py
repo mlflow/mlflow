@@ -157,7 +157,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
-    def _dispose_engine(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.engine.dispose()
 
     def _set_zero_value_insertion_for_autoincrement_column(self, session):

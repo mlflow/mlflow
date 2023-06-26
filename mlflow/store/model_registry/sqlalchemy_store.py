@@ -105,7 +105,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_dialect(self):
         return self.engine.dialect.name
 
-    def _dispose_engine(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.engine.dispose()
 
     @staticmethod

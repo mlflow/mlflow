@@ -52,6 +52,13 @@ class TrackingServiceClient:
         # self.store  # pylint: disable=pointless-statement
         self.store
 
+    def __enter__(self):
+        self.store.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.store.__exit__(exc_type, exc_value, traceback)
+
     @property
     def store(self):
         return utils._get_store(self.tracking_uri)

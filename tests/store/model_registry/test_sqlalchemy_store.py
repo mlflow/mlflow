@@ -31,8 +31,8 @@ pytestmark = pytest.mark.notrackingurimock
 @pytest.fixture
 def store(tmp_sqlite_uri):
     db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
-    store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
-    yield store
+    with SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri) as store:
+        yield store
 
     if db_uri_from_env_var is not None:
         with store.ManagedSessionMaker() as session:

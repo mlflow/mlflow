@@ -84,6 +84,13 @@ class MlflowClient:
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
         # outside of the `MlflowClient._get_registry_client()` method
 
+    def __enter__(self):
+        self._tracking_client.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._tracking_client.__exit__(exc_type, exc_value, traceback)
+
     @property
     def tracking_uri(self):
         return self._tracking_client.tracking_uri

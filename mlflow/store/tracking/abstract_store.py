@@ -23,6 +23,12 @@ class AbstractStore:
         """
         pass
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
     @abstractmethod
     def search_experiments(
         self,
