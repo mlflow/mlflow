@@ -15,7 +15,7 @@ There are 4 subcomponents within MLflow Tracking:
 MLflow has Python, R, and Java/Scala/JVM APIs, but this tutorial will use Python. There are a number of backend stores for the Tracking Server and Artifact Stores, but this tutorial will primarily show the default file-store-based and SQLAlchemy-based RDBMS-based backends. For other APIs and backends, see the :ref:tracking reference documentation.
 
 .. note::
-    You may choose to get an overview of MLflow by running one or both of the :ref:`Data Scientist Oriented Quickstart<quickstart>` or the :ref:`MLOps Professional Oriented Quickstart<mlops-quickstart000>`. The Quickstarts don't cover all of the features this tutorial will, but they will orient you to the main MLflow features and components.
+    You may choose to get an overview of MLflow by running one or both of the :ref:`Data Scientist Oriented Quickstart<quickstart>` or the :ref:`MLOps Professional Oriented Quickstart<quickstart-mlops>`. The Quickstarts don't cover all of the features this tutorial will, but they will orient you to the main MLflow features and components.
 
 Setup
 ------
@@ -145,6 +145,7 @@ Artifacts
 **Artifacts** are files produced by your training run. Typically these will be results, summaries, visualizations, and so forth. You may log a single artifact with ``mlflow.log_artifact`` or a directory of artifacts with ``mlflow.log_artifacts``. For instance:
 
 .. code-block:: python
+
   path_to_summary = "summary.txt"
   path_to_visualizations = "visualizations/"
 
@@ -158,12 +159,12 @@ Separating backend and artifact stores
 {>> This may all be wrong. I need to go through Scenario 6 and grok it. S6 is the right one for huge companies, while S4 is the more common one for smaller. So if I get S6, S4 becomes the step towards that and I can just point / in-passing changes for S6 <<}
 MLflow allows you to have a different **artifact store** than the **backend store** used for logging parameters and metrics. Commonly, you may want to store parameters and metrics in a relational database, but store artifacts in a shared filesystem or cloud-based object store. 
 
-================  ================                       ================
-  Store type        Specified with                          Typical items
-================  ================                       ================
-  Backend store    `--backend-store-uri`                  Runs, parameters, metrics, tags, notes, metadata
-  Artifact Store    `--artifacts-destination`             Models, files, images, in-memory objects, model summary
-================  ================                        ================
+================  =======================  =======================
+Store type        Specified with            Typical items
+================  =======================  =======================
+Backend store     --backend-store-uri      Runs, parameters, metrics, tags, notes, metadata
+Artifact Store    --artifacts-destination  Models, files, images, in-memory objects, model summary
+================  =======================  =======================
 
 Authentication and security varies between stores. You may need to set environment variables or configure other credentials, depending on the store type. See the documentation for the store type you are using for details. This example shows a sample configuration where the backend store is a SQLite database and the artifact store is on a netware share:
 
@@ -180,7 +181,7 @@ The Tracking UI is a web application that visualizes the results of experiments 
 
 When you navigate to the Tracking UI, you will see a page similar to this:
 
-.. image:: ../../_static/tracking-ui.png
+.. image:: _static/images/ui-tutorial/tracking-ui.png
    :width: 100%
 
 Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). The search box allows you to rapidly filter the displayed runs (3) (search capabilities are discussed later). You can switch between a **Table view** and a **Chart view** summary of runs (4). The **Models** tab displays the registered models that are tracked (5).
@@ -189,7 +190,7 @@ The **Chart view** allows you to compare runs with visualizations of parameters 
 
 For instance, in the following image, the final column shows the validation set root mean square error, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0, the error is almost 0.9, and high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the model does a better job. 
 
-.. image:: ../../_static/ui-tutorial/parallel-coordinates.png
+.. image:: _static/images/ui-tutorial/parallel-coordinates.png
    :width: 100%
 
 As in the **Table view**, the search box allows you to filter the runs displayed. In the **Chart view** this is especially useful, as it allows you to quickly explore particular subsets of the runs without having to fire up a more heavyweight tool.
@@ -251,7 +252,7 @@ You can search for models by name or tag using the search box.
 
 When you select a model, you open the details page. The details page allows you to edit a description of the model, add tags, and select specific versions.
 
-.. image:: ../../_static/ui-tutorial/model-details.png
+.. image:: _static/images/ui-tutorial/model-details.png
    :width: 100%
 
 When you select a specific model version, you will see a page with an editable description of the version carried over from the run that generated the model. You can also add and edit tags to the version. If the developer specified a schema for the model, this is also displayed.
@@ -263,6 +264,6 @@ You can use the **Stage** dropdown to transition a specific version of a model t
 * **Production**: The version that is deployed to production.
 * **Archived**: The version is no longer in use.
 
-.. image:: ../../_static/ui-tutorial/model-version-details.png
+.. image:: _static/images/ui-tutorial/model-version-details.png
    :width: 100%
 
