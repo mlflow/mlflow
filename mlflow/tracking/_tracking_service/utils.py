@@ -21,8 +21,6 @@ _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
 # Extra environment variables which take precedence for setting the basic/bearer
 # auth on http requests.
-_TRACKING_USERNAME_ENV_VAR = "MLFLOW_TRACKING_USERNAME"
-_TRACKING_PASSWORD_ENV_VAR = "MLFLOW_TRACKING_PASSWORD"
 _TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
 
 # sets verify param of 'requests.request' function
