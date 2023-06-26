@@ -7,7 +7,7 @@ def _raise_unsupported_method(method, message=None):
         f"Method '{method}' is unsupported for models in the Workspace Model Registry. "
         f"Upgrade to Models in Unity Catalog to access the latest features. You can configure "
         f"the MLflow Python client to access models in Unity Catalog by running "
-        f"mlflow.set_registry_uri('databricks-uc') before accessing models. ",
+        f"mlflow.set_registry_uri('databricks-uc') before accessing models.",
     ]
     if message is not None:
         messages.append(message)
@@ -27,5 +27,5 @@ class DatabricksWorkspaceModelRegistryRestStore(RestStore):
             method="get_model_version_by_alias",
             message="If attempting to load a model version by alias via a URI of the form "
             "'models:/model_name@alias_name', configure the MLflow client to target Unity Catalog "
-            "and try again",
+            "and try again.",
         )
