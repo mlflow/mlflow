@@ -185,8 +185,84 @@ When you navigate to the Tracking UI, you will see a page similar to this:
 
 Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). The search box allows you to rapidly filter the displayed runs (3) (search capabilities are discussed later). You can switch between a **Table view** and a **Chart view** summary of runs (4). The **Models** tab displays the registered models that are tracked (5).
 
-The **Chart view** allows you to compare runs with visualizations of parameters used and metrics generated. The **Parallel Coordinates** chart is particularly useful for comparing runs with many parameters and metrics. In the followiung image, the final column shows the error in the validation set, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0, the error is almost 0.9, and high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the model does a better job. 
+The **Chart view** allows you to compare runs with visualizations of parameters used and metrics generated. The **Parallel Coordinates** chart is particularly useful for insight into the results of varying parameters. You may set the parameters and metrics visualized by selecting the vertical ellipsis and choosing the desired values from the drop-down menus. 
+
+For instance, in the following image, the final column shows the validation set root mean square error, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0, the error is almost 0.9, and high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the model does a better job. 
 
 .. image:: ../../_static/ui-tutorial/parallel-coordinates.png
+   :width: 100%
+
+As in the **Table view**, the search box allows you to filter the runs displayed. In the **Chart view** this is especially useful, as it allows you to quickly explore particular subsets of the runs without having to fire up a more heavyweight tool.
+
+Filtering and searching in the MLflow Tracking UI
+--------------------------------------------------
+
+A machine lerning experiment inevitably generates a large number of runs. You are free to create as many experiments as desired, but often a single experiment is best thought of as a single machine learning problem. The deployed solution will be a matter of a long evolution of data and feature engineering, architecture selection, and parameters. Filtering the runs displayed quickly becomes important.
+
+Search with SQL WHERE subset
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A search filter is one or more expressions joined by the AND keyword. The syntax does not support OR. Each expression has three parts: an identifier of the target entity (for instance, ``metrics.accuracy``), a comparator (for instance, ``>=`` for numeric values, ``LIKE`` for strings), and a constant. For example:
+
+.. code-block:: sql
+
+  metrics.accuracy >= 0.9 AND params.model_name LIKE 'RESNET%'
+
+The target entities are:
+
+* ``metrics``: A metric logged with ``mlflow.log_metric``.
+* ``params``: A parameter logged with ``mlflow.log_param``.
+* ``tags``: A tag logged with ``mlflow.set_tag``.
+* ``attributes`` : An attribute of the run.
+  * ``run_id``: The ID of the run.
+  * ``run_name``, ``run name``: The name of the run.
+  * ``status``: The status of the run (``FINISHED``, ``FAILED``, ``RUNNING``, ``SCHEDULED``, ``KILLED``).
+  * ``artifact_uri``: The URI of the artifact store.
+  * ``user_id`` : The ID of the user who started the run.
+  * ``start_time``, ``end_time`` : The start or end time of the run. Units are seconds elapsed in the Unix epoch (January 1, 1970). For example, ``start_time >= 1688169600`` filters runs created before 2023-07-01.
+
+For more, see :ref:_search-runs.
+
+Run visibility
+~~~~~~~~~~~~~~~
+
+If, instead of defining a complete filter, you want to select among a handful of runs, you can toggle the visibility of runs in the filtered list. You do so with the column marked with an eye icon. Selecting the eye icon at the top of the column will allow you to toggle the visibility of all runs in the filtered list. Selecting the eye icon for an individual run will toggle the visibility of that run.
+
+Deleting runs
+~~~~~~~~~~~~~~
+
+You will have some runs that do not generate worthwhile results. Sometimes these will stem from code errors or other problems, but there are any number of reasons you may not want to keep a run.
+
+To delete a run, select it in the list of runs and select "Delete." You will be prompted to confirm the deletion. {>> This action cannot be undone. tk Confused by this. The "State" dropdown has a "Deleted" option. <<}
+
+You may also delete a run using the CLI command ``mlflow run delete --run-id <run_id>`` or the Python API ``mlflow.delete_run(run_id : str)->None``.
+
+Sorting and selecting columns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Both the **Table view** and **Chart view** allow you to sort the displayed filtered list of runs by any column. Select the **Sort** dropdown and choose the desired column and sort direction. In the **Table view** you may also use the **Columns** dropdown to select which columns are displayed.
+
+Viewing models in the MLflow Tracking UI
+-----------------------------------------
+
+The **Models** tab of the Tracking UI displays models in the MLflow **Model Registry**. A registered model is one that you have selected as worthy of tracking as a versioned entity, generally because it is a candidate for deployment. The main page lists registered models and their versions registered most recently, marked for staging, and marked for production. 
+
+You can search for models by name or tag using the search box. 
+
+When you select a model, you open the details page. The details page allows you to edit a description of the model, add tags, and select specific versions.
+
+.. image:: ../../_static/ui-tutorial/model-details.png
+   :width: 100%
+
+When you select a specific model version, you will see a page with an editable description of the version carried over from the run that generated the model. You can also add and edit tags to the version. If the developer specified a schema for the model, this is also displayed.
+
+You can use the **Stage** dropdown to transition a specific version of a model through the deployment lifecycle. The stages are:
+
+* **None**: The model version is not ready for final validation. This is the default stage.
+* **Staging**: Typically, this stage is used for final validation of a version whose production deployment is imminent.
+* **Production**: The version that is deployed to production.
+* **Archived**: The version is no longer in use.
+
+.. image:: ../../_static/ui-tutorial/model-version-details.png
    :width: 100%
 
