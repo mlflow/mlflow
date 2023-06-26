@@ -19,7 +19,7 @@ API_HTML = """
     />
     <link
       rel="shortcut icon"
-      href="https://fastapi.tiangolo.com/img/favicon.png"
+      href="_static/favicon.ico"
     />
     <title>MLflow Gateway API - Swagger UI</title>
   </head>
