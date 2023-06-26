@@ -21,13 +21,12 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_URI_ENV_VAR,
-    _TRACKING_USERNAME_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 # pylint: disable=unused-argument
 
@@ -76,8 +75,8 @@ def test_get_store_basic_rest_store():
 def test_get_store_rest_store_with_password():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
-        _TRACKING_USERNAME_ENV_VAR: "Bob",
-        _TRACKING_PASSWORD_ENV_VAR: "Ross",
+        MLFLOW_TRACKING_USERNAME.name: "Bob",
+        MLFLOW_TRACKING_PASSWORD.name: "Ross",
     }
     with mock.patch.dict(os.environ, env):
         store = _get_store()

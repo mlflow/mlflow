@@ -15,7 +15,7 @@ from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
-from mlflow import get_run, MlflowException
+from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.server import app
@@ -48,10 +48,6 @@ from mlflow.server.handlers import (
     get_endpoints,
 )
 from mlflow.store.entities import PagedList
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-)
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     BAD_REQUEST,
@@ -105,6 +101,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
@@ -134,7 +131,7 @@ def is_unprotected_route(path: str) -> bool:
 def make_basic_auth_response() -> Response:
     res = make_response(
         "You are not authenticated. Please set the environment variables "
-        f"{_TRACKING_USERNAME_ENV_VAR} and {_TRACKING_PASSWORD_ENV_VAR} "
+        f"{MLFLOW_TRACKING_USERNAME.name} and {MLFLOW_TRACKING_PASSWORD.name} "
         "if you are using an API client, or see "
         "https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
         "on how to authenticate using other methods."
@@ -214,7 +211,7 @@ def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
     run_id = _get_request_param("run_id")
-    run = get_run(run_id)
+    run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = request.authorization.username
     return _get_permission_from_store_or_default(
