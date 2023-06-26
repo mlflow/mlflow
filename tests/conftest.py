@@ -13,21 +13,6 @@ from mlflow.utils.os import is_windows
 from tests.autologging.fixtures import enable_test_mode
 
 
-@pytest.fixture
-def reset_mock():
-    cache = []
-
-    def set_mock(obj, attr, mock):
-        cache.append((obj, attr, getattr(obj, attr)))
-        setattr(obj, attr, mock)
-
-    yield set_mock
-
-    for obj, attr, value in cache:
-        setattr(obj, attr, value)
-    cache[:] = []
-
-
 @pytest.fixture(autouse=True)
 def tracking_uri_mock(tmp_path, request):
     try:
