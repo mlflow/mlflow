@@ -367,6 +367,17 @@ def _validate_experiment_id_type(experiment_id):
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
         raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+    elif not isinstance(model_name, str):
+        raise MlflowException(
+            f"Invalid type: Registered model name expected to be a str, got {type(model_name)}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    validator_regex = r"^[^;:\/? \$&+,=@\"<>#%]+$"
+    if not re.search(validator_regex, model_name):
+        raise MlflowException(
+            f"Invalid name: name should match the regex {validator_regex}", INVALID_PARAMETER_VALUE
+        )
 
 
 def _validate_model_version(model_version):

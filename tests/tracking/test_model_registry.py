@@ -666,3 +666,83 @@ def test_set_delete_registered_model_alias_and_get_model_version_by_alias_flow(c
     assert model.aliases == {}
     mv = client.get_model_version(name, "1")
     assert mv.aliases == []
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "myModel",
+        "MyModel",
+        "mymodel",
+        "my_model",
+        "my-model",
+        "my.model",
+        "my-1st-model",
+        "1model",
+        "model1",
+        "123",
+    ],
+    ids=[
+        "cammelCase",
+        "CammelCase",
+        "lowercase",
+        "snake_case",
+        "kebab-case",
+        "dot",
+        "number-middle",
+        "number-start",
+        "number-end",
+        "number",
+    ],
+)
+def test_registered_model_name_validation_allows_ok_names(client, name):
+    registered_model = client.create_registered_model(name)
+    assert isinstance(registered_model, RegisteredModel)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        123,
+        "my;model",
+        "my:model",
+        "my/model",
+        "my model",
+        "my?model",
+        "my$model",
+        "my&model",
+        "my+model",
+        "my,model",
+        "my=model",
+        "my@model",
+        'my"model"',
+        "my>model",
+        "my<model",
+        "model#1",
+        "model10%",
+        "",
+    ],
+    ids=[
+        "int",
+        "semicolon",
+        "colon",
+        "slash",
+        "space",
+        "question",
+        "dollar",
+        "and",
+        "plus",
+        "comma",
+        "equal",
+        "at",
+        "quote",
+        "gt",
+        "lt",
+        "pound",
+        "percent",
+        "empty",
+    ],
+)
+def test_registered_model_name_validation_fails_on_bad_names(client, name):
+    with pytest.raises(MlflowException, match="Invalid (name|type):|cannot be empty"):
+        client.create_registered_model(name)

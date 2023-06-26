@@ -33,6 +33,7 @@ from mlflow.utils.rest_utils import (
     extract_all_api_info_for_service,
     _REST_API_PATH_PREFIX,
 )
+from mlflow.utils.validation import _validate_model_name
 
 _METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(ModelRegistryService, _REST_API_PATH_PREFIX)
@@ -71,6 +72,7 @@ class RestStore(BaseRestStore):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created in the backend.
         """
+        _validate_model_name(name)
         proto_tags = [tag.to_proto() for tag in tags or []]
         req_body = message_to_json(
             CreateRegisteredModel(name=name, tags=proto_tags, description=description)
