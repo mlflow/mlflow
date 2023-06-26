@@ -17,7 +17,6 @@ from mlflow.tracking._tracking_service.utils import (
 from mlflow.utils.os import is_windows
 from tests.server.auth.auth_test_utils import create_user, User
 from tests.tracking.integration_test_utils import (
-    _terminate_server,
     _init_server,
     _send_rest_tracking_post_request,
 )
@@ -28,13 +27,12 @@ def client(tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-    url, process = _init_server(
+    with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
-    )
-    yield MlflowClient(url)
-    _terminate_server(process)
+    ) as url:
+        yield MlflowClient(url)
 
 
 def test_authenticate(client, monkeypatch):
