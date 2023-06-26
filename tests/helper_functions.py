@@ -105,7 +105,7 @@ def score_model_in_sagemaker_docker_container(
     )
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
@@ -125,10 +125,10 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
@@ -148,7 +148,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd)
+    p = subprocess.Popen(cmd, env=env)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 

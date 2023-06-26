@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 import warnings
+from pathlib import Path
 
 from click.testing import CliRunner
 import numpy as np
@@ -291,7 +292,7 @@ def test_predict(iris_data, sk_model):
                 "json",
                 *extra_options,
             ],
-            stdin=subprocess.PIPE,
+            input=Path(input_json_path).read_text(),
             stdout=subprocess.PIPE,
             env=env_with_tracking_uri(),
             text=True,
@@ -407,7 +408,12 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
         extra_args.append("--enable-mlserver")
 
     output_directory = tmp_path.joinpath("output_directory")
-    pyfunc_generate_dockerfile(output_directory, model_uri, extra_args=extra_args)
+    pyfunc_generate_dockerfile(
+        output_directory,
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     assert output_directory.is_dir()
     assert output_directory.joinpath("Dockerfile").exists()
     assert output_directory.joinpath("model_dir").is_dir()
@@ -433,7 +439,11 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
 
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
@@ -447,7 +457,11 @@ def test_build_docker_virtualenv(iris_data, sk_model):
     df = pd.DataFrame(iris_data[0])
 
     extra_args = ["--install-mlflow", "--env-manager", "virtualenv"]
-    image_name = pyfunc_build_image(model_info.model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_info.model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
@@ -470,7 +484,11 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     if enable_mlserver:
         extra_args.append("--enable-mlserver")
 
-    image_name = pyfunc_build_image(model_uri, extra_args=extra_args)
+    image_name = pyfunc_build_image(
+        model_uri,
+        extra_args=extra_args,
+        env=env_with_tracking_uri(),
+    )
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name, host_port, gunicorn_options
