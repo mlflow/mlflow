@@ -336,4 +336,4 @@ class _SentenceTransformerModelWrapper:
 
         # The encode API has additional parameters that we can add as kwargs.
         # See https://www.sbert.net/docs/package_reference/SentenceTransformer.html#sentence_transformers.SentenceTransformer.encode
-        return self.model.encode(sentences)  # numpy array
+        return self.model.encode(sentences, **params)  # numpy array

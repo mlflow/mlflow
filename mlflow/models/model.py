@@ -297,12 +297,12 @@ class Model:
         """
         return self.signature.outputs if self.signature is not None else None
 
-    def get_parameters_schema(self):
+    def get_params_schema(self):
         """
         Retrieves the parameters schema of the Model iff the model was saved with a schema
         definition.
         """
-        return self.signature.parameters if self.signature is not None else None
+        return self.signature.params if self.signature is not None else None
 
     def load_input_example(self, path: str):
         """

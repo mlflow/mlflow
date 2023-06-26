@@ -333,6 +333,7 @@ def test_spark_udf(basic_model, model_path, spark):
         spark,
         model_info.model_uri,
         result_type=result_type,
+        params={"batch_size": 16},
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])

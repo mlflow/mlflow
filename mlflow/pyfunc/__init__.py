@@ -420,8 +420,8 @@ class PyFuncModel:
             data = _enforce_schema(data, input_schema)
 
         if params is not None:
-            parameters_schema = self.metadata.get_parameters_schema()
-            params = _enforce_params_schema(params, parameters_schema)
+            params_schema = self.metadata.get_params_schema()
+            params = _enforce_params_schema(params, params_schema)
 
         if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
             from mlflow.openai.retry import openai_auto_retry_patch
@@ -841,7 +841,14 @@ def _create_model_downloading_tmp_dir(should_use_nfs):
 _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP = 200
 
 
-def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LOCAL):
+@experimental
+def spark_udf(
+    spark,
+    model_uri,
+    result_type="double",
+    env_manager=_EnvManager.LOCAL,
+    params: Optional[Dict[str, Any]] = None,
+):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -940,6 +947,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                          - ``local``: Use the current Python environment for model inference, which
                            may differ from the environment used to train the model and may lead to
                            errors or invalid predictions.
+
+    :param params: A dictionary of parameters that will be used for model inference.
 
     :return: Spark UDF that applies the model's ``predict`` method to the data and returns a
              type specified by ``result_type``, which by default is a double.
@@ -1062,6 +1071,10 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     model_metadata = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
 
+    params_schema = model_metadata.get_params_schema()
+    if params:
+        params = _enforce_params_schema(params, params_schema)
+
     def _predict_row_batch(predict_fn, args):
         input_schema = model_metadata.get_input_schema()
         pdf = None
@@ -1092,7 +1105,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                     )
             pdf = pandas.DataFrame(data={names[i]: x for i, x in enumerate(args)}, columns=names)
 
-        result = predict_fn(pdf)
+        result = predict_fn(pdf, params)
 
         if isinstance(result, dict):
             result = {k: list(v) for k, v in result.items()}
@@ -1278,8 +1291,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 err_msg += "".join(server_tail_logs)
                 raise MlflowException(err_msg) from e
 
-            def batch_predict_fn(pdf):
-                return client.invoke(pdf).get_predictions()
+            def batch_predict_fn(pdf, params=None):
+                return client.invoke(pdf, params).get_predictions()
 
         elif env_manager == _EnvManager.LOCAL:
             if should_use_spark_to_broadcast_file:
@@ -1287,8 +1300,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             else:
                 loaded_model = mlflow.pyfunc.load_model(local_model_path)
 
-            def batch_predict_fn(pdf):
-                return loaded_model.predict(pdf)
+            def batch_predict_fn(pdf, params=None):
+                return loaded_model.predict(pdf, params)
 
         try:
             for input_batch in iterator:
