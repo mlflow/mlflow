@@ -1125,9 +1125,9 @@ class DefaultEvaluator(ModelEvaluator):
                 output = None
                 if isinstance(intermediate_output, list):
                     output = intermediate_output[0]
-                if isinstance(intermediate_output, str):
+                elif isinstance(intermediate_output, str):
                     output = intermediate_output
-                if isinstance(intermediate_output, dict):
+                elif isinstance(intermediate_output, dict):
                     output = intermediate_output["answer"]
                 else:
                     _logger.error(
