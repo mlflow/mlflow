@@ -357,7 +357,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
 
 @pytest.mark.parametrize(
     "input_example",
-    ["string input example", bytes([1, 2, 3])],
+    ["some string", bytes([1, 2, 3])],
 )
 def test_infer_signature_on_single_column_input_examples(input_example):
     class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
@@ -378,13 +378,18 @@ def test_infer_signature_on_single_column_input_examples(input_example):
         model_uri = mlflow.get_artifact_uri(artifact_path)
 
     mlflow_model = Model.load(model_uri)
+    signature = mlflow_model.signature
+    assert isinstance(signature, ModelSignature)
+    assert signature.inputs.inputs[0].name == 0
     if isinstance(input_example, str):
-        mlflow_model.signature == ModelSignature(
-            inputs=Schema([ColSpec(name="0", type=DataType.string)]),
+        signature == ModelSignature(
+            inputs=Schema([ColSpec(name=0, type=DataType.string)]),
             outputs=Schema([ColSpec(type=DataType.string)]),
         )
     else:
-        mlflow_model.signature == ModelSignature(
-            inputs=Schema([ColSpec(name="0", type=DataType.binary)]),
+        signature == ModelSignature(
+            inputs=Schema([ColSpec(name=0, type=DataType.binary)]),
             outputs=Schema([ColSpec(type=DataType.binary)]),
         )
+    # test that a single string still passes pyfunc schema enforcement
+    mlflow.pyfunc.load_model(model_uri).predict(input_example)
