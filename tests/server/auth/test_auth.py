@@ -25,13 +25,16 @@ from tests.tracking.integration_test_utils import (
 
 @pytest.fixture
 def client(tmp_path):
-    path = tmp_path.joinpath("mlruns.sqlite").as_uri()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     url, process = _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
+        extra_env={
+            "MLFLOW_TRACKING_URI": backend_uri,
+        }
     )
     yield MlflowClient(url)
     _terminate_server(process)

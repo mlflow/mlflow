@@ -40,13 +40,16 @@ def client(tmp_path):
     if os.path.exists(db_file):
         os.remove(db_file)
 
-    path = tmp_path.joinpath("mlruns.sqlite").as_uri()
+    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     url, process = _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
+        extra_env={
+            "MLFLOW_TRACKING_URI": backend_uri,
+        }
     )
     yield AuthServiceClient(url)
     _terminate_server(process)
