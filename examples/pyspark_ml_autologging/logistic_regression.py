@@ -5,7 +5,7 @@ from sklearn.datasets import load_iris
 
 import mlflow
 
-with SparkSession.builder.getOrCreate():
+with SparkSession.builder.getOrCreate() as spark:
     df = load_iris(as_frame=True).frame.rename(columns={"target": "label"})
     df = spark.createDataFrame(df)
     df = VectorAssembler(inputCols=df.columns[:-1], outputCol="features").transform(df)
