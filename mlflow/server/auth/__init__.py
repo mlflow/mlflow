@@ -132,12 +132,14 @@ def is_unprotected_route(path: str) -> bool:
 
 
 def make_basic_auth_response() -> Response:
-    res = make_response()
-    res.status_code = 401
-    res.set_data(
+    res = make_response(
         "You are not authenticated. Please set the environment variables "
-        f"{_TRACKING_USERNAME_ENV_VAR} and {_TRACKING_PASSWORD_ENV_VAR}."
+        f"{_TRACKING_USERNAME_ENV_VAR} and {_TRACKING_PASSWORD_ENV_VAR} "
+        f"if you are using an API client, or see "
+        f"https://www.mlflow.org/docs/latest/auth/index.html#authenticating-to-mlflow "
+        f"on how to authenticate using other methods."
     )
+    res.status_code = 401
     res.headers["WWW-Authenticate"] = 'Basic realm="mlflow"'
     return res
 
