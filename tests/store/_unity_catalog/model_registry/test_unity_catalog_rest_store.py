@@ -454,7 +454,7 @@ def get_request_mock(
     temp_credentials,
     description=None,
     run_id=None,
-    tags=[],
+    tags=None,
 ):
     def request_mock(
         host_creds,
@@ -470,7 +470,7 @@ def get_request_mock(
         model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
             credentials=temp_credentials
         )
-        uc_tags = uc_model_version_tag_from_mlflow_tags(tags)
+        uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
         req_info_to_response = {
             (
                 _REGISTRY_HOST_CREDS.host,
@@ -535,12 +535,20 @@ def get_request_mock(
 
 
 def _assert_create_model_version_endpoints_called(
-    request_mock, name, source, version, run_id=None, description=None, extra_headers=None, tags=[]
+    request_mock,
+    name,
+    source,
+    version,
+    run_id=None,
+    description=None,
+    extra_headers=None,
+    tags=None,
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
     `request_mock`
     """
+    uc_tags = uc_model_version_tag_from_mlflow_tags(tags) if tags is not None else []
     for endpoint, proto_message in [
         (
             "model-versions/create",
@@ -550,7 +558,7 @@ def _assert_create_model_version_endpoints_called(
                 run_id=run_id,
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
-                tags=uc_model_version_tag_from_mlflow_tags(tags),
+                tags=uc_tags,
             ),
         ),
         (
