@@ -110,3 +110,6 @@ a.py
 
 # Pytest-monitor load testing DB file
 *.pymon
+
+# Ignore a gunicorn config file
+gunicorn.conf.py
