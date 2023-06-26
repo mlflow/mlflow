@@ -101,8 +101,8 @@ class ModelSignature:
         :param signature_dict: Dictionary representation of model signature.
                                Expected dictionary format:
                                `{'inputs': <json string>,
-                                 'outputs': <json string>,
-                                 'params': <json string>" }`
+                               'outputs': <json string>,
+                               'params': <json string>" }`
 
         :return: ModelSignature populated with the data form the dictionary.
         """
