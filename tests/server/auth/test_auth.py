@@ -34,7 +34,7 @@ def client(tmp_path):
         app="mlflow.server.auth:create_app",
         extra_env={
             "MLFLOW_TRACKING_URI": backend_uri,
-        }
+        },
     )
     yield MlflowClient(url)
     _terminate_server(process)
