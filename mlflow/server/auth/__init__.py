@@ -15,7 +15,7 @@ from typing import Callable
 
 from flask import Flask, request, make_response, Response, flash, render_template_string
 
-from mlflow import get_run, MlflowException
+from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.server import app
@@ -212,7 +212,7 @@ def _get_permission_from_run_id() -> Permission:
     # run permissions inherit from parent resource (experiment)
     # so we just get the experiment permission
     run_id = _get_request_param("run_id")
-    run = get_run(run_id)
+    run = _get_tracking_store().get_run(run_id)
     experiment_id = run.info.experiment_id
     username = request.authorization.username
     return _get_permission_from_store_or_default(
