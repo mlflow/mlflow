@@ -65,6 +65,7 @@ from mlflow.store._unity_catalog.registry.utils import (
     _ACTIVE_CATALOG_QUERY,
     _ACTIVE_SCHEMA_QUERY,
     uc_registered_model_tag_from_mlflow_tags,
+    uc_model_version_tag_from_mlflow_tags,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.utils.proto_json_utils import message_to_json
@@ -358,7 +359,7 @@ def test_set_registered_model_tag(mock_http, store):
     store.set_registered_model_tag(name=name, tag=tag)
     _verify_requests(
         mock_http,
-        "registered-models/tags",
+        "registered-models/set-tag",
         "POST",
         SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value),
     )
@@ -370,7 +371,7 @@ def test_delete_registered_model_tag(mock_http, store):
     store.delete_registered_model_tag(name=name, key="key")
     _verify_requests(
         mock_http,
-        "registered-models/tags",
+        "registered-models/delete-tag",
         "DELETE",
         DeleteRegisteredModelTagRequest(name=name, key="key"),
     )
@@ -446,7 +447,14 @@ def _get_workspace_id_for_run(run_id=None):
 
 
 def get_request_mock(
-    name, version, source, storage_location, temp_credentials, description=None, run_id=None
+    name,
+    version,
+    source,
+    storage_location,
+    temp_credentials,
+    description=None,
+    run_id=None,
+    tags=[],
 ):
     def request_mock(
         host_creds,
@@ -462,6 +470,7 @@ def get_request_mock(
         model_version_temp_credentials_response = GenerateTemporaryModelVersionCredentialsResponse(
             credentials=temp_credentials
         )
+        uc_tags = uc_model_version_tag_from_mlflow_tags(tags)
         req_info_to_response = {
             (
                 _REGISTRY_HOST_CREDS.host,
@@ -474,11 +483,12 @@ def get_request_mock(
                         description=description,
                         run_id=run_id,
                         run_tracking_server_id=run_workspace_id,
+                        tags=uc_tags,
                     )
                 ),
             ): CreateModelVersionResponse(
                 model_version=ProtoModelVersion(
-                    name=name, version=version, storage_location=storage_location
+                    name=name, version=version, storage_location=storage_location, tags=uc_tags
                 )
             ),
             (
@@ -525,7 +535,7 @@ def get_request_mock(
 
 
 def _assert_create_model_version_endpoints_called(
-    request_mock, name, source, version, run_id=None, description=None, extra_headers=None
+    request_mock, name, source, version, run_id=None, description=None, extra_headers=None, tags=[]
 ):
     """
     Asserts that endpoints related to the model version creation flow were called on the provided
@@ -540,6 +550,7 @@ def _assert_create_model_version_endpoints_called(
                 run_id=run_id,
                 description=description,
                 run_tracking_server_id=_get_workspace_id_for_run(run_id),
+                tags=uc_model_version_tag_from_mlflow_tags(tags),
             ),
         ),
         (
@@ -585,7 +596,10 @@ def test_create_model_version_aws(store, local_model_dir):
     source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
-    # TODO: add tags here
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
     mock_artifact_repo = mock.MagicMock(autospec=S3ArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
@@ -595,12 +609,13 @@ def test_create_model_version_aws(store, local_model_dir):
             temp_credentials=aws_temp_creds,
             storage_location=storage_location,
             source=source,
+            tags=tags,
         ),
     ) as request_mock, mock.patch(
         "mlflow.store.artifact.s3_artifact_repo.S3ArtifactRepository",
         return_value=mock_artifact_repo,
     ) as s3_artifact_repo_class_mock:
-        store.create_model_version(name=model_name, source=source)
+        store.create_model_version(name=model_name, source=source, tags=tags)
         # Verify that s3 artifact repo mock was called with expected args
         s3_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location,
@@ -610,7 +625,7 @@ def test_create_model_version_aws(store, local_model_dir):
         )
         mock_artifact_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, name=model_name, source=source, version=version
+            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )
 
 
@@ -623,7 +638,10 @@ def test_create_model_version_azure(store, local_model_dir):
     source = str(local_model_dir)
     model_name = "model_1"
     version = "1"
-    # TODO: add tags here
+    tags = [
+        ModelVersionTag(key="key", value="value"),
+        ModelVersionTag(key="anotherKey", value="some other value"),
+    ]
     mock_adls_repo = mock.MagicMock(autospec=AzureDataLakeArtifactRepository)
     with mock.patch(
         "mlflow.utils.rest_utils.http_request",
@@ -633,12 +651,13 @@ def test_create_model_version_azure(store, local_model_dir):
             temp_credentials=temporary_creds,
             storage_location=storage_location,
             source=source,
+            tags=tags,
         ),
     ) as request_mock, mock.patch(
         "mlflow.store.artifact.azure_data_lake_artifact_repo.AzureDataLakeArtifactRepository",
         return_value=mock_adls_repo,
     ) as adls_artifact_repo_class_mock:
-        store.create_model_version(name=model_name, source=source)
+        store.create_model_version(name=model_name, source=source, tags=tags)
         adls_artifact_repo_class_mock.assert_called_once_with(
             artifact_uri=storage_location, credential=ANY
         )
@@ -647,7 +666,7 @@ def test_create_model_version_azure(store, local_model_dir):
         assert credential.signature == fake_sas_token
         mock_adls_repo.log_artifacts.assert_called_once_with(local_dir=ANY, artifact_path="")
         _assert_create_model_version_endpoints_called(
-            request_mock=request_mock, name=model_name, source=source, version=version
+            request_mock=request_mock, name=model_name, source=source, version=version, tags=tags
         )
 
 
@@ -671,11 +690,14 @@ def test_create_model_version_gcp(store, local_model_dir, create_args):
         "source": source,
         "description": "my_description",
         "run_id": "some_run_id",
+        "tags": [
+            ModelVersionTag(key="key", value="value"),
+            ModelVersionTag(key="anotherKey", value="some other value"),
+        ],
     }
     create_kwargs = {key: value for key, value in all_create_args.items() if key in create_args}
     mock_gcs_repo = mock.MagicMock(autospec=GCSArtifactRepository)
     version = "1"
-    # TODO: add tags here
     mock_request_fn = get_request_mock(
         **create_kwargs,
         version=version,
@@ -849,7 +871,7 @@ def test_set_model_version_tag(mock_http, store):
     store.set_model_version_tag(name=name, version="1", tag=tag)
     _verify_requests(
         mock_http,
-        "model-versions/tags",
+        "model-versions/set-tag",
         "POST",
         SetModelVersionTagRequest(name=name, version="1", key=tag.key, value=tag.value),
     )
@@ -861,7 +883,7 @@ def test_delete_model_version_tag(mock_http, store):
     store.delete_model_version_tag(name=name, version="1", key="key")
     _verify_requests(
         mock_http,
-        "model-versions/tags",
+        "model-versions/delete-tag",
         "DELETE",
         DeleteModelVersionTagRequest(name=name, version="1", key="key"),
     )

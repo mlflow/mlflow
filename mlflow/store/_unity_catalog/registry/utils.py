@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -60,7 +60,7 @@ def registered_model_from_uc_proto(uc_proto: ProtoRegisteredModel) -> Registered
 
 
 def uc_registered_model_tag_from_mlflow_tags(
-    tags: List[RegisteredModelTag],
+    tags: Optional[List[RegisteredModelTag]],
 ) -> List[ProtoRegisteredModelTag]:
     if tags is None:
         return []
@@ -68,7 +68,7 @@ def uc_registered_model_tag_from_mlflow_tags(
 
 
 def uc_model_version_tag_from_mlflow_tags(
-    tags: List[ModelVersionTag],
+    tags: Optional[List[ModelVersionTag]],
 ) -> List[ProtoModelVersionTag]:
     if tags is None:
         return []
