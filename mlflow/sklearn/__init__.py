@@ -24,12 +24,17 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.data.code_dataset_source import CodeDatasetSource
+from mlflow.data.numpy_dataset import from_numpy
+from mlflow.data.pandas_dataset import from_pandas
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
 from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.models.signature import _infer_signature_from_input_example
+from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import _inspect_original_var_name
@@ -49,7 +54,10 @@ from mlflow.utils import gorilla
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.file_utils import write_to
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
-from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_AUTOLOGGING,
+    MLFLOW_DATASET_CONTEXT,
+)
 from mlflow.utils.model_utils import (
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
@@ -177,25 +185,8 @@ def save_model(
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param pyfunc_predict_fn: The name of the prediction function to use for inference with the
@@ -249,6 +240,11 @@ def save_model(
 
     _validate_and_prepare_target_save_path(path)
     code_path_subdir = _validate_and_copy_code_paths(code_paths, path)
+
+    if signature is None and input_example is not None:
+        signature = _infer_signature_from_input_example(input_example, sk_model)
+    elif signature is False:
+        signature = None
 
     if mlflow_model is None:
         mlflow_model = Model()
@@ -368,25 +364,8 @@ def log_model(
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -406,7 +385,7 @@ def log_model(
 
         import mlflow
         import mlflow.sklearn
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
         from sklearn.datasets import load_iris
         from sklearn import tree
 
@@ -950,6 +929,7 @@ def autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1189,6 +1169,8 @@ def autolog(
                        If ``False``, trained models are not logged.
                        Input examples and model signatures, which are attributes of MLflow models,
                        are also omitted when ``log_models`` is ``False``.
+    :param log_datasets: If ``True``, train and validation dataset information is logged to MLflow
+                         Tracking if applicable. If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the scikit-learn autologging integration. If ``False``,
                     enables the scikit-learn autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1230,6 +1212,7 @@ def autolog(
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
         log_models=log_models,
+        log_datasets=log_datasets,
         disable=disable,
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
@@ -1246,6 +1229,7 @@ def _autolog(
     log_input_examples=False,
     log_model_signatures=True,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -1367,7 +1351,7 @@ def _autolog(
         # attempt to infer input examples on data that was mutated during training
         (X, y_true, sample_weight) = _get_X_y_and_sample_weight(self.fit, args, kwargs)
         autologging_client = MlflowAutologgingQueueingClient()
-        _log_pretraining_metadata(autologging_client, self, *args, **kwargs)
+        _log_pretraining_metadata(autologging_client, self, X, y_true)
         params_logging_future = autologging_client.flush(synchronous=False)
         fit_output = original(self, *args, **kwargs)
         _log_posttraining_metadata(autologging_client, self, X, y_true, sample_weight)
@@ -1376,7 +1360,7 @@ def _autolog(
         return fit_output
 
     def _log_pretraining_metadata(
-        autologging_client, estimator, *args, **kwargs
+        autologging_client, estimator, X, y
     ):  # pylint: disable=unused-argument
         """
         Records metadata (e.g., params and tags) for a scikit-learn estimator prior to training.
@@ -1387,9 +1371,6 @@ def _autolog(
         :param autologging_client: An instance of `MlflowAutologgingQueueingClient` used for
                                    efficiently logging run data to MLflow Tracking.
         :param estimator: The scikit-learn estimator for which to log metadata.
-        :param args: The arguments passed to the scikit-learn training routine (e.g.,
-                     `fit()`, `fit_transform()`, ...).
-        :param kwargs: The keyword arguments passed to the scikit-learn training routine.
         """
         # Deep parameter logging includes parameters from children of a given
         # estimator. For some meta estimators (e.g., pipelines), recording
@@ -1407,6 +1388,24 @@ def _autolog(
             run_id=run_id,
             tags=_get_estimator_info_tags(estimator),
         )
+
+        if log_datasets:
+            try:
+                context_tags = context_registry.resolve_tags()
+                source = CodeDatasetSource(context_tags)
+
+                dataset = _create_dataset(X, source, y)
+                if dataset:
+                    tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+                    dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                    autologging_client.log_inputs(
+                        run_id=mlflow.active_run().info.run_id, datasets=[dataset_input]
+                    )
+            except Exception as e:
+                _logger.warning(
+                    "Failed to log training dataset information to MLflow Tracking. Reason: %s", e
+                )
 
     def _log_posttraining_metadata(autologging_client, estimator, X, y, sample_weight):
         """
@@ -1616,6 +1615,27 @@ def _autolog(
             _AUTOLOGGING_METRICS_MANAGER.register_prediction_result(
                 run_id, eval_dataset_name, predict_result
             )
+            if log_datasets:
+                try:
+                    context_tags = context_registry.resolve_tags()
+                    source = CodeDatasetSource(context_tags)
+
+                    dataset = _create_dataset(eval_dataset, source)
+
+                    # log the dataset
+                    if dataset:
+                        tags = [InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+                        dataset_input = DatasetInput(dataset=dataset._to_mlflow_entity(), tags=tags)
+
+                        # log the dataset
+                        client = mlflow.MlflowClient()
+                        client.log_inputs(run_id=run_id, datasets=[dataset_input])
+                except Exception as e:
+                    _logger.warning(
+                        "Failed to log evaluation dataset information to "
+                        "MLflow Tracking. Reason: %s",
+                        e,
+                    )
             return predict_result
         else:
             return original(self, *args, **kwargs)
@@ -1807,3 +1827,28 @@ def _autolog(
             patched_fn_with_autolog_disabled,
             manage_run=False,
         )
+
+    def _create_dataset(X, source, y=None, dataset_name=None):
+        # create a dataset
+        from scipy.sparse import issparse
+
+        if isinstance(X, pd.DataFrame):
+            dataset = from_pandas(df=X, source=source)
+        elif issparse(X):
+            arr_X = X.toarray()
+            if y is not None:
+                arr_y = y.toarray()
+                dataset = from_numpy(
+                    features=arr_X, targets=arr_y, source=source, name=dataset_name
+                )
+            else:
+                dataset = from_numpy(features=arr_X, source=source, name=dataset_name)
+        elif isinstance(X, np.ndarray):
+            if y is not None:
+                dataset = from_numpy(features=X, targets=y, source=source, name=dataset_name)
+            else:
+                dataset = from_numpy(features=X, source=source, name=dataset_name)
+        else:
+            _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(X))
+            return None
+        return dataset

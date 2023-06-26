@@ -1,0 +1,23 @@
+// This proto file defines internal interfaces for MLflow, e.g
+// enums used for storage in Tracking or Model Registry
+
+syntax = "proto2";
+
+package mlflow.internal;
+
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.internal.proto";
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+
+// Types of vertices represented in MLflow Run Inputs. Valid vertices are MLflow objects that can
+// have an input relationship.
+enum InputVertexType {
+  RUN = 1;
+
+  DATASET = 2;
+}

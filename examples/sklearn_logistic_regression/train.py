@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 import mlflow.sklearn
 
 if __name__ == "__main__":

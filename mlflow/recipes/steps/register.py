@@ -16,9 +16,12 @@ from mlflow.recipes.utils.tracking import (
     apply_recipe_tracking_config,
     TrackingConfig,
 )
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.databricks_utils import get_databricks_model_version_url, get_databricks_run_url
+from mlflow.utils.databricks_utils import (
+    get_databricks_env_vars,
+    get_databricks_model_version_url,
+    get_databricks_run_url,
+)
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_RECIPE_TEMPLATE_NAME
 
 _logger = logging.getLogger(__name__)

@@ -24,7 +24,6 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
 )
-from mlflow.store.db.base_sql_model import Base
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.abstract_store import AbstractStore
 from mlflow.store.model_registry.dbmodels.models import (
@@ -95,7 +94,6 @@ class SqlAlchemyStore(AbstractStore):
             mlflow.store.db.utils._initialize_tables(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
-        Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
             SessionMaker, self.db_type
@@ -1046,7 +1044,7 @@ class SqlAlchemyStore(AbstractStore):
 
     @classmethod
     def _get_registered_model_alias(cls, session, name, alias):
-        alias = (
+        return (
             session.query(SqlRegisteredModelAlias)
             .filter(
                 SqlRegisteredModelAlias.name == name,
@@ -1054,7 +1052,6 @@ class SqlAlchemyStore(AbstractStore):
             )
             .first()
         )
-        return alias
 
     def set_registered_model_alias(self, name, alias, version):
         """

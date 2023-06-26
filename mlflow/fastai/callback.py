@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import shutil
 import tempfile
 from functools import partial
 import matplotlib.pyplot as plt
@@ -103,14 +102,11 @@ class __MlflowFastaiCallback(Callback, metaclass=ExceptionSafeClass):
                     plt.plot(values)
                     plt.ylabel(param)
 
-                    tempdir = tempfile.mkdtemp()
-                    try:
+                    with tempfile.TemporaryDirectory() as tempdir:
                         scheds_file = os.path.join(tempdir, self.freeze_prefix + param + ".png")
                         plt.savefig(scheds_file)
                         plt.close(fig)
                         mlflow.log_artifact(local_path=scheds_file)
-                    finally:
-                        shutil.rmtree(tempdir)
                 break
 
         for param in self.opt.hypers[0]:

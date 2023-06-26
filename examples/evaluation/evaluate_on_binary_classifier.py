@@ -1,7 +1,7 @@
 import xgboost
 import shap
 import mlflow
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 from sklearn.model_selection import train_test_split
 
 # Load the UCI Adult Dataset

@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+import sys
 
 from mlflow.models import FlavorBackend
 from mlflow.utils.string_utils import quote
@@ -101,7 +102,6 @@ class RFuncBackend(FlavorBackend):
 
 def _execute(command):
     env = os.environ.copy()
-    import sys
 
     process = subprocess.Popen(
         ["Rscript", "-e", command],

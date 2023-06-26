@@ -59,7 +59,7 @@ export interface DropdownButtonProps extends ButtonGroupProps, DropdownProps {
     href?: string;
     children?: React.ReactNode;
     title?: string;
-    buttonsRender?: (buttons: React.ReactNode[]) => React.ReactNode[];
+    buttonsRender?: (buttons: [React.ReactNode, React.ReactNode]) => [React.ReactNode, React.ReactNode];
     menuButtonLabel?: string;
     menu?: React.ReactElement;
     dropdownMenuRootProps?: DropdownMenuProps;

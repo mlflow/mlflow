@@ -44,7 +44,7 @@ def register_model(
         :caption: Example
 
         import mlflow.sklearn
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
         from sklearn.datasets import make_regression
         from sklearn.ensemble import RandomForestRegressor
 

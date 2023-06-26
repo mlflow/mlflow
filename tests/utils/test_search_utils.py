@@ -3,8 +3,22 @@ import json
 import pytest
 import re
 
-from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
+from mlflow.entities import (
+    RunInfo,
+    RunData,
+    RunInputs,
+    Dataset,
+    Run,
+    LifecycleStage,
+    RunStatus,
+    Metric,
+    Param,
+    RunTag,
+    DatasetInput,
+    InputTag,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.utils.mlflow_tags import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.search_utils import SearchUtils
 
 
@@ -88,6 +102,10 @@ from mlflow.utils.search_utils import SearchUtils
             "run.status = 'RUNNING'",
             [{"type": "attribute", "comparator": "=", "key": "status", "value": "RUNNING"}],
         ),
+        (
+            "dataset.name = 'my_dataset'",
+            [{"type": "dataset", "comparator": "=", "key": "name", "value": "my_dataset"}],
+        ),
     ],
 )
 def test_filter(filter_string, parsed_filter):
@@ -134,6 +152,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.time != 1", "Invalid attribute key"),
         ("attribute._status != 'RUNNING'", "Invalid attribute key"),
         ("attribute.status = true", "Invalid clause(s) in filter string"),
+        ("dataset.status = 'true'", "Invalid dataset key"),
+        ("dataset.profile = 'num_rows: 10'", "Invalid dataset key"),
     ],
 )
 def test_error_filter(filter_string, error_message):
@@ -203,6 +223,7 @@ def test_invalid_clauses(filter_string, error_message):
         ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
         ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
         ("attributes", ["LIKE", "ILIKE"], "start_time", 1234),
+        ("datasets", [">", "<", ">=", "<=", "~"], "name", "'my-dataset-name'"),
     ],
 )
 def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
@@ -238,6 +259,12 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("tags.tag1 = 'D'", [2]),
         ("tags.tag1 != 'D'", [1]),
         ("params.my_param = 'A' AND attributes.status = 'FAILED'", [0]),
+        ("datasets.name = 'name1'", [0, 1]),
+        ("datasets.name IN ('name1', 'name2')", [0, 1, 2]),
+        ("datasets.digest IN ('digest1', 'digest2')", [0, 1, 2]),
+        ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
+        ("datasets.context = 'train'", [0]),
+        ("datasets.name = 'name1' AND datasets.context = 'train'", [0]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):
@@ -256,6 +283,19 @@ def test_correct_filtering(filter_string, matching_runs):
             run_data=RunData(
                 metrics=[Metric("key1", 121, 1, 0)], params=[Param("my_param", "A")], tags=[]
             ),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="name1",
+                            digest="digest1",
+                            source_type="my_source_type",
+                            source="source",
+                        ),
+                        tags=[InputTag(MLFLOW_DATASET_CONTEXT, "train")],
+                    )
+                ]
+            ),
         ),
         Run(
             run_info=RunInfo(
@@ -273,6 +313,19 @@ def test_correct_filtering(filter_string, matching_runs):
                 params=[Param("my_param", "A")],
                 tags=[RunTag("tag1", "C")],
             ),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="name1",
+                            digest="digest1",
+                            source_type="my_source_type",
+                            source="source",
+                        ),
+                        tags=[],
+                    )
+                ]
+            ),
         ),
         Run(
             run_info=RunInfo(
@@ -289,6 +342,19 @@ def test_correct_filtering(filter_string, matching_runs):
                 metrics=[Metric("key1", 125, 1, 0)],
                 params=[Param("my_param", "B")],
                 tags=[RunTag("tag1", "D")],
+            ),
+            run_inputs=RunInputs(
+                dataset_inputs=[
+                    DatasetInput(
+                        dataset=Dataset(
+                            name="name2",
+                            digest="digest2",
+                            source_type="my_source_type",
+                            source="source",
+                        ),
+                        tags=[],
+                    )
+                ]
             ),
         ),
     ]

@@ -8,7 +8,7 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
 import mlflow.pytorch
-from mlflow.models.signature import infer_signature
+from mlflow.models import infer_signature
 
 
 class IrisClassifier(nn.Module):

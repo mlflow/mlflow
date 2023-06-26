@@ -14,6 +14,9 @@ from mlflow.entities import (
     ExperimentTag,
     Experiment,
     LifecycleStage,
+    DatasetInput,
+    Dataset,
+    InputTag,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -34,6 +37,7 @@ from mlflow.protos.service_pb2 import (
     GetExperimentByName,
     SearchExperiments,
     LogModel,
+    LogInputs,
 )
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking.rest_store import RestStore
@@ -243,6 +247,16 @@ class TestRestStore:
                 LogBatch(run_id="u2", metrics=metric_protos, params=param_protos, tags=tag_protos)
             )
             self._verify_requests(mock_http, creds, "runs/log-batch", "POST", body)
+
+        with mock_http_request() as mock_http:
+            dataset = Dataset(name="name", digest="digest", source_type="st", source="source")
+            tag = InputTag(key="k1", value="v1")
+            dataset_input = DatasetInput(dataset=dataset, tags=[tag])
+            store.log_inputs("some_uuid", [dataset_input])
+            body = message_to_json(
+                LogInputs(run_id="some_uuid", datasets=[dataset_input.to_proto()])
+            )
+            self._verify_requests(mock_http, creds, "runs/log-inputs", "POST", body)
 
         with mock_http_request() as mock_http:
             store.delete_run("u25")

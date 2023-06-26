@@ -1,0 +1,146 @@
+# DO NO IMPORT MLFLOW IN THIS FILE.
+# This file is imported by download_cloud_file_chunk.py.
+# Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
+import requests
+import urllib3
+
+from packaging.version import Version
+from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
+from urllib3.util import Retry
+
+# Response codes that generally indicate transient network failures and merit client retries,
+# based on guidance from cloud service providers
+# (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
+_TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
+    [
+        408,  # Request Timeout
+        429,  # Too Many Requests
+        500,  # Internal Server Error
+        502,  # Bad Gateway
+        503,  # Service Unavailable
+        504,  # Gateway Timeout
+    ]
+)
+
+
+def augmented_raise_for_status(response):
+    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
+    try:
+        response.raise_for_status()
+    except HTTPError as e:
+        if response.text:
+            raise HTTPError(
+                f"{e}. Response text: {response.text}", request=e.request, response=e.response
+            )
+        else:
+            raise e
+
+
+def download_chunk(range_start, range_end, headers, download_path, http_uri):
+    combined_headers = {**headers, "Range": f"bytes={range_start}-{range_end}"}
+
+    with cloud_storage_http_request(
+        "get", http_uri, stream=False, headers=combined_headers
+    ) as response:
+        # File will have been created upstream. Use r+b to ensure chunks
+        # don't overwrite the entire file.
+        augmented_raise_for_status(response)
+        with open(download_path, "r+b") as f:
+            f.seek(range_start)
+            f.write(response.content)
+
+
+def _get_request_session(max_retries, backoff_factor, retry_codes):
+    """
+    Returns a `Requests.Session` object for making an HTTP request.
+
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :return: requests.Session object.
+    """
+    assert 0 <= max_retries < 10
+    assert 0 <= backoff_factor < 120
+
+    retry_kwargs = {
+        "total": max_retries,
+        "connect": max_retries,
+        "read": max_retries,
+        "redirect": max_retries,
+        "status": max_retries,
+        "status_forcelist": retry_codes,
+        "backoff_factor": backoff_factor,
+    }
+    if Version(urllib3.__version__) >= Version("1.26.0"):
+        retry_kwargs["allowed_methods"] = None
+    else:
+        retry_kwargs["method_whitelist"] = None
+
+    retry = Retry(**retry_kwargs)
+    adapter = HTTPAdapter(max_retries=retry)
+    session = requests.Session()
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def _get_http_response_with_retries(
+    method, url, max_retries, backoff_factor, retry_codes, **kwargs
+):
+    """
+    Performs an HTTP request using Python's `requests` module with an automatic retry policy.
+
+    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
+    :param url: the target URL address for the HTTP request.
+    :param max_retries: Maximum total number of retries.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+
+    :return: requests.Response object.
+    """
+    session = _get_request_session(max_retries, backoff_factor, retry_codes)
+    return session.request(method, url, **kwargs)
+
+
+def cloud_storage_http_request(
+    method,
+    url,
+    max_retries=5,
+    backoff_factor=2,
+    retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
+    timeout=None,
+    **kwargs,
+):
+    """
+    Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
+
+    :param method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH
+    :param url: the target URL address for the HTTP request.
+    :param max_retries: maximum number of retries before throwing an exception.
+    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
+      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
+      exponential backoff.
+    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
+    :param timeout: wait for timeout seconds for response from remote server for connect and
+      read request. Default to None owing to long duration operation in read / write.
+    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
+
+    :return requests.Response object.
+    """
+    if method.lower() not in ("put", "get", "patch", "delete"):
+        raise ValueError("Illegal http method: " + method)
+    return _get_http_response_with_retries(
+        method,
+        url,
+        max_retries,
+        backoff_factor,
+        retry_codes,
+        timeout=timeout,
+        **kwargs,
+    )

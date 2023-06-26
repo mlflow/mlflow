@@ -25,15 +25,16 @@ import re
 import shutil
 import yaml
 from packaging.version import Version
+import pandas as pd
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
+from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -166,26 +167,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -642,25 +625,8 @@ def save_model(
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -682,6 +648,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
@@ -689,6 +656,23 @@ def save_model(
         mlflow_model = Model()
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    if signature is None and input_example is not None:
+        try:
+            spark = _get_active_spark_session()
+            if spark is not None:
+                wrapped_model = _PyFuncModelWrapper(spark, spark_model)
+                # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
+                # returns predictions as a list, which the `infer_signature` API does not support
+                # (unless it is a list of strings).
+                prediction = pd.Series(wrapped_model.predict(input_example))
+                signature = infer_signature(input_example, prediction)
+        except Exception as e:
+            _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
+            _logger.debug("", exc_info=True)
+    elif signature is False:
+        signature = None
+
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
@@ -999,9 +983,11 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
-    from mlflow._spark_autologging import _listen_for_spark_activity
+    from mlflow._spark_autologging import (
+        _listen_for_spark_activity,
+        _stop_listen_for_spark_activity,
+    )
     from pyspark.sql import SparkSession
-    from pyspark import SparkContext
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
@@ -1010,9 +996,18 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
 
     safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
 
+    def patched_session_stop(original, self, *args, **kwargs):
+        _stop_listen_for_spark_activity(self.sparkContext)
+        original(self, *args, **kwargs)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "stop", patched_session_stop, manage_run=False)
+
     active_session = _get_active_spark_session()
     if active_session is not None:
         # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
+        sc = active_session.sparkContext
 
-        _listen_for_spark_activity(sc)
+        if disable:
+            _stop_listen_for_spark_activity(sc)
+        else:
+            _listen_for_spark_activity(sc)

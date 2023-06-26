@@ -1,5 +1,12 @@
+/**
+ * NOTE: this code file was automatically migrated to TypeScript using ts-migrate and
+ * may contain multiple `any` type annotations and `@ts-expect-error` directives.
+ * If possible, please improve types while making changes to this file. If the type
+ * annotations are already looking good, please remove this comment.
+ */
+
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavigateFunction } from 'react-router-dom-v5-compat';
 import { modelListPageRoute, getModelPageRoute } from '../routes';
 import { SchemaTable } from './SchemaTable';
 import Utils from '../../common/utils/Utils';
@@ -39,7 +46,7 @@ type ModelVersionViewImplProps = {
   handleStageTransitionDropdownSelect: (...args: any[]) => any;
   deleteModelVersionApi: (...args: any[]) => any;
   handleEditDescription: (...args: any[]) => any;
-  history: any;
+  navigate: NavigateFunction;
   tags: any;
   setModelVersionTagApi: (...args: any[]) => any;
   deleteModelVersionTagApi: (...args: any[]) => any;
@@ -69,13 +76,13 @@ export class ModelVersionViewImpl extends React.Component<
   }
 
   handleDeleteConfirm = () => {
-    const { modelName, modelVersion, history } = this.props;
+    const { modelName, modelVersion, navigate } = this.props;
     const { version } = modelVersion;
     this.showConfirmLoading();
     this.props
       .deleteModelVersionApi(modelName, version)
       .then(() => {
-        history.push(getModelPageRoute(modelName));
+        navigate(getModelPageRoute(modelName));
       })
       .catch((e: any) => {
         this.hideConfirmLoading();

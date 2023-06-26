@@ -23,7 +23,9 @@ from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_IN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MYSQL, MSSQL, SQLITE, POSTGRES
-
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATASET_CONTEXT,
+)
 import math
 
 
@@ -113,12 +115,14 @@ class SearchUtils:
     VALID_TAG_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR}
     VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     VALID_NUMERIC_ATTRIBUTE_COMPARATORS = VALID_METRIC_COMPARATORS
+    VALID_DATASET_COMPARATORS = {"!=", "=", LIKE_OPERATOR, ILIKE_OPERATOR, "IN", "NOT IN"}
     _BUILTIN_NUMERIC_ATTRIBUTES = {"start_time", "end_time"}
     _ALTERNATE_NUMERIC_ATTRIBUTES = {"created", "Created"}
     _ALTERNATE_STRING_ATTRIBUTES = {"run name", "Run name", "Run Name"}
     NUMERIC_ATTRIBUTES = set(
         list(_BUILTIN_NUMERIC_ATTRIBUTES) + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
     )
+    DATASET_ATTRIBUTES = {"name", "digest", "context"}
     VALID_SEARCH_ATTRIBUTE_KEYS = set(
         RunInfo.get_searchable_attributes()
         + list(_ALTERNATE_NUMERIC_ATTRIBUTES)
@@ -135,13 +139,22 @@ class SearchUtils:
     _ALTERNATE_TAG_IDENTIFIERS = {"tags"}
     _ATTRIBUTE_IDENTIFIER = "attribute"
     _ALTERNATE_ATTRIBUTE_IDENTIFIERS = {"attr", "attributes", "run"}
-    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
+    _DATASET_IDENTIFIER = "dataset"
+    _ALTERNATE_DATASET_IDENTIFIERS = {"datasets"}
+    _IDENTIFIERS = [
+        _METRIC_IDENTIFIER,
+        _PARAM_IDENTIFIER,
+        _TAG_IDENTIFIER,
+        _ATTRIBUTE_IDENTIFIER,
+        _DATASET_IDENTIFIER,
+    ]
     _VALID_IDENTIFIERS = set(
         _IDENTIFIERS
         + list(_ALTERNATE_METRIC_IDENTIFIERS)
         + list(_ALTERNATE_PARAM_IDENTIFIERS)
         + list(_ALTERNATE_TAG_IDENTIFIERS)
         + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS)
+        + list(_ALTERNATE_DATASET_IDENTIFIERS)
     )
     STRING_VALUE_TYPES = {TokenType.Literal.String.Single}
     DELIMITER_VALUE_TYPES = {TokenType.Punctuation}
@@ -284,6 +297,8 @@ class SearchUtils:
             return cls._TAG_IDENTIFIER
         elif entity_type in cls._ALTERNATE_ATTRIBUTE_IDENTIFIERS:
             return cls._ATTRIBUTE_IDENTIFIER
+        elif entity_type in cls._ALTERNATE_DATASET_IDENTIFIERS:
+            return cls._DATASET_IDENTIFIER
         else:
             # one of ("metric", "parameter", "tag", or "attribute") since it a valid type
             return entity_type
@@ -300,7 +315,7 @@ class SearchUtils:
         except ValueError:
             raise MlflowException(
                 "Invalid identifier '%s'. Columns should be specified as "
-                "'attribute.<key>', 'metric.<key>', 'tag.<key>', or "
+                "'attribute.<key>', 'metric.<key>', 'tag.<key>', 'dataset.<key>', or "
                 "'param.'." % identifier,
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -309,6 +324,10 @@ class SearchUtils:
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid attribute key '{key}' specified. Valid keys are '{valid_attributes}'"
+            )
+        elif identifier == cls._DATASET_IDENTIFIER and key not in cls.DATASET_ATTRIBUTES:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid dataset key '{key}' specified. Valid keys are '{cls.DATASET_ATTRIBUTES}'"
             )
         return {"type": identifier, "key": key}
 
@@ -352,6 +371,25 @@ class SearchUtils:
             else:
                 raise MlflowException(
                     "Expected a quoted string value for attributes. "
+                    "Got value {value}".format(value=token.value),
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+        elif identifier_type == cls._DATASET_IDENTIFIER:
+            if key in cls.DATASET_ATTRIBUTES and (
+                token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier)
+            ):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
+            elif isinstance(token, Parenthesis):
+                if key not in ("name", "digest", "context"):
+                    raise MlflowException(
+                        "Only the dataset 'name' and 'digest' supports comparison with a list of "
+                        "quoted string values.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+                return cls._parse_run_ids(token)
+            else:
+                raise MlflowException(
+                    "Expected a quoted string value for dataset attributes. "
                     "Got value {value}".format(value=token.value),
                     error_code=INVALID_PARAMETER_VALUE,
                 )
@@ -503,6 +541,17 @@ class SearchUtils:
         return False
 
     @classmethod
+    def is_dataset(cls, key_type, comparator):
+        if key_type == cls._DATASET_IDENTIFIER:
+            if comparator not in cls.VALID_DATASET_COMPARATORS:
+                raise MlflowException(
+                    "Invalid comparator '%s' "
+                    "not one of '%s" % (comparator, cls.VALID_DATASET_COMPARATORS)
+                )
+            return True
+        return False
+
+    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -523,6 +572,21 @@ class SearchUtils:
         elif cls.is_numeric_attribute(key_type, key, comparator):
             lhs = getattr(run.info, key)
             value = int(value)
+        elif cls.is_dataset(key_type, comparator):
+            if key == "context":
+                return any(
+                    SearchUtils.get_comparison_func(comparator)(tag.value if tag else None, value)
+                    for dataset_input in run.inputs.dataset_inputs
+                    for tag in dataset_input.tags
+                    if tag.key == MLFLOW_DATASET_CONTEXT
+                )
+            else:
+                return any(
+                    SearchUtils.get_comparison_func(comparator)(
+                        getattr(dataset_input.dataset, key), value
+                    )
+                    for dataset_input in run.inputs.dataset_inputs
+                )
         else:
             raise MlflowException(
                 "Invalid search expression type '%s'" % key_type, error_code=INVALID_PARAMETER_VALUE

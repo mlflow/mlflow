@@ -13,7 +13,7 @@ from tests.helper_functions import LOCALHOST, get_safe_port
 _logger = logging.getLogger(__name__)
 
 
-def _await_server_up_or_die(port, timeout=20):
+def _await_server_up_or_die(port, timeout=30):
     """Waits until the local flask server is listening on the given port."""
     _logger.info(f"Awaiting server to be up on {LOCALHOST}:{port}")
     start_time = time.time()
@@ -38,7 +38,7 @@ def _terminate_server(process, timeout=10):
     process.wait(timeout=timeout)
 
 
-def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlflow.server"):
+def _init_server(backend_uri, root_artifact_uri, extra_env=None, app="mlflow.server:app"):
     """
     Launch a new REST server using the tracking store specified by backend_uri and root artifact
     directory specified by root_artifact_uri.
@@ -50,8 +50,15 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlf
     process = Popen(
         [
             sys.executable,
-            "-c",
-            f'from {app_module} import app; app.run("{LOCALHOST}", {server_port})',
+            "-m",
+            "flask",
+            "--app",
+            app,
+            "run",
+            "--host",
+            LOCALHOST,
+            "--port",
+            str(server_port),
         ],
         env={
             **os.environ,
@@ -67,7 +74,7 @@ def _init_server(backend_uri, root_artifact_uri, extra_env=None, app_module="mlf
     return url, process
 
 
-def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload):
+def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload, auth=None):
     """
     Make a POST request to the specified MLflow Tracking API and retrieve the
     corresponding `requests.Response` object
@@ -75,5 +82,5 @@ def _send_rest_tracking_post_request(tracking_server_uri, api_path, json_payload
     import requests
 
     url = tracking_server_uri + api_path
-    response = requests.post(url, json=json_payload)
+    response = requests.post(url, json=json_payload, auth=auth)
     return response

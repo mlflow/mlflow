@@ -101,7 +101,7 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     return params_to_log
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=None):  # pylint: disable=W0102
+def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     """
     Log arguments explicitly passed to a function as MLflow Run parameters to the current active
     MLflow Run.
@@ -180,6 +180,15 @@ def resolve_input_example_and_signature(
             model_signature = infer_model_signature(input_example)
         except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
+
+    # disable input_example signature inference in model logging if `log_model_signature`
+    # is set to `False` or signature inference in autologging fails
+    if (
+        model_signature is None
+        and input_example is not None
+        and (not log_model_signature or model_signature_user_msg is not None)
+    ):
+        model_signature = False
 
     if log_input_example and input_example_user_msg is not None:
         logger.warning(input_example_user_msg)

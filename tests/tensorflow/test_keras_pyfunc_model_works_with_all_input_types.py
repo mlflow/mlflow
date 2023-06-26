@@ -15,7 +15,7 @@ from tensorflow.keras.optimizers import SGD
 
 
 from mlflow.types.schema import Schema, TensorSpec
-from mlflow.models.signature import ModelSignature
+from mlflow.models import ModelSignature
 from mlflow.pyfunc import spark_udf
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from tests.helper_functions import (
@@ -31,8 +31,8 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = [] if IS_TENSORFLOW_AVAILABLE else ["--env-mana
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(tmpdir.strpath, "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture(scope="module")
@@ -50,9 +50,8 @@ def data():
 def spark_session():
     from pyspark.sql import SparkSession
 
-    session = SparkSession.builder.master("local[2]").getOrCreate()
-    yield session
-    session.stop()
+    with SparkSession.builder.master("local[2]").getOrCreate() as session:
+        yield session
 
 
 @pytest.fixture(scope="module")

@@ -5,6 +5,8 @@ import re
 import sys
 import datetime
 import yaml
+import warnings
+import shutil
 
 import cloudpickle
 
@@ -46,10 +48,9 @@ from mlflow.recipes.utils.tracking import (
     get_run_tags_env_vars,
     log_code_snapshot,
 )
-from mlflow.projects.utils import get_databricks_env_vars
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.databricks_utils import get_databricks_run_url
+from mlflow.utils.databricks_utils import get_databricks_env_vars, get_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_RECIPE_TEMPLATE_NAME,
@@ -282,18 +283,15 @@ class TrainStep(BaseStep):
             message = f"{timestamp} {filename}:{lineno}: {args[0]}\n"
             open(os.path.join(output_directory, "warning_logs.txt"), "a").write(message)
 
-        import warnings
-
         original_warn = warnings.warn
         warnings.warn = my_warn
         try:
             import pandas as pd
             import numpy as np
-            import shutil
             import sklearn
             from sklearn.pipeline import make_pipeline
             from sklearn.utils.class_weight import compute_class_weight
-            from mlflow.models.signature import infer_signature
+            from mlflow.models import infer_signature
 
             open(os.path.join(output_directory, "warning_logs.txt"), "w")
 
@@ -1257,7 +1255,7 @@ class TrainStep(BaseStep):
         return (best_hardcoded_params, best_hp_params)
 
     def _log_estimator_to_mlflow(self, estimator, X_train_sampled, on_worker=False):
-        from mlflow.models.signature import infer_signature
+        from mlflow.models import infer_signature
 
         if hasattr(estimator, "best_score_") and (type(estimator.best_score_) in [int, float]):
             mlflow.log_metric("best_cv_score", estimator.best_score_)

@@ -84,8 +84,7 @@ class IterativePrune:
 
     @staticmethod
     def write_prune_summary(summary, params):
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "pruned_model_summary.txt")
             params = "Total Trainable Parameters :" + str(params)
             with open(summary_file, "w") as f:
@@ -94,8 +93,6 @@ class IterativePrune:
                 f.write(str(params))
 
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
     def iterative_prune(self, model, parametrization):
         if not self.pruning_amount:

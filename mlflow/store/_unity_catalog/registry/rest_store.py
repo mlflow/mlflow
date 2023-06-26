@@ -1,7 +1,9 @@
+import base64
 import functools
 import logging
 import tempfile
 
+from mlflow.entities import Run
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     CreateRegisteredModelRequest,
@@ -12,6 +14,9 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     DeleteRegisteredModelResponse,
     CreateModelVersionRequest,
     CreateModelVersionResponse,
+    Entity,
+    Notebook,
+    LineageHeaderInfo,
     FinalizeModelVersionRequest,
     FinalizeModelVersionResponse,
     UpdateModelVersionRequest,
@@ -43,7 +48,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     extract_api_info_for_service,
     extract_all_api_info_for_service,
@@ -51,6 +56,7 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
     http_request,
 )
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_NOTEBOOK_ID
 from mlflow.store._unity_catalog.registry.utils import get_artifact_repo_from_storage_info
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.store._unity_catalog.registry.utils import (
@@ -64,6 +70,7 @@ from mlflow.utils._spark_utils import _get_active_spark_session
 
 
 _DATABRICKS_ORG_ID_HEADER = "x-databricks-org-id"
+_DATABRICKS_LINEAGE_ID_HEADER = "X-Databricks-Lineage-Identifier"
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
@@ -265,11 +272,12 @@ class UcModelRegistryStore(BaseRestStore):
         _raise_unsupported_method(
             method="get_latest_versions",
             message="If seeing this error while attempting to "
-            "load a models:/ URI of the form models:/<name>/<stage>, note that "
-            "staged-based model URIs are unsupported for models in UC. Future "
-            "MLflow Python client versions will include support for model "
-            "aliases and alias-based 'models:/' URIs "
-            "of the form models:/<name>@<alias> as an alternative.",
+            "load a model version by stage, note that setting stages and loading model versions "
+            "by stage is unsupported in Unity Catalog. Instead, we recommend using aliases for "
+            "flexible model deployment. If trying to load a model version by alias, use the "
+            "syntax 'models:/your_model_name@your_alias_name'. "
+            "To set aliases, you can use the "
+            "`MlflowClient().set_registered_model_alias(name, alias, version)` API.",
         )
 
     def set_registered_model_tag(self, name, tag):
@@ -321,9 +329,9 @@ class UcModelRegistryStore(BaseRestStore):
             GenerateTemporaryModelVersionCredentialsRequest, req_body
         ).credentials
 
-    def _get_workspace_id(self, run_id):
+    def _get_run_and_headers(self, run_id):
         if run_id is None or not is_databricks_uri(self.tracking_uri):
-            return None
+            return None, None
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
         response = http_request(
@@ -337,14 +345,27 @@ class UcModelRegistryStore(BaseRestStore):
                 "from tracking server. The source run may be deleted or inaccessible to the "
                 "current user. No run link will be recorded for the model version."
             )
-            return None
-        if _DATABRICKS_ORG_ID_HEADER not in response.headers:
+            return None, None
+        headers = response.headers
+        js_dict = response.json()
+        parsed_response = GetRun.Response()
+        parse_dict(js_dict=js_dict, message=parsed_response)
+        run = Run.from_proto(parsed_response.run)
+        return headers, run
+
+    def _get_workspace_id(self, headers):
+        if headers is None or _DATABRICKS_ORG_ID_HEADER not in headers:
             _logger.warning(
                 "Unable to get model version source run's workspace ID from request headers. "
                 "No run link will be recorded for the model version"
             )
             return None
-        return response.headers[_DATABRICKS_ORG_ID_HEADER]
+        return headers[_DATABRICKS_ORG_ID_HEADER]
+
+    def _get_notebook_id(self, run):
+        if run is None:
+            return None
+        return run.data.tags.get(MLFLOW_DATABRICKS_NOTEBOOK_ID, None)
 
     def _validate_model_signature(self, local_model_dir):
         # Import Model here instead of in the top level, to avoid circular import; the
@@ -398,7 +419,19 @@ class UcModelRegistryStore(BaseRestStore):
         """
         _require_arg_unspecified(arg_name="run_link", arg_value=run_link)
         _require_arg_unspecified(arg_name="tags", arg_value=tags, default_values=[[], None])
-        source_workspace_id = self._get_workspace_id(run_id)
+        headers, run = self._get_run_and_headers(run_id)
+        source_workspace_id = self._get_workspace_id(headers)
+        notebook_id = self._get_notebook_id(run)
+        extra_headers = None
+        if notebook_id is not None:
+            notebook_entity = Notebook(id=str(notebook_id))
+            entity = Entity(notebook=notebook_entity)
+            lineage_header_info = LineageHeaderInfo(entities=[entity])
+            # Base64-encode the header value to ensure it's valid ASCII,
+            # similar to JWT (see https://stackoverflow.com/a/40347926)
+            header_json = message_to_json(lineage_header_info)
+            header_base64 = base64.b64encode(header_json.encode())
+            extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
             CreateModelVersionRequest(
@@ -422,7 +455,9 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
-            model_version = self._call_endpoint(CreateModelVersionRequest, req_body).model_version
+            model_version = self._call_endpoint(
+                CreateModelVersionRequest, req_body, extra_headers=extra_headers
+            ).model_version
             version_number = model_version.version
             scoped_token = self._get_temporary_model_version_write_credentials(
                 name=full_name, version=version_number
@@ -446,7 +481,14 @@ class UcModelRegistryStore(BaseRestStore):
             when ``stage`` is ``"staging"`` or ``"production"`` otherwise an error will be raised.
 
         """
-        _raise_unsupported_method(method="transition_model_version_stage")
+        _raise_unsupported_method(
+            method="transition_model_version_stage",
+            message="We recommend using aliases instead of stages for more flexible model "
+            "deployment management. You can set an alias on a registered model using "
+            "`MlflowClient().set_registered_model_alias(name, alias, version)` and load a model "
+            "version by alias using the URI 'models:/your_model_name@your_alias', e.g. "
+            "`mlflow.pyfunc.load_model('models:/your_model_name@your_alias')`.",
+        )
 
     def update_model_version(self, name, version, description):
         """

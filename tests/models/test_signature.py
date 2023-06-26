@@ -9,7 +9,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import get_model_info
-from mlflow.models.signature import ModelSignature, infer_signature, set_signature
+from mlflow.models import ModelSignature, infer_signature, set_signature
 from mlflow.types import DataType
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
 
@@ -164,8 +164,8 @@ def test_set_signature_to_logged_model():
     assert model_info.signature == signature
 
 
-def test_set_signature_to_saved_model(tmpdir):
-    model_path = str(tmpdir)
+def test_set_signature_to_saved_model(tmp_path):
+    model_path = str(tmp_path)
     mlflow.sklearn.save_model(
         RandomForestRegressor(),
         model_path,
