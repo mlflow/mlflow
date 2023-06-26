@@ -93,8 +93,9 @@ def test_registry_instance_loads_entrypoints():
     mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
 
 
-def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
+def test_run_context_provider_registry_with_installed_plugin(tmp_path, monkeypatch):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    monkeypatch.chdir(tmp_path)
 
     reload(mlflow.tracking.context.registry)
 
