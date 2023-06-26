@@ -8,9 +8,8 @@ from click.testing import CliRunner
 import mlflow
 import mlflow.pyfunc
 from mlflow.entities import FileInfo
-from mlflow.store.artifact.cli import _file_infos_to_json
+from mlflow.store.artifact.cli import _file_infos_to_json, download_artifacts
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.store.artifact.cli import download_artifacts
 
 
 @pytest.fixture()
@@ -86,7 +85,7 @@ def test_download_from_uri():
 def _run_download_artifact_command(args) -> pathlib.Path:
     """
     :param command: An `mlflow artifacts` command list.
-    :return: The downloaded artifact content.
+    :return: Path to the downloaded artifact.
     """
     runner = CliRunner()
     resp = runner.invoke(download_artifacts, args=args, catch_exceptions=False)
