@@ -54,7 +54,6 @@ from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.time_utils import get_current_time_millis
 from mlflow.utils.os import is_windows
 from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
 from mlflow.store.tracking.dbmodels.models import (
     SqlParam,
     SqlTag,
@@ -67,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlDataset,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -141,9 +141,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return self._run_factory()
 
     def _setup_db_uri(self):
-        if _TRACKING_URI_ENV_VAR in os.environ:
+        if uri := MLFLOW_TRACKING_URI.get():
             self.temp_dbfile = None
-            self.db_url = os.getenv(_TRACKING_URI_ENV_VAR)
+            self.db_url = uri
         else:
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows

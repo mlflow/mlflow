@@ -69,6 +69,10 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+#: Specifies the tracking URI.
+#: (default: ``None``)
+MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
