@@ -551,7 +551,15 @@ langchain:
     maximum: "0.0.190"
     requirements:
       ">= 0.0.0":
-        ["pyspark", "transformers", "tensorflow", "openai", "google-search-results", "psutil"]
+        [
+          "pyspark",
+          "transformers",
+          "tensorflow",
+          "openai",
+          "google-search-results",
+          "psutil",
+          "faiss-cpu",
+        ]
     run: |
       pytest tests/langchain/test_langchain_model_export.py
 

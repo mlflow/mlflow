@@ -23,6 +23,14 @@ import json
 import yaml
 
 import mlflow
+from langchain.chains import (
+    RetrievalQA,
+    VectorDBQA,
+    VectorDBQAWithSourcesChain,
+    APIChain,
+    HypotheticalDocumentEmbedder,
+    SQLDatabaseChain,
+)
 from mlflow import pyfunc
 from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -159,12 +167,15 @@ def save_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
-                      and returns a retriever. This is required for RetrievalQA models.
+                      and returns a retriever (https://python.langchain.com/docs/modules/data_conne
+                      ction/retrievers/). This is required for RetrievalQA models.
     :param persist_dir: The directory where the retriever is stored. The `loader_fn` takes this
                         string as the argument to load the retriever. This is required for
                         RetrievalQA models. Note that MLflow does not manage the contents of this
                         directory, so it is up to the user to ensure that the directory is properly
                         populated.
+                        See a complete example of logging a RetrievalQA chain with `loader_fn` and
+                        `persist_dir` in examples/langchain/retrieval_qa_chain.py.
     """
     import langchain
 
@@ -314,12 +325,15 @@ def log_model(
                      .. Note:: Experimental: This parameter may change or be removed in a future
                                              release without warning.
     :param loader_fn: A function that takes a string `persist_dir` defined below as the argument
-                      and returns a retriever. This is required for RetrievalQA models.
+                      and returns a retriever (https://python.langchain.com/docs/modules/data_conne
+                      ction/retrievers/). This is required for RetrievalQA models.
     :param persist_dir: The directory where the retriever is stored. The `loader_fn` takes this
                         string as the argument to load the retriever. This is required for
                         RetrievalQA models. Note that MLflow does not manage the contents of this
                         directory, so it is up to the user to ensure that the directory is properly
                         populated.
+                        See a complete example of logging a RetrievalQA chain with `loader_fn` and
+                        `persist_dir` in examples/langchain/retrieval_qa_chain.py.
     :return: A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
              metadata of the logged model.
     """
@@ -353,13 +367,15 @@ def log_model(
 
     if isinstance(lc_model, langchain.chains.RetrievalQA):
         if LooseVersion(langchain.__version__) < LooseVersion("0.0.194"):
-            raise mlflow.MlflowException(
+            raise mlflow.MlflowException.invalid_parameter_value(
                 "Saving RetrievalQA models is only supported in LangChain 0.0.194 and above."
             )
         if loader_fn is None:
-            raise mlflow.MlflowException("For RetrievalQA models, a `loader_fn` must be provided.")
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "For RetrievalQA models, a `loader_fn` must be provided."
+            )
         if not isinstance(loader_fn, types.FunctionType):
-            raise mlflow.MlflowException(
+            raise mlflow.MlflowException.invalid_parameter_value(
                 "The `loader_fn` must be a function that returns a retriever."
             )
 
@@ -438,6 +454,17 @@ def _save_model(model, path, loader_fn, persist_dir):
     return model_data_kwargs
 
 
+def _load_from_pickle(loader_fn_path, persist_dir):
+    if loader_fn_path is None:
+        raise mlflow.MlflowException.invalid_parameter_value(
+            "Failed to load model. 'loader_fn_path' is None, which is unexpected for MLflow-"
+            "logged models. Possible file corruption detected. Please verify your MLmodel file."
+        )
+    with open(loader_fn_path, "rb") as f:
+        loader_fn = cloudpickle.load(f)
+    return loader_fn(persist_dir)
+
+
 def _load_model(
     path,
     model_type,
@@ -450,30 +477,20 @@ def _load_model(
     from langchain.chains.loading import load_chain
 
     model = None
-    if model_type == "RetrievalQA":
-        with open(loader_fn_path, "rb") as f:
-            loader_fn = cloudpickle.load(f)
-        retriever = loader_fn(persist_dir)
+    if model_type == RetrievalQA.__name__:
+        retriever = _load_from_pickle(loader_fn_path, persist_dir)
         model = load_chain(path, retriever=retriever)
-    elif model_type in ("VectorDBQA", "VectorDBQAWithSourcesChain"):
-        with open(loader_fn_path, "rb") as f:
-            loader_fn = cloudpickle.load(f)
-        vectorstore = loader_fn(persist_dir)
+    elif model_type in (VectorDBQA.__name__, VectorDBQAWithSourcesChain.__name__):
+        vectorstore = _load_from_pickle(loader_fn_path, persist_dir)
         model = load_chain(path, vectorstore=vectorstore)
-    elif model_type == "APIChain":
-        with open(loader_fn_path, "rb") as f:
-            loader_fn = cloudpickle.load(f)
-        requests_wrapper = loader_fn(persist_dir)
+    elif model_type == APIChain.__name__:
+        requests_wrapper = _load_from_pickle(loader_fn_path, persist_dir)
         model = load_chain(path, requests_wrapper=requests_wrapper)
-    elif model_type == "HypotheticalDocumentEmbedder":
-        with open(loader_fn_path, "rb") as f:
-            loader_fn = cloudpickle.load(f)
-        embeddings = loader_fn(persist_dir)
+    elif model_type == HypotheticalDocumentEmbedder.__name__:
+        embeddings = _load_from_pickle(loader_fn_path, persist_dir)
         model = load_chain(path, embeddings=embeddings)
-    elif model_type == "SQLDatabaseChain":
-        with open(loader_fn_path, "rb") as f:
-            loader_fn = cloudpickle.load(f)
-        database = loader_fn(persist_dir)
+    elif model_type == SQLDatabaseChain.__name__:
+        database = _load_from_pickle(loader_fn_path, persist_dir)
         model = load_chain(path, database=database)
     elif agent_path is None and tools_path is None:
         model = load_chain(path)
