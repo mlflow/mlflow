@@ -173,7 +173,7 @@ class AuthServiceClient:
         self._request(
             UPDATE_USER_ADMIN,
             "PATCH",
-            json={"username": username, "is_admin": str(is_admin).lower()},
+            json={"username": username, "is_admin": is_admin},
         )
 
     def delete_user(self, username: str):
