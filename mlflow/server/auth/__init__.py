@@ -708,17 +708,7 @@ def update_user_password():
 @catch_mlflow_exception
 def update_user_admin():
     username = _get_request_param("username")
-    is_admin_str = _get_request_param("is_admin").lower()
-    if is_admin_str == "true":
-        is_admin = True
-    elif is_admin_str == "false":
-        is_admin = False
-    else:
-        raise MlflowException(
-            f"Invalid parameter 'is_admin': '{is_admin_str}', "
-            "must be either 'true' or 'false' (case insensitive).",
-            INVALID_PARAMETER_VALUE,
-        )
+    is_admin = _get_request_param("is_admin")
     store.update_user(username, is_admin=is_admin)
     return make_response({})
 
