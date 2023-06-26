@@ -194,6 +194,7 @@ class Route(BaseModel, extra=Extra.forbid):
     name: str
     route_type: RouteType
     model: ModelInfo
+    route_url: Optional[str] = None
 
 
 class GatewayConfig(BaseModel, extra=Extra.forbid):
