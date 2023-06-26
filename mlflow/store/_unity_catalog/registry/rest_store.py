@@ -448,19 +448,13 @@ class UcModelRegistryStore(BaseRestStore):
                 ) from e
             self._validate_model_signature(local_model_dir)
 
-            # Feature Store EDGE code
             feature_spec_yaml = None
-            try:
-                artifact_path = os.path.join(mlflow.pyfunc.DATA, "feature_store")
-                model_data_path = os.path.join(local_model_dir, artifact_path)
-                feature_spec_path = os.path.join(model_data_path, "feature_spec.yaml")
-
-                with open(feature_spec_path) as f:
+            feature_spec_path = os.path.join(
+                local_model_dir, mlflow.pyfunc.DATA, "feature_store/feature_spec.yaml"
+            )
+            if os.path.isfile(feature_spec_path):
+                with open(feature_spec_path, "r") as f:
                     feature_spec_yaml = f.read()
-
-                print(f"Read feature_spec.yaml at {feature_spec_path}")
-            except Exception:
-                pass
 
             # CreateModelVersion
             req_body = message_to_json(
@@ -470,7 +464,7 @@ class UcModelRegistryStore(BaseRestStore):
                     run_id=run_id,
                     description=description,
                     run_tracking_server_id=source_workspace_id,
-                    routine_definition=feature_spec_yaml,
+                    feature_deps=feature_spec_yaml,
                 )
             )
             model_version = self._call_endpoint(
@@ -547,7 +541,7 @@ class UcModelRegistryStore(BaseRestStore):
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(GetModelVersionRequest(name=full_name, version=str(version)))
         response_proto = self._call_endpoint(GetModelVersionRequest, req_body)
-        print(f"Model version has dependencies: {response_proto.model_version.dependencies}")
+        print(f"Model version dependencies: {response_proto.model_version.dependencies}")
         return model_version_from_uc_proto(response_proto.model_version)
 
     def get_model_version_download_uri(self, name, version):

@@ -81,17 +81,11 @@ class SqlRegisteredModelPermission(Base):
 
 
 class SqlAlchemyStore:
-    db_uri = None
-    db_type = None
-    engine = None
-    ManagedSessionMaker = None
-
     def init_db(self, db_uri):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = create_sqlalchemy_engine_with_retry(db_uri)
         Base.metadata.create_all(bind=self.engine)
-        Base.metadata.bind = self.engine
         SessionMaker = sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = _get_managed_session_maker(SessionMaker, self.db_type)
 
