@@ -1,4 +1,5 @@
 import sqlite3
+import uuid
 from unittest import mock
 
 import pytest
@@ -142,6 +143,7 @@ def test_database_operational_error(exception, monkeypatch):
     # where an earlier test has already created and cached a SQLAlchemy engine
     # (i.e. database connections), preventing our error-throwing monkeypatches
     # from being called.
+    monkeypatch.setenv(MLFLOW_TRACKING_URI.name, f"{MLFLOW_TRACKING_URI.get()}-{uuid.uuid4().hex}")
     with pytest.raises(mlflow.MlflowException, match=r"sqlite3\.OperationalError"):
         with mlflow.start_run():
             # This statement will fail with an OperationalError.
