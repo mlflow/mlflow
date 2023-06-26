@@ -40,7 +40,7 @@ def client(tmp_path):
     if os.path.exists(db_file):
         os.remove(db_file)
 
-    path = tmp_path.joinpath("sqlalchemy.db").as_uri()
+    path = tmp_path.joinpath("mlruns.sqlite").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
     url, process = _init_server(
