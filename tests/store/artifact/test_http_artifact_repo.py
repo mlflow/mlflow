@@ -9,13 +9,12 @@ from mlflow.store.artifact.http_artifact_repo import HttpArtifactRepository
 from mlflow.tracking._tracking_service.utils import (
     _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
     _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_USERNAME_ENV_VAR,
     _get_default_host_creds,
 )
 from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 
 @pytest.mark.parametrize("scheme", ["http", "https"])
@@ -285,8 +284,8 @@ def test_default_host_creds():
     with mock.patch.dict(
         "mlflow.tracking._tracking_service.utils.os.environ",
         {
-            _TRACKING_USERNAME_ENV_VAR: username,
-            _TRACKING_PASSWORD_ENV_VAR: password,
+            MLFLOW_TRACKING_USERNAME.name: username,
+            MLFLOW_TRACKING_PASSWORD.name: password,
             _TRACKING_TOKEN_ENV_VAR: token,
             _TRACKING_INSECURE_TLS_ENV_VAR: str(ignore_tls_verification),
             _TRACKING_CLIENT_CERT_PATH_ENV_VAR: client_cert_path,
