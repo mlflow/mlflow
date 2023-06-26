@@ -1,6 +1,5 @@
 import langchain
 import mlflow
-import os
 import pytest
 import transformers
 import json
@@ -12,12 +11,14 @@ from distutils.version import LooseVersion
 from langchain.chains import ConversationChain, LLMChain, RetrievalQA
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
+from langchain.document_loaders import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
@@ -316,11 +317,15 @@ def load_retriever(persist_directory):
     LooseVersion(langchain.__version__) < LooseVersion("0.0.194"),
     reason="Saving RetrievalQA chians requires langchain>=0.0.194",
 )
-def test_log_and_load_retrieval_qa_chain():
-    # Load the vectorstore from persist_dir
-    persist_dir = os.path.abspath("tests/langchain/faiss_index")
+def test_log_and_load_retrieval_qa_chain(tmp_path):
+    # Create the vector db, persist the db to a local fs folder
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
     embeddings = OpenAIEmbeddings()
-    db = FAISS.load_local(persist_dir, embeddings)
+    db = FAISS.from_documents(docs, embeddings)
+    db.save_local(tmp_path)
 
     # Create the RetrievalQA chain
     retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -331,7 +336,7 @@ def test_log_and_load_retrieval_qa_chain():
             retrievalQA,
             "retrieval_qa_chain",
             loader_fn=load_retriever,
-            persist_dir=persist_dir,
+            persist_dir=tmp_path,
         )
 
     # Load the chain

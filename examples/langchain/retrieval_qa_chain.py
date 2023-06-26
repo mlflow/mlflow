@@ -1,18 +1,26 @@
 import mlflow
 import os
+import tempfile
 
 from langchain.chains import RetrievalQA
+from langchain.documents import TextLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.llms import OpenAI
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from mlflow.langchain import _LOADER_FN_KEY, _PERSIST_DIR_KEY
 
 assert "OPENAI_API_KEY" in os.environ, "Please set the OPENAI_API_KEY environment variable."
+persist_dir = tempfile.mkdtemp()
 
-# Load the vectorstore from persist_dir
-persist_dir = os.path.abspath("tests/langchain/faiss_index")
+# Create the vector db, persist the db to a local fs folder
+loader = TextLoader("tests/langchain/state_of_the_union.txt")
+documents = loader.load()
+text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+docs = text_splitter.split_documents(documents)
 embeddings = OpenAIEmbeddings()
-db = FAISS.load_local(persist_dir, embeddings)
+db = FAISS.from_documents(docs, embeddings)
+db.save_local(persist_dir)
 
 # Create the RetrievalQA chain
 retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
