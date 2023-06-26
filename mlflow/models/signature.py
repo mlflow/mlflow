@@ -8,7 +8,7 @@ import re
 from copy import deepcopy
 import inspect
 import logging
-from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, Union, get_type_hints, TYPE_CHECKING
 
 
 import pandas as pd
@@ -17,6 +17,7 @@ import numpy as np
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.utils import _Example, ModelInputExample
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
@@ -255,7 +256,9 @@ def _infer_signature_from_type_hints(func, input_arg_index, input_example=None):
     return ModelSignature(inputs=input_schema, outputs=output_schema)
 
 
-def _infer_signature_from_input_example(input_example, wrapped_model):
+def _infer_signature_from_input_example(
+    input_example: ModelInputExample, wrapped_model
+) -> Optional[ModelSignature]:
     """
     Infer the signature from an example input and a PyFunc wrapped model. Catches all exceptions.
 
@@ -266,9 +269,13 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         `wrapped_model`.
     """
     try:
-        input_schema = _infer_schema(input_example)
+        if isinstance(input_example, pd.Series):
+            input_ex = input_example
+        else:
+            input_ex = _Example(input_example).inference_data
+        input_schema = _infer_schema(input_ex)
         # Copy the input example so that it is not mutated by predict()
-        prediction = wrapped_model.predict(deepcopy(input_example))
+        prediction = wrapped_model.predict(deepcopy(input_ex))
         # For column-based inputs, 1D numpy arrays likely signify row-based predictions. Thus, we
         # convert them to a Pandas series for inferring as a single ColSpec Schema.
         if (

@@ -3,7 +3,9 @@ import math
 import numpy as np
 import pandas as pd
 import pytest
+from sklearn import datasets
 from sklearn.base import BaseEstimator, ClassifierMixin
+import sklearn.neighbors as knn
 from scipy.sparse import csr_matrix, csc_matrix
 from unittest import mock
 
@@ -304,4 +306,85 @@ def test_infer_signature_silently_fails():
         mock_warning.assert_called_once_with(
             AnyStringWith("Failed to infer the model signature from the input example."),
             AnyStringWith("oh no!"),
+        )
+
+
+@pytest.fixture(scope="module")
+def iris_model():
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    knn_model = knn.KNeighborsClassifier()
+    knn_model.fit(X, y)
+    return knn_model
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    [
+        {
+            "sepal length (cm)": 5.1,
+            "sepal width (cm)": 3.5,
+            "petal length (cm)": 1.4,
+            "petal width (cm)": 0.2,
+        },
+        [5.1, 3.5, 1.4, 0.2],
+        pd.DataFrame(
+            {
+                "sepal length (cm)": 5.1,
+                "sepal width (cm)": 3.5,
+                "petal length (cm)": 1.4,
+                "petal width (cm)": 0.2,
+            },
+            index=[0],
+        ),
+    ],
+)
+def test_infer_signature_on_multi_column_input_examples(input_example, iris_model):
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            iris_model, artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    input_columns = mlflow_model.signature.inputs.inputs
+    assert len(input_columns) == 4
+    for col in input_columns:
+        assert col.type == DataType.double
+    assert mlflow_model.signature.outputs == Schema([ColSpec(type=DataType.long)])
+
+
+@pytest.mark.parametrize(
+    "input_example",
+    ["string input example", bytes([1, 2, 3])],
+)
+def test_infer_signature_on_single_column_input_examples(input_example):
+    class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
+        def fit(self, X, y=None):
+            return self
+
+        def predict(self, X):
+            if isinstance(X, pd.DataFrame):
+                return X
+            raise Exception("Unsupported input type")
+
+    artifact_path = "model"
+
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            IdentitySklearnModel(), artifact_path=artifact_path, input_example=input_example
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    mlflow_model = Model.load(model_uri)
+    if isinstance(input_example, str):
+        mlflow_model.signature == ModelSignature(
+            inputs=Schema([ColSpec(name="0", type=DataType.string)]),
+            outputs=Schema([ColSpec(type=DataType.string)]),
+        )
+    else:
+        mlflow_model.signature == ModelSignature(
+            inputs=Schema([ColSpec(name="0", type=DataType.binary)]),
+            outputs=Schema([ColSpec(type=DataType.binary)]),
         )
