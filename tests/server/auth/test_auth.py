@@ -32,9 +32,6 @@ def client(tmp_path):
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
-        extra_env={
-            "MLFLOW_TRACKING_URI": backend_uri,
-        },
     )
     yield MlflowClient(url)
     _terminate_server(process)
