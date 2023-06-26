@@ -22,7 +22,6 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_URI_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
