@@ -5,7 +5,7 @@ import numpy as np
 import string
 from typing import Dict, Any, List, Union, Optional, TypedDict
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 
@@ -430,7 +430,8 @@ class ParamSpec:
         if type(self.default).__name__ != self.type:
             raise MlflowException(
                 f"Invalid default value for ParamSpec {self!r}: "
-                f"expected type {self.type}, default value type {type(self.default).__name__}"
+                f"expected type {self.type}, default value type {type(self.default).__name__}",
+                INVALID_PARAMETER_VALUE,
             )
 
     @property

@@ -2654,15 +2654,15 @@ avoid failed inference requests.
 
 \***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
 
-Using inference_config and dictionary parameters for `transformers` inference
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Using inference_config and model signature parameters for `transformers` inference
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 For `transformers` inference, there are two ways to pass in additional arguments to the pipeline.
 
 * Use inference_config when saving/logging the model
-* Use dictionary parameters during `predict` function call
+* Specify parameters at inference time when calling `predict()`
 
 .. note::
-    Dictionary parameters passed in to `predict` function will override the values in inference_config.
+    Model signature parameters passed in to `predict` function will override the values in inference_config.
     This functionality is not supported for model serving yet, but it will be supported in the short future.
 
 * Using inference_config
@@ -2699,7 +2699,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
     result = pyfunc_loaded.predict(data)
 
 
-* Using dictionary parameters
+* Specifying parameters at inference time
 
 .. code-block:: python
 
@@ -2710,7 +2710,7 @@ For `transformers` inference, there are two ways to pass in additional arguments
     signature_with_params = infer_signature(
         data,
         generate_signature_output(model, data),
-        parameters=inference_config,
+        params=inference_config,
     )
 
     # Saving model without inference_config
