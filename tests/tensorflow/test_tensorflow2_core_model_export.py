@@ -9,6 +9,15 @@ import mlflow.tensorflow
 from mlflow.models import Model, infer_signature
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+        }
+    )
+
+
 # pylint: disable=abstract-method
 class ToyModel(tf.Module):
     def __init__(self, w, b):

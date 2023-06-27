@@ -41,6 +41,15 @@ EXTRA_PYFUNC_SERVING_TEST_ARGS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+        }
+    )
+
+
 class DataGeneration:
     def __init__(self, **kwargs):
         self.shift = kwargs["shift"]

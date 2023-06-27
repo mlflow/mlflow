@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Union, get_type_hints, TYPE_CHECKING
 import pandas as pd
 import numpy as np
 
+from mlflow import environment_variables
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -280,6 +281,8 @@ def _infer_signature_from_input_example(input_example, wrapped_model):
         output_schema = _infer_schema(prediction)
         return ModelSignature(input_schema, output_schema)
     except Exception as e:
+        if environment_variables._MLFLOW_SIGNATURE_INFERENCE_TESTING.get():
+            raise e
         _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
         _logger.debug("", exc_info=True)
         return None

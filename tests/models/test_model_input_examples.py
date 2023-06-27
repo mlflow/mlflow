@@ -24,6 +24,15 @@ from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 from tests.helper_functions import AnyStringWith
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+        }
+    )
+
+
 @pytest.fixture
 def pandas_df_with_all_types():
     df = pd.DataFrame(

@@ -59,6 +59,15 @@ extra_pip_requirements = (
 )
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+        }
+    )
+
+
 @pytest.fixture(scope="module", autouse=True)
 def fix_random_seed():
     SEED = 0

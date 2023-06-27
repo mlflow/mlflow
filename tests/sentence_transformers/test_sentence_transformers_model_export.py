@@ -28,6 +28,15 @@ from tests.helper_functions import (
 )
 
 
+@pytest.fixture(autouse=True)
+def set_envs(monkeypatch):
+    monkeypatch.setenvs(
+        {
+            "MLFLOW_SIGNATURE_INFERENCE_TESTING": "true",
+        }
+    )
+
+
 @pytest.fixture
 def model_path(tmp_path):
     return tmp_path.joinpath("model")

@@ -668,6 +668,8 @@ def save_model(
                 prediction = pd.Series(wrapped_model.predict(input_example))
                 signature = infer_signature(input_example, prediction)
         except Exception as e:
+            if environment_variables._MLFLOW_SIGNATURE_INFERENCE_TESTING.get():
+                raise e
             _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
             _logger.debug("", exc_info=True)
     elif signature is False:
