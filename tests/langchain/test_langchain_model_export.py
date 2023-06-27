@@ -9,7 +9,14 @@ import importlib
 import openai
 from contextlib import contextmanager
 from packaging import version
-from langchain.chains import ConversationChain, LLMChain, RetrievalQA
+from langchain.chains import (
+    APIChain,
+    ConversationChain,
+    LLMChain,
+    RetrievalQA,
+    HypotheticalDocumentEmbedder,
+)
+from langchain.chains.api import open_meteo_docs
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
 from langchain.document_loaders import TextLoader
@@ -19,6 +26,7 @@ from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.requests import TextRequestsWrapper
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from pyspark.sql import SparkSession
@@ -316,7 +324,7 @@ def load_retriever(persist_directory):
 
 @pytest.mark.skipif(
     version.parse(langchain.__version__) < version.parse("0.0.194"),
-    reason="Saving RetrievalQA chians requires langchain>=0.0.194",
+    reason="Saving RetrievalQA chains requires langchain>=0.0.194",
 )
 def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
@@ -347,6 +355,52 @@ def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
     assert loaded_model == retrievalQA
+
+
+def load_requests_wrapper(_):
+    return TextRequestsWrapper(headers=None, aiosession=None)
+
+
+def test_log_and_load_api_chain():
+    llm = OpenAI(temperature=0)
+    apichain = APIChain.from_llm_and_api_docs(llm, open_meteo_docs.OPEN_METEO_DOCS, verbose=True)
+
+    # Log the APIChain
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            apichain,
+            "api_chain",
+            loader_fn=load_requests_wrapper,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == apichain
+
+
+def load_base_embeddings(_):
+    return FakeEmbeddings(size=32)
+
+
+def test_log_and_load_hyde_chain():
+    # TODO: This fails due to https://github.com/hwchase17/langchain/issues/5131
+    # Create the HypotheticalDocumentEmbedder chain
+    base_embeddings = FakeEmbeddings(size=32)
+    llm = OpenAI()
+    # Load with `web_search` prompt
+    embeddings = HypotheticalDocumentEmbedder.from_llm(llm, base_embeddings, "web_search")
+
+    # Log the hyde chain
+    with mlflow.start_run():
+        logged_model = mlflow.langchain.log_model(
+            embeddings,
+            "hyde_chain",
+            loader_fn=load_base_embeddings,
+        )
+
+    # Load the chain
+    loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
+    assert loaded_model == embeddings
 
 
 def test_saving_not_implemented_for_memory():

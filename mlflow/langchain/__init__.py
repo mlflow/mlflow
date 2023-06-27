@@ -548,15 +548,16 @@ def _save_model(model, path, loader_fn, persist_dir):
             cloudpickle.dump(loader_fn, f)
         model_data_kwargs[_LOADER_FN_KEY] = _LOADER_FN_FILE_NAME
 
-        if os.path.exists(persist_dir):
-            # Save persist_dir by copying into subdir _PERSIST_DIR_NAME
-            persist_dir_data_path = os.path.join(path, _PERSIST_DIR_NAME)
-            shutil.copytree(persist_dir, persist_dir_data_path)
-            model_data_kwargs[_PERSIST_DIR_KEY] = _PERSIST_DIR_NAME
-        elif persist_dir is not None:
-            raise mlflow.MlflowException.invalid_parameter_value(
-                "The directory provided for persist_dir does not exist."
-            )
+        if persist_dir is not None:
+            if os.path.exists(persist_dir):
+                # Save persist_dir by copying into subdir _PERSIST_DIR_NAME
+                persist_dir_data_path = os.path.join(path, _PERSIST_DIR_NAME)
+                shutil.copytree(persist_dir, persist_dir_data_path)
+                model_data_kwargs[_PERSIST_DIR_KEY] = _PERSIST_DIR_NAME
+            else:
+                raise mlflow.MlflowException.invalid_parameter_value(
+                    "The directory provided for persist_dir does not exist."
+                )
 
         # Save model
         model.save(model_data_path)
@@ -575,7 +576,7 @@ def _save_model(model, path, loader_fn, persist_dir):
 
 
 def _load_from_pickle(loader_fn_path, persist_dir):
-    if not os.path.exists(loader_fn_path):
+    if loader_fn_path is None:
         raise mlflow.MlflowException.invalid_parameter_value(
             "Missing file for loader_fn which is required to build the model."
         )
