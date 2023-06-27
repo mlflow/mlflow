@@ -31,8 +31,8 @@ from mlflow.utils.validation import (
     MAX_PARAMS_TAGS_PER_BATCH,
 )
 from mlflow.utils.time_utils import get_current_time_millis
-from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_RUN_ID
 
 MockExperiment = namedtuple("MockExperiment", ["experiment_id", "lifecycle_stage"])
 
@@ -650,10 +650,10 @@ def test_with_startrun():
     assert mlflow.active_run() is None
 
 
-def test_parent_create_run():
+def test_parent_create_run(monkeypatch):
     with mlflow.start_run() as parent_run:
         parent_run_id = parent_run.info.run_id
-    os.environ[_RUN_ID_ENV_VAR] = parent_run_id
+    monkeypatch.setenv(MLFLOW_RUN_ID.name, parent_run_id)
     with mlflow.start_run() as parent_run:
         assert parent_run.info.run_id == parent_run_id
         with pytest.raises(Exception, match="To start a nested run"):

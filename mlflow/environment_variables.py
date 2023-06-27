@@ -313,3 +313,7 @@ MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
 MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
 )
+
+#: Specified the ID of the run to log data to.
+#: (default: ``None``)
+MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)
