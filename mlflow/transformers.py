@@ -856,6 +856,7 @@ def _try_load_model_with_device(model_instance, model_path, device, conf):
         model = model_instance.from_pretrained(model_path, **load_model_conf)
     except (ValueError, TypeError, NotImplementedError):
         _logger.warning("Could not specify device parameter for this pipeline type")
+        _logger.debug("", exc_info=True)
         load_model_conf.pop("device", None)
         model = model_instance.from_pretrained(model_path, **load_model_conf)
     return model
