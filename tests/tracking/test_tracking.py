@@ -1063,9 +1063,9 @@ def test_start_scheduled_run():
     assert updated_run.info.start_time == 123
 
     with mock.patch.object(
-            mlflow.tracking.fluent,
-            "get_current_time_millis",
-            mock.Mock(return_value=456),
+        mlflow.tracking.fluent,
+        "get_current_time_millis",
+        mock.Mock(return_value=456),
     ):
         with mlflow.start_run(run.info.run_id):
             pass
