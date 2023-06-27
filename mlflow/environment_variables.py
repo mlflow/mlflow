@@ -296,14 +296,14 @@ MLFLOW_TRACKING_TOKEN = _EnvironmentVariable("MLFLOW_TRACKING_TOKEN", str, None)
 #: (default: ``False``).
 MLFLOW_TRACKING_INSECURE_TLS = _BooleanEnvironmentVariable("MLFLOW_TRACKING_INSECURE_TLS", False)
 
-#: Sets the ``verify`` param in 'requests.request' function,
+#: Sets the ``verify`` param in ``requests.request`` function,
 #: see https://requests.readthedocs.io/en/master/api/
 #: (default: ``None``)
 MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
     "MLFLOW_TRACKING_SERVER_CERT_PATH", str, None
 )
 
-#: Sets the ``cert`` param in 'requests.request' function,
+#: Sets the ``cert`` param in ``requests.request`` function,
 #: see https://requests.readthedocs.io/en/master/api/
 #: (default: ``None``)
 MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
