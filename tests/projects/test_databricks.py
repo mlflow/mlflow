@@ -10,6 +10,7 @@ import pytest
 
 import mlflow
 from mlflow import cli, MlflowClient
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
@@ -418,7 +419,7 @@ def test_get_tracking_uri_for_run():
     mlflow.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+    with mock.patch.dict(os.environ, {MLFLOW_TRACKING_URI.name: "http://some-uri"}):
         assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 

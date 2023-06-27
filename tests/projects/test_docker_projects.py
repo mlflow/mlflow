@@ -9,6 +9,7 @@ from databricks_cli.configure.provider import DatabricksConfig
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import ViewType
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects import ExecutionException, _project_spec
 from mlflow.projects.docker import _get_docker_image_uri
@@ -213,7 +214,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
         "DATABRICKS_USERNAME": "user",
         "DATABRICKS_PASSWORD": "pass",
         "DATABRICKS_INSECURE": "True",
-        mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks",
+        MLFLOW_TRACKING_URI.name: "databricks",
     }
     assert cmds == []
 

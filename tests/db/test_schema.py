@@ -11,8 +11,7 @@ from sqlalchemy.schema import MetaData, CreateTable
 from sqlalchemy import create_engine
 
 import mlflow
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
-
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 pytestmark = pytest.mark.notrackingurimock
 
@@ -22,7 +21,7 @@ def get_database_dialect(uri):
 
 
 def get_tracking_uri():
-    return os.getenv(_TRACKING_URI_ENV_VAR)
+    return MLFLOW_TRACKING_URI.get()
 
 
 def dump_schema(db_uri):
@@ -164,7 +163,7 @@ Manually copy & paste the expected schema in {rel_path} or run the following com
 
 def main():
     tracking_uri = get_tracking_uri()
-    assert tracking_uri, f"Environment variable {_TRACKING_URI_ENV_VAR} must be set"
+    assert tracking_uri, f"Environment variable {MLFLOW_TRACKING_URI.name} must be set"
     get_database_dialect(tracking_uri)  # Ensure `tracking_uri` is a database URI
     mlflow.set_tracking_uri(tracking_uri)
     initialize_database()

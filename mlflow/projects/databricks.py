@@ -10,6 +10,7 @@ import re
 
 from mlflow import tracking
 from mlflow.entities import RunStatus
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.projects.utils import MLFLOW_LOCAL_BACKEND_RUN_ID_CONFIG
@@ -267,7 +268,7 @@ class DatabricksJobRunner:
         tracking_uri = _get_tracking_uri_for_run()
         dbfs_fuse_uri = self._upload_project_to_dbfs(work_dir, experiment_id)
         env_vars = {
-            tracking._TRACKING_URI_ENV_VAR: tracking_uri,
+            MLFLOW_TRACKING_URI.name: tracking_uri,
             tracking._EXPERIMENT_ID_ENV_VAR: experiment_id,
         }
         _logger.info("=== Running entry point %s of project %s on Databricks ===", entry_point, uri)

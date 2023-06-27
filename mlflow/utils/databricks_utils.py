@@ -5,14 +5,13 @@ import subprocess
 from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
+
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 import mlflow.utils
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
-
-# This should be aligned with mlflow.tracking._TRACKING_URI_ENV_VAR
-_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
 _logger = logging.getLogger(__name__)
 
@@ -690,7 +689,7 @@ def get_databricks_env_vars(tracking_uri):
     # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
     # part of ~/.databrickscfg into the container
     env_vars = {}
-    env_vars[_TRACKING_URI_ENV_VAR] = "databricks"
+    env_vars[MLFLOW_TRACKING_URI.name] = "databricks"
     env_vars["DATABRICKS_HOST"] = config.host
     if config.username:
         env_vars["DATABRICKS_USERNAME"] = config.username

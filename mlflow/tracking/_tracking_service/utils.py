@@ -5,19 +5,17 @@ from pathlib import Path
 from typing import Union
 from contextlib import contextmanager
 
-from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
+from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4, MLFLOW_TRACKING_URI
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
-from mlflow.utils import env, rest_utils
+from mlflow.utils import rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.utils.credentials import read_mlflow_creds
-
-_TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 
 # Extra environment variables which take precedence for setting the basic/bearer
 # auth on http requests.
@@ -38,9 +36,7 @@ _tracking_uri = None
 
 def is_tracking_uri_set():
     """Returns True if the tracking URI has been set, False otherwise."""
-    if _tracking_uri or env.get_env(_TRACKING_URI_ENV_VAR):
-        return True
-    return False
+    return _tracking_uri or MLFLOW_TRACKING_URI.is_defined
 
 
 def set_tracking_uri(uri: Union[str, Path]) -> None:
@@ -131,8 +127,8 @@ def get_tracking_uri() -> str:
     global _tracking_uri
     if _tracking_uri is not None:
         return _tracking_uri
-    elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
-        return env.get_env(_TRACKING_URI_ENV_VAR)
+    elif MLFLOW_TRACKING_URI.is_defined:
+        return MLFLOW_TRACKING_URI.get()
     else:
         return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 

@@ -15,7 +15,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
 )
-from mlflow.tracking._tracking_service.utils import _TRACKING_URI_ENV_VAR
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -30,7 +30,7 @@ pytestmark = pytest.mark.notrackingurimock
 
 @pytest.fixture
 def store(tmp_sqlite_uri):
-    db_uri_from_env_var = os.getenv(_TRACKING_URI_ENV_VAR)
+    db_uri_from_env_var = MLFLOW_TRACKING_URI.get()
     store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
     yield store
 

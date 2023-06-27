@@ -282,3 +282,6 @@ MLFLOW_TRACKING_USERNAME = _EnvironmentVariable("MLFLOW_TRACKING_USERNAME", str,
 #: Specifies the password used to authenticate with a tracking server.
 #: (default: ``None``)
 MLFLOW_TRACKING_PASSWORD = _EnvironmentVariable("MLFLOW_TRACKING_PASSWORD", str, None)
+
+#: Specifies the tracking server URI to connect to.
+MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)

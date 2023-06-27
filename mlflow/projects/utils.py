@@ -8,6 +8,7 @@ import shutil
 import zipfile
 from io import BytesIO
 
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
@@ -336,6 +337,6 @@ def get_run_env_vars(run_id, experiment_id):
     """
     return {
         tracking._RUN_ID_ENV_VAR: run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
+        MLFLOW_TRACKING_URI.name: tracking.get_tracking_uri(),
         tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
     }

@@ -22,11 +22,14 @@ from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_URI_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_USERNAME,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_URI,
+)
 
 # pylint: disable=unused-argument
 
@@ -56,7 +59,7 @@ def test_get_store_file_store_from_arg(tmp_wkdir):
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
 def test_get_store_file_store_from_env(tmp_wkdir, uri):
-    env = {_TRACKING_URI_ENV_VAR: uri}
+    env = {MLFLOW_TRACKING_URI.name: uri}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, FileStore)
@@ -64,7 +67,7 @@ def test_get_store_file_store_from_env(tmp_wkdir, uri):
 
 
 def test_get_store_basic_rest_store():
-    env = {_TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050"}
+    env = {MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050"}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
         assert isinstance(store, RestStore)
@@ -74,7 +77,7 @@ def test_get_store_basic_rest_store():
 
 def test_get_store_rest_store_with_password():
     env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         MLFLOW_TRACKING_USERNAME.name: "Bob",
         MLFLOW_TRACKING_PASSWORD.name: "Ross",
     }
@@ -88,7 +91,7 @@ def test_get_store_rest_store_with_password():
 
 def test_get_store_rest_store_with_token():
     env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         _TRACKING_TOKEN_ENV_VAR: "my-token",
     }
     with mock.patch.dict(os.environ, env):
@@ -99,7 +102,7 @@ def test_get_store_rest_store_with_token():
 
 def test_get_store_rest_store_with_insecure():
     env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "true",
     }
     with mock.patch.dict(os.environ, env):
@@ -110,7 +113,7 @@ def test_get_store_rest_store_with_insecure():
 
 def test_get_store_rest_store_with_no_insecure():
     env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
         _TRACKING_INSECURE_TLS_ENV_VAR: "false",
     }
     with mock.patch.dict(os.environ, env):
@@ -120,7 +123,7 @@ def test_get_store_rest_store_with_no_insecure():
 
     # By default, should not ignore verification.
     env = {
-        _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
+        MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
     }
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -134,7 +137,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"
-    env = {_TRACKING_URI_ENV_VAR: uri}
+    env = {MLFLOW_TRACKING_URI.name: uri}
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
         "mlflow.store.db.utils._verify_schema"
     ), mock.patch("mlflow.store.db.utils._initialize_tables"), mock.patch(
@@ -159,7 +162,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
 def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
-    env = {_TRACKING_URI_ENV_VAR: uri}
+    env = {MLFLOW_TRACKING_URI.name: uri}
     artifact_uri = "file:artifact/path"
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, mock.patch(
@@ -186,7 +189,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
 
 def test_get_store_databricks():
     env = {
-        _TRACKING_URI_ENV_VAR: "databricks",
+        MLFLOW_TRACKING_URI.name: "databricks",
         "DATABRICKS_HOST": "https://my-tracking-server",
         "DATABRICKS_TOKEN": "abcdef",
     }
@@ -199,7 +202,7 @@ def test_get_store_databricks():
 
 def test_get_store_databricks_profile():
     env = {
-        _TRACKING_URI_ENV_VAR: "databricks://mycoolprofile",
+        MLFLOW_TRACKING_URI.name: "databricks://mycoolprofile",
     }
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
@@ -270,7 +273,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
-        _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
+        MLFLOW_TRACKING_URI.name: "file-plugin:test-path",
     }
     with mock.patch.dict(os.environ, env):
         plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
