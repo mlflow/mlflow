@@ -288,3 +288,19 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 
 #: Specifies and takes precedence for setting the basic/bearer auth on http requests.
 MLFLOW_TRACKING_TOKEN = _EnvironmentVariable("MLFLOW_TRACKING_TOKEN", str, None)
+
+#: Specifies whether to verify TLS connection in 'requests.request' function,
+#: see https://requests.readthedocs.io/en/master/api/
+MLFLOW_TRACKING_INSECURE_TLS = _BooleanEnvironmentVariable("MLFLOW_TRACKING_INSECURE_TLS", False)
+
+#: Sets the ``verify`` param in 'requests.request' function,
+#: see https://requests.readthedocs.io/en/master/api/
+MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_CERT_PATH", str, None
+)
+
+#: Sets the ``cert`` param in 'requests.request' function,
+#: see https://requests.readthedocs.io/en/master/api/
+MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
+)
