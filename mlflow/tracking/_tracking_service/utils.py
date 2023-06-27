@@ -34,6 +34,7 @@ def is_tracking_uri_set():
         return True
     return False
 
+
 def set_tracking_uri(uri: Union[str, Path]) -> None:
     """
     Set the tracking server URI. This does not affect the
