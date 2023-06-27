@@ -305,8 +305,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param tag: :py:class:`mlflow.entities.model_registry.RegisteredModelTag` instance to log.
         :return: None
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetRegisteredModelTagRequest(name=name, key=tag.key, value=tag.value)
+            SetRegisteredModelTagRequest(name=full_name, key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetRegisteredModelTagRequest, req_body)
 
@@ -318,7 +319,8 @@ class UcModelRegistryStore(BaseRestStore):
         :param key: Registered model tag key.
         :return: None
         """
-        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=name, key=key))
+        full_name = get_full_name_from_sc(name, self.spark)
+        req_body = message_to_json(DeleteRegisteredModelTagRequest(name=full_name, key=key))
         self._call_endpoint(DeleteRegisteredModelTagRequest, req_body)
 
     # CRUD API for ModelVersion objects
@@ -605,8 +607,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param tag: :py:class:`mlflow.entities.model_registry.ModelVersionTag` instance to log.
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetModelVersionTagRequest(name=name, version=version, key=tag.key, value=tag.value)
+            SetModelVersionTagRequest(name=full_name, version=version, key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetModelVersionTagRequest, req_body)
 
@@ -618,8 +621,9 @@ class UcModelRegistryStore(BaseRestStore):
         :param version: Registered model version.
         :param key: Tag key.
         """
+        full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            DeleteModelVersionTagRequest(name=name, version=version, key=key)
+            DeleteModelVersionTagRequest(name=full_name, version=version, key=key)
         )
         self._call_endpoint(DeleteModelVersionTagRequest, req_body)
 
