@@ -10,7 +10,6 @@ import subprocess
 import docker
 
 from mlflow import tracking
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.utils import MLFLOW_DOCKER_WORKDIR_PATH
 from mlflow.utils import process, file_utils

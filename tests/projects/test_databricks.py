@@ -10,7 +10,6 @@ import pytest
 
 import mlflow
 from mlflow import cli, MlflowClient
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.projects.databricks import DatabricksJobRunner, _get_cluster_mlflow_run_cmd
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE

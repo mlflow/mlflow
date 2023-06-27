@@ -8,7 +8,6 @@ import shutil
 import zipfile
 from io import BytesIO
 
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.utils.git_utils import get_git_repo_url, get_git_commit
 from mlflow.entities import SourceType, Param
 from mlflow.exceptions import ExecutionException
