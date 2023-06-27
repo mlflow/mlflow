@@ -147,7 +147,7 @@ Backend store     --backend-store-uri      Runs, parameters, metrics, tags, note
 Artifact Store    --artifacts-destination  Models, files, images, in-memory objects, model summary
 ================  =======================  =======================
 
-Authentication and security varies between stores. You may need to set environment variables or configure other credentials, depending on the store type. See the documentation for the store type you are using for details. This example shows a sample configuration where the backend store is a SQLite database and the artifact store is on a netware share:
+This example shows a sample configuration where the backend store is a SQLite database and the artifact store is on a netware share:
 
 .. code-block:: bash
 
@@ -165,11 +165,11 @@ When you navigate to the Tracking UI, you will see a page similar to this:
 .. image:: _static/images/ui-tutorial/tracking-ui.png
    :width: 100%
 
-Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). The search box allows you to rapidly filter the displayed runs (3) (search capabilities are discussed later). You can switch between a **Table view** and a **Chart view** summary of runs (4). The **Models** tab displays the registered models that are tracked (5).
+Down the left-hand side of the browser, the UI lists the **Experiments** that are being tracked (1). Individual **Runs** are shown in the main body of the page (2). The search box allows you to rapidly filter the displayed runs (3). You can switch between a **Table view** and a **Chart view** summary of runs (4). The **Models** tab displays the registered models that are tracked (5).
 
 The **Chart view** allows you to compare runs with visualizations of parameters used and metrics generated. The **Parallel Coordinates** chart is particularly useful for insight into the results of varying parameters. You may set the parameters and metrics visualized by selecting the vertical ellipsis and choosing the desired values from the drop-down menus. 
 
-For instance, in the following image, the final column shows the validation set root mean square error, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0, the error is almost 0.9, and high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the model does a better job. 
+For instance, in the following image, the final column shows the root mean square error of the validation set, while the left-hand columns show the learning rate and momentum used in the 14 runs. As you can see from the redder lines in the graph, when the learning rate is 0 (and therefore the model does not improve over its random initialization), the error is almost 0.9. With non-zero learning rates (``lr``), high ``momentum`` arguments lead to similar poor results. When the ``momentum`` is set to lower values, the results are better. 
 
 .. image:: _static/images/ui-tutorial/parallel-coordinates.png
    :width: 100%
@@ -179,12 +179,12 @@ As in the **Table view**, the search box allows you to filter the runs displayed
 Filtering and searching in the MLflow Tracking UI
 --------------------------------------------------
 
-A machine lerning experiment inevitably generates a large number of runs. You are free to create as many experiments as desired, but often a single experiment is best thought of as a single machine learning problem. The deployed solution will be a matter of a long evolution of data and feature engineering, architecture selection, and parameters. Filtering the runs displayed quickly becomes important.
+A machine lerning experiment inevitably generates a large number of runs. You are free to create as many experiments as desired, but often a single machine learning problem is best thought of as a single experiment. The deployed solution will be a matter of a long evolution of data and feature engineering, architecture selection, and parameters. Filtering the runs displayed quickly becomes important.
 
 Search with SQL WHERE subset
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-A search filter is one or more expressions joined by the AND keyword. The syntax does not support OR. Each expression has three parts: an identifier of the target entity (for instance, ``metrics.accuracy``), a comparator (for instance, ``>=`` for numeric values, ``LIKE`` for strings), and a constant. For example:
+A search filter is one or more expressions joined by the AND keyword. The search syntax does not support OR. Each expression has three parts: an identifier of the target entity (for instance, ``metrics.accuracy``), a comparator (for instance, ``>=`` for numeric values, ``LIKE`` for strings), and a constant. For example:
 
 .. code-block:: sql
 
@@ -195,15 +195,14 @@ The target entities are:
 * ``metrics``: A metric logged with ``mlflow.log_metric``.
 * ``params``: A parameter logged with ``mlflow.log_param``.
 * ``tags``: A tag logged with ``mlflow.set_tag``.
-* ``attributes`` : An attribute of the run.
-  * ``run_id``: The ID of the run.
-  * ``run_name``, ``run name``: The name of the run.
-  * ``status``: The status of the run (``FINISHED``, ``FAILED``, ``RUNNING``, ``SCHEDULED``, ``KILLED``).
-  * ``artifact_uri``: The URI of the artifact store.
-  * ``user_id`` : The ID of the user who started the run.
-  * ``start_time``, ``end_time`` : The start or end time of the run. Units are seconds elapsed in the Unix epoch (January 1, 1970). For example, ``start_time >= 1688169600`` filters runs created before 2023-07-01.
+* ``attribute.run_id``: The ID of the run.
+* ``attribute.run_name``, ``run name``: The name of the run.
+* ``attribute.status``: The status of the run (``FINISHED``, ``FAILED``, ``RUNNING``, ``SCHEDULED``, ``KILLED``).
+* ``attribute.artifact_uri``: The URI of the artifact store.
+* ``attribute.user_id`` : The ID of the user who started the run.
+* ``attribute.start_time``, ``attribute.end_time`` : The start or end time of the run. Units are seconds elapsed in the Unix epoch (January 1, 1970). For example, ``start_time >= 1688169600`` filters runs created before 2023-07-01.
 
-For more, see :ref:_search-runs.
+For more, see :ref:`search-runs`.
 
 Run visibility
 ~~~~~~~~~~~~~~~
@@ -247,8 +246,3 @@ You can use the **Stage** dropdown to transition a specific version of a model t
 
 .. image:: _static/images/ui-tutorial/model-version-details.png
    :width: 100%
-
-Artifact Store
----------------
-
-tk 
