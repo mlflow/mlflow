@@ -927,7 +927,7 @@ def test_enforce_params_schema():
         "f": b"byte_g",
         "g": np.int64(100),
         "h": np.datetime64("20230626"),
-        "i": [1, 2, 3],
+        "i": ["a", "b", "c"],
         "j": [True, False],
     }
     test_schema = ParamSchema(
@@ -940,7 +940,7 @@ def test_enforce_params_schema():
             ParamSpec("f", DataType.binary, b"byte_g", None),
             ParamSpec("g", DataType.long, np.int64(100), None),
             ParamSpec("h", DataType.datetime, np.datetime64("20230626"), None),
-            ParamSpec("i", DataType.long, [1, 2, 3], (-1,)),
+            ParamSpec("i", DataType.string, ["a", "b", "c"], (-1,)),
             ParamSpec("j", DataType.boolean, [True, False], (-1,)),
         ]
     )
@@ -965,10 +965,10 @@ def test_enforce_params_schema():
         _enforce_params_schema(100, test_schema)
 
     # Raise error if invalid parameters are passed
-    test_parameters = {"a": 100, "b": (1, 2), "c": b"test"}
+    test_parameters = {"a": True, "b": (1, 2), "c": b"test"}
     test_schema = ParamSchema(
         [
-            ParamSpec("a", DataType.long, 1),
+            ParamSpec("a", DataType.boolean, False),
             ParamSpec("b", DataType.string, [], (-1,)),
             ParamSpec("c", DataType.string, ""),
         ]

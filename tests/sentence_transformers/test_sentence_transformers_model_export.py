@@ -325,15 +325,19 @@ def test_model_pyfunc_save_load(basic_model, model_path):
 
 
 def test_spark_udf(basic_model, model_path, spark):
+    params = {"batch_size": 16}
     with mlflow.start_run():
-        model_info = mlflow.sentence_transformers.log_model(basic_model, "my_model")
+        signature = infer_signature(SENTENCES, basic_model.encode(SENTENCES), params)
+        model_info = mlflow.sentence_transformers.log_model(
+            basic_model, "my_model", signature=signature
+        )
 
     result_type = ArrayType(DoubleType())
     loaded_model = mlflow.pyfunc.spark_udf(
         spark,
         model_info.model_uri,
         result_type=result_type,
-        params={"batch_size": 16},
+        params=params,
     )
 
     df = spark.createDataFrame([("hello MLflow",), ("bye world",)], ["text"])
