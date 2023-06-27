@@ -41,10 +41,12 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
    recipes
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 0
    :caption: How-to
 
    tutorial-tracking
+   tutorial-tracking-ui
+   tutorial-model-registry
 
 .. toctree::
    :maxdepth: 1
