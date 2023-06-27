@@ -20,6 +20,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DOCKER_IMAGE_URI,
     MLFLOW_DOCKER_IMAGE_ID,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 
@@ -213,7 +214,7 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
         "DATABRICKS_USERNAME": "user",
         "DATABRICKS_PASSWORD": "pass",
         "DATABRICKS_INSECURE": "True",
-        mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks",
+        MLFLOW_TRACKING_URI.name: "databricks",
     }
     assert cmds == []
 

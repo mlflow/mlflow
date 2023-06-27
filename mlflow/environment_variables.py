@@ -69,6 +69,14 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         return lowercased in ["true", "1"]
 
 
+#: Specifies the tracking URI.
+#: (default: ``None``)
+MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
+
+#: Specifies the registry URI.
+#: (default: ``None``)
+MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
@@ -282,3 +290,30 @@ MLFLOW_TRACKING_USERNAME = _EnvironmentVariable("MLFLOW_TRACKING_USERNAME", str,
 #: Specifies the password used to authenticate with a tracking server.
 #: (default: ``None``)
 MLFLOW_TRACKING_PASSWORD = _EnvironmentVariable("MLFLOW_TRACKING_PASSWORD", str, None)
+
+#: Specifies and takes precedence for setting the basic/bearer auth on http requests.
+#: (default: ``None``)
+MLFLOW_TRACKING_TOKEN = _EnvironmentVariable("MLFLOW_TRACKING_TOKEN", str, None)
+
+#: Specifies whether to verify TLS connection in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``False``).
+MLFLOW_TRACKING_INSECURE_TLS = _BooleanEnvironmentVariable("MLFLOW_TRACKING_INSECURE_TLS", False)
+
+#: Sets the ``verify`` param in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``None``)
+MLFLOW_TRACKING_SERVER_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_CERT_PATH", str, None
+)
+
+#: Sets the ``cert`` param in ``requests.request`` function,
+#: see https://requests.readthedocs.io/en/master/api/
+#: (default: ``None``)
+MLFLOW_TRACKING_CLIENT_CERT_PATH = _EnvironmentVariable(
+    "MLFLOW_TRACKING_CLIENT_CERT_PATH", str, None
+)
+
+#: Specified the ID of the run to log data to.
+#: (default: ``None``)
+MLFLOW_RUN_ID = _EnvironmentVariable("MLFLOW_RUN_ID", str, None)

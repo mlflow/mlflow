@@ -298,3 +298,59 @@ fetch('https://pypi.org/pypi/mlflow/json')
   .catch((error) => {
     console.error('Failed to fetch package metadata from PyPI:', error);
   });
+
+function addCopyButton()  {
+    var divs = document.getElementsByClassName("highlight");
+    var iconColor = "#808080"; // set icon color to a darker shade of gray
+    var copyIconClass = "far fa-copy"; // class for copy icon
+    var checkIconClass = "fas fa-check"; // class for check icon
+
+    // When the copy button is clicked for the first time, there is a small delay before the icon
+    // switches to the check mark. This is because the check mark icon is not loaded yet.
+    // To prevent this, preload the check mark icon.
+    var invisibleCheckIcon = document.createElement("i");
+    invisibleCheckIcon.className = checkIconClass;
+    invisibleCheckIcon.style.visibility = "hidden";
+    invisibleCheckIcon.style.position = "absolute";
+    document.body.appendChild(invisibleCheckIcon);
+
+    for (var i = 0; i < divs.length; i++) {
+        var button = document.createElement("button");
+        var icon = document.createElement("i");
+        icon.className = copyIconClass;
+        icon.style.color = iconColor;
+        button.appendChild(icon);
+        button.style.position = "absolute";
+        button.style.top = "0"; // no margin
+        button.style.right = "0"; // no margin
+        button.style.width = "30px"; // set width
+        button.style.height = "30px"; // set height
+        button.style.background = "none"; // no background
+        button.style.border = "none"; // no border
+        button.title = "Copy to clipboard"; // add title for tooltip
+        divs[i].style.position = "relative";
+        divs[i].appendChild(button);
+
+        button.addEventListener("click", function () {
+        var text = this.parentElement.textContent;
+        var self = this;
+        navigator.clipboard
+            .writeText(text)
+            .then(() => {
+            // swap out the copy icon for the check mark icon
+            self.firstChild.className = checkIconClass;
+            self.firstChild.style.color = iconColor;
+            // switch back to the copy icon after a 2-second delay
+            setTimeout(function () {
+                self.firstChild.className = copyIconClass;
+                self.firstChild.style.color = iconColor;
+            }, 1500);
+            })
+            .catch(err => {
+            console.error("Error in copying text: ", err);
+            });
+        });
+    }
+}
+
+addCopyButton();

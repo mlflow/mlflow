@@ -30,7 +30,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
 )
-from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment, Run, RunInputs
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.entities.paged_list import PagedList
@@ -142,7 +141,6 @@ class SqlAlchemyStore(AbstractStore):
         # DB migrations
         if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
-        Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
             SessionMaker, self.db_type
@@ -217,16 +215,6 @@ class SqlAlchemyStore(AbstractStore):
         finally:
             self._unset_zero_value_insertion_for_autoincrement_column(session)
 
-    def _save_to_db(self, session, objs):
-        """
-        Store in db
-        """
-        if type(objs) is list:
-            session.add_all(objs)
-        else:
-            # single object
-            session.add(objs)
-
     def _get_or_create(self, session, model, **kwargs):
         instance = session.query(model).filter_by(**kwargs).first()
         created = False
@@ -235,7 +223,7 @@ class SqlAlchemyStore(AbstractStore):
             return instance, created
         else:
             instance = model(**kwargs)
-            self._save_to_db(objs=instance, session=session)
+            session.add(instance)
             created = True
 
         return instance, created
@@ -410,7 +398,7 @@ class SqlAlchemyStore(AbstractStore):
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_deleted(session, run)
-            self._save_to_db(objs=experiment, session=session)
+            session.add(experiment)
 
     def _hard_delete_experiment(self, experiment_id):
         """
@@ -426,12 +414,12 @@ class SqlAlchemyStore(AbstractStore):
     def _mark_run_deleted(self, session, run):
         run.lifecycle_stage = LifecycleStage.DELETED
         run.deleted_time = get_current_time_millis()
-        self._save_to_db(objs=run, session=session)
+        session.add(run)
 
     def _mark_run_active(self, session, run):
         run.lifecycle_stage = LifecycleStage.ACTIVE
         run.deleted_time = None
-        self._save_to_db(objs=run, session=session)
+        session.add(run)
 
     def _list_run_infos(self, session, experiment_id):
         return session.query(SqlRun).filter(SqlRun.experiment_id == experiment_id).all()
@@ -444,7 +432,7 @@ class SqlAlchemyStore(AbstractStore):
             runs = self._list_run_infos(session, experiment_id)
             for run in runs:
                 self._mark_run_active(session, run)
-            self._save_to_db(objs=experiment, session=session)
+            session.add(experiment)
 
     def rename_experiment(self, experiment_id, new_name):
         with self.ManagedSessionMaker() as session:
@@ -454,7 +442,7 @@ class SqlAlchemyStore(AbstractStore):
 
             experiment.name = new_name
             experiment.last_update_time = get_current_time_millis()
-            self._save_to_db(objs=experiment, session=session)
+            session.add(experiment)
 
     def create_run(self, experiment_id, user_id, start_time, tags, run_name):
         with self.ManagedSessionMaker() as session:
@@ -498,7 +486,7 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             run.tags = [SqlTag(key=tag.key, value=tag.value) for tag in tags]
-            self._save_to_db(objs=run, session=session)
+            session.add(run)
 
             return run.to_mlflow_entity()
 
@@ -608,7 +596,7 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     run_name_tag.value = run_name
 
-            self._save_to_db(objs=run, session=session)
+            session.add(run)
             run = run.to_mlflow_entity()
 
             return run.info
@@ -639,14 +627,14 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.ACTIVE
             run.deleted_time = None
-            self._save_to_db(objs=run, session=session)
+            session.add(run)
 
     def delete_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             run.lifecycle_stage = LifecycleStage.DELETED
             run.deleted_time = get_current_time_millis()
-            self._save_to_db(objs=run, session=session)
+            session.add(run)
 
     def _hard_delete_run(self, run_id):
         """
@@ -720,7 +708,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
 
             def _insert_metrics(metric_instances):
-                self._save_to_db(session=session, objs=metric_instances)
+                session.add_all(metric_instances)
                 self._update_latest_metrics_if_necessary(metric_instances, session)
                 session.commit()
 
@@ -874,7 +862,7 @@ class SqlAlchemyStore(AbstractStore):
                 latest_metric = _overwrite_metric(logged_metric, latest_metric)
 
         if new_latest_metric_dict:
-            self._save_to_db(session=session, objs=list(new_latest_metric_dict.values()))
+            session.add_all(new_latest_metric_dict.values())
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
@@ -1094,7 +1082,7 @@ class SqlAlchemyStore(AbstractStore):
             if not new_params:
                 return
 
-            self._save_to_db(session=session, objs=new_params)
+            session.add_all(new_params)
 
     def set_experiment_tag(self, experiment_id, tag):
         """
@@ -1187,7 +1175,7 @@ class SqlAlchemyStore(AbstractStore):
                             new_tag_dict[tag.key] = new_tag
 
                     # finally, save new entries to DB.
-                    self._save_to_db(session=session, objs=list(new_tag_dict.values()))
+                    session.add_all(new_tag_dict.values())
                     session.commit()
                 except sqlalchemy.exc.IntegrityError:
                     session.rollback()
@@ -1486,7 +1474,7 @@ class SqlAlchemyStore(AbstractStore):
                             )
                         )
 
-            self._save_to_db(session, objs_to_write)
+            session.add_all(objs_to_write)
 
 
 def _get_attributes_filtering_clauses(parsed, dialect):

@@ -66,14 +66,15 @@ def set_up_transform_step(recipe_root: Path, transform_user_module):
     return transform_step, transform_step_output_dir, split_step_output_dir
 
 
-def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(tmp_recipe_root_path):
+def test_transform_step_writes_onehot_encoded_dataframe_and_transformer_pkl(
+    tmp_recipe_root_path, monkeypatch
+):
     from sklearn.preprocessing import StandardScaler
 
     m = Mock()
     m.transformer_fn = lambda: StandardScaler()  # pylint: disable=unnecessary-lambda
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ), mock.patch.dict("sys.modules", {"steps.transform": m}):
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
+    with mock.patch.dict("sys.modules", {"steps.transform": m}):
         transform_step, transform_step_output_dir, _ = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"
         )
@@ -114,10 +115,9 @@ def test_transform_steps_work_without_step_config(tmp_recipe_root_path, recipe):
     transform_step._validate_and_apply_step_config()
 
 
-def test_transform_empty_step(tmp_recipe_root_path):
-    with mock.patch.dict(
-        os.environ, {_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR: str(tmp_recipe_root_path)}
-    ), mock.patch("steps.transform.transformer_fn", return_value=None):
+def test_transform_empty_step(tmp_recipe_root_path, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_RECIPES_EXECUTION_DIRECTORY_ENV_VAR, str(tmp_recipe_root_path))
+    with mock.patch("steps.transform.transformer_fn", return_value=None):
         transform_step, transform_step_output_dir, split_step_output_dir = set_up_transform_step(
             tmp_recipe_root_path, "transformer_fn"
         )

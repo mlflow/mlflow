@@ -13,14 +13,11 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server.auth import auth_config
 from mlflow.server.auth.client import AuthServiceClient
-from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_USERNAME_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
-)
 from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 from tests.helper_functions import random_str
 from tests.server.auth.auth_test_utils import create_user, User
-from tests.tracking.integration_test_utils import _init_server, _terminate_server
+from tests.tracking.integration_test_utils import _init_server
 
 PERMISSION = "READ"
 NEW_PERMISSION = "EDIT"
@@ -30,7 +27,9 @@ ADMIN_PASSWORD = auth_config.admin_password
 
 @pytest.fixture(autouse=True)
 def clear_credentials(monkeypatch):
-    monkeypatch.delenvs([_TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR], raising=False)
+    monkeypatch.delenvs(
+        [MLFLOW_TRACKING_USERNAME.name, MLFLOW_TRACKING_PASSWORD.name], raising=False
+    )
 
 
 @pytest.fixture
@@ -43,13 +42,12 @@ def client(tmp_path):
     path = tmp_path.joinpath("sqlalchemy.db").as_uri()
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
 
-    url, process = _init_server(
+    with _init_server(
         backend_uri=backend_uri,
         root_artifact_uri=tmp_path.joinpath("artifacts").as_uri(),
         app="mlflow.server.auth:create_app",
-    )
-    yield AuthServiceClient(url)
-    _terminate_server(process)
+    ) as url:
+        yield AuthServiceClient(url)
 
 
 @contextmanager
