@@ -7,15 +7,15 @@ As a Data Scientist, developing a Machine Learning solution requires iterating a
 
 There are 4 subcomponents within MLflow Tracking:
 
-- A logging API to specify the parameters, metrics, and artifacts (files) of your runs
+- A logging API to specify the parameters, metrics, and artifacts (files written) of your runs
 - A Tracking Server that stores this data
 - A Tracking UI that visualizes and filters your experiments
 - An Artifact Store that stores models, metadata, and other artifacts produced by your runs
 
-MLflow has Python, R, and Java/Scala/JVM APIs, but this tutorial will use Python. There are a number of backend stores for the Tracking Server and Artifact Stores, but this tutorial will primarily show the default file-store-based and SQLAlchemy-based RDBMS-based backends. For other APIs and backends, see the :ref:tracking reference documentation.
+MLflow has Python, R, and Java/Scala/JVM APIs, but this tutorial will use Python. There are a number of backend stores for the Tracking Server and Artifact Stores, but this tutorial will primarily show the default file-store-based and SQLAlchemy-based RDBMS-based backends. For other APIs and backends, see the :ref:`tracking` reference documentation.
 
 .. note::
-    You may choose to get an overview of MLflow by running one or both of the :ref:`Data Scientist Oriented Quickstart<quickstart>` or the :ref:`MLOps Professional Oriented Quickstart<quickstart-mlops>`. The Quickstarts don't cover all of the features this tutorial will, but they will orient you to the main MLflow features and components.
+    You may choose to get an overview of MLflow by running one or both of the :ref:`Data Scientist Oriented Quickstart<quickstart>` or the :ref:`MLOps Professional Oriented Quickstart<quickstart-mlops>`. The Quickstarts don't cover all of the features this tutorial will, but they will orient you to MLflow's major features and components.
 
 Setup
 ------
@@ -26,7 +26,7 @@ If you have not already installed MLflow, install it using pip:
 
   pip install mlflow
 
-You may instead choose to install `mlflow[extras]`, but this is not required for this tutorial. If you have already installed `mlflow-skinny`, you will need to install the full `mlflow` module to run this tutorial (in particular, to run the Tracking UI).
+You may instead choose to install ``mlflow[extras]``, but this is not required for this tutorial. If you have already installed ``mlflow-skinny``, you will need to install the full ``mlflow`` package to run this tutorial (in particular, to run the Tracking UI).
 
 Experiments and Runs
 -------------------------------
@@ -35,30 +35,30 @@ A *Run* is a single execution of your training workflow. An *Experiment* is a co
 
 In addition, you should use MLflow to log:
 
-- **Parameters**: Key-value pairs of input parameters
+- **Parameters**: Key-value pairs of input parameters or other values that do not change during a single run
 - **Metrics**: Key-value pairs of metrics, showing performance changes during training
-- **Artifacts**: Output data files in any format. In particular, the model file produced by your training job.
+- **Artifacts**: Output data files in any format. In particular, the model file produced by your training job
 
-Artifacts may be stored in a different backend than parameters and metrics. Commonly, parameters and metrics are stored in a relational database, while artifacts are stored on a shared filesystem or object store. This tutorial will show how to use the default file-based artifact store, but you can also use Amazon S3, Azure Blob Storage, or FTP servers. See tk
+Artifacts may be stored in a different backend than parameters and metrics. Commonly, parameters and metrics are stored in a relational database, while artifacts are stored on a shared filesystem or object store. This tutorial will show how to use the default file-based artifact store, but you can also use Amazon S3, Azure Blob Storage, or FTP servers. For more, see :ref:`artifact-stores`.
 
 Run the Tracking Server
 ------------------------
 
-The Tracking Server has a variety of backend configurations. By default, the tracking server will use the local filesystem , creating an `mlruns` subdirectory of the directory from which you run it. 
+The Tracking Server has a variety of backend configurations. By default, the tracking server will use the local filesystem, creating an **mlruns/** subdirectory of the directory from which you run it. 
 
 .. code-block:: bash
 
   mlflow server # Creates a subdirectory ./mlruns
 
-Commonly, a relational database is used for the backend. To use a database, you must specify a SQLAlchemy database URI. For example, to use a SQLite database, you can run:
+Commonly, a relational database is used for the backend. To use a database, you must specify a SQLAlchemy-compatible database URI. For example, to use a SQLite database, you can run:
 
 .. code-block:: bash
 
   mlflow server --backend-store-uri sqlite:///mlruns.db 
 
-This will use (and create, if necessary) a SQlite database in the current directory for storing parameters and metrics. Artifacts will still be stored in the `mlruns` subdirectory.
+This will use (and create, if necessary) a SQlite database in the current directory for storing parameters and metrics. Artifacts will still be stored in the **mlruns/** subdirectory.
 
-It is common to use cloud storage to hold artifacts. The details will vary somewhat from cloud-to-cloud due to authentication and access control differences, but the general idea is the same. To use a cloud storage backend, you specify a URI for the artifact store with the ``artifacts-destination`` argument for the Tracking Server.
+It is common to use cloud storage to hold artifacts. The details will vary somewhat from cloud-to-cloud due to authentication and access control differences, but the general idea is the same. To use a cloud storage backend, you specify the URI of the artifact store as the argument to the `artifacts-destination`` parameter of the Tracking Server. 
 
 For instance, to combine a SQLite store for parameters and metrics with an Azure blob-storage artifact store:
 
@@ -72,35 +72,14 @@ For instance, to combine a SQLite store for parameters and metrics with an Azure
   export AZURE_STORAGE_CONNECTION_KEY=DefaultEndpointsProtocol=https;AccountName=etc...
   mlflow server --backend-store-uri sqlite:///mlruns.db --artifacts-destination wasbs://artifact-store@my-account.blob.core.windows.net
 
-  {>> Needs a discussion of MLFLOW_TRACKING_URI <<}
+  {>> Is this correct? There's also ``default_artifact_root`` ... Nope, I just don't follow the difference between `d_a_r` and `a-d` <<}
 
 Logging API
 ----------------
 
-Once you have a Tracking Server running, you can use the MLflow Tracking API to log parameters, metrics, and artifacts from your runs. The Tracking API is organized in terms of **runs** and **experiments**. An experiment is a set of runs which have the same name. 
+Once you have a Tracking Server running, you can use the MLflow Tracking API to log parameters, metrics, and artifacts from your runs. The Tracking API is organized in terms of **experiments** and **runs**. An experiment is a collection of runs addressing the same use-case. 
 
 If you do not set an experiment name, the Tracking Server will associate your runs with the ``Default`` experiment. You can also set the run name, or the Tracking Server will generate a random one for you. The run name is not required to be unique. The run ID is a UUID generated by the Tracking Server and is the primary key for the run.
-
-CLI vs. API Configurations
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You may configure MLflow in two ways:
-
-- Using command-line facilities such as environment variables and command-line switches. This is often quicker and easier, but less reproducible.
-- Using code. This "infrastructure as code" approach is reproducible and easier to share, but requires more organization and initial investment.
-
-Hereon out, this tutorial is going to use the code-based approach. For brevity, we will not separate infrastructure functions from the rest of the code and will not show, for instance, loading and using keys and values from a separate JSON or YAML file.
-
-~~For instance, to reproduce the above Tracking Server configuration using the API, you might use code similar to:~~ This is for the client
-
-.. code-block:: python
-
-  import mlflow
-  # Never put credentials in code. Use environment variables if not a secret manager.
-  assert(os.environ.get("AZURE_STORAGE_CONNECTION_STRING") is not None)
-  mlflow.set_tracking_uri("sqlite:///mlruns.db")
-  mlflow.set_artifact_uri("wasbs://artifact-store@my-account...")
-
 
 Parameters
 ~~~~~~~~~~
@@ -151,6 +130,8 @@ Artifacts
 
   mlflow.log_artifact(path_to_summary)
   mlflow.log_artifacts(visualizations)
+
+Your model is also an artifact. You should log you should log your model with the ``mlflow.log_model`` API.
 
 
 Separating backend and artifact stores
@@ -267,3 +248,7 @@ You can use the **Stage** dropdown to transition a specific version of a model t
 .. image:: _static/images/ui-tutorial/model-version-details.png
    :width: 100%
 
+Artifact Store
+---------------
+
+tk 
