@@ -8,6 +8,7 @@ import pytest
 from pathlib import Path
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
@@ -21,7 +22,6 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_TOKEN_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.os import is_windows
@@ -95,7 +95,7 @@ def test_get_store_rest_store_with_password():
 def test_get_store_rest_store_with_token():
     env = {
         MLFLOW_TRACKING_URI.name: "https://my-tracking-server:5050",
-        _TRACKING_TOKEN_ENV_VAR: "my-token",
+        MLFLOW_TRACKING_TOKEN.name: "my-token",
     }
     with mock.patch.dict(os.environ, env):
         store = _get_store()
