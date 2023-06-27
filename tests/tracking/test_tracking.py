@@ -1056,8 +1056,16 @@ def test_start_scheduled_run():
     client = MlflowClient()
     exp_id = client.create_experiment("exp")
     run = client.create_run(exp_id, start_time=123)
-    client.update_run(run.info.run_id, "SCHEDULED")
 
+    # if status is not "SCHEDULED", start time is not updated
+    with mlflow.start_run(run.info.run_id):
+        pass
+
+    get_run = client.get_run(run.info.run_id)
+    assert get_run.info.start_time == 123
+
+    # change to "SCHEDULED"
+    client.update_run(run.info.run_id, "SCHEDULED")
     updated_run = client.get_run(run.info.run_id)
     assert updated_run.info.status == "SCHEDULED"
     assert updated_run.info.start_time == 123
