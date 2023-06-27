@@ -1338,7 +1338,7 @@ def test_text2text_generation_pipeline_catch_error_in_kwargs(
     signature = infer_signature(
         data,
         mlflow.transformers.generate_signature_output(text2text_generation_pipeline, data),
-        parameters=parameters,
+        params=parameters,
     )
 
     mlflow.transformers.save_model(
@@ -3091,7 +3091,7 @@ def test_whisper_model_serve_and_score_with_timestamps_with_kwargs(
     signature = infer_signature(
         raw_audio_file,
         mlflow.transformers.generate_signature_output(whisper_pipeline, raw_audio_file),
-        parameters=inference_config,
+        params=inference_config,
     )
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
