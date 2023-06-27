@@ -961,12 +961,29 @@ def test_model_log_with_signature_inference(spark_model_iris, iris_signature):
     X = spark_model_iris.pandas_df
     X.drop("label", axis=1, inplace=True)
     example = X.iloc[[0]]
+    example_dict = X.iloc[0].to_dict()
+    example_array = list(example_dict.values())
 
-    with mlflow.start_run():
-        mlflow.spark.log_model(
-            spark_model_iris.model, artifact_path=artifact_path, input_example=example
-        )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+    # test various input example data types
+    for input_ex in (example, example_dict, example_array):
+        with mlflow.start_run():
+            mlflow.spark.log_model(
+                spark_model_iris.model, artifact_path=artifact_path, input_example=input_ex
+            )
+            model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    mlflow_model = Model.load(model_uri)
-    assert mlflow_model.signature == iris_signature
+        mlflow_model = Model.load(model_uri)
+        if isinstance(input_ex, list):
+            assert mlflow_model.signature == ModelSignature(
+                inputs=Schema(
+                    [
+                        ColSpec(name=0, type=DataType.double),
+                        ColSpec(name=1, type=DataType.double),
+                        ColSpec(name=2, type=DataType.double),
+                        ColSpec(name=3, type=DataType.double),
+                    ]
+                ),
+                outputs=Schema([ColSpec(type=DataType.double)]),
+            )
+        else:
+            assert mlflow_model.signature == iris_signature

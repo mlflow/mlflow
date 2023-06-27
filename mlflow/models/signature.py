@@ -269,10 +269,7 @@ def _infer_signature_from_input_example(
         `wrapped_model`.
     """
     try:
-        if isinstance(input_example, pd.Series):
-            input_ex = input_example
-        else:
-            input_ex = _Example(input_example).inference_data
+        input_ex = _Example(input_example).inference_data
         input_schema = _infer_schema(input_ex)
         # Copy the input example so that it is not mutated by predict()
         prediction = wrapped_model.predict(deepcopy(input_ex))
