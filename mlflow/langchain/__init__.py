@@ -22,7 +22,7 @@ import yaml
 
 import mlflow
 from mlflow import pyfunc
-from mlflow.environment_variables import _MLFLOW_OPENAI_TESTING
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _save_example
@@ -466,7 +466,7 @@ def _load_pyfunc(path):
     Load PyFunc implementation for LangChain. Called by ``pyfunc.load_model``.
     :param path: Local filesystem path to the MLflow Model with the ``langchain`` flavor.
     """
-    wrapper_cls = _TestLangChainWrapper if _MLFLOW_OPENAI_TESTING.get() else _LangChainModelWrapper
+    wrapper_cls = _TestLangChainWrapper if _MLFLOW_TESTING.get() else _LangChainModelWrapper
     return wrapper_cls(_load_model_from_local_fs(path))
 
 

@@ -257,8 +257,6 @@ MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_FILE_URI_AS_MODEL_VERSION_SOURCE", False
 )
 
-#: Private environment variable that should be set to True when running MLflow tests.
-_MLFLOW_OPENAI_TESTING = _BooleanEnvironmentVariable("MLFLOW_OPENAI_TESTING", False)
 
 #: Specifies the name of the Databricks secret scope to use for storing OpenAI API keys.
 MLFLOW_OPENAI_SECRET_SCOPE = _EnvironmentVariable("MLFLOW_OPENAI_SECRET_SCOPE", str, None)
