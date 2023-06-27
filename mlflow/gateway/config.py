@@ -34,7 +34,7 @@ class RouteType(str, Enum):
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
 
 
-class CohereConfig(BaseModel, extra=Extra.forbid):
+class CohereConfig(BaseModel, extra=Extra.allow):
     api_key: str
     api_base: str = "https://api.cohere.ai/v1"
 
@@ -44,7 +44,7 @@ class CohereConfig(BaseModel, extra=Extra.forbid):
         return _resolve_api_key_from_input(value)
 
 
-class OpenAIConfig(BaseModel, extra=Extra.forbid):
+class OpenAIConfig(BaseModel, extra=Extra.allow):
     openai_api_key: str
     openai_api_type: Optional[str] = None
     openai_api_base: str = "https://api.openai.com/v1"
@@ -57,7 +57,7 @@ class OpenAIConfig(BaseModel, extra=Extra.forbid):
         return _resolve_api_key_from_input(value)
 
 
-class AnthropicConfig(BaseModel, extra=Extra.forbid):
+class AnthropicConfig(BaseModel, extra=Extra.allow):
     anthropic_api_key: str
     anthropic_api_base: str = "https://api.anthropic.com/"
 
@@ -74,7 +74,7 @@ config_types = {
 }
 
 
-class ModelInfo(BaseModel, extra=Extra.forbid):
+class ModelInfo(BaseModel, extra=Extra.allow):
     name: Optional[str] = None
     provider: Provider
 
@@ -116,7 +116,7 @@ def _resolve_api_key_from_input(api_key_input):
 
 
 # pylint: disable=no-self-argument
-class Model(BaseModel, extra=Extra.forbid):
+class Model(BaseModel, extra=Extra.allow):
     name: Optional[str] = None
     provider: Union[str, Provider]
     config: Optional[
@@ -147,7 +147,7 @@ class Model(BaseModel, extra=Extra.forbid):
 
 
 # pylint: disable=no-self-argument
-class RouteConfig(BaseModel, extra=Extra.forbid):
+class RouteConfig(BaseModel, extra=Extra.allow):
     name: str
     route_type: RouteType
     model: Model
@@ -190,13 +190,13 @@ class RouteConfig(BaseModel, extra=Extra.forbid):
         )
 
 
-class Route(BaseModel, extra=Extra.forbid):
+class Route(BaseModel, extra=Extra.allow):
     name: str
     route_type: RouteType
     model: ModelInfo
 
 
-class GatewayConfig(BaseModel, extra=Extra.forbid):
+class GatewayConfig(BaseModel, extra=Extra.allow):
     routes: List[RouteConfig]
 
 
