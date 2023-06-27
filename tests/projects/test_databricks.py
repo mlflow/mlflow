@@ -27,6 +27,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 

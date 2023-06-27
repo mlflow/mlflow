@@ -1,4 +1,3 @@
-import os
 import re
 import difflib
 from pathlib import Path

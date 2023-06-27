@@ -1,4 +1,3 @@
-import os
 from unittest import mock
 import uuid
 import pytest
@@ -15,7 +14,6 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlModelVersionTag,
 )
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.protos.databricks_pb2 import (
     ErrorCode,
     RESOURCE_DOES_NOT_EXIST,
@@ -23,6 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock

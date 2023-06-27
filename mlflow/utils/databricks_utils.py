@@ -5,13 +5,12 @@ import subprocess
 from typing import Optional, TypeVar
 
 from databricks_cli.configure import provider
-
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 import mlflow.utils
 from mlflow.utils.rest_utils import MlflowHostCreds
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 _logger = logging.getLogger(__name__)
 

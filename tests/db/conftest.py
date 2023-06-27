@@ -1,5 +1,3 @@
-import os
-
 import pytest
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI

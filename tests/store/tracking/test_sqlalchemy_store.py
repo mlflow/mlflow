@@ -44,7 +44,6 @@ from mlflow.store.db.utils import (
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import SQLITE, POSTGRES, MYSQL, MSSQL
 from mlflow import entities
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.utils import mlflow_tags
@@ -67,6 +66,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlDataset,
 )
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking import AbstractStoreTest
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -141,9 +141,9 @@ class TestSqlAlchemyStore(unittest.TestCase, AbstractStoreTest):
         return self._run_factory()
 
     def _setup_db_uri(self):
-        if MLFLOW_TRACKING_URI.is_defined:
+        if uri := MLFLOW_TRACKING_URI.get():
             self.temp_dbfile = None
-            self.db_url = MLFLOW_TRACKING_URI.get()
+            self.db_url = uri
         else:
             fd, self.temp_dbfile = tempfile.mkstemp()
             # Close handle immediately so that we can remove the file later on in Windows

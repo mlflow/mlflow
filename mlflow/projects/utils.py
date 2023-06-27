@@ -29,6 +29,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_PARENT_RUN_ID,
 )
 from mlflow.utils.rest_utils import augmented_raise_for_status
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 _FILE_URI_REGEX = re.compile(r"^file://.+")
 _ZIP_URI_REGEX = re.compile(r".+\.zip$")

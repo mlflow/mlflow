@@ -18,6 +18,7 @@ from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils.file_utils import _handle_readonly_on_windows
 from mlflow.utils.git_utils import get_git_commit
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 _logger = logging.getLogger(__name__)
 

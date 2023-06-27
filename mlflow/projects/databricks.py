@@ -26,6 +26,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.uri import is_databricks_uri, is_http_uri
 from mlflow.utils.string_utils import quote
 from mlflow.version import is_release_version, VERSION
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
