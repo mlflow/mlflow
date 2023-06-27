@@ -632,11 +632,9 @@ message SetRegisteredModelTag {
 
   // Name of the tag. Maximum size depends on storage backend.
   // If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
-  // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string key = 2 [(validate_required) = true];
 
   // String value of the tag being logged. Maximum size depends on storage backend.
-  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -654,11 +652,9 @@ message SetModelVersionTag {
 
   // Name of the tag. Maximum size depends on storage backend.
   // If a tag with this name already exists, its preexisting value will be replaced by the specified `value`.
-  // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string key = 3 [(validate_required) = true];
 
   // String value of the tag being logged. Maximum size depends on storage backend.
-  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 4 [(validate_required) = true];
 
   message Response {
