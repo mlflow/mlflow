@@ -419,19 +419,99 @@ class ParamSpec:
     def __init__(
         self,
         name: str,
-        type: str,  # pylint: disable=redefined-builtin
-        default: Any,
+        type: Union[DataType, str],  # pylint: disable=redefined-builtin
+        default: Union[DataType, List[DataType], None],
+        shape: Optional[tuple] = None,
     ):
         self._name = str(name)
-        self._type = str(type)
-        self._default = default
-        self._check_default_type()
+        self._shape = tuple(shape) if shape is not None else None
 
-    def _check_default_type(self):
-        if type(self.default).__name__ != self.type:
+        try:
+            self._type = DataType[type] if isinstance(type, str) else type
+        except KeyError:
             raise MlflowException(
-                f"Invalid default value for ParamSpec {self!r}: "
-                f"expected type {self.type}, default value type {type(self.default).__name__}",
+                f"Unsupported type '{type}', expected instance of DataType or "
+                f"one of {[t.name for t in DataType]}"
+            )
+        if not isinstance(self.type, DataType):
+            raise TypeError(
+                "Expected mlflow.models.signature.Datatype or str for the 'type' "
+                f"argument, but got {self.type.__class__}"
+            )
+
+        # This line makes sure repr(self) works fine
+        self._default = default
+        self._default = self.validate_type_and_shape(repr(self), default, self.type, self.shape)
+
+    @classmethod
+    def validate_param_spec(
+        cls, value: Union[DataType, List[DataType], None], param_spec: "ParamSpec"
+    ):
+        return cls.validate_type_and_shape(
+            repr(param_spec), value, param_spec.type, param_spec.shape
+        )
+
+    @classmethod
+    def validate_type_and_shape(
+        cls,
+        spec: str,
+        value: Union[DataType, List[DataType], None],
+        value_type: DataType,
+        shape: Optional[tuple],
+    ):
+        """
+        Validate that the value has the expected type and shape.
+        """
+
+        def _is_1d_array(value):
+            if not isinstance(value, list):
+                return False
+            if np.array(value).ndim == 1:
+                return True
+            return False
+
+        try:
+            if shape is None:
+                if np.isscalar(value) or value is None:
+                    return (
+                        np.array(value, dtype=value_type.to_numpy()).item()
+                        if value is not None
+                        else None
+                    )
+                else:
+                    raise MlflowException(
+                        f"Shape must be specified for non-scalar value for ParamSpec {spec}",
+                        INVALID_PARAMETER_VALUE,
+                    )
+            elif shape == (-1,):
+                if _is_1d_array(value):
+                    return (
+                        np.array(value, dtype=value_type.to_numpy()).tolist()
+                        if value is not None
+                        else None
+                    )
+                elif np.isscalar(value):
+                    raise MlflowException(
+                        f"Shape must be None for scalar value for ParamSpec {spec}",
+                        INVALID_PARAMETER_VALUE,
+                    )
+                else:
+                    raise MlflowException(
+                        f"Value must be a scalar or 1D array for ParamSpec {spec}, "
+                        f"received {type(value).__name__}",
+                        INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                raise MlflowException(
+                    "Shape must be None for scala value or (-1,) for 1D array value "
+                    f"for ParamSpec {spec}), received {shape}",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+        except ValueError as e:
+            raise MlflowException(
+                f"Failed to convert value type for ParamSpec {spec}: {e!r}\n"
+                f"Expected type {value_type}, value type {type(value).__name__}",
                 INVALID_PARAMETER_VALUE,
             )
 
@@ -441,25 +521,35 @@ class ParamSpec:
         return self._name
 
     @property
-    def type(self) -> str:
+    def type(self) -> DataType:
         """The parameter data type."""
         return self._type
 
     @property
-    def default(self) -> Any:
+    def default(self) -> Union[DataType, List[DataType], None]:
         """Default value of the parameter."""
         return self._default
+
+    @property
+    def shape(self) -> Optional[tuple]:
+        """
+        The parameter shape.
+        If shape is None, the parameter is a scalar.
+        """
+        return self._shape
 
     class ParamSpecTypedDict(TypedDict):
         name: str
         type: str
-        default: Any
+        default: Union[DataType, List[DataType], None]
+        shape: Optional[tuple]
 
     def to_dict(self) -> ParamSpecTypedDict:
         return {
             "name": self.name,
-            "type": self.type,
+            "type": self.type.name,
             "default": self.default,
+            "shape": self.shape,
         }
 
     def __eq__(self, other) -> bool:
@@ -468,17 +558,19 @@ class ParamSpec:
                 self.name == other.name
                 and self.type == other.type
                 and self.default == other.default
+                and self.shape == other.shape
             )
         return False
 
     def __repr__(self) -> str:
-        return f"{self.name!r}: {self.type!r} (default: {self.default})"
+        shape = f" (shape: {self.shape})" if self.shape is not None else ""
+        return f"{self.name!r}: {self.type!r} (default: {self.default}){shape}"
 
     @classmethod
     def from_json_dict(cls, **kwargs):
         """
         Deserialize from a json loaded dictionary.
-        The dictionary is expected to contain `name` and `type` keys.
+        The dictionary is expected to contain `name`, `type` and `default` keys.
         """
         if not {"name", "type", "default"} <= set(kwargs.keys()):
             raise MlflowException(
@@ -486,8 +578,9 @@ class ParamSpec:
             )
         return cls(
             name=str(kwargs["name"]),
-            type=str(kwargs["type"]),
+            type=DataType[kwargs["type"]],
             default=kwargs["default"],
+            shape=kwargs.get("shape"),
         )
 
 

@@ -13,7 +13,7 @@ from mlflow.models import infer_signature, Model, ModelSignature
 from mlflow.models.utils import _enforce_params_schema, _enforce_schema
 from mlflow.pyfunc import PyFuncModel
 
-from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec
+from mlflow.types import Schema, ColSpec, TensorSpec, ParamSchema, ParamSpec, DataType
 
 
 class TestModel:
@@ -920,58 +920,94 @@ def test_enforce_params_schema():
     # Correct parameters & schema
     test_parameters = {
         "a": "str_a",
-        "b": 1,
+        "b": np.int32(1),
         "c": True,
         "d": 1.0,
-        "e": [1, 2, 3],
-        "f": (1, 2, 3),
-        "g": b"byte_g",
-        "h": {"test_k": "test_v"},
+        "e": np.float32(0.1),
+        "f": b"byte_g",
+        "g": np.int64(100),
+        "h": np.datetime64("20230626"),
+        "i": [1, 2, 3],
+        "j": [True, False],
     }
     test_schema = ParamSchema(
         [
-            ParamSpec("a", "str", ""),
-            ParamSpec("b", "int", 1),
-            ParamSpec("c", "bool", False),
-            ParamSpec("d", "float", 1.0),
-            ParamSpec("e", "list", []),
-            ParamSpec("f", "tuple", (1,)),
-            ParamSpec("g", "bytes", b""),
-            ParamSpec("h", "dict", {}),
+            ParamSpec("a", DataType.string, "str_a", None),
+            ParamSpec("b", DataType.integer, np.int32(1), None),
+            ParamSpec("c", DataType.boolean, True, None),
+            ParamSpec("d", DataType.double, 1.0, None),
+            ParamSpec("e", DataType.float, np.float32(0.1), None),
+            ParamSpec("f", DataType.binary, b"byte_g", None),
+            ParamSpec("g", DataType.long, np.int64(100), None),
+            ParamSpec("h", DataType.datetime, np.datetime64("20230626"), None),
+            ParamSpec("i", DataType.long, [1, 2, 3], (-1,)),
+            ParamSpec("j", DataType.boolean, [True, False], (-1,)),
         ]
     )
     assert _enforce_params_schema(test_parameters, test_schema) == test_parameters
 
     # Add default values if the parameter is not provided
     test_parameters = {"a": "str_a"}
-    test_schema = ParamSchema([ParamSpec("a", "str", ""), ParamSpec("b", "int", 1)])
+    test_schema = ParamSchema(
+        [ParamSpec("a", DataType.string, ""), ParamSpec("b", DataType.long, 1)]
+    )
     updated_parameters = {"b": 1}
     updated_parameters.update(test_parameters)
     assert _enforce_params_schema(test_parameters, test_schema) == updated_parameters
 
     # Converting parameters keys to string if it is not
     test_parameters = {1: 1.0}
-    test_schema = ParamSchema([ParamSpec("1", "float", 1.0)])
+    test_schema = ParamSchema([ParamSpec("1", DataType.double, 1.0)])
     assert _enforce_params_schema(test_parameters, test_schema) == {"1": 1.0}
 
     # Raise error if parameters is not dictionary
     with pytest.raises(MlflowException, match=r"Parameters must be a dictionary. Got type 'int'."):
         _enforce_params_schema(100, test_schema)
 
-    # Raise error if default value is not consistent with provided type
-    with pytest.raises(MlflowException, match=r"Invalid default value for ParamSpec"):
-        test_schema = ParamSchema([ParamSpec("a", "str", 1.0)])
-
     # Raise error if invalid parameters are passed
     test_parameters = {"a": 100, "b": (1, 2), "c": b"test"}
     test_schema = ParamSchema(
         [
-            ParamSpec("a", "int", 1),
-            ParamSpec("b", "list", []),
-            ParamSpec("c", "str", ""),
+            ParamSpec("a", DataType.long, 1),
+            ParamSpec("b", DataType.string, [], (-1,)),
+            ParamSpec("c", DataType.string, ""),
         ]
     )
-    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
+    with pytest.raises(
+        MlflowException,
+        match=re.escape(
+            "Value must be a scalar or 1D array for ParamSpec 'b': string "
+            "(default: []) (shape: (-1,)), received tuple"
+        ),
+    ):
         _enforce_params_schema(test_parameters, test_schema)
-    assert e.match(r"('b', 'Invalid type for parameter b: expected list but got tuple')")
-    assert e.match(r"('c', 'Invalid type for parameter c: expected str but got bytes')")
+
+
+def test_param_spec():
+    # Convert default value type if it is not consistent with provided type
+    test_schema = ParamSchema([ParamSpec("a", DataType.string, 1.0)])
+    assert test_schema.params[0].default == "1.0"
+
+    # Raise error if shape is not specified for list value
+    with pytest.raises(
+        MlflowException, match=r"Shape must be specified for non-scalar value for ParamSpec"
+    ):
+        ParamSpec("a", DataType.long, [1, 2, 3])
+
+    # Raise error if shape is specified for scalar value
+    with pytest.raises(MlflowException, match=r"Shape must be None for scalar value for ParamSpec"):
+        ParamSpec("a", DataType.boolean, True, (-1,))
+
+    # Raise error if shape specified is not allowed
+    with pytest.raises(
+        MlflowException, match=r"Shape must be None for scala value or \(-1,\) for 1D array value"
+    ):
+        ParamSpec("a", DataType.boolean, [True, False], (2,))
+
+    # Raise error if default value is not scalar or 1D array
+    with pytest.raises(MlflowException, match=r"Value must be a scalar or 1D array for ParamSpec"):
+        ParamSpec("a", DataType.boolean, {"a": 1}, (-1,))
+
+    # Raise error if default value can not be converted to specified type
+    with pytest.raises(MlflowException, match=r"Failed to convert value type for ParamSpec"):
+        ParamSpec("a", DataType.datetime, "string")

@@ -10,7 +10,7 @@ import pandas as pd
 from mlflow.exceptions import MlflowException, INVALID_PARAMETER_VALUE
 from mlflow.models import Model
 from mlflow.store.artifact.utils.models import get_model_name_and_version
-from mlflow.types import DataType, ParamSchema, Schema, TensorSpec
+from mlflow.types import DataType, ParamSchema, Schema, TensorSpec, ParamSpec
 from mlflow.types.utils import TensorsNotSupportedException, clean_tensor_type
 from mlflow.utils.annotations import experimental
 from mlflow.utils.proto_json_utils import (
@@ -902,12 +902,10 @@ def _enforce_params_schema(params: Optional[Dict[str, Any]], schema: Optional[Pa
     for param_spec in schema.params:
         if param_spec.name in params:
             param_value = params[param_spec.name]
-            if type(param_value).__name__ != param_spec.type:
-                error_message = (
-                    f"Invalid type for parameter {param_spec.name}: "
-                    f"expected {param_spec.type} but got {type(param_value).__name__}"
-                )
-                invalid_params.add((param_spec.name, error_message))
+            try:
+                param_value = ParamSpec.validate_param_spec(param_value, param_spec)
+            except MlflowException as e:
+                invalid_params.add((param_spec.name, e.message))
         else:
             params[param_spec.name] = param_spec.default
 

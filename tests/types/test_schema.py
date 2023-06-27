@@ -673,24 +673,28 @@ def test_enforce_tensor_spec_variable_signature():
 def test_infer_param_schema():
     test_parameters = {
         "a": "str_a",
-        "b": 1,
+        "b": np.int32(1),
         "c": True,
         "d": 1.0,
-        "e": [1, 2, 3],
-        "f": (1, 2, 3),
-        "g": b"byte_g",
-        "h": {"test_k": "test_v"},
+        "e": np.float32(0.1),
+        "f": b"byte_g",
+        "g": np.int64(100),
+        "h": np.datetime64("20230626"),
+        "i": [1, 2, 3],
+        "j": [True, False],
     }
     test_schema = ParamSchema(
         [
-            ParamSpec("a", "str", "str_a"),
-            ParamSpec("b", "int", 1),
-            ParamSpec("c", "bool", True),
-            ParamSpec("d", "float", 1.0),
-            ParamSpec("e", "list", [1, 2, 3]),
-            ParamSpec("f", "tuple", (1, 2, 3)),
-            ParamSpec("g", "bytes", b"byte_g"),
-            ParamSpec("h", "dict", {"test_k": "test_v"}),
+            ParamSpec("a", DataType.string, "str_a", None),
+            ParamSpec("b", DataType.integer, np.int32(1), None),
+            ParamSpec("c", DataType.boolean, True, None),
+            ParamSpec("d", DataType.double, 1.0, None),
+            ParamSpec("e", DataType.float, np.float32(0.1), None),
+            ParamSpec("f", DataType.binary, b"byte_g", None),
+            ParamSpec("g", DataType.long, np.int64(100), None),
+            ParamSpec("h", DataType.datetime, np.datetime64("20230626"), None),
+            ParamSpec("i", DataType.long, [1, 2, 3], (-1,)),
+            ParamSpec("j", DataType.boolean, [True, False], (-1,)),
         ]
     )
     assert _infer_param_schema(test_parameters) == test_schema
@@ -698,3 +702,26 @@ def test_infer_param_schema():
     # Raise error if parameters is not dictionary
     with pytest.raises(MlflowException, match=r"Expected parameters to be dict, got list"):
         _infer_param_schema(["a", "str_a", "b", 1])
+
+    # Raise error for invalid parameters types
+    test_parameters = {
+        "a": "str_a",
+        "b": (1, 2, 3),
+        "c": True,
+        "d": [[1, 2], [3, 4]],
+    }
+    with pytest.raises(MlflowException) as e:  # pylint: disable=pytest-raises-without-match
+        _infer_param_schema(test_parameters)
+    assert e.match(r"Failed to infer schema for parameters: ")
+    assert e.match(
+        re.escape(
+            "('b', (1, 2, 3), MlflowException('Expected parameters "
+            "to be 1D array or scalar, got tuple'))"
+        )
+    )
+    assert e.match(
+        re.escape(
+            "('d', [[1, 2], [3, 4]], MlflowException('Expected parameters "
+            "to be 1D array or scalar, got 2D array'))"
+        )
+    )
