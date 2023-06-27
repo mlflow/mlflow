@@ -402,7 +402,7 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
     global _active_run_stack, _last_active_run_id
     if len(_active_run_stack) > 0:
         # Clear out the global existing run environment variable as well.
-        env.unset_variable(MLFLOW_RUN_ID)
+        env.unset_variable(MLFLOW_RUN_ID.name)
         run = _active_run_stack.pop()
         MlflowClient().set_terminated(run.info.run_id, status)
         _last_active_run_id = run.info.run_id
