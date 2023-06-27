@@ -1,5 +1,5 @@
+import shutil
 import langchain
-import os
 import mlflow
 import pytest
 import transformers
@@ -12,12 +12,14 @@ from packaging import version
 from langchain.chains import ConversationChain, LLMChain, RetrievalQA
 from langchain.chains.base import Chain
 from langchain.chains.qa_with_sources import load_qa_with_sources_chain
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.document_loaders import TextLoader
+from langchain.embeddings.fake import FakeEmbeddings
 from langchain.evaluation.qa import QAEvalChain
 from langchain.llms import HuggingFacePipeline, OpenAI
 from langchain.llms.base import LLM
 from langchain.memory import ConversationBufferMemory
 from langchain.prompts import PromptTemplate
+from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores import FAISS
 from pyspark.sql import SparkSession
 from typing import Any, List, Mapping, Optional, Dict
@@ -307,7 +309,7 @@ def test_langchain_native_log_and_load_qa_with_sources_chain():
 
 
 def load_retriever(persist_directory):
-    embeddings = OpenAIEmbeddings()
+    embeddings = FakeEmbeddings(size=5)
     vectorstore = FAISS.load_local(persist_directory, embeddings)
     return vectorstore.as_retriever()
 
@@ -316,20 +318,16 @@ def load_retriever(persist_directory):
     version.parse(langchain.__version__) < version.parse("0.0.194"),
     reason="Saving RetrievalQA chians requires langchain>=0.0.194",
 )
-def test_log_and_load_retrieval_qa_chain():
+def test_log_and_load_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
-    # loader = TextLoader("tests/langchain/state_of_the_union.txt")
-    # documents = loader.load()
-    # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
-    # docs = text_splitter.split_documents(documents)
-    # embeddings = OpenAIEmbeddings()
-    # db = FAISS.from_documents(docs, embeddings)
-    # db.save_local(persist_dir)
-
-    # Load the vectorstore from persist_dir, which is populated by the above code
-    persist_dir = os.path.abspath("tests/langchain/faiss_index")
-    embeddings = OpenAIEmbeddings()
-    db = FAISS.load_local(persist_dir, embeddings)
+    loader = TextLoader("tests/langchain/state_of_the_union.txt")
+    documents = loader.load()
+    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=0)
+    docs = text_splitter.split_documents(documents)
+    embeddings = FakeEmbeddings(size=5)
+    db = FAISS.from_documents(docs, embeddings)
+    persist_dir = str(tmp_path.joinpath("faiss_index"))
+    db.save_local(persist_dir)
 
     # Create the RetrievalQA chain
     retrievalQA = RetrievalQA.from_llm(llm=OpenAI(), retriever=db.as_retriever())
@@ -342,6 +340,9 @@ def test_log_and_load_retrieval_qa_chain():
             loader_fn=load_retriever,
             persist_dir=persist_dir,
         )
+
+    # Remove the persist_dir
+    shutil.rmtree(persist_dir)
 
     # Load the chain
     loaded_model = mlflow.langchain.load_model(logged_model.model_uri)
