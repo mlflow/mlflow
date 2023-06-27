@@ -1049,3 +1049,27 @@ def test_load_table():
     # test 7: load table with no matching extra_column found. Error case
     with pytest.raises(KeyError, match="error_column"):
         mlflow.load_table(artifact_file=artifact_file, extra_columns=["error_column"])
+
+
+def test_start_scheduled_run():
+    # test that start time is automatically updated when starting a scheduled run
+    client = MlflowClient()
+    exp_id = client.create_experiment("exp")
+    run = client.create_run(exp_id, start_time=123)
+    client.update_run(run.info.run_id, "SCHEDULED")
+
+    updated_run = client.get_run(run.info.run_id)
+    assert updated_run.info.status == "SCHEDULED"
+    assert updated_run.info.start_time == 123
+
+    with mock.patch.object(
+            mlflow.tracking.fluent,
+            "get_current_time_millis",
+            mock.Mock(return_value=456),
+    ):
+        with mlflow.start_run(run.info.run_id):
+            pass
+
+    finished_run = client.get_run(run.info.run_id)
+    assert finished_run.info.status == "FINISHED"
+    assert finished_run.info.start_time == 456
