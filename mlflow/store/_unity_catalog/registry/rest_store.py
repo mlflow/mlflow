@@ -401,6 +401,9 @@ class UcModelRegistryStore(BaseRestStore):
                 f"{signature_required_explanation}"
             )
 
+    def _get_feature_dependencies(model_dir: str) -> str:
+        return ""
+
     def create_model_version(
         self, name, source, run_id=None, tags=None, run_link=None, description=None
     ):
@@ -433,15 +436,6 @@ class UcModelRegistryStore(BaseRestStore):
             header_base64 = base64.b64encode(header_json.encode())
             extra_headers = {_DATABRICKS_LINEAGE_ID_HEADER: header_base64}
         full_name = get_full_name_from_sc(name, self.spark)
-        req_body = message_to_json(
-            CreateModelVersionRequest(
-                name=full_name,
-                source=source,
-                run_id=run_id,
-                description=description,
-                run_tracking_server_id=source_workspace_id,
-            )
-        )
         with tempfile.TemporaryDirectory() as tmpdir:
             try:
                 local_model_dir = mlflow.artifacts.download_artifacts(
@@ -455,6 +449,17 @@ class UcModelRegistryStore(BaseRestStore):
                     f"it via mlflow.artifacts.download_artifacts()"
                 ) from e
             self._validate_model_signature(local_model_dir)
+            feature_deps = _get_feature_dependencies(local_model_dir)
+            req_body = message_to_json(
+                CreateModelVersionRequest(
+                    name=full_name,
+                    source=source,
+                    run_id=run_id,
+                    description=description,
+                    run_tracking_server_id=source_workspace_id,
+                    feature_deps=feature_deps
+                )
+            )
             model_version = self._call_endpoint(
                 CreateModelVersionRequest, req_body, extra_headers=extra_headers
             ).model_version
