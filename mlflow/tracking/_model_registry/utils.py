@@ -1,7 +1,5 @@
-import os
 from functools import partial
 
-from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
@@ -11,17 +9,21 @@ from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store 
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
-    _TRACKING_TOKEN_ENV_VAR,
-    _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_CLIENT_CERT_PATH_ENV_VAR,
-    _TRACKING_SERVER_CERT_PATH_ENV_VAR,
     _resolve_tracking_uri,
     get_tracking_uri,
 )
 from mlflow.utils import env, rest_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_USERNAME,
+    MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+)
 
 
 _REGISTRY_URI_ENV_VAR = "MLFLOW_REGISTRY_URI"
@@ -139,11 +141,11 @@ def get_default_host_creds(store_uri):
         host=store_uri,
         username=MLFLOW_TRACKING_USERNAME.get(),
         password=MLFLOW_TRACKING_PASSWORD.get(),
-        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        token=MLFLOW_TRACKING_TOKEN.get(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
-        client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
-        server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
+        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
+        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
+        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
     )
 
 

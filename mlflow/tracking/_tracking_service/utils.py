@@ -5,7 +5,14 @@ from pathlib import Path
 from typing import Union
 from contextlib import contextmanager
 
-from mlflow.environment_variables import MLFLOW_TRACKING_AWS_SIGV4
+from mlflow.environment_variables import (
+    MLFLOW_TRACKING_AWS_SIGV4,
+    MLFLOW_TRACKING_URI,
+    MLFLOW_TRACKING_TOKEN,
+    MLFLOW_TRACKING_INSECURE_TLS,
+    MLFLOW_TRACKING_CLIENT_CERT_PATH,
+    MLFLOW_TRACKING_SERVER_CERT_PATH,
+)
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
@@ -16,20 +23,6 @@ from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME
 from mlflow.utils.credentials import read_mlflow_creds
-from mlflow.environment_variables import MLFLOW_TRACKING_URI
-
-# Extra environment variables which take precedence for setting the basic/bearer
-# auth on http requests.
-_TRACKING_TOKEN_ENV_VAR = "MLFLOW_TRACKING_TOKEN"
-
-# sets verify param of 'requests.request' function
-# see https://requests.readthedocs.io/en/master/api/
-_TRACKING_INSECURE_TLS_ENV_VAR = "MLFLOW_TRACKING_INSECURE_TLS"
-_TRACKING_SERVER_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_SERVER_CERT_PATH"
-
-# sets cert param of 'requests.request' function
-# see https://requests.readthedocs.io/en/master/api/
-_TRACKING_CLIENT_CERT_PATH_ENV_VAR = "MLFLOW_TRACKING_CLIENT_CERT_PATH"
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
@@ -154,11 +147,11 @@ def _get_default_host_creds(store_uri):
         host=store_uri,
         username=creds.username,
         password=creds.password,
-        token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
+        token=MLFLOW_TRACKING_TOKEN.get(),
         aws_sigv4=MLFLOW_TRACKING_AWS_SIGV4.get(),
-        ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == "true",
-        client_cert_path=os.environ.get(_TRACKING_CLIENT_CERT_PATH_ENV_VAR),
-        server_cert_path=os.environ.get(_TRACKING_SERVER_CERT_PATH_ENV_VAR),
+        ignore_tls_verification=MLFLOW_TRACKING_INSECURE_TLS.get(),
+        client_cert_path=MLFLOW_TRACKING_CLIENT_CERT_PATH.get(),
+        server_cert_path=MLFLOW_TRACKING_SERVER_CERT_PATH.get(),
     )
 
 
