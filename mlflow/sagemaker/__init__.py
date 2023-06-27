@@ -911,7 +911,7 @@ def push_model_to_sagemaker(
     flavor=None,
 ):
     """
-    Push an MLflow model to AWS SageMaker model registry.
+    Create a SageMaker Model from an MLflow model artifact.
     The currently active AWS account must have correct permissions set up.
 
     :param model_name: Name of the Sagemaker model.
