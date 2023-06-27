@@ -359,7 +359,7 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
     "input_example",
     ["some string", bytes([1, 2, 3])],
 )
-def test_infer_signature_on_single_column_input_examples(input_example):
+def test_infer_signature_on_scalar_input_examples(input_example):
     class IdentitySklearnModel(BaseEstimator, ClassifierMixin):
         def fit(self, X, y=None):
             return self
