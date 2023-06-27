@@ -1,3 +1,5 @@
+import time
+
 from collections import defaultdict
 from importlib import reload
 from itertools import zip_longest
@@ -375,6 +377,8 @@ def test_search_experiments(tmp_path):
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
     for tag, active_experiment_name in zip_longest(tag_values, active_experiment_names):
+        # Sleep to ensure that each experiment has a different creation time
+        time.sleep(0.001)
         mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
