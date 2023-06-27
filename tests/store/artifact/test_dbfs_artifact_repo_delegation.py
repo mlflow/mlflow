@@ -21,7 +21,7 @@ def host_creds_mock():
 
 @mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available")
 def test_dbfs_artifact_repo_delegates_to_correct_repo(
-    is_dbfs_fuse_available, host_creds_mock
+    monkeypatch, is_dbfs_fuse_available, host_creds_mock
 ):  # pylint: disable=unused-argument
     # fuse available
     is_dbfs_fuse_available.return_value = True
@@ -35,7 +35,8 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
     repo = get_artifact_repository("dbfs:/databricks/mlflow-registry/version12345/models")
     assert isinstance(repo, DbfsRestArtifactRepository)
     # fuse not available
-    with mock.patch.dict(os.environ, {"MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO": "false"}):
+    with monkeypatch.context() as m:
+        m.setenv("MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO", "false")
         fuse_disabled_repo = get_artifact_repository(artifact_uri)
     assert isinstance(fuse_disabled_repo, DbfsRestArtifactRepository)
     assert fuse_disabled_repo.artifact_uri == artifact_uri
