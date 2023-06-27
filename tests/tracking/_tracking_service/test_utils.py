@@ -8,7 +8,6 @@ import pytest
 from pathlib import Path
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
@@ -27,6 +26,7 @@ from mlflow.utils.os import is_windows
 from mlflow.environment_variables import (
     MLFLOW_TRACKING_USERNAME,
     MLFLOW_TRACKING_PASSWORD,
+    MLFLOW_TRACKING_TOKEN,
     MLFLOW_TRACKING_URI,
     MLFLOW_TRACKING_INSECURE_TLS,
 )
@@ -41,7 +41,8 @@ from mlflow.environment_variables import (
 pytestmark = pytest.mark.notrackingurimock
 
 
-def test_get_store_file_store(tmp_wkdir):
+def test_get_store_file_store(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -49,7 +50,8 @@ def test_get_store_file_store(tmp_wkdir):
         assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
 
 
-def test_get_store_file_store_from_arg(tmp_wkdir):
+def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     env = {}
     with mock.patch.dict(os.environ, env):
         store = _get_store("other/path")
@@ -58,7 +60,8 @@ def test_get_store_file_store_from_arg(tmp_wkdir):
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
-def test_get_store_file_store_from_env(tmp_wkdir, uri):
+def test_get_store_file_store_from_env(tmp_path, monkeypatch, uri):
+    monkeypatch.chdir(tmp_path)
     env = {MLFLOW_TRACKING_URI.name: uri}
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -132,7 +135,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
@@ -159,7 +163,8 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_type):
+    monkeypatch.chdir(tmp_path)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
     uri = f"{db_type}://hostname/database"
     env = {MLFLOW_TRACKING_URI.name: uri}
@@ -262,9 +267,9 @@ def test_standard_store_registry_with_mocked_entrypoint():
         )
 
 
-def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
+def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-
+    monkeypatch.chdir(tmp_path)
     reload(mlflow.tracking._tracking_service.utils)
     assert (
         "file-plugin" in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry

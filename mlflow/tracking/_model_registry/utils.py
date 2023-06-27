@@ -3,6 +3,9 @@ from functools import partial
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.file_store import FileStore
 from mlflow.store.model_registry.rest_store import RestStore
+from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
+    DatabricksWorkspaceModelRegistryRestStore,
+)
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
@@ -151,7 +154,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    return RestStore(partial(get_databricks_host_creds, store_uri))
+    return DatabricksWorkspaceModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 # We define the global variable as `None` so that instantiating the store does not lead to circular
