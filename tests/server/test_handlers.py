@@ -232,6 +232,7 @@ def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
     monkeypatch.setattr(mlflow.server.handlers, "_tracking_store", None)
+    plugin_file_store = mlflow.server.handlers._get_tracking_store()
     assert isinstance(plugin_file_store, PluginFileStore)
     assert plugin_file_store.is_plugin
 
