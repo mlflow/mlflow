@@ -658,7 +658,8 @@ def save_model(
         mlflow_model.metadata = metadata
 
     # for automatic signature inference, we use an inline implementation rather than the
-    # API because we need to convert model outputs from a list into a Pandas series.
+    # `_infer_signature_from_input_example` API because we need to convert model predictions from a
+    # list into a Pandas series for signature inference.
     if signature is None and input_example is not None:
         input_ex = _Example(input_example).inference_data
         try:
@@ -671,7 +672,6 @@ def save_model(
                 prediction = pd.Series(wrapped_model.predict(input_ex))
                 signature = infer_signature(input_ex, prediction)
         except Exception as e:
-            raise e
             _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
             _logger.debug("", exc_info=True)
     elif signature is False:
