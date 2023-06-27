@@ -165,14 +165,18 @@ WORKERS = click.option(
     "-w",
     envvar="MLFLOW_WORKERS",
     default=None,
-    help="Number of gunicorn worker processes to handle requests (default: 4).",
+    help="Number of gunicorn worker processes to handle requests (default: 1).",
 )
 
 ENABLE_MLSERVER = click.option(
     "--enable-mlserver",
     is_flag=True,
     default=False,
-    help="Enable serving with MLServer through the v2 inference protocol.",
+    help=(
+        "Enable serving with MLServer through the v2 inference protocol. "
+        "You can use environment variables to configure MLServer. "
+        "(See https://mlserver.readthedocs.io/en/latest/reference/settings.html)"
+    ),
 )
 
 ARTIFACTS_DESTINATION = click.option(

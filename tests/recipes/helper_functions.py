@@ -22,6 +22,7 @@ import pytest
 RECIPE_EXAMPLE_PATH_ENV_VAR_FOR_TESTS = "_RECIPE_EXAMPLE_PATH"
 RECIPE_EXAMPLE_PATH_FROM_MLFLOW_ROOT = "examples/recipes/regression"
 
+
 ## Methods
 def get_random_id(length=6):
     return "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))

@@ -8,12 +8,11 @@ import traceback
 import yaml
 
 from enum import Enum
-from typing import TypeVar, Dict, Any, List
+from typing import Dict, Any, List
 from mlflow.recipes.cards import BaseCard, CARD_PICKLE_NAME, FailureCard, CARD_HTML_NAME
 from mlflow.recipes.utils import get_recipe_name
 from mlflow.recipes.utils.step import display_html
 from mlflow.tracking import MlflowClient
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
 _logger = logging.getLogger(__name__)
@@ -46,9 +45,6 @@ class StepClass(Enum):
     TRAINING = "TRAINING"
     # Indicates that the step runs at inference time.
     PREDICTION = "PREDICTION"
-
-
-StepExecutionStateType = TypeVar("StepExecutionStateType", bound="StepExecutionState")
 
 
 class StepExecutionState:
@@ -84,7 +80,7 @@ class StepExecutionState:
         }
 
     @classmethod
-    def from_dict(cls, state_dict) -> StepExecutionStateType:
+    def from_dict(cls, state_dict) -> "StepExecutionState":
         """
         Creates a ``StepExecutionState`` instance from the specified execution state dictionary.
         """
@@ -95,10 +91,6 @@ class StepExecutionState:
         )
 
 
-StepType = TypeVar("StepType", bound="BaseStep")
-
-
-@experimental
 class BaseStep(metaclass=abc.ABCMeta):
     """
     Base class representing a step in an MLflow Recipe
@@ -106,7 +98,6 @@ class BaseStep(metaclass=abc.ABCMeta):
 
     _EXECUTION_STATE_FILE_NAME = "execution_state.json"
 
-    @experimental
     def __init__(self, step_config: Dict[str, Any], recipe_root: str):
         """
         :param step_config: dictionary of the config needed to
@@ -120,7 +111,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         self.task = self.step_config.get("recipe", "regression/v1").rsplit("/", 1)[0]
         self.step_card = None
 
-    @experimental
     def run(self, output_directory: str):
         """
         Executes the step by running common setup operations and invoking
@@ -153,7 +143,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         finally:
             self._serialize_card(start_timestamp, output_directory)
 
-    @experimental
     def inspect(self, output_directory: str):
         """
         Inspect the step output state by running the generic inspect information here and
@@ -175,7 +164,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         card_html_path = os.path.join(output_directory, CARD_HTML_NAME)
         display_html(html_data=card.to_html(), html_file_path=card_html_path)
 
-    @experimental
     @abc.abstractmethod
     def _run(self, output_directory: str) -> BaseCard:
         """
@@ -189,7 +177,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         pass
 
-    @experimental
     @abc.abstractmethod
     def _validate_and_apply_step_config(self) -> None:
         """
@@ -198,10 +185,9 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         pass
 
-    @experimental
     @classmethod
     @abc.abstractmethod
-    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str) -> StepType:
+    def from_recipe_config(cls, recipe_config: Dict[str, Any], recipe_root: str) -> "BaseStep":
         """
         Constructs a step class instance by creating a step config using the recipe
         config.
@@ -214,9 +200,8 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         pass
 
-    @experimental
     @classmethod
-    def from_step_config_path(cls, step_config_path: str, recipe_root: str) -> StepType:
+    def from_step_config_path(cls, step_config_path: str, recipe_root: str) -> "BaseStep":
         """
         Constructs a step class instance using the config specified in the
         configuration file.
@@ -231,7 +216,6 @@ class BaseStep(metaclass=abc.ABCMeta):
             step_config = yaml.safe_load(f)
         return cls(step_config, recipe_root)
 
-    @experimental
     @property
     @abc.abstractmethod
     def name(self) -> str:
@@ -241,7 +225,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         pass
 
-    @experimental
     @property
     def environment(self) -> Dict[str, str]:
         """
@@ -250,14 +233,12 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         return {}
 
-    @experimental
     def get_artifacts(self) -> List[Any]:
         """
         Returns the named artifacts produced by the step for the current class instance.
         """
         return {}
 
-    @experimental
     @abc.abstractmethod
     def step_class(self) -> StepClass:
         """
@@ -265,7 +246,6 @@ class BaseStep(metaclass=abc.ABCMeta):
         """
         pass
 
-    @experimental
     def get_execution_state(self, output_directory: str) -> StepExecutionState:
         """
         Returns the execution state of the step, which provides information about its

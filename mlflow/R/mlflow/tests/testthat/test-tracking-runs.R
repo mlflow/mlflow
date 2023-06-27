@@ -205,7 +205,7 @@ test_that("mlflow_log_metric() rounds step and timestamp inputs", {
   }
   expect_setequal(
     mlflow_get_metric_history("timestamp_metric")$timestamp,
-    purrr::map(round(timestamp_inputs), mlflow:::milliseconds_to_date)
+    purrr::map_vec(round(timestamp_inputs), mlflow:::milliseconds_to_date)
   )
 })
 
@@ -258,7 +258,7 @@ test_that("mlflow_log_metric() with step produces expected metric data", {
   )
   expect_setequal(
     metric_history_1$timestamp,
-    purrr::map(c(300, 100, 200), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(300, 100, 200), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metric_history_1$step,
@@ -438,7 +438,7 @@ test_that("mlflow_log_batch() works", {
   expect_true(all(-1.7976931348623157e308 >= (metrics$value[metrics$key == "-Inf"])))
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300, 400, 500, 600), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(200, 300, 400, 500, 600), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metrics$step,
@@ -452,7 +452,7 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metric_history$timestamp,
-    purrr::map(c(100, 200), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(100, 200), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metric_history$step,
@@ -704,12 +704,12 @@ test_that("mlflow get metric history performs pagination", {
   expect_equal(first_entry$key, "m1")
   expect_equal(first_entry$value, 1)
   expect_equal(first_entry$step, 1)
-  expect_equal(first_entry$timestamp, purrr::map(c(1), mlflow:::milliseconds_to_date)[[1]])
+  expect_equal(first_entry$timestamp, purrr::map_vec(c(1), mlflow:::milliseconds_to_date)[[1]])
 
   last_entry <- tail(logged, n = 1)
   expect_equal(last_entry$key, "m1")
   expect_equal(last_entry$value, 26000)
   expect_equal(last_entry$step, 26000)
-  expect_equal(last_entry$timestamp, purrr::map(c(26000), mlflow:::milliseconds_to_date)[[1]])
+  expect_equal(last_entry$timestamp, purrr::map_vec(c(26000), mlflow:::milliseconds_to_date)[[1]])
   mlflow_end_run()
 })

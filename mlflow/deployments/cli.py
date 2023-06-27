@@ -18,7 +18,7 @@ def _user_args_to_dict(user_list):
             # not enough values to unpack
             raise click.BadOptionUsage(
                 "config",
-                "Config options must be a pair and should be"
+                "Config options must be a pair and should be "
                 "provided as ``-C key=value`` or "
                 "``--config key=value``",
             ) from exc

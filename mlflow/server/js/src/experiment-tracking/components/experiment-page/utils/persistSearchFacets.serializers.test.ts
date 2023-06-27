@@ -1,4 +1,5 @@
 import {
+  deserializeFieldsFromLocalStorage,
   deserializeFieldsFromQueryString,
   serializeFieldsToLocalStorage,
   serializeFieldsToQueryString,
@@ -33,16 +34,44 @@ describe('persistSearchFacets serializers and deserializers', () => {
     );
   });
 
+  it('tests deserializeToQueryString with erronoeus data', () => {
+    const deserializedObject = deserializeFieldsFromQueryString({
+      compareRunCharts: 'something-not-deserializable',
+    });
+
+    expect(deserializedObject).toEqual(
+      expect.objectContaining({
+        compareRunCharts: undefined,
+      }),
+    );
+  });
+
   it('tests serializeLocalStorage', () => {
     const serializedObject = serializeFieldsToLocalStorage({
       orderByKey: 'column_name',
-      isComparingRuns: true,
+      compareRunsMode: 'CHART',
     });
 
     expect(serializedObject).toEqual(
       expect.objectContaining({
         orderByKey: 'column_name',
-        isComparingRuns: false,
+        compareRunsMode: undefined,
+      }),
+    );
+  });
+
+  it('tests deserializing search filter without extra characters', () => {
+    const serializedObjectQs = deserializeFieldsFromQueryString({
+      searchFilter: ['param.p1 = "something', 'separated', 'by comma"'],
+    });
+    const serializedObjectLs = deserializeFieldsFromLocalStorage({
+      searchFilter: ['param.p1 = "something', 'separated', 'by comma"'],
+    });
+
+    expect(serializedObjectQs).toEqual(serializedObjectLs);
+    expect(serializedObjectQs).toEqual(
+      expect.objectContaining({
+        searchFilter: 'param.p1 = "something,separated,by comma"',
       }),
     );
   });

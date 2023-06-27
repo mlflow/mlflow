@@ -16,6 +16,7 @@ from mlflow.store.artifact.s3_artifact_repo import (
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 
 from unittest import mock
+from unittest.mock import ANY
 
 
 @pytest.fixture
@@ -33,9 +34,9 @@ def teardown_function():
         del os.environ["MLFLOW_S3_UPLOAD_EXTRA_ARGS"]
 
 
-def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -47,9 +48,9 @@ def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, t
     assert downloaded_text == file_text
 
 
-def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmpdir):
+def test_file_artifact_is_logged_with_content_metadata(s3_artifact_root, tmp_path):
     file_name = "test.txt"
-    file_path = os.path.join(str(tmpdir), file_name)
+    file_path = os.path.join(tmp_path, file_name)
     file_text = "Hello world!"
 
     with open(file_path, "w") as f:
@@ -106,17 +107,45 @@ def test_get_s3_client_hits_cache(s3_artifact_root):
     ("ignore_tls_env", "verify"), [("0", None), ("1", False), ("true", False), ("false", None)]
 )
 def test_get_s3_client_verify_param_set_correctly(s3_artifact_root, ignore_tls_env, verify):
-    from unittest.mock import ANY
-
     with mock.patch.dict("os.environ", {"MLFLOW_S3_IGNORE_TLS": ignore_tls_env}, clear=True):
         with mock.patch("boto3.client") as mock_get_s3_client:
             repo = get_artifact_repository(posixpath.join(s3_artifact_root, "some/path"))
             repo._get_s3_client()
-            mock_get_s3_client.assert_called_with("s3", config=ANY, endpoint_url=ANY, verify=verify)
+            mock_get_s3_client.assert_called_with(
+                "s3",
+                config=ANY,
+                endpoint_url=ANY,
+                verify=verify,
+                aws_access_key_id=None,
+                aws_secret_access_key=None,
+                aws_session_token=None,
+            )
 
 
-def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmpdir):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+def test_s3_creds_passed_to_client(s3_artifact_root):
+    with mock.patch("boto3.client") as mock_get_s3_client:
+        repo = S3ArtifactRepository(
+            s3_artifact_root,
+            access_key_id="my-id",
+            secret_access_key="my-key",
+            session_token="my-session-token",
+        )
+        repo._get_s3_client()
+        mock_get_s3_client.assert_called_with(
+            "s3",
+            config=ANY,
+            endpoint_url=ANY,
+            verify=None,
+            aws_access_key_id="my-id",
+            aws_secret_access_key="my-key",
+            aws_session_token="my-session-token",
+        )
+
+
+def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_root, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     path_a = os.path.join(subdir_path, "a.txt")
@@ -150,9 +179,11 @@ def test_file_artifacts_are_logged_with_content_metadata_in_batch(s3_artifact_ro
 
 
 def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_in_batch(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(subdir_path, "a.txt"), "w") as f:
@@ -189,9 +220,11 @@ def test_file_and_directories_artifacts_are_logged_and_downloaded_successfully_i
 
 
 def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_batch(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(subdir_path, "a.txt"), "w") as f:
@@ -220,11 +253,13 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
 
 
 def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
-    subdir_path = str(tmpdir.mkdir("subdir"))
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     with open(os.path.join(nested_path, file_a_name), "w") as f:
@@ -240,11 +275,11 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_s3_bucket_ro
 
 
 def test_download_file_artifact_succeeds_when_artifact_root_is_s3_bucket_root(
-    s3_artifact_root, tmpdir
+    s3_artifact_root, tmp_path
 ):
     file_a_name = "a.txt"
     file_a_text = "A"
-    file_a_path = os.path.join(str(tmpdir), file_a_name)
+    file_a_path = os.path.join(tmp_path, file_a_name)
     with open(file_a_path, "w") as f:
         f.write(file_a_text)
 
@@ -282,8 +317,10 @@ def test_get_s3_file_upload_extra_args_invalid_json():
         S3ArtifactRepository.get_s3_file_upload_extra_args()
 
 
-def test_delete_artifacts(s3_artifact_root, tmpdir):
-    subdir_path = str(tmpdir.mkdir("subdir"))
+def test_delete_artifacts(s3_artifact_root, tmp_path):
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    subdir_path = str(subdir)
     nested_path = os.path.join(subdir_path, "nested")
     os.makedirs(nested_path)
     path_a = os.path.join(subdir_path, "a.txt")

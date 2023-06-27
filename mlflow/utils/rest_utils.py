@@ -2,20 +2,18 @@ import base64
 import json
 
 import requests
-from requests.adapters import HTTPAdapter
-from requests.exceptions import HTTPError
-import urllib3
-from contextlib import contextmanager
-from functools import lru_cache
-from packaging.version import Version
-
-from urllib3.util import Retry
 
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.utils.proto_json_utils import parse_dict
+from mlflow.utils.request_utils import (  # pylint: disable=unused-import
+    _TRANSIENT_FAILURE_RESPONSE_CODES,
+    _get_http_response_with_retries,
+    augmented_raise_for_status,
+    cloud_storage_http_request,
+)
 from mlflow.utils.string_utils import strip_suffix
-from mlflow.exceptions import get_error_code, MlflowException, RestException
+from mlflow.exceptions import get_error_code, MlflowException, RestException, InvalidUrlException
 
 from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_TIMEOUT,
@@ -25,77 +23,6 @@ from mlflow.environment_variables import (
 
 RESOURCE_DOES_NOT_EXIST = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
-# Response codes that generally indicate transient network failures and merit client retries,
-# based on guidance from cloud service providers
-# (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
-_TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
-    [
-        408,  # Request Timeout
-        429,  # Too Many Requests
-        500,  # Internal Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-        504,  # Gateway Timeout
-    ]
-)
-
-
-@lru_cache(maxsize=64)
-def _get_request_session(max_retries, backoff_factor, retry_codes):
-    """
-    Returns a cached Requests.Session object for making HTTP request.
-
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :return: requests.Session object.
-    """
-    assert 0 <= max_retries < 10
-    assert 0 <= backoff_factor < 120
-
-    retry_kwargs = {
-        "total": max_retries,
-        "connect": max_retries,
-        "read": max_retries,
-        "redirect": max_retries,
-        "status": max_retries,
-        "status_forcelist": retry_codes,
-        "backoff_factor": backoff_factor,
-    }
-    if Version(urllib3.__version__) >= Version("1.26.0"):
-        retry_kwargs["allowed_methods"] = None
-    else:
-        retry_kwargs["method_whitelist"] = None
-
-    retry = Retry(**retry_kwargs)
-    adapter = HTTPAdapter(max_retries=retry)
-    session = requests.Session()
-    session.mount("https://", adapter)
-    session.mount("http://", adapter)
-    return session
-
-
-def _get_http_response_with_retries(
-    method, url, max_retries, backoff_factor, retry_codes, **kwargs
-):
-    """
-    Performs an HTTP request using Python's `requests` module with an automatic retry policy.
-
-    :param method: a string indicating the method to use, e.g. "GET", "POST", "PUT".
-    :param url: the target URL address for the HTTP request.
-    :param max_retries: Maximum total number of retries.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
-
-    :return: requests.Response object.
-    """
-    session = _get_request_session(max_retries, backoff_factor, retry_codes)
-    return session.request(method, url, **kwargs)
 
 
 def http_request(
@@ -104,6 +31,7 @@ def http_request(
     method,
     max_retries=None,
     backoff_factor=None,
+    extra_headers=None,
     retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
     timeout=None,
     **kwargs,
@@ -122,6 +50,7 @@ def http_request(
     :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
       request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
       exponential backoff.
+    :param extra_headers: a dict of HTTP header name-value pairs to be included in the request.
     :param retry_codes: a list of HTTP response error codes that qualifies for retry.
     :param timeout: wait for timeout seconds for response from remote server for connect and
       read request.
@@ -143,14 +72,11 @@ def http_request(
     from mlflow.tracking.request_header.registry import resolve_request_headers
 
     headers = dict(**resolve_request_headers())
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
 
     if auth_str:
         headers["Authorization"] = auth_str
-
-    if host_creds.server_cert_path is None:
-        verify = not host_creds.ignore_tls_verification
-    else:
-        verify = host_creds.server_cert_path
 
     if host_creds.client_cert_path is not None:
         kwargs["cert"] = host_creds.client_cert_path
@@ -171,7 +97,7 @@ def http_request(
             backoff_factor,
             retry_codes,
             headers=headers,
-            verify=verify,
+            verify=host_creds.verify,
             timeout=timeout,
             **kwargs,
         )
@@ -181,6 +107,8 @@ def http_request(
             f" To increase the timeout, set the environment variable {MLFLOW_HTTP_REQUEST_TIMEOUT}"
             " to a larger value."
         )
+    except requests.exceptions.InvalidURL as iu:
+        raise InvalidUrlException(f"Invalid url: {url}") from iu
     except Exception as e:
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
@@ -227,17 +155,6 @@ def verify_rest_response(response, endpoint):
     return response
 
 
-def augmented_raise_for_status(response):
-    """Wrap the standard `requests.response.raise_for_status()` method and return reason"""
-    try:
-        response.raise_for_status()
-    except HTTPError as e:
-        if response.text:
-            raise HTTPError(f"{e}. Response text: {response.text}")
-        else:
-            raise e
-
-
 def _get_path(path_prefix, endpoint_path):
     return f"{path_prefix}{endpoint_path}"
 
@@ -266,70 +183,40 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
     # Convert json string to json dictionary, to pass to requests
     if json_body:
         json_body = json.loads(json_body)
+    call_kwargs = {
+        "host_creds": host_creds,
+        "endpoint": endpoint,
+        "method": method,
+    }
+    if extra_headers is not None:
+        call_kwargs["extra_headers"] = extra_headers
     if method == "GET":
-        response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body
-        )
+        call_kwargs["params"] = json_body
+        response = http_request(**call_kwargs)
     else:
-        response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body
-        )
+        call_kwargs["json"] = json_body
+        response = http_request(**call_kwargs)
     response = verify_rest_response(response, endpoint)
     js_dict = json.loads(response.text)
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
 
-def call_endpoints(host_creds, endpoints, json_body, response_proto):
+def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_headers=None):
     # The order that the endpoints are called in is defined by the order
     # specified in ModelRegistryService in model_registry.proto
     for i, (endpoint, method) in enumerate(endpoints):
         try:
-            return call_endpoint(host_creds, endpoint, method, json_body, response_proto)
+            return call_endpoint(
+                host_creds, endpoint, method, json_body, response_proto, extra_headers
+            )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:
                 raise e
-
-
-@contextmanager
-def cloud_storage_http_request(
-    method,
-    url,
-    max_retries=5,
-    backoff_factor=2,
-    retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
-    timeout=None,
-    **kwargs,
-):
-    """
-    Performs an HTTP PUT/GET/PATCH request using Python's `requests` module with automatic retry.
-
-    :param method: string of 'PUT' or 'GET' or 'PATCH', specify to do http PUT or GET or PATCH
-    :param url: the target URL address for the HTTP request.
-    :param max_retries: maximum number of retries before throwing an exception.
-    :param backoff_factor: a time factor for exponential backoff. e.g. value 5 means the HTTP
-      request will be retried with interval 5, 10, 20... seconds. A value of 0 turns off the
-      exponential backoff.
-    :param retry_codes: a list of HTTP response error codes that qualifies for retry.
-    :param timeout: wait for timeout seconds for response from remote server for connect and
-      read request. Default to None owing to long duration operation in read / write.
-    :param kwargs: Additional keyword arguments to pass to `requests.Session.request()`
-
-    :return requests.Response object.
-    """
-    if method.lower() not in ("put", "get", "patch"):
-        raise ValueError("Illegal http method: " + method)
-    try:
-        with _get_http_response_with_retries(
-            method, url, max_retries, backoff_factor, retry_codes, timeout=timeout, **kwargs
-        ) as response:
-            yield response
-    except Exception as e:
-        raise MlflowException("API request failed with exception %s" % e)
 
 
 class MlflowHostCreds:
@@ -398,3 +285,10 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    @property
+    def verify(self):
+        if self.server_cert_path is None:
+            return not self.ignore_tls_verification
+        else:
+            return self.server_cert_path

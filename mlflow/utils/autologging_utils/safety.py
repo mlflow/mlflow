@@ -402,7 +402,6 @@ def safe_patch(
             reroute_warnings=True,
             disable_warnings=is_silent_mode,
         ):
-
             if is_testing():
                 preexisting_run_for_testing = mlflow.active_run()
 

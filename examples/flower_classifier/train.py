@@ -5,6 +5,7 @@ downloaded during running this project if it is missing.
 """
 import math
 import os
+import tarfile
 
 import click
 import keras
@@ -18,6 +19,7 @@ from sklearn.model_selection import train_test_split
 import tensorflow as tf
 
 import mlflow
+from mlflow.models import infer_signature
 
 from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
 
@@ -30,7 +32,6 @@ def download_input():
     r = requests.get(url)
     with open("flower_photos.tgz", "wb") as f:
         f.write(r.content)
-    import tarfile
 
     print("decompressing flower_photos.tgz to '{}'".format(os.path.abspath("flower_photos")))
     with tarfile.open("flower_photos.tgz") as tar:
@@ -38,9 +39,9 @@ def download_input():
 
 
 @click.command(
-    help="Trains an Keras model on flower_photos dataset."
-    "The input is expected as a directory tree with pictures for each category in a"
-    " folder named by the category."
+    help="Trains an Keras model on flower_photos dataset. "
+    "The input is expected as a directory tree with pictures for each category in a "
+    "folder named by the category. "
     "The model and its metrics are logged with mlflow."
 )
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
@@ -64,7 +65,7 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
         print("Input data not found, attempting to download the data from the web.")
         download_input()
 
-    for (dirname, _, files) in os.walk(training_data):
+    for dirname, _, files in os.walk(training_data):
         for filename in files:
             if filename.endswith("jpg"):
                 image_files.append(os.path.join(dirname, filename))
@@ -135,7 +136,8 @@ class MLflowLogger(Callback):
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
             mlflow.log_metric("valid_{}".format(name), value)
-        log_model(model=self._model, **self._pyfunc_params)
+        signature = infer_signature(x, y)
+        log_model(keras_model=self._model, signature=signature, **self._pyfunc_params)
 
 
 def _imagenet_preprocess_tf(x):

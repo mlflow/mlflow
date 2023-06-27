@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 import cloudpickle
 import os
 import json
 import sys
+import uuid
 from subprocess import Popen, PIPE
 from unittest import mock
+from typing import List, Dict, Tuple, Any
 
 import numpy as np
 import pandas as pd
@@ -103,13 +107,13 @@ def sklearn_logreg_model(iris_data):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def pyfunc_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def pyfunc_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(
         conda_env,
         additional_pip_deps=["scikit-learn", "pytest", "cloudpickle"],
@@ -127,14 +131,14 @@ def _conda_env():
     )
 
 
-def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path):
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
@@ -216,8 +220,8 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     )
 
 
-def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmpdir):
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
@@ -225,9 +229,7 @@ def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model
 
     data = iris_data
     signature_ = infer_signature(*data)
-    example_ = data[0][
-        :3,
-    ]
+    example_ = data[0][:3]
     for signature in (None, signature_):
         for example in (None, example_):
             with TempDir() as tmp:
@@ -306,12 +308,12 @@ def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model
 
 
 def test_model_load_from_remote_uri_succeeds(
-    sklearn_knn_model, main_scoped_model_class, tmpdir, mock_s3_bucket, iris_data
+    sklearn_knn_model, main_scoped_model_class, tmp_path, mock_s3_bucket, iris_data
 ):
     artifact_root = f"s3://{mock_s3_bucket}"
     artifact_repo = S3ArtifactRepository(artifact_root)
 
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     sklearn_artifact_path = "sk_model"
     artifact_repo.log_artifacts(sklearn_model_path, artifact_path=sklearn_artifact_path)
@@ -319,7 +321,7 @@ def test_model_load_from_remote_uri_succeeds(
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -359,15 +361,15 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
 
 
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_scoped_class(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -391,15 +393,15 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
 
 
 def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scoped_class(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -422,15 +424,15 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
 
 
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_scoped_class(
-    sklearn_knn_model, iris_data, tmpdir
+    sklearn_knn_model, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -455,15 +457,15 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
 
 
 def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -473,9 +475,9 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
-    input_csv_path = os.path.join(str(tmpdir), "input with spaces.csv")
+    input_csv_path = os.path.join(tmp_path, "input with spaces.csv")
     sample_input.to_csv(input_csv_path, header=True, index=False)
-    output_json_path = os.path.join(str(tmpdir), "output.json")
+    output_json_path = os.path.join(tmp_path, "output.json")
     process = Popen(
         [
             "mlflow",
@@ -506,15 +508,15 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
 
 
 def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -524,9 +526,9 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_uri=pyfunc_model_path)
 
     sample_input = pd.DataFrame(iris_data[0])
-    input_csv_path = os.path.join(str(tmpdir), "input with spaces.csv")
+    input_csv_path = os.path.join(tmp_path, "input with spaces.csv")
     sample_input.to_csv(input_csv_path, header=True, index=False)
-    output_json_path = os.path.join(str(tmpdir), "output.json")
+    output_json_path = os.path.join(tmp_path, "output.json")
     process = Popen(
         [
             "mlflow",
@@ -555,16 +557,16 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
 
 
 def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
-    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir
+    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model,
         path=sklearn_model_path,
         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
     )
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -587,16 +589,16 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
 
 
 def test_save_model_persists_requirements_in_mlflow_model_directory(
-    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir
+    sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(
         sk_model=sklearn_knn_model,
         path=sklearn_model_path,
         serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
     )
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -608,16 +610,14 @@ def test_save_model_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(pyfunc_custom_env, saved_pip_req_path)
 
 
-def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
+def test_log_model_with_pip_requirements(main_scoped_model_class, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=req_file.strpath
-        )
+        mlflow.pyfunc.log_model("model", python_model=python_model, pip_requirements=str(req_file))
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a"], strict=True
         )
@@ -625,7 +625,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # List of requirements
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-r {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, "a", "b"], strict=True
@@ -634,7 +634,7 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
     # Constraints file
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
-            "model", python_model=python_model, pip_requirements=[f"-c {req_file.strpath}", "b"]
+            "model", python_model=python_model, pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -644,23 +644,25 @@ def test_log_model_with_pip_requirements(main_scoped_model_class, tmpdir):
         )
 
 
-def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_model_class, tmpdir):
+def test_log_model_with_extra_pip_requirements(
+    sklearn_knn_model, main_scoped_model_class, tmp_path
+):
     expected_mlflow_version = _mlflow_major_version_string()
-    sklearn_model_path = tmpdir.join("sklearn_model").strpath
+    sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
 
     # Path to a requirements file
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     with mlflow.start_run():
         mlflow.pyfunc.log_model(
             "model",
             python_model=python_model,
             artifacts={"sk_model": sklearn_model_path},
-            extra_pip_requirements=req_file.strpath,
+            extra_pip_requirements=str(req_file),
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a"]
@@ -672,7 +674,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-r {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"), [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -684,7 +686,7 @@ def test_log_model_with_extra_pip_requirements(sklearn_knn_model, main_scoped_mo
             "model",
             artifacts={"sk_model": sklearn_model_path},
             python_model=python_model,
-            extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+            extra_pip_requirements=[f"-c {req_file}", "b"],
         )
         _assert_pip_requirements(
             mlflow.get_artifact_uri("model"),
@@ -764,12 +766,12 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 
 
 def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-    sklearn_logreg_model, main_scoped_model_class, tmpdir
+    sklearn_logreg_model, main_scoped_model_class, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_logreg_model, path=sklearn_model_path)
 
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
         artifacts={"sk_model": sklearn_model_path},
@@ -803,9 +805,9 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 
 
 def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
-    tmpdir, model_path, iris_data
+    tmp_path, model_path, iris_data
 ):
-    directory_artifact_path = os.path.join(str(tmpdir), "directory_artifact")
+    directory_artifact_path = os.path.join(tmp_path, "directory_artifact")
     nested_file_relative_path = os.path.join(
         "my", "somewhat", "heavily", "nested", "directory", "myfile.txt"
     )
@@ -853,16 +855,19 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
-def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmpdir):
-    match = "python_model` must be a subclass of `PythonModel`"
-    with pytest.raises(MlflowException, match=match):
+def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmp_path):
+    with pytest.raises(
+        MlflowException, match="must be a PythonModel instance or a callable object"
+    ):
         mlflow.pyfunc.save_model(
-            path=os.path.join(str(tmpdir), "model1"), python_model="not the right type"
+            path=os.path.join(tmp_path, "model1"), python_model="not the right type"
         )
 
-    with pytest.raises(MlflowException, match=match):
+    with pytest.raises(
+        MlflowException, match="must be a PythonModel instance or a callable object"
+    ):
         mlflow.pyfunc.save_model(
-            path=os.path.join(str(tmpdir), "model2"), python_model="not the right type"
+            path=os.path.join(tmp_path, "model2"), python_model="not the right type"
         )
 
 
@@ -1030,16 +1035,16 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
 
 
 def test_save_and_load_model_with_special_chars(
-    sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir
+    sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
-    sklearn_model_path = os.path.join(str(tmpdir), "sklearn_  model")
+    sklearn_model_path = os.path.join(tmp_path, "sklearn_  model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
 
     # Intentionally create a path that has non-url-compatible characters
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_ :% model")
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_ :% model")
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
@@ -1053,56 +1058,6 @@ def test_save_and_load_model_with_special_chars(
         loaded_pyfunc_model.predict(iris_data[0]),
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]),
     )
-
-
-class CustomModel(mlflow.pyfunc.PythonModel):
-    def __init__(self):
-        pass
-
-    def predict(self, context, model_input):
-        import custom_module
-
-        return custom_module.predict()
-
-
-def test_model_with_code_path_does_not_use_cached_module(tmp_path):
-    dir1 = tmp_path.joinpath("1")
-    dir2 = tmp_path.joinpath("2")
-    dir1.mkdir()
-    dir2.mkdir()
-    mod1 = dir1.joinpath("custom_module.py")
-    mod2 = dir2.joinpath("custom_module.py")
-    mod1.write_text(
-        """
-def predict():
-    return 1
-"""
-    )
-    mod2.write_text(
-        """
-def predict():
-    return 2
-"""
-    )
-
-    custom_model = CustomModel()
-    with mlflow.start_run():
-        model_info1 = mlflow.pyfunc.log_model(
-            artifact_path="model1",
-            python_model=custom_model,
-            code_path=[str(mod1)],
-        )
-        model_info2 = mlflow.pyfunc.log_model(
-            artifact_path="model2",
-            python_model=custom_model,
-            code_path=[str(mod2)],
-        )
-
-    model_input = pd.DataFrame([[1, 2, 3]])
-    loaded_model1 = mlflow.pyfunc.load_model(model_info1.model_uri)
-    assert loaded_model1.predict(model_input) == 1
-    loaded_model2 = mlflow.pyfunc.load_model(model_info2.model_uri)
-    assert loaded_model2.predict(model_input) == 2
 
 
 def test_model_with_code_path_containing_main(tmp_path):
@@ -1123,8 +1078,8 @@ def test_model_with_code_path_containing_main(tmp_path):
     assert "__main__" in sys.modules
 
 
-def test_model_save_load_with_metadata(tmpdir):
-    pyfunc_model_path = os.path.join(str(tmpdir), "pyfunc_model")
+def test_model_save_load_with_metadata(tmp_path):
+    pyfunc_model_path = os.path.join(tmp_path, "pyfunc_model")
 
     mlflow.pyfunc.save_model(
         path=pyfunc_model_path,
@@ -1170,3 +1125,262 @@ def test_dependency_inference_does_not_exclude_mlflow_dependencies(tmp_path):
     )
     requiments = tmp_path.joinpath("requirements.txt").read_text()
     assert f"scikit-learn=={sklearn.__version__}" in requiments
+
+
+def test_functional_python_model_no_type_hints(tmp_path):
+    def python_model(x):
+        return x
+
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=[{"a": "b"}])
+    model = Model.load(tmp_path)
+    assert model.signature is None
+
+
+def test_functional_python_model_only_input_type_hints(tmp_path):
+    def python_model(x: List[str]):
+        return x
+
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+
+
+def test_functional_python_model_only_output_type_hints(tmp_path):
+    def python_model(x) -> List[str]:
+        return x
+
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=python_model, input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature is None
+
+
+class CallableObject:
+    def __call__(self, x: List[str]) -> List[str]:
+        return x
+
+
+def test_functional_python_model_callable_object(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=CallableObject(), input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict(["a", "b"]) == ["a", "b"]
+
+
+def list_to_list(x: List[str]) -> List[str]:
+    return x
+
+
+def test_functional_python_model_list_to_list(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=list_to_list, input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict(["a", "b"]) == ["a", "b"]
+    # Dict with a single key is also a valid input
+    assert loaded_model.predict([{"a": "x"}, {"a": "y"}]) == ["x", "y"]
+
+
+def list_to_list_pep585(x: list[str]) -> list[str]:
+    return x
+
+
+def test_functional_python_model_list_to_list_pep585(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=list_to_list_pep585, input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict(["a", "b"]) == ["a", "b"]
+    # Dict with a single key is also a valid input
+    assert loaded_model.predict([{"x": "a"}, {"x": "b"}]) == ["a", "b"]
+
+
+def list_dict_to_list(x: List[Dict[str, str]]) -> List[str]:
+    return ["".join((*d.keys(), *d.values())) for d in x]  # join keys and values
+
+
+def test_functional_python_model_list_dict_to_list_without_example(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path, python_model=list_dict_to_list, pip_requirements=["pandas"]
+    )
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict([{"a": "x"}, {"a": "y"}]) == ["ax", "ay"]
+
+
+@pytest.mark.parametrize(
+    ("input_example", "expected_error_message"),
+    [
+        ([], "non-empty"),
+        ([0], "to be string"),
+        ([{"a": "b"}], "to be string"),
+    ],
+)
+def test_functional_python_model_list_invalid_example(
+    tmp_path, input_example, expected_error_message
+):
+    with pytest.raises(MlflowException, match=expected_error_message):
+        mlflow.pyfunc.save_model(
+            path=tmp_path, python_model=list_to_list, input_example=input_example
+        )
+
+
+@pytest.mark.parametrize(
+    ("input_example", "expected_error_message"),
+    [
+        ([], "non-empty"),
+        (["a"], "to be dict"),
+        ([{}], "at least one item"),
+        ([{0: "a"}], "string keys"),
+        ([{"a": 0}], "string values"),
+        ([{"a": "x"}, {"b": "y"}], r"dict with keys \['a'\]"),
+        ([{"a": "x"}, {"a": "y", "b": "z"}], r"dict with keys \['a'\]"),
+    ],
+)
+def test_functional_python_model_list_dict_invalid_example(
+    tmp_path, input_example, expected_error_message
+):
+    with pytest.raises(MlflowException, match=expected_error_message):
+        mlflow.pyfunc.save_model(
+            path=tmp_path, python_model=list_dict_to_list, input_example=input_example
+        )
+
+
+def test_functional_python_model_list_dict_to_list(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path, python_model=list_dict_to_list, input_example=[{"a": "x", "b": "y"}]
+    )
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "a", "type": "string"},
+        {"name": "b", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict([{"a": "x", "b": "y"}]) == ["abxy"]
+
+
+def list_dict_to_list_dict(x: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
+
+
+def test_functional_python_model_list_dict_to_list_dict(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path,
+        python_model=list_dict_to_list_dict,
+        input_example=[{"a": "x", "b": "y"}],
+    )
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "a", "type": "string"},
+        {"name": "b", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"name": "x", "type": "string"},
+        {"name": "y", "type": "string"},
+    ]
+
+
+def list_dict_to_list_dict_pep585(x: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [{v: k for k, v in d.items()} for d in x]  # swap keys and values
+
+
+def test_functional_python_model_list_dict_to_list_dict_with_example_pep585(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path,
+        python_model=list_dict_to_list_dict_pep585,
+        input_example=[{"a": "x", "b": "y"}],
+    )
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "a", "type": "string"},
+        {"name": "b", "type": "string"},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"name": "x", "type": "string"},
+        {"name": "y", "type": "string"},
+    ]
+    loaded_model = mlflow.pyfunc.load_model(tmp_path)
+    assert loaded_model.predict([{"a": "x", "b": "y"}]) == [{"x": "a", "y": "b"}]
+
+
+def multiple_arguments(x: List[str], y: List[str]) -> List[str]:
+    return x + y
+
+
+def test_functional_python_model_multiple_arguments(tmp_path):
+    with pytest.raises(
+        MlflowException, match=r"must accept exactly one argument\. Found 2 arguments\."
+    ):
+        mlflow.pyfunc.save_model(path=tmp_path, python_model=multiple_arguments)
+
+
+def no_arguments() -> List[str]:
+    return []
+
+
+def test_functional_python_model_no_arguments(tmp_path):
+    with pytest.raises(
+        MlflowException, match=r"must accept exactly one argument\. Found 0 arguments\."
+    ):
+        mlflow.pyfunc.save_model(path=tmp_path, python_model=no_arguments)
+
+
+def unsupported_types(x: Tuple[str, ...]) -> Tuple[str, ...]:
+    return x
+
+
+def test_functional_python_model_unsupported_types(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=unsupported_types, input_example=["a"])
+    model = Model.load(tmp_path)
+    assert model.signature is None
+
+
+def requires_sklearn(x: List[str]) -> List[str]:
+    import sklearn  # pylint: disable=unused-import,reimported
+
+    return x
+
+
+def test_functional_python_model_infer_requirements(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=requires_sklearn, input_example=["a"])
+    assert "scikit-learn==" in tmp_path.joinpath("requirements.txt").read_text()
+
+
+def test_functional_python_model_throws_when_required_arguments_are_missing(tmp_path):
+    mlflow.pyfunc.save_model(
+        path=tmp_path / uuid.uuid4().hex, python_model=requires_sklearn, input_example=["a"]
+    )
+    mlflow.pyfunc.save_model(
+        path=tmp_path / uuid.uuid4().hex,
+        python_model=requires_sklearn,
+        pip_requirements=["scikit-learn"],
+    )
+    mlflow.pyfunc.save_model(
+        path=tmp_path / uuid.uuid4().hex,
+        python_model=requires_sklearn,
+        extra_pip_requirements=["scikit-learn"],
+    )
+    with pytest.raises(MlflowException, match="at least one of"):
+        mlflow.pyfunc.save_model(path=tmp_path / uuid.uuid4().hex, python_model=requires_sklearn)
+
+
+class AnnotatedPythonModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context: Dict[str, Any], model_input: List[str]) -> List[str]:
+        assert isinstance(model_input, list)
+        assert all(isinstance(x, str) for x in model_input)
+        return model_input
+
+
+def test_class_python_model_type_hints(tmp_path):
+    mlflow.pyfunc.save_model(path=tmp_path, python_model=AnnotatedPythonModel())
+    model = Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [{"type": "string"}]
+    assert model.signature.outputs.to_dict() == [{"type": "string"}]
+    model = mlflow.pyfunc.load_model(tmp_path)
+    assert model.predict(["a", "b"]) == ["a", "b"]

@@ -23,7 +23,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 # Use `bash --noprofile --norc -exo pipefail` by default for all `run` steps in this workflow:
@@ -41,6 +41,7 @@ env:
 jobs:
   recipes:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v3
         with:
@@ -51,12 +52,12 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh
           pip install -e .
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
+          pip install pyspark
       - name: Run tests
         run: |
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
+      - uses: ./.github/actions/untracked
 
   recipes-windows:
     runs-on: windows-latest
@@ -70,18 +71,24 @@ jobs:
         run: |
           pip install -r requirements/test-requirements.txt
           pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
           pip install -e .
-          # TODO: Unpin once Delta supports Spark 3.3 (https://github.com/delta-io/delta/issues/1217)
-          pip install 'pyspark<3.3'
+          pip install pyspark
+          # TODO: Importing datasets in a pandas UDF (created by mlflow.pyfunc.spark_udf) crashes
+          # the Python worker. To avoid this, uninstall `datasets`. This is a temporary workaround.
+          pip uninstall -y datasets
       - name: Download Hadoop winutils for Spark
         run: |
-          git clone https://github.com/cdarlint/winutils
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
       - name: Run tests
+        env:
+          # The default pooling implmentation 'QueuePool' can lead to errors on Windows when
+          # multiple threads access the same SQLite database file simultaneously.
+          MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
           # Set Hadoop environment variables required for testing Spark integrations on Windows
-          export HADOOP_HOME=`realpath winutils/hadoop-3.2.2`
+          export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run recipes tests
           export MLFLOW_HOME=$(pwd)
           pytest tests/recipes
+      - uses: ./.github/actions/untracked

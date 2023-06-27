@@ -4,7 +4,7 @@ import {
   Dropdown,
   Input,
   ListIcon,
-  Search1Icon,
+  SearchIcon,
   Tree,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
@@ -22,6 +22,7 @@ import {
   makeCanonicalSortKey,
 } from '../../utils/experimentPage.column-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import { shouldEnableExperimentDatasetTracking } from '../../../../../common/utils/FeatureUtils';
 
 /**
  * We need to recreate antd's tree check callback signature since it's not importable
@@ -41,13 +42,27 @@ const GROUP_KEY_PARAMS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.PARAMS);
 const GROUP_KEY_METRICS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.METRICS);
 const GROUP_KEY_TAGS = makeCanonicalSortKey(GROUP_KEY, COLUMN_TYPES.TAGS);
 
-const ATTRIBUTE_COLUMNS = [
-  ATTRIBUTE_COLUMN_LABELS.USER,
-  ATTRIBUTE_COLUMN_LABELS.SOURCE,
-  ATTRIBUTE_COLUMN_LABELS.VERSION,
-  ATTRIBUTE_COLUMN_LABELS.MODELS,
-];
-const ATTRIBUTE_COLUMNS_COMPARE = [ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME, ...ATTRIBUTE_COLUMNS];
+/**
+ * Returns all usable attribute columns basing on view mode and enabled flagged features
+ */
+const getAttributeColumns = (isComparing: boolean) => {
+  const result = [
+    ATTRIBUTE_COLUMN_LABELS.USER,
+    ATTRIBUTE_COLUMN_LABELS.SOURCE,
+    ATTRIBUTE_COLUMN_LABELS.VERSION,
+    ATTRIBUTE_COLUMN_LABELS.MODELS,
+  ];
+
+  if (isComparing) {
+    result.unshift(ATTRIBUTE_COLUMN_LABELS.EXPERIMENT_NAME);
+  }
+
+  if (shouldEnableExperimentDatasetTracking()) {
+    result.unshift(ATTRIBUTE_COLUMN_LABELS.DATASET);
+  }
+
+  return result;
+};
 
 /**
  * Function filters list of string by a given query string.
@@ -107,7 +122,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
 
     // Extract all attribute columns
     const attributeColumnNames = useMemo(
-      () => (experimentIds.length > 1 ? ATTRIBUTE_COLUMNS_COMPARE : ATTRIBUTE_COLUMNS),
+      () => getAttributeColumns(experimentIds.length > 1),
       [experimentIds.length],
     );
 
@@ -272,7 +287,7 @@ export const ExperimentViewRunsColumnSelectorImpl = React.memo(
         <div css={(theme) => ({ padding: theme.spacing.md })}>
           <Input
             value={filter}
-            prefix={<Search1Icon />}
+            prefix={<SearchIcon />}
             placeholder='Search columns'
             allowClear
             ref={searchInputRef}

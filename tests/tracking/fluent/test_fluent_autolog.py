@@ -21,6 +21,8 @@ import mxnet.gluon
 import pyspark
 import pyspark.ml
 import pytorch_lightning
+import transformers
+import setfit
 
 from tests.autologging.fixtures import test_mode_off, test_mode_on
 from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
@@ -36,6 +38,8 @@ library_to_mlflow_module_without_spark_datasource = {
     mxnet.gluon: mlflow.gluon,
     pyspark.ml: mlflow.pyspark.ml,
     pytorch_lightning: mlflow.pytorch,
+    transformers: mlflow.transformers,
+    setfit: mlflow.transformers,
 }
 
 library_to_mlflow_module = {
@@ -128,6 +132,7 @@ def test_universal_autolog_calls_specific_autologs_correctly(library, mlflow_mod
     integrations_with_additional_config = [xgboost, lightgbm, sklearn]
     args_to_test = {
         "log_models": False,
+        "log_datasets": False,
         "disable": True,
         "exclusive": True,
         "disable_for_unsupported_versions": True,
@@ -183,7 +188,6 @@ def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config
 
 def test_universal_autolog_makes_expected_event_logging_calls():
     class TestLogger(AutologgingEventLogger):
-
         LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
 
         def __init__(self):
@@ -264,6 +268,7 @@ def test_autolog_success_message_obeys_disabled():
 @pytest.mark.parametrize("exclusive", [False, True])
 @pytest.mark.parametrize("disable_for_unsupported_versions", [False, True])
 @pytest.mark.parametrize("log_models", [False, True])
+@pytest.mark.parametrize("log_datasets", [False, True])
 @pytest.mark.parametrize("log_input_examples", [False, True])
 @pytest.mark.parametrize("log_model_signatures", [False, True])
 def test_autolog_obeys_silent_mode(
@@ -272,6 +277,7 @@ def test_autolog_obeys_silent_mode(
     exclusive,
     disable_for_unsupported_versions,
     log_models,
+    log_datasets,
     log_input_examples,
     log_model_signatures,
 ):
@@ -284,6 +290,7 @@ def test_autolog_obeys_silent_mode(
         exclusive=exclusive,
         disable_for_unsupported_versions=disable_for_unsupported_versions,
         log_models=log_models,
+        log_datasets=log_datasets,
         log_input_examples=log_input_examples,
         log_model_signatures=log_model_signatures,
     )

@@ -4,6 +4,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.dummy import DummyClassifier
 import mlflow
 from mlflow.models import MetricThreshold, make_metric
+from mlflow.models import infer_signature
 from mlflow.models.evaluation.validation import ModelValidationFailedException
 
 # load UCI Adult Data Set; segment it into training and test sets
@@ -12,13 +13,16 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random
 
 # train a candidate XGBoost model
 candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+candidate_signature = infer_signature(X_train, candidate_model.predict(X_train))
 
 # train a baseline dummy model
 baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
+baseline_signature = infer_signature(X_train, baseline_model.predict(X_train))
 
 # construct an evaluation dataset from the test set
 eval_data = X_test
 eval_data["label"] = y_test
+
 
 # Define a custom metric to evaluate against
 def double_positive(_eval_df, builtin_metrics):
@@ -29,33 +33,37 @@ def double_positive(_eval_df, builtin_metrics):
 thresholds = {
     # Specify metric value threshold
     "precision_score": MetricThreshold(
-        threshold=0.7, higher_is_better=True
+        threshold=0.7, greater_is_better=True
     ),  # precision should be >=0.7
     # Specify model comparison thresholds
     "recall_score": MetricThreshold(
         min_absolute_change=0.1,  # recall should be at least 0.1 greater than baseline model recall
         min_relative_change=0.1,  # recall should be at least 10 percent greater than baseline model recall
-        higher_is_better=True,
+        greater_is_better=True,
     ),
     # Specify both metric value and model comparison thresholds
     "accuracy_score": MetricThreshold(
         threshold=0.8,  # accuracy should be >=0.8
         min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
         min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
-        higher_is_better=True,
+        greater_is_better=True,
     ),
     # Specify threshold for custom metric
     "double_positive": MetricThreshold(
-        threshold=1e5, higher_is_better=False  # double_positive should be <=1e5
+        threshold=1e5, greater_is_better=False  # double_positive should be <=1e5
     ),
 }
 
 with mlflow.start_run() as run:
-    candidate_model_uri = mlflow.sklearn.log_model(candidate_model, "candidate_model").model_uri
+    candidate_model_uri = mlflow.sklearn.log_model(
+        candidate_model, "candidate_model", signature=candidate_signature
+    ).model_uri
     # Note: in most model validation use-cases the baseline model should instead be a previously
     # trained model (such as the current production model), specified directly in the
     # mlflow.evaluate() call via model URI.
-    baseline_model_uri = mlflow.sklearn.log_model(baseline_model, "baseline_model").model_uri
+    baseline_model_uri = mlflow.sklearn.log_model(
+        baseline_model, "baseline_model", signature=baseline_signature
+    ).model_uri
 
     mlflow.evaluate(
         candidate_model_uri,

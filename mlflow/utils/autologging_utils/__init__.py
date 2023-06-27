@@ -1,9 +1,10 @@
 # pylint: disable=unused-wildcard-import,wildcard-import
 
+import contextlib
 import inspect
 import logging
 import time
-import contextlib
+from typing import List
 
 import mlflow
 from mlflow.entities import Metric
@@ -100,7 +101,7 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     return params_to_log
 
 
-def log_fn_args_as_params(fn, args, kwargs, unlogged=None):  # pylint: disable=W0102
+def log_fn_args_as_params(fn, args, kwargs, unlogged=None):
     """
     Log arguments explicitly passed to a function as MLflow Run parameters to the current active
     MLflow Run.
@@ -179,6 +180,15 @@ def resolve_input_example_and_signature(
             model_signature = infer_model_signature(input_example)
         except Exception as e:
             model_signature_user_msg = "Failed to infer model signature: " + str(e)
+
+    # disable input_example signature inference in model logging if `log_model_signature`
+    # is set to `False` or signature inference in autologging fails
+    if (
+        model_signature is None
+        and input_example is not None
+        and (not log_model_signature or model_signature_user_msg is not None)
+    ):
+        model_signature = False
 
     if log_input_example and input_example_user_msg is not None:
         logger.warning(input_example_user_msg)
@@ -265,7 +275,6 @@ class BatchMetricsLogger:
             step = 0
 
         for key, value in metrics.items():
-
             self.data.append(Metric(key, value, int(current_timestamp * 1000), step))
 
         if self._should_flush():
@@ -420,8 +429,8 @@ def autologging_integration(name):
         wrapped_autolog.integration_name = name
 
         if name in FLAVOR_TO_MODULE_NAME_AND_VERSION_INFO_KEY:
-            wrapped_autolog.__doc__ = (
-                gen_autologging_package_version_requirements_doc(name) + wrapped_autolog.__doc__
+            wrapped_autolog.__doc__ = gen_autologging_package_version_requirements_doc(name) + (
+                wrapped_autolog.__doc__ or ""
             )
         return wrapped_autolog
 
@@ -476,6 +485,34 @@ def disable_autologging():
     _AUTOLOGGING_GLOBALLY_DISABLED = False
 
 
+@contextlib.contextmanager
+def disable_discrete_autologging(flavors_to_disable: List[str]) -> None:
+    """
+    Context manager for disabling specific autologging integrations temporarily while another
+    flavor's autologging is activated. This context wrapper is useful in the event that, for
+    example, a particular library calls upon another library within a training API that has a
+    current MLflow autologging integration.
+    For instance, the transformers library's Trainer class, when running metric scoring,
+    builds a sklearn model and runs evaluations as part of its accuracy scoring. Without this
+    temporary autologging disabling, a new run will be generated that contains a sklearn model
+    that holds no use for tracking purposes as it is only used during the metric evaluation phase
+    of training.
+    :param flavors_to_disable: A list of flavors that need to be temporarily disabled while
+                               executing another flavor's autologging to prevent spurious run
+                               logging of unrelated models, metrics, and parameters.
+    """
+    enabled_flavors = []
+    for flavor in flavors_to_disable:
+        if not autologging_is_disabled(flavor):
+            enabled_flavors.append(flavor)
+            autolog_func = getattr(mlflow, flavor)
+            autolog_func.autolog(disable=True)
+    yield
+    for flavor in enabled_flavors:
+        autolog_func = getattr(mlflow, flavor)
+        autolog_func.autolog(disable=False)
+
+
 def _get_new_training_session_class():
     """
     Returns a session manager class for nested autologging runs.
@@ -504,6 +541,7 @@ def _get_new_training_session_class():
     ...             print(c1.should_log(), c2.should_log())
     True False
     """
+
     # NOTE: The current implementation doesn't guarantee thread-safety, but that's okay for now
     # because:
     # 1. We don't currently have any use cases for allow_children=True.

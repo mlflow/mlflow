@@ -216,6 +216,8 @@ import subprocess
 import sys
 import tempfile
 import threading
+import inspect
+import functools
 from copy import deepcopy
 from typing import Any, Union, Iterator, Tuple
 
@@ -228,6 +230,7 @@ import mlflow.pyfunc.model
 from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature, ModelInputExample
+from mlflow.models.signature import _infer_signature_from_type_hints
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import (
@@ -254,7 +257,7 @@ from mlflow.utils import (
     _is_in_ipython_notebook,
 )
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils import find_free_port
+from mlflow.utils import find_free_port, check_port_connectivity
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
@@ -282,6 +285,7 @@ from mlflow.utils.requirements_utils import (
     _check_requirement_satisfied,
     _parse_requirements,
 )
+from mlflow.environment_variables import MLFLOW_OPENAI_RETRIES_ENABLED, _MLFLOW_OPENAI_TESTING
 
 FLAVOR_NAME = "python_function"
 MAIN = "loader_module"
@@ -410,6 +414,17 @@ class PyFuncModel:
         input_schema = self.metadata.get_input_schema()
         if input_schema is not None:
             data = _enforce_schema(data, input_schema)
+
+        if "openai" in sys.modules and MLFLOW_OPENAI_RETRIES_ENABLED.get():
+            from mlflow.openai.retry import openai_auto_retry_patch
+
+            try:
+                with openai_auto_retry_patch():
+                    return self._predict_fn(data)
+            except Exception:
+                if _MLFLOW_OPENAI_TESTING.get():
+                    raise
+
         return self._predict_fn(data)
 
     @experimental
@@ -426,6 +441,7 @@ class PyFuncModel:
             :caption: Example
 
             import mlflow
+
 
             # define a custom model
             class MyModel(mlflow.pyfunc.PythonModel):
@@ -614,7 +630,7 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     :param env_manager: The environment manager to load the model.
     :return: A _ServedPyFuncModel for non-local ``env_manager``s or a PyFuncModel otherwise.
     """
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.pyfunc.scoring_server.client import ScoringServerClient, StdinScoringServerClient
 
     if env_manager == _EnvManager.LOCAL:
         return load_model(model_uri)
@@ -624,33 +640,40 @@ def _load_model_or_server(model_uri: str, env_manager: str):
     local_path = _download_artifact_from_uri(artifact_uri=model_uri)
     model_meta = Model.load(os.path.join(local_path, MLMODEL_FILE_NAME))
 
+    is_port_connectable = check_port_connectivity()
     pyfunc_backend = get_flavor_backend(
         local_path,
         env_manager=env_manager,
         install_mlflow=os.environ.get("MLFLOW_HOME") is not None,
+        create_env_root_dir=not is_port_connectable,
     )
     _logger.info("Restoring model environment. This can take a few minutes.")
     # Set capture_output to True in Databricks so that when environment preparation fails, the
     # exception message of the notebook cell output will include child process command execution
     # stdout/stderr output.
     pyfunc_backend.prepare_env(model_uri=local_path, capture_output=is_in_databricks_runtime())
-    server_port = find_free_port()
-    scoring_server_proc = pyfunc_backend.serve(
-        model_uri=local_path,
-        port=server_port,
-        host="127.0.0.1",
-        timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-        enable_mlserver=False,
-        synchronous=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-    )
+    if is_port_connectable:
+        server_port = find_free_port()
+        scoring_server_proc = pyfunc_backend.serve(
+            model_uri=local_path,
+            port=server_port,
+            host="127.0.0.1",
+            timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+            enable_mlserver=False,
+            synchronous=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        client = ScoringServerClient("127.0.0.1", server_port)
+    else:
+        scoring_server_proc = pyfunc_backend.serve_stdin(local_path)
+        client = StdinScoringServerClient(scoring_server_proc)
+
     _logger.info(f"Scoring server process started at PID: {scoring_server_proc.pid}")
-    client = ScoringServerClient("127.0.0.1", server_port)
     try:
         client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-    except Exception:
-        raise MlflowException("MLflow model server failed to launch")
+    except Exception as e:
+        raise MlflowException("MLflow model server failed to launch.") from e
 
     return _ServedPyFuncModel(
         model_meta=model_meta, client=client, server_pid=scoring_server_proc.pid
@@ -911,7 +934,6 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     # Scope Spark import to this method so users don't need pyspark to use non-Spark-related
     # functionality.
-    import functools
     from mlflow.pyfunc.spark_model_cache import SparkModelCache
     from mlflow.utils._spark_utils import _SparkDirectoryDistributor
     from pyspark.sql.functions import pandas_udf
@@ -932,6 +954,8 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
 
     # Used in test to force install local version of mlflow when starting a model server
     mlflow_home = os.environ.get("MLFLOW_HOME")
+    openai_env_vars = mlflow.openai._OpenAIEnvVar.read_environ()
+    mlflow_openai_testing = _MLFLOW_OPENAI_TESTING.get_raw()
 
     _EnvManager.validate(env_manager)
 
@@ -1043,12 +1067,13 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 names = [str(i) for i in range(len(args))]
             else:
                 names = input_schema.input_names()
+                required_names = input_schema.required_input_names()
                 if len(args) > len(names):
                     args = args[: len(names)]
-                if len(args) < len(names):
+                if len(args) < len(required_names):
                     raise MlflowException(
-                        "Model input is missing columns. Expected {} input columns {},"
-                        " but the model received only {} unnamed input columns"
+                        "Model input is missing required columns. Expected {} required"
+                        " input columns {}, but the model received only {} unnamed input columns"
                         " (Since the columns were passed unnamed they are expected to be in"
                         " the order specified by the schema).".format(len(names), names, len(args))
                     )
@@ -1151,12 +1176,19 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
         iterator: Iterator[Tuple[Union[pandas.Series, pandas.DataFrame], ...]]
     ) -> Iterator[result_type_hint]:
         # importing here to prevent circular import
-        from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+        from mlflow.pyfunc.scoring_server.client import (
+            ScoringServerClient,
+            StdinScoringServerClient,
+        )
 
         # Note: this is a pandas udf function in iteration style, which takes an iterator of
         # tuple of pandas.Series and outputs an iterator of pandas.Series.
         if mlflow_home is not None:
             os.environ["MLFLOW_HOME"] = mlflow_home
+        if openai_env_vars:
+            os.environ.update(openai_env_vars)
+        if mlflow_openai_testing:
+            _MLFLOW_OPENAI_TESTING.set(mlflow_openai_testing)
         scoring_server_proc = None
 
         if env_manager != _EnvManager.LOCAL:
@@ -1177,27 +1209,38 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 )
             else:
                 local_model_path_on_executor = None
-            # launch scoring server
-            server_port = find_free_port()
-            scoring_server_proc = pyfunc_backend.serve(
-                model_uri=local_model_path_on_executor or local_model_path,
-                port=server_port,
-                host="127.0.0.1",
-                timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
-                enable_mlserver=False,
-                synchronous=False,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
+
+            if check_port_connectivity():
+                # launch scoring server
+                server_port = find_free_port()
+                host = "127.0.0.1"
+                scoring_server_proc = pyfunc_backend.serve(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    port=server_port,
+                    host=host,
+                    timeout=MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.get(),
+                    enable_mlserver=False,
+                    synchronous=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+
+                client = ScoringServerClient(host, server_port)
+            else:
+                scoring_server_proc = pyfunc_backend.serve_stdin(
+                    model_uri=local_model_path_on_executor or local_model_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
+                client = StdinScoringServerClient(scoring_server_proc)
+
+            _logger.info("Using %s", client.__class__.__name__)
 
             server_tail_logs = collections.deque(maxlen=_MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP)
 
             def server_redirect_log_thread_func(child_stdout):
                 for line in child_stdout:
-                    if isinstance(line, bytes):
-                        decoded = line.decode()
-                    else:
-                        decoded = line
+                    decoded = line.decode() if isinstance(line, bytes) else line
                     server_tail_logs.append(decoded)
                     sys.stdout.write("[model server] " + decoded)
 
@@ -1208,11 +1251,9 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             server_redirect_log_thread.setDaemon(True)
             server_redirect_log_thread.start()
 
-            client = ScoringServerClient("127.0.0.1", server_port)
-
             try:
                 client.wait_server_ready(timeout=90, scoring_server_proc=scoring_server_proc)
-            except Exception:
+            except Exception as e:
                 err_msg = "During spark UDF task execution, mlflow model server failed to launch. "
                 if len(server_tail_logs) == _MLFLOW_SERVER_OUTPUT_TAIL_LINES_TO_KEEP:
                     err_msg += (
@@ -1222,7 +1263,7 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
                 else:
                     err_msg += "MLflow model server output:\n"
                 err_msg += "".join(server_tail_logs)
-                raise MlflowException(err_msg)
+                raise MlflowException(err_msg) from e
 
             def batch_predict_fn(pdf):
                 return client.invoke(pdf).get_predictions()
@@ -1261,7 +1302,12 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
     def udf_with_default_cols(*args):
         if len(args) == 0:
             input_schema = model_metadata.get_input_schema()
-
+            if input_schema and len(input_schema.optional_input_names()) > 0:
+                raise MlflowException(
+                    message="Cannot apply UDF without column names specified when"
+                    " model signature contains optional columns.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if input_schema and len(input_schema.inputs) > 0:
                 if input_schema.has_input_names():
                     input_names = input_schema.input_names()
@@ -1286,6 +1332,23 @@ def spark_udf(spark, model_uri, result_type="double", env_manager=_EnvManager.LO
             return udf(*args)
 
     return udf_with_default_cols
+
+
+def _validate_function_python_model(python_model):
+    if not (isinstance(python_model, PythonModel) or callable(python_model)):
+        raise MlflowException(
+            "`python_model` must be a PythonModel instance or a callable object",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if callable(python_model):
+        num_args = len(inspect.signature(python_model).parameters)
+        if num_args != 1:
+            raise MlflowException(
+                "When `python_model` is a callable object, it must accept exactly one argument. "
+                f"Found {num_args} arguments.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -1337,18 +1400,67 @@ def save_model(
     :param conda_env: {{ conda_env }}
     :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
                          **python_function** flavor.
-    :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
-                         serialized using the CloudPickle library. Any dependencies of the class
-                         should be included in one of the following locations:
+    :param python_model:
+        An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+        argument (see the examples below). The passed-in object is serialized using the CloudPickle
+        library. Any dependencies of the class should be included in one of the following locations:
 
-                            - The MLflow library.
-                            - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+        - The MLflow library.
+        - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
+          parameter.
+        - One or more of the files specified by the ``code_path`` parameter.
 
-                         Note: If the class is imported from another module, as opposed to being
-                         defined in the ``__main__`` scope, the defining module should also be
-                         included in one of the listed locations.
+        Note: If the class is imported from another module, as opposed to being defined in the
+        ``__main__`` scope, the defining module should also be included in one of the listed
+        locations.
+
+        **Examples**
+
+        Class model
+
+        .. code-block:: python
+
+            from typing import List, Dict
+            import mlflow
+
+
+            class MyModel(mlflow.pyfunc.PythonModel):
+                def predict(self, context, model_input: List[str]) -> List[str]:
+                    return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        Functional model
+
+        .. note::
+            Experimental: Functional model support is experimental and may change or be removed in
+            a future release without warning.
+
+        .. code-block:: python
+
+            from typing import List
+            import mlflow
+
+
+            def predict(model_input: List[str]) -> List[str]:
+                return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        If the `predict` method or function has type annotations, MLflow automatically constructs
+        a model signature based on the type annotations (unless the ``signature`` argument is
+        explicitly specified), and converts the input value to the specified type before passing
+        it to the function. Currently, the following type annotations are supported:
+
+            - ``List[str]``
+            - ``List[Dict[str, str]]``
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
@@ -1376,7 +1488,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -1395,6 +1507,15 @@ def save_model(
                                              release without warning.
     """
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+    if python_model:
+        _validate_function_python_model(python_model)
+        if callable(python_model) and all(
+            a is None for a in (input_example, pip_requirements, extra_pip_requirements)
+        ):
+            raise MlflowException(
+                "If `python_model` is a callable object, at least one of `input_example`, "
+                "`pip_requirements`, or `extra_pip_requirements` must be specified."
+            )
 
     mlflow_model = kwargs.pop("model", mlflow_model)
     if len(kwargs) > 0:
@@ -1435,10 +1556,29 @@ def save_model(
         raise MlflowException(message=msg, error_code=INVALID_PARAMETER_VALUE)
 
     _validate_and_prepare_target_save_path(path)
+
     if mlflow_model is None:
         mlflow_model = Model()
+
+    hints = None
     if signature is not None:
         mlflow_model.signature = signature
+    elif python_model is not None:
+        if callable(python_model):
+            input_arg_index = 0  # first argument
+            if signature := _infer_signature_from_type_hints(
+                python_model, input_arg_index, input_example=input_example
+            ):
+                mlflow_model.signature = signature
+        elif isinstance(python_model, PythonModel):
+            input_arg_index = 1  # second argument
+            if signature := _infer_signature_from_type_hints(
+                python_model.predict,
+                input_arg_index=input_arg_index,
+                input_example=input_example,
+            ):
+                mlflow_model.signature = signature
+
     if input_example is not None:
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
@@ -1458,6 +1598,8 @@ def save_model(
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path,
+            signature=signature,
+            hints=hints,
             python_model=python_model,
             artifacts=artifacts,
             conda_env=conda_env,
@@ -1511,18 +1653,67 @@ def log_model(
                       containing file dependencies). These files are *prepended* to the system
                       path before the model is loaded.
     :param conda_env: {{ conda_env }}
-    :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
-                         serialized using the CloudPickle library. Any dependencies of the class
-                         should be included in one of the following locations:
+    :param python_model:
+        An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+        argument (see the examples below). The passed-in object is serialized using the CloudPickle
+        library. Any dependencies of the class should be included in one of the following locations:
 
-                            - The MLflow library.
-                            - Package(s) listed in the model's Conda environment, specified by
-                              the ``conda_env`` parameter.
-                            - One or more of the files specified by the ``code_path`` parameter.
+        - The MLflow library.
+        - Package(s) listed in the model's Conda environment, specified by the ``conda_env``
+          parameter.
+        - One or more of the files specified by the ``code_path`` parameter.
 
-                         Note: If the class is imported from another module, as opposed to being
-                         defined in the ``__main__`` scope, the defining module should also be
-                         included in one of the listed locations.
+        Note: If the class is imported from another module, as opposed to being defined in the
+        ``__main__`` scope, the defining module should also be included in one of the listed
+        locations.
+
+        **Examples**
+
+        Class model
+
+        .. code-block:: python
+
+            from typing import List, Dict
+            import mlflow
+
+
+            class MyModel(mlflow.pyfunc.PythonModel):
+                def predict(self, context, model_input: List[str]) -> List[str]:
+                    return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=MyModel(), input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        Functional model
+
+        .. note::
+            Experimental: Functional model support is experimental and may change or be removed in
+            a future release without warning.
+
+        .. code-block:: python
+
+            from typing import List
+            import mlflow
+
+
+            def predict(model_input: List[str]) -> List[str]:
+                return [i.upper() for i in model_input]
+
+
+            mlflow.pyfunc.save_model("model", python_model=predict, input_example=["a"])
+            model = mlflow.pyfunc.load_model("model")
+            print(model.predict(["a", "b", "c"]))  # -> ["A", "B", "C"]
+
+        If the `predict` method or function has type annotations, MLflow automatically constructs
+        a model signature based on the type annotations (unless the ``signature`` argument is
+        explicitly specified), and converts the input value to the specified type before passing
+        it to the function. Currently, the following type annotations are supported:
+
+            - ``List[str]``
+            - ``List[Dict[str, str]]``
+
     :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
@@ -1554,7 +1745,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions

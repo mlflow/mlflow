@@ -21,7 +21,25 @@ export interface KeyValueEntity {
 }
 
 /**
- * An entity defining a single model entity
+ * An entity defining a single model
+ */
+export interface ModelEntity {
+  creation_timestamp: number;
+  current_stage: string;
+  version: string;
+  description: string;
+  id: string;
+  name: string;
+  source: string;
+  status: string;
+  tags: KeyValueEntity[];
+  permission_level: string;
+  email_subscription_status: string;
+  latest_versions: ModelInfoEntity[];
+}
+
+/**
+ * An entity defining a single model version
  */
 export interface ModelInfoEntity {
   name: string;
@@ -35,6 +53,18 @@ export interface ModelInfoEntity {
   status: string;
   permission_level: string;
   email_subscription_status: string;
+}
+
+/**
+ * A run entity as seen in the API response
+ */
+export interface RunEntity {
+  data: {
+    params: KeyValueEntity[];
+    tags: KeyValueEntity[];
+    metrics: MetricEntity[];
+  };
+  info: RunInfoEntity;
 }
 
 export interface RunInfoEntity {
@@ -56,6 +86,18 @@ export interface RunInfoEntity {
   getStatus(): string;
 }
 
+export interface RunDatasetWithTags {
+  dataset: {
+    digest: string;
+    name: string;
+    profile: string;
+    schema: string;
+    source: string;
+    source_type: string;
+  };
+  tags: KeyValueEntity[];
+}
+
 export interface MetricEntity {
   key: string;
   step: number;
@@ -69,6 +111,7 @@ export interface MetricEntity {
 }
 
 export type MetricEntitiesByName = Record<string, MetricEntity>;
+export type MetricHistoryByName = Record<string, MetricEntity[]>;
 
 export interface ExperimentEntity {
   allowed_actions: string[];
@@ -102,10 +145,15 @@ export interface ExperimentStoreEntities {
   runInfosByUuid: Record<string, RunInfoEntity>;
 
   /**
-   * Dictionary with run UUID as key and metric sub-dictionary as a value.
-   * Represents all metrics.
+   * Dictionary of recorded input datasets by run UUIDs
    */
-  metricsByRunUuid: Record<string, MetricEntitiesByName>;
+  runDatasetsByUuid: Record<string, RunDatasetWithTags[]>;
+
+  /**
+   * Dictionary with run UUID as key and metric sub-dictionary as a value.
+   * Represents all metrics with history.
+   */
+  metricsByRunUuid: Record<string, MetricHistoryByName>;
 
   /**
    * Dictionary with run UUID as key and metric sub-dictionary as a value
@@ -192,6 +240,7 @@ export type UpdateExperimentSearchFacetsFn = (
   updateOptions?: {
     forceRefresh?: boolean;
     preservePristine?: boolean;
+    replaceHistory?: boolean;
   },
 ) => void;
 
@@ -204,11 +253,44 @@ export type UpdateExperimentViewStateFn = (
 ) => void;
 
 /**
- * A type describing a single chart configured in the compare runs view.
- * TODO: finalize it with the actual field and enums
+ * Enum representing the different types of dataset sources.
  */
-export interface CompareRunsChartSetup {
-  type: string; // TODO: change to an enum
-  metricKey: string; // TODO: expand it to multiple axes
-  uuid: string;
+export enum DatasetSourceTypes {
+  DELTA = 'delta_table',
+  EXTERNAL = 'external',
+  CODE = 'code',
+  LOCAL = 'local',
 }
+
+/**
+ * Describes a single entry in the text evaluation artifact
+ */
+export interface EvaluationArtifactTableEntry {
+  [fieldName: string]: string;
+}
+
+/**
+ * Descibes a single text evaluation artifact with a set of entries and its name
+ */
+export interface EvaluationArtifactTable {
+  path: string;
+  columns: string[];
+  entries: EvaluationArtifactTableEntry[];
+}
+
+/**
+ * Known artifact types that are useful for the evaluation purposes
+ */
+export enum RunLoggedArtifactType {
+  TABLE = 'table',
+}
+
+/**
+ * Shape of the contents of "mlflow.loggedArtifacts" tag
+ */
+export type RunLoggedArtifactsDeclaration = {
+  path: string;
+  type: RunLoggedArtifactType;
+}[];
+
+export type ExperimentViewRunsCompareMode = undefined | 'ARTIFACT' | 'CHART';

@@ -7,17 +7,65 @@ import {
   DEFAULT_ORDER_BY_KEY,
   DEFAULT_START_TIME,
 } from '../../../constants';
-import { CompareRunsChartSetup } from '../../../types';
+import { SerializedRunsCompareCardConfigCard } from '../../runs-compare/runs-compare.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.column-utils';
+import { shouldEnableExperimentDatasetTracking } from '../../../../common/utils/FeatureUtils';
+import type { ExperimentViewRunsCompareMode } from '../../../types';
 
-const DEFAULT_SELECTED_COLUMNS = [
-  // "Source" and "Model" columns are visible by default
-  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
-  makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
-];
+const getDefaultSelectedColumns = () => {
+  const result = [
+    // "Source" and "Model" columns are visible by default
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.SOURCE),
+    makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.MODELS),
+  ];
+
+  if (shouldEnableExperimentDatasetTracking()) {
+    result.push(makeCanonicalSortKey(COLUMN_TYPES.ATTRIBUTES, ATTRIBUTE_COLUMN_LABELS.DATASET));
+  }
+
+  return result;
+};
 
 /**
- * Defines persistable model respresenting sort and filter values
+ * Function consumes a search state facets object and returns one
+ * with cleared filter-related fields while leaving
+ * selected columns, chart state etc.
+ */
+export const clearSearchExperimentsFacetsFilters = (
+  currentSearchFacetsState: SearchExperimentRunsFacetsState,
+) => {
+  const { lifecycleFilter, modelVersionFilter, searchFilter, startTime, orderByAsc, orderByKey } =
+    new SearchExperimentRunsFacetsState();
+  return {
+    ...currentSearchFacetsState,
+    lifecycleFilter,
+    modelVersionFilter,
+    searchFilter,
+    startTime,
+    orderByAsc,
+    orderByKey,
+  };
+};
+
+/**
+ * Function consumes a search state facets object and returns `true`
+ * if at least one filter-related facet is not-default meaning that runs
+ * are currently filtered.
+ */
+export const isSearchFacetsFilterUsed = (
+  currentSearchFacetsState: SearchExperimentRunsFacetsState,
+) => {
+  const { lifecycleFilter, modelVersionFilter, searchFilter, startTime } = currentSearchFacetsState;
+  return Boolean(
+    lifecycleFilter !== DEFAULT_LIFECYCLE_FILTER ||
+      modelVersionFilter !== DEFAULT_MODEL_VERSION_FILTER ||
+      searchFilter ||
+      startTime !== DEFAULT_START_TIME,
+  );
+};
+
+/**
+ * Defines persistable model representing sort and filter values
  * used by runs table and controls
  */
 export class SearchExperimentRunsFacetsState {
@@ -55,7 +103,7 @@ export class SearchExperimentRunsFacetsState {
   /**
    * Currently selected columns
    */
-  selectedColumns: string[] = [...DEFAULT_SELECTED_COLUMNS];
+  selectedColumns: string[] = getDefaultSelectedColumns();
 
   /**
    * Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
@@ -69,12 +117,18 @@ export class SearchExperimentRunsFacetsState {
   runsPinned: string[] = [];
 
   /**
-   * Is in compare runs mode
+   * List of hidden row UUIDs
    */
-  isComparingRuns = false;
+  runsHidden: string[] = [];
 
   /**
-   * Currently configured charts for comparing runs
+   * Current run comparison mode (either chart or artifact).
+   * If set to "undefined", the table view should be displayed.
    */
-  compareRunCharts: CompareRunsChartSetup[] = [];
+  compareRunsMode: ExperimentViewRunsCompareMode = undefined;
+
+  /**
+   * Currently configured charts for comparing runs, if any.
+   */
+  compareRunCharts?: SerializedRunsCompareCardConfigCard[];
 }

@@ -6,7 +6,7 @@ import pathlib
 import posixpath
 import sys
 from abc import abstractmethod
-from typing import Dict, Any, List, TypeVar, Optional, Union
+from typing import Dict, Any, List, Optional, Union
 from urllib.parse import urlparse
 
 from mlflow.artifacts import download_artifacts
@@ -32,7 +32,6 @@ from mlflow.utils._spark_utils import (
 
 _logger = logging.getLogger(__name__)
 
-_DatasetType = TypeVar("_Dataset")
 
 _USER_DEFINED_INGEST_STEP_MODULE = "steps.ingest"
 
@@ -59,7 +58,7 @@ class _Dataset:
         pass
 
     @classmethod
-    def from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         """
         Constructs a dataset instance from the specified dataset configuration
         and recipe root path.
@@ -79,7 +78,7 @@ class _Dataset:
 
     @classmethod
     @abstractmethod
-    def _from_config(cls, dataset_config, recipe_root) -> _DatasetType:
+    def _from_config(cls, dataset_config, recipe_root) -> "_Dataset":
         """
         Constructs a dataset instance from the specified dataset configuration
         and recipe root path.
@@ -164,7 +163,7 @@ class _LocationBasedDataset(_Dataset):
         pass
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             recipe_root=recipe_root,
@@ -446,7 +445,7 @@ class CustomDataset(_PandasConvertibleDataset):
             raise MlflowException(
                 message=(
                     "The `ingested_data` is not a DataFrame, please make sure "
-                    f"'{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}'"
+                    f"'{_USER_DEFINED_INGEST_STEP_MODULE}.{self.loader_method}' "
                     "returns a Pandas DataFrame object."
                 ),
                 error_code=INVALID_PARAMETER_VALUE,
@@ -498,7 +497,7 @@ class CustomDataset(_PandasConvertibleDataset):
             ) from e
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             dataset_format=cls._get_required_config(dataset_config=dataset_config, key="using"),
@@ -518,6 +517,17 @@ class _SparkDatasetMixin:
     Mixin class providing Spark-related utilities for Datasets that use Spark for resolution
     and conversion to parquet format.
     """
+
+    def _convert_spark_df_to_pandas(self, spark_df):
+        import pandas as pd
+
+        datetime_cols = [
+            field.name for field in spark_df.schema.fields if str(field.dataType) == "DateType"
+        ]
+        pandas_df = spark_df.toPandas()
+        pandas_df[datetime_cols] = pandas_df[datetime_cols].apply(pd.to_datetime, errors="coerce")
+
+        return pandas_df
 
     def _get_or_create_spark_session(self):
         """
@@ -578,7 +588,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         if self.timestamp is not None:
             spark_read_op = spark_read_op.option("timestampAsOf", self.timestamp)
         spark_df = spark_read_op.load(self.location)
-        pandas_df = spark_df.toPandas()
+        pandas_df = self._convert_spark_df_to_pandas(spark_df)
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @staticmethod
@@ -586,7 +596,7 @@ class DeltaTableDataset(_SparkDatasetMixin, _LocationBasedDataset):
         return dataset_format == "delta"
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             location=cls._get_required_config(dataset_config=dataset_config, key="location"),
             recipe_root=recipe_root,
@@ -626,11 +636,11 @@ class SparkSqlDataset(_SparkDatasetMixin, _Dataset):
             spark_df = spark_session.sql(self.sql)
         elif self.location is not None:
             spark_df = spark_session.table(self.location)
-        pandas_df = spark_df.toPandas()
+        pandas_df = self._convert_spark_df_to_pandas(spark_df)
         write_pandas_df_as_parquet(df=pandas_df, data_parquet_path=dst_path)
 
     @classmethod
-    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> _DatasetType:
+    def _from_config(cls, dataset_config: Dict[str, Any], recipe_root: str) -> "_Dataset":
         return cls(
             sql=dataset_config.get("sql"),
             location=dataset_config.get("location"),

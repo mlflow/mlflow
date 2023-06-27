@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.utils.file_utils import local_file_uri_to_path
+from mlflow.utils.os import is_windows
 
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
@@ -45,6 +46,7 @@ def test_log_figure_plotly_html(subdir):
         assert os.listdir(run_artifact_dir) == [filename]
 
 
+@pytest.mark.skipif(is_windows, reason="https://github.com/plotly/Kaleido/issues/126")
 @pytest.mark.parametrize("extension", ["png", "jpeg", "webp", "svg", "pdf"])
 def test_log_figure_plotly_image(extension):
     from plotly import graph_objects as go

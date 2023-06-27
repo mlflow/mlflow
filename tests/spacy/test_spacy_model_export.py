@@ -24,7 +24,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
-from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import, E0611
+from tests.conftest import tracking_uri_mock  # pylint: disable=unused-import,no-name-in-module
 from tests.helper_functions import (
     pyfunc_serve_and_score_model,
     _compare_conda_env_requirements,
@@ -83,15 +83,15 @@ def spacy_model_with_data():
 
 
 @pytest.fixture
-def spacy_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def spacy_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pytest", "spacy"])
     return conda_env
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 def test_model_save_load(spacy_model_with_data, model_path):
@@ -187,69 +187,67 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
     _compare_conda_env_requirements(spacy_custom_env, saved_pip_req_path)
 
 
-def test_save_model_with_pip_requirements(spacy_model_with_data, tmpdir):
+def test_save_model_with_pip_requirements(spacy_model_with_data, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.spacy.save_model(
-        spacy_model_with_data.model, tmpdir1.strpath, pip_requirements=req_file.strpath
-    )
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.spacy.save_model(spacy_model_with_data.model, tmpdir1, pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
+    tmpdir2 = tmp_path.joinpath("2")
     mlflow.spacy.save_model(
         spacy_model_with_data.model,
-        tmpdir2.strpath,
-        pip_requirements=[f"-r {req_file.strpath}", "b"],
+        tmpdir2,
+        pip_requirements=[f"-r {req_file}", "b"],
     )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
+    tmpdir3 = tmp_path.joinpath("3")
     mlflow.spacy.save_model(
         spacy_model_with_data.model,
-        tmpdir3.strpath,
-        pip_requirements=[f"-c {req_file.strpath}", "b"],
+        tmpdir3,
+        pip_requirements=[f"-c {req_file}", "b"],
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
-def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmpdir):
+def test_save_model_with_extra_pip_requirements(spacy_model_with_data, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.spacy.get_default_pip_requirements()
 
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
     mlflow.spacy.save_model(
-        spacy_model_with_data.model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
+        spacy_model_with_data.model, tmpdir1, extra_pip_requirements=str(req_file)
     )
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
+    tmpdir2 = tmp_path.joinpath("2")
     mlflow.spacy.save_model(
         spacy_model_with_data.model,
-        tmpdir2.strpath,
-        extra_pip_requirements=[f"-r {req_file.strpath}", "b"],
+        tmpdir2,
+        extra_pip_requirements=[f"-r {req_file}", "b"],
     )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
+    tmpdir3 = tmp_path.joinpath("3")
     mlflow.spacy.save_model(
         spacy_model_with_data.model,
-        tmpdir3.strpath,
-        extra_pip_requirements=[f"-c {req_file.strpath}", "b"],
+        tmpdir3,
+        extra_pip_requirements=[f"-c {req_file}", "b"],
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 

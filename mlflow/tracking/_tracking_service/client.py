@@ -6,6 +6,8 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import os
 from itertools import zip_longest
+from typing import List, Optional
+from mlflow.entities.dataset_input import DatasetInput
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, GET_METRIC_HISTORY_MAX_RESULTS
 from mlflow.tracking._tracking_service import utils
@@ -295,7 +297,7 @@ class TrackingServiceClient:
             self.store.log_param(run_id, param)
         except MlflowException as e:
             if e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE):
-                msg = f"{e.message}{PARAM_VALIDATION_MSG}'"
+                msg = f"{e.message}{PARAM_VALIDATION_MSG}"
                 raise MlflowException(msg, INVALID_PARAMETER_VALUE)
             else:
                 raise e
@@ -392,6 +394,21 @@ class TrackingServiceClient:
 
         for metrics_batch in chunk_list(metrics, chunk_size=MAX_METRICS_PER_BATCH):
             self.store.log_batch(run_id=run_id, metrics=metrics_batch, params=[], tags=[])
+
+    def log_inputs(self, run_id: str, datasets: Optional[List[DatasetInput]] = None):
+        """
+        Log one or more dataset inputs to a run.
+
+        :param run_id: String ID of the run
+        :param datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log.
+
+        Raises an MlflowException if any errors occur.
+        :return: None
+        """
+        if datasets is None or len(datasets) == 0:
+            return
+
+        self.store.log_inputs(run_id=run_id, datasets=datasets)
 
     def _record_logged_model(self, run_id, mlflow_model):
         from mlflow.models import Model

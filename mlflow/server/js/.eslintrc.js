@@ -1,3 +1,4 @@
+
 module.exports = {
   extends: ['airbnb-base', 'react-app', 'prettier'],
   plugins: ['prettier', 'react', 'no-only-tests'],
@@ -466,6 +467,21 @@ module.exports = {
       parser: '@typescript-eslint/parser',
 
       rules: {
+        // Turning off temporarily until TS migration is complete
+        'import/first': 0,
+        'import/extensions': 0,
+        'import/newline-after-import': 0,
+        'import/no-duplicates': 0,
+        '@typescript-eslint/no-unused-vars': 0,
+        'react/prop-types': 0,
+        'max-lines': 0,
+        'jsx-a11y/click-events-have-key-events': 0,
+        'jsx-a11y/no-static-element-interactions': 0,
+        'jsx-a11y/interactive-supports-focus': 0,
+        'jsx-a11y/label-has-associated-control': 0,
+        'jsx-a11y/no-noninteractive-element-interactions': 0,
+        'jsx-a11y/no-autofocus': 0,
+
         // Do not require functions (especially react components) to have explicit returns
         '@typescript-eslint/explicit-function-return-type': 'off',
         // Do not require to type every import from a JS file to speed up development
@@ -520,7 +536,7 @@ module.exports = {
         // adding "React" manually results in TS(6133) error
         'react/react-in-jsx-scope': 'off',
 
-        '@typescript-eslint/no-unused-vars': ['warn', { varsIgnorePattern: '^oss_' }],
+        // '@typescript-eslint/no-unused-vars': ['error', { varsIgnorePattern: '^oss_' }],
       },
     },
     {

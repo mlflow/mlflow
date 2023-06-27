@@ -1,4 +1,5 @@
 import logging
+import importlib
 from typing import Dict, Any, Tuple, TYPE_CHECKING
 
 import pandas as pd
@@ -17,7 +18,7 @@ from mlflow.recipes.utils.metrics import RecipeMetric, _load_custom_metrics
 
 _logger = logging.getLogger(__name__)
 
-_AUTOML_DEFAULT_TIME_BUDGET = 30
+_AUTOML_DEFAULT_TIME_BUDGET = 600
 _MLFLOW_TO_FLAML_METRICS = {
     "mean_absolute_error": "mae",
     "mean_squared_error": "mse",
@@ -106,8 +107,6 @@ def _create_sklearn_metric_flaml(metric_name: str, coeff: int, avg: str = "binar
         weight_train=None,
         *args,
     ):
-        import importlib
-
         custom_metrics_mod = importlib.import_module("sklearn.metrics")
         eval_fn = getattr(custom_metrics_mod, metric_name)
         val_metric = coeff * eval_fn(y_val, estimator.predict(X_val), average=avg)

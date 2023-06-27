@@ -8,6 +8,7 @@ import threading
 from collections import namedtuple
 from unittest import mock
 import pytest
+from packaging.version import Version
 
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ from pyspark.sql.types import (
     FloatType,
     IntegerType,
     BooleanType,
+    StructType,
+    StructField,
 )
 from pyspark.sql.utils import AnalysisException
 from sklearn import datasets
@@ -28,6 +31,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import FunctionTransformer
 from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
 
 import tests
 
@@ -93,7 +97,6 @@ def get_spark_session(conf):
     # If running in local mode on certain OS configurations (M1 Mac ARM CPUs)
     # adding `.config("spark.driver.bindAddress", "127.0.0.1")` to the SparkSession
     # builder configuration will enable a SparkSession to start.
-
     # For local testing, uncomment the following line:
     # spark_master = os.environ.get("SPARK_MASTER", "local[1]")
     # If doing local testing, comment-out the following line.
@@ -102,7 +105,8 @@ def get_spark_session(conf):
     return (
         pyspark.sql.SparkSession.builder.config(conf=conf)
         .master(spark_master)
-        # .config("spark.driver.bindAddress", "127.0.0.1") # Uncomment for testing on M1 locally
+        # Uncomment the following line for testing on Apple silicon locally
+        # .config("spark.driver.bindAddress", "127.0.0.1")
         .config("spark.task.maxFailures", "1")  # avoid retry failed spark tasks
         .getOrCreate()
     )
@@ -110,15 +114,13 @@ def get_spark_session(conf):
 
 @pytest.fixture(scope="module")
 def spark():
-    conf = pyspark.SparkConf()
-    session = get_spark_session(conf)
-    yield session
-    session.stop()
+    with get_spark_session(pyspark.SparkConf()) as session:
+        yield session
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -333,7 +335,7 @@ def test_spark_udf_autofills_no_arguments(spark):
 
         with pytest.raises(
             pyspark.sql.utils.PythonException,
-            match=r"Model input is missing columns. Expected 3 input columns",
+            match=r"Model input is missing required columns. Expected 3 required input columns",
         ):
             res = good_data.withColumn("res", udf("b", "c")).select("res").toPandas()
 
@@ -345,7 +347,14 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(
             AnalysisException,
-            match=r"cannot resolve 'a' given input columns|Column 'a' does not exist",
+            match=(
+                # PySpark < 3.3
+                r"cannot resolve 'a' given input columns|"
+                # PySpark 3.3
+                r"Column 'a' does not exist|"
+                # PySpark 3.4
+                r"A column or function parameter with name `a` cannot be resolved"
+            ),
         ):
             bad_data.withColumn("res", udf())
 
@@ -372,6 +381,35 @@ def test_spark_udf_autofills_no_arguments(spark):
         )
         with pytest.raises(MlflowException, match="Attempting to apply udf on zero columns"):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
+
+    named_signature_with_optional_input = ModelSignature(
+        inputs=Schema(
+            [
+                ColSpec("long", "a"),
+                ColSpec("long", "b"),
+                ColSpec("long", "c"),
+                ColSpec("long", "d", optional=True),
+            ]
+        ),
+        outputs=Schema([ColSpec("integer")]),
+    )
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model", python_model=TestModel(), signature=named_signature_with_optional_input
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark, "runs:/{}/model".format(run.info.run_id), result_type=ArrayType(StringType())
+        )
+        with pytest.raises(
+            MlflowException,
+            match=r"Cannot apply UDF without column names specified when model "
+            r"signature contains optional columns",
+        ):
+            good_data.withColumn("res", udf())
+
+        # Ensure optional inputs are not truncated
+        res = good_data.withColumn("res", udf(*good_data.columns)).select("res").toPandas()
+        assert res["res"][0] == ["a", "b", "c", "d"]
 
 
 def test_spark_udf_autofills_column_names_with_schema(spark):
@@ -693,3 +731,62 @@ def test_spark_udf_with_col_spec_type_input(spark):
         res = data.withColumn("res", udf()).select("res.c_int", "res.c_float").toPandas()
         assert res.c_int.tolist() == [10]
         np.testing.assert_almost_equal(res.c_float.tolist(), [1.5])
+
+
+def test_spark_udf_stdin_scoring_server(spark, monkeypatch):
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    X = X[::5]
+    y = y[::5]
+    model = LogisticRegression().fit(X, y)
+    model.fit(X, y)
+
+    with mlflow.start_run():
+        signature = mlflow.models.infer_signature(X, y)
+        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+
+    with mock.patch("mlflow.pyfunc.check_port_connectivity", return_value=False):
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            model_info.model_uri,
+            env_manager="virtualenv",
+        )
+        df = spark.createDataFrame(X)
+        result = df.select(udf(*X.columns)).toPandas()
+        np.testing.assert_almost_equal(result.to_numpy().squeeze(), model.predict(X))
+
+
+# TODO: Remove `skipif` once pyspark 3.4 is released
+@pytest.mark.skipif(
+    Version(pyspark.__version__) < Version("3.4.0"), reason="requires spark >= 3.4.0"
+)
+def test_spark_udf_array_of_structs(spark):
+    class TestModel(PythonModel):
+        def predict(self, context, model_input):
+            return [[("str", 0, 1, 0.0, 0.1, True)]] * len(model_input)
+
+    signature = ModelSignature(inputs=Schema([ColSpec("long", "a")]))
+    good_data = spark.createDataFrame(pd.DataFrame({"a": [1, 2, 3]}))
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(
+            "model",
+            python_model=TestModel(),
+            signature=signature,
+        )
+        udf = mlflow.pyfunc.spark_udf(
+            spark,
+            "runs:/{}/model".format(run.info.run_id),
+            result_type=ArrayType(
+                StructType(
+                    [
+                        StructField("str", StringType()),
+                        StructField("int", IntegerType()),
+                        StructField("long", LongType()),
+                        StructField("float", FloatType()),
+                        StructField("double", DoubleType()),
+                        StructField("bool", BooleanType()),
+                    ]
+                )
+            ),
+        )
+        res = good_data.withColumn("res", udf("a")).select("res").toPandas()
+        assert res["res"][0] == [("str", 0, 1, 0.0, 0.1, True)]

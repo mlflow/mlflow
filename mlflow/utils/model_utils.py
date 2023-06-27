@@ -1,11 +1,13 @@
 import os
 import sys
-from pathlib import Path
 
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, RESOURCE_ALREADY_EXISTS
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.uri import append_to_uri_path
 from mlflow.utils.file_utils import _copy_file_or_tree
@@ -41,7 +43,7 @@ def _get_flavor_configuration(model_path, flavor_name):
     return conf
 
 
-def _get_flavor_configuration_from_uri(model_uri, flavor_name):
+def _get_flavor_configuration_from_uri(model_uri, flavor_name, logger):
     """
     Obtains the configuration for the specified flavor from the specified
     MLflow model uri. If the model does not contain the specified flavor,
@@ -50,17 +52,37 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
     :param model_uri: The path to the root directory of the MLflow model for which to load
                        the specified flavor configuration.
     :param flavor_name: The name of the flavor configuration to load.
+    :param logger: The local flavor's logger to report the resolved path of the model uri.
     :return: The flavor configuration as a dictionary.
     """
     try:
-        ml_model_file = _download_artifact_from_uri(
-            artifact_uri=append_to_uri_path(model_uri, MLMODEL_FILE_NAME)
-        )
+        resolved_uri = model_uri
+        if RunsArtifactRepository.is_runs_uri(model_uri):
+            resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+            logger.info("'%s' resolved as '%s'", model_uri, resolved_uri)
+        elif ModelsArtifactRepository.is_models_uri(model_uri):
+            resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+            logger.info("'%s' resolved as '%s'", model_uri, resolved_uri)
+
+        try:
+            ml_model_file = _download_artifact_from_uri(
+                artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
+            )
+        except Exception:
+            logger.debug(
+                f'Failed to download an "{MLMODEL_FILE_NAME}" model file from '
+                f"resolved URI {resolved_uri}. "
+                f"Falling back to downloading from original model URI {model_uri}",
+                exc_info=True,
+            )
+            ml_model_file = get_artifact_repository(artifact_uri=model_uri).download_artifacts(
+                artifact_path=MLMODEL_FILE_NAME
+            )
     except Exception as ex:
         raise MlflowException(
-            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}": {ex}',
+            f'Failed to download an "{MLMODEL_FILE_NAME}" model file from "{model_uri}"',
             RESOURCE_DOES_NOT_EXIST,
-        )
+        ) from ex
     return _get_flavor_configuration_from_ml_model_file(ml_model_file, flavor_name)
 
 
@@ -102,15 +124,6 @@ def _validate_and_copy_code_paths(code_paths, path, default_subpath="code"):
 
 def _add_code_to_system_path(code_path):
     sys.path = [code_path] + sys.path
-    # Delete cached modules so they will get reloaded anew from the correct code path
-    # Otherwise python will use the cached modules
-    modules = [
-        p.stem
-        for p in Path(code_path).rglob("*.py")
-        if p.is_file() and p.name != "__init__.py" and p.name != "__main__.py"
-    ]
-    for module in modules:
-        sys.modules.pop(module, None)
 
 
 def _validate_and_prepare_target_save_path(path):
@@ -138,3 +151,45 @@ def _add_code_from_conf_to_system_path(local_path, conf, code_key=FLAVOR_CONFIG_
     if code_key in conf and conf[code_key]:
         code_path = os.path.join(local_path, conf[code_key])
         _add_code_to_system_path(code_path)
+
+
+def _validate_onnx_session_options(onnx_session_options):
+    """
+    Validates that the specified onnx_session_options dict is valid.
+
+    :param ort_session_options: The onnx_session_options dict to validate.
+    """
+    import onnxruntime as ort
+
+    if onnx_session_options is not None:
+        if not isinstance(onnx_session_options, dict):
+            raise TypeError(
+                "Argument onnx_session_options should be a dict, not {}".format(
+                    type(onnx_session_options)
+                )
+            )
+        for key, value in onnx_session_options.items():
+            if key != "extra_session_config" and not hasattr(ort.SessionOptions, key):
+                raise ValueError(
+                    f"Key {key} in onnx_session_options is not a valid "
+                    "ONNX Runtime session options key"
+                )
+            elif key == "extra_session_config" and not isinstance(value, dict):
+                raise TypeError(
+                    f"Value for key {key} in onnx_session_options should be a dict, "
+                    "not {type(value)}"
+                )
+            elif key == "execution_mode" and value.upper() not in ["PARALLEL", "SEQUENTIAL"]:
+                raise ValueError(
+                    f"Value for key {key} in onnx_session_options should be "
+                    "'parallel' or 'sequential', not {value}"
+                )
+            elif key == "graph_optimization_level" and value not in [0, 1, 2, 99]:
+                raise ValueError(
+                    f"Value for key {key} in onnx_session_options should be 0, 1, 2, or 99, "
+                    "not {value}"
+                )
+            elif key in ["intra_op_num_threads", "intra_op_num_threads"] and value < 0:
+                raise ValueError(
+                    f"Value for key {key} in onnx_session_options should be >= 0, not {value}"
+                )

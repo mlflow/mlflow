@@ -2,10 +2,12 @@ import inspect
 import types
 import warnings
 from functools import wraps
-from typing import Any, Union
+from typing import Any, Union, Callable, TypeVar
+
+C = TypeVar("C", bound=Callable[..., Any])
 
 
-def experimental(api_or_type: Union[callable, str]):
+def experimental(api_or_type: Union[C, str]) -> C:
     """
     Decorator / decorator creator for marking APIs experimental in the docstring.
 
@@ -14,7 +16,11 @@ def experimental(api_or_type: Union[callable, str]):
              the specified API type (if ``api_or_type`` is a typestring).
     """
     if isinstance(api_or_type, str):
-        return lambda api: _experimental(api=api, api_type=api_or_type)
+
+        def f(api: C) -> C:
+            return _experimental(api=api, api_type=api_or_type)
+
+        return f
     elif inspect.isclass(api_or_type):
         return _experimental(api=api_or_type, api_type="class")
     elif inspect.isfunction(api_or_type):
@@ -25,15 +31,15 @@ def experimental(api_or_type: Union[callable, str]):
         return _experimental(api=api_or_type, api_type=str(type(api_or_type)))
 
 
-def _experimental(api: Any, api_type: str):
+def _experimental(api: C, api_type: str) -> C:
     notice = (
         f"    .. Note:: Experimental: This {api_type} may change or "
         + "be removed in a future release without warning.\n\n"
     )
     if api_type == "property":
-        api.__doc__ = api.__doc__ + "\n\n" + notice
+        api.__doc__ = api.__doc__ + "\n\n" + notice if api.__doc__ else notice
     else:
-        api.__doc__ = notice + api.__doc__
+        api.__doc__ = notice + api.__doc__ if api.__doc__ else notice
     return api
 
 
@@ -114,5 +120,5 @@ def keyword_only(func):
         return func(**kwargs)
 
     notice = ".. Note:: This method requires all argument be specified by keyword.\n"
-    wrapper.__doc__ = notice + wrapper.__doc__
+    wrapper.__doc__ = notice + wrapper.__doc__ if wrapper.__doc__ else notice
     return wrapper

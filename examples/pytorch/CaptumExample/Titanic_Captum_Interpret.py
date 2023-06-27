@@ -43,9 +43,9 @@ def get_titanic():
     titanic_data = pd.concat(
         [
             titanic_data,
-            pd.get_dummies(titanic_data["sex"]),
-            pd.get_dummies(titanic_data["embarked"], prefix="embark"),
-            pd.get_dummies(titanic_data["pclass"], prefix="class"),
+            pd.get_dummies(titanic_data["sex"], dtype=np.uint8),
+            pd.get_dummies(titanic_data["embarked"], prefix="embark", dtype=np.uint8),
+            pd.get_dummies(titanic_data["pclass"], prefix="class", dtype=np.uint8),
         ],
         axis=1,
     )
@@ -92,6 +92,8 @@ class TitanicSimpleNNModel(nn.Module):
 def prepare():
     RANDOM_SEED = 42
     titanic_data = get_titanic()
+    print(titanic_data)
+
     labels = titanic_data["survived"].to_numpy()
     titanic_data = titanic_data.drop(["survived"], axis=1)
     feature_names = list(titanic_data.columns)
@@ -100,14 +102,15 @@ def prepare():
     train_features, test_features, train_labels, test_labels = train_test_split(
         data, labels, test_size=0.3, random_state=RANDOM_SEED, stratify=labels
     )
-    return (train_features, train_labels, test_features, test_labels, feature_names)
+    train_features = np.vstack(train_features[:, :]).astype(np.float32)
+    test_features = np.vstack(test_features[:, :]).astype(np.float32)
+    return train_features, train_labels, test_features, test_labels, feature_names
 
 
 def count_model_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
     total_params = 0
     for name, parameter in model.named_parameters():
-
         if not parameter.requires_grad:
             continue
         param = parameter.nonzero(as_tuple=False).size(0)
@@ -157,6 +160,7 @@ def train(USE_PRETRAINED_MODEL=False):
         mlflow.log_param("lr", dict_args["lr"])
 
         optimizer = torch.optim.Adam(net.parameters(), lr=dict_args["lr"])
+        print(train_features.dtype)
         input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
         label_tensor = torch.from_numpy(train_labels)
         for epoch in range(num_epochs):
@@ -307,7 +311,6 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser(description="Titanic Captum Example")
 
     parser.add_argument(

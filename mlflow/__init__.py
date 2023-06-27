@@ -44,6 +44,7 @@ from mlflow import models  # pylint: disable=unused-import
 from mlflow import artifacts  # pylint: disable=unused-import
 from mlflow import client  # pylint: disable=unused-import
 from mlflow import exceptions  # pylint: disable=unused-import
+from mlflow import data  # pylint: disable=unused-import
 
 # model flavors
 _model_flavors_supported = []
@@ -71,6 +72,12 @@ try:
     from mlflow import prophet
     from mlflow import pmdarima
     from mlflow import diviner
+    from mlflow import transformers
+    from mlflow import langchain
+    from mlflow import llm
+    from mlflow import openai
+    from mlflow import sentence_transformers
+    from mlflow import johnsnowlabs
 
     _model_flavors_supported = [
         "catboost",
@@ -94,6 +101,12 @@ try:
         "prophet",
         "pmdarima",
         "diviner",
+        "transformers",
+        "langchain",
+        "llm",
+        "openai",
+        "sentence_transformers",
+        "johnsnowlabs",
     ]
 except ImportError as e:
     # We are conditional loading these commands since the skinny client does
@@ -135,6 +148,8 @@ from mlflow.tracking.fluent import (
     log_dict,
     log_image,
     log_figure,
+    log_table,
+    load_table,
     active_run,
     get_run,
     start_run,
@@ -155,8 +170,14 @@ from mlflow.tracking.fluent import (
     delete_run,
     autolog,
     last_active_run,
+    log_input,
+    get_parent_run,
 )
-from mlflow.tracking._model_registry.fluent import register_model, search_registered_models
+from mlflow.tracking._model_registry.fluent import (
+    register_model,
+    search_registered_models,
+    search_model_versions,
+)
 from mlflow.tracking import (
     get_tracking_uri,
     set_tracking_uri,
@@ -186,7 +207,10 @@ __all__ = [
     "log_text",
     "log_dict",
     "log_figure",
+    "log_table",
+    "load_table",
     "log_image",
+    "log_input",
     "active_run",
     "start_run",
     "end_run",
@@ -199,10 +223,12 @@ __all__ = [
     "get_experiment_by_name",
     "search_experiments",
     "search_registered_models",
+    "search_model_versions",
     "create_experiment",
     "set_experiment",
     "delete_experiment",
     "get_run",
+    "get_parent_run",
     "delete_run",
     "run",
     "register_model",

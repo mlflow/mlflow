@@ -4,6 +4,7 @@ import subprocess
 import tempfile
 import requests
 import pathlib
+import cgi
 
 import pytest
 
@@ -73,43 +74,48 @@ def read_file(path):
         return f.read()
 
 
-def upload_file(path, url):
+def upload_file(path, url, headers=None):
     with open(path, "rb") as f:
-        requests.put(url, data=f).raise_for_status()
+        requests.put(url, data=f, headers=headers).raise_for_status()
 
 
-def download_file(url, local_path):
-    with requests.get(url, stream=True) as r:
+def download_file(url, local_path, headers=None):
+    with requests.get(url, stream=True, headers=headers) as r:
         r.raise_for_status()
+        assert r.headers["X-Content-Type-Options"] == "nosniff"
+        assert "Content-Type" in r.headers
+        assert "Content-Disposition" in r.headers
         with open(local_path, "wb") as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
+        return r
 
 
-def test_mlflow_artifacts_rest_apis(artifacts_server, tmpdir):
+def test_mlflow_artifacts_rest_apis(artifacts_server, tmp_path):
     default_artifact_root = artifacts_server.default_artifact_root
     artifacts_destination = artifacts_server.artifacts_destination
 
     # Upload artifacts
-    file_a = tmpdir.join("a.txt")
-    file_a.write("0")
+    file_a = tmp_path.joinpath("a.txt")
+    file_a.write_text("0")
     upload_file(file_a, f"{default_artifact_root}/a.txt")
     assert os.path.exists(os.path.join(artifacts_destination, "a.txt"))
     assert read_file(os.path.join(artifacts_destination, "a.txt")) == "0"
 
-    file_b = tmpdir.join("b.txt")
-    file_b.write("1")
+    file_b = tmp_path.joinpath("b.txt")
+    file_b.write_text("1")
     upload_file(file_b, f"{default_artifact_root}/dir/b.txt")
     assert os.path.join(artifacts_destination, "dir", "b.txt")
     assert read_file(os.path.join(artifacts_destination, "dir", "b.txt")) == "1"
 
     # Download artifacts
-    local_dir = tmpdir.mkdir("folder")
-    local_path_a = local_dir.join("a.txt")
+    local_dir = tmp_path.joinpath("folder")
+    local_dir.mkdir()
+    local_path_a = local_dir.joinpath("a.txt")
     download_file(f"{default_artifact_root}/a.txt", local_path_a)
     assert read_file(local_path_a) == "0"
 
-    local_path_b = local_dir.join("b.txt")
+    local_path_b = local_dir.joinpath("b.txt")
     download_file(f"{default_artifact_root}/dir/b.txt", local_path_b)
     assert read_file(local_path_b) == "1"
 
@@ -125,13 +131,13 @@ def test_mlflow_artifacts_rest_apis(artifacts_server, tmpdir):
     assert resp.json() == {"files": [{"path": "b.txt", "is_dir": False, "file_size": 1}]}
 
 
-def test_log_artifact(artifacts_server, tmpdir):
+def test_log_artifact(artifacts_server, tmp_path):
     url = artifacts_server.url
     artifacts_destination = artifacts_server.artifacts_destination
     mlflow.set_tracking_uri(url)
 
-    tmp_path = tmpdir.join("a.txt")
-    tmp_path.write("0")
+    tmp_path = tmp_path.joinpath("a.txt")
+    tmp_path.write_text("0")
 
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path)
@@ -140,7 +146,7 @@ def test_log_artifact(artifacts_server, tmpdir):
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
-    dest_path = os.path.join(run_artifact_root, tmp_path.basename)
+    dest_path = os.path.join(run_artifact_root, tmp_path.name)
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
@@ -150,20 +156,22 @@ def test_log_artifact(artifacts_server, tmpdir):
     run_artifact_root = os.path.join(
         artifacts_destination, experiment_id, run.info.run_id, "artifacts"
     )
-    dest_path = os.path.join(run_artifact_root, "artifact_path", tmp_path.basename)
+    dest_path = os.path.join(run_artifact_root, "artifact_path", tmp_path.name)
     assert os.path.exists(dest_path)
     assert read_file(dest_path) == "0"
 
 
-def test_log_artifacts(artifacts_server, tmpdir):
+def test_log_artifacts(artifacts_server, tmp_path):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    tmpdir.join("a.txt").write("0")
-    tmpdir.mkdir("dir").join("b.txt").write("1")
+    tmp_path.joinpath("a.txt").write_text("0")
+    d = tmp_path.joinpath("dir")
+    d.mkdir()
+    d.joinpath("b.txt").write_text("1")
 
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmpdir)
+        mlflow.log_artifacts(tmp_path)
 
     client = MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
@@ -173,7 +181,7 @@ def test_log_artifacts(artifacts_server, tmpdir):
 
     # With `artifact_path`
     with mlflow.start_run() as run:
-        mlflow.log_artifacts(tmpdir, artifact_path="artifact_path")
+        mlflow.log_artifacts(tmp_path, artifact_path="artifact_path")
 
     artifacts = [a.path for a in client.list_artifacts(run.info.run_id)]
     assert artifacts == ["artifact_path"]
@@ -183,14 +191,14 @@ def test_log_artifacts(artifacts_server, tmpdir):
     assert artifacts == ["artifact_path/dir/b.txt"]
 
 
-def test_list_artifacts(artifacts_server, tmpdir):
+def test_list_artifacts(artifacts_server, tmp_path):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    tmp_path_a = tmpdir.join("a.txt")
-    tmp_path_a.write("0")
-    tmp_path_b = tmpdir.join("b.txt")
-    tmp_path_b.write("1")
+    tmp_path_a = tmp_path.joinpath("a.txt")
+    tmp_path_a.write_text("0")
+    tmp_path_b = tmp_path.joinpath("b.txt")
+    tmp_path_b.write_text("1")
     client = MlflowClient()
     with mlflow.start_run() as run:
         assert client.list_artifacts(run.info.run_id) == []
@@ -203,14 +211,14 @@ def test_list_artifacts(artifacts_server, tmpdir):
     assert artifacts == ["dir/b.txt"]
 
 
-def test_download_artifacts(artifacts_server, tmpdir):
+def test_download_artifacts(artifacts_server, tmp_path):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    tmp_path_a = tmpdir.join("a.txt")
-    tmp_path_a.write("0")
-    tmp_path_b = tmpdir.join("b.txt")
-    tmp_path_b.write("1")
+    tmp_path_a = tmp_path.joinpath("a.txt")
+    tmp_path_a.write_text("0")
+    tmp_path_b = tmp_path.joinpath("b.txt")
+    tmp_path_b.write_text("1")
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path_a)
         mlflow.log_artifact(tmp_path_b, "dir")
@@ -228,7 +236,7 @@ def is_github_actions():
 
 
 @pytest.mark.skipif(is_windows(), reason="This example doesn't work on Windows")
-def test_mlflow_artifacts_example(tmpdir):
+def test_mlflow_artifacts_example(tmp_path):
     root = pathlib.Path(mlflow.__file__).parents[1]
     # On GitHub Actions, remove generated images to save disk space
     rmi_option = "--rmi all" if is_github_actions() else ""
@@ -239,16 +247,16 @@ docker-compose run -v ${{PWD}}/example.py:/app/example.py client python example.
 docker-compose logs
 docker-compose down {rmi_option} --volumes --remove-orphans
 """
-    script_path = tmpdir.join("test.sh")
-    script_path.write(cmd)
+    script_path = tmp_path.joinpath("test.sh")
+    script_path.write_text(cmd)
     subprocess.run(
-        ["bash", script_path.strpath],
+        ["bash", script_path],
         check=True,
         cwd=os.path.join(root, "examples", "mlflow_artifacts"),
     )
 
 
-def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmpdir):
+def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_server, tmp_path):
     def list_artifacts_via_rest_api(url, run_id, path=None):
         if path:
             resp = requests.get(url, params={"run_id": run_id, "path": path})
@@ -261,10 +269,10 @@ def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_serve
     mlflow.set_tracking_uri(url)
     api = f"{url}/api/2.0/mlflow/artifacts/list"
 
-    tmp_path_a = tmpdir.join("a.txt")
-    tmp_path_a.write("0")
-    tmp_path_b = tmpdir.join("b.txt")
-    tmp_path_b.write("1")
+    tmp_path_a = tmp_path.joinpath("a.txt")
+    tmp_path_a.write_text("0")
+    tmp_path_b = tmp_path.joinpath("b.txt")
+    tmp_path_b.write_text("1")
     mlflow.set_experiment("rest_list_api_test")
     with mlflow.start_run() as run:
         mlflow.log_artifact(tmp_path_a)
@@ -286,11 +294,11 @@ def test_rest_tracking_api_list_artifacts_with_proxied_artifacts(artifacts_serve
     assert list_artifacts_response.get("root_uri") == run.info.artifact_uri
 
 
-def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmpdir):
+def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmp_path):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
-    tmp_path_a = tmpdir.join("a.txt")
-    tmp_path_a.write("abcdefg")
+    tmp_path_a = tmp_path.joinpath("a.txt")
+    tmp_path_a.write_text("abcdefg")
 
     mlflow.set_experiment("rest_get_artifact_api_test")
     with mlflow.start_run() as run:
@@ -321,3 +329,70 @@ def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_ser
     )
     get_model_version_artifact_response.raise_for_status()
     assert get_model_version_artifact_response.text == "abcdefg"
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected_mime_type"),
+    [
+        ("a.txt", "text/plain"),
+        ("b.pkl", "application/octet-stream"),
+        ("c.png", "image/png"),
+        ("d.pdf", "application/pdf"),
+        ("MLmodel", "text/plain"),
+        ("mlproject", "text/plain"),
+    ],
+)
+def test_mime_type_for_download_artifacts_api(
+    artifacts_server, tmp_path, filename, expected_mime_type
+):
+    default_artifact_root = artifacts_server.default_artifact_root
+    url = artifacts_server.url
+    test_file = tmp_path.joinpath(filename)
+    test_file.touch()
+    upload_file(test_file, f"{default_artifact_root}/dir/{filename}")
+    download_response = download_file(f"{default_artifact_root}/dir/{filename}", test_file)
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert download_response.headers["Content-Type"] == expected_mime_type
+
+    mlflow.set_tracking_uri(url)
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(test_file)
+    artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"run_id": run.info.run_id, "path": filename}
+    )
+    artifact_response.raise_for_status()
+    _, params = cgi.parse_header(artifact_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert artifact_response.headers["Content-Type"] == expected_mime_type
+    assert artifact_response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+@pytest.mark.parametrize(
+    ("filename", "requested_mime_type", "responded_mime_type"),
+    [
+        ("b.pkl", "text/html", "application/octet-stream"),
+        ("c.png", "text/html", "image/png"),
+        ("d.pdf", "text/html", "application/pdf"),
+    ],
+)
+def test_server_overrides_requested_mime_type(
+    artifacts_server, tmp_path, filename, requested_mime_type, responded_mime_type
+):
+    default_artifact_root = artifacts_server.default_artifact_root
+    test_file = tmp_path.joinpath(filename)
+    test_file.touch()
+    upload_file(
+        test_file,
+        f"{default_artifact_root}/dir/{filename}",
+    )
+    download_response = download_file(
+        f"{default_artifact_root}/dir/{filename}",
+        test_file,
+        headers={"Accept": requested_mime_type},
+    )
+
+    _, params = cgi.parse_header(download_response.headers["Content-Disposition"])
+    assert params["filename"] == filename
+    assert download_response.headers["Content-Type"] == responded_mime_type

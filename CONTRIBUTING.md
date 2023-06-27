@@ -5,6 +5,7 @@ We welcome community contributions to MLflow. This page provides useful informat
 **Table of Contents**
 
 - [Governance](#governance)
+- [Maintainers](#maintainers)
 - [Contribution process](#contribution-process)
 - [Contribution guidelines](#contribution-guidelines)
   - [Write designs for significant changes](#write-designs-for-significant-changes)
@@ -52,6 +53,16 @@ Governance of MLflow is conducted by the Technical Steering Committee
 
 The founding technical charter can be found
 [here](https://github.com/mlflow/mlflow/blob/master/mlflow-charter.pdf).
+
+## Maintainers
+
+MLflow is currently maintained by the following members with significant contributions from hundreds of exceptionally talented community members.
+
+- [Harutaka Kawamura](https://github.com/harupy)
+- [Weichen Xu](https://github.com/WeichenXu123)
+- [Corey Zumar](https://github.com/dbczumar)
+- [Ben Wilson](https://github.com/BenWilson2)
+- [Serena Ruan](https://github.com/serena-ruan)
 
 ## Contribution process
 
@@ -180,7 +191,7 @@ git clone --recurse-submodules git@github.com:<username>/mlflow.git
 
 # Add the upstream repository
 cd mlflow
-git remote add upstream git@github.com/mlflow/mlflow.git
+git remote add upstream git@github.com:mlflow/mlflow.git
 ```
 
 If you cloned the repository before without `--recurse-submodules`, run
@@ -615,10 +626,10 @@ below.
 ##### Building Protobuf Files
 
 To build protobuf files, simply run `generate-protos.sh`. The required
-`protoc` version is `3.6.0`. You can find the URL of a
+`protoc` version is `3.19.4`. You can find the URL of a
 system-appropriate installation of `protoc` at
-<https://github.com/protocolbuffers/protobuf/releases/tag/v3.6.0>, e.g.
-<https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-osx-x86_64.zip>
+<https://github.com/protocolbuffers/protobuf/releases/tag/v3.19.4>, e.g.
+<https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/protoc-3.19.4-osx-x86_64.zip>
 if you're on 64-bit Mac OSX.
 
 Then, run the following to install `protoc`:

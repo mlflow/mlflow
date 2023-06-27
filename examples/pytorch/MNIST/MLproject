@@ -6,27 +6,19 @@ entry_points:
   main:
     parameters:
       max_epochs: {type: int, default: 5}
-      devices : {type: str, default: "None"}
-      strategy: {type str, default: "None"}
-      accelerator: {type str, default: "cpu"}
+      devices : {type: str, default: "auto"}
+      strategy: {type str, default: "auto"}
+      accelerator: {type str, default: "auto"}
       batch_size: {type: int, default: 64}
       num_workers: {type: int, default: 3}
       learning_rate: {type: float, default: 0.001}
-      patience: {type int, default: 3}
-      mode: {type str, default: 'min'}
-      verbose: {type bool, default: True}
-      monitor: {type str, default: 'val_loss'}
 
     command: |
           python mnist_autolog_example.py \
-            --max_epochs {max_epochs} \
-            --devices {devices} \
-            --strategy {strategy} \
-            --accelerator {accelerator} \
-            --batch_size {batch_size} \
-            --num_workers {num_workers} \
-            --lr {learning_rate} \
-            --es_patience {patience} \
-            --es_mode {mode} \
-            --es_verbose {verbose} \
-            --es_monitor {monitor}
+            --trainer.max_epochs={max_epochs} \
+            --trainer.devices={devices} \
+            --trainer.strategy={strategy} \
+            --trainer.accelerator={accelerator} \
+            --data.batch_size={batch_size} \
+            --data.num_workers={num_workers} \
+            --model.learning_rate={learning_rate}

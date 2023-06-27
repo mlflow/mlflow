@@ -12,7 +12,6 @@ def call_tracking_apis():
 
 
 def main(use_start_run):
-
     if use_start_run:
         with mlflow.start_run():
             call_tracking_apis()

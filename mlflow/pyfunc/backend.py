@@ -5,7 +5,9 @@ import subprocess
 import posixpath
 import sys
 import warnings
-
+import ctypes
+import signal
+from pathlib import Path
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import (
@@ -39,6 +41,7 @@ from mlflow.version import VERSION
 _logger = logging.getLogger(__name__)
 
 _IS_UNIX = os.name != "nt"
+_STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 
 class PyFuncBackend(FlavorBackend):
@@ -167,7 +170,7 @@ class PyFuncBackend(FlavorBackend):
         synchronous=True,
         stdout=None,
         stderr=None,
-    ):  # pylint: disable=W0221
+    ):
         """
         Serve pyfunc model locally.
         """
@@ -199,9 +202,6 @@ class PyFuncBackend(FlavorBackend):
                 prctl is the only way to capture SIGKILL signal.
                 """
                 try:
-                    import ctypes
-                    import signal
-
                     libc = ctypes.CDLL("libc.so.6")
                     # Set the parent process death signal of the command process to SIGTERM.
                     libc.prctl(1, signal.SIGTERM)  # PR_SET_PDEATHSIG, see prctl.h
@@ -257,6 +257,21 @@ class PyFuncBackend(FlavorBackend):
                 return 0
             else:
                 return child_proc
+
+    def serve_stdin(
+        self,
+        model_uri,
+        stdout=None,
+        stderr=None,
+    ):
+        local_path = _download_artifact_from_uri(model_uri)
+        return self.prepare_env(local_path).execute(
+            command=f"python {_STDIN_SERVER_SCRIPT} --model-uri {local_path}",
+            stdin=subprocess.PIPE,
+            stdout=stdout,
+            stderr=stderr,
+            synchronous=False,
+        )
 
     def can_score_model(self):
         if self._env_manager == _EnvManager.LOCAL:

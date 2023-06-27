@@ -15,7 +15,7 @@ fastai (native) format
 import os
 import yaml
 import tempfile
-import shutil
+from pathlib import Path
 import pandas as pd
 import numpy as np
 
@@ -111,7 +111,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -152,7 +152,6 @@ def save_model(
     """
     import fastai
     from fastai.callback.all import ParamScheduler
-    from pathlib import Path
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
@@ -267,7 +266,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -422,6 +421,7 @@ def load_model(model_uri, dst_path=None):
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -440,6 +440,8 @@ def autolog(
 
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the Fastai autologging integration. If ``False``,
                     enables the Fastai autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -555,7 +557,7 @@ def autolog(
                     "early_stop_comp": callback.comp.__name__,
                 }
                 mlflow.log_params(earlystopping_params)
-            except Exception:  # pylint: disable=W0703
+            except Exception:
                 return
 
     def _log_model_info(learner):
@@ -578,14 +580,11 @@ def autolog(
         if remove_cbs:
             learner.add_cbs(remove_cbs)
 
-        tempdir = tempfile.mkdtemp()
-        try:
+        with tempfile.TemporaryDirectory() as tempdir:
             summary_file = os.path.join(tempdir, "module_summary.txt")
             with open(summary_file, "w") as f:
                 f.write(summary)
             mlflow.log_artifact(local_path=summary_file)
-        finally:
-            shutil.rmtree(tempdir)
 
     def _run_and_log_function(self, original, args, kwargs, unlogged_params, is_fine_tune=False):
         # Check if is trying to fit while fine tuning or not
@@ -599,7 +598,6 @@ def autolog(
 
         run_id = mlflow.active_run().info.run_id
         with batch_metrics_logger(run_id) as metrics_logger:
-
             if not fit_in_fine_tune:
                 early_stop_callback = _find_callback_of_type(EarlyStoppingCallback, self.cbs)
                 _log_early_stop_callback_params(early_stop_callback)

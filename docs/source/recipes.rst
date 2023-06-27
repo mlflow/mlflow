@@ -1,7 +1,7 @@
 .. _recipes:
 
 ===============================
-MLflow Recipes (experimental)
+MLflow Recipes
 ===============================
 
 MLflow Recipes (previously known as MLflow Pipelines) is a framework that enables data scientists
@@ -175,7 +175,7 @@ The general model development workflow for using MLflow Recipes is as follows:
     .. code-section::
 
         .. code-block:: python
-            :caption: Example API and CLI workflows for running the :ref:`Regression Recipe <mlflow-regression-recipe>` and inspecting results. Note that recipes must be run from within their corresponding git repositories.
+            :caption: Example API and CLI workflows for running the |MLflow Recipes Regression Template| and inspecting results. Note that recipes must be run from within their corresponding git repositories.
 
             import os
             from mlflow.recipes import Recipe
@@ -206,7 +206,7 @@ The general model development workflow for using MLflow Recipes is as follows:
       :width: 60%
 
       An example step card produced by running the **evaluate** step of the
-      :ref:`MLflow Regression Recipe <mlflow-regression-recipe>`. The step card results
+      |MLflow Recipes Regression Template|. The step card results
       indicate that the trained model passed all performance validations and is ready for
       registration with the :ref:`MLflow Model Registry <registry>`.
 
@@ -316,15 +316,11 @@ to develop and deploy high-quality, production-ready models for your use cases:
 
 .. _regression-template:
 
-- **MLflow Recipes Regression Template**: The `MLflow Recipes Regression Template
-  <https://github.com/mlflow/recipes-regression-template>`_ is designed for developing and scoring
-  regression models. For more information, see the |Regression Template reference guide| and
-  the :ref:`Regression Recipe API documentation <mlflow-regression-recipe>`.
+- **MLflow Recipes Regression Template**: The MLflow Recipes Regression Template is designed for developing and scoring
+  regression models. For more information, see the |Regression Template reference guide|.
 
-- **MLflow Recipes Classification Template**: The `MLflow Recipes Classification Template
-  <https://github.com/mlflow/recipes-classification-template>`_ is designed for developing and scoring
-  classification models. For more information, see the |Classification Template reference guide| and
-  the :ref:`Classification Recipe API documentation <mlflow-classification-recipe>`.
+- **MLflow Recipes Classification Template**: The MLflow Recipes Classification Template is designed for developing and scoring
+  classification models. For more information, see the |Classification Template reference guide|.
 
 Additional recipes for a variety of ML problems and MLOps tasks are under active development.
 
@@ -501,15 +497,14 @@ The following profile customizations are supported:
             :caption: Example ``recipe.yaml`` configuration file defining a ``DATASET_INFO``
                       variable whose value must be specified by the selected recipe profile
 
-            data:
-              # Specifies the dataset to use for model training
-              {{DATASET_INFO}}
+            # Specifies the dataset to use for model training
+            ingest: {{INGEST_CONFIG}}
 
           .. code-block:: yaml
             :caption: Example ``dev.yaml`` profile that provides a value for ``DATASET_INFO``
                       corresponding to a small dataset for development purposes
 
-            DATASET_INFO:
+            INGEST_CONFIG:
                 location: ./data/taxi-small.parquet
                 format: parquet
 
@@ -540,8 +535,8 @@ The following profile customizations are supported:
 .. |Regression Template reference guide| replace:: `Regression Template reference guide <https://github.com/mlflow/recipes-regression-template/blob/main/README.md>`__
 .. |Classification Template reference guide| replace:: `Classification Template reference guide <https://github.com/mlflow/recipes-classification-template/blob/main/README.md>`__
 .. |recipe.yaml| replace:: `recipe.yaml <https://github.com/mlflow/recipes-regression-template/blob/main/recipe.yaml>`__
-.. |train step| replace:: :ref:`train step <mlflow-regression-recipe-train-step>`
-.. |split step| replace:: :ref:`split step <mlflow-regression-recipe-split-step>`
+.. |train step| replace:: `train step <https://github.com/mlflow/recipes-regression-template#train-step>`__
+.. |split step| replace:: `split step <https://github.com/mlflow/recipes-regression-template#split-step>`__
 .. |Jinja2| replace:: `Jinja2 <https://jinja.palletsprojects.com>`__
 .. |local profile| replace:: `profiles/local.yaml profile <https://github.com/mlflow/recipes-regression-template/blob/main/profiles/local.yaml>`__
 .. |databricks profile| replace:: `profiles/databricks.yaml profile <https://github.com/mlflow/recipes-regression-template/blob/main/profiles/databricks.yaml>`__

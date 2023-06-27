@@ -7,6 +7,7 @@ from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.environment_variables import (
+    MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
     MLFLOW_GCS_DEFAULT_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
@@ -17,23 +18,25 @@ class GCSArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on Google Cloud Storage.
 
-    Assumes the google credentials are available in the environment,
-    see https://google-cloud.readthedocs.io/en/latest/core/auth.html.
+    :param artifact_uri: URI of GCS bucket
+    :param client: Optional. The client to use for GCS operations; a default
+                       client object will be created if unspecified, using default
+                       credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
     def __init__(self, artifact_uri, client=None):
-        if client:
-            self.gcs = client
-        else:
-            from google.cloud import storage as gcs_storage
-
-            self.gcs = gcs_storage
-
+        super().__init__(artifact_uri)
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
+        from google.auth.exceptions import DefaultCredentialsError
+        from google.cloud import storage as gcs_storage
 
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
-        self._GCS_DEFAULT_TIMEOUT = MLFLOW_GCS_DEFAULT_TIMEOUT.get() or _DEFAULT_TIMEOUT
+        self._GCS_DEFAULT_TIMEOUT = (
+            MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get()
+            or MLFLOW_GCS_DEFAULT_TIMEOUT.get()
+            or _DEFAULT_TIMEOUT
+        )
 
         # If the user-supplied timeout environment variable value is -1,
         # use `None` for `self._GCS_DEFAULT_TIMEOUT`
@@ -41,8 +44,13 @@ class GCSArtifactRepository(ArtifactRepository):
         self._GCS_DEFAULT_TIMEOUT = (
             None if self._GCS_DEFAULT_TIMEOUT == -1 else self._GCS_DEFAULT_TIMEOUT
         )
-
-        super().__init__(artifact_uri)
+        if client is not None:
+            self.client = client
+        else:
+            try:
+                self.client = gcs_storage.Client()
+            except DefaultCredentialsError:
+                self.client = gcs_storage.Client.create_anonymous_client()
 
     @staticmethod
     def parse_gcs_uri(uri):
@@ -56,13 +64,7 @@ class GCSArtifactRepository(ArtifactRepository):
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):
-        from google.auth.exceptions import DefaultCredentialsError
-
-        try:
-            storage_client = self.gcs.Client()
-        except DefaultCredentialsError:
-            storage_client = self.gcs.Client.create_anonymous_client()
-        return storage_client.bucket(bucket)
+        return self.client.bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -81,7 +83,7 @@ class GCSArtifactRepository(ArtifactRepository):
         gcs_bucket = self._get_bucket(bucket)
 
         local_dir = os.path.abspath(local_dir)
-        for (root, _, filenames) in os.walk(local_dir):
+        for root, _, filenames in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)

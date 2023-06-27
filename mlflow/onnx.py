@@ -11,16 +11,16 @@ import os
 import yaml
 import numpy as np
 from pathlib import Path
+from packaging.version import Version
 
 import pandas as pd
 
 from mlflow import pyfunc
-from mlflow.models import Model
+from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
 import mlflow.tracking
 from mlflow.exceptions import MlflowException
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.models.utils import _save_example
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import (
     _mlflow_conda_env,
@@ -41,6 +41,7 @@ from mlflow.utils.model_utils import (
     _validate_and_copy_code_paths,
     _add_code_from_conf_to_system_path,
     _validate_and_prepare_target_save_path,
+    _validate_onnx_session_options,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
@@ -88,6 +89,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     onnx_execution_providers=None,
+    onnx_session_options=None,
     metadata=None,
 ):
     """
@@ -110,7 +112,7 @@ def save_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -129,6 +131,17 @@ def save_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
+    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+                                 For example:
+                                 ``{
+                                 'graph_optimization_level': 99,
+                                 'intra_op_num_threads': 1,
+                                 'inter_op_num_threads': 1,
+                                 'execution_mode': 'sequential'
+                                 }``
+                                 'execution_mode' can be set to 'sequential' or 'parallel'.
+                                 See onnxruntime API for further descriptions:
+                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -157,7 +170,10 @@ def save_model(
     model_data_path = os.path.join(path, model_data_subpath)
 
     # Save onnx-model
-    onnx.save_model(onnx_model, model_data_path)
+    if Version(onnx.__version__) >= Version("1.9.0"):
+        onnx.save_model(onnx_model, model_data_path, save_as_external_data=True)
+    else:
+        onnx.save_model(onnx_model, model_data_path)
 
     pyfunc.add_to_model(
         mlflow_model,
@@ -167,11 +183,15 @@ def save_model(
         python_env=_PYTHON_ENV_FILE_NAME,
         code=code_dir_subpath,
     )
+
+    _validate_onnx_session_options(onnx_session_options)
+
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         onnx_version=onnx.__version__,
         data=model_data_subpath,
         providers=onnx_execution_providers,
+        onnx_session_options=onnx_session_options,
         code=code_dir_subpath,
     )
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -213,9 +233,9 @@ def save_model(
 def _load_model(model_file):
     import onnx
 
+    onnx.checker.check_model(model_file)
     onnx_model = onnx.load(model_file)
     # Check Formation
-    onnx.checker.check_model(onnx_model)
     return onnx_model
 
 
@@ -234,6 +254,26 @@ class _OnnxModelWrapper:
         # If not, then default to the predefined list.
         else:
             providers = ONNX_EXECUTION_PROVIDERS
+
+        sess_options = onnxruntime.SessionOptions()
+        options = model_meta.flavors.get(FLAVOR_NAME)["onnx_session_options"]
+        if options:
+            if inter_op_num_threads := options.get("inter_op_num_threads"):
+                sess_options.inter_op_num_threads = inter_op_num_threads
+            if intra_op_num_threads := options.get("intra_op_num_threads"):
+                sess_options.intra_op_num_threads = intra_op_num_threads
+            if execution_mode := options.get("execution_mode"):
+                if execution_mode.upper() == "SEQUENTIAL":
+                    sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_SEQUENTIAL
+                elif execution_mode.upper() == "PARALLEL":
+                    sess_options.execution_mode = onnxruntime.ExecutionMode.ORT_PARALLEL
+            if graph_optimization_level := options.get("graph_optimization_level"):
+                sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel(
+                    graph_optimization_level
+                )
+            if extra_session_config := options.get("extra_session_config"):
+                for key, value in extra_session_config.items():
+                    sess_options.add_session_config_entry(key, value)
 
         # NOTE: Some distributions of onnxruntime require the specification of the providers
         # argument on calling. E.g. onnxruntime-gpu. The package import call does not differentiate
@@ -258,9 +298,11 @@ class _OnnxModelWrapper:
         #
 
         try:
-            self.rt = onnxruntime.InferenceSession(path)
+            self.rt = onnxruntime.InferenceSession(path, sess_options=sess_options)
         except ValueError:
-            self.rt = onnxruntime.InferenceSession(path, providers=providers)
+            self.rt = onnxruntime.InferenceSession(
+                path, providers=providers, sess_options=sess_options
+            )
 
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [(inp.name, inp.type) for inp in self.rt.get_inputs()]
@@ -403,6 +445,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     onnx_execution_providers=None,
+    onnx_session_options=None,
     metadata=None,
 ):
     """
@@ -427,7 +470,7 @@ def log_model(
 
                       .. code-block:: python
 
-                        from mlflow.models.signature import infer_signature
+                        from mlflow.models import infer_signature
 
                         train = df.drop_column("target_label")
                         predictions = ...  # compute model predictions
@@ -449,6 +492,17 @@ def log_model(
                                      This uses GPU preferentially over CPU.
                                      See onnxruntime API for further descriptions:
                                      https://onnxruntime.ai/docs/execution-providers/
+    :param onnx_session_options: Dictionary of options to be passed to onnxruntime.InferenceSession.
+                                 For example:
+                                 ``{
+                                 'graph_optimization_level': 99,
+                                 'intra_op_num_threads': 1,
+                                 'inter_op_num_threads': 1,
+                                 'execution_mode': 'sequential'
+                                 }``
+                                 'execution_mode' can be set to 'sequential' or 'parallel'.
+                                 See onnxruntime API for further descriptions:
+                                 https://onnxruntime.ai/docs/api/python/api_summary.html#sessionoptions
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
 
                      .. Note:: Experimental: This parameter may change or be removed in a future
@@ -469,5 +523,6 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         onnx_execution_providers=onnx_execution_providers,
+        onnx_session_options=onnx_session_options,
         metadata=metadata,
     )

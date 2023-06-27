@@ -22,7 +22,7 @@ on:
         default: ""
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -35,6 +35,7 @@ env:
 jobs:
   examples:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
@@ -42,22 +43,15 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          # Increase available disk space by removing unnecessary tool chains:
-          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          df -h
-
+      - uses: ./.github/actions/free-disk-space
       - name: Check diff
         id: check-diff
+        if: github.event_name == 'pull_request'
         run: |
-          if [ ! "$(git branch --show-current)" == "master" ]; then
-            git fetch origin master:master
-          fi
-
-          REGEXP="tests/examples\|examples"
-          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          BASE_REF="${{ github.base_ref }}"
+          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
           EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
           echo -e "CHANGED_FILES:\nCHANGED_FILES"
@@ -68,12 +62,12 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         run: |
           source ./dev/install-common-deps.sh --ml
 
       - name: Run example tests
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.examples_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
         run: |
@@ -91,6 +85,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     steps:
       - uses: actions/checkout@v3
@@ -98,28 +93,21 @@ jobs:
           repository: ${{ github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
           submodules: recursive
-      - name: Increase available disk space
-        run: |
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          df -h
 
       - name: Check diff
         id: check-diff
+        if: github.event_name == 'pull_request'
         run: |
-          if [ ! "$(git branch --show-current)" == "master" ]; then
-            git fetch origin master:master
-          fi
-
-          REGEXP="Dockerfile\|\.dockerignore"
-          CHANGED_FILES=$(git diff --name-only master..HEAD | grep "$REGEXP") || true;
+          REPO="${{ github.repository }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "Dockerfile\|\.dockerignore" || true);
           DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-
           echo -e "CHANGED_FILES:\nCHANGED_FILES"
           echo "DOCKER_CHANGED: $DOCKER_CHANGED"
           echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
 
       - name: Run docker tests
-        if: ${{ github.event_name == 'schedule' || steps.check-diff.outputs.docker_changed == 'true' }}
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.docker_changed == 'true' }}
         run: |
           docker build -t mlflow_test_build . && docker images | grep mlflow_test_build
 

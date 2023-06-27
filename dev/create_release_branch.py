@@ -13,11 +13,6 @@ from packaging.version import Version
 def main(new_version: str, remote: str, dry_run=False):
     version = Version(new_version)
     release_branch = f"branch-{version.major}.{version.minor}"
-    is_patch_release = version.micro != 0
-    if is_patch_release:
-        click.echo(f"{version} is a patch release, skipping branch creation")
-        return
-
     exists_on_remote = (
         subprocess.check_output(
             ["git", "ls-remote", "--heads", remote, release_branch], text=True

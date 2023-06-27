@@ -25,7 +25,7 @@ class FTPArtifactRepository(ArtifactRepository):
             "username": parsed.username,
             "password": parsed.password,
         }
-        self.path = parsed.path
+        self.path = parsed.path or "/"
 
         if self.config["host"] is None:
             self.config["host"] = "localhost"
@@ -81,7 +81,7 @@ class FTPArtifactRepository(ArtifactRepository):
         dest_path = posixpath.join(self.path, artifact_path) if artifact_path else self.path
 
         local_dir = os.path.abspath(local_dir)
-        for (root, _, filenames) in os.walk(local_dir):
+        for root, _, filenames in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)

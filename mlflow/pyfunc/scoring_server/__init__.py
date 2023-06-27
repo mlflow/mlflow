@@ -43,7 +43,7 @@ try:
     from mlflow.pyfunc import load_model, PyFuncModel
 except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.server.handlers import catch_mlflow_exception
 from io import StringIO
 
@@ -157,9 +157,13 @@ def parse_csv_input(csv_input, schema: Schema = None):
         )
 
 
-def predictions_to_json(raw_predictions, output):
+def predictions_to_json(raw_predictions, output, metadata=None):
+    if metadata and "predictions" in metadata:
+        raise MlflowException(
+            "metadata cannot contain 'predictions' key", error_code=INVALID_PARAMETER_VALUE
+        )
     predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
-    return json.dump({"predictions": predictions}, output, cls=NumpyEncoder)
+    return json.dump({"predictions": predictions, **(metadata or {})}, output, cls=NumpyEncoder)
 
 
 def _handle_serving_error(error_message, error_code, include_traceback=True):
@@ -184,7 +188,6 @@ def _handle_serving_error(error_message, error_code, include_traceback=True):
 
 
 def init(model: PyFuncModel):
-
     """
     Initialize the server. Loads pyfunc model from the path.
     """

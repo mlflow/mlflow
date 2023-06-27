@@ -49,11 +49,11 @@ def test_create_sqlalchemy_engine_invalid_pool(monkeypatch):
             utils.create_sqlalchemy_engine("mydb://host:port/")
 
 
-def test_create_sqlalchemy_engine_no_pool_options():
-    with mock.patch.dict(os.environ, {}):
-        with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
-            utils.create_sqlalchemy_engine("mydb://host:port/")
-            mock_create_engine.assert_called_once_with("mydb://host:port/", pool_pre_ping=True)
+def test_create_sqlalchemy_engine_no_pool_options(monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mydb://host:port/")
+        mock_create_engine.assert_called_once_with("mydb://host:port/", pool_pre_ping=True)
 
 
 def test_alembic_escape_logic():

@@ -53,7 +53,6 @@ def main():
     dtest = xgb.DMatrix(X_test, label=y_test)
 
     with mlflow.start_run():
-
         # train model
         params = {
             "objective": "multi:softprob",

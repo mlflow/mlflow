@@ -1,8 +1,6 @@
 ## This file describes extra ML library dependencies that you, as an end user,
 ## must install in order to use various MLflow Python modules.
 ##
-# Required by mlflow.sklearn
-scikit-learn
 # Required by mlflow.gluon
 # TODO: Unpin once https://github.com/apache/incubator-mxnet/issues/20068 is fixed
 mxnet!=1.8.0
@@ -30,10 +28,8 @@ h2o
 onnx>=1.11.0
 onnxruntime
 tf2onnx
-# Required by mlflow.spark
+# Required by mlflow.spark and using Delta with MLflow Tracking datasets
 pyspark
-# Required by mlflow.shap
-shap
 # Required by mlflow.paddle
 paddlepaddle
 # Required by mlflow.prophet
@@ -41,8 +37,30 @@ paddlepaddle
 #   Installation will default to setup.py in order to install correctly.
 #   To install in dev environment, ensure that gcc>=8 is installed to allow pystan
 #   to compile the model binaries. See: https://gcc.gnu.org/install/
+# Avoid 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
+holidays!=0.25
 prophet
+# Required by mlflow.shap
+# and shap evaluation functionality
+shap>=0.40
 # Required by mlflow.pmdarima
 pmdarima
 # Required by mlflow.diviner
 diviner
+# Required for using Hugging Face datasets with MLflow Tracking
+datasets
+# Required by mlflow.transformers
+transformers
+sentencepiece
+setfit
+librosa
+ffmpeg
+accelerate
+# Required by mlflow.openai
+openai
+tiktoken
+tenacity
+# Required by mlflow.langchain
+langchain
+# Required by mlflow.sentence_transformers
+sentence-transformers

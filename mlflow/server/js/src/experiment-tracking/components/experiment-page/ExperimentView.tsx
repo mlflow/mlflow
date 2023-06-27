@@ -1,11 +1,11 @@
 import { Skeleton } from '@databricks/design-system';
-import { useEffect } from 'react';
+
+import { useEffect, useMemo } from 'react';
 import { ErrorCodes } from '../../../common/constants';
 import NotFoundPage from '../NotFoundPage';
 import { PermissionDeniedView } from '../PermissionDeniedView';
 import { ExperimentViewDescriptions } from './components/ExperimentViewDescriptions';
 import { ExperimentViewNotes } from './components/ExperimentViewNotes';
-import { ExperimentViewOnboarding } from './components/ExperimentViewOnboarding';
 import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
@@ -27,6 +27,8 @@ export const ExperimentView = () => {
 
   const isComparingExperiments = experimentIds.length > 1;
 
+  const experimentIdsHash = useMemo(() => JSON.stringify(experimentIds.sort()), [experimentIds]);
+
   if (requestError && requestError.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
     return <PermissionDeniedView errorMessage={requestError.getMessageField()} />;
   }
@@ -35,26 +37,33 @@ export const ExperimentView = () => {
     return <NotFoundPage />;
   }
 
-  if (isLoadingExperiment || !firstExperiment) {
-    return <Skeleton active />;
-  }
+  const isLoading = isLoadingExperiment || !experiments[0];
 
   return (
-    <>
-      {isComparingExperiments ? (
-        <ExperimentViewHeaderCompare experiments={experiments} />
+    <div css={styles.experimentViewWrapper}>
+      {isLoading ? (
+        <Skeleton title paragraph={false} active />
       ) : (
         <>
-          <ExperimentViewHeader experiment={firstExperiment} />
-          <ExperimentViewOnboarding />
-          <ExperimentViewDescriptions experiment={firstExperiment} />
-          <ExperimentViewNotes experiment={firstExperiment} />
+          {isComparingExperiments ? (
+            <ExperimentViewHeaderCompare experiments={experiments} />
+          ) : (
+            <>
+              <ExperimentViewHeader experiment={firstExperiment} />
+              <ExperimentViewDescriptions experiment={firstExperiment} />
+              <ExperimentViewNotes experiment={firstExperiment} />
+            </>
+          )}
         </>
       )}
 
-      <ExperimentViewRuns experiments={experiments} />
-    </>
+      <ExperimentViewRuns experiments={experiments} isLoading={isLoading} />
+    </div>
   );
+};
+
+const styles = {
+  experimentViewWrapper: { height: '100%', display: 'flex', flexDirection: 'column' as const },
 };
 
 export default ExperimentView;

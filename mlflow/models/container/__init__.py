@@ -126,9 +126,7 @@ def _install_pyfunc_deps(
     # dependency of mlflow on pip and we expect mlflow to be part of the environment.
     server_deps = ["gunicorn[gevent]"]
     if enable_mlserver:
-        # NOTE: Pin version until the next MLflow release (otherwise it won't
-        # pick up the requirements on the current's `setup.py`)
-        server_deps = ["'mlserver>=1.2.0.dev13'", "'mlserver-mlflow>=1.2.0.dev13'"]
+        server_deps = ["'mlserver>=1.2.0,!=1.3.1'", "'mlserver-mlflow>=1.2.0,!=1.3.1'"]
 
     install_server_deps = [f"pip install {' '.join(server_deps)}"]
     if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps)]).wait() != 0:
@@ -187,12 +185,21 @@ def _serve_pyfunc(model, env_manager):
         procs.append(nginx)
 
     cpu_count = multiprocessing.cpu_count()
+    if enable_mlserver:
+        inference_server = mlserver
+        # Allows users to choose the number of workers using MLServer var env settings.
+        # Default to cpu count
+        nworkers = int(os.getenv("MLSERVER_INFER_WORKERS", cpu_count))
+        # Since MLServer will run without NGINX, expose the server in the `8080`
+        # port, which is the assumed "public" port.
+        port = DEFAULT_MLSERVER_PORT
+    else:
+        inference_server = scoring_server
+        # users can use GUNICORN_CMD_ARGS="--workers=3" var env to override the number of workers
+        nworkers = cpu_count
+        port = DEFAULT_INFERENCE_SERVER_PORT
 
-    inference_server = mlserver if enable_mlserver else scoring_server
-    # Since MLServer will run without NGINX, expose the server in the `8080`
-    # port, which is the assumed "public" port.
-    port = DEFAULT_MLSERVER_PORT if enable_mlserver else DEFAULT_INFERENCE_SERVER_PORT
-    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=cpu_count, port=port)
+    cmd, cmd_env = inference_server.get_cmd(model_uri=MODEL_PATH, nworkers=nworkers, port=port)
 
     bash_cmds.append(cmd)
     inference_server_process = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)], env=cmd_env)

@@ -2,6 +2,7 @@
 
 import inspect
 import time
+import sys
 import pytest
 from collections import namedtuple
 from unittest.mock import Mock, call
@@ -91,7 +92,7 @@ def start_run():
     mlflow.end_run()
 
 
-def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=W0613
+def dummy_fn(arg1, arg2="value2", arg3="value3"):  # pylint: disable=unused-argument
     pass
 
 
@@ -110,7 +111,9 @@ log_test_args = [
 
 
 @pytest.mark.parametrize(("args", "kwargs", "expected"), log_test_args)
-def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params(
+    args, kwargs, expected, start_run
+):  # pylint: disable=unused-argument
     log_fn_args_as_params(dummy_fn, args, kwargs)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -119,7 +122,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):  # pylint: di
         assert params[arg] == value
 
 
-def test_log_fn_args_as_params_ignores_unwanted_parameters(start_run):  # pylint: disable=W0613
+def test_log_fn_args_as_params_ignores_unwanted_parameters(
+    start_run,
+):  # pylint: disable=unused-argument
     args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
@@ -154,8 +159,6 @@ def sample_function_to_patch(a, b):
 
 
 def test_wrap_patch_with_module():
-    import sys
-
     this_module = sys.modules[__name__]
 
     def new_sample_function(a, b):
@@ -214,7 +217,9 @@ def test_if_model_signature_inference_fails(logger):
     )
 
     assert input_example == "data"
-    assert signature is None
+    # When the signature inference fails but an input example is specified, `signature` is set
+    # to `False` to disable the automatic signature inference feature in `log_model` APIs.
+    assert signature is False
     logger.warning.assert_called_with("Failed to infer model signature: " + error_msg)
 
 
@@ -464,7 +469,6 @@ def test_autologging_integration_makes_expected_event_logging_calls():
         raise Exception("autolog failed")
 
     class TestLogger(AutologgingEventLogger):
-
         LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
 
         def __init__(self):
@@ -524,7 +528,6 @@ def test_autologging_integration_succeeds_when_event_logging_throws_in_standard_
 
 
 def test_get_autologging_config_returns_configured_values_or_defaults_as_expected():
-
     assert get_autologging_config("nonexistent_integration", "foo") is None
 
     @autologging_integration("test_integration_for_config")
@@ -552,7 +555,6 @@ def test_get_autologging_config_returns_configured_values_or_defaults_as_expecte
 
 
 def test_autologging_is_disabled_returns_expected_values():
-
     assert autologging_is_disabled("nonexistent_integration") is True
 
     @autologging_integration("test_integration_for_disable_check")
@@ -750,6 +752,10 @@ _module_version_info_dict_patch = {
         "package_info": {"pip_release": "pyspark"},
         "autologging": {"minimum": "3.0.1", "maximum": "3.1.1"},
     },
+    "transformers": {
+        "package_info": {"pip_release": "transformers"},
+        "autologging": {"minimum": "1.25.1", "maximum": "1.28.1"},
+    },
 }
 
 
@@ -780,6 +786,8 @@ _module_version_info_dict_patch = {
         ("pytorch", "1.5.99", False),
         ("pyspark.ml", "3.1.0", True),
         ("pyspark.ml", "3.0.0", False),
+        ("transformers", "1.28.1", True),
+        ("transformers", "1.1.1", False),
     ],
 )
 @mock.patch(

@@ -4,6 +4,7 @@ from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
+from mlflow.models import infer_signature
 from custom_code import iris_classes
 
 
@@ -22,8 +23,13 @@ X, y = load_iris(return_X_y=True, as_frame=True)
 params = {"C": 1.0, "random_state": 42}
 classifier = LogisticRegression(**params).fit(X, y)
 
+predictions = classifier.predict(X)
+signature = infer_signature(X, predictions)
+
 with mlflow.start_run(run_name="test_pyfunc") as run:
-    model_info = mlflow.sklearn.log_model(sk_model=classifier, artifact_path="model")
+    model_info = mlflow.sklearn.log_model(
+        sk_model=classifier, artifact_path="model", signature=signature
+    )
 
     # start a child run to create custom imagine model
     with mlflow.start_run(run_name="test_custom_model", nested=True):
@@ -34,4 +40,5 @@ with mlflow.start_run(run_name="test_pyfunc") as run:
             code_path=[os.getcwd()],
             artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),
+            signature=signature,
         )

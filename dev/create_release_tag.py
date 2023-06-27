@@ -29,7 +29,6 @@ git branch -D branch-9.0
 import subprocess
 
 import click
-from packaging.version import Version
 
 
 @click.command(help="Create a release tag")
@@ -39,18 +38,11 @@ from packaging.version import Version
     "--dry-run/--no-dry-run", is_flag=True, default=True, show_default=True, envvar="DRY_RUN"
 )
 def main(new_version: str, remote: str, dry_run: bool = False):
-    if not dry_run:
-        version = Version(new_version)
-        release_branch = f"branch-{version.major}.{version.minor}"
-        current_branch = subprocess.check_output(
-            ["git", "branch", "--show-current"], text=True
-        ).strip()
-        assert (
-            current_branch == release_branch
-        ), f"Expected to be on {release_branch} but on {current_branch}"
     release_tag = f"v{new_version}"
-    subprocess.check_call(["git", "tag", release_tag])
-    subprocess.check_call(["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])])
+    subprocess.run(["git", "tag", release_tag], check=True)
+    subprocess.run(
+        ["git", "push", remote, release_tag, *(["--dry-run"] if dry_run else [])], check=True
+    )
 
 
 if __name__ == "__main__":

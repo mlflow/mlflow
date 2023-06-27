@@ -12,6 +12,7 @@ import logging
 import os
 import yaml
 import warnings
+import atexit
 
 import numpy as np
 import pandas as pd
@@ -22,10 +23,12 @@ import posixpath
 import mlflow
 import shutil
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_DEFAULT_PREDICTION_DEVICE
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.models import Model, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import ModelInputExample, _save_example
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
@@ -63,6 +66,8 @@ _TORCH_STATE_DICT_FILE_NAME = "state_dict.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 _EXTRA_FILES_KEY = "extra_files"
 _REQUIREMENTS_FILE_KEY = "requirements_file"
+_TORCH_CPU_DEVICE_NAME = "cpu"
+_TORCH_DEFAULT_GPU_DEVICE_NAME = "cuda"
 
 _logger = logging.getLogger(__name__)
 
@@ -102,7 +107,7 @@ def get_default_conda_env():
 
         # Log PyTorch model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, "model", signature=signature)
 
         # Fetch the associated conda environment
         env = mlflow.pytorch.get_default_conda_env()
@@ -178,28 +183,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -245,36 +230,21 @@ def log_model(
 
         import numpy as np
         import torch
-        import mlflow.pytorch
-
-
-        class LinearNNModel(torch.nn.Module):
-            def __init__(self):
-                super().__init__()
-                self.linear = torch.nn.Linear(1, 1)  # One in and one out
-
-            def forward(self, x):
-                y_pred = self.linear(x)
-                return y_pred
-
-
-        def gen_data():
-            # Example linear model modified to use y = 2x
-            # from https://github.com/hunkim/PyTorchZeroToAll
-            # X training data, y labels
-            X = torch.arange(1.0, 25.0).view(-1, 1)
-            y = torch.from_numpy(np.array([x * 2 for x in X])).view(-1, 1)
-            return X, y
-
+        import mlflow
+        from mlflow import MlflowClient
+        from mlflow.models import infer_signature
 
         # Define model, loss, and optimizer
-        model = LinearNNModel()
+        model = nn.Linear(1, 1)
         criterion = torch.nn.MSELoss()
         optimizer = torch.optim.SGD(model.parameters(), lr=0.001)
 
+        # Create training data with relationship y = 2X
+        X = torch.arange(1.0, 26.0).reshape(-1, 1)
+        y = X * 2
+
         # Training loop
         epochs = 250
-        X, y = gen_data()
         for epoch in range(epochs):
             # Forward pass: Compute predicted y by passing X to the model
             y_pred = model(X)
@@ -286,6 +256,9 @@ def log_model(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+        # Create model signature
+        signature = infer_signature(X.numpy(), model(X).detach().numpy())
 
         # Log the model
         with mlflow.start_run() as run:
@@ -382,28 +355,8 @@ def save_model(
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example can be a Pandas DataFrame where the given
-                          example will be serialized to json using the Pandas split-oriented
-                          format, or a numpy array where the example will be serialized to json
-                          by converting it to a list. Bytes are base64-encoded.
-
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param requirements_file:
 
         .. warning::
@@ -445,6 +398,7 @@ def save_model(
 
         import torch
         import mlflow.pytorch
+
 
         # Class defined here
         class LinearNNModel(torch.nn.Module):
@@ -502,9 +456,14 @@ def save_model(
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
 
+    if signature is None and input_example is not None:
+        wrapped_model = _PyTorchWrapper(pytorch_model)
+        signature = _infer_signature_from_input_example(input_example, wrapped_model)
+    elif signature is False:
+        signature = None
+
     if mlflow_model is None:
         mlflow_model = Model()
-
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -555,7 +514,6 @@ def save_model(
             )
 
     if requirements_file:
-
         warnings.warn(
             "`requirements_file` has been deprecated. Please use `pip_requirements` instead.",
             FutureWarning,
@@ -704,6 +662,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
         import torch
         import mlflow.pytorch
 
+
         # Class defined here
         class LinearNNModel(torch.nn.Module):
             ...
@@ -717,7 +676,7 @@ def load_model(model_uri, dst_path=None, **kwargs):
 
         # Log the model
         with mlflow.start_run() as run:
-            mlflow.pytorch.log_model(model, "model")
+            mlflow.pytorch.log_model(model, "model", signature=signature)
 
         # Inference after loading the logged model
         model_uri = "runs:/{}/model".format(run.info.run_id)
@@ -768,9 +727,20 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model):
         self.pytorch_model = pytorch_model
 
-    def predict(self, data, device="cpu"):
+    def predict(self, data, device=None):
         import torch
 
+        # if CUDA is available, we use the default CUDA device.
+        # To force inference to the CPU when the GPU is available, please set
+        # MLFLOW_DEFAULT_PREDICTION_DEVICE to "cpu"
+        # If a specific non-default device is passed in, we continue to respect that.
+        if device is None:
+            if MLFLOW_DEFAULT_PREDICTION_DEVICE.get():
+                device = MLFLOW_DEFAULT_PREDICTION_DEVICE.get()
+            elif torch.cuda.is_available():
+                device = _TORCH_DEFAULT_GPU_DEVICE_NAME
+            else:
+                device = _TORCH_CPU_DEVICE_NAME
         if isinstance(data, pd.DataFrame):
             inp_data = data.values.astype(np.float32)
         elif isinstance(data, np.ndarray):
@@ -788,6 +758,10 @@ class _PyTorchWrapper:
         with torch.no_grad():
             input_tensor = torch.from_numpy(inp_data).to(device)
             preds = self.pytorch_model(input_tensor)
+            # if the predictions happened on a remote device, copy them back to
+            # the host CPU for processing
+            if device != _TORCH_CPU_DEVICE_NAME:
+                preds = preds.to(_TORCH_CPU_DEVICE_NAME)
             if not isinstance(preds, torch.Tensor):
                 raise TypeError(
                     "Expected PyTorch model to output a single output tensor, "
@@ -903,6 +877,7 @@ def autolog(
     log_every_n_epoch=1,
     log_every_n_step=None,
     log_models=True,
+    log_datasets=True,
     disable=False,
     exclusive=False,
     disable_for_unsupported_versions=False,
@@ -942,6 +917,8 @@ def autolog(
                        cause performance issues and is not recommended.
     :param log_models: If ``True``, trained models are logged as MLflow model artifacts.
                        If ``False``, trained models are not logged.
+    :param log_datasets: If ``True``, dataset information is logged to MLflow Tracking.
+                         If ``False``, dataset information is not logged.
     :param disable: If ``True``, disables the PyTorch Lightning autologging integration.
                     If ``False``, enables the PyTorch Lightning autologging integration.
     :param exclusive: If ``True``, autologged content is not logged to user-created fluent runs.
@@ -1007,7 +984,6 @@ def autolog(
 
 
         def print_auto_logged_info(r):
-
             tags = {k: v for k, v in r.data.tags.items() if not k.startswith("mlflow.")}
             artifacts = [f.path for f in MlflowClient().list_artifacts(r.info.run_id, "model")]
             print("run_id: {}".format(r.info.run_id))
@@ -1063,50 +1039,62 @@ def autolog(
 
         PyTorch autologged MLflow entities
     """
-    import atexit
-
     try:
         import pytorch_lightning as pl
+    except ImportError:
+        pass
+    else:
         from mlflow.pytorch._lightning_autolog import patched_fit
 
         safe_patch(FLAVOR_NAME, pl.Trainer, "fit", patched_fit, manage_run=True)
+
+    try:
+        import lightning as L
     except ImportError:
         pass
+    else:
+        from mlflow.pytorch._lightning_autolog import patched_fit
 
-    from mlflow.pytorch._pytorch_autolog import (
-        patched_add_event,
-        patched_add_hparams,
-        patched_add_summary,
-        _flush_queue,
+        safe_patch(FLAVOR_NAME, L.Trainer, "fit", patched_fit, manage_run=True)
+
+    try:
+        import torch.utils.tensorboard.writer
+    except ImportError:
+        pass
+    else:
+        from mlflow.pytorch._pytorch_autolog import (
+            patched_add_event,
+            patched_add_hparams,
+            patched_add_summary,
+            _flush_queue,
+        )
+
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.writer.FileWriter,
+            "add_event",
+            partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
+            manage_run=True,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.writer.FileWriter,
+            "add_summary",
+            patched_add_summary,
+            manage_run=True,
+        )
+        safe_patch(
+            FLAVOR_NAME,
+            torch.utils.tensorboard.SummaryWriter,
+            "add_hparams",
+            patched_add_hparams,
+            manage_run=True,
+        )
+
+        atexit.register(_flush_queue)
+
+
+if autolog.__doc__ is not None:
+    autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
+        "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
     )
-
-    import torch.utils.tensorboard.writer
-
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.writer.FileWriter,
-        "add_event",
-        partial(patched_add_event, mlflow_log_every_n_step=log_every_n_step),
-        manage_run=True,
-    )
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.writer.FileWriter,
-        "add_summary",
-        patched_add_summary,
-        manage_run=True,
-    )
-    safe_patch(
-        FLAVOR_NAME,
-        torch.utils.tensorboard.SummaryWriter,
-        "add_hparams",
-        patched_add_hparams,
-        manage_run=True,
-    )
-
-    atexit.register(_flush_queue)
-
-
-autolog.__doc__ = autolog.__doc__.replace("MIN_REQ_VERSION", str(MIN_REQ_VERSION)).replace(
-    "MAX_REQ_VERSION", str(MAX_REQ_VERSION)
-)

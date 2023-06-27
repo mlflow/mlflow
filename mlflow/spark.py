@@ -23,17 +23,18 @@ import logging
 import posixpath
 import re
 import shutil
-import uuid
 import yaml
+from packaging.version import Version
+import pandas as pd
 
 import mlflow
 from mlflow import environment_variables, pyfunc, mleap
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model
+from mlflow.models import Model, ModelInputExample, ModelSignature, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.models.signature import ModelSignature
-from mlflow.models.utils import ModelInputExample, _save_example
+from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
+from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -53,9 +54,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 from mlflow.utils.docstring_utils import format_docstring, LOG_MODEL_PARAM_DOCS
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
-from mlflow.utils.file_utils import TempDir, write_to
+from mlflow.utils.file_utils import TempDir, write_to, shutil_copytree_without_file_permissions
 from mlflow.utils.uri import (
     is_local_uri,
     append_to_uri_path,
@@ -63,6 +62,7 @@ from mlflow.utils.uri import (
     is_valid_dbfs_uri,
     is_databricks_acled_artifacts_uri,
     get_databricks_profile_uri_from_artifact_uri,
+    generate_tmp_dfs_path,
 )
 from mlflow.utils import databricks_utils
 from mlflow.utils.model_utils import (
@@ -88,10 +88,16 @@ def get_default_pip_requirements():
              Calls to :func:`save_model()` and :func:`log_model()` produce a pip environment
              that, at minimum, contains these requirements.
     """
+    import pyspark
+
     # Strip the suffix from `dev` versions of PySpark, which are not
     # available for installation from Anaconda or PyPI
     pyspark_req = re.sub(r"(\.?)dev.*$", "", _get_pinned_requirement("pyspark"))
-    return [pyspark_req]
+    reqs = [pyspark_req]
+    if Version(pyspark.__version__) <= Version("3.3.2"):
+        # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
+        reqs.append("pandas<2")
+    return reqs
 
 
 def get_default_conda_env():
@@ -161,26 +167,8 @@ def log_model(
     :param registered_model_name: If given, create a model version under
                                   ``registered_model_name``, also creating a registered model if one
                                   with the given name does not exist.
-
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param await_registration_for: Number of seconds to wait for the model version to finish
                             being created and is in ``READY`` status. By default, the function
                             waits for five minutes. Specify 0 or None to skip waiting.
@@ -290,10 +278,6 @@ def log_model(
                 await_registration_for,
             )
         return mlflow_model.get_model_info()
-
-
-def _tmp_path(dfs_tmp):
-    return posixpath.join(dfs_tmp, str(uuid.uuid4()))
 
 
 def _mlflowdbfs_path(run_id, artifact_path):
@@ -641,25 +625,8 @@ def save_model(
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
 
-    :param signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
-                      describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
-                      The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
-                      from datasets with valid model input (e.g. the training dataset with target
-                      column omitted) and valid model output (e.g. model predictions generated on
-                      the training dataset), for example:
-
-                      .. code-block:: python
-
-                        from mlflow.models.signature import infer_signature
-
-                        train = df.drop_column("target_label")
-                        predictions = ...  # compute model predictions
-                        signature = infer_signature(train, predictions)
-    :param input_example: Input example provides one or several instances of valid
-                          model input. The example can be used as a hint of what data to feed the
-                          model. The given example will be converted to a Pandas DataFrame and then
-                          serialized to json using the Pandas split-oriented format. Bytes are
-                          base64-encoded.
+    :param signature: {{ signature }}
+    :param input_example: {{ input_example }}
     :param pip_requirements: {{ pip_requirements }}
     :param extra_pip_requirements: {{ extra_pip_requirements }}
     :param metadata: Custom metadata dictionary passed to the model and stored in the MLmodel file.
@@ -681,6 +648,7 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     from pyspark.ml import PipelineModel
+    from mlflow.utils._spark_utils import _get_active_spark_session
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
@@ -688,11 +656,28 @@ def save_model(
         mlflow_model = Model()
     if metadata is not None:
         mlflow_model.metadata = metadata
+
+    if signature is None and input_example is not None:
+        try:
+            spark = _get_active_spark_session()
+            if spark is not None:
+                wrapped_model = _PyFuncModelWrapper(spark, spark_model)
+                # We cast the predictions to a Pandas series because the Spark _PyFuncModelWrapper
+                # returns predictions as a list, which the `infer_signature` API does not support
+                # (unless it is a list of strings).
+                prediction = pd.Series(wrapped_model.predict(input_example))
+                signature = infer_signature(input_example, prediction)
+        except Exception as e:
+            _logger.warning(_LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE, repr(e))
+            _logger.debug("", exc_info=True)
+    elif signature is False:
+        signature = None
+
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
         dfs_tmpdir = MLFLOW_DFS_TMP.get()
-    tmp_path = _tmp_path(dfs_tmpdir)
+    tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
     spark_model.save(tmp_path)
     sparkml_data_path = os.path.abspath(os.path.join(path, _SPARK_MODEL_PATH_SUB))
     # We're copying the Spark model from DBFS to the local filesystem if (a) the temporary DFS URI
@@ -721,26 +706,6 @@ def save_model(
     )
 
 
-def _shutil_copytree_without_file_permissions(src_dir, dst_dir):
-    """
-    Copies the directory src_dir into dst_dir, without preserving filesystem permissions
-    """
-    for (dirpath, dirnames, filenames) in os.walk(src_dir):
-        for dirname in dirnames:
-            relative_dir_path = os.path.relpath(os.path.join(dirpath, dirname), src_dir)
-            # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
-            # directory under the destination directory
-            abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
-        for filename in filenames:
-            # For each file with name <filename> immediately under <dirpath>, copy that file to
-            # the appropriate location in the destination directory
-            file_path = os.path.join(dirpath, filename)
-            relative_file_path = os.path.relpath(file_path, src_dir)
-            abs_file_path = os.path.join(dst_dir, relative_file_path)
-            shutil.copyfile(file_path, abs_file_path)
-
-
 def _load_model_databricks(dfs_tmpdir, local_model_path):
     from pyspark.ml.pipeline import PipelineModel
 
@@ -751,14 +716,14 @@ def _load_model_databricks(dfs_tmpdir, local_model_path):
     os.makedirs(fuse_dfs_tmpdir)
     # Workaround for inability to use shutil.copytree with DBFS FUSE due to permission-denied
     # errors on passthrough-enabled clusters when attempting to copy permission bits for directories
-    _shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
+    shutil_copytree_without_file_permissions(src_dir=local_model_path, dst_dir=fuse_dfs_tmpdir)
     return PipelineModel.load(dfs_tmpdir)
 
 
 def _load_model(model_uri, dfs_tmpdir_base=None, local_model_path=None):
     from pyspark.ml.pipeline import PipelineModel
 
-    dfs_tmpdir = _tmp_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
+    dfs_tmpdir = generate_tmp_dfs_path(dfs_tmpdir_base or MLFLOW_DFS_TMP.get())
     if databricks_utils.is_in_cluster() and databricks_utils.is_dbfs_fuse_available():
         return _load_model_databricks(
             dfs_tmpdir, local_model_path or _download_artifact_from_uri(model_uri)
@@ -805,19 +770,11 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         # Make predictions on test documents
         prediction = model.transform(test)
     """
-    if RunsArtifactRepository.is_runs_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
-    elif ModelsArtifactRepository.is_models_uri(model_uri):
-        runs_uri = model_uri
-        model_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
-        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     # This MUST be called prior to appending the model flavor to `model_uri` in order
     # for `artifact_path` to take on the correct value for model loading via mlflowdbfs.
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
 
-    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME, _logger)
     local_mlflow_model_path = _download_artifact_from_uri(
         artifact_uri=model_uri, output_path=dst_path
     )
@@ -1026,9 +983,11 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
                    datasource autologging.
     """
     from mlflow.utils._spark_utils import _get_active_spark_session
-    from mlflow._spark_autologging import _listen_for_spark_activity
+    from mlflow._spark_autologging import (
+        _listen_for_spark_activity,
+        _stop_listen_for_spark_activity,
+    )
     from pyspark.sql import SparkSession
-    from pyspark import SparkContext
 
     def __init__(original, self, *args, **kwargs):
         original(self, *args, **kwargs)
@@ -1037,9 +996,18 @@ def autolog(disable=False, silent=False):  # pylint: disable=unused-argument
 
     safe_patch(FLAVOR_NAME, SparkSession, "__init__", __init__, manage_run=False)
 
+    def patched_session_stop(original, self, *args, **kwargs):
+        _stop_listen_for_spark_activity(self.sparkContext)
+        original(self, *args, **kwargs)
+
+    safe_patch(FLAVOR_NAME, SparkSession, "stop", patched_session_stop, manage_run=False)
+
     active_session = _get_active_spark_session()
     if active_session is not None:
         # We know SparkContext exists here already, so get it
-        sc = SparkContext.getOrCreate()
+        sc = active_session.sparkContext
 
-        _listen_for_spark_activity(sc)
+        if disable:
+            _stop_listen_for_spark_activity(sc)
+        else:
+            _listen_for_spark_activity(sc)

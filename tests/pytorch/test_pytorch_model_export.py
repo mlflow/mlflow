@@ -21,7 +21,7 @@ import mlflow.pytorch
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.pytorch import get_default_conda_env
 from mlflow.exceptions import MlflowException
-from mlflow.models import Model, infer_signature
+from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -29,6 +29,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env, _mlflow_additional_pip_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 
 from tests.helper_functions import (
@@ -67,6 +68,14 @@ def data():
     y = data["target"]
     x = data.drop("target", axis=1)
     return x, y
+
+
+@pytest.fixture(scope="module")
+def iris_tensor_spec():
+    return ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )
 
 
 def get_dataset(data):
@@ -117,7 +126,7 @@ def get_subclassed_model_definition():
     can be invoked within a module to define the class in the module's scope.
     """
 
-    # pylint: disable=W0223
+    # pylint: disable=abstract-method
     class SubclassedModel(torch.nn.Module):
         def __init__(self):
             super().__init__()
@@ -125,8 +134,7 @@ def get_subclassed_model_definition():
 
         def forward(self, x):
             # pylint: disable=arguments-differ
-            y_pred = self.linear(x)
-            return y_pred
+            return self.linear(x)
 
     return SubclassedModel
 
@@ -143,7 +151,7 @@ def main_scoped_subclassed_model(data):
     return model
 
 
-# pylint: disable=W0223
+# pylint: disable=abstract-method
 class ModuleScopedSubclassedModel(get_subclassed_model_definition()):
     """
     A custom PyTorch model class defined in the test module scope. This is a subclass of
@@ -163,13 +171,13 @@ def module_scoped_subclassed_model(data):
 
 
 @pytest.fixture
-def model_path(tmpdir):
-    return os.path.join(str(tmpdir), "model")
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 @pytest.fixture
-def pytorch_custom_env(tmpdir):
-    conda_env = os.path.join(str(tmpdir), "conda_env.yml")
+def pytorch_custom_env(tmp_path):
+    conda_env = os.path.join(tmp_path, "conda_env.yml")
     _mlflow_conda_env(conda_env, additional_pip_deps=["pytorch", "torchvision", "pytest"])
     return conda_env
 
@@ -196,11 +204,10 @@ def sequential_predicted(sequential_model, data):
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
-def test_signature_and_examples_are_saved_correctly(sequential_model, data):
+def test_signature_and_examples_are_saved_correctly(sequential_model, data, iris_tensor_spec):
     model = sequential_model
-    signature_ = infer_signature(*data)
-    example_ = data[0].head(3)
-    for signature in (None, signature_):
+    example_ = data[0].head(3).values.astype(np.float32)
+    for signature in (None, iris_tensor_spec):
         for example in (None, example_):
             with TempDir() as tmp:
                 path = tmp.path("model")
@@ -208,11 +215,14 @@ def test_signature_and_examples_are_saved_correctly(sequential_model, data):
                     model, path=path, signature=signature, input_example=example
                 )
                 mlflow_model = Model.load(path)
-                assert signature == mlflow_model.signature
+                if signature is None and example is None:
+                    assert mlflow_model.signature is None
+                else:
+                    assert mlflow_model.signature == iris_tensor_spec
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
-                    assert all((_read_example(mlflow_model, path) == example).all())
+                    np.testing.assert_allclose(_read_example(mlflow_model, path), example)
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -385,60 +395,54 @@ def test_model_save_persists_requirements_in_mlflow_model_directory(
 
 
 @pytest.mark.parametrize("scripted_model", [False])
-def test_save_model_with_pip_requirements(sequential_model, tmpdir):
+def test_save_model_with_pip_requirements(sequential_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.pytorch.save_model(sequential_model, tmpdir1.strpath, pip_requirements=req_file.strpath)
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, "a"], strict=True)
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.pytorch.save_model(sequential_model, tmpdir1, pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir2.strpath, pip_requirements=[f"-r {req_file.strpath}", "b"]
-    )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, "a", "b"], strict=True)
+    tmpdir2 = tmp_path.joinpath("2")
+    mlflow.pytorch.save_model(sequential_model, tmpdir2, pip_requirements=[f"-r {req_file}", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, "a", "b"], strict=True)
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir3.strpath, pip_requirements=[f"-c {req_file.strpath}", "b"]
-    )
+    tmpdir3 = tmp_path.joinpath("3")
+    mlflow.pytorch.save_model(sequential_model, tmpdir3, pip_requirements=[f"-c {req_file}", "b"])
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
+        tmpdir3, [expected_mlflow_version, "b", "-c constraints.txt"], ["a"], strict=True
     )
 
 
 @pytest.mark.parametrize("scripted_model", [False])
-def test_save_model_with_extra_pip_requirements(sequential_model, tmpdir):
+def test_save_model_with_extra_pip_requirements(sequential_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
     default_reqs = mlflow.pytorch.get_default_pip_requirements()
 
     # Path to a requirements file
-    tmpdir1 = tmpdir.join("1")
-    req_file = tmpdir.join("requirements.txt")
-    req_file.write("a")
-    mlflow.pytorch.save_model(
-        sequential_model, tmpdir1.strpath, extra_pip_requirements=req_file.strpath
-    )
-    _assert_pip_requirements(tmpdir1.strpath, [expected_mlflow_version, *default_reqs, "a"])
+    tmpdir1 = tmp_path.joinpath("1")
+    req_file = tmp_path.joinpath("requirements.txt")
+    req_file.write_text("a")
+    mlflow.pytorch.save_model(sequential_model, tmpdir1, extra_pip_requirements=str(req_file))
+    _assert_pip_requirements(tmpdir1, [expected_mlflow_version, *default_reqs, "a"])
 
     # List of requirements
-    tmpdir2 = tmpdir.join("2")
+    tmpdir2 = tmp_path.joinpath("2")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir2.strpath, extra_pip_requirements=[f"-r {req_file.strpath}", "b"]
+        sequential_model, tmpdir2, extra_pip_requirements=[f"-r {req_file}", "b"]
     )
-    _assert_pip_requirements(tmpdir2.strpath, [expected_mlflow_version, *default_reqs, "a", "b"])
+    _assert_pip_requirements(tmpdir2, [expected_mlflow_version, *default_reqs, "a", "b"])
 
     # Constraints file
-    tmpdir3 = tmpdir.join("3")
+    tmpdir3 = tmp_path.joinpath("3")
     mlflow.pytorch.save_model(
-        sequential_model, tmpdir3.strpath, extra_pip_requirements=[f"-c {req_file.strpath}", "b"]
+        sequential_model, tmpdir3, extra_pip_requirements=[f"-c {req_file}", "b"]
     )
     _assert_pip_requirements(
-        tmpdir3.strpath, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
+        tmpdir3, [expected_mlflow_version, *default_reqs, "b", "-c constraints.txt"], ["a"]
     )
 
 
@@ -867,6 +871,7 @@ def test_pyfunc_serve_and_score(data):
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
     from transformers import BertModel, BertConfig  # pylint: disable=import-error
+    from mlflow.deployments import PredictionsResponse
 
     class MyBertModel(BertModel):
         def forward(self, *args, **kwargs):  # pylint: disable=arguments-differ
@@ -895,7 +900,6 @@ def test_pyfunc_serve_and_score_transformers():
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.deployments import PredictionsResponse
 
     scores = PredictionsResponse.from_json(resp.content.decode("utf-8")).get_predictions(
         predictions_format="ndarray"
@@ -904,12 +908,12 @@ def test_pyfunc_serve_and_score_transformers():
 
 
 @pytest.fixture
-def create_requirements_file(tmpdir):
+def create_requirements_file(tmp_path):
     requirement_file_name = "requirements.txt"
-    fp = tmpdir.join(requirement_file_name)
+    fp = tmp_path.joinpath(requirement_file_name)
     test_string = "mlflow"
-    fp.write(test_string)
-    return fp.strpath, test_string
+    fp.write_text(test_string)
+    return str(fp), test_string
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -997,24 +1001,24 @@ def test_log_model_invalid_requirement_file_type(sequential_model):
         )
 
 
-def test_save_model_emits_deprecation_warning_for_requirements_file(tmpdir):
-    reqs_file = tmpdir.join("requirements.txt")
-    reqs_file.write("torch")
+def test_save_model_emits_deprecation_warning_for_requirements_file(tmp_path):
+    reqs_file = tmp_path.joinpath("requirements.txt")
+    reqs_file.write_text("torch")
     with pytest.warns(FutureWarning, match="`requirements_file` has been deprecated"):
         mlflow.pytorch.save_model(
             get_sequential_model(),
-            tmpdir.join("model"),
-            requirements_file=reqs_file.strpath,
+            tmp_path.joinpath("model"),
+            requirements_file=str(reqs_file),
         )
 
 
 @pytest.fixture
-def create_extra_files(tmpdir):
-    fp1 = tmpdir.join("extra1.txt")
-    fp2 = tmpdir.join("extra2.txt")
-    fp1.write("1")
-    fp2.write("2")
-    return [fp1.strpath, fp2.strpath], ["1", "2"]
+def create_extra_files(tmp_path):
+    fp1 = tmp_path.joinpath("extra1.txt")
+    fp2 = tmp_path.joinpath("extra2.txt")
+    fp1.write_text("1")
+    fp2.write_text("2")
+    return [str(fp1), str(fp2)], ["1", "2"]
 
 
 @pytest.mark.parametrize("scripted_model", [True, False])
@@ -1219,3 +1223,21 @@ def test_model_log_with_metadata(sequential_model):
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+@pytest.mark.parametrize("scripted_model", [True, False])
+def test_model_log_with_signature_inference(sequential_model, data):
+    artifact_path = "model"
+    example_ = data[0].head(3).values.astype(np.float32)
+
+    with mlflow.start_run():
+        mlflow.pytorch.log_model(
+            sequential_model, artifact_path=artifact_path, input_example=example_
+        )
+        model_uri = mlflow.get_artifact_uri(artifact_path)
+
+    model_info = Model.load(model_uri)
+    assert model_info.signature == ModelSignature(
+        inputs=Schema([TensorSpec(np.dtype("float32"), (-1, 4))]),
+        outputs=Schema([TensorSpec(np.dtype("float32"), (-1, 1))]),
+    )

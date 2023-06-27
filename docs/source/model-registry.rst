@@ -33,6 +33,9 @@ Model Stage
 Annotations and Descriptions
     You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm descriptions, dataset employed or methodology.
 
+Model Alias
+    You can create an alias for a registered model that points to a specific model version. You can then use an alias to refer to a specific model version via a model URI or the model registry API. For example, you can create an alias named ``Champion`` that points to version 1 of a model named ``MyModel``. You can then refer to version 1 of ``MyModel`` by using the URI ``models:/MyModel@Champion``.
+
 Model Registry Workflows
 ========================
 If running your own MLflow server, you must use a database-backed backend store in order to access
@@ -97,25 +100,37 @@ There are three programmatic ways to add a model to the registry. First, you can
 
 .. code-block:: python
 
-    from random import random, randint
+    from sklearn.datasets import make_regression
     from sklearn.ensemble import RandomForestRegressor
+    from sklearn.metrics import mean_squared_error
+    from sklearn.model_selection import train_test_split
 
     import mlflow
     import mlflow.sklearn
+    from mlflow.models import infer_signature
 
-    with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
-        params = {"n_estimators": 5, "random_state": 42}
-        sk_learn_rfr = RandomForestRegressor(**params)
+    with mlflow.start_run() as run:
+        X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=0.2, random_state=42
+        )
+        params = {"max_depth": 2, "random_state": 42}
+        model = RandomForestRegressor(**params)
+        model.fit(X_train, y_train)
+
+        # Infer the model signature
+        y_pred = model.predict(X_test)
+        signature = infer_signature(X_test, y_pred)
 
         # Log parameters and metrics using the MLflow APIs
         mlflow.log_params(params)
-        mlflow.log_param("param_1", randint(0, 100))
-        mlflow.log_metrics({"metric_1": random(), "metric_2": random() + 1})
+        mlflow.log_metrics({"mse": mean_squared_error(y_test, y_pred)})
 
         # Log the sklearn model and register as version 1
         mlflow.sklearn.log_model(
-            sk_model=sk_learn_rfr,
+            sk_model=model,
             artifact_path="sklearn-model",
+            signature=signature,
             registered_model_name="sk-learn-random-forest-reg-model",
         )
 
@@ -144,7 +159,8 @@ this method will throw an :class:`~mlflow.exceptions.MlflowException` because cr
    client = MlflowClient()
    client.create_registered_model("sk-learn-random-forest-reg-model")
 
-While the method above creates an empty registered model with no version associated, the method below creates a new version of the model.
+The method above creates an empty registered model with no version associated. You can use :meth:`~mlflow.client.MlflowClient.create_model_version`
+as shown below to create a new version of the model.
 
 .. code-block:: python
 
@@ -353,8 +369,8 @@ in sklearn's pickled format, you want to register this model with the Model Regi
 an ML framework without a built-in MLflow model flavor support, for instance, `vaderSentiment,` and want to register the model.
 
 
-Registering a Saved Model
-^^^^^^^^^^^^^^^^^^^^^^^^^
+Registering a Model Saved Outside MLflow
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Not everyone will start their model training with MLflow. So you may have some models trained before the use of MLflow.
 Instead of retraining the models, all you want to do is register your saved models with the Model Registry.
 
@@ -391,7 +407,6 @@ This code snippet creates a sklearn model, which we assume that you had created 
 
 
     def print_predictions(m, y_pred):
-
         # The coefficients
         print("Coefficients: \n", m.coef_)
         # The mean squared error
@@ -428,9 +443,17 @@ register the loaded model with the Model Registry.
 .. code-block:: python
 
     import mlflow
+    from mlflow.models import infer_signature
+    import numpy as np
+    from sklearn import datasets
 
     # load the model into memory
     loaded_model = pickle.load(open(filename, "rb"))
+
+    # create a signature for the model based on the input and output data
+    diabetes_X, diabetes_y = datasets.load_diabetes(return_X_y=True)
+    diabetes_X = diabetes_X[:, np.newaxis, 2]
+    signature = infer_signature(diabetes_X, diabetes_y)
 
     # log and register the model using MLflow scikit-learn API
     mlflow.set_tracking_uri("sqlite:///mlruns.db")
@@ -440,6 +463,7 @@ register the loaded model with the Model Registry.
         loaded_model,
         "sk_learn",
         serialization_format="cloudpickle",
+        signature=signature,
         registered_model_name=reg_model_name,
     )
 
@@ -541,7 +565,6 @@ save, log, register, and load from the Model Registry and score.
             return prediction_scores
 
         def predict(self, context, model_input):
-
             # Apply the preprocess function from the vader model to score
             model_output = model_input.apply(lambda col: self._score(col))
             return model_output
@@ -602,6 +625,63 @@ save, log, register, and load from the Model Registry and score.
     <Yay!! Another good phone interview. I nailed it!!> -- {'neg': 0.0, 'neu': 0.446, 'pos': 0.554, 'compound': 0.816}
     <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 
+Using Registered Model Aliases
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Model aliases in the MLflow Model Registry allow you to assign a mutable, named reference to a particular version within a
+registered model. You can use aliases to specify which model versions are deployed in a given environment in your model
+training workflows (e.g. specify the current ``Champion`` model version that should serve the majority of production traffic),
+and then write inference workloads that target that alias ("make predictions using the ``Champion`` version"). The example
+workflow below captures this idea.
+
+
+**Mark model for deployment using aliases**
+
+We can set a ``Champion`` alias to point to a newly trained model version, indicating to downstream inference workloads that they
+should use this model version to make predictions on production traffic:
+
+.. code-block:: python
+
+    # Register a new model and version
+    from sklearn.ensemble import RandomForestRegressor
+
+    import mlflow
+    import mlflow.sklearn
+
+    with mlflow.start_run(run_name="YOUR_RUN_NAME") as run:
+        params = {"n_estimators": 5, "random_state": 42}
+        sk_learn_rfr = RandomForestRegressor(**params)
+
+        # Log the sklearn model and register as version 1
+        mlflow.sklearn.log_model(
+            sk_model=sk_learn_rfr,
+            artifact_path="sklearn-model",
+            registered_model_name="example-model",
+        )
+
+    # Set alias on model version
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+    client.set_registered_model_alias("example-model", "Champion", 1)
+
+
+**Consume model versions by alias in inference workloads**
+
+You can write batch inference workloads that reference a model version by alias. For example, the snippet below loads and applies
+the ``Champion`` model version for batch inference. If the ``Champion`` version is updated to reference a new model version, the batch
+inference workload automatically picks it up on its next execution. This allows you to decouple model deployments/updates from your
+batch inference workloads.
+
+.. code-block:: python
+
+    import mlflow.pyfunc
+
+    model_version_uri = "models:/example-model@Champion"
+    champion_version = mlflow.pyfunc.load_model(model_version_uri)
+    champion_version.predict(test_x)
+
+See the full set of client APIs for working with aliases in the MLflow documentation, including APIs to
+:meth:`~mlflow.client.MlflowClient.get_model_version_by_alias` and :meth:`~mlflow.client.MlflowClient.delete_registered_model_alias`.
 
 
 

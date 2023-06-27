@@ -122,7 +122,7 @@ For environment recreation, we automatically log ``conda.yaml``, ``python_env.ya
         - python=3.8.8
         - pip
         - pip:
-            - mlflow
+            - mlflow==2.3
             - scikit-learn==0.23.2
             - cloudpickle==1.6.0
 
@@ -149,10 +149,10 @@ The following shows an example of saving a model with a manually specified conda
     conda_env = {
         "channels": ["conda-forge"],
         "dependencies": ["python=3.8.8", "pip"],
-        "pip": ["mlflow", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
+        "pip": ["mlflow==2.3", "scikit-learn==0.23.2", "cloudpickle==1.6.0"],
         "name": "mlflow-env",
     }
-    mlflow.sklearn.log_model(model, "my_model", conda_env=conda_env)
+    mlflow.sklearn.log_model(..., conda_env=conda_env)
 
 The written ``conda.yaml`` file:
 
@@ -165,7 +165,7 @@ The written ``conda.yaml`` file:
     - python=3.8.8
     - pip
     - pip:
-      - mlflow
+      - mlflow==2.3
       - scikit-learn==0.23.2
       - cloudpickle==1.6.0
 
@@ -185,7 +185,7 @@ The written ``requirements.txt`` file:
 
 .. code-block:: text
 
-    mlflow
+    mlflow==2.3
     scikit-learn==0.23.2
     cloudpickle==1.6.0
 
@@ -205,31 +205,47 @@ downstream tooling:
 
 Model Signature
 ^^^^^^^^^^^^^^^
-The Model signature defines the schema of a model's inputs and outputs. Model inputs and outputs can
-be either column-based or tensor-based. Column-based inputs and outputs can be described as a
-sequence of (optionally) named columns with type specified as one of the
-:py:class:`MLflow data types <mlflow.types.DataType>`. Tensor-based inputs and outputs can be
-described as a sequence of (optionally) named tensors with type specified as one of the
-`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_.
+Model signatures define input and output schemas for MLflow models, providing a standard 
+interface to codify and enforce the correct use of your models. Signatures are fetched by the MLflow Tracking
+UI and Model Registry UI to display model inputs and outputs. They are also utilized by
+:ref:`MLflow model deployment tools <built-in-deployment>` to validate inference inputs according to
+the model's assigned signature (see the :ref:`Signature enforcement <signature-enforcement>` section
+for more details).
 
 To include a signature with your model, pass a :py:class:`signature object
 <mlflow.models.ModelSignature>` as an argument to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. More details are in the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section. The signature is stored in
-JSON format in the :ref:`MLmodel file <pyfunc-model-config>`, together with other model metadata.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`
+(see the :ref:`How to log models with signatures <how-to-log-models-with-signatures>` section for more details).
+The model signature is stored in JSON format in the :ref:`MLmodel file <pyfunc-model-config>` in your
+model artifacts, together with other model metadata. To set a signature on a logged or
+saved model, use the :py:func:`set_signature() <mlflow.models.set_signature>` API
+(see the :ref:`How to set signatures on models <how-to-set-signatures-on-models>` section for more details).
 
-Model signatures are recognized and enforced by standard :ref:`MLflow model deployment tools
-<built-in-deployment>`. For example, the :ref:`mlflow models serve <local_model_deployment>` tool,
-which deploys a model as a REST API, validates inputs based on the model's signature.
+.. note::
+    :ref:`MLflow model deployment tools <built-in-deployment>` commonly serve the Python
+    Function (pyfunc) flavor of MLflow models. Hence, it is recommended that you assign your model
+    a signature that matches its PyFunc flavor. Usually, generating the model signature involves calling
+    :py:func:`infer_signature() <mlflow.models.infer_signature>` on your raw model's test dataset
+    and predicted output of that dataset. However, in certain cases (such as the :ref:`pmdarima model flavor <pmdarima-flavor>`)
+    the schema of the PyFunc model input may differ from that of the test dataset. In such situations,
+    it is necessary to create a signature that represents the inputs and outputs of the PyFunc flavor.
 
+Model Signature Types
+~~~~~~~~~~~~~~~~~~~~~
+A model signature consists on inputs and outputs schemas, each of which can be either column-based or tensor-based. 
+Column-based schemas are a sequence of (optionally) named columns with type specified as one of the
+:py:class:`MLflow data types <mlflow.types.DataType>`.
+Tensor-based schemas are a sequence of (optionally) named tensors with type specified as one of the
+`numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_. See some examples of constructing them below.
 
 Column-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-All flavors support column-based signatures.
-
+""""""""""""""""""""""""""""""
 Each column-based input and output is represented by a type corresponding to one of
-:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. The following example
-displays an MLmodel file excerpt containing the model signature for a classification model trained on
-the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns.
+:py:class:`MLflow data types <mlflow.types.DataType>` and an optional name. Input columns can also be marked
+as ``optional``, indicating whether they are required as input to the model or can be omitted. The following example
+displays a modified MLmodel file excerpt containing the model signature for a classification model trained on
+the `Iris dataset <https://archive.ics.uci.edu/ml/datasets/iris>`_. The input has 4 named, numeric columns and 1 named,
+optional string column.
 The output is an unnamed integer specifying the predicted class.
 
 .. code-block:: yaml
@@ -237,15 +253,14 @@ The output is an unnamed integer specifying the predicted class.
   signature:
       inputs: '[{"name": "sepal length (cm)", "type": "double"}, {"name": "sepal width
         (cm)", "type": "double"}, {"name": "petal length (cm)", "type": "double"}, {"name":
-        "petal width (cm)", "type": "double"}]'
+        "petal width (cm)", "type": "double"}, {"name": "class", "type": "string", "optional": "true"}]'
       outputs: '[{"type": "integer"}]'
 
 Tensor-based Signature Example
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Only DL flavors support tensor-based signatures (i.e TensorFlow, Keras, PyTorch, Onnx, and Gluon).
-
+""""""""""""""""""""""""""""""
 Each tensor-based input and output is represented by a dtype corresponding to one of
 `numpy data types <https://numpy.org/devdocs/user/basics.types.html>`_, shape and an optional name.
+Tensor-based signatures do not support optional inputs.
 When specifying the shape, -1 is used for axes that may be variable in size.
 The following example displays an MLmodel file excerpt containing the model signature for a
 classification model trained on the `MNIST dataset <http://yann.lecun.com/exdb/mnist/>`_.
@@ -260,6 +275,8 @@ and the output is the batch size and is thus set to -1 to allow for variable bat
       inputs: '[{"name": "images", "dtype": "uint8", "shape": [-1, 28, 28, 1]}]'
       outputs: '[{"shape": [-1, 10], "dtype": "float32"}]'
 
+.. _signature-enforcement:
+
 Signature Enforcement
 ~~~~~~~~~~~~~~~~~~~~~
 Schema enforcement checks the provided input against the model's signature
@@ -271,14 +288,15 @@ particular, it is not applied to models that are loaded in their native format (
 
 Name Ordering Enforcement
 """""""""""""""""""""""""
-The input names are checked against the model signature. If there are any missing inputs,
-MLflow will raise an exception. Extra inputs that were not declared in the signature will be
-ignored. If the input schema in the signature defines input names, input matching is done by name
-and the inputs are reordered to match the signature. If the input schema does not have input
-names, matching is done by position (i.e. MLflow will only check the number of inputs).
+The input names are checked against the model signature. If there are any missing required inputs,
+MLflow will raise an exception. Missing optional inputs will not raise an exception.
+Extra inputs that were not declared in the signature will be ignored. If the input schema in the 
+signature defines input names, input matching is done by name and the inputs are reordered to match the 
+signature. If the input schema does not have input names, matching is done by position 
+(i.e. MLflow will only check the number of inputs).
 
 Input Type Enforcement
-"""""""""""""""""""""""
+""""""""""""""""""""""
 The input types are checked against the signature.
 
 For models with column-based signatures (i.e DataFrame inputs), MLflow will perform safe type conversions
@@ -330,6 +348,12 @@ by hand or :py:func:`inferred <mlflow.models.infer_signature>` from datasets wit
 (e.g. the training dataset with target column omitted) and valid model outputs (e.g. model
 predictions generated on the training dataset).
 
+You may also include a signature with your model by omitting the :py:class:`signature object
+<mlflow.models.ModelSignature>` from the log_model or save_model call and instead passing
+an :ref:`input example <input-example>`. Then, for most MLflow flavors, log_model or save_model
+will automatically infer the signature from the input example and the model's predicted output of
+the input example.
+
 Column-based Signature Example
 """"""""""""""""""""""""""""""
 The following example demonstrates how to store a model signature for a simple classifier trained
@@ -342,7 +366,7 @@ on the ``Iris dataset``:
     from sklearn.ensemble import RandomForestClassifier
     import mlflow
     import mlflow.sklearn
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     iris = datasets.load_iris()
     iris_train = pd.DataFrame(iris.data, columns=iris.feature_names)
@@ -355,7 +379,7 @@ The same signature can be created explicitly as follows:
 
 .. code-block:: python
 
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, ColSpec
 
     input_schema = Schema(
@@ -364,6 +388,7 @@ The same signature can be created explicitly as follows:
             ColSpec("double", "sepal width (cm)"),
             ColSpec("double", "petal length (cm)"),
             ColSpec("double", "petal width (cm)"),
+            ColSpec("string", "class", optional=True),
         ]
     )
     output_schema = Schema([ColSpec("long")])
@@ -382,7 +407,7 @@ on the ``MNIST dataset``:
     from keras.layers import Conv2D, MaxPooling2D, Dense, Flatten
     from keras.optimizers import SGD
     import mlflow
-    from mlflow.models.signature import infer_signature
+    from mlflow.models import infer_signature
 
     (train_X, train_Y), (test_X, test_Y) = mnist.load_data()
     trainX = train_X.reshape((train_X.shape[0], 28, 28, 1))
@@ -416,7 +441,7 @@ The same signature can be created explicitly as follows:
 .. code-block:: python
 
     import numpy as np
-    from mlflow.models.signature import ModelSignature
+    from mlflow.models import ModelSignature
     from mlflow.types.schema import Schema, TensorSpec
 
     input_schema = Schema(
@@ -427,23 +452,135 @@ The same signature can be created explicitly as follows:
     output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
     signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
+.. _how-to-set-signatures-on-models:
+
+How To Set Signatures on Models
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Models can be saved with without model signatures or with incorrect ones. To set a model signature on model artifacts,
+use the :py:func:`mlflow.models.set_signature() <mlflow.models.set_signature>` API. Here are
+some examples.
+
+Set Signature on Logged Model
+"""""""""""""""""""""""""""""
+The following example demonstrates how to set a model signature on a logged sklearn model.
+Suppose you've logged a sklearn model without a signature like below:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+
+    X, y = datasets.load_iris(return_X_y=True, as_frame=True)
+    clf = RandomForestClassifier(max_depth=7, random_state=0)
+    with mlflow.start_run() as run:
+        clf.fit(X, y)
+        mlflow.sklearn.log_model(clf, "iris_rf")
+
+You can set a signature on the logged model as follows:
+
+.. code-block:: python
+
+    import pandas as pd
+    from sklearn import datasets
+    import mlflow
+    from mlflow.models.model import get_model_info
+    from mlflow.models import infer_signature, set_signature
+
+    # load the logged model
+    model_uri = f"runs:/{run.info.run_id}/iris_rf"
+    model = mlflow.pyfunc.load_model(model_uri)
+
+    # construct the model signature from test dataset
+    X_test, _ = datasets.load_iris(return_X_y=True, as_frame=True)
+    signature = infer_signature(X_test, model.predict(X_test))
+
+    # set the signature for the logged model
+    set_signature(model_uri, signature)
+
+    # now when you load the model again, it will have the desired signature
+    assert get_model_info(model_uri).signature == signature
+
+Note that model signatures can also be set on model artifacts saved outside of MLflow Tracking. As
+an example, you can easily set a signature on a locally saved iris model by altering the model_uri
+variable in the previous code snippet to point to the model's local directory.
+
+.. _set-signature-on-mv:
+
+Set Signature on Model Version
+""""""""""""""""""""""""""""""
+
+As MLflow Model Registry artifacts are meant to be read-only, you cannot directly set a signature on
+a model version or model artifacts represented by ``models:/`` URI schemes. Instead, you should first set
+the signature on the source model artifacts and generate a new model version using the updated 
+model artifacts. The following example illustrates how this can be done.
+
+Supposed you have created the following model version without a signature like below:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.client import MlflowClient
+
+    model_name = "add_signature_model"
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.log_model(RandomForestClassifier(), "sklearn-model")
+
+    model_uri = f"runs:/{run.info.run_id}/sklearn-model"
+    mlflow.register_model(model_uri=model_uri, name=model_name)
+
+To set a signature on the model version, create a duplicate model version with the new signature
+as follows:
+
+.. code-block:: python
+
+    from sklearn.ensemble import RandomForestClassifier
+    import mlflow
+    from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+
+    client = mlflow.client.MlflowClient()
+    model_name = "add_signature_model"
+    model_version = 1
+    mv = client.get_model_version(name=model_name, version=model_version)
+
+    # set a dummy signature on the model vesion source
+    signature = infer_signature(np.array([1]))
+    set_signature(mv.source, signature)
+
+    # create a new model version with the updated source
+    client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
+
+Note that this process overwrites the model artifacts from the source run of model version 1
+with a new model signature.
+
 .. _input-example:
 
 Model Input Example
 ^^^^^^^^^^^^^^^^^^^
-Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
-(i.e numpy.ndarrays). A model input example provides an instance of a valid model input.
-Input examples are stored with the model as separate artifacts and are referenced in the the
-:ref:`MLmodel file <pyfunc-model-config>`.
-
+A model input example provides an instance of a valid model input. Input examples are stored with 
+the model as separate artifacts and are referenced in the :ref:`MLmodel file <pyfunc-model-config>`.
 To include an input example with your model, add it to the appropriate log_model call, e.g.
-:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`.
+:py:func:`sklearn.log_model() <mlflow.sklearn.log_model>`. Input examples are also used to infer
+model signatures in log_model calls when signatures aren't specified.
+
+Similar to model signatures, model inputs can be column-based (i.e DataFrames) or tensor-based
+(i.e numpy.ndarrays). See examples below:
 
 How To Log Model With Column-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting column-based inputs, an example can be a single record or a batch of records. The
-sample input can be passed in as a Pandas DataFrame, list or dictionary. The given
-example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
+sample input can be in the following formats:
+
+* Pandas DataFrame
+* ``dict`` (of scalars, strings, or lists of scalar values)
+* ``list``
+* ``str``
+* ``bytes``
+
+The given example will be converted to a Pandas DataFrame and then serialized to json using the Pandas split-oriented
 format. Bytes are base64-encoded. The following example demonstrates how you can log a column-based
 input example with your model:
 
@@ -460,9 +597,15 @@ input example with your model:
 How To Log Model With Tensor-based Example
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 For models accepting tensor-based inputs, an example must be a batch of inputs. By default, the axis 0
-is the batch axis unless specified otherwise in the model signature. The sample input can be passed in as
-a numpy ndarray or a dictionary mapping a string to a numpy array. The following example demonstrates how
-you can log a tensor-based input example with your model:
+is the batch axis unless specified otherwise in the model signature. The sample input can be passed in
+as any of the following formats:
+
+* numpy ndarray
+* Python ``dict`` mapping a string to a numpy array
+* Scipy ``csr_matrix`` (sparse matrix)
+* Scipy ``csc_matrix`` (sparse matrix).
+
+The following example demonstrates how you can log a tensor-based input example with your model:
 
 .. code-block:: python
 
@@ -496,6 +639,8 @@ class has four key functions:
   current run using MLflow Tracking.
 * :py:func:`load <mlflow.models.Model.load>` to load a model from a local directory or
   from an artifact in a previous run.
+
+.. _models_built-in-model-flavors:
 
 Built-In Model Flavors
 ----------------------
@@ -646,6 +791,67 @@ Finally, you can use the :py:func:`mlflow.h2o.load_model()` method to load MLflo
 
 For more information, see :py:mod:`mlflow.h2o`.
 
+h2o pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal h2o model, here is an example of the pyfunc predict() method in a classification scenario :
+
+.. code-block:: python
+
+    import mlflow
+    import h2o
+
+    h2o.init()
+    from h2o.estimators.glm import H2OGeneralizedLinearEstimator
+
+    # import the prostate data
+    df = h2o.import_file(
+        "http://s3.amazonaws.com/h2o-public-test-data/smalldata/prostate/prostate.csv.zip"
+    )
+
+    # convert the columns to factors
+    df["CAPSULE"] = df["CAPSULE"].asfactor()
+    df["RACE"] = df["RACE"].asfactor()
+    df["DCAPS"] = df["DCAPS"].asfactor()
+    df["DPROS"] = df["DPROS"].asfactor()
+
+    # split the data
+    train, test, valid = df.split_frame(ratios=[0.7, 0.15])
+
+    # generate a GLM model
+    glm_classifier = H2OGeneralizedLinearEstimator(
+        family="binomial", lambda_=0, alpha=0.5, nfolds=5, compute_p_values=True
+    )
+
+    with mlflow.start_run():
+        glm_classifier.train(
+            y="CAPSULE", x=["AGE", "RACE", "VOL", "GLEASON"], training_frame=train
+        )
+        metrics = glm_classifier.model_performance()
+        metrics_to_track = ["MSE", "RMSE", "r2", "logloss"]
+        metrics_to_log = {
+            key: value
+            for key, value in metrics._metric_json.items()
+            if key in metrics_to_track
+        }
+        params = glm_classifier.params
+        mlflow.log_params(params)
+        mlflow.log_metrics(metrics_to_log)
+        model_info = mlflow.h2o.log_model(glm_classifier, artifact_path="h2o_model_info")
+
+    # load h2o model and make a prediction
+    h2o_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+    test_df = test.as_data_frame()
+    predictions = h2o_pyfunc.predict(test_df)
+    print(predictions)
+
+    # it is also possible to load the model and predict using h2o methods on the h2o frame
+
+    # h2o_model = mlflow.h2o.load_model(model_info.model_uri)
+    # predictions = h2o_model.predict(test)
+
+.. _tf-keras-example:
+
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
@@ -658,7 +864,7 @@ model persistence functions. You can use
 with the ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 Keras pyfunc usage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~
 
 For a minimal Sequential model, an example configuration for the pyfunc predict() method is:
 
@@ -672,24 +878,23 @@ For a minimal Sequential model, an example configuration for the pyfunc predict(
 
     mlflow.tensorflow.autolog()
 
-    with mlflow.start_run():
-        X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
-        y = np.array([0, 0, 1, 1, 1, 0])
-        model = keras.Sequential(
-            [
-                keras.Input(shape=(1,)),
-                keras.layers.Dense(1, activation="sigmoid"),
-            ]
-        )
-        model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-        model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
-        model_info = mlflow.tensorflow.log_model(model=model, artifact_path="model")
+    X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+    y = np.array([0, 0, 1, 1, 1, 0])
+    model = keras.Sequential(
+        [
+            keras.Input(shape=(1,)),
+            keras.layers.Dense(1, activation="sigmoid"),
+        ]
+    )
+    model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+    model.fit(X, y, batch_size=3, epochs=5, validation_split=0.2)
 
     local_artifact_dir = "/tmp/mlflow/keras_model"
     pathlib.Path(local_artifact_dir).mkdir(parents=True, exist_ok=True)
 
+    model_uri = f"runs:/{mlflow.last_active_run().info.run_id}/model"
     keras_pyfunc = mlflow.pyfunc.load_model(
-        model_uri=model_info.model_uri, dst_path=local_artifact_dir
+        model_uri=model_uri, dst_path=local_artifact_dir
     )
 
     data = np.array([-4, 1, 0, 10, -2, 1]).reshape(-1, 1)
@@ -746,6 +951,12 @@ the ``python_function`` flavor, allowing you to load them as generic Python func
 via :py:func:`mlflow.pyfunc.load_model()`.
 
 .. note::
+    When using the PyTorch flavor, if a GPU is available at prediction time, the default GPU will be used to run
+    inference. To disable this behavior, users can use the
+    `MLFLOW_DEFAULT_PREDICTION_DEVICE <python_api/mlflow.environment_variables.html#mlflow.environment_variables.MLFLOW_DEFAULT_PREDICTION_DEVICE>`_
+    or pass in a device with the `device` parameter for the `predict` function.
+
+.. note::
     In case of multi gpu training, ensure to save the model only with global rank 0 gpu. This avoids
     logging multiple copies of the same model.
 
@@ -758,6 +969,7 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
 
     import numpy as np
     import mlflow
+    from mlflow.models import infer_signature
     import torch
     from torch import nn
 
@@ -780,7 +992,8 @@ For a minimal PyTorch model, an example configuration for the pyfunc predict() m
         optimizer.step()
 
     with mlflow.start_run() as run:
-        model_info = mlflow.pytorch.log_model(net, "model")
+        signature = infer_signature(X.numpy(), net(X).detach().numpy())
+        model_info = mlflow.pytorch.log_model(net, "model", signature=signature)
 
     pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -811,6 +1024,7 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
 .. code-block:: python
 
     import mlflow
+    from mlflow.models import infer_signature
     import numpy as np
     from sklearn.linear_model import LogisticRegression
 
@@ -819,8 +1033,11 @@ For a Scikit-learn LogisticRegression model, an example configuration for the py
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression()
         lr.fit(X, y)
+        signature = infer_signature(X, lr.predict(X))
 
-        model_info = mlflow.sklearn.log_model(sk_model=lr, artifact_path="model")
+        model_info = mlflow.sklearn.log_model(
+            sk_model=lr, artifact_path="model", signature=signature
+        )
 
     sklearn_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
 
@@ -946,16 +1163,47 @@ For more information, see :py:mod:`mlflow.spark`.
 TensorFlow (``tensorflow``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The ``tensorflow`` model flavor allows TensorFlow Core models and Keras models
-to be logged in MLflow format via the :py:func:`mlflow.tensorflow.save_model()` and
-:py:func:`mlflow.tensorflow.log_model()` methods. These methods also add the ``python_function``
-flavor to the MLflow Models that they produce, allowing the models to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model
-can be scored with both DataFrame input and numpy array input. Finally, you can use the
-:py:func:`mlflow.tensorflow.load_model()` method to load MLflow Models with the ``tensorflow``
-flavor as TensorFlow Core models or Keras models.
+The simple example below shows how to log params and metrics in mlflow for a custom training loop
+using low-level TensorFlow API. See `tf-keras-example`_. for an example of mlflow and ``tf.keras`` models.
 
-For more information, see :py:mod:`mlflow.tensorflow`.
+
+.. code-block:: python
+
+    import numpy as np
+    import tensorflow as tf
+
+    import mlflow
+
+    x = np.linspace(-4, 4, num=512)
+    y = 3 * x + 10
+
+    # estimate w and b where y = w * x + b
+    learning_rate = 0.1
+    x_train = tf.Variable(x, trainable=False, dtype=tf.float32)
+    y_train = tf.Variable(y, trainable=False, dtype=tf.float32)
+
+    # initial values
+    w = tf.Variable(1.0)
+    b = tf.Variable(1.0)
+
+    with mlflow.start_run():
+        mlflow.log_param("learning_rate", learning_rate)
+
+        for i in range(1000):
+            with tf.GradientTape(persistent=True) as tape:
+                # calculate MSE = 0.5 * (y_predict - y_train)^2
+                y_predict = w * x_train + b
+                loss = 0.5 * tf.reduce_mean(tf.square(y_predict - y_train))
+                mlflow.log_metric("loss", value=loss.numpy(), step=i)
+
+            # Update the trainable variables
+            # w = w - learning_rate * gradient of loss function w.r.t. w
+            # b = b - learning_rate * gradient of loss function w.r.t. b
+            w.assign_sub(learning_rate * tape.gradient(loss, w))
+            b.assign_sub(learning_rate * tape.gradient(loss, b))
+
+    print(f"W = {w.numpy():.2f}, b = {b.numpy():.2f}")
+
 
 ONNX (``onnx``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -981,6 +1229,7 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     import numpy as np
     import mlflow
+    from mlflow.models import infer_signature
     import onnx
     import torch
     from torch import nn
@@ -1010,7 +1259,8 @@ converts it to ONNX, logs to mlflow and makes a prediction using pyfunc predict(
 
     # log the model into a mlflow run
     with mlflow.start_run():
-        model_info = mlflow.onnx.log_model(onnx_model, "model")
+        signature = infer_signature(X.numpy(), net(X).detach().numpy())
+        model_info = mlflow.onnx.log_model(onnx_model, "model", signature=signature)
 
     # load the logged model and make a prediction
     onnx_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1028,6 +1278,142 @@ models to be interpreted as generic Python functions for inference via
 :py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can be scored with
 both DataFrame input and numpy array input. You can also use the :py:func:`mlflow.gluon.load_model()`
 method to load MLflow Models with the ``gluon`` flavor in native Gluon format.
+
+Gluon pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+For a minimal gluon model, here is an example of the pyfunc predict() method with a logistic regression model :
+
+.. code-block:: python
+
+    import mlflow
+    import mxnet as mx
+    from mxnet import nd, autograd, gluon
+    from mxnet.gluon import nn, Trainer
+    from mxnet.gluon.data import DataLoader, ArrayDataset
+    import numpy as np
+
+    # this example requires a compatible version of numpy : numpy == 1.23.1
+    # `pip uninstall numpy`  `python -m pip install numpy==1.23.1`
+
+
+    def get_random_data(size, ctx):
+        x = nd.normal(0, 1, shape=(size, 10), ctx=ctx)
+        y = x.sum(axis=1) > 3
+        return x, y
+
+
+    # use cpu for this example, gpu could be used with ctx=gpu()
+    ctx = mx.cpu()
+    train_data_size = 1000
+    val_data_size = 100
+    batch_size = 10
+
+    train_x, train_ground_truth_class = get_random_data(train_data_size, ctx)
+    train_dataset = ArrayDataset(train_x, train_ground_truth_class)
+    train_dataloader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        shuffle=True,
+    )
+
+    val_x, val_ground_truth_class = get_random_data(val_data_size, ctx)
+    val_dataset = ArrayDataset(val_x, val_ground_truth_class)
+    val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=True)
+
+    net = nn.HybridSequential()
+
+    with net.name_scope():
+        net.add(nn.Dense(units=10, activation="relu"))  # input layer
+        net.add(nn.Dense(units=10, activation="relu"))  # inner layer 1
+        net.add(nn.Dense(units=10, activation="relu"))  # inner layer 2
+        net.add(nn.Dense(units=1))  # output layer: must have only 1 neuron
+
+    net.initialize(mx.init.Xavier())
+
+    loss = gluon.loss.SigmoidBinaryCrossEntropyLoss()
+    trainer = Trainer(
+        params=net.collect_params(),
+        optimizer="sgd",
+        optimizer_params={"learning_rate": 0.1},
+    )
+
+    accuracy = mx.metric.Accuracy()
+    f1 = mx.metric.F1()
+    threshold = 0.5
+
+
+    def train_model():
+        cumulative_train_loss = 0
+
+        for i, (data, label) in enumerate(train_dataloader):
+            with autograd.record():
+                # do forward pass on a batch of training data
+                output = net(data)
+                # calculate loss for the training data batch
+                loss_result = loss(output, label)
+            # calculate gradients
+            loss_result.backward()
+            # update parameters of the network
+            trainer.step(batch_size)
+            # sum losses of every batch
+            cumulative_train_loss += nd.sum(loss_result).asscalar()
+
+        return cumulative_train_loss
+
+
+    def validate_model(threshold):
+        cumulative_val_loss = 0
+
+        for i, (val_data, val_ground_truth_class) in enumerate(val_dataloader):
+            # do forward pass on a batch of validation data
+            output = net(val_data)
+            # calculate cumulative validation loss
+            cumulative_val_loss += nd.sum(loss(output, val_ground_truth_class)).asscalar()
+            # prediction as a sigmoid
+            prediction = net(val_data).sigmoid()
+            # converting neuron outputs to classes
+            predicted_classes = mx.nd.ceil(prediction - threshold)
+            # update validation accuracy
+            accuracy.update(val_ground_truth_class, predicted_classes.reshape(-1))
+            # calculate probabilities of belonging to different classes
+            prediction = prediction.reshape(-1)
+            probabilities = mx.nd.stack(1 - prediction, prediction, axis=1)
+
+            f1.update(val_ground_truth_class, probabilities)
+
+        return cumulative_val_loss
+
+
+    # train model and get metrics
+    cumulative_train_loss = train_model()
+    cumulative_val_loss = validate_model(threshold)
+    net.collect_params().initialize()
+    metrics_to_log = {
+        "training_loss": cumulative_train_loss,
+        "val_loss": cumulative_val_loss,
+        "f1": f1.get()[1],
+        "accuracy": accuracy.get()[1],
+    }
+    params_to_log = {"learning_rate": trainer.learning_rate, "threshold": threshold}
+
+    # the model needs to be hybridized and run forward at least once before export is called
+    net.hybridize()
+    net.forward(train_x)
+
+    with mlflow.start_run():
+        mlflow.log_params(params_to_log)
+        mlflow.log_metrics(metrics_to_log)
+        model_info = mlflow.gluon.log_model(net, "model")
+
+    # load the model
+    pytorch_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # make a prediction
+    X = np.random.randn(10, 10)
+    predictions = pytorch_pyfunc.predict(X)
+    print(predictions)
+
 
 For more information, see :py:mod:`mlflow.gluon`.
 
@@ -1047,6 +1433,52 @@ Note that the ``xgboost`` model flavor only supports an instance of `xgboost.Boo
 not models that implement the `scikit-learn API
 <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__.
 
+``XGBoost`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+The example below
+
+* Loads the IRIS dataset from ``scikit-learn``
+* Trains an XGBoost Classifier
+* Logs the model and params using ``mlflow``
+* Loads the logged model and makes predictions
+
+.. code-block:: python
+
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+    from xgboost import XGBClassifier
+    import mlflow
+    from mlflow.models import infer_signature
+
+    data = load_iris()
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["data"], data["target"], test_size=0.2
+    )
+
+    xgb_classifier = XGBClassifier(
+        n_estimators=10,
+        max_depth=3,
+        learning_rate=1,
+        objective="binary:logistic",
+        random_state=123,
+    )
+
+    # log fitted model and XGBClassifier parameters
+    with mlflow.start_run():
+        xgb_classifier.fit(X_train, y_train)
+        clf_params = xgb_classifier.get_xgb_params()
+        mlflow.log_params(clf_params)
+        signature = infer_signature(X_train, xgb_classifier.predict(X_train))
+        model_info = mlflow.xgboost.log_model(
+            xgb_classifier, "iris-classifier", signature=signature
+        )
+
+    # Load saved model and make predictions
+    xgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    y_pred = xgb_classifier_saved.predict(X_test)
+
+
 For more information, see :py:mod:`mlflow.xgboost`.
 
 LightGBM (``lightgbm``)
@@ -1056,16 +1488,67 @@ The ``lightgbm`` model flavor enables logging of `LightGBM models
 in MLflow format via the :py:func:`mlflow.lightgbm.save_model()` and :py:func:`mlflow.lightgbm.log_model()` methods.
 These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via
-:py:func:`mlflow.pyfunc.load_model()`. This loaded PyFunc model can only be scored with DataFrame input.
-You can also use the :py:func:`mlflow.lightgbm.load_model()`
+:py:func:`mlflow.pyfunc.load_model()`. You can also use the :py:func:`mlflow.lightgbm.load_model()`
 method to load MLflow Models with the ``lightgbm`` model flavor in native LightGBM format.
 
-Note that the ``lightgbm`` model flavor only supports an instance of `lightgbm.Booster
-<https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.Booster.html#lightgbm-booster>`__,
-not models that implement the `scikit-learn API
-<https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`_.
+Note that the scikit-learn API for LightGBM is now supported. For more information, see :py:mod:`mlflow.lightgbm`.
 
-For more information, see :py:mod:`mlflow.lightgbm`.
+``LightGBM`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The example below
+
+* Loads the IRIS dataset from ``scikit-learn``
+* Trains a LightGBM ``LGBMClassifier``
+* Logs the model and feature importance's using ``mlflow``
+* Loads the logged model and makes predictions
+
+.. code-block:: python
+
+    from lightgbm import LGBMClassifier
+    from sklearn.datasets import load_iris
+    from sklearn.model_selection import train_test_split
+    import mlflow
+    from mlflow.models import infer_signature
+
+    data = load_iris()
+
+    # Remove special characters from feature names to be able to use them as keys for mlflow metrics
+    feature_names = [
+        name.replace(" ", "_").replace("(", "").replace(")", "")
+        for name in data["feature_names"]
+    ]
+    X_train, X_test, y_train, y_test = train_test_split(
+        data["data"], data["target"], test_size=0.2
+    )
+    # create model instance
+    lgb_classifier = LGBMClassifier(
+        n_estimators=10,
+        max_depth=3,
+        learning_rate=1,
+        objective="binary:logistic",
+        random_state=123,
+    )
+
+    # Fit and save model and LGBMClassifier feature importances as mlflow metrics
+    with mlflow.start_run():
+        lgb_classifier.fit(X_train, y_train)
+        feature_importances = dict(zip(feature_names, lgb_classifier.feature_importances_))
+        feature_importance_metrics = {
+            f"feature_importance_{feature_name}": imp_value
+            for feature_name, imp_value in feature_importances.items()
+        }
+        mlflow.log_metrics(feature_importance_metrics)
+        signature = infer_signature(X_train, lgb_classifier.predict(X_train))
+        model_info = mlflow.lightgbm.log_model(
+            lgb_classifier, "iris-classifier", signature=signature
+        )
+
+    # Load saved model and make predictions
+    lgb_classifier_saved = mlflow.pyfunc.load_model(model_info.model_uri)
+    y_pred = lgb_classifier_saved.predict(X_test)
+    print(y_pred)
+
 
 CatBoost (``catboost``)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1087,6 +1570,7 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
 .. code-block:: python
 
     import mlflow
+    from mlflow.models import infer_signature
     from catboost import CatBoostClassifier
     from sklearn import datasets
 
@@ -1101,9 +1585,13 @@ For a CatBoost Classifier model, an example configuration for the pyfunc predict
     )
     model.fit(X, y)
 
+    # create model signature
+    predictions = model.predict(X)
+    signature = infer_signature(X, predictions)
+
     # log the model into a mlflow run
     with mlflow.start_run():
-        model_info = mlflow.catboost.log_model(model, "model")
+        model_info = mlflow.catboost.log_model(model, "model", signature=signature)
 
     # load the logged model and make a prediction
     catboost_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -1121,6 +1609,189 @@ also use the :py:func:`mlflow.spacy.load_model()` method to load MLflow Models w
 in native spaCy format.
 
 For more information, see :py:mod:`mlflow.spacy`.
+
+``Spacy`` pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~
+
+The example below shows how to train a ``Spacy`` ``TextCategorizer`` model, log the model artifact and metrics to the
+mlflow tracking server and then load the saved model to make predictions. For this example, we will be using the
+``Polarity 2.0`` dataset available in the ``nltk`` package. This dataset consists of 10000 positive and 10000 negative
+short movie reviews.
+
+First we convert the texts and sentiment labels ("pos" or "neg") from NLTK native format to ``Spacy``'s ``DocBin`` format:
+
+.. code-block:: python
+
+    import pandas as pd
+    import spacy
+    from nltk.corpus import movie_reviews
+    from spacy import Language
+    from spacy.tokens import DocBin
+
+    nltk.download("movie_reviews")
+
+
+    def get_sentences(sentiment_type: str) -> pd.DataFrame:
+        """Reconstruct the sentences from the word lists for each review record for a specific ``sentiment_type``
+        as a pandas DataFrame with two columns: 'sentence' and 'sentiment'.
+        """
+        file_ids = movie_reviews.fileids(sentiment_type)
+        sent_df = []
+        for file_id in file_ids:
+            sentence = " ".join(movie_reviews.words(file_id))
+            sent_df.append({"sentence": sentence, "sentiment": sentiment_type})
+        return pd.DataFrame(sent_df)
+
+
+    def convert(data_df: pd.DataFrame, target_file: str):
+        """Convert a DataFrame with 'sentence' and 'sentiment' columns to a
+        spacy DocBin object and save it to 'target_file'.
+        """
+        nlp = spacy.blank("en")
+        sentiment_labels = data_df.sentiment.unique()
+        spacy_doc = DocBin()
+
+        for _, row in data_df.iterrows():
+            sent_tokens = nlp.make_doc(row["sentence"])
+            # To train a Spacy TextCategorizer model, the label must be attached to the "cats" dictionary of the "Doc"
+            # object, e.g. {"pos": 1.0, "neg": 0.0} for a "pos" label.
+            for label in sentiment_labels:
+                sent_tokens.cats[label] = 1.0 if label == row["sentiment"] else 0.0
+            spacy_doc.add(sent_tokens)
+
+        spacy_doc.to_disk(target_file)
+
+
+    # Build a single DataFrame with both positive and negative reviews, one row per review
+    review_data = [get_sentences(sentiment_type) for sentiment_type in ("pos", "neg")]
+    review_data = pd.concat(review_data, axis=0)
+
+    # Split the DataFrame into a train and a dev set
+    train_df = review_data.groupby("sentiment", group_keys=False).apply(
+        lambda x: x.sample(frac=0.7, random_state=100)
+    )
+    dev_df = review_data.loc[review_data.index.difference(train_df.index), :]
+
+    # Save the train and dev data files to the current directory as "corpora.train" and "corpora.dev", respectively
+    convert(train_df, "corpora.train")
+    convert(dev_df, "corpora.dev")
+
+
+To set up the training job, we first need to generate a configuration file as described in the `Spacy Documentation <https://spacy.io/usage/training#config>`_
+For simplicity, we will only use a ``TextCategorizer`` in the pipeline.
+
+.. code-block:: console
+
+    python -m spacy init config --pipeline textcat --lang en mlflow-textcat.cfg
+
+Change the default train and dev paths in the config file to the current directory:
+
+.. code-block:: diff
+
+      [paths]
+    - train = null
+    - dev = null
+    + train = "."
+    + dev = "."
+
+
+In ``Spacy``, the training loop is defined internally in Spacy's code. Spacy provides a "logging" extension point where
+we can use ``mlflow``. To do this,
+
+* We have to define a function to write metrics / model input to ``mlfow``
+* Register it as a logger in ``Spacy``'s component registry
+* Change the default console logger in the ``Spacy``'s configuration file (``mlflow-textcat.cfg``)
+
+.. code-block:: python
+
+    from typing import IO, Callable, Tuple, Dict, Any, Optional
+    import spacy
+    from spacy import Language
+    import mlflow
+
+
+    @spacy.registry.loggers("mlflow_logger.v1")
+    def mlflow_logger():
+        """Returns a function, ``setup_logger`` that returns two functions:
+
+        * ``log_step`` is called internally by Spacy for every evaluation step. We can log the intermediate train and
+        validation scores to the mlflow tracking server here.
+        * ``finalize``: is called internally by Spacy after training is complete. We can log the model artifact to the
+        mlflow tracking server here.
+        """
+
+        def setup_logger(
+            nlp: Language,
+            stdout: IO = sys.stdout,
+            stderr: IO = sys.stderr,
+        ) -> Tuple[Callable, Callable]:
+            def log_step(info: Optional[Dict[str, Any]]):
+                if info:
+                    step = info["step"]
+                    score = info["score"]
+                    metrics = {}
+
+                    for pipe_name in nlp.pipe_names:
+                        loss = info["losses"][pipe_name]
+                        metrics[f"{pipe_name}_loss"] = loss
+                        metrics[f"{pipe_name}_score"] = score
+                    mlflow.log_metrics(metrics, step=step)
+
+            def finalize():
+                uri = mlflow.spacy.log_model(nlp, "mlflow_textcat_example")
+                mlflow.end_run()
+
+            return log_step, finalize
+
+        return setup_logger
+
+
+Check the `spacy-loggers library <https://pypi.org/project/spacy-loggers/>` _ for a more complete implementation.
+
+Point to our mlflow logger in ``Spacy`` configuration file. For this example, we will lower the number of training steps
+and eval frequency:
+
+.. code-block:: diff
+
+      [training.logger]
+    - @loggers = "spacy.ConsoleLogger.v1"
+    - dev = null
+    + @loggers = "mlflow_logger.v1"
+
+      [training]
+    - max_steps = 20000
+    - eval_frequency = 100
+    + max_steps = 100
+    + eval_frequency = 10
+
+Train our model:
+
+.. code-block:: python
+
+    from spacy.cli.train import train as spacy_train
+
+    spacy_train("mlflow-textcat.cfg")
+
+To make predictions, we load the saved model from the last run:
+
+.. code-block:: python
+
+    from mlflow import MlflowClient
+
+    # look up the last run info from mlflow
+    client = MlflowClient()
+    last_run = client.search_runs(experiment_ids=["0"], max_results=1)[0]
+
+    # We need to append the spacy model directory name to the artifact uri
+    spacy_model = mlflow.pyfunc.load_model(
+        f"{last_run.info.artifact_uri}/mlflow_textcat_example"
+    )
+    predictions_in = dev_df.loc[:, ["sentence"]]
+    predictions_out = spacy_model.predict(predictions_in).squeeze().tolist()
+    predicted_labels = [
+        "pos" if row["pos"] > row["neg"] else "neg" for row in predictions_out
+    ]
+    print(dev_df.assign(predicted_sentiment=predicted_labels))
 
 Fastai(``fastai``)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -1165,7 +1836,6 @@ using a ``fastai`` data loader:
 
 
     def main(epochs=5, learning_rate=0.01):
-
         path = untar_data(URLs.ADULT_SAMPLE)
         path.ls()
 
@@ -1296,6 +1966,127 @@ method to load MLflow Models with the ``statsmodels`` model flavor in native sta
 As for now, automatic logging is restricted to parameters, metrics and models generated by a call to `fit`
 on a ``statsmodels`` model.
 
+Statsmodels pyfunc usage
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The following 2 examples illustrate usage of a basic regression model (OLS) and an ARIMA time series model 
+from the following statsmodels apis : statsmodels.formula.api and statsmodels.tsa.api
+
+For a minimal statsmodels regression model, here is an example of the pyfunc predict() method :
+
+.. code-block:: python
+
+    import mlflow
+    import pandas as pd
+    from sklearn.datasets import load_diabetes
+    import statsmodels.formula.api as smf
+
+    # load the diabetes dataset from sklearn
+    diabetes = load_diabetes()
+
+    # create X and y dataframes for the features and target
+    X = pd.DataFrame(data=diabetes.data, columns=diabetes.feature_names)
+    y = pd.DataFrame(data=diabetes.target, columns=["target"])
+
+    # concatenate X and y dataframes
+    df = pd.concat([X, y], axis=1)
+
+    # create the linear regression model (ordinary least squares)
+    model = smf.ols(
+        formula="target ~ age + sex + bmi + bp + s1 + s2 + s3 + s4 + s5 + s6", data=df
+    )
+
+    mlflow.statsmodels.autolog(
+        log_models=True,
+        disable=False,
+        exclusive=False,
+        disable_for_unsupported_versions=False,
+        silent=False,
+        registered_model_name=None,
+    )
+
+    with mlflow.start_run():
+        res = model.fit(method="pinv", use_t=True)
+        model_info = mlflow.statsmodels.log_model(res, artifact_path="OLS_model")
+
+    # load the pyfunc model
+    statsmodels_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # generate predictions
+    predictions = statsmodels_pyfunc.predict(X)
+    print(predictions)
+
+For a minimal time series ARIMA model, here is an example of the pyfunc predict() method :
+
+.. code-block:: python
+
+    import mlflow
+    import numpy as np
+    import pandas as pd
+    from statsmodels.tsa.arima.model import ARIMA
+
+    # create a time series dataset with seasonality
+    np.random.seed(0)
+
+    # generate a time index with a daily frequency
+    dates = pd.date_range(start="2022-12-01", end="2023-12-01", freq="D")
+
+    # generate the seasonal component (weekly)
+    seasonality = np.sin(np.arange(len(dates)) * (2 * np.pi / 365.25) * 7)
+
+    # generate the trend component
+    trend = np.linspace(-5, 5, len(dates)) + 2 * np.sin(
+        np.arange(len(dates)) * (2 * np.pi / 365.25) * 0.1
+    )
+
+    # generate the residual component
+    residuals = np.random.normal(0, 1, len(dates))
+
+    # generate the final time series by adding the components
+    time_series = seasonality + trend + residuals
+
+    # create a dataframe from the time series
+    data = pd.DataFrame({"date": dates, "value": time_series})
+    data.set_index("date", inplace=True)
+
+    order = (1, 0, 0)
+    # create the ARIMA model
+    model = ARIMA(data, order=order)
+
+    mlflow.statsmodels.autolog(
+        log_models=True,
+        disable=False,
+        exclusive=False,
+        disable_for_unsupported_versions=False,
+        silent=False,
+        registered_model_name=None,
+    )
+
+    with mlflow.start_run():
+        res = model.fit()
+        mlflow.log_params(
+            {
+                "order": order,
+                "trend": model.trend,
+                "seasonal_order": model.seasonal_order,
+            }
+        )
+        mlflow.log_params(res.params)
+        mlflow.log_metric("aic", res.aic)
+        mlflow.log_metric("bic", res.bic)
+        model_info = mlflow.statsmodels.log_model(res, artifact_path="ARIMA_model")
+
+    # load the pyfunc model
+    statsmodels_pyfunc = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # prediction dataframes for a TimeSeriesModel must have exactly one row and include columns called start and end
+    start = pd.to_datetime("2024-01-01")
+    end = pd.to_datetime("2024-01-07")
+
+    # generate predictions
+    prediction_data = pd.DataFrame({"start": start, "end": end}, index=[0])
+    predictions = statsmodels_pyfunc.predict(prediction_data)
+    print(predictions)
+
 For more information, see :py:mod:`mlflow.statsmodels`.
 
 Prophet (``prophet``)
@@ -1332,6 +2123,7 @@ ds            y
     from prophet.diagnostics import cross_validation, performance_metrics
 
     import mlflow
+    from mlflow.models import infer_signature
 
     # starts on 2007-12-10, ends on 2016-01-20
     train_df = pd.read_csv(
@@ -1364,7 +2156,15 @@ ds            y
         metrics_results = performance_metrics(cv_results, metrics=cv_metrics)
         average_metrics = metrics_results.loc[:, cv_metrics].mean(axis=0).to_dict()
         mlflow.log_metrics(average_metrics)
-        model_info = mlflow.prophet.log_model(prophet_model, "prophet-model")
+
+        # Calculate model signature
+        train = prophet_model.history
+        predictions = prophet_model.predict(prophet_model.make_future_dataframe(30))
+        signature = infer_signature(train, predictions)
+
+        model_info = mlflow.prophet.log_model(
+            prophet_model, "prophet-model", signature=signature
+        )
 
     # Load saved model
     prophet_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1383,6 +2183,8 @@ Index ds          yhat        yhat_upper  yhat_lower
 ===== ========== =========== ============ ==========
 
 For more information, see :py:mod:`mlflow.prophet`.
+
+.. _pmdarima-flavor:
 
 Pmdarima (``pmdarima``)
 ^^^^^^^^^^^^^^^^^^^^^^^
@@ -1441,7 +2243,6 @@ Example usage of pmdarima artifact loaded as a pyfunc with confidence intervals 
     data = pmdarima.datasets.load_airpassengers()
 
     with mlflow.start_run():
-
         model = pmdarima.auto_arima(data, seasonal=True)
         mlflow.pmdarima.save_model(model, "/tmp/model.pmd")
 
@@ -1468,6 +2269,123 @@ Index  yhat       yhat_lower yhat_upper
     Signature logging for ``pmdarima`` will not function correctly if ``return_conf_int`` is set to ``True`` from
     a non-pyfunc artifact. The output of the native ``ARIMA.predict()`` when returning confidence intervals is not
     a recognized signature type.
+
+OpenAI (``openai``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``openai`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``openi`` model flavor enables logging of `OpenAI models <https://github.com/openai/openai-python>`_ in MLflow format via
+the :py:func:`mlflow.openai.save_model()` and :py:func:`mlflow.openai.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.openai.load_model()` function to load a saved or logged MLflow
+Model with the ``openai`` flavor as a dictionary of the model's attributes.
+
+Example:
+
+.. literalinclude:: ../../examples/openai/pyfunc.py
+    :language: python
+
+
+LangChain (``langchain``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``langchain`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``langchain`` model flavor enables logging of `LangChain models <https://github.com/hwchase17/langchain>`_ in MLflow format via
+the :py:func:`mlflow.langchain.save_model()` and :py:func:`mlflow.langchain.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.langchain.load_model()` function to load a saved or logged MLflow
+Model with the ``langchain`` flavor as a dictionary of the model's attributes.
+
+Example: Log a LangChain LLMChain
+
+.. literalinclude:: ../../examples/langchain/simple_chain.py
+    :language: python
+
+Example: Log a LangChain Agent
+
+.. literalinclude:: ../../examples/langchain/simple_agent.py
+    :language: python
+
+John Snow Labs (``johnsnowlabs``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``johnsnowlabs`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+
+The ``johnsnowlabs`` model flavor gives you access to `20.000+ state-of-the-art enterprise NLP models in 200+ languages
+<https://nlp.johnsnowlabs.com/models>`_ for medical, finance, legal and many more domains.
+
+You can use :py:func:`mlflow.johnsnowlabs.log_model()` to log and export your model as
+:py:class:`mlflow.pyfunc.PyFuncModel`.
+
+This enables you to integrate `any John Snow Labs model <https://nlp.johnsnowlabs.com/models>`_
+into the MLflow framework. You can easily deploy your models for inference with MLflows serve functionalities.
+Models are interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.johnsnowlabs.load_model()` function to load a saved or logged MLflow
+Model with the ``johnsnowlabs`` flavor from an stored artifact.
+
+Features include: LLM's, Text Summarization, Question Answering, Named Entity Recognition, Relation
+Extraction, Sentiment Analysis, Spell Checking, Image Classification, Automatic Speech Recognition and much more,
+powered by the latest Transformer Architectures. The models are provided by `John Snow Labs
+<https://www.johnsnowlabs.com/>`_ and requires a `John Snow Labs <https://www.johnsnowlabs.com/>`_
+Enterprise NLP License. `You can reach out to us <https://www.johnsnowlabs.com/schedule-a-demo/>`_
+for a research or industry license.
+
+Example: Export a John Snow Labs to MLflow format
+
+.. literalinclude:: ../../examples/johnsnowlabs/export.py
+    :language: python
+
+
+To deploy the John Snow Labs model as a container
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+1) Start the Docker Container
+
+.. code-block:: bash
+
+    docker run -p 5001:8080 -e JOHNSNOWLABS_LICENSE_JSON=your_json_string "mlflow-pyfunc"
+
+2. Query server
+
+.. code-block:: bash
+
+    curl http://127.0.0.1:5001/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_split": {
+          "columns": ["text"],
+          "data": [["I hate covid"], ["I love covid"]]
+      }
+    }'
+
+To deploy the John Snow Labs model without a container
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. Export env variable and start server
+
+.. code-block:: bash
+
+    export JOHNSNOWLABS_LICENSE_JSON=your_json_string
+    mlflow models serve -m <model_uri>
+
+2. Query server
+
+.. code-block:: bash
+
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+      "dataframe_split": {
+          "columns": ["text"],
+          "data": [["I hate covid"], ["I love covid"]]
+      }
+    }'
 
 Diviner (``diviner``)
 ^^^^^^^^^^^^^^^^^^^^^
@@ -1663,6 +2581,435 @@ For a ``GroupedPmdarima`` model, an example configuration for the ``pyfunc`` ``p
         * If the model is of type ``GroupedProphet``, ``frequency`` as a string type must be provided.
         * If both ``horizon`` and ``n_periods`` are provided with different values.
 
+Transformers (``transformers``) (Experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. attention::
+    The ``transformers`` flavor is in active development and is marked as Experimental. Public APIs may change and new features are
+    subject to be added as additional functionality is brought to the flavor.
+
+The ``transformers`` model flavor enables logging of
+`transformers models, components, and pipelines <https://huggingface.co/docs/transformers/index>`_ in MLflow format via
+the :py:func:`mlflow.transformers.save_model()` and :py:func:`mlflow.transformers.log_model()` functions. Use of these
+functions also adds the ``python_function`` flavor to the MLflow Models that they produce, allowing the model to be
+interpreted as a generic Python function for inference via :py:func:`mlflow.pyfunc.load_model()`.
+You can also use the :py:func:`mlflow.transformers.load_model()` function to load a saved or logged MLflow
+Model with the ``transformers`` flavor in the native transformers formats.
+
+Input and Output types for PyFunc
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``transformers`` :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` simplifies
+and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
+and batch inference by coercing the data structures that are required for ``transformers`` inference pipelines
+to formats that are compatible with json serialization and casting to Pandas DataFrames.
+
+.. note::
+    Certain `TextGenerationPipeline` types, particularly instructional-based ones, may return the original
+    prompt and included line-formatting carriage returns `"\n"` in their outputs. For these pipeline types,
+    if you would like to disable the prompt return, you can set the following in the `inference_config` dictionary when
+    saving or logging the model: `"include_prompt": False`. To remove the newline characters from within the body
+    of the generated text output, you can add the `"collapse_whitespace": True` option to the `inference_config` dictionary.
+    If the pipeline type being saved does not inherit from `TextGenerationPipeline`, these options will not perform
+    any modification to the output returned from pipeline inference.
+
+.. attention::
+    Not all ``transformers`` pipeline types are supported. See the table below for the list of currently supported Pipeline
+    types that can be loaded as ``pyfunc``.
+
+    In the current version, audio and text-based large language
+    models are supported for use with ``pyfunc``, while computer vision, multi-modal, timeseries,
+    reinforcement learning, and graph models are only supported for native type loading via :py:func:`mlflow.transformers.load_model()`
+
+    Future releases of MLflow will introduce ``pyfunc`` support for these additional types.
+
+The table below shows the mapping of ``transformers`` pipeline types to the :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>`
+data type inputs and outputs.
+
+.. important::
+    The inputs and outputs of the ``pyfunc`` implementation of these pipelines *are not guaranteed to match* the input types and output types that would
+    return from a native use of a given pipeline type. If your use case requires access to scores, top_k results, or other additional references within
+    the output from a pipeline inference call, please use the native implementation by loading via :py:func:`mlflow.transformers.load_model()` to
+    receive the full output.
+
+    Similarly, if your use case requires the use of raw tensor outputs or processing of outputs through an external ``processor`` module, load the
+    model components directly as a ``dict`` by calling :py:func:`mlflow.transformers.load_model()` and specify the ``return_type`` argument as 'components'.
+
+Supported transformers Pipeline types for Pyfunc
+""""""""""""""""""""""""""""""""""""""""""""""""
+
+================================= ============================== ==========================================================================
+Pipeline Type                     Input Type                     Output Type
+================================= ============================== ==========================================================================
+Instructional Text Generation     str or List[str]               List[str]
+Conversational                    str or List[str]               List[str]
+Summarization                     str or List[str]               List[str]
+Text Classification               str or List[str]               pd.DataFrame (dtypes: {'label': str, 'score': double})
+Text Generation                   str or List[str]               List[str]
+Text2Text Generation              str or List[str]               List[str]
+Token Classification              str or List[str]               List[str]
+Translation                       str or List[str]               List[str]
+ZeroShot Classification*          Dict[str, [List[str] | str]*   pd.DataFrame (dtypes: {'sequence': str, 'labels': str, 'scores': double})
+Table Question Answering**        Dict[str, [List[str] | str]**  List[str]
+Question Answering***             Dict[str, str]***              List[str]
+Fill Mask****                     str or List[str]****           List[str]
+Feature Extraction                str or List[str]               np.ndarray
+AutomaticSpeechRecognition        bytes*****, str, or np.ndarray List[str]
+AudioClassification               bytes*****, str, or np.ndarray pd.DataFrame (dtypes: {'label': str, 'score': double})
+================================= ============================== ==========================================================================
+
+\* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
+Check the input requirments for the architecture that you're using to ensure that the correct dictionary key names are provided.
+
+\** A collection of these inputs can also be passed. The reference table must be a json encoded dict (i.e. {'query': 'what did we sell most of?', 'table': json.dumps(table_as_dict)})
+
+\*** A collection of these inputs can also be passed. The standard required key names are 'question' and 'context'. Verify the expected input key names match the
+expected input to the model to ensure your inference request can be read properly.
+
+\**** The mask syntax for the model that you've chosen is going to be specific to that model's implementation. Some are '[MASK]', while others are '<mask>'. Verify the expected syntax to
+avoid failed inference requests.
+
+\***** If using `pyfunc` in MLflow Model Serving for realtime inference, the raw audio in bytes format must be base64 encoded prior to submitting to the endpoint. String inputs will be interpreted as uri locations.
+
+Example of loading a transformers model as a python function
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+In the below example, a simple pre-trained model is used within a pipeline. After logging to MLflow, the pipeline is
+loaded as a ``pyfunc`` and used to generate a response from a passed-in list of strings.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    # Read a pre-trained conversation pipeline from HuggingFace hub
+    conversational_pipeline = transformers.pipeline(model="microsoft/DialoGPT-medium")
+
+    # Define the signature
+    signature = mlflow.models.infer_signature(
+        "Hi there, chatbot!",
+        mlflow.transformers.generate_signature_output(
+            conversational_pipeline, "Hi there, chatbot!"
+        ),
+    )
+
+    # Log the pipeline
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=conversational_pipeline,
+            artifact_path="chatbot",
+            task="conversational",
+            signature=signature,
+            input_example="A clever and witty question",
+        )
+
+    # Load the saved pipeline as pyfunc
+    chatbot = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
+
+    # Ask the chatbot a question
+    response = chatbot.predict("What is machine learning?")
+
+    print(response)
+
+    # >> [It's a new thing that's been around for a while.]
+
+
+Save and Load options for transformers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``transformers`` flavor for MLflow provides support for saving either components of a model or a pipeline object that contains the customized components in
+an easy to use interface that is optimized for inference.
+
+.. note::
+    MLflow by default uses a 500 MB `max_shard_size` to save the model object in :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs. You can use the environment variable `MLFLOW_HUGGINGFACE_MODEL_MAX_SHARD_SIZE` to override the value.
+
+.. note::
+    For component-based logging, the only requirement that must be met in the submitted ``dict`` is that a model is provided. All other elements of the ``dict`` are optional.
+
+Logging a components-based model
+""""""""""""""""""""""""""""""""
+The example below shows logging components of a ``transformers`` model via a dictionary mapping of specific named components. The names of the keys within the submitted dictionary
+must be in the set: ``{"model", "tokenizer", "feature_extractor", "image_processor"}``. Processor type objects (some image processors, audio processors, and multi-modal processors)
+must be saved explicitly with the ``processor`` argument in the :py:func:`mlflow.transformers.save_model()` or :py:func:`mlflow.transformers.log_model()` APIs.
+
+After logging, the components are automatically inserted into the appropriate ``Pipeline`` type for the task being performed and are returned, ready for inference.
+
+.. note::
+    The components that are logged can be retrieved in their original structure (a dictionary) by setting the attribute ``return_type`` to "components" in the ``load_model()`` API.
+
+.. attention::
+    Not all model types are compatible with the pipeline API constructor via component elements. Incompatible models will raise an
+    ``MLflowException`` error stating that the model is missing the `name_or_path` attribute. In
+    the event that this occurs, please construct the model directly via the ``transformers.pipeline(<repo name>)`` API and save the pipeline object directly.
+
+.. code-block:: python
+
+    import mlflow
+    import transformers
+
+    task = "text-classification"
+    architecture = "distilbert-base-uncased-finetuned-sst-2-english"
+    model = transformers.AutoModelForSequenceClassification.from_pretrained(architecture)
+    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
+
+    # Define the components of the model in a dictionary
+    transformers_model = {"model": model, "tokenizer": tokenizer}
+
+    # Log the model components
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=transformers_model,
+            artifact_path="text_classifier",
+            task=task,
+        )
+
+    # Load the components as a pipeline
+    loaded_pipeline = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="pipeline"
+    )
+
+    print(type(loaded_pipeline).__name__)
+    # >> TextClassificationPipeline
+
+    loaded_pipeline(["MLflow is awesome!", "Transformers is a great library!"])
+
+    # >> [{'label': 'POSITIVE', 'score': 0.9998478889465332},
+    # >>  {'label': 'POSITIVE', 'score': 0.9998030066490173}]
+
+
+Saving a pipeline and loading components
+""""""""""""""""""""""""""""""""""""""""
+Some use cases can benefit from the simplicity of defining a solution as a pipeline, but need the component-level access for performing a micro-services based deployment strategy
+where pre / post-processing is performed on containers that do not house the model itself. For this paradigm, a pipeline can be loaded as its constituent parts, as shown below.
+
+.. code-block:: python
+
+    import transformers
+    import mlflow
+
+    translation_pipeline = transformers.pipeline(
+        task="translation_en_to_fr",
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=translation_pipeline,
+            artifact_path="french_translator",
+        )
+
+    translation_components = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="components"
+    )
+
+    for key, value in translation_components.items():
+        print(f"{key} -> {type(value).__name__}")
+
+    # >> task -> str
+    # >> model -> T5ForConditionalGeneration
+    # >> tokenizer -> T5TokenizerFast
+
+    response = translation_pipeline("MLflow is great!")
+
+    print(response)
+
+    # >> [{'translation_text': 'MLflow est formidable!'}]
+
+    reconstructed_pipeline = transformers.pipeline(**translation_components)
+
+    reconstructed_response = reconstructed_pipeline(
+        "transformers makes using Deep Learning models easy and fun!"
+    )
+
+    print(reconstructed_response)
+
+    # >> [{'translation_text': "Les transformateurs rendent l'utilisation de modèles Deep Learning facile et amusante!"}]
+
+
+Automatic Metadata and ModelCard logging
+""""""""""""""""""""""""""""""""""""""""
+In order to provide as much information as possible for saved models, the ``transformers`` flavor will automatically fetch the ``ModelCard`` for any model or pipeline that
+is saved that has a stored card on the HuggingFace hub. This card will be logged as part of the model artifact, viewable at the same directory level as the ``MLmodel`` file and
+the stored model object.
+
+In addition to the ``ModelCard``, the components that comprise any Pipeline (or the individual components if saving a dictionary of named components) will have their source types
+stored. The model type, pipeline type, task, and classes of any supplementary component (such as a ``Tokenizer`` or ``ImageProcessor``) will be stored in the ``MLmodel`` file as well.
+
+Automatic Signature inference
+"""""""""""""""""""""""""""""
+For pipelines that support ``pyfunc``, there are 3 means of attaching a model signature to the ``MLmodel`` file.
+
+* Provide a model signature explicitly via setting a valid ``ModelSignature`` to the ``signature`` attribute. This can be generated via the helper utility :py:func:`mlflow.transformers.generate_signature_output()`
+
+* Provide an ``input_example``. The signature will be inferred and validated that it matches the appropriate input type. The output type will be validated by performing inference automatically (if the model is a ``pyfunc`` supported type).
+
+* Do nothing. The ``transformers`` flavor will automatically apply the appropriate general signature that the pipeline type supports (only for a single-entity; collections will not be inferred).
+
+
+Scalability for inference
+"""""""""""""""""""""""""
+A common configuration for lowering the total memory pressure for pytorch models within ``transformers`` pipelines is to modify the
+processing data type. This is achieved through setting the ``torch_dtype`` argument when creating a ``Pipeline``.
+For a full reference of these tunable arguments for configuration of pipelines, see the `training docs <https://huggingface.co/docs/transformers/v4.28.1/en/perf_train_gpu_one#floating-data-types>`_ .
+
+.. note:: This feature does not exist in versions of ``transformers`` < 4.26.x
+
+In order to apply these configurations to a saved or logged run, there are two options:
+
+* Save a pipeline with the `torch_dtype` argument set to the encoding type of your choice.
+
+Example:
+
+.. code-block:: python
+
+    import transformers
+    import torch
+    import mlflow
+
+    task = "translation_en_to_fr"
+
+    my_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=my_pipeline,
+            artifact_path="my_pipeline",
+        )
+
+    # Illustrate that the torch data type is recorded in the flavor configuration
+    print(model_info.flavors["transformers"])
+
+
+Result:
+
+.. code-block:: bash
+
+    {'transformers_version': '4.28.1',
+     'code': None,
+     'task': 'translation_en_to_fr',
+     'instance_type': 'TranslationPipeline',
+     'source_model_name': 't5-small',
+     'pipeline_model_type': 'T5ForConditionalGeneration',
+     'framework': 'pt',
+     'torch_dtype': 'torch.bfloat16',
+     'tokenizer_type': 'T5TokenizerFast',
+     'components': ['tokenizer'],
+     'pipeline': 'pipeline'}
+
+
+* Specify the `torch_dtype` argument when loading the model to override any values set during logging or saving.
+
+Example:
+
+.. code-block:: python
+
+    import transformers
+    import torch
+    import mlflow
+
+    task = "translation_en_to_fr"
+
+    my_pipeline = transformers.pipeline(
+        task=task,
+        model=transformers.T5ForConditionalGeneration.from_pretrained("t5-small"),
+        tokenizer=transformers.T5TokenizerFast.from_pretrained(
+            "t5-small", model_max_length=100
+        ),
+        framework="pt",
+        torch_dtype=torch.bfloat16,
+    )
+
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            transformers_model=my_pipeline,
+            artifact_path="my_pipeline",
+        )
+
+    loaded_pipeline = mlflow.transformers.load_model(
+        model_info.model_uri, return_type="pipeline", torch_dtype=torch.float64
+    )
+
+    print(loaded_pipeline.torch_dtype)
+
+
+Result:
+
+.. code-block:: bash
+
+    torch.float64
+
+
+.. note:: Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.
+    If you need to override the default behavior of how data is encoded, please save or log a `pipeline` object.
+
+.. note:: Overriding the data type for a pipeline when loading as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` is not supported.
+    The value set for ``torch_dtype`` during ``save_model()`` or ``log_model()`` will persist when loading as `pyfunc`.
+
+Input data types for audio pipelines
+""""""""""""""""""""""""""""""""""""
+Note that passing raw data to an audio pipeline (raw bytes) requires two separate elements of the same effective library.
+In order to use the bitrate transposition and conversion of the audio bytes data into numpy nd.array format, the library `ffmpeg` is required.
+Installing this package directly from pypi (`pip install ffmpeg`) does not install the underlying `c` dll's that are required to make `ffmpeg` function.
+Please consult with the documentation at `the ffmpeg website <https://ffmpeg.org/download.html>`_ for guidance on your given operating system.
+
+The Audio Pipeline types, when loaded as a :ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` have three input types available:
+
+* ``str``
+
+The string input type is meant for blob references (uri locations) that are accessible to the instance of the ``pyfunc`` model.
+This input mode is useful when doing large batch processing of audio inference in Spark due to the inherent limitations of handling large ``bytes``
+data in ``Spark`` ``DataFrames``. Ensure that you have ``ffmpeg`` installed in the environment that the ``pyfunc`` model is running in order
+to use ``str`` input uri-based inference. If this package is not properly installed (both from ``pypi`` and from the ``ffmpeg`` binaries), an Exception
+will be thrown at inference time.
+
+.. warning:: If using a uri (`str`) as an input type for a `pyfunc` model that you are intending to host for realtime inference through the `MLflow Model Server`,
+    you *must* specify a custom model signature when logging or saving the model.
+    The default signature input value type of ``bytes`` will, in `MLflow Model serving`, force the conversion of the uri string to ``bytes``, which will cause an Exception
+    to be thrown from the serving process stating that the soundfile is corrupt.
+
+An example of specifying an appropriate uri-based input model signature for an audio model is shown below:
+
+.. code-block:: python
+
+    from mlflow.models import infer_signature
+    from mlflow.transformers import generate_signature_output
+
+    url = "https://www.mywebsite.com/sound/files/for/transcription/file111.mp3"
+    signature = infer_signature(url, generate_signature_output(my_audio_pipeline, url))
+    with mlflow.start_run():
+        mlflow.transformers.log_model(
+            transformers_model=my_audio_pipeline,
+            artifact_path="my_transcriber",
+            signature=signature,
+        )
+
+
+* ``bytes``
+
+This is the default serialization format of audio files. It is the easiest format to utilize due to the fact that
+Pipeline implementations will automatically convert the audio bitrate from the file with the use of ``ffmpeg`` (a required dependency if using this format) to the bitrate required by the underlying model within the `Pipeline`.
+When using the ``pyfunc`` representation of the pipeline directly (not through serving), the sound file can be passed directly as ``bytes`` without any
+modification. When used through serving, the ``bytes`` data *must be* base64 encoded.
+
+* ``np.ndarray``
+
+This input format requires that both the bitrate has been set prior to conversion to ``numpy.ndarray`` (i.e., through the use of a package like
+``librosa`` or ``pydub``) and that the model has been saved with a signature that uses the ``np.ndarray`` format for the input.
+
+.. note:: Audio models being used for serving that intend to utilize pre-formatted audio in ``np.ndarray`` format
+    must have the model saved with a signature configuration that reflects this schema. Failure to do so will result in type casting errors due to the default signature for
+    audio transformers pipelines being set as expecting ``binary`` (``bytes``) data. The serving endpoint cannot accept a union of types, so a particular model instance must choose one
+    or the other as an allowed input type.
+
+
 .. _model-evaluation:
 
 Model Evaluation
@@ -1670,8 +3017,8 @@ Model Evaluation
 After building and training your MLflow Model, you can use the :py:func:`mlflow.evaluate()` API to
 evaluate its performance on one or more datasets of your choosing. :py:func:`mlflow.evaluate()`
 currently supports evaluation of MLflow Models with the
-:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification and regression
-tasks, computing a variety of task-specific performance metrics, model performance plots, and
+:ref:`python_function (pyfunc) model flavor <pyfunc-model-flavor>` for classification, regression, and numerous language modeling tasks (see :ref:`model-evaluation-llms`), computing a variety of
+task-specific performance metrics, model performance plots, and
 model explanations. Evaluation results are logged to :ref:`MLflow Tracking <tracking>`.
 
 The following `example from the MLflow GitHub Repository
@@ -1686,6 +3033,7 @@ and behavior:
     import xgboost
     import shap
     import mlflow
+    from mlflow.models import infer_signature
     from sklearn.model_selection import train_test_split
 
     # Load the UCI Adult Dataset
@@ -1699,13 +3047,16 @@ and behavior:
     # Fit an XGBoost binary classifier on the training data split
     model = xgboost.XGBClassifier().fit(X_train, y_train)
 
+    # Create a model signature
+    signature = infer_signature(X_test, model.predict(X_test))
+
     # Build the Evaluation Dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
 
     with mlflow.start_run() as run:
         # Log the baseline model to MLflow
-        mlflow.sklearn.log_model(model, "model")
+        mlflow.sklearn.log_model(model, "model", signature=signature)
         model_uri = mlflow.get_artifact_uri("model")
 
         # Evaluate the logged model
@@ -1725,6 +3076,80 @@ and behavior:
 .. |eval_importance_img| image:: _static/images/model_evaluation_feature_importance.png
    :width: 84%
 
+.. _model-evaluation-llms:
+
+Evaluating with LLMs
+^^^^^^^^^^^^^^^^^^^^
+As of MLflow 2.4.0, :py:func:`mlflow.evaluate()` has built-in support for a variety of tasks with
+LLMs, including text summarization, text classification, question answering, and text generation.
+The following example uses :py:func:`mlflow.evaluate()` to evaluate a model that answers
+questions about MLflow (note that you must have the ``OPENAI_API_TOKEN`` environment variable set
+in your current system environment in order to run the example):
+
+.. code-block:: python
+
+    import os
+    import pandas as pd
+
+    import mlflow
+    import openai
+
+    # Create a question answering model using prompt engineering with OpenAI. Log the
+    # prompt and the model to MLflow Tracking
+    mlflow.start_run()
+    system_prompt = (
+        "Your job is to answer questions about MLflow. When you are asked a question about MLflow,"
+        " respond to it. Make sure to include code examples. If the question is not related to"
+        " MLflow, refuse to answer and say that the question is unrelated."
+    )
+    mlflow.log_param("system_prompt", system_prompt)
+    logged_model = mlflow.openai.log_model(
+        model="gpt-3.5-turbo",
+        task=openai.ChatCompletion,
+        artifact_path="model",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": "{question}"},
+        ],
+    )
+
+    # Evaluate the model on some example questions
+    questions = pd.DataFrame(
+        {
+            "question": [
+                "How do you create a run with MLflow?",
+                "How do you log a model with MLflow?",
+                "What is the capital of France?",
+            ]
+        }
+    )
+    mlflow.evaluate(
+        model=logged_model.model_uri,
+        model_type="question-answering",
+        data=questions,
+    )
+
+    # Load and inspect the evaluation results
+    results: pd.DataFrame = mlflow.load_table(
+        "eval_results_table.json", extra_columns=["run_id", "params.system_prompt"]
+    )
+    print("Evaluation results:")
+    print(results)
+
+
+MLflow also provides an Artifact View UI for comparing inputs and outputs across multiple models
+built with LLMs. For example, after evaluating multiple prompts for question answering
+(see the
+`MLflow OpenAI question answering full example <https://github.com/mlflow/mlflow/tree/master/examples/llms/openai>`_), you can navigate to the Artifact View to view the questions and compare the answers for
+each model:
+
+.. image:: _static/images/artifact-view-ui.png
+
+|
+|
+
+For additional examples demonstrating the use of ``mlflow.evaluate()`` with LLMs, check out the
+`MLflow LLMs example repository <https://github.com/mlflow/mlflow/tree/master/examples/llms>`_.
 
 Evaluating with Custom Metrics
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1762,6 +3187,7 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     from sklearn.model_selection import train_test_split
     from sklearn.dummy import DummyClassifier
     import mlflow
+    from mlflow.models import infer_signature
     from mlflow.models import MetricThreshold
 
     # load UCI Adult Data Set; segment it into training and test sets
@@ -1776,6 +3202,9 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
     # train a baseline dummy model
     baseline_model = DummyClassifier(strategy="uniform").fit(X_train, y_train)
 
+    # create signature that is shared by the two models
+    signature = infer_signature(X_test, y_test)
+
     # construct an evaluation dataset from the test set
     eval_data = X_test
     eval_data["label"] = y_test
@@ -1786,16 +3215,16 @@ will throw a ``ModelValidationFailedException`` detailing the validation failure
             threshold=0.8,  # accuracy should be >=0.8
             min_absolute_change=0.05,  # accuracy should be at least 0.05 greater than baseline model accuracy
             min_relative_change=0.05,  # accuracy should be at least 5 percent greater than baseline model accuracy
-            higher_is_better=True,
+            greater_is_better=True,
         ),
     }
 
     with mlflow.start_run() as run:
         candidate_model_uri = mlflow.sklearn.log_model(
-            candidate_model, "candidate_model"
+            candidate_model, "candidate_model", signature=signature
         ).model_uri
         baseline_model_uri = mlflow.sklearn.log_model(
-            baseline_model, "baseline_model"
+            baseline_model, "baseline_model", signature=signature
         ).model_uri
 
         mlflow.evaluate(
@@ -1822,7 +3251,7 @@ been logged: 'baseline_model' and 'candidate_model' for comparison purposes in t
 
 .. note:: Limitations (when the default evaluator is used):
 
-    - Model validation results are not included in the active MLflow run.
+    - Model validation results are not included in the active MLflow run. See `below <models.html#model-validation-with-trubrics>`_ to see how to log validation results with Trubrics.
     - No metrics are logged nor artifacts produced for the baseline model in the active MLflow run.
 
 Additional information about model evaluation behaviors and outputs is available in the
@@ -1850,6 +3279,19 @@ Additional information about model evaluation behaviors and outputs is available
 
     For simplicity purposes, both methodologies evaluation metric results (whether for multi-class
     or binary classification) are unified in the single metric: ``precision_recall_auc``.
+
+Model Validation with Trubrics' plugin
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+To extend the validation capabilities of MLflow, a plugin has been built by `Trubrics <https://github.com/trubrics/trubrics-sdk>`_ allowing users:
+
+    - to use a large number of out-of-the-box validations
+    - to validate a run with any custom python functions
+    - to view all validation results in a .json file, for diagnosis of why an MLflow run could have failed
+
+See the `plugin example notebook <https://github.com/trubrics/trubrics-sdk/blob/main/examples/mlflow/mlflow-trubrics.ipynb>`_ for a demo.
+
+For more information on the plugin, see the `trubrics-mlflow docs <https://trubrics.github.io/trubrics-sdk/mlflow/>`_.
 
 Model Customization
 -------------------
@@ -1894,6 +3336,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
 .. code-block:: python
 
     import mlflow.pyfunc
+
 
     # Define the model class
     class AddN(mlflow.pyfunc.PythonModel):
@@ -1982,7 +3425,7 @@ evaluate test data.
             "pip",
             {
                 "pip": [
-                    "mlflow",
+                    "mlflow=={}".format(mlflow.__version__),
                     "xgboost=={}".format(xgb.__version__),
                     "cloudpickle=={}".format(cloudpickle.__version__),
                 ],
@@ -2023,20 +3466,615 @@ a YAML-formatted collection of flavor-specific attributes.
 
 To create a new flavor to support a custom model, you define the set of flavor-specific attributes
 to include in the ``MLmodel`` configuration file, as well as the code that can interpret the
-contents of the model directory and the flavor's attributes.
+contents of the model directory and the flavor's attributes. A detailed example of constructing a
+custom model flavor and its usage is shown below. New custom flavors not considered for official
+inclusion into MLflow should be introduced as separate GitHub repositories with documentation
+provided in the
+`Community Model Flavors <community-model-flavors.html>`_
+page.
 
-As an example, let's examine the :py:mod:`mlflow.pytorch` module corresponding to MLflow's
-``pytorch`` flavor. In the :py:func:`mlflow.pytorch.save_model()` method, a PyTorch model is saved
-to a specified output directory. Additionally, :py:func:`mlflow.pytorch.save_model()` leverages the
-:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` functions to
-produce an ``MLmodel`` configuration containing the ``pytorch`` flavor. The resulting configuration
-has several flavor-specific attributes, such as ``pytorch_version``, which denotes the version of the
-PyTorch library that was used to train the model. To interpret model directories produced by
-:py:func:`save_model() <mlflow.pytorch.save_model>`, the :py:mod:`mlflow.pytorch` module also
-defines a :py:mod:`load_model() <mlflow.pytorch.load_model>` method.
-:py:mod:`mlflow.pytorch.load_model()` reads the ``MLmodel`` configuration from a specified
-model directory and uses the configuration attributes of the ``pytorch`` flavor to load
-and return a PyTorch model from its serialized representation.
+Example: Creating a custom "sktime" flavor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example illustrates the creation of a custom flavor for
+`sktime <https://github.com/sktime/sktime>`_ time series library. The library provides a unified
+interface for multiple learning  tasks including time series forecasting. While the custom flavor in
+this example is specific in terms of the ``sktime`` inference API and model serialization format,
+its interface design is similar to many of the existing built-in flavors. Particularly, the
+interface for utilizing the custom model loaded as a ``python_function`` flavor for generating
+predictions uses a *single-row* ``Pandas DataFrame`` configuration argument to expose the paramters
+of the ``sktime`` inference API. The complete code for this example is included in the
+`flavor.py <https://github.com/mlflow/mlflow/tree/master/examples/sktime/flavor.py>`_ module of the
+``sktime`` example directory.
+
+Let's examine the custom flavor module in more detail. The first step is to import several modules
+inluding ``sktime`` library, various MLflow utilities as well as the MLflow ``pyfunc`` module which
+is required to add the ``pyfunc`` specification to the MLflow model configuration. Note also the
+import of the ``flavor`` module itself. This will be passed to the
+:py:func:`mlflow.models.Model.log()` method to log the model as an artifact to the current Mlflow
+run.
+
+.. code-block:: python
+
+    import logging
+    import os
+    import pickle
+
+    import flavor
+    import mlflow
+    import numpy as np
+    import pandas as pd
+    import sktime
+    import yaml
+    from mlflow import pyfunc
+    from mlflow.exceptions import MlflowException
+    from mlflow.models import Model
+    from mlflow.models.model import MLMODEL_FILE_NAME
+    from mlflow.models.utils import _save_example
+    from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+    from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
+    from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+    from mlflow.utils.environment import (
+        _CONDA_ENV_FILE_NAME,
+        _CONSTRAINTS_FILE_NAME,
+        _PYTHON_ENV_FILE_NAME,
+        _REQUIREMENTS_FILE_NAME,
+        _mlflow_conda_env,
+        _process_conda_env,
+        _process_pip_requirements,
+        _PythonEnv,
+        _validate_env_arguments,
+    )
+    from mlflow.utils.file_utils import write_to
+    from mlflow.utils.model_utils import (
+        _add_code_from_conf_to_system_path,
+        _get_flavor_configuration,
+        _validate_and_copy_code_paths,
+        _validate_and_prepare_target_save_path,
+    )
+    from mlflow.utils.requirements_utils import _get_pinned_requirement
+    from sktime.utils.multiindex import flatten_multiindex
+
+    _logger = logging.getLogger(__name__)
+
+We continue by defining a set of important variables used throughout the code that follows.
+
+The flavor name needs to be provided for every custom flavor and should reflect the name of the
+library to be supported. It is saved as part of the flavor-specific attributes to the ``MLmodel``
+configuration file. This example also defines some ``sktime`` specific variables. For illustration
+purposes, only a subset of the available predict methods to be exposed via the
+``_SktimeModelWrapper`` class is included when loading the model in its ``python_function`` flavor
+(additional methods could be added in a similar fashion). Additionaly, the model serialization
+formats, namely ``pickle`` (default) and ``cloudpickle``, are defined. Note that both serialization
+modules require using the same python environment (version) in whatever environment this model is
+used for inference to ensure that the model will load with the appropriate version of
+pickle (cloudpickle).
+
+.. code-block:: python
+
+    FLAVOR_NAME = "sktime"
+
+    SKTIME_PREDICT = "predict"
+    SKTIME_PREDICT_INTERVAL = "predict_interval"
+    SKTIME_PREDICT_QUANTILES = "predict_quantiles"
+    SKTIME_PREDICT_VAR = "predict_var"
+    SUPPORTED_SKTIME_PREDICT_METHODS = [
+        SKTIME_PREDICT,
+        SKTIME_PREDICT_INTERVAL,
+        SKTIME_PREDICT_QUANTILES,
+        SKTIME_PREDICT_VAR,
+    ]
+
+    SERIALIZATION_FORMAT_PICKLE = "pickle"
+    SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
+    SUPPORTED_SERIALIZATION_FORMATS = [
+        SERIALIZATION_FORMAT_PICKLE,
+        SERIALIZATION_FORMAT_CLOUDPICKLE,
+    ]
+
+Similar to the MLflow built-in flavors, a custom flavor logs the model in MLflow format via the
+``save_model()`` and ``log_model()`` functions. In the ``save_model()`` function, the ``sktime``
+model is saved to a specified output directory. Additionally, ``save_model()`` leverages the
+:py:func:`mlflow.models.Model.add_flavor()` and :py:func:`mlflow.models.Model.save()` methods to
+produce the ``MLmodel`` configuration containing the ``sktime`` and the ``python_function`` flavor.
+The resulting configuration has several flavor-specific attributes, such as the flavor name and
+``sktime_version``, which denotes the version of the ``sktime`` library that was used to train the
+model. An example of the output directoy for the custom ``sktime`` model is shown below:
+
+::
+
+    # Directory written by flavor.save_model(model, "my_model")
+    my_model/
+    ├── MLmodel
+    ├── conda.yaml
+    ├── model.pkl
+    ├── python_env.yaml
+    └── requirements.txt
+
+And its YAML-formatted ``MLmodel`` file describes the two flavors:
+
+.. code-block:: yaml
+
+    flavors:
+      python_function:
+        env:
+          conda: conda.yaml
+          virtualenv: python_env.yaml
+        loader_module: flavor
+        model_path: model.pkl
+        python_version: 3.8.15
+      sktime:
+        code: null
+        pickled_model: model.pkl
+        serialization_format: pickle
+        sktime_version: 0.16.0
+
+The ``save_model()`` function also provides flexibility to add additional paramters which can be
+added as flavor-specific attributes to the model configuration. In this example there is only one
+flavor-specific parameter for specifying the model serialization format. All other paramters are
+non-flavor specific (for a detailed description of these parameters take a look at
+`mlflow.sklearn.save_model <https://mlflow.org/docs/latest/python_api/mlflow.sklearn.html#mlflow.sklearn.save_model>`_).
+Note: When creating your own custom flavor, be sure rename the ``sktime_model`` parameter in both the
+``save_model()`` and ``log_model()`` functions to reflect the name of your custom model flavor.
+
+.. code-block:: python
+
+    def save_model(
+        sktime_model,
+        path,
+        conda_env=None,
+        code_paths=None,
+        mlflow_model=None,
+        signature=None,
+        input_example=None,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        serialization_format=SERIALIZATION_FORMAT_PICKLE,
+    ):
+        _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
+
+        if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
+            raise MlflowException(
+                message=(
+                    f"Unrecognized serialization format: {serialization_format}. "
+                    "Please specify one of the following supported formats: "
+                    "{SUPPORTED_SERIALIZATION_FORMATS}."
+                ),
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        _validate_and_prepare_target_save_path(path)
+        code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
+
+        if mlflow_model is None:
+            mlflow_model = Model()
+        if signature is not None:
+            mlflow_model.signature = signature
+        if input_example is not None:
+            _save_example(mlflow_model, input_example, path)
+
+        model_data_subpath = "model.pkl"
+        model_data_path = os.path.join(path, model_data_subpath)
+        _save_model(
+            sktime_model, model_data_path, serialization_format=serialization_format
+        )
+
+        pyfunc.add_to_model(
+            mlflow_model,
+            loader_module="flavor",
+            model_path=model_data_subpath,
+            conda_env=_CONDA_ENV_FILE_NAME,
+            python_env=_PYTHON_ENV_FILE_NAME,
+            code=code_dir_subpath,
+        )
+
+        mlflow_model.add_flavor(
+            FLAVOR_NAME,
+            pickled_model=model_data_subpath,
+            sktime_version=sktime.__version__,
+            serialization_format=serialization_format,
+            code=code_dir_subpath,
+        )
+        mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
+        if conda_env is None:
+            if pip_requirements is None:
+                include_cloudpickle = (
+                    serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+                )
+                default_reqs = get_default_pip_requirements(include_cloudpickle)
+                inferred_reqs = mlflow.models.infer_pip_requirements(
+                    path, FLAVOR_NAME, fallback=default_reqs
+                )
+                default_reqs = sorted(set(inferred_reqs).union(default_reqs))
+            else:
+                default_reqs = None
+            conda_env, pip_requirements, pip_constraints = _process_pip_requirements(
+                default_reqs, pip_requirements, extra_pip_requirements
+            )
+        else:
+            conda_env, pip_requirements, pip_constraints = _process_conda_env(conda_env)
+
+        with open(os.path.join(path, _CONDA_ENV_FILE_NAME), "w") as f:
+            yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
+
+        if pip_constraints:
+            write_to(os.path.join(path, _CONSTRAINTS_FILE_NAME), "\n".join(pip_constraints))
+
+        write_to(os.path.join(path, _REQUIREMENTS_FILE_NAME), "\n".join(pip_requirements))
+
+        _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
+
+
+    def _save_model(model, path, serialization_format):
+        with open(path, "wb") as out:
+            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+                pickle.dump(model, out)
+            else:
+                import cloudpickle
+
+                cloudpickle.dump(model, out)
+
+The ``save_model()`` function also writes the model dependencies to a ``requirements.txt`` and
+``conda.yaml`` file in the model output directory. For this purpose the set of ``pip`` dependecies
+produced by this flavor need to be added to the ``get_default_pip_requirements()`` function. In this
+example only the minimum required dependencies are provided. In practice, additional requirements needed for
+preprocessing or post-processing steps could be included. Note that for any custom flavor, the
+:py:func:`mlflow.models.infer_pip_requirements()` method in the ``save_model()`` function will
+return the default requirements defined in ``get_default_pip_requirements()`` as package imports are
+only inferred for built-in flavors.
+
+.. code-block:: python
+
+    def get_default_pip_requirements(include_cloudpickle=False):
+        pip_deps = [_get_pinned_requirement("sktime")]
+        if include_cloudpickle:
+            pip_deps += [_get_pinned_requirement("cloudpickle")]
+
+        return pip_deps
+
+
+    def get_default_conda_env(include_cloudpickle=False):
+        return _mlflow_conda_env(
+            additional_pip_deps=get_default_pip_requirements(include_cloudpickle)
+        )
+
+Next, we add the ``log_model()`` function. This function is little more than a wrapper around the
+:py:func:`mlflow.models.Model.log()` method to enable loggig our custom model as an artifact to the
+curren MLflow run. Any flavor-specific parameters (e.g. ``serialization_format``) introduced in the
+``save_model()`` function also need to be added in the ``log_model()`` function. We also need to
+pass the ``flavor`` module to the :py:func:`mlflow.models.Model.log()` method which internally calls
+the ``save_model()`` function from above to persist the model.
+
+.. code-block:: python
+
+    def log_model(
+        sktime_model,
+        artifact_path,
+        conda_env=None,
+        code_paths=None,
+        registered_model_name=None,
+        signature=None,
+        input_example=None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        pip_requirements=None,
+        extra_pip_requirements=None,
+        serialization_format=SERIALIZATION_FORMAT_PICKLE,
+        **kwargs,
+    ):
+        return Model.log(
+            artifact_path=artifact_path,
+            flavor=flavor,
+            registered_model_name=registered_model_name,
+            sktime_model=sktime_model,
+            conda_env=conda_env,
+            code_paths=code_paths,
+            signature=signature,
+            input_example=input_example,
+            await_registration_for=await_registration_for,
+            pip_requirements=pip_requirements,
+            extra_pip_requirements=extra_pip_requirements,
+            serialization_format=serialization_format,
+            **kwargs,
+        )
+
+To interpret model directories produced by ``save_model()``, the custom flavor must also define a
+``load_model()`` function. The ``load_model()`` function reads the ``MLmodel`` configuration from 
+the specified model directory and uses the configuration attributes to load and return the
+``sktime`` model from its serialized representation.
+
+.. code-block:: python
+
+    def load_model(model_uri, dst_path=None):
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=model_uri, output_path=dst_path
+        )
+        flavor_conf = _get_flavor_configuration(
+            model_path=local_model_path, flavor_name=FLAVOR_NAME
+        )
+        _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
+        sktime_model_file_path = os.path.join(
+            local_model_path, flavor_conf["pickled_model"]
+        )
+        serialization_format = flavor_conf.get(
+            "serialization_format", SERIALIZATION_FORMAT_PICKLE
+        )
+        return _load_model(
+            path=sktime_model_file_path, serialization_format=serialization_format
+        )
+
+
+    def _load_model(path, serialization_format):
+        with open(path, "rb") as pickled_model:
+            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+                return pickle.load(pickled_model)
+            elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+                import cloudpickle
+
+                return cloudpickle.load(pickled_model)
+
+The ``_load_pyfunc()`` function will be called by the :py:func:`mlflow.pyfunc.load_model()` method
+to load the custom model flavor as a ``pyfunc`` type. The MLmodel flavor configuration is used to
+pass any flavor-specific attributes to the ``_load_model()`` function (i.e., the path to the
+``python_function`` flavor in the model directory and the model serialization format).
+
+.. code-block:: python
+
+    def _load_pyfunc(path):
+        try:
+            sktime_flavor_conf = _get_flavor_configuration(
+                model_path=path, flavor_name=FLAVOR_NAME
+            )
+            serialization_format = sktime_flavor_conf.get(
+                "serialization_format", SERIALIZATION_FORMAT_PICKLE
+            )
+        except MlflowException:
+            _logger.warning(
+                "Could not find sktime flavor configuration during model "
+                "loading process. Assuming 'pickle' serialization format."
+            )
+            serialization_format = SERIALIZATION_FORMAT_PICKLE
+
+        pyfunc_flavor_conf = _get_flavor_configuration(
+            model_path=path, flavor_name=pyfunc.FLAVOR_NAME
+        )
+        path = os.path.join(path, pyfunc_flavor_conf["model_path"])
+
+        return _SktimeModelWrapper(
+            _load_model(path, serialization_format=serialization_format)
+        )
+
+The final step is to create the model wrapper class defining the ``python_function`` flavor. The
+design of the wrapper class determines how the flavor's inference API is exposed when making
+predictions using the ``python_function`` flavor. Just like the built-in flavors, the ``predict()``
+method of the ``sktime`` wrapper class accepts a *single-row* ``Pandas DataFrame`` configuration
+argument. For an example of how to construct this configuration DataFrame refer to the usage example
+in the next section. A detailed description of the supported paramaters and input formats is
+provided in the
+`flavor.py <https://github.com/mlflow/mlflow/tree/master/examples/sktime/flavor.py>`_ module
+docstrings.
+
+.. code-block:: python
+
+    class _SktimeModelWrapper:
+        def __init__(self, sktime_model):
+            self.sktime_model = sktime_model
+
+        def predict(self, dataframe) -> pd.DataFrame:
+            df_schema = dataframe.columns.values.tolist()
+
+            if len(dataframe) > 1:
+                raise MlflowException(
+                    f"The provided prediction pd.DataFrame contains {len(dataframe)} rows. "
+                    "Only 1 row should be supplied.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Convert the configuration dataframe into a dictionary to simplify the
+            # extraction of parameters passed to the sktime predcition methods.
+            attrs = dataframe.to_dict(orient="index").get(0)
+            predict_method = attrs.get("predict_method")
+
+            if not predict_method:
+                raise MlflowException(
+                    f"The provided prediction configuration pd.DataFrame columns ({df_schema}) do not "
+                    "contain the required column `predict_method` for specifying the prediction method.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            if predict_method not in SUPPORTED_SKTIME_PREDICT_METHODS:
+                raise MlflowException(
+                    "Invalid `predict_method` value."
+                    f"The supported prediction methods are {SUPPORTED_SKTIME_PREDICT_METHODS}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # For inference parameters 'fh', 'X', 'coverage', 'alpha', and 'cov'
+            # the respective sktime default value is used if the value was not
+            # provided in the configuration dataframe.
+            fh = attrs.get("fh", None)
+
+            # Any model that is trained with exogenous regressor elements will need
+            # to provide `X` entries as a numpy ndarray to the predict method.
+            X = attrs.get("X", None)
+
+            # When the model is served via REST API the exogenous regressor must be
+            # provided as a list to the configuration DataFrame to be JSON serializable.
+            # Below we convert the list back to ndarray type as required by sktime
+            # predict methods.
+            if isinstance(X, list):
+                X = np.array(X)
+
+            # For illustration purposes only a subset of the available sktime prediction
+            # methods is exposed. Additional methods (e.g. predict_proba) could be added
+            # in a similar fashion.
+            if predict_method == SKTIME_PREDICT:
+                predictions = self.sktime_model.predict(fh=fh, X=X)
+
+            if predict_method == SKTIME_PREDICT_INTERVAL:
+                coverage = attrs.get("coverage", 0.9)
+                predictions = self.sktime_model.predict_interval(
+                    fh=fh, X=X, coverage=coverage
+                )
+
+            if predict_method == SKTIME_PREDICT_QUANTILES:
+                alpha = attrs.get("alpha", None)
+                predictions = self.sktime_model.predict_quantiles(fh=fh, X=X, alpha=alpha)
+
+            if predict_method == SKTIME_PREDICT_VAR:
+                cov = attrs.get("cov", False)
+                predictions = self.sktime_model.predict_var(fh=fh, X=X, cov=cov)
+
+            # Methods predict_interval() and predict_quantiles() return a pandas
+            # MultiIndex column structure. As MLflow signature inference does not
+            # support MultiIndex column structure the columns must be flattened.
+            if predict_method in [SKTIME_PREDICT_INTERVAL, SKTIME_PREDICT_QUANTILES]:
+                predictions.columns = flatten_multiindex(predictions)
+
+            return predictions
+
+Example: Using the custom "sktime" flavor
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This example trains a ``sktime`` NaiveForecaster model using the Longley dataset for forecasting
+with exogenous variables. It shows a custom model type implementation that logs the training
+hyper-parameters, evaluation metrics and the trained model as an artifact. The *single-row*
+configuration DataFrame for this example defines an interval forecast with nominal coverage values
+``[0.9,0.95]``, a future forecast horizon of four periods, and an exogenous regressor.
+
+.. code-block:: python
+
+    import json
+
+    import flavor
+    import pandas as pd
+    from sktime.datasets import load_longley
+    from sktime.forecasting.model_selection import temporal_train_test_split
+    from sktime.forecasting.naive import NaiveForecaster
+    from sktime.performance_metrics.forecasting import (
+        mean_absolute_error,
+        mean_absolute_percentage_error,
+    )
+
+    import mlflow
+
+    ARTIFACT_PATH = "model"
+
+    with mlflow.start_run() as run:
+        y, X = load_longley()
+        y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
+
+        forecaster = NaiveForecaster()
+        forecaster.fit(
+            y_train,
+            X=X_train,
+        )
+
+        # Extract parameters
+        parameters = forecaster.get_params()
+
+        # Evaluate model
+        y_pred = forecaster.predict(fh=[1, 2, 3, 4], X=X_test)
+        metrics = {
+            "mae": mean_absolute_error(y_test, y_pred),
+            "mape": mean_absolute_percentage_error(y_test, y_pred),
+        }
+
+        print(f"Parameters: \n{json.dumps(parameters, indent=2)}")
+        print(f"Metrics: \n{json.dumps(metrics, indent=2)}")
+
+        # Log parameters and metrics
+        mlflow.log_params(parameters)
+        mlflow.log_metrics(metrics)
+
+        # Log model using custom model flavor with pickle serialization (default).
+        flavor.log_model(
+            sktime_model=forecaster,
+            artifact_path=ARTIFACT_PATH,
+            serialization_format="pickle",
+        )
+        model_uri = mlflow.get_artifact_uri(ARTIFACT_PATH)
+
+    # Load model in native sktime flavor and pyfunc flavor
+    loaded_model = flavor.load_model(model_uri=model_uri)
+    loaded_pyfunc = flavor.pyfunc.load_model(model_uri=model_uri)
+
+    # Convert test data to 2D numpy array so it can be passed to pyfunc predict using
+    # a single-row Pandas DataFrame configuration argument
+    X_test_array = X_test.to_numpy()
+
+    # Create configuration DataFrame
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": [1, 2, 3, 4],
+                "predict_method": "predict_interval",
+                "coverage": [0.9, 0.95],
+                "X": X_test_array,
+            }
+        ]
+    )
+
+    # Generate interval forecasts with native sktime flavor and pyfunc flavor
+    print(
+        f"\nNative sktime 'predict_interval':\n${loaded_model.predict_interval(fh=[1, 2, 3], X=X_test, coverage=[0.9, 0.95])}"
+    )
+    print(f"\nPyfunc 'predict_interval':\n${loaded_pyfunc.predict(predict_conf)}")
+
+    # Print the run id wich is used for serving the model to a local REST API endpoint
+    print(f"\nMLflow run id:\n{run.info.run_id}")
+
+When opening the MLflow runs detail page the serialized model artifact  will show up, such as:
+
+   .. figure:: _static/images/tracking_artifact_ui_custom_flavor.png
+
+To serve the model to a local REST API endpoint run the following MLflow CLI command substituting
+the run id printed during execution of the previous block (for more details refer to the
+`Deploy MLflow models <https://mlflow.org/docs/latest/models.html#deploy-mlflow-models>`_ section):
+
+.. code-block:: bash
+
+    mlflow models serve -m runs:/<run_id>/model --env-manager local --host 127.0.0.1
+
+An example of requesting a prediction from the served model is shown below. The exogenous regressor
+needs to be provided as a list to be JSON serializable. The wrapper instance will convert the list
+back to ``numpy ndarray`` type as required by ``sktime`` inference API.
+
+.. code-block:: python
+
+    import pandas as pd
+    import requests
+
+    from sktime.datasets import load_longley
+    from sktime.forecasting.model_selection import temporal_train_test_split
+
+    y, X = load_longley()
+    y_train, y_test, X_train, X_test = temporal_train_test_split(y, X)
+
+    # Define local host and endpoint url
+    host = "127.0.0.1"
+    url = f"http://{host}:5000/invocations"
+
+    # Create configuration DataFrame
+    X_test_list = X_test.to_numpy().tolist()
+    predict_conf = pd.DataFrame(
+        [
+            {
+                "fh": [1, 2, 3, 4],
+                "predict_method": "predict_interval",
+                "coverage": [0.9, 0.95],
+                "X": X_test_list,
+            }
+        ]
+    )
+
+    # Create dictionary with pandas DataFrame in the split orientation
+    json_data = {"dataframe_split": predict_conf.to_dict(orient="split")}
+
+    # Score model
+    response = requests.post(url, json=json_data)
+    print(f"\nPyfunc 'predict_interval':\n${response.json()}")
+
 
 .. _built-in-deployment:
 
@@ -2182,7 +4220,7 @@ Similarly, to build a Docker image built with MLServer you can use the
 
 .. code-block:: bash
 
-    mlflow models build -m my_model --enable-mlserver -n my-model
+    mlflow models build-docker -m my_model --enable-mlserver -n my-model
 
 To read more about the integration between MLflow and MLServer, please check
 the `end-to-end example in the MLServer documentation
@@ -2242,6 +4280,8 @@ For more info, see:
     mlflow models serve --help
     mlflow models predict --help
     mlflow models build-docker --help
+
+.. _model-enviroment-management:
 
 Environment Management Tools
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2703,170 +4743,9 @@ For more info, see:
     mlflow deployments run-local --help
     mlflow deployments help --help
 
-
 Community Model Flavors
 -----------------------
 
-Other useful MLflow flavors are developed and maintained by the
-MLflow community, enabling you to use MLflow Models with an
-even broader ecosystem of machine learning libraries. For more information,
-check out the description of each community-developed flavor below.
-
-.. contents::
-  :local:
-  :depth: 1
-
-
-MLflow VizMod
-^^^^^^^^^^^^^
-
-The `mlflow-vizmod <https://github.com/JHibbard/mlflow-vizmod/>`_ project allows data scientists
-to be more productive with their visualizations. We treat visualizations as models - just like ML
-models - thus being able to use the same infrastructure as MLflow to track, create projects,
-register, and deploy visualizations.
-
-Installation:
-
-.. code-block:: bash
-
-    pip install mlflow-vizmod
-
-Example:
-
-.. code-block:: python
-
-    from sklearn.datasets import load_iris
-    import altair as alt
-    import mlflow_vismod
-
-    df_iris = load_iris(as_frame=True)
-
-    viz_iris = (
-        alt.Chart(df_iris)
-        .mark_circle(size=60)
-        .encode(x="x", y="y", color="z:N")
-        .properties(height=375, width=575)
-        .interactive()
-    )
-
-    mlflow_vismod.log_model(
-        model=viz_iris,
-        artifact_path="viz",
-        style="vegalite",
-        input_example=df_iris.head(5),
-    )
-
-BigML (``bigmlflow``)
-^^^^^^^^^^^^^^^^^^^^^
-
-The `bigmlflow <https://github.com/bigmlcom/bigmlflow>`_ library implements
-the ``bigml`` model flavor. It enables using
-`BigML supervised models <https://bigml.readthedocs.io/en/latest/local_resources.html>`_
-and offers the ``save_model()``, ``log_model()`` and ``load_model()`` methods.
-
-Installing bigmlflow
-~~~~~~~~~~~~~~~~~~~~
-
-BigMLFlow can be installed from PyPI as follows:
-
-
-.. code-block:: bash
-
-    pip install bigmlflow
-
-BigMLFlow usage
-~~~~~~~~~~~~~~~
-
-The ``bigmlflow`` module defines the flavor that implements the
-``save_model()`` and ``log_model()`` methods. They can be used
-to save BigML models and their related information in MLflow Model format.
-
-.. code-block:: python
-
-    import json
-    import mlflow
-    import bigmlflow
-
-    MODEL_FILE = "logistic_regression.json"
-    with mlflow.start_run():
-        with open(MODEL_FILE) as handler:
-            model = json.load(handler)
-            bigmlflow.log_model(
-                model, artifact_path="model", registered_model_name="my_model"
-            )
-
-These methods also add the ``python_function`` flavor to the MLflow Models
-that they produce, allowing the models to be interpreted as generic Python
-functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with DataFrame inputs.
-
-.. code-block:: python
-
-    # saving the model
-    save_model(model, path=model_path)
-    # retrieving model
-    pyfunc_model = pyfunc.load_model(model_path)
-    pyfunc_predictions = pyfunc_model.predict(dataframe)
-
-You can also use the ``bigmlflow.load_model()`` method to load MLflow Models
-with the ``bigmlflow`` model flavor as a BigML
-`SupervisedModel <https://bigml.readthedocs.io/en/latest/local_resources.html#local-supervised-model>`_.
-
-For more information, see the
-`BigMLFlow documentation <https://bigmlflow.readthedocs.io/en/latest/>`_
-and `BigML's blog <https://blog.bigml.com/2022/10/25/easily-operating-machine-learning-models/>`_.
-
-Sktime
-^^^^^^
-
-The ``sktime`` custom model flavor enables logging of `sktime <https://github.com/sktime/sktime>`_ models in MLflow
-format via the ``save_model()`` and ``log_model()`` methods. These methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
-model to be interpreted as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_model()`.
-This loaded PyFunc model can only be scored with a DataFrame input.
-You can also use the ``load_model()`` method to load MLflow Models with the ``sktime``
-model flavor in native sktime formats.
-
-Installing Sktime
-~~~~~~~~~~~~~~~~~
-
-Install sktime with mlflow dependency:
-
-.. code-block:: bash
-
-    pip install sktime[mlflow]
-
-Usage example
-~~~~~~~~~~~~~
-
-Refer to the `sktime mlflow documentation <https://www.sktime.org/en/latest/api_reference/deployment.html>`_ for details on the interface for utilizing sktime models loaded as a pyfunc type and an `example notebook <https://github.com/sktime/sktime/blob/main/examples/mlflow.ipynb>`_ for extended code usage examples.
-
-.. code-block:: python
-
-    import pandas as pd
-
-    from sktime.datasets import load_airline
-    from sktime.forecasting.arima import AutoARIMA
-    from sktime.utils import mlflow_sktime
-
-    airline = load_airline()
-    model_path = "model"
-
-
-    auto_arima_model = AutoARIMA(sp=12, d=0, max_p=2, max_q=2, suppress_warnings=True).fit(
-        airline, fh=[1, 2, 3]
-    )
-
-    mlflow_sktime.save_model(
-        sktime_model=auto_arima_model,
-        path=model_path,
-    )
-
-    loaded_model = mlflow_sktime.load_model(
-        model_uri=model_path,
-    )
-    loaded_pyfunc = mlflow_sktime.pyfunc.load_model(
-        model_uri=model_path,
-    )
-
-    print(loaded_model.predict())
-    print(loaded_pyfunc.predict(pd.DataFrame()))
+Go to the `Community Model Flavors <community-model-flavors.html>`_
+page to get an overview of other useful MLflow flavors, which are developed and
+maintained by the MLflow community.

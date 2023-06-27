@@ -81,6 +81,7 @@ const commonPrepareRunsGridDataParams = {
   tagKeyList: TAG_KEYS,
   runsExpanded: {},
   runsPinned: [],
+  runsHidden: [],
   runUuidsMatchingFilter: MOCK_RUN_DATA.map((r) => r.runInfo.run_uuid),
 };
 

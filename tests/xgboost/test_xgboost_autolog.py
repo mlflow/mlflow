@@ -19,6 +19,7 @@ from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow import MlflowClient
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.types.utils import _infer_schema
 
 mpl.use("Agg")
 
@@ -174,7 +175,6 @@ def test_xgb_autolog_atsign_metrics_info_log(xgb_metric):
 
 
 def test_xgb_autolog_sklearn():
-
     mlflow.xgboost.autolog()
 
     X, y = datasets.load_iris(return_X_y=True)
@@ -557,15 +557,16 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
     ]
 
 
-def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmpdir):
-    tmp_csv = tmpdir.join("data.csv")
-    tmp_csv.write("1,0.3,1.2\n")
-    tmp_csv.write("0,2.4,5.2\n")
-    tmp_csv.write("1,0.3,-1.2\n")
+def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, tmp_path):
+    tmp_csv = tmp_path.joinpath("data.csv")
+    with tmp_csv.open("w") as f:
+        f.write("1,0.3,1.2\n")
+        f.write("0,2.4,5.2\n")
+        f.write("1,0.3,-1.2\n")
 
     mlflow.xgboost.autolog()
 
-    dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
+    dataset = xgb.DMatrix(f"{tmp_csv}?format=csv&label_column=0")
 
     # we make sure here that we do not throw while attempting to plot
     #   importance values on a dataset that returns no importance values.
@@ -574,17 +575,18 @@ def test_xgb_autolog_does_not_throw_if_importance_values_are_empty(bst_params, t
     assert model.get_score(importance_type="weight") == {}
 
 
-def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_params, tmpdir):
-    tmp_csv = tmpdir.join("data.csv")
-    tmp_csv.write("1,0.3,1.2\n")
-    tmp_csv.write("0,2.4,5.2\n")
-    tmp_csv.write("1,0.3,-1.2\n")
+def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_params, tmp_path):
+    tmp_csv = tmp_path.joinpath("data.csv")
+    with tmp_csv.open("w") as f:
+        f.write("1,0.3,1.2\n")
+        f.write("0,2.4,5.2\n")
+        f.write("1,0.3,-1.2\n")
 
     mlflow.xgboost.autolog(importance_types=[], log_model_signatures=True)
 
     # signature and input example inference should fail here since the dataset is given
     #   as a file path
-    dataset = xgb.DMatrix(tmp_csv.strpath + "?format=csv&label_column=0")
+    dataset = xgb.DMatrix(f"{tmp_csv}?format=csv&label_column=0")
 
     xgb.train(bst_params, dataset)
     run = get_latest_run()
@@ -606,7 +608,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
     assert "signature" not in data
 
 
-def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
+def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmp_path):
     mlflow.xgboost.autolog()
 
     # we cannot use dtrain fixture, as the dataset must be constructed
@@ -617,7 +619,7 @@ def test_xgb_autolog_does_not_break_dmatrix_serialization(bst_params, tmpdir):
     dataset = xgb.DMatrix(X, y)
 
     xgb.train(bst_params, dataset)
-    save_path = tmpdir.join("dataset_serialization_test").strpath
+    save_path = str(tmp_path.joinpath("dataset_serialization_test"))
     dataset.save_binary(save_path)  # serialization should not throw
     xgb.DMatrix(save_path)  # deserialization also should not throw
 
@@ -709,3 +711,81 @@ def test_xgb_api_autolog_registering_model(bst_params, dtrain):
 
         registered_model = MlflowClient().get_registered_model(registered_model_name)
         assert registered_model.name == registered_model_name
+
+
+@pytest.mark.parametrize("model_format", ["xgb", "json", "ubj"])
+def test_xgb_autolog_with_model_format(bst_params, dtrain, model_format):
+    mlflow.xgboost.autolog(log_models=True, model_format=model_format)
+    with mlflow.start_run() as run:
+        xgb.train(bst_params, dtrain)
+    run_id = run.info.run_id
+    client = MlflowClient()
+    artifacts = [f.path for f in client.list_artifacts(run_id, "model")]
+    assert f"model/model.{model_format}" in artifacts
+
+
+@pytest.mark.skipif(
+    Version(xgb.__version__) < Version("1.7"),
+    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
+)
+@pytest.mark.parametrize("log_datasets", [True, False])
+def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_datasets=log_datasets)
+        xgb.train(bst_params, dtrain)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    if log_datasets:
+        assert len(dataset_inputs) == 1
+        feature_schema = _infer_schema(dtrain.get_data().toarray())
+        assert dataset_inputs[0].dataset.schema == json.dumps(
+            {
+                "mlflow_tensorspec": {
+                    "features": feature_schema.to_json(),
+                    "targets": None,
+                }
+            }
+        )
+    else:
+        assert len(dataset_inputs) == 0
+
+
+@pytest.mark.skipif(
+    Version(xgb.__version__) < Version("1.7"),
+    reason=("In XGBoost < 1.7, you cannot get the underlying numpy data from DMatrix. "),
+)
+def test_xgb_log_datasets_with_evals(bst_params, dtrain):
+    iris = datasets.load_iris()
+    X = pd.DataFrame(iris.data[:, :2] * 2, columns=iris.feature_names[:2])
+    y = iris.target
+    deval = xgb.DMatrix(X, y)
+    with mlflow.start_run() as run:
+        mlflow.xgboost.autolog(log_datasets=True)
+        xgb.train(bst_params, dtrain, evals=[(deval, "eval_dataset")])
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 2
+    assert dataset_inputs[0].tags[0].value == "train"
+    dtrain_feature_schema = _infer_schema(dtrain.get_data().toarray())
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": dtrain_feature_schema.to_json(),
+                "targets": None,
+            }
+        }
+    )
+    assert dataset_inputs[1].tags[0].value == "eval"
+    deval_feature_schema = _infer_schema(deval.get_data().toarray())
+    assert dataset_inputs[0].dataset.schema == json.dumps(
+        {
+            "mlflow_tensorspec": {
+                "features": deval_feature_schema.to_json(),
+                "targets": None,
+            }
+        }
+    )

@@ -1,14 +1,14 @@
 import os
 import pytest
 from datetime import date
+import uuid
 
 import mlflow
 import pandas as pd
 import numpy as np
 
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.models import Model, infer_signature, validate_schema
-from mlflow.models.signature import ModelSignature
+from mlflow.models import Model, ModelSignature, infer_signature, validate_schema
 from mlflow.models.utils import _save_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.types.schema import Schema, ColSpec, TensorSpec
@@ -224,7 +224,6 @@ def test_model_metadata():
 
 
 def test_load_model_without_mlflow_version():
-
     with TempDir(chdr=True) as tmp:
         model = Model(artifact_path="some/path", run_id="1234", mlflow_version=None)
         path = tmp.path("model")
@@ -369,8 +368,6 @@ def test_model_load_input_example_no_signature():
 
 
 def _is_valid_uuid(val):
-    import uuid
-
     try:
         uuid.UUID(str(val))
         return True
@@ -396,8 +393,8 @@ def test_model_uuid():
     assert m4.model_uuid is None
 
 
-def test_validate_schema(sklearn_knn_model, iris_data, tmpdir):
-    sk_model_path = os.path.join(str(tmpdir), "sk_model")
+def test_validate_schema(sklearn_knn_model, iris_data, tmp_path):
+    sk_model_path = os.path.join(tmp_path, "sk_model")
     X, y = iris_data
     signature = infer_signature(X, y)
     mlflow.sklearn.save_model(

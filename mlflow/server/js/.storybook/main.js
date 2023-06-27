@@ -25,6 +25,12 @@ module.exports = {
       ];
     }
 
+    // Browserifying "stream" package, as in craco.config.js file
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      stream: require.resolve('stream-browserify'),
+    };
+
     /**
      * Adding @emotion/react and formatjs support here.
      *

@@ -175,7 +175,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri):
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-@pytest.mark.usefixtures("tmpdir", "patch_user")
+@pytest.mark.usefixtures("patch_user")
 def test_run(use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR,
@@ -217,7 +217,7 @@ def test_run(use_start_run):
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
-def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
+def test_run_with_parent():
     """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
         parent_run_id = mlflow.active_run().info.run_id
@@ -235,9 +235,9 @@ def test_run_with_parent(tmpdir):  # pylint: disable=unused-argument
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
-def test_run_with_artifact_path(tmpdir):
-    artifact_file = tmpdir.join("model.pkl")
-    artifact_file.write("Hello world")
+def test_run_with_artifact_path(tmp_path):
+    artifact_file = tmp_path.joinpath("model.pkl")
+    artifact_file.write_text("Hello world")
     with mlflow.start_run() as run:
         mlflow.log_artifact(artifact_file)
         submitted_run = mlflow.projects.run(
@@ -328,7 +328,6 @@ def test_create_env_with_mamba():
     """
 
     def exec_cmd_mock(cmd, *args, **kwargs):  # pylint: disable=unused-argument
-
         if cmd[-1] == "--json":
             # We are supposed to list environments in JSON format
             return subprocess.CompletedProcess(
@@ -340,14 +339,12 @@ def test_create_env_with_mamba():
             return subprocess.CompletedProcess(cmd, 0)
 
     def exec_cmd_mock_raise(cmd, *args, **kwargs):  # pylint: disable=unused-argument
-
         if os.path.basename(cmd[0]) == "mamba":
             raise OSError()
 
     conda_env_path = os.path.join(TEST_PROJECT_DIR, "conda.yaml")
 
     with mock.patch.dict("os.environ", {mlflow.utils.conda.MLFLOW_CONDA_CREATE_ENV_CMD: "mamba"}):
-
         # Simulate success
         with mock.patch("mlflow.utils.process._exec_cmd", side_effect=exec_cmd_mock):
             mlflow.utils.conda.get_or_create_conda_env(conda_env_path)
@@ -429,9 +426,9 @@ def test_parse_kubernetes_config():
 
 
 @pytest.fixture
-def mock_kubernetes_job_template(tmpdir):
-    tmp_path = tmpdir.join("kubernetes_job_template.yaml")
-    tmp_path.write(
+def mock_kubernetes_job_template(tmp_path):
+    k8s_yaml = tmp_path.joinpath("kubernetes_job_template.yaml")
+    k8s_yaml.write_text(
         """
 apiVersion: batch/v1
 kind: Job
@@ -455,7 +452,7 @@ spec:
       restartPolicy: Never
 """.lstrip()
     )
-    return tmp_path.strpath
+    return str(k8s_yaml)
 
 
 class StartsWithMatcher:
@@ -511,11 +508,9 @@ def test_credential_propagation(get_config, synchronous):
             return "", ""
 
     get_config.return_value = DatabricksConfig.from_token("host", "mytoken", insecure=False)
-    with mock.patch("subprocess.Popen") as popen_mock, mock.patch(
-        "mlflow.utils.uri.is_databricks_uri"
-    ) as is_databricks_tracking_uri_mock:
-        is_databricks_tracking_uri_mock.return_value = True
-        popen_mock.return_value = DummyProcess()
+    with mock.patch("subprocess.Popen", return_value=DummyProcess()) as popen_mock, mock.patch(
+        "mlflow.utils.uri.is_databricks_uri", return_value=True
+    ):
         mlflow.projects.run(
             TEST_PROJECT_DIR,
             entry_point="sleep",

@@ -27,7 +27,7 @@ def generate_data(location_data, start_dt) -> pd.DataFrame:
 
     generated_listing = []
 
-    for (country, city) in location_data:
+    for country, city in location_data:
         generated_listing.append(
             pd.DataFrame(
                 {
@@ -44,7 +44,6 @@ def generate_data(location_data, start_dt) -> pd.DataFrame:
 
 
 def grouped_prophet_example(locations, start_dt, artifact_path):
-
     print("Generating data...\n")
     data = generate_data(location_data=locations, start_dt=start_dt)
     grouping_keys = ["country", "city"]
@@ -100,7 +99,6 @@ def grouped_prophet_example(locations, start_dt, artifact_path):
 
 
 if __name__ == "__main__":
-
     locations = [
         ("US", "Raleigh"),
         ("US", "KansasCity"),

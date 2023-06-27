@@ -1,9 +1,9 @@
 import os
 import random
 import functools
+import shutil
 from unittest import mock
 from contextlib import ExitStack, contextmanager
-from packaging.version import Version
 
 import logging
 import requests
@@ -16,7 +16,6 @@ import sys
 import yaml
 import json
 import numbers
-import platform
 
 import pytest
 
@@ -25,6 +24,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import read_yaml, write_yaml
 from mlflow.utils.environment import (
     _get_pip_deps,
+    _generate_mlflow_version_pinning,
     _CONDA_ENV_FILE_NAME,
     _REQUIREMENTS_FILE_NAME,
     _CONSTRAINTS_FILE_NAME,
@@ -53,8 +53,8 @@ def random_int(lo=1, hi=1e10):
 
 def random_str(size=10):
     msg = (
-        "UUID4 generated strings have a high potential for collision at small sizes."
-        "10 is set as the lower bounds for random string generation to prevent non-deterministic"
+        "UUID4 generated strings have a high potential for collision at small sizes. "
+        "10 is set as the lower bounds for random string generation to prevent non-deterministic "
         "test failures."
     )
     assert size >= 10, msg
@@ -105,7 +105,7 @@ def score_model_in_sagemaker_docker_container(
     )
 
 
-def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None):
+def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None, env=None):
     """
     Builds a dockerfile for the specified model.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
@@ -125,10 +125,10 @@ def pyfunc_generate_dockerfile(output_directory, model_uri=None, extra_args=None
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, env=env)
 
 
-def pyfunc_build_image(model_uri=None, extra_args=None):
+def pyfunc_build_image(model_uri=None, extra_args=None, env=None):
     """
     Builds a docker image containing the specified model, returning the name of the image.
     :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
@@ -148,7 +148,7 @@ def pyfunc_build_image(model_uri=None, extra_args=None):
         cmd += ["--mlflow-home", mlflow_home]
     if extra_args:
         cmd += extra_args
-    p = subprocess.Popen(cmd)
+    p = subprocess.Popen(cmd, env=env)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 
@@ -418,6 +418,15 @@ def _compare_conda_env_requirements(env_path, req_path):
     assert _get_pip_deps(custom_env_parsed) == requirements
 
 
+def _get_deps_from_requirement_file(model_uri):
+    """
+    Returns a list of pip dependencies for the model at `model_uri` and truncate the version number.
+    """
+    local_path = _download_artifact_from_uri(model_uri)
+    pip_packages = _read_lines(os.path.join(local_path, _REQUIREMENTS_FILE_NAME))
+    return [req.split("==")[0] if "==" in req else req for req in pip_packages]
+
+
 def _assert_pip_requirements(model_uri, requirements, constraints=None, strict=False):
     """
     Loads the pip requirements (and optionally constraints) from `model_uri` and compares them
@@ -543,11 +552,67 @@ def assert_array_almost_equal(actual_array, desired_array, rtol=1e-6):
 
 
 def _mlflow_major_version_string():
-    ver = Version(mlflow.version.VERSION)
-    major = ver.major
-    minor = ver.minor
-    return f"mlflow<{major + 1},>={major}.{minor}"
+    return _generate_mlflow_version_pinning()
 
 
-def is_local_os_windows():
-    return platform.system().lower() == "windows"
+@contextmanager
+def mock_http_request_200():
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text="{}"),
+    ) as m:
+        yield m
+
+
+def mock_http_200(f):
+    @functools.wraps(f)
+    @mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        return_value=mock.MagicMock(status_code=200, text="{}"),
+    )
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+@contextmanager
+def mock_http_request_403_200():
+    with mock.patch(
+        "mlflow.utils.rest_utils.http_request",
+        side_effect=[
+            mock.MagicMock(status_code=403, text='{"error_code": "ENDPOINT_NOT_FOUND"}'),
+            mock.MagicMock(status_code=200, text="{}"),
+        ],
+    ) as m:
+        yield m
+
+
+def clear_hub_cache():
+    """
+    Frees up disk space for cached huggingface transformers models and components.
+
+    This function will remove all files within the cache if the total size of objects exceeds
+    1 GB on disk. It is used only in CI testing to alleviate the disk burden on the runners as
+    they have limited allocated space and will terminate if the available disk space drops too low.
+    """
+    try:
+        from huggingface_hub import scan_cache_dir
+
+        full_cache = scan_cache_dir()
+        cache_size_in_gb = full_cache.size_on_disk / 1000**3
+
+        if cache_size_in_gb > 1:
+            commits_to_purge = [
+                rev.commit_hash for repo in full_cache.repos for rev in repo.revisions
+            ]
+            delete_strategy = full_cache.delete_revisions(*commits_to_purge)
+            delete_strategy.execute()
+
+    except ImportError:
+        # Local import check for mlflow-skinny not including huggingface_hub
+        pass
+
+
+def get_free_disk_space_in_GiB():
+    return shutil.disk_usage("/").free / (1024**3)

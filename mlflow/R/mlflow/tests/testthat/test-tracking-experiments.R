@@ -4,17 +4,21 @@ teardown({
   mlflow_clear_test_dir("mlruns")
 })
 
-test_that("mlflow_create/get_experiment() basic functionality (fluent)", {
+test_that("mlflow_create/set/get_experiment() basic functionality (fluent)", {
   mlflow_clear_test_dir("mlruns")
   artifact_relative_path <- "art_loc"
-  experiment_1_id <- mlflow_create_experiment("exp_name", artifact_relative_path)
+  experiment_1_id <- mlflow_create_experiment("exp_name_1", artifact_relative_path)
+  experiment_2_id <- mlflow_set_experiment(experiment_name = "exp_name_2", artifact_location = artifact_relative_path)
   experiment_1a <- mlflow_get_experiment(experiment_id = experiment_1_id)
-  experiment_1b <- mlflow_get_experiment(name = "exp_name")
+  experiment_1b <- mlflow_get_experiment(name = "exp_name_1")
+  experiment_2a <- mlflow_get_experiment(name = "exp_name_2")
 
   expect_identical(experiment_1a, experiment_1b)
   expected_artifact_location <- sprintf("%s/%s", getwd(), artifact_relative_path)
   expect_identical(experiment_1a$artifact_location, expected_artifact_location)
-  expect_identical(experiment_1a$name, "exp_name")
+  expect_identical(experiment_1a$name, "exp_name_1")
+  expect_identical(experiment_2a$name, "exp_name_2")
+  expect_identical(experiment_2a$artifact_location, expected_artifact_location)
 })
 
 test_that("mlflow_create/get_experiment() basic functionality (client)", {

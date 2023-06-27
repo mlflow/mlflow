@@ -2,7 +2,6 @@ from mlflow.utils.name_utils import _generate_random_name, _generate_unique_inte
 
 
 def test_random_name_generation():
-
     # Validate exhausted loop truncation
     name = _generate_random_name(max_length=8)
     assert len(name) == 8
@@ -14,7 +13,6 @@ def test_random_name_generation():
 
 
 def test_experiment_id_generation():
-
     generate_count = 1000000
     generated_values = {_generate_unique_integer_id() for _ in range(generate_count)}
 

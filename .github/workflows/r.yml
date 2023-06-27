@@ -11,7 +11,7 @@ on:
     - cron: "0 13 * * *"
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.head_ref || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -20,6 +20,7 @@ env:
 jobs:
   r:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     defaults:
       run:
@@ -35,6 +36,8 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.3.0"
       # This step dumps the current set of R dependencies and R version into files to be used
       # as a cache key when caching/restoring R dependencies.
       - name: Dump dependencies
@@ -48,6 +51,10 @@ jobs:
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
         uses: actions/cache@v3
+        continue-on-error: true
+        # https://github.com/actions/cache/issues/810
+        env:
+          SEGMENT_DOWNLOAD_TIMEOUT_MINS: 5
         with:
           path: ${{ env.R_LIBS_USER }}
           # We cache R dependencies based on a tuple of the current OS, the R version, and the list of

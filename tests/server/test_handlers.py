@@ -40,10 +40,17 @@ from mlflow.server.handlers import (
     _delete_registered_model_tag,
     _set_model_version_tag,
     _delete_model_version_tag,
+    _set_registered_model_alias,
+    _delete_registered_model_alias,
+    _get_model_version_by_alias,
 )
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, app
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateRegisteredModel,
     UpdateRegisteredModel,
@@ -63,6 +70,9 @@ from mlflow.protos.model_registry_pb2 import (
     DeleteRegisteredModelTag,
     SetModelVersionTag,
     DeleteModelVersionTag,
+    SetRegisteredModelAlias,
+    DeleteRegisteredModelAlias,
+    GetModelVersionByAlias,
 )
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -217,12 +227,12 @@ def test_catch_mlflow_exception():
     assert json_response["message"] == "test error"
 
 
-def test_mlflow_server_with_installed_plugin(tmpdir):
+def test_mlflow_server_with_installed_plugin(tmp_path):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
     from mlflow_test_plugin.file_store import PluginFileStore
 
     env = {
-        BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
+        BACKEND_STORE_URI_ENV_VAR: f"file-plugin:{tmp_path}",
     }
     with mock.patch.dict(os.environ, env):
         mlflow.server.handlers._tracking_store = None
@@ -334,14 +344,24 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds, None)
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "", "max_results": 100, "order_by": [], "page_token": ""}
+    assert args == {
+        "filter_string": "",
+        "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
     assert json.loads(resp.get_data()) == {"registered_models": jsonify(rmds)}
 
     mock_get_request_message.return_value = SearchRegisteredModels(filter="hello")
     mock_model_registry_store.search_registered_models.return_value = PagedList(rmds[:1], "tok")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {"filter_string": "hello", "max_results": 100, "order_by": [], "page_token": ""}
+    assert args == {
+        "filter_string": "hello",
+        "max_results": SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify(rmds[:1]),
         "next_page_token": "tok",
@@ -441,7 +461,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     run_link = "localhost:5000/path/to/run"
     mock_get_request_message.return_value = CreateModelVersion(
         name="model_1",
-        source="A/B",
+        source=f"runs:/{run_id}",
         run_id=run_id,
         run_link=run_link,
         tags=[tag.to_proto() for tag in tags],
@@ -453,7 +473,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
     resp = _create_model_version()
     _, args = mock_model_registry_store.create_model_version.call_args
     assert args["name"] == "model_1"
-    assert args["source"] == "A/B"
+    assert args["source"] == f"runs:/{run_id}"
     assert args["run_id"] == run_id
     assert {tag.key: tag.value for tag in args["tags"]} == {tag.key: tag.value for tag in tags}
     assert args["run_link"] == run_link
@@ -557,13 +577,12 @@ def test_get_model_version_download_uri(mock_get_request_message, mock_model_reg
 
 
 def test_search_model_versions(mock_get_request_message, mock_model_registry_store):
-    mock_get_request_message.return_value = SearchModelVersions(filter="source_path = 'A/B/CD'")
     mvds = [
         ModelVersion(
             name="model_1",
             version="5",
             creation_timestamp=100,
-            last_updated_timestamp=1200,
+            last_updated_timestamp=3200,
             description="v 5",
             user_id="u1",
             current_stage="Production",
@@ -589,7 +608,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
             name="ads_model",
             version="8",
             creation_timestamp=200,
-            last_updated_timestamp=2000,
+            last_updated_timestamp=1000,
             description="v 8",
             user_id="u1",
             current_stage="Staging",
@@ -602,7 +621,7 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
             name="fraud_detection_model",
             version="345",
             creation_timestamp=1000,
-            last_updated_timestamp=1001,
+            last_updated_timestamp=999,
             description="newest version",
             user_id="u12",
             current_stage="None",
@@ -612,11 +631,56 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
             status_message=None,
         ),
     ]
-    mock_model_registry_store.search_model_versions.return_value = mvds
+    mock_get_request_message.return_value = SearchModelVersions(filter="source_path = 'A/B/CD'")
+    mock_model_registry_store.search_model_versions.return_value = PagedList(mvds, None)
     resp = _search_model_versions()
-    args, _ = mock_model_registry_store.search_model_versions.call_args
-    assert args == ("source_path = 'A/B/CD'",)
+    mock_model_registry_store.search_model_versions.assert_called_with(
+        filter_string="source_path = 'A/B/CD'",
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+        order_by=[],
+        page_token="",
+    )
     assert json.loads(resp.get_data()) == {"model_versions": jsonify(mvds)}
+
+    mock_get_request_message.return_value = SearchModelVersions(filter="name='model_1'")
+    mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[:1], "tok")
+    resp = _search_model_versions()
+    mock_model_registry_store.search_model_versions.assert_called_with(
+        filter_string="name='model_1'",
+        max_results=SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
+        order_by=[],
+        page_token="",
+    )
+    assert json.loads(resp.get_data()) == {
+        "model_versions": jsonify(mvds[:1]),
+        "next_page_token": "tok",
+    }
+
+    mock_get_request_message.return_value = SearchModelVersions(filter="version<=12", max_results=2)
+    mock_model_registry_store.search_model_versions.return_value = PagedList(
+        [mvds[0], mvds[2]], "next"
+    )
+    resp = _search_model_versions()
+    mock_model_registry_store.search_model_versions.assert_called_with(
+        filter_string="version<=12", max_results=2, order_by=[], page_token=""
+    )
+    assert json.loads(resp.get_data()) == {
+        "model_versions": jsonify([mvds[0], mvds[2]]),
+        "next_page_token": "next",
+    }
+
+    mock_get_request_message.return_value = SearchModelVersions(
+        filter="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
+    )
+    mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[1:3], "next")
+    resp = _search_model_versions()
+    mock_model_registry_store.search_model_versions.assert_called_with(
+        filter_string="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
+    )
+    assert json.loads(resp.get_data()) == {
+        "model_versions": jsonify(mvds[1:3]),
+        "next_page_token": "next",
+    }
 
 
 def test_set_model_version_tag(mock_get_request_message, mock_model_registry_store):
@@ -641,3 +705,49 @@ def test_delete_model_version_tag(mock_get_request_message, mock_model_registry_
     _delete_model_version_tag()
     _, args = mock_model_registry_store.delete_model_version_tag.call_args
     assert args == {"name": name, "version": version, "key": key}
+
+
+def test_set_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    version = "1"
+    mock_get_request_message.return_value = SetRegisteredModelAlias(
+        name=name, alias=alias, version=version
+    )
+    _set_registered_model_alias()
+    _, args = mock_model_registry_store.set_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias, "version": version}
+
+
+def test_delete_registered_model_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    mock_get_request_message.return_value = DeleteRegisteredModelAlias(name=name, alias=alias)
+    _delete_registered_model_alias()
+    _, args = mock_model_registry_store.delete_registered_model_alias.call_args
+    assert args == {"name": name, "alias": alias}
+
+
+def test_get_model_version_by_alias(mock_get_request_message, mock_model_registry_store):
+    name = "model1"
+    alias = "test_alias"
+    mock_get_request_message.return_value = GetModelVersionByAlias(name=name, alias=alias)
+    mvd = ModelVersion(
+        name="model1",
+        version="5",
+        creation_timestamp=1,
+        last_updated_timestamp=12,
+        description="v 5",
+        user_id="u1",
+        current_stage="Production",
+        source="A/B",
+        run_id=uuid.uuid4().hex,
+        status="READY",
+        status_message=None,
+        aliases=["test_alias"],
+    )
+    mock_model_registry_store.get_model_version_by_alias.return_value = mvd
+    resp = _get_model_version_by_alias()
+    _, args = mock_model_registry_store.get_model_version_by_alias.call_args
+    assert args == {"name": name, "alias": alias}
+    assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}

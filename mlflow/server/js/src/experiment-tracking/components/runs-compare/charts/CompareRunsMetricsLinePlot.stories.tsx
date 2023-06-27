@@ -31,17 +31,15 @@ const createMockMetricsData = (
     const metricsHistory = new Array(numValues).fill(0).map((__, stepindex) => {
       let value = 500 * random() - 250;
       if (!negative) {
-        value = Math.abs(value);
+        value = Math.max(Math.abs(value), 100);
       }
       const timestamp = new Date(refDate.valueOf());
       timestamp.setSeconds(timestamp.getSeconds() + stepindex ** 2);
 
       return {
-        metric1: {
-          step: stepindex + 1,
-          timestamp,
-          value,
-        },
+        step: stepindex + 1,
+        timestamp,
+        value,
       } as any;
     });
 
@@ -52,8 +50,10 @@ const createMockMetricsData = (
         run_uuid: `id-for-run-${runName}`,
         run_name: runName,
       } as RunInfoEntity,
-      metricsHistory,
+      metricsHistory: { metric1: metricsHistory },
       color: chartColors[index % chartColors.length],
+      metrics: {},
+      params: {},
     };
   });
 };

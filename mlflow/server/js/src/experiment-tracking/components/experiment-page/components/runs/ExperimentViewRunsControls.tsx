@@ -9,6 +9,7 @@ import { downloadRunsCsv } from '../../utils/experimentPage.common-utils';
 import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
 import { ExperimentViewRunsControlsFilters } from './ExperimentViewRunsControlsFilters';
+import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 
 type ExperimentViewRunsControlsProps = {
   viewState: SearchExperimentRunsViewState;
@@ -19,7 +20,10 @@ type ExperimentViewRunsControlsProps = {
 
   runsData: ExperimentRunsSelectorResult;
 
-  visibleRowsCount: number;
+  expandRows: boolean;
+  updateExpandRows: (expandRows: boolean) => void;
+
+  requestError: ErrorWrapper | null;
 };
 
 /**
@@ -33,7 +37,9 @@ export const ExperimentViewRunsControls = React.memo(
     updateViewState,
     updateSearchFacets,
     searchFacetsState,
-    visibleRowsCount,
+    requestError,
+    expandRows,
+    updateExpandRows,
   }: ExperimentViewRunsControlsProps) => {
     const { paramKeyList, metricKeyList, tagsList } = runsData;
 
@@ -56,15 +62,18 @@ export const ExperimentViewRunsControls = React.memo(
           searchFacetsState={searchFacetsState}
           viewState={viewState}
           updateViewState={updateViewState}
-          sortOptions={sortOptions}
           runsData={runsData}
+          requestError={requestError}
         />
         <ExperimentViewRunsControlsActions
+          sortOptions={sortOptions}
           runsData={runsData}
           updateSearchFacets={updateSearchFacets}
           searchFacetsState={searchFacetsState}
+          updateViewState={updateViewState}
           viewState={viewState}
-          visibleRowsCount={visibleRowsCount}
+          expandRows={expandRows}
+          updateExpandRows={updateExpandRows}
         />
       </div>
     );

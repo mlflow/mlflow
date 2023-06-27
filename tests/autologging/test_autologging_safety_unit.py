@@ -67,7 +67,6 @@ def test_autologging_integration():
 
 
 class MockEventLogger(AutologgingEventLogger):
-
     LoggerCall = namedtuple(
         "LoggerCall",
         [
@@ -175,7 +174,6 @@ def test_is_testing_respects_environment_variable():
 def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implementation(
     patch_destination, test_autologging_integration
 ):
-
     foo_val = None
     bar_val = None
 
@@ -194,7 +192,6 @@ def test_safe_patch_forwards_expected_arguments_to_function_based_patch_implemen
 def test_safe_patch_forwards_expected_arguments_to_class_based_patch(
     patch_destination, test_autologging_integration
 ):
-
     foo_val = None
     bar_val = None
 
@@ -265,7 +262,6 @@ def test_safe_patch_provides_expected_original_function_to_class_based_patch(
 def test_safe_patch_propagates_exceptions_raised_from_original_function(
     patch_destination, test_autologging_integration
 ):
-
     exc_to_throw = Exception("Bad original function")
 
     def original(*args, **kwargs):
@@ -292,7 +288,6 @@ def test_safe_patch_propagates_exceptions_raised_from_original_function(
 def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warnings(
     patch_destination, test_autologging_integration
 ):
-
     exc_to_throw = Exception("Bad patch implementation")
 
     def patch_impl(original, *args, **kwargs):
@@ -312,7 +307,6 @@ def test_safe_patch_logs_exceptions_raised_outside_of_original_function_as_warni
 def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in_test_mode(
     patch_destination, test_autologging_integration
 ):
-
     exc_to_throw = Exception("Bad patch implementation")
 
     def patch_impl(original, *args, **kwargs):
@@ -328,7 +322,6 @@ def test_safe_patch_propagates_exceptions_raised_outside_of_original_function_in
 def test_safe_patch_calls_original_function_when_patch_preamble_throws(
     patch_destination, test_autologging_integration
 ):
-
     patch_impl_called = False
 
     def patch_impl(original, *args, **kwargs):
@@ -345,7 +338,6 @@ def test_safe_patch_calls_original_function_when_patch_preamble_throws(
 def test_safe_patch_returns_original_result_without_second_call_when_patch_postamble_throws(
     patch_destination, test_autologging_integration
 ):
-
     patch_impl_called = False
 
     def patch_impl(original, *args, **kwargs):
@@ -361,7 +353,6 @@ def test_safe_patch_returns_original_result_without_second_call_when_patch_posta
 
 
 def test_safe_patch_respects_disable_flag(patch_destination):
-
     patch_impl_call_count = 0
 
     @autologging_integration("test_respects_disable")
@@ -385,7 +376,6 @@ def test_safe_patch_respects_disable_flag(patch_destination):
 def test_safe_patch_returns_original_result_and_ignores_patch_return_value(
     patch_destination, test_autologging_integration
 ):
-
     patch_impl_called = False
 
     def patch_impl(original, *args, **kwargs):
@@ -477,7 +467,6 @@ def test_safe_patch_validates_autologging_runs_when_necessary_in_test_mode(
         "mlflow.utils.autologging_utils.safety._validate_autologging_run",
         wraps=_validate_autologging_run,
     ) as validate_run_mock:
-
         with pytest.raises(
             AssertionError, match="failed to set autologging tag with expected value"
         ):
@@ -508,7 +497,6 @@ def test_safe_patch_does_not_validate_autologging_runs_in_standard_mode(
         "mlflow.utils.autologging_utils.safety._validate_autologging_run",
         wraps=_validate_autologging_run,
     ) as validate_run_mock:
-
         patch_destination.fn()
 
         with mlflow.start_run(nested=True):
@@ -549,7 +537,6 @@ def test_safe_patch_manages_run_if_specified_and_sets_expected_run_tags(
 def test_safe_patch_does_not_manage_run_if_unspecified(
     patch_destination, test_autologging_integration
 ):
-
     active_run = None
 
     def patch_impl(original, *args, **kwargs):
@@ -934,7 +921,6 @@ def test_patch_function_class_call_invokes_implementation_and_returns_result():
 
 @pytest.mark.parametrize("exception_class", [Exception, KeyboardInterrupt])
 def test_patch_function_class_call_handles_exceptions_properly(exception_class):
-
     called_on_exception = False
 
     class TestPatchFunction(PatchFunction):
@@ -1127,7 +1113,6 @@ def test_with_managed_run_ends_run_on_keyboard_interrupt():
     patch_function_2 = with_managed_run("test_integration", PatchFunction2)
 
     with pytest.raises(KeyboardInterrupt, match=""):
-
         patch_function_2.call(original)
 
     assert not mlflow.active_run()

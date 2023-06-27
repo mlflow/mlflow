@@ -2,13 +2,17 @@ from collections import defaultdict
 from importlib import reload
 from itertools import zip_longest
 
-from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+)
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
+import json
 import os
 import random
 import uuid
 import inspect
+import pandas as pd
 
 import pytest
 from unittest import mock
@@ -17,6 +21,7 @@ import mlflow
 from mlflow import MlflowClient
 import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
+from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
     Metric,
@@ -296,9 +301,9 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
     notebook_id = 768
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() == notebook_id
 
 
@@ -310,10 +315,9 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         notebook_id = str(int(exp_id) + 73)
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
-
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
 
@@ -326,10 +330,9 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
         HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as notebook_id_mock:
-        notebook_id_mock.return_value = notebook_id
-
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=notebook_id,
+    ):
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
 
@@ -346,9 +349,9 @@ def test_get_experiment_by_id():
 def test_get_experiment_by_id_with_is_in_databricks_job():
     job_exp_id = 123
     with mock.patch(
-        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id"
-    ) as job_id_mock:
-        job_id_mock.return_value = job_exp_id
+        "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
+        return_value=job_exp_id,
+    ):
         assert _get_experiment_id() == job_exp_id
 
 
@@ -371,7 +374,7 @@ def test_search_experiments(tmp_path):
 
     active_experiment_names = [f"active_{i}" for i in range(num_active_experiments)]
     tag_values = ["x", "x", "y"]
-    for (tag, active_experiment_name) in zip_longest(tag_values, active_experiment_names):
+    for tag, active_experiment_name in zip_longest(tag_values, active_experiment_names):
         mlflow.create_experiment(active_experiment_name, tags={"tag": tag} if tag else None)
 
     deleted_experiment_names = [f"deleted_{i}" for i in range(num_deleted_experiments)]
@@ -435,7 +438,7 @@ def test_search_registered_models(tmp_path):
     model_names = b_model_names + a_model_names
 
     tag_values = ["x", "x", "y"]
-    for (tag, model_name) in zip_longest(tag_values, model_names):
+    for tag, model_name in zip_longest(tag_values, model_names):
         MlflowClient().create_registered_model(model_name, tags={"tag": tag} if tag else None)
 
     # max_results is unspecified
@@ -470,6 +473,65 @@ def test_search_registered_models(tmp_path):
     assert [m.name for m in models] == sorted(model_names, reverse=True)[:3]
 
 
+def test_search_model_versions(tmp_path):
+    sqlite_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
+    mlflow.set_tracking_uri(sqlite_uri)
+    max_results_default = 100
+    with mock.patch(
+        "mlflow.store.model_registry.SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT",
+        max_results_default,
+    ):
+        num_all_model_versions = max_results_default + 1
+        num_a_model_versions = num_all_model_versions // 4
+        num_b_model_versions = num_all_model_versions - num_a_model_versions
+
+        a_model_version_names = ["AModel" for i in range(num_a_model_versions)]
+        b_model_version_names = ["BModel" for i in range(num_b_model_versions)]
+        model_version_names = b_model_version_names + a_model_version_names
+
+        MlflowClient().create_registered_model(name="AModel")
+        MlflowClient().create_registered_model(name="BModel")
+
+        tag_values = ["x", "x", "y"]
+        for tag, model_name in zip_longest(tag_values, model_version_names):
+            MlflowClient().create_model_version(
+                name=model_name, source="foo/bar", tags={"tag": tag} if tag else None
+            )
+
+        # max_results is unspecified
+        model_versions = mlflow.search_model_versions()
+        assert len(model_versions) == num_all_model_versions
+
+        # max_results is larger than the number of model versions in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions + 1)
+        assert len(model_versions) == num_all_model_versions
+
+        # max_results is equal to the number of model versions in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions)
+        assert len(model_versions) == num_all_model_versions
+        # max_results is smaller than the number of models in the database
+        model_versions = mlflow.search_model_versions(max_results=num_all_model_versions - 1)
+        assert len(model_versions) == num_all_model_versions - 1
+
+        # Filter by name
+        model_versions = mlflow.search_model_versions(filter_string="name = 'AModel'")
+        assert [m.name for m in model_versions] == a_model_version_names
+        model_versions = mlflow.search_model_versions(filter_string="name ILIKE 'bmodel'")
+        assert len(model_versions) == num_b_model_versions
+
+        # Filter by tags
+        model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'x'")
+        assert [m.name for m in model_versions] == model_version_names[:2]
+        model_versions = mlflow.search_model_versions(filter_string="tags.tag = 'y'")
+        assert [m.name for m in model_versions] == [model_version_names[2]]
+
+        # Order by version_number
+        model_versions = mlflow.search_model_versions(
+            order_by=["version_number ASC"], max_results=5
+        )
+        assert [m.version for m in model_versions] == [1, 1, 2, 2, 3]
+
+
 @pytest.fixture
 def empty_active_run_stack():
     with mock.patch("mlflow.tracking.fluent._active_run_stack", []):
@@ -481,7 +543,6 @@ def is_from_run(active_run, run):
 
 
 def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-argument
-
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -531,7 +592,6 @@ def test_start_run_defaults(empty_active_run_stack):  # pylint: disable=unused-a
 def test_start_run_defaults_databricks_notebook(
     empty_active_run_stack,
 ):  # pylint: disable=unused-argument
-
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
@@ -907,8 +967,6 @@ def validate_search_runs(results, data, output_format):
         data_subset = {k: data[k] for k in keys if k in keys}
         assert result_data == data_subset
     elif output_format == "pandas":
-        import pandas as pd
-
         expected_df = pd.DataFrame(data)
         expected_df["start_time"] = pd.to_datetime(expected_df["start_time"], unit="ms", utc=True)
         expected_df["end_time"] = pd.to_datetime(expected_df["end_time"], unit="ms", utc=True)
@@ -1194,3 +1252,74 @@ def test_set_experiment_tags():
     assert len(finished_experiment.tags) == len(exact_expected_tags)
     for tag_key, tag_value in finished_experiment.tags.items():
         assert str(exact_expected_tags[tag_key]) == tag_value
+
+
+def test_log_input(tmp_path):
+    df = pd.DataFrame([[1, 2, 3], [1, 2, 3]], columns=["a", "b", "c"])
+    path = tmp_path / "temp.csv"
+    df.to_csv(path)
+    dataset = from_pandas(df, source=path)
+    with start_run() as run:
+        mlflow.log_input(dataset, "train", {"foo": "baz"})
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {
+        "mlflow_colspec": [
+            {"name": "a", "type": "long"},
+            {"name": "b", "type": "long"},
+            {"name": "c", "type": "long"},
+        ]
+    }
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+
+    assert len(dataset_inputs[0].tags) == 2
+    assert dataset_inputs[0].tags[0].key == "foo"
+    assert dataset_inputs[0].tags[0].value == "baz"
+    assert dataset_inputs[0].tags[1].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[1].value == "train"
+
+    # ensure log_input also works without tags
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+    dataset_inputs = MlflowClient().get_run(run.info.run_id).inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "f0f3e026"
+    assert dataset_inputs[0].dataset.source_type == "local"
+    assert json.loads(dataset_inputs[0].dataset.source) == {"uri": str(path)}
+    assert json.loads(dataset_inputs[0].dataset.schema) == {
+        "mlflow_colspec": [
+            {"name": "a", "type": "long"},
+            {"name": "b", "type": "long"},
+            {"name": "c", "type": "long"},
+        ]
+    }
+    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+
+    assert len(dataset_inputs[0].tags) == 1
+    assert dataset_inputs[0].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
+    assert dataset_inputs[0].tags[0].value == "train"
+
+
+def test_get_parent_run():
+    with mlflow.start_run() as parent:
+        mlflow.log_param("a", 1)
+        mlflow.log_metric("b", 2.0)
+        with mlflow.start_run(nested=True) as child_run:
+            child_run_id = child_run.info.run_id
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+    parent_run = mlflow.get_parent_run(child_run_id)
+    assert parent_run.info.run_id == parent.info.run_id
+    assert parent_run.data.metrics == {"b": 2.0}
+    assert parent_run.data.params == {"a": "1"}
+
+    assert mlflow.get_parent_run(run_id) is None

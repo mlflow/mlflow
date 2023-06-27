@@ -1,9 +1,7 @@
 import os
 import logging
-import distutils
-
 from importlib.machinery import SourceFileLoader
-from setuptools import setup, find_packages
+from setuptools import setup, find_packages, Command
 
 _MLFLOW_SKINNY_ENV_VAR = "MLFLOW_SKINNY"
 
@@ -14,10 +12,14 @@ version = (
 
 # Get a list of all files in the directory to include in our module
 def package_files(directory):
+    """
+    Recursively collects file paths within a directory relative to the mlflow directory.
+    """
+    mlflow_dir = os.path.abspath("mlflow")
     paths = []
-    for (path, _, filenames) in os.walk(directory):
+    for root, _, filenames in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.join("..", path, filename))
+            paths.append(os.path.relpath(os.path.join(root, filename), mlflow_dir))
     return paths
 
 
@@ -31,16 +33,17 @@ def remove_comments_and_empty_lines(lines):
 
 
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
-# to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
+# to include in the wheel, e.g. "server/js/build/index.html"
 js_files = package_files("mlflow/server/js/build")
 models_container_server_files = package_files("mlflow/models/container")
 alembic_files = [
-    "../mlflow/store/db_migrations/alembic.ini",
-    "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini",
+    "store/db_migrations/alembic.ini",
+    "temporary_db_migrations_for_pre_1_users/alembic.ini",
 ]
 extra_files = [
     "pypi_package_index.json",
     "pyspark/ml/log_model_allowlist.txt",
+    "server/auth/basic_auth.ini",
 ]
 recipes_template_files = package_files("mlflow/recipes/resources")
 recipes_files = package_files("mlflow/recipes/cards/templates")
@@ -65,11 +68,14 @@ other capabilities.
 with open(os.path.join("requirements", "core-requirements.txt")) as f:
     CORE_REQUIREMENTS = SKINNY_REQUIREMENTS + remove_comments_and_empty_lines(f.read().splitlines())
 
+with open(os.path.join("requirements", "gateway-requirements.txt")) as f:
+    GATEWAY_REQUIREMENTS = remove_comments_and_empty_lines(f.read().splitlines())
+
 _is_mlflow_skinny = bool(os.environ.get(_MLFLOW_SKINNY_ENV_VAR))
 logging.debug("{} env var is set: {}".format(_MLFLOW_SKINNY_ENV_VAR, _is_mlflow_skinny))
 
 
-class ListDependencies(distutils.cmd.Command):
+class ListDependencies(Command):
     # `python setup.py <command name>` prints out "running <command name>" by default.
     # This logging message must be hidden by specifying `--quiet` (or `-q`) when piping the output
     # of this command to `pip install`.
@@ -92,7 +98,7 @@ class ListDependencies(distutils.cmd.Command):
 MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"
 
 
-class MinPythonVersion(distutils.cmd.Command):
+class MinPythonVersion(Command):
     description = "Print out the minimum supported Python version"
     user_options = []
 
@@ -127,7 +133,6 @@ setup(
     install_requires=CORE_REQUIREMENTS if not _is_mlflow_skinny else SKINNY_REQUIREMENTS,
     extras_require={
         "extras": [
-            "scikit-learn",
             # Required to log artifacts and models to HDFS artifact locations
             "pyarrow",
             # Required to sign outgoing request with SigV4 signature
@@ -143,19 +148,34 @@ setup(
             # a remote Kubernetes cluster
             "kubernetes",
             # Required to serve models through MLServer
-            "mlserver>=1.2.0.dev13",
-            "mlserver-mlflow>=1.2.0.dev13",
+            # NOTE: remove the upper version pin once protobuf is no longer pinned in mlserver
+            # Reference issue: https://github.com/SeldonIO/MLServer/issues/1089
+            "mlserver>=1.2.0,!=1.3.1",
+            "mlserver-mlflow>=1.2.0,!=1.3.1",
             "virtualenv",
             # Required for exporting metrics from the MLflow server to Prometheus
             # as part of the MLflow server monitoring add-on
             "prometheus-flask-exporter",
         ],
+        "databricks": [
+            # Required to write model artifacts to unity catalog locations
+            "azure-storage-file-datalake>12",
+            "google-cloud-storage>=1.30.0",
+            "boto3>1",
+        ],
+        "gateway": GATEWAY_REQUIREMENTS,
         "sqlserver": ["mlflow-dbstore"],
         "aliyun-oss": ["aliyunstoreplugin"],
     },
     entry_points="""
         [console_scripts]
         mlflow=mlflow.cli:cli
+
+        [mlflow.app]
+        basic-auth=mlflow.server.auth:create_app
+
+        [mlflow.app.client]
+        basic-auth=mlflow.server.auth.client:AuthServiceClient
     """,
     cmdclass={
         "dependencies": ListDependencies,

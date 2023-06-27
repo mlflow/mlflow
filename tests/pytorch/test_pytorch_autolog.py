@@ -132,7 +132,7 @@ def test_pytorch_autolog_logs_expected_metrics_without_validation(pytorch_model_
 
 @pytest.mark.skipif(
     Version(pl.__version__) < Version("1.1.0"),
-    reason="Access to metrics from the current step is only possible since PyTorch-lightning 1.1.0"
+    reason="Access to metrics from the current step is only possible since PyTorch-lightning 1.1.0 "
     "when LoggerConnector.cached_results was added",
 )
 def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
@@ -145,7 +145,7 @@ def test_pytorch_autolog_logging_forked_metrics_on_step_and_epoch(
     num_logged_epochs = NUM_EPOCHS // log_every_n_epoch
 
     client = MlflowClient()
-    for (metric_key, expected_len) in [
+    for metric_key, expected_len in [
         ("train_acc", num_logged_epochs),
         ("loss", num_logged_steps),
         ("loss_forked", num_logged_epochs),
@@ -355,12 +355,14 @@ def test_pytorch_autologging_supports_data_parallel_execution():
     devices_kwarg_name = (
         "devices" if Version(pl.__version__) > Version("1.6.4") else "num_processes"
     )
+    extra_kwargs = {"strategy": "ddp_spawn"} if Version(pl.__version__) > Version("1.9.3") else {}
     trainer = pl.Trainer(
         max_epochs=NUM_EPOCHS,
         accelerator=accelerator,
         **{
             devices_kwarg_name: 4,
         },
+        **extra_kwargs,
     )
 
     with mlflow.start_run() as run:

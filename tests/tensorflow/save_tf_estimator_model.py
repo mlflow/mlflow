@@ -43,7 +43,7 @@ SavedModelInfo = collections.namedtuple(
 )
 
 
-def save_tf_iris_model(tmpdir):
+def save_tf_iris_model(tmp_path):
     # Following code from
     # https://github.com/tensorflow/models/blob/v1.13.0/samples/core/get_started/premade_estimator.py
     train_x, train_y = iris_data_utils.load_data()[0]
@@ -110,7 +110,7 @@ def save_tf_iris_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    saved_estimator_path = os.path.join(tmp_path, "saved_model")
     os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
@@ -128,8 +128,8 @@ def save_tf_iris_model(tmpdir):
     )
 
 
-def save_tf_categorical_model(tmpdir):
-    path = os.path.join(args.mlflow_repo_path, "tests/data/uci-autos-imports-85.data")
+def save_tf_categorical_model(tmp_path):
+    path = os.path.join(args.mlflow_repo_path, "tests/datasets/uci-autos-imports-85.data")
     # Order is important for the csv-readers, so we use an OrderedDict here
     defaults = collections.OrderedDict(
         [("body-style", [""]), ("curb-weight", [0.0]), ("highway-mpg", [0.0]), ("price", [0.0])]
@@ -184,7 +184,7 @@ def save_tf_categorical_model(tmpdir):
     receiver_fn = tf_estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
-    saved_estimator_path = os.path.join(tmpdir, "saved_model")
+    saved_estimator_path = os.path.join(tmp_path, "saved_model")
     os.makedirs(saved_estimator_path)
     saved_estimator_path = estimator.export_saved_model(saved_estimator_path, receiver_fn).decode(
         "utf-8"
@@ -220,6 +220,7 @@ with TempDir() as tmp:
                 tf_meta_graph_tags=saved_model.meta_graph_tags,
                 tf_signature_def_key=saved_model.signature_def_key,
                 artifact_path="model",
+                extra_pip_requirements=["protobuf<4.0.0"],
             )
             run_id = run.info.run_id
     elif args.task_type == "save_model":
@@ -229,6 +230,7 @@ with TempDir() as tmp:
             tf_meta_graph_tags=saved_model.meta_graph_tags,
             tf_signature_def_key=saved_model.signature_def_key,
             path=args.save_path,
+            extra_pip_requirements=["protobuf<4.0.0"],
         )
         run_id = None
     else:

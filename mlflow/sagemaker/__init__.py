@@ -9,6 +9,8 @@ import tarfile
 import logging
 import time
 import platform
+import json
+import signal
 
 import mlflow
 import mlflow.version
@@ -23,6 +25,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
 from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, SERVING_ENVIRONMENT
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
+from mlflow.utils.proto_json_utils import dump_input_data
 
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
@@ -173,6 +176,7 @@ def _deploy(
     timeout_seconds=1200,
     data_capture_config=None,
     variant_name=None,
+    async_inference_config=None,
     env=None,
     tags=None,
 ):
@@ -310,6 +314,20 @@ def _deploy(
                                     mfs.deploy(..., data_capture_config=data_capture_config)
 
     :param variant_name: The name to assign to the new production variant.
+    :param async_inference_config: The name to assign to the endpoint_config
+                                    on the sagemaker endpoint.
+                                    .. code-block:: python
+                                        :caption: Example
+                                            "AsyncInferenceConfig": {
+                                                "ClientConfig": {
+                                                    "MaxConcurrentInvocationsPerInstance": 4  # pylint: disable=line-too-long
+                                                },
+                                                "OutputConfig": {
+                                                    "S3OutputPath": "s3://<path-to-output-bucket>",  # pylint: disable=line-too-long
+                                                    "NotificationConfig": {},  # pylint: disable=line-too-long
+                                                },
+                                            }
+
     :param env: An optional dictionary of environment variables to set for the model.
     :param tags: An optional dictionary of tags to apply to the endpoint.
     """
@@ -368,6 +386,7 @@ def _deploy(
         )
 
     model_name = _get_sagemaker_model_name(endpoint_name=app_name)
+
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
@@ -401,6 +420,7 @@ def _deploy(
             sage_client=sage_client,
             s3_client=s3_client,
             variant_name=variant_name,
+            async_inference_config=async_inference_config,
             data_capture_config=data_capture_config,
             env=env,
             tags=tags,
@@ -420,6 +440,7 @@ def _deploy(
             role=execution_role_arn,
             sage_client=sage_client,
             variant_name=variant_name,
+            async_inference_config=async_inference_config,
             env=env,
             tags=tags,
         )
@@ -714,7 +735,7 @@ def deploy_transform_job(
     if transform_job_exists:
         raise MlflowException(
             message=(
-                f"You are attempting to deploy a batch transform job with name: {job_name}."
+                f"You are attempting to deploy a batch transform job with name: {job_name}. "
                 "However, a batch transform job with the same name already exists."
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -985,7 +1006,7 @@ def push_model_to_sagemaker(
     if _does_model_exist(model_name=model_name, sage_client=sage_client):
         raise MlflowException(
             message=(
-                f"You are attempting to create a Sagemaker model with name: {model_name}."
+                f"You are attempting to create a Sagemaker model with name: {model_name}. "
                 "However, a model with the same name already exists."
             ),
             error_code=INVALID_PARAMETER_VALUE,
@@ -1114,8 +1135,6 @@ def run_local(name, model_uri, flavor=None, config=None):  # pylint: disable=unu
         _logger.info("received termination signal => killing docker process")
         proc.send_signal(signal.SIGINT)
 
-    import signal
-
     signal.signal(signal.SIGTERM, _sigterm_handler)
     proc.wait()
 
@@ -1124,7 +1143,7 @@ def target_help():
     """
     Provide help information for the SageMaker deployment client.
     """
-    help_str = """\
+    return """\
     For detailed documentation on the SageMaker deployment client, please visit
     https://mlflow.org/docs/latest/python_api/mlflow.sagemaker.html#mlflow.sagemaker.SageMakerDeploymentClient
 
@@ -1143,7 +1162,6 @@ def target_help():
     The `delete` command accepts configurations to archive a model instead of deleting, execute
     in asynchronous mode and timeout period.
     """
-    return help_str
 
 
 def _get_default_image_url(region_name):
@@ -1473,6 +1491,7 @@ def _create_sagemaker_endpoint(
     role,
     sage_client,
     variant_name=None,
+    async_inference_config=None,
     env=None,
     tags=None,
 ):
@@ -1528,9 +1547,10 @@ def _create_sagemaker_endpoint(
         "ProductionVariants": [production_variant],
         "Tags": [{"Key": "app_name", "Value": endpoint_name}],
     }
+    if async_inference_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
-
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
     _logger.info(
         "Created endpoint configuration with arn: %s", endpoint_config_response["EndpointConfigArn"]
@@ -1588,6 +1608,7 @@ def _update_sagemaker_endpoint(
     sage_client,
     s3_client,
     variant_name=None,
+    async_inference_config=None,
     data_capture_config=None,
     env=None,
     tags=None,
@@ -1609,7 +1630,10 @@ def _update_sagemaker_endpoint(
     :param role: SageMaker execution ARN role.
     :param sage_client: A boto3 client for SageMaker.
     :param s3_client: A boto3 client for S3.
-    :variant_name: The name to assign to the new production variant if it doesn't already exist.
+    :param variant_name: The name to assign to the new production variant if it doesn't already exist. # pylint: disable=line-too-long
+    :param async_inference_config: A dictionary specifying the async inference configuration to use.
+                         For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_AsyncInferenceConfig.html.
+                         Defaults to ``None``.
     :param: data_capture_config: A dictionary specifying the data capture configuration to use.
                                  For more information, see https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_DataCaptureConfig.html.
                                  Defaults to ``None``.
@@ -1667,11 +1691,14 @@ def _update_sagemaker_endpoint(
     # Create the new endpoint configuration and update the endpoint
     # to adopt the new configuration
     new_config_name = _get_sagemaker_config_name(endpoint_name)
+    # This is the hardcoded config for endpoint
     endpoint_config_kwargs = {
         "EndpointConfigName": new_config_name,
         "ProductionVariants": production_variants,
         "Tags": [{"Key": "app_name", "Value": endpoint_name}],
     }
+    if async_inference_config:
+        endpoint_config_kwargs["AsyncInferenceConfig"] = async_inference_config
     if data_capture_config is not None:
         endpoint_config_kwargs["DataCaptureConfig"] = data_capture_config
     endpoint_config_response = sage_client.create_endpoint_config(**endpoint_config_kwargs)
@@ -1964,6 +1991,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             "variant_name": None,
             "env": None,
             "tags": None,
+            "async_inference_config": {},
         }
 
         if create_mode:
@@ -1974,11 +2002,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
         return config
 
     def _apply_custom_config(self, config, custom_config):
-        import json
-
         int_fields = {"instance_count", "timeout_seconds"}
         bool_fields = {"synchronous", "archive"}
-        dict_fields = {"vpc_config", "data_capture_config", "tags", "env"}
+        dict_fields = {"vpc_config", "data_capture_config", "tags", "env", "async_inference_config"}
         for key, value in custom_config.items():
             if key not in config:
                 continue
@@ -2103,6 +2129,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
 
                        - ``variant_name``: A string specifying the desired name when creating a
                                            production variant.  Defaults to ``None``.
+                       - ``async_inference_config``: A dictionary specifying the async_inference_configuration # pylint: disable=line-too-long
 
                        - ``env``: A dictionary specifying environment variables as key-value
                          pairs to be set for the deployed model. Defaults to ``None``.
@@ -2138,7 +2165,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 timeout_seconds=300,
                 vpc_config=vpc_config,
                 variant_name="prod-variant-1",
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                env={"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
                 tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
@@ -2170,7 +2197,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C data_capture_config='{"EnableCapture": True, \\
                     'InitalSamplingPercentage': 100, 'DestinationS3Uri": 's3://my-bucket/path', \\
                     'CaptureOptions': [{'CaptureMode': 'Output'}]}'
-                    -C env='{"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
+                    -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\
         """
         final_config = self._default_deployment_config()
@@ -2195,6 +2222,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
+            async_inference_config=final_config["async_inference_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
@@ -2335,8 +2363,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                          Defaults to ``None``.
 
                        - ``variant_name``: A string specifying the desired name when creating a
-                                           production variant.  Defaults to ``None``.
-
+                                           production variant.  Defaults to ``None``.                                           
+                       - ``async_inference_config``: A dictionary specifying the async config 
+                                                     configuration. Defaults to ``None``.
                        - ``env``: A dictionary specifying environment variables as key-value pairs
                          to be set for the deployed model. Defaults to ``None``.
 
@@ -2380,7 +2409,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 variant_name="prod-variant-1",
                 vpc_config=vpc_config,
                 data_capture_config=data_capture_config,
-                env={"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
+                env={"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": '"--timeout 60"'},
                 tags={"training_timestamp": "2022-11-01T05:12:26"},
             )
             client = get_deploy_client("sagemaker")
@@ -2413,7 +2442,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                     -C data_capture_config='{"EnableCapture": True, \\
                     "InitalSamplingPercentage": 100, "DestinationS3Uri": "s3://my-bucket/path", \\
                     "CaptureOptions": [{"CaptureMode": "Output"}]}'
-                    -C env='{"DISABLE_NGINX": "1", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
+                    -C env='{"DISABLE_NGINX": "true", "GUNICORN_CMD_ARGS": "\"--timeout 60\""}' \\
                     -C tags='{"training_timestamp": "2022-11-01T05:12:26"}' \\
         """
         final_config = self._default_deployment_config(create_mode=False)
@@ -2453,6 +2482,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             synchronous=final_config["synchronous"],
             timeout_seconds=final_config["timeout_seconds"],
             variant_name=final_config["variant_name"],
+            async_inference_config=final_config["async_inference_config"],
             env=final_config["env"],
             tags=final_config["tags"],
         )
@@ -2673,10 +2703,7 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
                 --name my-deployment \\
                 --input-path ./input.json
         """
-        import json
         import boto3
-        import pandas as pd
-        from mlflow.utils.proto_json_utils import _get_jsonable_obj
 
         assume_role_credentials = _assume_role_and_get_credentials(
             assume_role_arn=self.assumed_role_arn
@@ -2686,13 +2713,9 @@ class SageMakerDeploymentClient(BaseDeploymentClient):
             sage_client = boto3.client(
                 "sagemaker-runtime", region_name=self.region_name, **assume_role_credentials
             )
-            if isinstance(inputs, pd.DataFrame):
-                body = json.dumps({"dataframe_split": inputs.to_dict(orient="split")})
-            else:
-                body = json.dumps({"instances": _get_jsonable_obj(inputs)})
             response = sage_client.invoke_endpoint(
                 EndpointName=deployment_name,
-                Body=body,
+                Body=dump_input_data(inputs, inputs_key="instances"),
                 ContentType="application/json",
             )
             response_body = response["Body"].read().decode("utf-8")
@@ -2822,7 +2845,6 @@ class _SageMakerOperation:
 
 
 class _SageMakerOperationStatus:
-
     STATE_SUCCEEDED = "succeeded"
     STATE_FAILED = "failed"
     STATE_IN_PROGRESS = "in progress"

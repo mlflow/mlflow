@@ -5,6 +5,7 @@ import base64
 import numpy as np
 import pandas as pd
 import sys
+from packaging.version import Version
 
 from typing import Union, Iterable, Tuple
 from mlflow.protos import facet_feature_statistics_pb2
@@ -90,7 +91,8 @@ def convert_to_dataset_feature_statistics(
     fs_proto = facet_feature_statistics_pb2.FeatureNameStatistics
     feature_stats = facet_feature_statistics_pb2.DatasetFeatureStatistics()
     data_type_custom_stat = facet_feature_statistics_pb2.CustomStatistic()
-    pandas_describe = df.describe(datetime_is_numeric=True, include="all")
+    kwargs = {} if Version(pd.__version__) >= Version("2.0.0rc0") else {"datetime_is_numeric": True}
+    pandas_describe = df.describe(include="all", **kwargs)
     feature_stats.num_examples = len(df)
     quantiles_to_get = [x * 10 / 100 for x in range(10 + 1)]
     try:
@@ -116,9 +118,12 @@ def convert_to_dataset_feature_statistics(
             if converter:
                 date_time_converted = converter(current_column_value)
                 current_column_value = pd.DataFrame(date_time_converted)[0]
-                pandas_describe_key = current_column_value.describe(
-                    datetime_is_numeric=True, include="all"
+                kwargs = (
+                    {}
+                    if Version(pd.__version__) >= Version("2.0.0rc0")
+                    else {"datetime_is_numeric": True}
                 )
+                pandas_describe_key = current_column_value.describe(include="all", **kwargs)
                 quantiles[key] = current_column_value.quantile(quantiles_to_get)
 
             default_value = 0
@@ -152,7 +157,9 @@ def convert_to_dataset_feature_statistics(
             strs = current_column_value.dropna()
 
             feat_stats.avg_length = (
-                np.mean(np.vectorize(len)(strs)) if not is_current_column_boolean_type else 0
+                np.mean(np.vectorize(len)(strs))
+                if not is_current_column_boolean_type and not current_column_value.isnull().all()
+                else 0
             )
             vals, counts = np.unique(strs, return_counts=True)
             feat_stats.unique = pandas_describe_key.get("unique", len(vals))
@@ -204,7 +211,7 @@ def convert_to_comparison_proto(
         of the glimpses with the given names.
     """
     feature_stats_list = facet_feature_statistics_pb2.DatasetFeatureStatisticsList()
-    for (name, df) in dfs:
+    for name, df in dfs:
         if not df.empty:
             proto = convert_to_dataset_feature_statistics(df)
             proto.name = name

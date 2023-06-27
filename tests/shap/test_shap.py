@@ -70,7 +70,6 @@ def classifier():
 
 @pytest.mark.parametrize("np_obj", [float(0.0), np.array([0.0])])
 def test_log_numpy(np_obj):
-
     with mlflow.start_run() as run:
         mlflow.shap._log_numpy(np_obj, "test.npy")
         mlflow.shap._log_numpy(np_obj, "test.npy", artifact_path="dir")
@@ -80,7 +79,6 @@ def test_log_numpy(np_obj):
 
 
 def test_log_matplotlib_figure():
-
     fig, ax = plt.subplots()
     ax.plot([0, 1], [2, 3])
 

@@ -1,6 +1,7 @@
 import json
 import os
 import pytest
+from unittest import mock
 
 from click.testing import CliRunner
 from mlflow.deployments import cli
@@ -85,13 +86,11 @@ def test_get():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny Client does not support predict due to the pandas dependency",
 )
-def test_predict(tmpdir):
-    temp_input_file_path = tmpdir.join("input.json").strpath
-    with open(temp_input_file_path, "w") as temp_input_file:
-        temp_input_file.write('{"data": [5000]}')
+def test_predict(tmp_path):
+    temp_input_file_path = tmp_path.joinpath("input.json")
+    temp_input_file_path.write_text('{"data": [5000]}')
 
-    temp_output_file_path = tmpdir.join("output.json").strpath
-
+    temp_output_file_path = tmp_path.joinpath("output.json")
     res = runner.invoke(
         cli.predict, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
     )
@@ -132,22 +131,18 @@ def test_run_local():
     "MLFLOW_SKINNY" in os.environ,
     reason="Skinny Client does not support explain due to the pandas dependency",
 )
-def test_explain(tmpdir):
-    temp_input_file_path = tmpdir.join("input.json").strpath
-    with open(temp_input_file_path, "w") as temp_input_file:
-        temp_input_file.write('{"data": [5000]}')
+def test_explain(tmp_path):
+    temp_input_file_path = tmp_path.joinpath("input.json")
+    temp_input_file_path.write_text('{"data": [5000]}')
     res = runner.invoke(
         cli.explain, ["--target", f_target, "--name", f_name, "--input-path", temp_input_file_path]
     )
     assert "1" in res.stdout
 
 
-def test_explain_with_no_target_implementation(tmpdir):
-    from unittest import mock
-
-    file_path = tmpdir.join("input.json").strpath
-    with open(file_path, "w") as temp_input_file:
-        temp_input_file.write('{"data": [5000]}')
+def test_explain_with_no_target_implementation(tmp_path):
+    file_path = tmp_path.joinpath("input.json")
+    file_path.write_text('{"data": [5000]}')
     mock_error = MlflowException("MOCK ERROR")
     with mock.patch.object(CliRunner, "invoke", return_value=mock_error) as mock_explain:
         res = runner.invoke(

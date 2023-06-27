@@ -1,6 +1,7 @@
 import tempfile
 import shutil
 import os
+import zipfile
 
 
 def _get_active_spark_session():
@@ -45,7 +46,7 @@ def _create_local_spark_session_for_recipes():
     _prepare_subprocess_environ_for_creating_local_spark_session()
     return (
         SparkSession.builder.master("local[*]")
-        .config("spark.jars.packages", "io.delta:delta-core_2.12:1.2.1")
+        .config("spark.jars.packages", "io.delta:delta-core_2.12:2.4.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
             "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
@@ -130,7 +131,6 @@ class _SparkDirectoryDistributor:
         If this Python process ever loaded the model before, we will reuse that copy.
         """
         from pyspark.files import SparkFiles
-        import zipfile
 
         if archive_path in _SparkDirectoryDistributor._extracted_dir_paths:
             return _SparkDirectoryDistributor._extracted_dir_paths[archive_path]

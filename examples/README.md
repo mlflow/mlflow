@@ -29,9 +29,10 @@ Various examples that depict MLflow tracking, project, and serving use cases.
 - `sklearn_logistic_regression` is a simple MLflow example with hooks to log training data to MLflow
   tracking server.
 - `supply_chain_security` shows how to strengthen the security of ML projects against supply-chain attacks by enforcing hash checks on Python packages.
-- `tensorflow` contains end-to-end one run examples from train to predict for TensorFlow 2.3+ It includes usage of MLflow's
+- `tensorflow` contains end-to-end one run examples from train to predict for TensorFlow 2.8+ It includes usage of MLflow's
   `mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 - `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies
 - `fastai` modifies a [fastai classification example](https://github.com/fastai/fastai/blob/master/nbs/examples/mnist_blocks.py) and highlights MLflow's `mlflow.fastai.autolog()`
   API to track parameters, metrics, and artifacts while training a simple MNIST model.
+- `johnsnowlabs` gives you access to [20.000+ state-of-the-art enterprise NLP models in 200+ languages](https://nlp.johnsnowlabs.com/models) for medical, finance, legal and many more domains.

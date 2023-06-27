@@ -17,7 +17,7 @@ from mlflow.recipes.utils.tracking import (
     apply_recipe_tracking_config,
     TrackingConfig,
 )
-from mlflow.projects.utils import get_databricks_env_vars
+from mlflow.utils.databricks_utils import get_databricks_env_vars
 from mlflow.utils.file_utils import write_spark_dataframe_to_parquet_on_local_disk
 from mlflow.utils._spark_utils import (
     _get_active_spark_session,
@@ -70,7 +70,7 @@ class PredictStep(BaseStep):
                 self.step_config["model_uri"] = f"models:/{model_name}/latest"
         self.registry_uri = self.step_config.get("registry_uri", None)
         self.skip_data_profiling = self.step_config.get("skip_data_profiling", False)
-        self.save_mode = self.step_config.get("save_mode", "default")
+        self.save_mode = self.step_config.get("save_mode", "overwrite")
         self.run_end_time = None
         self.execution_duration = None
 

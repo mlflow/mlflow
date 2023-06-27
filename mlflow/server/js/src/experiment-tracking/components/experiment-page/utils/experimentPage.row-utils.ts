@@ -1,6 +1,12 @@
 import { isNumber } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
-import { ExperimentEntity, KeyValueEntity, ModelInfoEntity, RunInfoEntity } from '../../../types';
+import type {
+  ExperimentEntity,
+  KeyValueEntity,
+  ModelInfoEntity,
+  RunInfoEntity,
+  RunDatasetWithTags,
+} from '../../../types';
 import {
   RunRowDateAndNestInfo,
   RunRowModelsInfo,
@@ -42,6 +48,7 @@ interface RowRenderMetadata {
   params: KeyValueEntity[];
   metrics: KeyValueEntity[];
   tags: Record<string, KeyValueEntity>;
+  datasets: RunDatasetWithTags[];
 }
 
 /**
@@ -49,15 +56,18 @@ interface RowRenderMetadata {
  * a list of rows metadata discarding any information about the parent/child run hierarchy.
  */
 const getFlatRowRenderMetadata = (runData: SingleRunData[]) =>
-  runData.map<RowRenderMetadata>(({ runInfo, metrics = [], params = [], tags = {} }, index) => ({
-    index,
-    runInfo,
-    level: 0, // All runs will be on "0" level here,
-    isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
-    metrics: metrics,
-    params: params,
-    tags: tags,
-  }));
+  runData.map<RowRenderMetadata>(
+    ({ runInfo, metrics = [], params = [], tags = {}, datasets = [] }, index) => ({
+      index,
+      runInfo,
+      level: 0, // All runs will be on "0" level here,
+      isPinnable: !tags[EXPERIMENT_PARENT_ID_TAG]?.value,
+      metrics: metrics,
+      params: params,
+      tags: tags,
+      datasets: datasets,
+    }),
+  );
 
 /**
  * For a given run dataset from the store, this function prepares
@@ -139,6 +149,7 @@ const getNestedRowRenderMetadata = ({
         params: runData[dfsIndex].params || [],
         metrics: runData[dfsIndex].metrics || [],
         tags: runData[dfsIndex].tags || {},
+        datasets: runData[dfsIndex].datasets || [],
         isPinnable,
       };
       if (parentIdToChildren[currentNodeRunId]) {
@@ -204,6 +215,49 @@ const createKeyValueDataForRunRow = (
 };
 
 /**
+ * Temporary function that assigns randomized, yet stable color
+ * from the static palette basing on an input string. Used for coloring runs.
+ *
+ * TODO: make a decision on the final color hashing per run
+ */
+const getStableColorByStringHash = (data: string) => {
+  // Taken from Figma design
+  const colors = [
+    '#077A9D',
+    '#8BCAE7',
+    '#FFAB00',
+    '#FFDB96',
+    '#00A972',
+    '#99DDB4',
+    '#BA7B23',
+    '#FF3621',
+    '#FCA4A1',
+    '#919191',
+    '#00875C',
+    '#1B5162',
+    '#914B9F',
+    '#D01F0B',
+    '#BD89C7',
+    '#AB4057',
+    '#5F5F5F',
+    '#BF7080',
+    '#C2C2C2',
+    '#7F1035',
+  ];
+  let a = 0,
+    b = 0;
+
+  // Let's use super simple hashing method
+  for (let i = 0; i < data.length; i++) {
+    a = (a + data.charCodeAt(i)) % 255;
+    b = (b + a) % 255;
+  }
+
+  // eslint-disable-next-line no-bitwise
+  return colors[(a | (b << 8)) % colors.length];
+};
+
+/**
  * Creates ag-grid compatible row dataset for all given runs basing on
  * the data retrieved from the API and from the refux store.
  * Please refer to PrepareRunsGridDataParams type for type reference.
@@ -218,6 +272,7 @@ export const prepareRunsGridData = ({
   metricKeyList,
   tagKeyList,
   runsPinned,
+  runsHidden,
   runData,
   runUuidsMatchingFilter,
 }: PrepareRunsGridDataParams) => {
@@ -248,6 +303,7 @@ export const prepareRunsGridData = ({
       tags,
       params,
       metrics,
+      datasets,
     } = runInfoMetadata;
 
     const formattedMetrics = (metrics || []).map(({ key, value }) => ({
@@ -286,6 +342,7 @@ export const prepareRunsGridData = ({
     // Prepare a data package to be used by "Models" cell
     const models: RunRowModelsInfo = {
       registeredModels: modelVersionsByRunUuid[runInfo.run_uuid] || [], // ModelInfoEntity
+      // @ts-expect-error TS(2322): Type 'unknown[]' is not assignable to type '{ arti... Remove this comment to see the full error message
       loggedModels: Utils.getLoggedModelsFromTags(tags),
       experimentId: runInfo.experiment_id,
       runUuid: runInfo.run_uuid,
@@ -298,7 +355,8 @@ export const prepareRunsGridData = ({
       type: Utils.getSourceType(tags),
     };
 
-    const isCurrentRowPinned = runsPinned.includes(runUuid);
+    const isCurrentRowHidden = runsHidden.includes(runUuid);
+    const isCurrentRowPinned = isPinnable && runsPinned.includes(runUuid);
     const isParentPinned = childrenToPin.includes(runUuid);
 
     // If this or a parent row is pinned, pin children as well
@@ -320,6 +378,8 @@ export const prepareRunsGridData = ({
       models,
       version,
       pinnable: isPinnable,
+      color: getStableColorByStringHash(runUuid),
+      hidden: isCurrentRowHidden,
       pinned: isCurrentRowPinned || isParentPinned,
       ...createKeyValueDataForRunRow(params, paramKeyList, EXPERIMENT_FIELD_PREFIX_PARAM),
       ...createKeyValueDataForRunRow(
@@ -327,6 +387,7 @@ export const prepareRunsGridData = ({
         metricKeyList,
         EXPERIMENT_FIELD_PREFIX_METRIC,
       ),
+      datasets,
       ...createKeyValueDataForRunRow(visibleTags, tagKeyList, EXPERIMENT_FIELD_PREFIX_TAG),
     };
   });
@@ -342,10 +403,11 @@ export const prepareRunsGridData = ({
   ];
 };
 
-type SingleRunData = {
+export type SingleRunData = {
   runInfo: RunInfoEntity;
   params: KeyValueEntity[];
   metrics: KeyValueEntity[];
+  datasets: RunDatasetWithTags[];
   tags: Record<string, KeyValueEntity>;
 };
 
@@ -356,7 +418,7 @@ type PrepareRunsGridDataParams = Pick<
   ExperimentRunsSelectorResult,
   'metricKeyList' | 'paramKeyList' | 'modelVersionsByRunUuid'
 > &
-  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned'> & {
+  Pick<SearchExperimentRunsFacetsState, 'runsExpanded' | 'runsPinned' | 'runsHidden'> & {
     /**
      * List of experiments containing the runs
      */

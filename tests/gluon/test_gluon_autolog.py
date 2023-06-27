@@ -169,7 +169,6 @@ def test_autolog_persists_manually_created_run():
     data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
 
     with mlflow.start_run() as run:
-
         model = HybridSequential()
         model.add(Dense(64, activation="relu"))
         model.add(Dense(64, activation="relu"))

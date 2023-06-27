@@ -2,12 +2,15 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.entities.model_registry import ModelVersion
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.store.model_registry import SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT
+from mlflow.store.model_registry import (
+    SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+)
 from typing import Any, Dict, Optional, List
 
 
@@ -41,16 +44,20 @@ def register_model(
         :caption: Example
 
         import mlflow.sklearn
+        from mlflow.models import infer_signature
+        from sklearn.datasets import make_regression
         from sklearn.ensemble import RandomForestRegressor
 
         mlflow.set_tracking_uri("sqlite:////tmp/mlruns.db")
         params = {"n_estimators": 3, "random_state": 42}
+        X, y = make_regression(n_features=4, n_informative=2, random_state=0, shuffle=False)
 
         # Log MLflow entities
         with mlflow.start_run() as run:
-            rfr = RandomForestRegressor(**params).fit([[0, 1]], [1])
+            rfr = RandomForestRegressor(**params).fit(X, y)
+            signature = infer_signature(X, rfr.predict(X))
             mlflow.log_params(params)
-            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model")
+            mlflow.sklearn.log_model(rfr, artifact_path="sklearn-model", signature=signature)
 
         model_uri = "runs:/{}/sklearn-model".format(run.info.run_id)
         mv = mlflow.register_model(model_uri, "RandomForestRegressionModel")
@@ -68,7 +75,10 @@ def register_model(
         create_model_response = client.create_registered_model(name)
         eprint("Successfully registered model '%s'." % create_model_response.name)
     except MlflowException as e:
-        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+        if e.error_code in (
+            ErrorCode.Name(RESOURCE_ALREADY_EXISTS),
+            ErrorCode.Name(ALREADY_EXISTS),
+        ):
             eprint(
                 "Registered model '%s' already exists. Creating a new version of this model..."
                 % name
@@ -199,4 +209,24 @@ def search_registered_models(
         pagination_wrapper_func,
         SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
         max_results,
+    )
+
+
+def search_model_versions(
+    max_results: Optional[int] = None,
+    filter_string: Optional[str] = None,
+    order_by: Optional[List[str]] = None,
+) -> List[ModelVersion]:
+    def pagination_wrapper_func(number_to_get, next_page_token):
+        return MlflowClient().search_model_versions(
+            max_results=number_to_get,
+            filter_string=filter_string,
+            order_by=order_by,
+            page_token=next_page_token,
+        )
+
+    return get_results_from_paginated_fn(
+        paginated_fn=pagination_wrapper_func,
+        max_results_per_page=SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
+        max_results=max_results,
     )

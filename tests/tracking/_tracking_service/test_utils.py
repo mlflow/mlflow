@@ -21,13 +21,12 @@ from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _resolve_tracking_uri,
     _TRACKING_INSECURE_TLS_ENV_VAR,
-    _TRACKING_PASSWORD_ENV_VAR,
     _TRACKING_TOKEN_ENV_VAR,
     _TRACKING_URI_ENV_VAR,
-    _TRACKING_USERNAME_ENV_VAR,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri
-from tests.helper_functions import is_local_os_windows
+from mlflow.utils.os import is_windows
+from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 # pylint: disable=unused-argument
 
@@ -76,8 +75,8 @@ def test_get_store_basic_rest_store():
 def test_get_store_rest_store_with_password():
     env = {
         _TRACKING_URI_ENV_VAR: "https://my-tracking-server:5050",
-        _TRACKING_USERNAME_ENV_VAR: "Bob",
-        _TRACKING_PASSWORD_ENV_VAR: "Ross",
+        MLFLOW_TRACKING_USERNAME.name: "Bob",
+        MLFLOW_TRACKING_PASSWORD.name: "Ross",
     }
     with mock.patch.dict(os.environ, env):
         store = _get_store()
@@ -130,7 +129,8 @@ def test_get_store_rest_store_with_no_insecure():
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
-def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
+def test_get_store_sqlalchemy_store(tmp_wkdir, db_type, monkeypatch):
+    monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     patch_create_engine = mock.patch("sqlalchemy.create_engine")
 
     uri = f"{db_type}://hostname/database"
@@ -147,7 +147,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        if is_local_os_windows():
+        if is_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
         else:
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
@@ -174,7 +174,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
-        if is_local_os_windows():
+        if is_windows():
             assert store.artifact_root_uri == Path.cwd().joinpath("artifact", "path").as_uri()
         else:
             assert store.artifact_root_uri == path_to_local_file_uri(
@@ -210,16 +210,16 @@ def test_get_store_databricks_profile():
             store.get_host_creds()
 
 
-def test_get_store_caches_on_store_uri_and_artifact_uri(tmpdir):
+def test_get_store_caches_on_store_uri_and_artifact_uri(tmp_path):
     registry = mlflow.tracking._tracking_service.utils._tracking_store_registry
 
-    store_uri_1 = "sqlite:///" + tmpdir.join("backend_store_1.db").strpath
-    store_uri_2 = "file:///" + tmpdir.join("backend_store_2").strpath
+    store_uri_1 = f"sqlite:///{tmp_path.joinpath('backend_store_1.db')}"
+    store_uri_2 = f"sqlite:///{tmp_path.joinpath('backend_store_2.db')}"
     stores_uris = [store_uri_1, store_uri_2]
     artifact_uris = [
         None,
-        tmpdir.join("artifact_root_1").strpath,
-        tmpdir.join("artifact_root_2").strpath,
+        str(tmp_path.joinpath("artifact_root_1")),
+        str(tmp_path.joinpath("artifact_root_2")),
     ]
 
     stores = []
@@ -299,7 +299,6 @@ def test_plugin_registration_via_entrypoints():
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
         tracking_store.register_entrypoints()
 
@@ -319,7 +318,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
     with mock.patch(
         "entrypoints.get_group_all", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
-
         tracking_store = TrackingStoreRegistry()
 
         # Check that the raised warning contains the message from the original exception
@@ -331,7 +329,6 @@ def test_handle_plugin_registration_failure_via_entrypoints(exception):
 
 
 def test_get_store_for_unregistered_scheme():
-
     tracking_store = TrackingStoreRegistry()
 
     with pytest.raises(
@@ -343,28 +340,27 @@ def test_get_store_for_unregistered_scheme():
 
 def test_resolve_tracking_uri_with_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = "databricks://tracking_qoeirj"
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_qoeirj",
+    ):
         overriding_uri = "databricks://tracking_poiwerow"
         assert _resolve_tracking_uri(overriding_uri) == overriding_uri
 
 
 def test_resolve_tracking_uri_with_no_param():
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        default_uri = "databricks://tracking_zlkjdas"
-        get_tracking_uri_mock.return_value = default_uri
-        assert _resolve_tracking_uri() == default_uri
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri",
+        return_value="databricks://tracking_zlkjdas",
+    ):
+        assert _resolve_tracking_uri() == "databricks://tracking_zlkjdas"
 
 
-def test_store_object_can_be_serialized_by_pickle(tmpdir):
+def test_store_object_can_be_serialized_by_pickle(tmp_path):
     """
     This test ensures a store object generated by `_get_store` can be serialized by pickle
     to prevent issues such as https://github.com/mlflow/mlflow/issues/2954
     """
-    pickle.dump(_get_store(f"file:///{tmpdir.join('mlflow').strpath}"), io.BytesIO())
+    pickle.dump(_get_store(f"file:///{tmp_path.joinpath('mlflow')}"), io.BytesIO())
     pickle.dump(_get_store("databricks"), io.BytesIO())
     pickle.dump(_get_store("https://example.com"), io.BytesIO())
     # pickle.dump(_get_store(f"sqlite:///{tmpdir.strpath}/mlflow.db"), io.BytesIO())
@@ -380,3 +376,14 @@ def test_set_tracking_uri_with_path(tmp_path, monkeypatch, absolute):
     with mock.patch("mlflow.tracking._tracking_service.utils._tracking_uri", None):
         set_tracking_uri(path)
         assert get_tracking_uri() == path.absolute().resolve().as_uri()
+
+
+@pytest.mark.parametrize("store_uri", ["databricks-uc", "databricks-uc://profile"])
+def test_get_store_raises_on_uc_uri(store_uri):
+    set_tracking_uri(store_uri)
+    with pytest.raises(
+        MlflowException,
+        match="Setting the tracking URI to a Unity Catalog backend is not "
+        "supported in the current version of the MLflow client",
+    ):
+        mlflow.tracking.MlflowClient()

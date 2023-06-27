@@ -42,6 +42,43 @@ service DatabricksMlflowArtifactsService {
       visibility: PUBLIC_UNDOCUMENTED,
     };
   }
+
+  // Initiate a multipart upload and return presinged URLs for uploading parts and aborting the
+  // initiated multipart upload.
+  rpc createMultipartUpload (CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/artifacts/create-multipart-upload"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // Complete a multipart upload
+  rpc completeMultipartUpload (CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/artifacts/complete-multipart-upload"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
+
+  // Get a presigned URL to upload a part. Used when we need to retry failed part uploads.
+  rpc getPresignedUploadPartUrl (GetPresignedUploadPartUrl) returns (GetPresignedUploadPartUrl.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/artifacts/get-presigned-upload-part-url"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+    };
+  }
 }
 
 // The type of a given artifact access credential
@@ -153,5 +190,81 @@ message GetCredentialsForWrite {
     // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
     reserved 1;
 
+  }
+}
+
+message CreateMultipartUpload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // Run ID
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
+  optional string path = 2;
+
+  // Number of file parts (chunks of data) to upload in the initiated multipart upload
+  optional int64 num_parts = 3  [(validate_required) = true];
+
+  message Response {
+    // ID identifying the initiated multipart upload
+    optional string upload_id = 1;
+
+    // Credentials for uploading file parts in the initiated multipart upload
+    repeated ArtifactCredentialInfo upload_credential_infos = 2;
+
+    // Why doesn't the response contain a presigned URL for completing the multipart upload?
+    // As reported in https://github.com/aws/aws-sdk-java/issues/1537, AWS Java SDK v1
+    // doesn't support generating a presigned URL for completing a multipart upload.
+
+    // Credential for aborting the initiated multipart upload
+    optional ArtifactCredentialInfo abort_credential_info = 3;
+  }
+}
+
+message PartEtag {
+  optional int64 part_number = 1;
+
+  optional string etag = 2;
+}
+
+message CompleteMultipartUpload {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // Run ID
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Artifact path, relative to the Run's artifact root location (e.g. "path/to/file")
+  optional string path = 2;
+
+  // ID identifying the multipart upload to complete
+  optional string upload_id = 3 [(validate_required) = true];
+
+  // A list of file parts uploaded in the multipart upload to complete
+  repeated PartEtag part_etags = 4;
+
+  message Response {}
+}
+
+message GetPresignedUploadPartUrl {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  option (scalapb.message).extends = "com.databricks.mlflow.api.MlflowTrackingMessage";
+
+  // Run ID
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Atifact path, relative to the Run's artifact root location (e.g. "path/to/file")
+  optional string path = 2;
+
+  // ID identifying the multipart upload in which the part is uploaded
+  optional string upload_id = 3 [(validate_required) = true];
+
+  // Part number
+  optional int64 part_number = 4 [(validate_required) = true];
+
+  message Response {
+    // Credential for uploading the part
+    optional ArtifactCredentialInfo upload_credential_info = 1;
   }
 }

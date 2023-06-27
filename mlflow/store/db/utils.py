@@ -37,6 +37,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
     SqlRegisteredModelTag,
     SqlModelVersionTag,
+    SqlRegisteredModelAlias,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
 from mlflow.store.db.db_types import SQLITE
@@ -60,7 +61,12 @@ def _get_package_dir():
 
 
 def _all_tables_exist(engine):
-    expected_tables = {
+    return set(
+        t
+        for t in sqlalchemy.inspect(engine).get_table_names()
+        # Filter out alembic tables
+        if not t.startswith("alembic_")
+    ) == {
         SqlExperiment.__tablename__,
         SqlRun.__tablename__,
         SqlMetric.__tablename__,
@@ -72,8 +78,8 @@ def _all_tables_exist(engine):
         SqlModelVersion.__tablename__,
         SqlRegisteredModelTag.__tablename__,
         SqlModelVersionTag.__tablename__,
+        SqlRegisteredModelAlias.__tablename__,
     }
-    return set(sqlalchemy.inspect(engine).get_table_names()) == expected_tables
 
 
 def _initialize_tables(engine):
@@ -121,32 +127,30 @@ def _get_managed_session_maker(SessionMaker, db_type):
     @contextmanager
     def make_managed_session():
         """Provide a transactional scope around a series of operations."""
-        session = SessionMaker()
-        try:
-            if db_type == SQLITE:
-                session.execute(sql.text("PRAGMA foreign_keys = ON;"))
-                session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
-                session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
-            yield session
-            session.commit()
-        except MlflowException:
-            session.rollback()
-            raise
-        except sqlalchemy.exc.OperationalError as e:
-            session.rollback()
-            _logger.exception(
-                "SQLAlchemy database error. The following exception is caught.\n%s",
-                e,
-            )
-            raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
-        except sqlalchemy.exc.SQLAlchemyError as e:
-            session.rollback()
-            raise MlflowException(message=e, error_code=BAD_REQUEST)
-        except Exception as e:
-            session.rollback()
-            raise MlflowException(message=e, error_code=INTERNAL_ERROR)
-        finally:
-            session.close()
+        with SessionMaker() as session:
+            try:
+                if db_type == SQLITE:
+                    session.execute(sql.text("PRAGMA foreign_keys = ON;"))
+                    session.execute(sql.text("PRAGMA busy_timeout = 20000;"))
+                    session.execute(sql.text("PRAGMA case_sensitive_like = true;"))
+                yield session
+                session.commit()
+            except MlflowException:
+                session.rollback()
+                raise
+            except sqlalchemy.exc.OperationalError as e:
+                session.rollback()
+                _logger.exception(
+                    "SQLAlchemy database error. The following exception is caught.\n%s",
+                    e,
+                )
+                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                session.rollback()
+                raise MlflowException(message=e, error_code=BAD_REQUEST)
+            except Exception as e:
+                session.rollback()
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
 
     return make_managed_session
 
@@ -202,7 +206,7 @@ def _upgrade_db(engine):
     # https://alembic.sqlalchemy.org/en/latest/cookbook.html#sharing-a-
     # connection-with-a-series-of-migration-commands-and-environments
     with engine.begin() as connection:
-        config.attributes["connection"] = connection  # pylint: disable=E1137
+        config.attributes["connection"] = connection
         command.upgrade(config, "heads")
 
 

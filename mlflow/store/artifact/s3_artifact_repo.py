@@ -1,12 +1,12 @@
 from datetime import datetime
 from functools import lru_cache
 import os
+import json
 from mimetypes import guess_type
 
 import posixpath
 import urllib.parse
 
-from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_S3_UPLOAD_EXTRA_ARGS,
@@ -15,8 +15,8 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils import data_utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-
 
 _MAX_CACHE_SECONDS = 300
 
@@ -31,6 +31,9 @@ def _cached_get_s3_client(
     s3_endpoint_url,
     verify,
     timestamp,
+    access_key_id=None,
+    secret_access_key=None,
+    session_token=None,
 ):  # pylint: disable=unused-argument
     """Returns a boto3 client, caching to avoid extra boto3 verify calls.
 
@@ -60,11 +63,56 @@ def _cached_get_s3_client(
         config=Config(signature_version=signature_version),
         endpoint_url=s3_endpoint_url,
         verify=verify,
+        aws_access_key_id=access_key_id,
+        aws_secret_access_key=secret_access_key,
+        aws_session_token=session_token,
+    )
+
+
+def _get_s3_client(access_key_id=None, secret_access_key=None, session_token=None):
+    s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
+    do_verify = not MLFLOW_S3_IGNORE_TLS.get()
+
+    # The valid verify argument value is None/False/path to cert bundle file, See
+    # https://github.com/boto/boto3/blob/73865126cad3938ca80a2f567a1c79cb248169a7/
+    # boto3/session.py#L212
+    verify = None if do_verify else False
+
+    # NOTE: If you need to specify this env variable, please file an issue at
+    # https://github.com/mlflow/mlflow/issues so we know your use-case!
+    signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
+
+    # Invalidate cache every `_MAX_CACHE_SECONDS`
+    timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
+
+    return _cached_get_s3_client(
+        signature_version,
+        s3_endpoint_url,
+        verify,
+        timestamp,
+        access_key_id=access_key_id,
+        secret_access_key=secret_access_key,
+        session_token=session_token,
     )
 
 
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
+
+    def __init__(
+        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
+    ):
+        super().__init__(artifact_uri)
+        self._access_key_id = access_key_id
+        self._secret_access_key = secret_access_key
+        self._session_token = session_token
+
+    def _get_s3_client(self):
+        return _get_s3_client(
+            access_key_id=self._access_key_id,
+            secret_access_key=self._secret_access_key,
+            session_token=self._session_token,
+        )
 
     @staticmethod
     def parse_s3_uri(uri):
@@ -79,31 +127,11 @@ class S3ArtifactRepository(ArtifactRepository):
 
     @staticmethod
     def get_s3_file_upload_extra_args():
-        import json
-
         s3_file_upload_extra_args = MLFLOW_S3_UPLOAD_EXTRA_ARGS.get()
         if s3_file_upload_extra_args:
             return json.loads(s3_file_upload_extra_args)
         else:
             return None
-
-    def _get_s3_client(self):
-        s3_endpoint_url = MLFLOW_S3_ENDPOINT_URL.get()
-        do_verify = not MLFLOW_S3_IGNORE_TLS.get()
-
-        # The valid verify argument value is None/False/path to cert bundle file, See
-        # https://github.com/boto/boto3/blob/73865126cad3938ca80a2f567a1c79cb248169a7/
-        # boto3/session.py#L212
-        verify = None if do_verify else False
-
-        # NOTE: If you need to specify this env variable, please file an issue at
-        # https://github.com/mlflow/mlflow/issues so we know your use-case!
-        signature_version = os.environ.get("MLFLOW_EXPERIMENTAL_S3_SIGNATURE_VERSION", "s3v4")
-
-        # Invalidate cache every `_MAX_CACHE_SECONDS`
-        timestamp = int(_get_utcnow_timestamp() / _MAX_CACHE_SECONDS)
-
-        return _cached_get_s3_client(signature_version, s3_endpoint_url, verify, timestamp)
 
     def _upload_file(self, s3_client, local_file, bucket, key):
         extra_args = {}
@@ -118,7 +146,7 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_client.upload_file(Filename=local_file, Bucket=bucket, Key=key, ExtraArgs=extra_args)
 
     def log_artifact(self, local_file, artifact_path=None):
-        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
@@ -127,12 +155,12 @@ class S3ArtifactRepository(ArtifactRepository):
         )
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
         s3_client = self._get_s3_client()
         local_dir = os.path.abspath(local_dir)
-        for (root, _, filenames) in os.walk(local_dir):
+        for root, _, filenames in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)
@@ -147,7 +175,7 @@ class S3ArtifactRepository(ArtifactRepository):
                 )
 
     def list_artifacts(self, path=None):
-        (bucket, artifact_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, artifact_path) = data_utils.parse_s3_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
@@ -188,13 +216,13 @@ class S3ArtifactRepository(ArtifactRepository):
             )
 
     def _download_file(self, remote_file_path, local_path):
-        (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, s3_root_path) = data_utils.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
 
     def delete_artifacts(self, artifact_path=None):
-        (bucket, dest_path) = data.parse_s3_uri(self.artifact_uri)
+        (bucket, dest_path) = data_utils.parse_s3_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 

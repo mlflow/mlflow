@@ -61,7 +61,7 @@ API.
 Where Runs Are Recorded
 =======================
 
-MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
+MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely
 to a tracking server. By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs.
 
@@ -75,12 +75,12 @@ There are different kinds of remote tracking URIs:
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLflow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
   Refer to Access the MLflow tracking server from outside Databricks `[AWS] <http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html>`_
-  `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
+  `[Azure] <http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server>`_, or :ref:`the quickstart <quickstart_tracking_server>` to
   easily get started with hosted MLflow on Databricks Community Edition.
 
-How Runs and Artifacts are Recorded
+How runs and artifacts are recorded
 ===================================
-As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
+As mentioned above, MLflow runs can be recorded to local files, to a SQLAlchemy-compatible database, or remotely to a tracking server. MLflow artifacts can be persisted to local files
 and a variety of remote file storage solutions. For storing runs and artifacts, MLflow uses two components for `storage <https://mlflow.org/docs/latest/tracking.html#storage>`_: backend store and artifact store. While the backend store persists
 MLflow entities (runs, parameters, metrics, tags, notes, metadata, etc), the artifact store persists artifacts
 (files, models, images, in-memory objects, or model summary, etc).
@@ -316,8 +316,9 @@ shows the Python API.
   :depth: 1
   :local:
 
+.. _tracking_logging_functions:
 
-Logging Functions
+Logging functions
 ------------------
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
@@ -355,9 +356,12 @@ such attributes, use the :py:class:`MlflowClient <mlflow.client.MlflowClient>` a
     client = mlflow.MlflowClient()
     data = client.get_run(mlflow.active_run().info.run_id).data
 
-:py:func:`mlflow.last_active_run` retuns a :py:class:`mlflow.entities.Run` object corresponding to the
+:py:func:`mlflow.last_active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any. Otherwise, it returns a :py:class:`mlflow.entities.Run` object corresponding
 the last run started from the current Python process that reached a terminal status (i.e. FINISHED, FAILED, or KILLED).
+
+:py:func:`mlflow.get_parent_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
+parent run for the given run id, if one exists. Otherwise, it returns None.
 
 :py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
@@ -365,6 +369,9 @@ value are both strings. Use :py:func:`mlflow.log_params` to log multiple params 
 :py:func:`mlflow.log_metric` logs a single key-value metric. The value must always be a number.
 MLflow remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log
 multiple metrics at once.
+
+:py:func:`mlflow.log_input` logs a single :py:class:`mlflow.data.dataset.Dataset` object corresponding to the currently 
+active run. You may also log a dataset context string and a dict of key-value tags.
 
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
@@ -545,12 +552,11 @@ containing the following data:
 
 Keras
 -----
-Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
-`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+Call :py:func:`mlflow.tensorflow.autolog` before your training code to enable automatic logging of metrics and parameters. As an example, try running the `Keras/Tensorflow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Note that only ``tensorflow>=2.3`` are supported.
 The respective metrics associated with ``tf.estimator`` and ``EarlyStopping`` are automatically logged.
-As an example, try running the `MLflow TensorFlow examples <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+As an example, try running the `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 
 Autologging captures the following information:
 
@@ -596,9 +602,6 @@ Autologging captures the following information:
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
-.. note::
-  - The `scikit-learn API <https://xgboost.readthedocs.io/en/latest/python/python_api.html#module-xgboost.sklearn>`__ is not supported.
-
 .. _xgboost.train: https://xgboost.readthedocs.io/en/latest/python/python_api.html#xgboost.train
 .. _MLflow Model: https://mlflow.org/docs/latest/models.html
 
@@ -616,9 +619,6 @@ Autologging captures the following information:
 +-----------+------------------------+------------------------------+---------------+-----------------------------------------------------------------------------------------------------------+
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
-
-.. note::
-  - The `scikit-learn API <https://lightgbm.readthedocs.io/en/latest/Python-API.html#scikit-learn-api>`__ is not supported.
 
 .. _lightgbm.train: https://lightgbm.readthedocs.io/en/latest/pythonapi/lightgbm.train.html#lightgbm-train
 
@@ -805,7 +805,7 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**.
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
-* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
+* Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLflow `Keras/TensorFlow example <https://github.com/mlflow/mlflow/blob/master/examples/keras/train.py>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
 
@@ -939,6 +939,9 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
+You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
+
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default set by individual artifact stores).
 
 Amazon S3 and S3-compatible storage
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1015,6 +1018,10 @@ Also, you must run ``pip install azure-storage-blob`` separately (on both your c
 Finally, if you want to use DefaultAzureCredential, you must ``pip install azure-identity``;
 MLflow does not declare a dependency on these packages by default.
 
+You may set an MLflow environment variable to configure the timeout for artifact uploads and downloads:
+
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the timeout for artifact upload/download in seconds (Default: 600 for Azure blob).
+
 Google Cloud Storage
 ^^^^^^^^^^^^^^^^^^^^
 
@@ -1028,7 +1035,8 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 
 You may set some MLflow environment variables to troubleshoot GCS read-timeouts (eg. due to slow transfer speeds) using the following variables:
 
-- ``MLFLOW_GCS_DEFAULT_TIMEOUT`` - Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
+- ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT`` - (Experimental, may be changed or removed) Sets the standard timeout for transfer operations in seconds (Default: 60 for GCS). Use -1 for indefinite timeout.
+- ``MLFLOW_GCS_DEFAULT_TIMEOUT`` - (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``) Sets the standard timeout for transfer operations in seconds (Default: 60). Use -1 for indefinite timeout.
 - ``MLFLOW_GCS_UPLOAD_CHUNK_SIZE`` - Sets the standard upload chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB.
 - ``MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE`` - Sets the standard download chunk size for bigger files in bytes (Default: 104857600 ≙ 100MiB), must be multiple of 256 KB
 
