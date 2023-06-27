@@ -318,10 +318,16 @@ def start_run(
             )
         # Use previous end_time because a value is required for update_run_info
         end_time = active_run_obj.info.end_time
+        # Update the start time if starting a SCHEDULED run
+        start_time = (
+            get_current_time_millis()
+            if active_run_obj.info.status == RunStatus.to_string(RunStatus.SCHEDULED)
+            else active_run_obj.info.start_time
+        )
         _get_store().update_run_info(
             existing_run_id,
             run_status=RunStatus.RUNNING,
-            start_time=get_current_time_millis(),
+            start_time=start_time,
             end_time=end_time,
             run_name=None,
         )
