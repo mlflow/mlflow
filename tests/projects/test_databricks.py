@@ -26,6 +26,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     DefaultRequestHeaderProvider,
 )
 from mlflow.utils.uri import construct_db_uri_from_profile
+from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from tests import helper_functions
 from tests.integration.utils import invoke_cli_runner
 
@@ -418,7 +419,7 @@ def test_get_tracking_uri_for_run():
     mlflow.set_tracking_uri("databricks://profile")
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
-    with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
+    with mock.patch.dict(os.environ, {MLFLOW_TRACKING_URI.name: "http://some-uri"}):
         assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
