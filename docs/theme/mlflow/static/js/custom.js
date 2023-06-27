@@ -305,6 +305,15 @@ function addCopyButton()  {
     var copyIconClass = "far fa-copy"; // class for copy icon
     var checkIconClass = "fas fa-check"; // class for check icon
 
+    // When the copy button is clicked for the first time, there is a small delay before the icon
+    // switches to the check mark. This is because the check mark icon is not loaded yet.
+    // To prevent this, preload the check mark icon.
+    var invisibleCheckIcon = document.createElement("i");
+    invisibleCheckIcon.className = checkIconClass;
+    invisibleCheckIcon.style.visibility = "hidden";
+    invisibleCheckIcon.style.position = "absolute";
+    document.body.appendChild(invisibleCheckIcon);
+
     for (var i = 0; i < divs.length; i++) {
         var button = document.createElement("button");
         var icon = document.createElement("i");
@@ -331,12 +340,11 @@ function addCopyButton()  {
             // swap out the copy icon for the check mark icon
             self.firstChild.className = checkIconClass;
             self.firstChild.style.color = iconColor;
-            console.log("Text copied to clipboard");
             // switch back to the copy icon after a 2-second delay
             setTimeout(function () {
                 self.firstChild.className = copyIconClass;
                 self.firstChild.style.color = iconColor;
-            }, 2000);
+            }, 1500);
             })
             .catch(err => {
             console.error("Error in copying text: ", err);
