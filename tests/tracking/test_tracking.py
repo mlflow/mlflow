@@ -146,20 +146,18 @@ def test_set_experiment_with_deleted_experiment():
 
 
 @pytest.mark.usefixtures("reset_active_experiment")
-def test_set_experiment_with_zero_id(reset_mock):
-    reset_mock(
+def test_set_experiment_with_zero_id():
+    mock_experiment = MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
+    with mock.patch.object(
         MlflowClient,
         "get_experiment_by_name",
-        mock.Mock(
-            return_value=MockExperiment(experiment_id=0, lifecycle_stage=LifecycleStage.ACTIVE)
-        ),
-    )
-    reset_mock(MlflowClient, "create_experiment", mock.Mock())
-
-    mlflow.set_experiment("my_exp")
-
-    MlflowClient.get_experiment_by_name.assert_called_once()
-    MlflowClient.create_experiment.assert_not_called()
+        mock.Mock(return_value=mock_experiment),
+    ) as get_experiment_by_name_mock, mock.patch.object(
+        MlflowClient, "create_experiment"
+    ) as create_experiment_mock:
+        mlflow.set_experiment("my_exp")
+        get_experiment_by_name_mock.assert_called_once()
+        create_experiment_mock.assert_not_called()
 
 
 def test_start_run_context_manager():
