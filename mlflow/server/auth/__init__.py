@@ -101,7 +101,6 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.utils.proto_json_utils import parse_dict, message_to_json
 from mlflow.utils.search_utils import SearchUtils
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME, MLFLOW_TRACKING_PASSWORD
 
 _AUTH_CONFIG_PATH_ENV_VAR = "MLFLOW_AUTH_CONFIG_PATH"
 
